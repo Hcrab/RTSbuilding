@@ -1,35 +1,22 @@
 package com.rtsbuilding.rtsbuilding.network.plugin;
 
-import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.plugin.handler.RtsPluginNetworkHandlers;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import net.minecraftforge.fml.relauncher.Side;
 
-/**
- * Registers RTS plugin install, uninstall, and sync packets.
- */
+/** 插件域稳定 discriminator：68-71。 */
 public final class RtsPluginPackets {
     private RtsPluginPackets() {
     }
 
-    public static void register(PayloadRegistrar registrar) {
-        registrar.playToServer(
-                C2SRtsInstallPluginPayload.TYPE,
-                C2SRtsInstallPluginPayload.STREAM_CODEC,
-                RtsPluginNetworkHandlers::handleInstall);
-
-        registrar.playToServer(
-                C2SRtsUninstallPluginPayload.TYPE,
-                C2SRtsUninstallPluginPayload.STREAM_CODEC,
-                RtsPluginNetworkHandlers::handleUninstall);
-
-        registrar.playToServer(
-                C2SRtsRequestPluginsPayload.TYPE,
-                C2SRtsRequestPluginsPayload.STREAM_CODEC,
-                RtsPluginNetworkHandlers::handleRequestPlugins);
-
-        registrar.playToClient(
-                S2CRtsPluginStatePayload.TYPE,
-                S2CRtsPluginStatePayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchPlugin);
+    public static void register() {
+        RtsPayloadRegistrar.registerMessage(68, RtsPluginNetworkHandlers.Install.class,
+                C2SRtsInstallPluginPayload.class, Side.SERVER);
+        RtsPayloadRegistrar.registerMessage(69, RtsPluginNetworkHandlers.Uninstall.class,
+                C2SRtsUninstallPluginPayload.class, Side.SERVER);
+        RtsPayloadRegistrar.registerMessage(70, RtsPluginNetworkHandlers.Request.class,
+                C2SRtsRequestPluginsPayload.class, Side.SERVER);
+        RtsPayloadRegistrar.registerMessage(71, RtsPluginNetworkHandlers.ClientState.class,
+                S2CRtsPluginStatePayload.class, Side.CLIENT);
     }
 }

@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.network;
 
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
@@ -31,6 +32,8 @@ public final class ClientPayloadDispatcher {
     private static final String MINECRAFT_CLIENT = "net.minecraft.client.Minecraft";
     private static final String BUILDER_SCREEN =
             "com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen";
+    private static final String BLOCK_ACTION_SOUND_PLAYER =
+            "com.rtsbuilding.rtsbuilding.client.sound.RtsBlockActionSoundPlayer";
 
     private ClientPayloadDispatcher() {
     }
@@ -115,6 +118,22 @@ public final class ClientPayloadDispatcher {
             schedule(context, new Runnable() {@Override public void run() {
                 invokeController("applyRemoteMenuHint", S2CRtsRemoteMenuHintPayload.class, message);
             }});
+            return null;
+        }
+    }
+
+    /** 公共网络注册不直接链接客户端声音类，保证专用服务端类加载安全。 */
+    public static final class BlockActionSoundHandler
+            implements IMessageHandler<S2CRtsBlockActionSoundPayload, IMessage> {
+        @Override
+        public IMessage onMessage(final S2CRtsBlockActionSoundPayload message, MessageContext context) {
+            schedule(context, new Runnable() {
+                @Override
+                public void run() {
+                    invokeStatic(BLOCK_ACTION_SOUND_PLAYER, "play",
+                            new Class<?>[]{S2CRtsBlockActionSoundPayload.class}, message);
+                }
+            });
             return null;
         }
     }

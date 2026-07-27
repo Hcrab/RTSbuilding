@@ -79,9 +79,25 @@ public final class RtsbuildingMod {
         RtsItems.register();
         RtsEntities.register(this);
         MinecraftForge.EVENT_BUS.register(gameEvents);
+        if (event.getSide().isClient()) {
+            initializeClientSide();
+        }
 
         // TODO(port-1.12.2/gametest): 1.12.2 没有 RegisterGameTestsEvent；测试模块必须把
         // MekanismToolsCompatibilityGameTests 接入统一的 Forge 测试命令/测试世界入口，不能静默丢弃。
+    }
+
+    /**
+     * 通过字符串边界接入客户端，保证专用服务端验证和加载本类时不会解析任何 client 类型。
+     */
+    private static void initializeClientSide() {
+        try {
+            Class<?> bootstrap = Class.forName(
+                    "com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap");
+            bootstrap.getMethod("registerClient").invoke(null);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException("注册 RTSBuilding 1.12 客户端生命周期失败", failure);
+        }
     }
 
     @Mod.EventHandler

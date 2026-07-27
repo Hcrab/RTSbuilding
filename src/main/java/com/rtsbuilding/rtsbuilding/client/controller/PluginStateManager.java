@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -32,6 +33,10 @@ public final class PluginStateManager {
                                                 Math.min(payload.ownerNames().size(), payload.stacks().size()))))));
         for (int i = 0; i < size; i++) {
             ItemStack stack = payload.stacks().get(i);
+            ItemStack preview = stack == null ? ItemStack.EMPTY : stack.copy();
+            if (!preview.isEmpty()) {
+                preview.setCount(1);
+            }
             this.installedPlugins.add(new InstalledPluginView(
                     safe(payload.pluginIds().get(i)),
                     safe(payload.families().get(i)),
@@ -39,12 +44,12 @@ public final class PluginStateManager {
                     Boolean.TRUE.equals(payload.fieldDeployment().get(i)),
                     Boolean.TRUE.equals(payload.personal().get(i)),
                     safe(payload.ownerNames().get(i)),
-                    stack == null ? ItemStack.EMPTY : stack.copyWithCount(1)));
+                    preview));
         }
     }
 
     public List<InstalledPluginView> installedPlugins() {
-        return List.copyOf(this.installedPlugins);
+        return Collections.unmodifiableList(new ArrayList<InstalledPluginView>(this.installedPlugins));
     }
 
     public String teamName() {
@@ -52,7 +57,7 @@ public final class PluginStateManager {
     }
 
     public boolean hasPlugin(String pluginId) {
-        if (pluginId == null || pluginId.isBlank()) {
+        if (pluginId == null || pluginId.trim().isEmpty()) {
             return false;
         }
         for (InstalledPluginView plugin : this.installedPlugins) {
@@ -67,13 +72,35 @@ public final class PluginStateManager {
         return value == null ? "" : value;
     }
 
-    public record InstalledPluginView(
-            String pluginId,
-            String family,
-            int radiusBlocks,
-            boolean fieldDeployment,
-            boolean personal,
-            String ownerName,
-            ItemStack stack) {
+    /**
+     * 供客户端界面读取的插件快照；这里只保存服务端同步结果，不承担权限判断。
+     */
+    public static final class InstalledPluginView {
+        private final String pluginId;
+        private final String family;
+        private final int radiusBlocks;
+        private final boolean fieldDeployment;
+        private final boolean personal;
+        private final String ownerName;
+        private final ItemStack stack;
+
+        InstalledPluginView(String pluginId, String family, int radiusBlocks, boolean fieldDeployment,
+                            boolean personal, String ownerName, ItemStack stack) {
+            this.pluginId = pluginId;
+            this.family = family;
+            this.radiusBlocks = radiusBlocks;
+            this.fieldDeployment = fieldDeployment;
+            this.personal = personal;
+            this.ownerName = ownerName;
+            this.stack = stack;
+        }
+
+        public String pluginId() { return this.pluginId; }
+        public String family() { return this.family; }
+        public int radiusBlocks() { return this.radiusBlocks; }
+        public boolean fieldDeployment() { return this.fieldDeployment; }
+        public boolean personal() { return this.personal; }
+        public String ownerName() { return this.ownerName; }
+        public ItemStack stack() { return this.stack; }
     }
 }

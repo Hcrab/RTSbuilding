@@ -1,21 +1,28 @@
 package com.rtsbuilding.rtsbuilding.network.plugin;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsInstallPluginPayload(int inventorySlot) implements CustomPacketPayload {
-    public static final Type<C2SRtsInstallPluginPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_install_plugin"));
+public final class C2SRtsInstallPluginPayload implements IMessage {
+    private int inventorySlot;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsInstallPluginPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeVarInt(payload.inventorySlot()),
-            (buf) -> new C2SRtsInstallPluginPayload(buf.readVarInt()));
+    public C2SRtsInstallPluginPayload() {
+    }
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsInstallPluginPayload(int inventorySlot) {
+        this.inventorySlot = inventorySlot;
+    }
+
+    public int inventorySlot() { return inventorySlot; }
+    public boolean isValid() { return inventorySlot >= 0 && inventorySlot < 36; }
+
+    @Override public void fromBytes(ByteBuf buffer) {
+        inventorySlot = RtsPacketBuffer.readVarInt(buffer);
+    }
+
+    @Override public void toBytes(ByteBuf buffer) {
+        if (!isValid()) throw new IllegalArgumentException("plugin inventory slot out of range");
+        RtsPacketBuffer.writeVarInt(buffer, inventorySlot);
     }
 }

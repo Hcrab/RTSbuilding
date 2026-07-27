@@ -1,51 +1,76 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-public record S2CRtsCraftFeedbackPayload(
-        String itemId,
-        int craftedCount,
-        List<String> consumedItemIds,
-        List<Integer> consumedCounts) implements CustomPacketPayload {
-    public static final Type<S2CRtsCraftFeedbackPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_craft_feedback"));
+public final class S2CRtsCraftFeedbackPayload implements IMessage {
+    private static final int MAX_ITEM_ID_CHARS = 128;
+    private static final int MAX_CONSUMED_ENTRIES = 512;
+    private static final int MAX_ITEM_COUNT = 1_000_000;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsCraftFeedbackPayload> STREAM_CODEC =
-            StreamCodec.of(
-                    (buf, payload) -> {
-                        buf.writeUtf(payload.itemId() == null ? "" : payload.itemId(), 128);
-                        buf.writeVarInt(Math.max(0, payload.craftedCount()));
-                        int size = Math.min(
-                                payload.consumedItemIds() == null ? 0 : payload.consumedItemIds().size(),
-                                payload.consumedCounts() == null ? 0 : payload.consumedCounts().size());
-                        buf.writeVarInt(size);
-                        for (int i = 0; i < size; i++) {
-                            buf.writeUtf(payload.consumedItemIds().get(i), 128);
-                            buf.writeVarInt(Math.max(0, payload.consumedCounts().get(i)));
-                        }
-                    },
-                    (buf) -> {
-                        String itemId = buf.readUtf(128);
-                        int craftedCount = buf.readVarInt();
-                        int size = buf.readVarInt();
-                        List<String> consumedItemIds = new ArrayList<>(size);
-                        List<Integer> consumedCounts = new ArrayList<>(size);
-                        for (int i = 0; i < size; i++) {
-                            consumedItemIds.add(buf.readUtf(128));
-                            consumedCounts.add(buf.readVarInt());
-                        }
-                        return new S2CRtsCraftFeedbackPayload(itemId, craftedCount, consumedItemIds, consumedCounts);
-                    });
+    private String itemId = "";
+    private int craftedCount;
+    private List<String> consumedItemIds = Collections.emptyList();
+    private List<Integer> consumedCounts = Collections.emptyList();
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public S2CRtsCraftFeedbackPayload() {
+    }
+    public S2CRtsCraftFeedbackPayload(String itemId, int craftedCount,
+                                      List<String> consumedItemIds,
+                                      List<Integer> consumedCounts) {
+        this.itemId = itemId == null ? "" : itemId;
+        this.craftedCount = craftedCount;
+        this.consumedItemIds = immutable(consumedItemIds);
+        this.consumedCounts = immutable(consumedCounts);
+    }
+    public String itemId() { return itemId; }
+    public int craftedCount() { return craftedCount; }
+    public List<String> consumedItemIds() { return consumedItemIds; }
+    public List<Integer> consumedCounts() { return consumedCounts; }
+
+    @Override public void fromBytes(ByteBuf buffer) {
+        itemId = RtsPacketBuffer.readString(buffer, MAX_ITEM_ID_CHARS, "crafted item id");
+        craftedCount = RtsPacketBuffer.readBoundedCount(buffer, MAX_ITEM_COUNT, "crafted count");
+        int size = RtsPacketBuffer.readBoundedCount(buffer, MAX_CONSUMED_ENTRIES,
+                "consumed ingredient count");
+        List<String> ids = new ArrayList<>(size);
+        List<Integer> counts = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            ids.add(RtsPacketBuffer.readString(buffer, MAX_ITEM_ID_CHARS, "consumed item id"));
+            counts.add(RtsPacketBuffer.readBoundedCount(buffer, MAX_ITEM_COUNT,
+                    "consumed item count"));
+        }
+        consumedItemIds = immutable(ids);
+        consumedCounts = immutable(counts);
+    }
+
+    @Override public void toBytes(ByteBuf buffer) {
+        RtsPacketBuffer.writeString(buffer, itemId, MAX_ITEM_ID_CHARS, "crafted item id");
+        RtsPacketBuffer.writeVarInt(buffer, bounded(craftedCount, "crafted count"));
+        int size = Math.min(MAX_CONSUMED_ENTRIES,
+                Math.min(consumedItemIds.size(), consumedCounts.size()));
+        RtsPacketBuffer.writeVarInt(buffer, size);
+        for (int i = 0; i < size; i++) {
+            RtsPacketBuffer.writeString(buffer,
+                    consumedItemIds.get(i) == null ? "" : consumedItemIds.get(i),
+                    MAX_ITEM_ID_CHARS, "consumed item id");
+            RtsPacketBuffer.writeVarInt(buffer,
+                    bounded(consumedCounts.get(i) == null ? 0 : consumedCounts.get(i),
+                            "consumed item count"));
+        }
+    }
+
+    private static int bounded(int value, String name) {
+        if (value < 0 || value > MAX_ITEM_COUNT) throw new IllegalArgumentException(name + " out of range");
+        return value;
+    }
+    private static <T> List<T> immutable(List<T> values) {
+        return values == null ? Collections.<T>emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(values));
     }
 }

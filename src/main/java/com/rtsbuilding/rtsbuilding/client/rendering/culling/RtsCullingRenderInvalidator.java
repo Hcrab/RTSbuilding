@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.culling;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -23,8 +23,8 @@ public final class RtsCullingRenderInvalidator {
     }
 
     public static void markBlocksDirty(BlockPos min, BlockPos max) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.levelRenderer == null || min == null || max == null) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft == null || minecraft.renderGlobal == null || min == null || max == null) {
             return;
         }
 
@@ -39,10 +39,17 @@ public final class RtsCullingRenderInvalidator {
                 || EMBEDDIUM.schedule(minX, minY, minZ, maxX, maxY, maxZ)) {
             return;
         }
-        minecraft.levelRenderer.setBlocksDirty(minX, minY, minZ, maxX, maxY, maxZ);
+        minecraft.renderGlobal.markBlockRangeForRenderUpdate(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
-    private record RendererMethods(Method instanceNullable, Method scheduleRebuild) {
+    private static final class RendererMethods {
+        private final Method instanceNullable;
+        private final Method scheduleRebuild;
+
+        private RendererMethods(Method instanceNullable, Method scheduleRebuild) {
+            this.instanceNullable = instanceNullable;
+            this.scheduleRebuild = scheduleRebuild;
+        }
         private static RendererMethods find(String className) {
             try {
                 Class<?> renderer = Class.forName(

@@ -88,6 +88,21 @@ final class RtsCameraSmoothingMath {
         return Math.max(0.0F, Math.min(1.0F, value));
     }
 
-    record DecayStep(float consumed, float remaining) {
+    static final class DecayStep {
+        private final float consumed;
+        private final float remaining;
+
+        DecayStep(float consumed, float remaining) {
+            this.consumed = consumed;
+            this.remaining = remaining;
+        }
+
+        float consumed() {
+            return consumed;
+        }
+
+        float remaining() {
+            return remaining;
+        }
     }
 }

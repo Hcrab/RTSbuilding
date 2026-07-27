@@ -23,7 +23,7 @@ final class RtsIntroReminderScope {
     }
 
     static String serverKey(String address) {
-        if (address == null || address.isBlank()) {
+        if (address == null || address.trim().isEmpty()) {
             return "";
         }
         return "server:" + address.trim().toLowerCase(Locale.ROOT);

@@ -31,21 +31,22 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.inventory.GuiCrafting;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.SoundEvent;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.block.state.IBlockState;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
 
@@ -90,7 +91,7 @@ public final class ClientRtsController extends ClientRtsWorkflowFacade {
     int pendingCraftTerminalOpenTicks;
     int pendingRemoteMenuOpenTicks;
     int screenlessRemoteMenuTicks;
-    AbstractContainerMenu relaxedRemoteMenu;
+    Container relaxedRemoteMenu;
 
     private final ClientRtsStateQueryOwner stateQueryOwner = new ClientRtsStateQueryOwner(this);
     private final ClientRtsLifecycleOwner lifecycleOwner = new ClientRtsLifecycleOwner(this);
@@ -242,13 +243,13 @@ public static ClientRtsController get() {
     public void detectQuestsNow() { this.commandOwner.detectQuestsNow(); }
     void beginQuestDetectScan() { this.commandOwner.beginQuestDetectScan(); }
     public void rotateBlock(BlockPos pos) { this.commandOwner.rotateBlock(pos); }
-    public void rotateBlockStep( BlockPos pos, Direction axisDirection, int quarterTurns) { this.commandOwner.rotateBlockStep(pos, axisDirection, quarterTurns); }
+    public void rotateBlockStep( BlockPos pos, EnumFacing axisDirection, int quarterTurns) { this.commandOwner.rotateBlockStep(pos, axisDirection, quarterTurns); }
     public void storeHotbarSlotToLinked(int slot) { this.commandOwner.storeHotbarSlotToLinked(slot); }
     public void fillInventoryFromLinked() { this.commandOwner.fillInventoryFromLinked(); }
     public void unlinkLinkedStorage(BlockPos pos) { this.commandOwner.unlinkLinkedStorage(pos); }
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(pos, extractOnly, priority); }
-    boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) { return this.commandOwner.shouldUseRtsCraftTerminalScreen(craftingScreen); }
-    public void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) { this.commandOwner.quickDropSelectedItem(itemId, amount, dropPos); }
+    boolean shouldUseRtsCraftTerminalScreen(GuiCrafting craftingScreen) { return this.commandOwner.shouldUseRtsCraftTerminalScreen(craftingScreen); }
+    public void quickDropSelectedItem(String itemId, int amount, Vec3d dropPos) { this.commandOwner.quickDropSelectedItem(itemId, amount, dropPos); }
     public void applyStoragePage(S2CRtsStoragePagePayload payload) { this.commandOwner.applyStoragePage(payload); }
     public void applyCraftables(S2CRtsCraftablesPayload payload) { this.commandOwner.applyCraftables(payload); }
     public void applyCraftFeedback(S2CRtsCraftFeedbackPayload payload) { this.commandOwner.applyCraftFeedback(payload); }
@@ -278,28 +279,28 @@ public static ClientRtsController get() {
     public void clearQuickSlot(int index) { this.interactionOwner.clearQuickSlot(index); }
     public void selectQuickSlot(int index) { this.interactionOwner.selectQuickSlot(index); }
     public void selectItemForPlacement(String itemId, String label, ItemStack preview) { this.interactionOwner.selectItemForPlacement(itemId, label, preview); }
-    public void setGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) { this.interactionOwner.setGuiBinding(index, pos, face, itemIdHint); }
+    public void setGuiBinding(int index, BlockPos pos, EnumFacing face, String itemIdHint) { this.interactionOwner.setGuiBinding(index, pos, face, itemIdHint); }
     public void clearGuiBinding(int index) { this.interactionOwner.clearGuiBinding(index); }
     public void openGuiBinding(int index) { this.interactionOwner.openGuiBinding(index); }
-    public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.placeSelected(hit, forcePlace, rayOrigin, rayDir); }
-    public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
-    public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied, boolean quickBuild) { this.interactionOwner.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied, quickBuild); }
-    public void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelectedBatch(hits, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
-    public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
-    public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied, boolean overwriteExisting) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, overwriteExisting); }
-    public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir); }
+    public void placeSelected(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.placeSelected(hit, forcePlace, rayOrigin, rayDir); }
+    public void placeSelected(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
+    public void placeSelected(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied, boolean quickBuild) { this.interactionOwner.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied, quickBuild); }
+    public void placeSelectedBatch(List<RayTraceResult> hits, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelectedBatch(hits, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
+    public void placeSelectedBatch(List<RayTraceResult> hits, RayTraceResult templateHit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
+    public void placeSelectedBatch(List<RayTraceResult> hits, RayTraceResult templateHit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied, boolean overwriteExisting) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, overwriteExisting); }
+    public void placeSelectedFluid(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir); }
     public void storeFluidFromStorageItem(String itemId) { this.interactionOwner.storeFluidFromStorageItem(itemId); }
     public void storeFluidFromPinnedItem(String itemId) { this.interactionOwner.storeFluidFromPinnedItem(itemId); }
     public void storeFluidFromToolSlot(int toolSlot) { this.interactionOwner.storeFluidFromToolSlot(toolSlot); }
-    public void interactEmpty(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactEmpty(hit, rayOrigin, rayDir); }
-    public void interactEntityEmpty(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactEntityEmpty(entityId, hitLocation, rayOrigin, rayDir); }
-    public void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir); }
-    public void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir); }
-    public void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir); }
-    public void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactEntityWithToolSlot(entityId, hitLocation, toolSlot, rayOrigin, rayDir); }
-    public void interactEntityWithPinnedItem(int entityId, Vec3 hitLocation, String itemId, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir); }
+    public void interactEmpty(RayTraceResult hit, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.interactEmpty(hit, rayOrigin, rayDir); }
+    public void interactEntityEmpty(int entityId, Vec3d hitLocation, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.interactEntityEmpty(entityId, hitLocation, rayOrigin, rayDir); }
+    public void interactBlockWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir); }
+    public void useItemInAirWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir); }
+    public void interactBlockWithPinnedItem(RayTraceResult hit, String itemId, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir); }
+    public void interactEntityWithToolSlot(int entityId, Vec3d hitLocation, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.interactEntityWithToolSlot(entityId, hitLocation, toolSlot, rayOrigin, rayDir); }
+    public void interactEntityWithPinnedItem(int entityId, Vec3d hitLocation, String itemId, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.interactEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir); }
     public void breakPlaced(BlockPos pos) { this.interactionOwner.breakPlaced(pos); }
-    public void breakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) { this.interactionOwner.breakPlaced(pos, face, allowAdjacentFallback); }
+    public void breakPlaced(BlockPos pos, EnumFacing face, boolean allowAdjacentFallback) { this.interactionOwner.breakPlaced(pos, face, allowAdjacentFallback); }
     public void startMining(BlockPos pos, int face, int toolSlot) { this.interactionOwner.startMining(pos, face, toolSlot); }
     public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode) { this.interactionOwner.startUltimine(pos, face, toolSlot, limit, mode); }
     public void continueMining(int toolSlot) { this.interactionOwner.continueMining(toolSlot); }
@@ -332,6 +333,6 @@ public static AreaMineBounds computeAreaMineBounds(BlockPos pointA, BlockPos poi
     public void rotatePlacementClockwise() { this.interactionOwner.rotatePlacementClockwise(); }
     public void rotatePlacementCounterClockwise() { this.interactionOwner.rotatePlacementCounterClockwise(); }
     public void setPlacementStateProperty(String propertyName, String valueName) { this.interactionOwner.setPlacementStateProperty(propertyName, valueName); }
-    public void copyPlacementState(BlockState state) { this.interactionOwner.copyPlacementState(state); }
+    public void copyPlacementState(IBlockState state) { this.interactionOwner.copyPlacementState(state); }
     public void syncVisualCameraFrame() { this.interactionOwner.syncVisualCameraFrame(); }
 }

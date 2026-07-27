@@ -1,200 +1,89 @@
 package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
-import com.mojang.blaze3d.platform.InputConstants;
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.client.KeyMapping;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
-import net.neoforged.neoforge.client.settings.KeyConflictContext;
-import net.neoforged.neoforge.client.settings.KeyModifier;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraftforge.client.settings.KeyConflictContext;
+import net.minecraftforge.client.settings.KeyModifier;
+import net.minecraftforge.fml.client.registry.ClientRegistry;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import org.lwjgl.input.Keyboard;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
+/** Forge 1.12 客户端按键表；鼠标键使用原版的 {@code button - 100} 编号。 */
+@SideOnly(Side.CLIENT)
 public final class ClientKeyMappings {
-    private static final InputConstants.Key LEGACY_ROTATE_DRAG_DEFAULT =
-            InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
-    private static final InputConstants.Key LEGACY_PAN_DRAG_DEFAULT =
-            InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
-    private static final InputConstants.Key DEFAULT_ROTATE_DRAG =
-            InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_RIGHT);
-    private static final InputConstants.Key DEFAULT_PAN_DRAG =
-            InputConstants.Type.MOUSE.getOrCreate(GLFW.GLFW_MOUSE_BUTTON_MIDDLE);
+    public static final int MOUSE_LEFT = -100;
+    public static final int MOUSE_RIGHT = -99;
+    public static final int MOUSE_MIDDLE = -98;
+    private static final String CATEGORY = "key.categories.rtsbuilding";
 
-    public static final KeyMapping TOGGLE_RTS = new KeyMapping(
-            "key.rtsbuilding.toggle_rts",
-            GLFW.GLFW_KEY_G,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping QUICK_FUNNEL = new KeyMapping(
-            "key.rtsbuilding.quick_funnel",
-            GLFW.GLFW_KEY_F,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping QUICK_DROP = new KeyMapping(
-            "key.rtsbuilding.quick_drop",
-            GLFW.GLFW_KEY_Q,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping ROTATE_SHAPE = new KeyMapping(
-            "key.rtsbuilding.rotate_shape",
-            GLFW.GLFW_KEY_R,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping OPEN_CRAFT_TERMINAL = new KeyMapping(
-            "key.rtsbuilding.open_craft_terminal",
-            GLFW.GLFW_KEY_C,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping PIN_QUICK_SLOT = new KeyMapping(
-            "key.rtsbuilding.pin_quick_slot",
-            GLFW.GLFW_KEY_P,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping BLUEPRINT_CANCEL = new KeyMapping(
-            "key.rtsbuilding.blueprint_cancel",
-            GLFW.GLFW_KEY_X,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping DECREASE_SENSITIVITY = new KeyMapping(
-            "key.rtsbuilding.decrease_sensitivity",
-            GLFW.GLFW_KEY_LEFT_BRACKET,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping INCREASE_SENSITIVITY = new KeyMapping(
-            "key.rtsbuilding.increase_sensitivity",
-            GLFW.GLFW_KEY_RIGHT_BRACKET,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MODE_INTERACT = new KeyMapping(
-            "key.rtsbuilding.mode_interact",
-            GLFW.GLFW_KEY_I,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MODE_LINK_STORAGE = new KeyMapping(
-            "key.rtsbuilding.mode_link_storage",
-            GLFW.GLFW_KEY_L,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MODE_ROTATE = new KeyMapping(
-            "key.rtsbuilding.mode_rotate",
-            GLFW.GLFW_KEY_R,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MODE_FUNNEL = new KeyMapping(
-            "key.rtsbuilding.mode_funnel",
-            GLFW.GLFW_KEY_F,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping ACTION_PRIMARY = new KeyMapping(
-            "key.rtsbuilding.action_primary",
-            InputConstants.Type.MOUSE,
-            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping MOVE_PLAYER = new KeyMapping(
-            "key.rtsbuilding.move_player",
-            KeyConflictContext.GUI,
-            KeyModifier.CONTROL,
-            InputConstants.Type.MOUSE,
-            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping ACTION_BREAK = new KeyMapping(
-            "key.rtsbuilding.action_break",
-            InputConstants.Type.MOUSE,
-            GLFW.GLFW_MOUSE_BUTTON_LEFT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CONFIRM_BATCH_PLACE = new KeyMapping(
-            "key.rtsbuilding.confirm_batch_place",
-            GLFW.GLFW_KEY_ENTER,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CONFIRM_BATCH_DESTROY = new KeyMapping(
-            "key.rtsbuilding.confirm_batch_destroy",
-            GLFW.GLFW_KEY_ENTER,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_ROTATE_DRAG = new KeyMapping(
-            "key.rtsbuilding.camera_rotate_drag",
-            InputConstants.Type.MOUSE,
-            GLFW.GLFW_MOUSE_BUTTON_RIGHT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_PAN_DRAG = new KeyMapping(
-            "key.rtsbuilding.camera_pan_drag",
-            InputConstants.Type.MOUSE,
-            GLFW.GLFW_MOUSE_BUTTON_MIDDLE,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping PICK_BLOCK = new KeyMapping(
-            "key.rtsbuilding.pick_block",
-            InputConstants.Type.MOUSE,
-            GLFW.GLFW_MOUSE_BUTTON_MIDDLE,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_UP = new KeyMapping(
-            "key.rtsbuilding.camera_up",
-            GLFW.GLFW_KEY_SPACE,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_UP_SECONDARY = new KeyMapping(
-            "key.rtsbuilding.camera_up_secondary",
-            GLFW.GLFW_KEY_UNKNOWN,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping CAMERA_DOWN = new KeyMapping(
-            "key.rtsbuilding.camera_down_arrow",
-            GLFW.GLFW_KEY_LEFT_SHIFT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_FORWARD = new KeyMapping(
-            "key.rtsbuilding.selection_nudge_forward",
-            GLFW.GLFW_KEY_UP,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_BACK = new KeyMapping(
-            "key.rtsbuilding.selection_nudge_back",
-            GLFW.GLFW_KEY_DOWN,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_LEFT = new KeyMapping(
-            "key.rtsbuilding.selection_nudge_left",
-            GLFW.GLFW_KEY_LEFT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_RIGHT = new KeyMapping(
-            "key.rtsbuilding.selection_nudge_right",
-            GLFW.GLFW_KEY_RIGHT,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_UP = new KeyMapping(
-            "key.rtsbuilding.selection_nudge_up",
-            GLFW.GLFW_KEY_PAGE_UP,
-            "key.categories.rtsbuilding");
-    public static final KeyMapping SELECTION_NUDGE_DOWN = new KeyMapping(
-            "key.rtsbuilding.selection_nudge_down",
-            GLFW.GLFW_KEY_PAGE_DOWN,
-            "key.categories.rtsbuilding");
+    public static final KeyBinding TOGGLE_RTS = key("key.rtsbuilding.toggle_rts", Keyboard.KEY_G);
+    public static final KeyBinding QUICK_FUNNEL = key("key.rtsbuilding.quick_funnel", Keyboard.KEY_F);
+    public static final KeyBinding QUICK_DROP = key("key.rtsbuilding.quick_drop", Keyboard.KEY_Q);
+    public static final KeyBinding ROTATE_SHAPE = key("key.rtsbuilding.rotate_shape", Keyboard.KEY_R);
+    public static final KeyBinding OPEN_CRAFT_TERMINAL = key("key.rtsbuilding.open_craft_terminal", Keyboard.KEY_C);
+    public static final KeyBinding PIN_QUICK_SLOT = key("key.rtsbuilding.pin_quick_slot", Keyboard.KEY_P);
+    public static final KeyBinding BLUEPRINT_CANCEL = key("key.rtsbuilding.blueprint_cancel", Keyboard.KEY_X);
+    public static final KeyBinding DECREASE_SENSITIVITY = key("key.rtsbuilding.decrease_sensitivity", Keyboard.KEY_LBRACKET);
+    public static final KeyBinding INCREASE_SENSITIVITY = key("key.rtsbuilding.increase_sensitivity", Keyboard.KEY_RBRACKET);
+    public static final KeyBinding MODE_INTERACT = key("key.rtsbuilding.mode_interact", Keyboard.KEY_I);
+    public static final KeyBinding MODE_LINK_STORAGE = key("key.rtsbuilding.mode_link_storage", Keyboard.KEY_L);
+    public static final KeyBinding MODE_ROTATE = key("key.rtsbuilding.mode_rotate", Keyboard.KEY_R);
+    public static final KeyBinding MODE_FUNNEL = key("key.rtsbuilding.mode_funnel", Keyboard.KEY_F);
+    public static final KeyBinding ACTION_PRIMARY = key("key.rtsbuilding.action_primary", MOUSE_RIGHT);
+    public static final KeyBinding MOVE_PLAYER = new KeyBinding(
+            "key.rtsbuilding.move_player", KeyConflictContext.GUI, KeyModifier.CONTROL,
+            MOUSE_RIGHT, CATEGORY);
+    public static final KeyBinding ACTION_BREAK = key("key.rtsbuilding.action_break", MOUSE_LEFT);
+    public static final KeyBinding CONFIRM_BATCH_PLACE = key("key.rtsbuilding.confirm_batch_place", Keyboard.KEY_RETURN);
+    public static final KeyBinding CONFIRM_BATCH_DESTROY = key("key.rtsbuilding.confirm_batch_destroy", Keyboard.KEY_RETURN);
+    public static final KeyBinding CAMERA_ROTATE_DRAG = key("key.rtsbuilding.camera_rotate_drag", MOUSE_RIGHT);
+    public static final KeyBinding CAMERA_PAN_DRAG = key("key.rtsbuilding.camera_pan_drag", MOUSE_MIDDLE);
+    public static final KeyBinding PICK_BLOCK = key("key.rtsbuilding.pick_block", MOUSE_MIDDLE);
+    public static final KeyBinding CAMERA_UP = key("key.rtsbuilding.camera_up", Keyboard.KEY_SPACE);
+    public static final KeyBinding CAMERA_UP_SECONDARY = key("key.rtsbuilding.camera_up_secondary", Keyboard.KEY_NONE);
+    public static final KeyBinding CAMERA_DOWN = key("key.rtsbuilding.camera_down_arrow", Keyboard.KEY_LSHIFT);
+    public static final KeyBinding SELECTION_NUDGE_FORWARD = key("key.rtsbuilding.selection_nudge_forward", Keyboard.KEY_UP);
+    public static final KeyBinding SELECTION_NUDGE_BACK = key("key.rtsbuilding.selection_nudge_back", Keyboard.KEY_DOWN);
+    public static final KeyBinding SELECTION_NUDGE_LEFT = key("key.rtsbuilding.selection_nudge_left", Keyboard.KEY_LEFT);
+    public static final KeyBinding SELECTION_NUDGE_RIGHT = key("key.rtsbuilding.selection_nudge_right", Keyboard.KEY_RIGHT);
+    public static final KeyBinding SELECTION_NUDGE_UP = key("key.rtsbuilding.selection_nudge_up", Keyboard.KEY_PRIOR);
+    public static final KeyBinding SELECTION_NUDGE_DOWN = key("key.rtsbuilding.selection_nudge_down", Keyboard.KEY_NEXT);
+
+    private static final KeyBinding[] ALL = {
+            TOGGLE_RTS, QUICK_FUNNEL, QUICK_DROP, ROTATE_SHAPE, OPEN_CRAFT_TERMINAL,
+            PIN_QUICK_SLOT, BLUEPRINT_CANCEL, DECREASE_SENSITIVITY, INCREASE_SENSITIVITY,
+            MODE_INTERACT, MODE_LINK_STORAGE, MODE_ROTATE, MODE_FUNNEL, ACTION_PRIMARY,
+            MOVE_PLAYER, ACTION_BREAK, CONFIRM_BATCH_PLACE, CONFIRM_BATCH_DESTROY,
+            CAMERA_ROTATE_DRAG, CAMERA_PAN_DRAG, PICK_BLOCK, CAMERA_UP, CAMERA_UP_SECONDARY,
+            CAMERA_DOWN, SELECTION_NUDGE_FORWARD, SELECTION_NUDGE_BACK,
+            SELECTION_NUDGE_LEFT, SELECTION_NUDGE_RIGHT, SELECTION_NUDGE_UP,
+            SELECTION_NUDGE_DOWN
+    };
+
+    private static boolean registered;
 
     private ClientKeyMappings() {
     }
 
-    @SubscribeEvent
-    public static void register(RegisterKeyMappingsEvent event) {
-        event.register(TOGGLE_RTS);
-        event.register(QUICK_FUNNEL);
-        event.register(QUICK_DROP);
-        event.register(ROTATE_SHAPE);
-        event.register(OPEN_CRAFT_TERMINAL);
-        event.register(PIN_QUICK_SLOT);
-        event.register(BLUEPRINT_CANCEL);
-        event.register(DECREASE_SENSITIVITY);
-        event.register(INCREASE_SENSITIVITY);
-        event.register(MODE_INTERACT);
-        event.register(MODE_LINK_STORAGE);
-        event.register(MODE_ROTATE);
-        event.register(MODE_FUNNEL);
-        event.register(ACTION_PRIMARY);
-        event.register(MOVE_PLAYER);
-        event.register(ACTION_BREAK);
-        event.register(CONFIRM_BATCH_PLACE);
-        event.register(CONFIRM_BATCH_DESTROY);
-        event.register(CAMERA_ROTATE_DRAG);
-        event.register(CAMERA_PAN_DRAG);
-        event.register(PICK_BLOCK);
-        event.register(CAMERA_UP);
-        event.register(CAMERA_UP_SECONDARY);
-        event.register(CAMERA_DOWN);
-        event.register(SELECTION_NUDGE_FORWARD);
-        event.register(SELECTION_NUDGE_BACK);
-        event.register(SELECTION_NUDGE_LEFT);
-        event.register(SELECTION_NUDGE_RIGHT);
-        event.register(SELECTION_NUDGE_UP);
-        event.register(SELECTION_NUDGE_DOWN);
+    public static synchronized void register() {
+        if (registered) return;
+        for (KeyBinding binding : ALL) {
+            ClientRegistry.registerKeyBinding(binding);
+        }
+        registered = true;
         migrateLegacyDragDefaults();
     }
 
+    private static KeyBinding key(String description, int keyCode) {
+        return new KeyBinding(description, keyCode, CATEGORY);
+    }
+
     private static void migrateLegacyDragDefaults() {
-        if (CAMERA_ROTATE_DRAG.getKey().equals(LEGACY_ROTATE_DRAG_DEFAULT)
-                && CAMERA_PAN_DRAG.getKey().equals(LEGACY_PAN_DRAG_DEFAULT)) {
-            CAMERA_ROTATE_DRAG.setKey(DEFAULT_ROTATE_DRAG);
-            CAMERA_PAN_DRAG.setKey(DEFAULT_PAN_DRAG);
-            KeyMapping.resetMapping();
+        if (CAMERA_ROTATE_DRAG.getKeyCode() == MOUSE_MIDDLE
+                && CAMERA_PAN_DRAG.getKeyCode() == MOUSE_RIGHT) {
+            CAMERA_ROTATE_DRAG.setKeyCode(MOUSE_RIGHT);
+            CAMERA_PAN_DRAG.setKeyCode(MOUSE_MIDDLE);
+            KeyBinding.resetKeyBindingArrayAndHash();
         }
     }
 }

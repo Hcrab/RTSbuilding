@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.util;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -23,7 +24,7 @@ public final class RtsCreativeSearchCache<T> {
     private long cachedVersion = Long.MIN_VALUE;
     private String cachedCategory = "";
     private String cachedSearch = "";
-    private List<T> cachedResult = List.of();
+    private List<T> cachedResult = Collections.emptyList();
     private int lastScanCount;
     private int lastPinyinCheckCount;
 
@@ -59,7 +60,7 @@ public final class RtsCreativeSearchCache<T> {
         this.cachedVersion = sourceVersion;
         this.cachedCategory = normalizedCategory;
         this.cachedSearch = normalizedSearch;
-        this.cachedResult = List.copyOf(result);
+        this.cachedResult = Collections.unmodifiableList(new ArrayList<T>(result));
         this.lastScanCount = scans;
         this.lastPinyinCheckCount = pinyinChecks;
         return this.cachedResult;
@@ -69,7 +70,7 @@ public final class RtsCreativeSearchCache<T> {
         this.cachedVersion = Long.MIN_VALUE;
         this.cachedCategory = "";
         this.cachedSearch = "";
-        this.cachedResult = List.of();
+        this.cachedResult = Collections.emptyList();
         this.lastScanCount = 0;
         this.lastPinyinCheckCount = 0;
     }
@@ -128,7 +129,7 @@ public final class RtsCreativeSearchCache<T> {
     }
 
     private static boolean matchesCategory(IndexedEntry entry, String category) {
-        if (category.isBlank() || ALL_TOKEN.equals(category)) {
+        if (category.trim().isEmpty() || ALL_TOKEN.equals(category)) {
             return true;
         }
         if (category.startsWith(CATEGORY_MOD_PREFIX)) {
@@ -138,13 +139,13 @@ public final class RtsCreativeSearchCache<T> {
     }
 
     private static SearchToken[] parseSearchTokens(String search) {
-        if (search.isBlank()) {
+        if (search.trim().isEmpty()) {
             return new SearchToken[0];
         }
         String[] rawTokens = search.split("\\s+");
         List<SearchToken> tokens = new ArrayList<>(rawTokens.length);
         for (String raw : rawTokens) {
-            if (raw == null || raw.isBlank()) {
+            if (raw == null || raw.trim().isEmpty()) {
                 continue;
             }
             if (raw.startsWith("@")) {
@@ -153,11 +154,11 @@ public final class RtsCreativeSearchCache<T> {
                 tokens.add(new SearchToken(false, raw));
             }
         }
-        return tokens.toArray(SearchToken[]::new);
+        return tokens.toArray(new SearchToken[0]);
     }
 
     private static String normalizeToken(String token) {
-        if (token == null || token.isBlank()) {
+        if (token == null || token.trim().isEmpty()) {
             return ALL_TOKEN;
         }
         return lower(token.trim());
@@ -172,7 +173,7 @@ public final class RtsCreativeSearchCache<T> {
     }
 
     private static boolean containsHan(String value) {
-        if (value == null || value.isBlank()) {
+        if (value == null || value.trim().isEmpty()) {
             return false;
         }
         for (int i = 0; i < value.length(); i++) {

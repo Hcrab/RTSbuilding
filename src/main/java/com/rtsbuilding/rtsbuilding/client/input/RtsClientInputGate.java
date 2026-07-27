@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.input;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayInteraction;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftFeedbackPopup;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftQuantityDialog;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
@@ -13,29 +14,29 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiBlink;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.*;
-import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
-import net.neoforged.neoforge.network.PacketDistributor;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.client.gui.inventory.GuiInventory;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.client.event.GuiScreenEvent;
+import net.minecraftforge.client.event.MouseEvent;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.client.event.RenderHandEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent;
+import net.minecraftforge.fml.relauncher.Side;
 
 import java.util.Arrays;
 import java.util.HashSet;
+import java.awt.Rectangle;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -44,7 +45,7 @@ import static com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayInteractio
 import static com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayLayoutHelper.*;
 import static com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayRenderer.*;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Side.CLIENT)
 public final class RtsClientInputGate {
     public static String pendingOverlayCarriedItemId = "";
     public static boolean captureLeftRelease;
@@ -59,17 +60,17 @@ public final class RtsClientInputGate {
     public static int overlayCraftScroll;
     public static int overlayLastCraftablesStorageRevision = -1;
     public static final RtsCraftQuantityDialog OVERLAY_CRAFT_DIALOG = new RtsCraftQuantityDialog();
-    public static Screen activeOverlayScreen;
+    public static GuiScreen activeOverlayScreen;
     public static boolean overlayBootstrapRequested;
     public static boolean overlayDragging;
     public static double overlayDragOffsetX;
     public static double overlayDragOffsetY;
     public static boolean shiftImportDragging;
-    public static Screen shiftImportDragScreen;
+    public static GuiScreen shiftImportDragScreen;
     public static final Set<Integer> shiftImportDragSlots = new HashSet<>();
-    public static Screen pendingCraftRefillScreen;
+    public static GuiScreen pendingCraftRefillScreen;
     public static int pendingCraftRefillButton = -1;
-    public static List<ItemStack> pendingCraftRefillBlueprint = List.of();
+    public static List<ItemStack> pendingCraftRefillBlueprint = java.util.Collections.emptyList();
     public static String pendingCraftResultItemId = "";
     public static int pendingCraftResultCount;
     public static final ItemStack[] RETURN_QUEUE = new ItemStack[RETURN_SLOTS];
@@ -83,20 +84,22 @@ public final class RtsClientInputGate {
     }
 
     @SubscribeEvent
-    public static void onInteractionKey(InputEvent.InteractionKeyMappingTriggered event) {
-        if (ClientRtsController.get().isEnabled()) {
+    public static void onInteractionMouse(MouseEvent event) {
+        if (Minecraft.getMinecraft().currentScreen == null
+                && ClientRtsController.get().isEnabled()
+                && (event.getButton() == 0 || event.getButton() == 1)) {
             event.setCanceled(true);
         }
     }
 
     @SubscribeEvent
-    public static void onRenderGuiLayer(RenderGuiLayerEvent.Pre event) {
+    public static void onRenderGuiLayer(RenderGameOverlayEvent.Pre event) {
         if (!ClientRtsController.get().isEnabled()) {
             return;
         }
 
-        if (event.getName().equals(VanillaGuiLayers.CROSSHAIR)
-                || event.getName().equals(VanillaGuiLayers.HOTBAR)) {
+        if (event.getType() == RenderGameOverlayEvent.ElementType.CROSSHAIRS
+                || event.getType() == RenderGameOverlayEvent.ElementType.HOTBAR) {
             event.setCanceled(true);
         }
     }
@@ -109,13 +112,13 @@ public final class RtsClientInputGate {
     }
 
     @SubscribeEvent
-    public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
+    public static void onClientLoggingIn(FMLNetworkEvent.ClientConnectedToServerEvent event) {
         // 登录也主动清一次，覆盖崩服或异常断线时未完整收到退出事件的情况。
         RtsCullingClientState.resetForWorldChange();
     }
 
     @SubscribeEvent
-    public static void onClientLoggingOut(ClientPlayerNetworkEvent.LoggingOut event) {
+    public static void onClientLoggingOut(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
         overlayBootstrapRequested = false;
         activeOverlayScreen = null;
         RtsCullingClientState.resetForWorldChange();
@@ -124,12 +127,12 @@ public final class RtsClientInputGate {
         ClientRtsController.get().clearWorkflowData();
     }
 
-    public static List<Rect2i> getJeiOverlayExtraAreas(Screen screen) {
+    public static List<Rectangle> getJeiOverlayExtraAreas(GuiScreen screen) {
         VisibleOverlayLayout visible = resolveVisibleOverlayLayout(screen);
         if (visible == null) {
-            return List.of();
+            return Collections.emptyList();
         }
-        return List.of(toGuiRect(
+        return Collections.singletonList(toGuiRect(
                 visible.layout().panelX(),
                 visible.layout().panelY(),
                 visible.layout().panelW(),
@@ -138,8 +141,8 @@ public final class RtsClientInputGate {
     }
 
     public static JeiOverlayIngredient getJeiOverlayIngredientUnderMouse(double mouseX, double mouseY) {
-        Minecraft minecraft = Minecraft.getInstance();
-        VisibleOverlayLayout visible = resolveVisibleOverlayLayout(minecraft == null ? null : minecraft.screen);
+        Minecraft minecraft = Minecraft.getMinecraft();
+        VisibleOverlayLayout visible = resolveVisibleOverlayLayout(minecraft == null ? null : minecraft.currentScreen);
         if (visible == null || visible.layout().overlayCollapsed()) {
             return null;
         }
@@ -165,19 +168,22 @@ public final class RtsClientInputGate {
     }
 
     @SubscribeEvent
-    public static void onScreenRenderPost(ScreenEvent.Render.Post event) {
-        if (event.getScreen() instanceof BuilderScreen) {
+    public static void onScreenRenderPost(GuiScreenEvent.DrawScreenEvent.Post event) {
+        if (event.getGui() instanceof BuilderScreen) {
             return;
         }
-        if (event.getScreen() instanceof RtsCraftTerminalScreen) {
+        if (event.getGui() instanceof RtsCraftTerminalScreen) {
             return;
         }
-        if (!(event.getScreen() instanceof AbstractContainerScreen<?>)) {
+        if (!(event.getGui() instanceof GuiContainer)) {
             return;
         }
 
-        if (event.getScreen() instanceof InventoryScreen) {
-            renderInventoryRtsButtons(event.getGuiGraphics(), Minecraft.getInstance().font, event.getScreen(), event.getMouseX(), event.getMouseY());
+        Minecraft minecraft = Minecraft.getMinecraft();
+        ScaledResolution resolution = new ScaledResolution(minecraft);
+        LegacyGuiGraphics g = new LegacyGuiGraphics(minecraft, resolution.getScaledWidth(), resolution.getScaledHeight());
+        if (event.getGui() instanceof GuiInventory) {
+            renderInventoryRtsButtons(minecraft.fontRenderer, event.getGui(), event.getMouseX(), event.getMouseY());
         }
         if (!RtsClientUiStateStore.isContainerOverlayEnabled()) {
             clearOverlaySearchFocus();
@@ -187,13 +193,11 @@ public final class RtsClientInputGate {
 
         ClientRtsController controller = ClientRtsController.get();
         if (!controller.canUseStorageOverlay()) {
-            requestOverlayBootstrap(event.getScreen(), controller);
+            requestOverlayBootstrap(event.getGui(), controller);
             return;
         }
-        syncOverlayScreen(event.getScreen(), controller);
+        syncOverlayScreen(event.getGui(), controller);
 
-        Minecraft minecraft = Minecraft.getInstance();
-        GuiGraphics g = event.getGuiGraphics();
         OverlayProfile profile = overlayProfile();
         double mouseX = toOverlayMouse(event.getMouseX(), profile);
         double mouseY = toOverlayMouse(event.getMouseY(), profile);
@@ -201,36 +205,36 @@ public final class RtsClientInputGate {
         syncOverlaySearchDrafts(controller);
         syncOverlayCraftables(controller);
 
-        g.pose().pushPose();
-        g.pose().scale((float) profile.renderScale(), (float) profile.renderScale(), 1.0F);
+        g.pushPose();
+        g.scale((float) profile.renderScale(), (float) profile.renderScale(), 1.0F);
 
         if (!layout.overlayCollapsed()) {
-            drawOverlayWindowFrame(g, minecraft.font, layout.craftPanelX(),
+            drawOverlayWindowFrame(g, minecraft.fontRenderer, layout.craftPanelX(),
                     layout.craftPanelY(), layout.craftPanelW(), layout.craftPanelH());
-            renderOverlayCraftablesPanel(g, minecraft.font, mouseX, mouseY, layout, controller);
+            renderOverlayCraftablesPanel(g, minecraft.fontRenderer, mouseX, mouseY, layout, controller);
         }
 
-        drawOverlayWindowFrame(g, minecraft.font, layout.storagePanelX(),
+        drawOverlayWindowFrame(g, minecraft.fontRenderer, layout.storagePanelX(),
                 layout.storagePanelY(), STORAGE_PANEL_W, layout.storagePanelH());
-        drawMiniButton(g, minecraft.font, layout.dragX(), layout.headerY(), OVERLAY_DRAG_W, OVERLAY_HEADER_H,
-                Component.translatable("screen.rtsbuilding.overlay.drag_button").getString());
-        drawMiniButton(g, minecraft.font, layout.sortX(), layout.headerY(), 12, OVERLAY_HEADER_H, sortShort(controller.getStorageSort()));
-        drawMiniButton(g, minecraft.font, layout.dirX(), layout.headerY(), 12, OVERLAY_HEADER_H,
+        drawMiniButton(g, minecraft.fontRenderer, layout.dragX(), layout.headerY(), OVERLAY_DRAG_W, OVERLAY_HEADER_H,
+                I18n.format("screen.rtsbuilding.overlay.drag_button"));
+        drawMiniButton(g, minecraft.fontRenderer, layout.sortX(), layout.headerY(), 12, OVERLAY_HEADER_H, sortShort(controller.getStorageSort()));
+        drawMiniButton(g, minecraft.fontRenderer, layout.dirX(), layout.headerY(), 12, OVERLAY_HEADER_H,
                 controller.isStorageSortAscending() ? "A" : "D");
 
-        drawPanelFrame(g, minecraft.font, layout.searchX(), layout.headerY(),
+        drawPanelFrame(g, minecraft.fontRenderer, layout.searchX(), layout.headerY(),
                 layout.searchW(), OVERLAY_HEADER_H,
                 ContainerOverlayStyle.searchBackground(overlaySearchFocused),
                 ContainerOverlayStyle.SEARCH_BORDER_LIGHT,
                 ContainerOverlayStyle.SEARCH_BORDER_DARK);
 
         String searchText = overlaySearchDraft == null ? "" : overlaySearchDraft;
-        String display = trimToWidth(minecraft.font, searchText, Math.max(8, layout.searchW() - OVERLAY_SEARCH_CLEAR_W - 5));
-        g.drawString(minecraft.font, display, layout.searchX() + 2,
+        String display = trimToWidth(minecraft.fontRenderer, searchText, Math.max(8, layout.searchW() - OVERLAY_SEARCH_CLEAR_W - 5));
+        g.drawString(minecraft.fontRenderer, display, layout.searchX() + 2,
                 layout.headerY() + 2,
                 ContainerOverlayStyle.SEARCH_TEXT.toArgb(), false);
         if (overlaySearchFocused && UiBlink.caretVisible(SystemUiClock.INSTANCE)) {
-            int caretX = layout.searchX() + 2 + minecraft.font.width(display) + 1;
+            int caretX = layout.searchX() + 2 + minecraft.fontRenderer.getStringWidth(display) + 1;
             g.fill(caretX, layout.headerY() + 2, caretX + 1,
                     layout.headerY() + OVERLAY_HEADER_H - 2,
                     ContainerOverlayStyle.SEARCH_TEXT.toArgb());
@@ -239,7 +243,7 @@ public final class RtsClientInputGate {
                 layout.clearX() + OVERLAY_SEARCH_CLEAR_W,
                 layout.headerY() + OVERLAY_HEADER_H,
                 ContainerOverlayStyle.SEARCH_CLEAR_BACKGROUND.toArgb());
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "x",
+        g.drawCenteredString(minecraft.fontRenderer, "x",
                 layout.clearX() + OVERLAY_SEARCH_CLEAR_W / 2, layout.headerY() + 2,
                 (searchText.isEmpty()
                         ? ContainerOverlayStyle.SEARCH_CLEAR_EMPTY
@@ -250,27 +254,27 @@ public final class RtsClientInputGate {
                     layout.pageX() + PAGE_BUTTON_W,
                     layout.pagePrevY() + PAGE_BUTTON_H,
                     ContainerOverlayStyle.PAGE_BACKGROUND.toArgb());
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "^",
+            g.drawCenteredString(minecraft.fontRenderer, "^",
                     layout.pageX() + PAGE_BUTTON_W / 2, layout.pagePrevY() + 1,
                     ContainerOverlayStyle.BUTTON_TEXT.toArgb());
             String pageText = (controller.getStoragePage() + 1) + "/" + controller.getStorageTotalPages();
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, pageText,
+            g.drawCenteredString(minecraft.fontRenderer, pageText,
                     layout.pageX() + PAGE_BUTTON_W / 2, layout.pageTextY(),
                     ContainerOverlayStyle.PAGE_TEXT.toArgb());
             g.fill(layout.pageX(), layout.pageNextY(),
                     layout.pageX() + PAGE_BUTTON_W,
                     layout.pageNextY() + PAGE_BUTTON_H,
                     ContainerOverlayStyle.PAGE_BACKGROUND.toArgb());
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "v",
+            g.drawCenteredString(minecraft.fontRenderer, "v",
                     layout.pageX() + PAGE_BUTTON_W / 2, layout.pageNextY() + 1,
                     ContainerOverlayStyle.BUTTON_TEXT.toArgb());
         }
 
         if (!layout.overlayCollapsed()) {
-            renderQuickbar(g, minecraft.font, layout.quickbarX(), layout.quickbarY());
+            renderQuickbar(g, minecraft.fontRenderer, layout.quickbarX(), layout.quickbarY());
         }
 
-        var entries = controller.getStorageEntries();
+        List<StorageEntry> entries = controller.getStorageEntries();
         int visibleStorageRows = layout.overlayCollapsed() ? 1 : layout.storageRows();
         int visibleStorageSlots = STORAGE_COLS * visibleStorageRows;
         int maxSlots = Math.min(entries.size(), visibleStorageSlots);
@@ -280,9 +284,9 @@ public final class RtsClientInputGate {
             g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE,
                     ContainerOverlayStyle.STORAGE_SLOT.toArgb());
             if (i < maxSlots) {
-                var entry = entries.get(i);
+                StorageEntry entry = entries.get(i);
                 g.renderItem(entry.stack(), cx + 1, cy + 1);
-                drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE,
+                drawSlotCountOverlay(g, minecraft.fontRenderer, cx, cy, SLOT_SIZE,
                         RtsClientUiUtil.compactCount(entry.count()),
                         ContainerOverlayStyle.STORAGE_COUNT);
             }
@@ -293,7 +297,7 @@ public final class RtsClientInputGate {
             for (int i = 0; i < RETURN_SLOTS; i++) {
                 int cx = layout.returnX() + i * SLOT_PITCH;
                 int cy = layout.returnY();
-                drawPanelFrame(g, minecraft.font, cx, cy, SLOT_SIZE, SLOT_SIZE,
+                drawPanelFrame(g, minecraft.fontRenderer, cx, cy, SLOT_SIZE, SLOT_SIZE,
                         ContainerOverlayStyle.RETURN_SLOT,
                         ContainerOverlayStyle.RETURN_BORDER_LIGHT,
                         ContainerOverlayStyle.RETURN_BORDER_DARK);
@@ -301,29 +305,29 @@ public final class RtsClientInputGate {
                 ItemStack preview = RETURN_QUEUE[i];
                 if (!preview.isEmpty()) {
                     g.renderItem(preview, cx + 1, cy + 1);
-                    drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE,
+                    drawSlotCountOverlay(g, minecraft.fontRenderer, cx, cy, SLOT_SIZE,
                             RtsClientUiUtil.compactCount(preview.getCount()),
                             ContainerOverlayStyle.RETURN_COUNT);
                 } else {
-                    g.drawString(minecraft.font, "+", cx + 6, cy + 5,
+                    g.drawString(minecraft.fontRenderer, "+", cx + 6, cy + 5,
                             ContainerOverlayStyle.RETURN_EMPTY_TEXT.toArgb(), false);
                 }
             }
         }
-        renderOverlayBottomControls(g, minecraft.font, layout);
-        renderOverlayRefreshButton(g, minecraft.font, layout, mouseX, mouseY, controller);
-        renderOverlayInfoButton(g, minecraft.font, layout, mouseX, mouseY);
+        renderOverlayBottomControls(g, minecraft.fontRenderer, layout);
+        renderOverlayRefreshButton(g, minecraft.fontRenderer, layout, mouseX, mouseY, controller);
+        renderOverlayInfoButton(g, minecraft.fontRenderer, layout, mouseX, mouseY);
         if (!layout.overlayCollapsed()) {
-            renderOverlayShiftImportButton(g, minecraft.font, layout, mouseX, mouseY);
+            renderOverlayShiftImportButton(g, minecraft.fontRenderer, layout, mouseX, mouseY);
         }
 
         if (!OVERLAY_CRAFT_DIALOG.isOpen()) {
             int hoveredStorage = resolveOverlaySlotIndex(mouseX, mouseY, layout.gridX(), layout.gridY(), visibleStorageRows);
             if (hoveredStorage >= 0 && hoveredStorage < maxSlots) {
-                var entry = entries.get(hoveredStorage);
-                g.renderTooltip(minecraft.font, entry.stack(), (int) mouseX, (int) mouseY);
+                StorageEntry entry = entries.get(hoveredStorage);
+                g.renderTooltip(entry.stack(), (int) mouseX, (int) mouseY);
                 g.drawString(
-                        minecraft.font,
+                        minecraft.fontRenderer,
                         storageCountDetail(controller, entry.count()),
                         (int) mouseX + 10,
                         (int) mouseY + 18,
@@ -333,12 +337,12 @@ public final class RtsClientInputGate {
             int hoveredCraft = resolveOverlayCraftableEntryIndex(mouseX, mouseY, layout);
             if (hoveredCraft >= 0 && hoveredCraft < controller.getCraftableEntries().size()) {
                 CraftableEntry entry = controller.getCraftableEntries().get(hoveredCraft);
-                g.renderTooltip(minecraft.font, entry.stack(), (int) mouseX, (int) mouseY);
+                g.renderTooltip(entry.stack(), (int) mouseX, (int) mouseY);
                 String detail = entry.craftable()
                         ? "Right click: choose recipe/count"
                         : entry.missingSummary();
-                if (detail != null && !detail.isBlank()) {
-                    g.drawString(minecraft.font,
+                if (detail != null && !detail.trim().isEmpty()) {
+                    g.drawString(minecraft.fontRenderer,
                             detail,
                             (int) mouseX + 10,
                             (int) mouseY + 18,
@@ -354,8 +358,8 @@ public final class RtsClientInputGate {
                 ItemStack preview = controller.getQuickSlotPreview(hoveredQuick);
                 String itemId = controller.getQuickSlotItemId(hoveredQuick);
                 if (!preview.isEmpty()) {
-                    g.renderTooltip(minecraft.font, preview, (int) mouseX, (int) mouseY);
-                    g.drawString(minecraft.font,
+                    g.renderTooltip(preview, (int) mouseX, (int) mouseY);
+                    g.drawString(minecraft.fontRenderer,
                             "x" + (itemId == null ? 0 : resolvePinnedItemCount(itemId)),
                             (int) mouseX + 10,
                             (int) mouseY + 18,
@@ -367,66 +371,31 @@ public final class RtsClientInputGate {
             if (hoveredReturn >= 0) {
                 ItemStack preview = RETURN_QUEUE[hoveredReturn];
                 if (!preview.isEmpty()) {
-                    g.renderTooltip(minecraft.font, preview, (int) mouseX, (int) mouseY);
+                    g.renderTooltip(preview, (int) mouseX, (int) mouseY);
                 }
             }
         }
         if (overlayInfoOpen) {
-            renderOverlayInfoPanel(g, minecraft.font, layout);
+            renderOverlayInfoPanel(g, minecraft.fontRenderer, layout);
         }
 
-        g.pose().popPose();
+        g.popPose();
 
         if (OVERLAY_CRAFT_DIALOG.isOpen()) {
             OVERLAY_CRAFT_DIALOG.render(
                     g,
-                    minecraft.font,
-                    minecraft.getWindow().getGuiScaledWidth(),
-                    minecraft.getWindow().getGuiScaledHeight(),
+                    minecraft.fontRenderer,
+                    resolution.getScaledWidth(),
+                    resolution.getScaledHeight(),
                     (int) event.getMouseX(),
                     (int) event.getMouseY());
         }
         RtsCraftFeedbackPopup.render(
                 g,
-                minecraft.font,
-                minecraft.getWindow().getGuiScaledWidth(),
+                minecraft.fontRenderer,
+                resolution.getScaledWidth(),
                 controller);
 
-    }
-
-    @SubscribeEvent
-    public static void onScreenMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
-        RtsClientPointerRouter.onScreenMousePressed(event);
-    }
-
-    @SubscribeEvent
-    public static void onScreenMouseDragged(ScreenEvent.MouseDragged.Pre event) {
-        RtsClientPointerRouter.onScreenMouseDragged(event);
-    }
-
-    @SubscribeEvent
-    public static void onScreenMouseReleased(ScreenEvent.MouseButtonReleased.Pre event) {
-        RtsClientPointerRouter.onScreenMouseReleased(event);
-    }
-
-    @SubscribeEvent
-    public static void onScreenMouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
-        RtsClientPointerRouter.onScreenMouseScrolled(event);
-    }
-
-    @SubscribeEvent
-    public static void onScreenKeyPressed(ScreenEvent.KeyPressed.Pre event) {
-        RtsClientInputRouter.onScreenKeyPressed(event);
-    }
-
-    @SubscribeEvent
-    public static void onScreenCharTyped(ScreenEvent.CharacterTyped.Pre event) {
-        RtsClientInputRouter.onScreenCharTyped(event);
-    }
-
-    @SubscribeEvent
-    public static void onScreenClosing(ScreenEvent.Closing event) {
-        RtsClientInputRouter.onScreenClosing(event);
     }
 
 }

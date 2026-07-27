@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.plugin;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -15,7 +16,7 @@ import java.util.Set;
  * still the only place that decides whether the request is valid.
  */
 public final class RtsClientPluginCatalog {
-    private static final Set<ResourceLocation> PLUGIN_ITEMS = Set.of(
+    private static final Set<ResourceLocation> PLUGIN_ITEMS = new HashSet<ResourceLocation>(Arrays.asList(
             id("rts_control_core"),
             id("remote_control_plugin"),
             id("storage_integration_plugin"),
@@ -32,7 +33,7 @@ public final class RtsClientPluginCatalog {
             id("harvest_tier_stone"),
             id("harvest_tier_iron"),
             id("harvest_tier_diamond"),
-            id("harvest_tier_unlimited"));
+            id("harvest_tier_unlimited")));
 
     private RtsClientPluginCatalog() {
     }
@@ -41,11 +42,11 @@ public final class RtsClientPluginCatalog {
         if (stack == null || stack.isEmpty()) {
             return false;
         }
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation itemId = stack.getItem().getRegistryName();
         return itemId != null && PLUGIN_ITEMS.contains(itemId);
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, path);
+        return new ResourceLocation(RtsbuildingMod.MODID, path);
     }
 }

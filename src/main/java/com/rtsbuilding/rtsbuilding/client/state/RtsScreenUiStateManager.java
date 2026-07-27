@@ -11,9 +11,10 @@ import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.persist.UiStateCache;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.util.Mth;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.LinkedHashMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -94,7 +95,7 @@ public final class RtsScreenUiStateManager {
         this.cache = RtsClientUiStateStore.cache();
 
         // ===== 声明式控制器绑定 =====
-        this.ctrlBindings = List.of(
+        this.ctrlBindings = Arrays.asList(
                 // ---- 简单布尔：直接 controller ↔ UiState ----
                 // overlay
                 CtrlBind.bool(controller::isChunkCurtainVisible, controller::setChunkCurtainVisible,
@@ -380,8 +381,8 @@ public final class RtsScreenUiStateManager {
             setter.accept(0.0D);
             return;
         }
-        int safeFallback = Mth.clamp(fallback, 0, presetCount - 1);
-        int safeIndex = index < 0 ? safeFallback : Mth.clamp(index, 0, presetCount - 1);
+        int safeFallback = MathHelper.clamp(fallback, 0, presetCount - 1);
+        int safeIndex = index < 0 ? safeFallback : MathHelper.clamp(index, 0, presetCount - 1);
         double fraction = (double) safeIndex / (double) (presetCount - 1);
         setter.accept(fraction);
     }

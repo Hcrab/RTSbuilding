@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.Vec3d;
 
 /**
  * R 放置状态面板打开期间使用的客户端射线快照。
@@ -10,14 +10,14 @@ import net.minecraft.world.phys.Vec3;
  * 面板那一刻的方向。世界方块旋转与服务端网络请求不读取这里的状态。</p>
  */
 public final class RtsPlacementRayFreeze {
-    private static Vec3 origin;
-    private static Vec3 direction;
+    private static Vec3d origin;
+    private static Vec3d direction;
 
     private RtsPlacementRayFreeze() {
     }
 
-    public static void freeze(Vec3 rayOrigin, Vec3 rayDirection) {
-        if (rayOrigin == null || rayDirection == null || rayDirection.lengthSqr() < 1.0E-8D) {
+    public static void freeze(Vec3d rayOrigin, Vec3d rayDirection) {
+        if (rayOrigin == null || rayDirection == null || rayDirection.lengthSquared() < 1.0E-8D) {
             clear();
             return;
         }
@@ -29,11 +29,11 @@ public final class RtsPlacementRayFreeze {
         return origin != null && direction != null;
     }
 
-    public static Vec3 originOr(Vec3 fallback) {
+    public static Vec3d originOr(Vec3d fallback) {
         return origin == null ? fallback : origin;
     }
 
-    public static Vec3 directionOr(Vec3 fallback) {
+    public static Vec3d directionOr(Vec3d fallback) {
         return direction == null ? fallback : direction;
     }
 

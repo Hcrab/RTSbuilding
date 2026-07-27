@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.record;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * Client display row for one linked storage block.

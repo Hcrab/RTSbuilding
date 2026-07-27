@@ -3,20 +3,19 @@ package com.rtsbuilding.rtsbuilding.client.sound;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.SimpleSoundInstance;
-import net.minecraft.client.resources.sounds.SoundInstance;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
+import net.minecraft.client.audio.ISound;
+import net.minecraft.client.audio.PositionedSoundRecord;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.SoundCategory;
+import net.minecraft.util.SoundEvent;
+import net.minecraft.util.math.MathHelper;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 /**
  * RTS 方块操作的客户端声音出口。
  *
- * <p>声音使用 {@link SoundSource#BLOCKS}，因此仍遵守玩家的“方块”音量设置；同时使用相对声源和
- * {@link SoundInstance.Attenuation#NONE}，不会因为 RTS 相机远离玩家实体而逐渐静音。服务端已经
+ * <p>声音使用 {@link SoundCategory#BLOCKS}，因此仍遵守玩家的“方块”音量设置；同时关闭距离衰减，
+ * 不会因为 RTS 相机远离玩家实体而逐渐静音。服务端已经
  * 按当前 tick 限流，因此客户端收到后立即播放，不保留跨 tick 尾音。</p>
  */
 public final class RtsBlockActionSoundPlayer {
@@ -26,8 +25,8 @@ public final class RtsBlockActionSoundPlayer {
     }
 
     public static void play(S2CRtsBlockActionSoundPayload payload) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.player == null || minecraft.level == null) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft == null || minecraft.player == null || minecraft.world == null) {
             return;
         }
         if (payload == null) {
@@ -42,32 +41,38 @@ public final class RtsBlockActionSoundPlayer {
         if (payload.breakAction() && !RtsClientUiStateStore.isRtsBreakSoundsEnabled()) {
             return;
         }
-        if (minecraft.getSoundManager() == null) {
+        if (minecraft.getSoundHandler() == null) {
             return;
         }
-        ResourceLocation id = ResourceLocation.tryParse(payload.soundId());
-        if (id == null || !BuiltInRegistries.SOUND_EVENT.containsKey(id)) {
+        ResourceLocation id;
+        try {
+            id = new ResourceLocation(payload.soundId());
+        } catch (RuntimeException invalidId) {
+            return;
+        }
+        if (!ForgeRegistries.SOUND_EVENTS.containsKey(id)) {
             return;
         }
         if (!LIMITER.tryAcquire(
-                minecraft.level.getGameTime(),
+                minecraft.world.getTotalWorldTime(),
                 RtsClientUiStateStore.getRtsBlockSoundsPerTick())) {
             return;
         }
-        SoundEvent sound = BuiltInRegistries.SOUND_EVENT.get(id);
-        SoundInstance soundInstance = new SimpleSoundInstance(
-                sound.getLocation(),
-                SoundSource.BLOCKS,
-                Mth.clamp(payload.volume(), 0.0F, 4.0F),
-                Mth.clamp(payload.pitch(), 0.5F, 2.0F),
-                RandomSource.create(),
+        SoundEvent sound = ForgeRegistries.SOUND_EVENTS.getValue(id);
+        if (sound == null) {
+            return;
+        }
+        PositionedSoundRecord soundInstance = new PositionedSoundRecord(
+                sound.getSoundName(),
+                SoundCategory.BLOCKS,
+                MathHelper.clamp(payload.volume(), 0.0F, 4.0F),
+                MathHelper.clamp(payload.pitch(), 0.5F, 2.0F),
                 false,
                 0,
-                SoundInstance.Attenuation.NONE,
-                0.0D,
-                0.0D,
-                0.0D,
-                true);
-        minecraft.getSoundManager().play(soundInstance);
+                ISound.AttenuationType.NONE,
+                0.0F,
+                0.0F,
+                0.0F);
+        minecraft.getSoundHandler().playSound(soundInstance);
     }
 }

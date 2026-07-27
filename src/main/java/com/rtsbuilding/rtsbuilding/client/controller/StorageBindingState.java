@@ -2,11 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.controller;
 
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 import java.util.List;
 
@@ -39,15 +40,15 @@ final class StorageBindingState {
     String bindingLabel(int index) {
         if (!validBinding(index)) return "";
         ItemStack preview = bindingPreviews[index];
-        return preview != null && !preview.isEmpty() ? preview.getHoverName().getString() : bindingLabels[index];
+        return preview != null && !preview.isEmpty() ? preview.getDisplayName() : bindingLabels[index];
     }
 
     ItemStack bindingPreview(int index) { return validBinding(index) ? bindingPreviews[index] : ItemStack.EMPTY; }
-    boolean hasBinding(int index) { return !bindingLabel(index).isBlank(); }
+    boolean hasBinding(int index) { return !bindingLabel(index).trim().isEmpty(); }
 
     void assignSelected(int index, String itemId, ItemStack preview) {
         if (!validQuick(index)) return;
-        if (itemId == null || itemId.isBlank() || preview == null || preview.isEmpty()) {
+        if (itemId == null || itemId.trim().isEmpty() || preview == null || preview.isEmpty()) {
             clearQuick(index);
             return;
         }
@@ -57,7 +58,7 @@ final class StorageBindingState {
 
     void assignTool(int index, ItemStack stack) {
         if (!validQuick(index) || stack == null || stack.isEmpty()) return;
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation id = stack.getItem().getRegistryName();
         if (id == null) return;
         setQuickLocal(index, id.toString(), stack);
         RtsClientPacketGateway.sendSetQuickSlot(index, id.toString(), stack);
@@ -69,7 +70,7 @@ final class StorageBindingState {
         RtsClientPacketGateway.sendSetQuickSlot(index, "", ItemStack.EMPTY);
     }
 
-    void setBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
+    void setBinding(int index, BlockPos pos, EnumFacing face, String itemIdHint) {
         if (validBinding(index) && pos != null) RtsClientPacketGateway.sendSetGuiBinding(index, pos, face, itemIdHint);
     }
 
@@ -88,13 +89,17 @@ final class StorageBindingState {
         int size = Math.min(QUICK_SLOT_COUNT, ids == null ? 0 : ids.size());
         for (int i = 0; i < size; i++) {
             String itemId = ids.get(i);
-            if (itemId == null || itemId.isBlank()) continue;
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) continue;
+            if (itemId == null || itemId.trim().isEmpty()) continue;
+            ResourceLocation key = parseId(itemId);
+            Item item = key == null ? null : ForgeRegistries.ITEMS.getValue(key);
+            if (item == null) continue;
             ItemStack preview = previews != null && i < previews.size() ? previews.get(i) : ItemStack.EMPTY;
-            if (preview == null || preview.isEmpty() || !preview.is(BuiltInRegistries.ITEM.get(key))) {
+            if (preview == null || preview.isEmpty() || preview.getItem() != item) {
                 preview = fallbackPreview(itemId, key, storageEntries);
-            } else preview = preview.copyWithCount(1);
+            } else {
+                preview = preview.copy();
+                preview.setCount(1);
+            }
             setQuickLocal(i, itemId, preview);
         }
     }
@@ -106,11 +111,12 @@ final class StorageBindingState {
         for (int i = 0; i < size; i++) {
             bindingLabels[i] = labels.get(i) == null ? "" : labels.get(i);
             bindingItemIds[i] = itemIds.get(i) == null ? "" : itemIds.get(i);
-            ResourceLocation key = ResourceLocation.tryParse(bindingItemIds[i]);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+            ResourceLocation key = parseId(bindingItemIds[i]);
+            Item item = key == null ? null : ForgeRegistries.ITEMS.getValue(key);
+            if (item == null) {
                 bindingItemIds[i] = "";
                 bindingPreviews[i] = ItemStack.EMPTY;
-            } else bindingPreviews[i] = new ItemStack(BuiltInRegistries.ITEM.get(key));
+            } else bindingPreviews[i] = new ItemStack(item);
         }
     }
 
@@ -135,22 +141,33 @@ final class StorageBindingState {
         ItemStack normalizedPreview = preview == null ? ItemStack.EMPTY : preview.copy();
         if (!normalizedPreview.isEmpty()) normalizedPreview.setCount(1);
         quickItemIds[index] = normalizedId;
-        if (normalizedId.isBlank() || normalizedPreview.isEmpty()) {
+        if (normalizedId.trim().isEmpty() || normalizedPreview.isEmpty()) {
             quickLabels[index] = "";
             quickPreviews[index] = ItemStack.EMPTY;
         } else {
-            quickLabels[index] = normalizedPreview.getHoverName().getString();
+            quickLabels[index] = normalizedPreview.getDisplayName();
             quickPreviews[index] = normalizedPreview;
         }
     }
 
     private static ItemStack fallbackPreview(String itemId, ResourceLocation key, List<StorageEntry> entries) {
-        for (StorageEntry entry : entries) {
+        for (StorageEntry entry : entries == null ? java.util.Collections.<StorageEntry>emptyList() : entries) {
             if (entry != null && itemId.equals(entry.itemId()) && entry.stack() != null && !entry.stack().isEmpty()) {
-                return entry.stack().copyWithCount(1);
+                ItemStack copy = entry.stack().copy();
+                copy.setCount(1);
+                return copy;
             }
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
+        Item item = ForgeRegistries.ITEMS.getValue(key);
+        return item == null ? ItemStack.EMPTY : new ItemStack(item);
+    }
+
+    private static ResourceLocation parseId(String text) {
+        try {
+            return text == null || text.trim().isEmpty() ? null : new ResourceLocation(text);
+        } catch (RuntimeException invalid) {
+            return null;
+        }
     }
 
     private static boolean validQuick(int index) { return index >= 0 && index < QUICK_SLOT_COUNT; }

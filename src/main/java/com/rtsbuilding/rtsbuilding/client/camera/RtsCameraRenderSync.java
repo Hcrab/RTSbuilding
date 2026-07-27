@@ -1,22 +1,45 @@
 package com.rtsbuilding.rtsbuilding.client.camera;
 
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RenderFrameEvent;
+import java.lang.reflect.Method;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
+/** 在 1.12 RenderTick START 阶段、GameRenderer 使用视角前推进本帧视觉相机。 */
+@SideOnly(Side.CLIENT)
 public final class RtsCameraRenderSync {
+    public static final RtsCameraRenderSync INSTANCE = new RtsCameraRenderSync();
+    private static final Logger LOGGER = Logger.getLogger("rtsbuilding");
+
+    private Object controller;
+    private Method syncMethod;
+    private boolean unavailable;
+
     private RtsCameraRenderSync() {
     }
 
     @SubscribeEvent
-    public static void onRenderFrame(RenderFrameEvent.Pre event) {
-        // 必须在 GameRenderer 使用镜头之前推进本帧姿态，避免画面总落后一帧。
-        ClientRtsController.get().syncVisualCameraFrame();
+    public void onRenderTick(TickEvent.RenderTickEvent event) {
+        if (event.phase != TickEvent.Phase.START || unavailable) return;
+        try {
+            resolveControllerIfNeeded();
+            syncMethod.invoke(controller);
+        } catch (ReflectiveOperationException failure) {
+            unavailable = true;
+            LOGGER.log(Level.SEVERE,
+                    "RTS 视觉相机同步入口不可用；本次客户端会话将停止帧前同步", failure);
+        }
+    }
+
+    private void resolveControllerIfNeeded() throws ReflectiveOperationException {
+        if (controller != null && syncMethod != null) return;
+        Class<?> controllerType = Class.forName(
+                "com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController");
+        controller = controllerType.getMethod("get").invoke(null);
+        syncMethod = controllerType.getMethod("syncVisualCameraFrame");
     }
 }
-

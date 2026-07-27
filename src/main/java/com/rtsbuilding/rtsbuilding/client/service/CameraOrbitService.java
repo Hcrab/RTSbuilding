@@ -4,9 +4,9 @@ import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.math.MathHelper;
+import org.lwjgl.input.Mouse;
 
 /**
  * Manages camera orbit, pan, dolly, rotation sensitivity, smoothing, and
@@ -245,23 +245,23 @@ public final class CameraOrbitService {
         if (this.rotateCaptured) {
             return;
         }
-        Minecraft minecraft = Minecraft.getInstance();
+        Minecraft minecraft = Minecraft.getMinecraft();
         this.rotateCaptured = true;
         this.restoreCursorX = cursorX;
         this.restoreCursorY = cursorY;
-        GLFW.glfwSetInputMode(minecraft.getWindow().getWindow(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_DISABLED);
+        minecraft.mouseHelper.grabMouseCursor();
     }
 
     public void endRotateCapture(double fallbackX, double fallbackY) {
         if (!this.rotateCaptured) {
             return;
         }
-        Minecraft minecraft = Minecraft.getInstance();
+        Minecraft minecraft = Minecraft.getMinecraft();
         this.rotateCaptured = false;
-        GLFW.glfwSetInputMode(minecraft.getWindow().getWindow(), GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
+        minecraft.mouseHelper.ungrabMouseCursor();
         double x = this.restoreCursorX == 0.0D ? fallbackX : this.restoreCursorX;
         double y = this.restoreCursorY == 0.0D ? fallbackY : this.restoreCursorY;
-        GLFW.glfwSetCursorPos(minecraft.getWindow().getWindow(), x, y);
+        Mouse.setCursorPosition((int) Math.round(x), (int) Math.round(y));
     }
 
     public boolean isRotateCaptured() {
@@ -387,7 +387,7 @@ public final class CameraOrbitService {
             this.smoothStrafe = 0.0F;
             this.smoothVertical = 0.0F;
             if (smoothCamera) {
-                this.smoothScrollRemaining = Mth.clamp(
+                this.smoothScrollRemaining = MathHelper.clamp(
                         this.smoothScrollRemaining + this.pendingScroll,
                         -MAX_SMOOTH_SCROLL_REMAINING,
                         MAX_SMOOTH_SCROLL_REMAINING);
@@ -476,7 +476,7 @@ public final class CameraOrbitService {
     public void queueScroll(double scrollY) {
         float scroll = (float) scrollY * getWheelZoomSensitivityScale();
         if (this.settings.smooth()) {
-            this.smoothScrollRemaining = Mth.clamp(
+            this.smoothScrollRemaining = MathHelper.clamp(
                     this.smoothScrollRemaining + scroll,
                     -MAX_SMOOTH_SCROLL_REMAINING,
                     MAX_SMOOTH_SCROLL_REMAINING);
@@ -501,12 +501,12 @@ public final class CameraOrbitService {
             return;
         }
         float sens = getRotateViewSensitivityScale() * this.settings.rotate();
-        float requestedYaw = Mth.clamp(dragX * sens, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float requestedPitch = Mth.clamp(dragY * sens, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float nextYawTotal = Mth.clamp(
+        float requestedYaw = MathHelper.clamp(dragX * sens, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float requestedPitch = MathHelper.clamp(dragY * sens, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float nextYawTotal = MathHelper.clamp(
                 this.pendingSmoothRotateX + requestedYaw,
                 -MAX_SMOOTH_ROTATE_ACCUMULATION, MAX_SMOOTH_ROTATE_ACCUMULATION);
-        float nextPitchTotal = Mth.clamp(
+        float nextPitchTotal = MathHelper.clamp(
                 this.pendingSmoothRotateY + requestedPitch,
                 -MAX_SMOOTH_ROTATE_ACCUMULATION, MAX_SMOOTH_ROTATE_ACCUMULATION);
         float yawDelta = nextYawTotal - this.pendingSmoothRotateX;
@@ -635,7 +635,7 @@ public final class CameraOrbitService {
         if (!rtsEnabled || !this.localStateReady) {
             return;
         }
-        if (minecraft.level == null) {
+        if (minecraft.world == null) {
             return;
         }
 
@@ -655,9 +655,9 @@ public final class CameraOrbitService {
 
         snapVisualMirrorCameraPose();
 
-        if (minecraft.getCameraEntity() != this.localMirrorCamera) {
+        if (minecraft.getRenderViewEntity() != this.localMirrorCamera) {
             if (this.cameraRestoreCooldownTicks <= 0) {
-                minecraft.setCameraEntity(this.localMirrorCamera);
+                minecraft.setRenderViewEntity(this.localMirrorCamera);
                 this.cameraRestoreCooldownTicks = CAMERA_RESTORE_COOLDOWN_TICKS;
             } else {
                 this.cameraRestoreCooldownTicks--;
@@ -679,7 +679,7 @@ public final class CameraOrbitService {
         if (elapsed <= 0L) {
             return 0.0F;
         }
-        return Mth.clamp(
+        return MathHelper.clamp(
                 elapsed / 1_000_000_000.0F,
                 0.0F,
                 MAX_SMOOTH_FRAME_TICKS * SMOOTH_TICK_SECONDS);
@@ -739,14 +739,14 @@ public final class CameraOrbitService {
     }
 
     private void ensureLocalMirrorCamera(Minecraft minecraft) {
-        if (minecraft.level == null) {
+        if (minecraft.world == null) {
             this.localMirrorCamera = null;
             return;
         }
-        if (this.localMirrorCamera != null && this.localMirrorCamera.level() == minecraft.level) {
+        if (this.localMirrorCamera != null && this.localMirrorCamera.world == minecraft.world) {
             return;
         }
-        this.localMirrorCamera = new RtsCameraEntity(RtsEntities.RTS_CAMERA_ENTITY.get(), minecraft.level);
+        this.localMirrorCamera = new RtsCameraEntity(RtsEntities.RTS_CAMERA_ENTITY.get(), minecraft.world);
         if (!this.visualPose.ready()) {
             snapVisualPoseToLocal();
         }

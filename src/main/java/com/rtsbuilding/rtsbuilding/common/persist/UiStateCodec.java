@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.common.persist;
 
 import com.google.gson.Gson;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -36,7 +36,7 @@ import java.util.zip.GZIPOutputStream;
  * <br>读取流程：{@code byte[] → 验证 HMAC → XOR → GUnzip → Gson.fromJson() → UiState}
  */
 final class UiStateCodec {
-    private static final Logger LOG = LoggerFactory.getLogger("RtsClientUiState");
+    private static final Logger LOG = LogManager.getLogger("RtsClientUiState");
 
     /** 魔数 "RTSD"（RTS Data） */
     private static final int MAGIC = 0x52545344;
@@ -156,8 +156,16 @@ final class UiStateCodec {
             // 6. GZip 解压
             byte[] jsonBytes;
             try (ByteArrayInputStream bais = new ByteArrayInputStream(encrypted);
-                 GZIPInputStream gzipIn = new GZIPInputStream(bais)) {
-                jsonBytes = gzipIn.readAllBytes();
+                 GZIPInputStream gzipIn = new GZIPInputStream(bais);
+                 ByteArrayOutputStream decoded = new ByteArrayOutputStream()) {
+                byte[] chunk = new byte[4096];
+                int read;
+                while ((read = gzipIn.read(chunk)) >= 0) {
+                    if (read > 0) {
+                        decoded.write(chunk, 0, read);
+                    }
+                }
+                jsonBytes = decoded.toByteArray();
             }
 
             // 7. 反序列化为 UiState

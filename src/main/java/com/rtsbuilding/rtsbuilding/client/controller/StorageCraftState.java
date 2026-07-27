@@ -6,11 +6,13 @@ import com.rtsbuilding.rtsbuilding.client.record.CraftRecipeOption;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,13 +42,13 @@ final class StorageCraftState {
 
     String search() { return search; }
     boolean showUnavailable() { return showUnavailable; }
-    List<CraftableEntry> entries() { return List.copyOf(entries); }
+    List<CraftableEntry> entries() { return immutable(entries); }
     int revision() { return revision; }
     boolean hasMore() { return hasMore; }
     String feedbackItemId() { return feedbackItemId; }
     int feedbackCount() { return feedbackCount; }
     long feedbackExpiryMs() { return feedbackExpiryMs; }
-    List<CraftFeedbackIngredient> feedbackIngredients() { return List.copyOf(feedbackIngredients); }
+    List<CraftFeedbackIngredient> feedbackIngredients() { return immutable(feedbackIngredients); }
 
     void setSearch(String value) {
         String normalized = normalizeSearch(value);
@@ -64,15 +66,15 @@ final class StorageCraftState {
     void requestFirstPage() {
         search = normalizeSearch(search);
         clear();
-        if (!search.isBlank()) requestPage(0, BATCH_SIZE);
+        if (!search.trim().isEmpty()) requestPage(0, BATCH_SIZE);
     }
 
     void requestMore() {
-        if (!search.isBlank() && hasMore) requestPage(entries.size(), BATCH_SIZE);
+        if (!search.trim().isEmpty() && hasMore) requestPage(entries.size(), BATCH_SIZE);
     }
 
     void craft(String recipeId, int craftCount) {
-        if (recipeId != null && !recipeId.isBlank()) {
+        if (recipeId != null && !recipeId.trim().isEmpty()) {
             RtsClientPacketGateway.sendCraftRecipe(recipeId, craftCount);
         }
     }
@@ -90,12 +92,13 @@ final class StorageCraftState {
                 Math.min(payload.resultCounts().size(), Math.min(payload.craftable().size(), payload.missingSummaries().size()))));
         int optionFlatIndex = 0;
         for (int i = 0; i < size; i++) {
-            ResourceLocation id = ResourceLocation.tryParse(payload.resultItemIds().get(i));
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+            ResourceLocation id = parseId(payload.resultItemIds().get(i));
+            Item item = id == null ? null : ForgeRegistries.ITEMS.getValue(id);
+            if (item == null) {
                 optionFlatIndex += i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
                 continue;
             }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            ItemStack stack = new ItemStack(item);
             int resultCount = Math.max(1, payload.resultCounts().get(i));
             stack.setCount(Math.min(resultCount, stack.getMaxStackSize()));
             int optionCount = i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
@@ -114,10 +117,11 @@ final class StorageCraftState {
             }
             if (options.isEmpty()) {
                 options.add(new CraftRecipeOption(payload.recipeIds().get(i), resultCount, payload.craftable().get(i),
-                        stack.getHoverName().getString(), payload.missingSummaries().get(i)));
+                        stack.getDisplayName(), payload.missingSummaries().get(i)));
             }
             entries.add(new CraftableEntry(stack, payload.recipeIds().get(i), payload.resultItemIds().get(i), resultCount,
-                    payload.craftable().get(i), payload.missingSummaries().get(i), id.getNamespace(), id.getPath(), List.copyOf(options)));
+                    payload.craftable().get(i), payload.missingSummaries().get(i),
+                    id.getResourceDomain(), id.getResourcePath(), immutable(options)));
         }
         search = payloadSearch;
         showUnavailable = payload.showUnavailable();
@@ -128,15 +132,16 @@ final class StorageCraftState {
     void applyFeedback(S2CRtsCraftFeedbackPayload payload) {
         String itemId = payload.itemId() == null ? "" : payload.itemId();
         int craftedCount = Math.max(0, payload.craftedCount());
-        if (itemId.isBlank() || craftedCount <= 0) return;
+        if (itemId.trim().isEmpty() || craftedCount <= 0) return;
         List<CraftFeedbackIngredient> decoded = new ArrayList<>();
         int size = Math.min(payload.consumedItemIds().size(), payload.consumedCounts().size());
         for (int i = 0; i < size; i++) {
             String consumedId = payload.consumedItemIds().get(i);
-            ResourceLocation key = ResourceLocation.tryParse(consumedId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) continue;
-            ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(key));
-            decoded.add(new CraftFeedbackIngredient(consumedId, preview.getHoverName().getString(), preview,
+            ResourceLocation key = parseId(consumedId);
+            Item item = key == null ? null : ForgeRegistries.ITEMS.getValue(key);
+            if (item == null) continue;
+            ItemStack preview = new ItemStack(item);
+            decoded.add(new CraftFeedbackIngredient(consumedId, preview.getDisplayName(), preview,
                     Math.max(0, payload.consumedCounts().get(i))));
         }
         long now = System.currentTimeMillis();
@@ -165,12 +170,12 @@ final class StorageCraftState {
     private void mergeIngredients(List<CraftFeedbackIngredient> added) {
         Map<String, CraftFeedbackIngredient> merged = new LinkedHashMap<>();
         for (CraftFeedbackIngredient ingredient : feedbackIngredients) {
-            if (ingredient != null && ingredient.itemId() != null && !ingredient.itemId().isBlank()) {
+            if (ingredient != null && ingredient.itemId() != null && !ingredient.itemId().trim().isEmpty()) {
                 merged.put(ingredient.itemId(), ingredient);
             }
         }
         for (CraftFeedbackIngredient ingredient : added) {
-            if (ingredient == null || ingredient.itemId() == null || ingredient.itemId().isBlank()) continue;
+            if (ingredient == null || ingredient.itemId() == null || ingredient.itemId().trim().isEmpty()) continue;
             CraftFeedbackIngredient existing = merged.get(ingredient.itemId());
             merged.put(ingredient.itemId(), existing == null ? ingredient : new CraftFeedbackIngredient(
                     ingredient.itemId(), ingredient.label(), ingredient.preview().copy(), existing.count() + ingredient.count()));
@@ -181,5 +186,17 @@ final class StorageCraftState {
 
     private static String normalizeSearch(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private static ResourceLocation parseId(String text) {
+        try {
+            return text == null || text.trim().isEmpty() ? null : new ResourceLocation(text);
+        } catch (RuntimeException invalid) {
+            return null;
+        }
+    }
+
+    private static <T> List<T> immutable(List<T> values) {
+        return Collections.unmodifiableList(new ArrayList<T>(values));
     }
 }

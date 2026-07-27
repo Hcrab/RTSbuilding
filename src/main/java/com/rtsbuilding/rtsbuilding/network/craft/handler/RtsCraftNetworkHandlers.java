@@ -1,74 +1,159 @@
 package com.rtsbuilding.rtsbuilding.network.craft.handler;
 
-import com.rtsbuilding.rtsbuilding.network.craft.*;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRecipePayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRefillPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsRequestCraftablesPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.IThreadListener;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
-/**
- * Server-side C2S adapter for RTS crafting actions.
- *
- * Keep recipe scanning, grid refill, JEI transfer, and output insertion in
- * RtsStorageManager; this layer should only unwrap payloads and enqueue work on
- * the server thread.
- */
+import java.lang.reflect.InvocationTargetException;
+
+/** Forge 1.12 合成消息处理器；C2S 参数先验证，再切回服务端主线程。 */
 public final class RtsCraftNetworkHandlers {
+    private static final String CLIENT_HANDLERS =
+            "com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers";
+
     private RtsCraftNetworkHandlers() {
     }
 
-    public static void handleRequestCraftables(C2SRtsRequestCraftablesPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().requestCraftables(
-                        serverPlayer,
-                        payload.search(),
-                        payload.showUnavailable(),
-                        payload.offset(),
-                        payload.limit(),
-                        payload.pinyinSearchEnabled(),
-                        payload.localizedSearchMatches());
-            }
+    public static final class RequestCraftables
+            implements IMessageHandler<C2SRtsRequestCraftablesPayload, IMessage> {
+        @Override public IMessage onMessage(final C2SRtsRequestCraftablesPayload message,
+                                            MessageContext context) {
+            if (!message.isValid()) return null;
+            scheduleServer(context, new ServerAction() {
+                @Override public void run(EntityPlayerMP player) {
+                    ServiceRegistry.getInstance().crafting().requestCraftables(player,
+                            message.search(), message.showUnavailable(), message.offset(),
+                            message.limit(), message.pinyinSearchEnabled(),
+                            message.localizedSearchMatches());
+                }
+            });
+            return null;
+        }
+    }
+
+    public static final class OpenTerminal
+            implements IMessageHandler<C2SRtsOpenCraftTerminalPayload, IMessage> {
+        @Override public IMessage onMessage(C2SRtsOpenCraftTerminalPayload message,
+                                            MessageContext context) {
+            scheduleServer(context, new ServerAction() {
+                @Override public void run(EntityPlayerMP player) {
+                    ServiceRegistry.getInstance().crafting().openCraftTerminal(player);
+                }
+            });
+            return null;
+        }
+    }
+
+    public static final class CraftRefill
+            implements IMessageHandler<C2SRtsCraftRefillPayload, IMessage> {
+        @Override public IMessage onMessage(final C2SRtsCraftRefillPayload message,
+                                            MessageContext context) {
+            if (!message.isValid()) return null;
+            scheduleServer(context, new ServerAction() {
+                @Override public void run(EntityPlayerMP player) {
+                    ServiceRegistry.getInstance().crafting()
+                            .refillCurrentCraftGridFromBlueprintStacks(player,
+                                    message.blueprintStacks(), message.craftedItemId(),
+                                    message.craftedCount());
+                }
+            });
+            return null;
+        }
+    }
+
+    public static final class CraftRecipe
+            implements IMessageHandler<C2SRtsCraftRecipePayload, IMessage> {
+        @Override public IMessage onMessage(final C2SRtsCraftRecipePayload message,
+                                            MessageContext context) {
+            if (!message.isValid()) return null;
+            scheduleServer(context, new ServerAction() {
+                @Override public void run(EntityPlayerMP player) {
+                    ServiceRegistry.getInstance().crafting().craftRecipeToLinked(player,
+                            message.recipeId(), message.craftCount());
+                }
+            });
+            return null;
+        }
+    }
+
+    public static final class JeiTransfer
+            implements IMessageHandler<C2SRtsJeiTransferPayload, IMessage> {
+        @Override public IMessage onMessage(final C2SRtsJeiTransferPayload message,
+                                            MessageContext context) {
+            if (!message.isValid()) return null;
+            scheduleServer(context, new ServerAction() {
+                @Override public void run(EntityPlayerMP player) {
+                    ServiceRegistry.getInstance().crafting().applyJeiTransfer(player,
+                            message.recipeId(), message.ingredientPrototypes(),
+                            message.maxTransfer(), message.clearGridFirst());
+                }
+            });
+            return null;
+        }
+    }
+
+    public static final class ClientCraftables
+            implements IMessageHandler<S2CRtsCraftablesPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsCraftablesPayload message,
+                                            MessageContext context) {
+            scheduleClient(context, new Runnable() {
+                @Override public void run() {
+                    invokeClient("handleCraftables", S2CRtsCraftablesPayload.class, message);
+                }
+            });
+            return null;
+        }
+    }
+
+    public static final class ClientFeedback
+            implements IMessageHandler<S2CRtsCraftFeedbackPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsCraftFeedbackPayload message,
+                                            MessageContext context) {
+            scheduleClient(context, new Runnable() {
+                @Override public void run() {
+                    invokeClient("handleCraftFeedback", S2CRtsCraftFeedbackPayload.class, message);
+                }
+            });
+            return null;
+        }
+    }
+
+    private static void scheduleServer(MessageContext context, final ServerAction action) {
+        final EntityPlayerMP player = context.getServerHandler().player;
+        player.getServerWorld().addScheduledTask(new Runnable() {
+            @Override public void run() { action.run(player); }
         });
     }
 
-    public static void handleOpenCraftTerminal(C2SRtsOpenCraftTerminalPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().openCraftTerminal(serverPlayer);
-            }
-        });
+    private static void scheduleClient(MessageContext context, Runnable task) {
+        IThreadListener thread = FMLCommonHandler.instance().getWorldThread(context.netHandler);
+        thread.addScheduledTask(task);
     }
 
-    public static void handleCraftRefill(C2SRtsCraftRefillPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().refillCurrentCraftGridFromBlueprintStacks(
-                        serverPlayer,
-                        payload.blueprintStacks(),
-                        payload.craftedItemId(),
-                        payload.craftedCount());
-            }
-        });
+    private static void invokeClient(String method, Class<?> payloadType, Object payload) {
+        try {
+            Class.forName(CLIENT_HANDLERS).getMethod(method, payloadType).invoke(null, payload);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException exception) {
+            throw new IllegalStateException("RTS craft client handler is unavailable", exception);
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException) throw (RuntimeException) cause;
+            throw new IllegalStateException("RTS craft client handler failed", cause);
+        }
     }
 
-    public static void handleCraftRecipe(C2SRtsCraftRecipePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().craftRecipeToLinked(serverPlayer, payload.recipeId(), payload.craftCount());
-            }
-        });
-    }
-
-    public static void handleJeiTransfer(C2SRtsJeiTransferPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().applyJeiTransfer(
-                        serverPlayer,
-                        payload.recipeId(),
-                        payload.ingredientPrototypes(),
-                        payload.maxTransfer(),
-                        payload.clearGridFirst());
-            }
-        });
+    private interface ServerAction {
+        void run(EntityPlayerMP player);
     }
 }

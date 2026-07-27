@@ -3,26 +3,30 @@ package com.rtsbuilding.rtsbuilding.client.pathfinding;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.init.MobEffects;
+import net.minecraft.potion.PotionEffect;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
  * Client-side auto-pathfinding — moves the local player toward a target block
- * by setting velocity each tick via {@link LocalPlayer#setDeltaMovement}.
+ * by setting velocity each tick before the local player update.
  * <p>
  * Uses {@link RtsMovementModeRegistry} to select the appropriate
  * {@link MovementModeHandler} for the player's current pose/state,
  * which handles speed calculation, velocity type (2D/3D), sprinting rules,
  * and stuck behaviour per movement mode.
  * <p>
- * Runs in {@link ClientTickEvent} before {@code aiStep()}, so the client's
+ * Runs in {@link TickEvent.ClientTickEvent} START before the local player update, so the client's
  * own physics engine processes the velocity. Walking animation, collision
  * detection and position sync ({@code ServerboundMovePlayerPacket}) happen
  * automatically.
@@ -31,6 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * {@link RtsMovementModeRegistry#register(MovementModeHandler, int)}
  * or by listening to {@link RtsMovementModeRegistry.RegisterMovementModeEvent}.
  */
+@SideOnly(Side.CLIENT)
 public final class RtsClientPathfinding {
 
     private static BlockPos target = null;
@@ -53,23 +58,18 @@ public final class RtsClientPathfinding {
 
     private RtsClientPathfinding() {}
 
-    /**
-     * Applies {@code entityInside()} slowing effects directly to the velocity vector for
-     * blocks the player's AABB overlaps. Mirrors vanilla behaviour where each block's
-     * {@code entityInside()} calls {@code setDeltaMovement(delta.multiply(...))} directly.
-     */
-    private static Vec3 applyEntityInsideSlow(LocalPlayer player, Vec3 velocity) {
-        BlockPos min = BlockPos.containing(player.getBoundingBox().minX, player.getBoundingBox().minY, player.getBoundingBox().minZ);
-        BlockPos max = BlockPos.containing(player.getBoundingBox().maxX, player.getBoundingBox().maxY, player.getBoundingBox().maxZ);
-        Vec3 result = velocity;
-        for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
-            BlockState state = player.level().getBlockState(pos);
-            if (state.is(Blocks.SOUL_SAND)) {
-                result = result.multiply(0.4, 1.0, 0.4);
-            } else if (state.is(Blocks.HONEY_BLOCK)) {
-                result = result.multiply(0.5, 1.0, 0.5);
-            } else if (state.is(Blocks.COBWEB)) {
-                result = result.multiply(0.25, 0.05, 0.25);
+    /** 对玩家碰撞箱覆盖到的方块应用 1.12 方块碰撞减速效果。 */
+    private static Vec3d applyEntityInsideSlow(EntityPlayerSP player, Vec3d velocity) {
+        AxisAlignedBB box = player.getEntityBoundingBox();
+        BlockPos min = new BlockPos(box.minX, box.minY, box.minZ);
+        BlockPos max = new BlockPos(box.maxX, box.maxY, box.maxZ);
+        Vec3d result = velocity;
+        for (BlockPos.MutableBlockPos pos : BlockPos.getAllInBoxMutable(min, max)) {
+            IBlockState state = player.world.getBlockState(pos);
+            if (state.getBlock() == Blocks.SOUL_SAND) {
+                result = new Vec3d(result.x * 0.4D, result.y, result.z * 0.4D);
+            } else if (state.getBlock() == Blocks.WEB) {
+                result = new Vec3d(result.x * 0.25D, result.y * 0.05D, result.z * 0.25D);
             }
         }
         return result;
@@ -80,7 +80,7 @@ public final class RtsClientPathfinding {
      * Sends a packet to the server for server-side tracking/cleanup.
      */
     public static void goTo(BlockPos target) {
-        RtsClientPathfinding.target = target.immutable();
+        RtsClientPathfinding.target = target.toImmutable();
         targetYOffset = 0;
         setHighlightedTarget(RtsClientPathfinding.target);
         RtsClientPacketGateway.sendPathfindingGoTo(target);
@@ -100,7 +100,7 @@ public final class RtsClientPathfinding {
      * @param yOffset vertical offset above the block (pass 1 to land on surface)
      */
     public static void goToAbove(BlockPos target, int yOffset) {
-        RtsClientPathfinding.target = target.immutable();
+        RtsClientPathfinding.target = target.toImmutable();
         targetYOffset = Math.max(1, yOffset);
         setHighlightedTarget(RtsClientPathfinding.target);
         RtsClientPacketGateway.sendPathfindingGoTo(target);
@@ -117,8 +117,9 @@ public final class RtsClientPathfinding {
     private static void stopMovement() {
         target = null;
         targetYOffset = 0;
-        if (previousMode != null && Minecraft.getInstance().player instanceof LocalPlayer lp) {
-            previousMode.onDeactivate(lp);
+        EntityPlayerSP player = Minecraft.getMinecraft().player;
+        if (previousMode != null && player != null) {
+            previousMode.onDeactivate(player);
         }
         previousMode = null;
     }
@@ -135,7 +136,6 @@ public final class RtsClientPathfinding {
         return target != null;
     }
 
-    @Nullable
     public static MoveTargetHighlight getMoveTargetHighlight() {
         if (highlightedTarget == null) {
             return null;
@@ -153,7 +153,7 @@ public final class RtsClientPathfinding {
     }
 
    /**
-     * Called from {@link ClientTickEvent.Pre}
+     * Called from {@link TickEvent.ClientTickEvent} START
      * — before {@code aiStep()}. Sets the player's velocity toward the target
      * and faces the player in the correct direction.
      */
@@ -163,17 +163,17 @@ public final class RtsClientPathfinding {
         // Ensure the registry is initialised on first tick
         RtsMovementModeRegistry.init();
 
-        Minecraft mc = Minecraft.getInstance();
-        LocalPlayer player = mc.player;
+        Minecraft mc = Minecraft.getMinecraft();
+        EntityPlayerSP player = mc.player;
         if (player == null || !ClientRtsController.get().isEnabled()) {
             cancel();
             return;
         }
 
-        Vec3 playerPos = player.position();
-        Vec3 targetPos = computeTargetPos();
-        Vec3 toTarget = targetPos.subtract(playerPos);
-        Vec3 horizontal = new Vec3(toTarget.x, 0, toTarget.z);
+        Vec3d playerPos = new Vec3d(player.posX, player.posY, player.posZ);
+        Vec3d targetPos = computeTargetPos();
+        Vec3d toTarget = targetPos.subtract(playerPos);
+        Vec3d horizontal = new Vec3d(toTarget.x, 0.0D, toTarget.z);
         double horizontalDist = horizontal.length();
 
         // ── Face the target (yaw) ──
@@ -202,8 +202,8 @@ public final class RtsClientPathfinding {
         applyVelocity(player, toTarget, horizontal, horizontalDist, targetPos, playerPos, params);
 
         // ── Stuck / collision ──
-        if (player.horizontalCollision
-                && target.getY() + 1.0 > player.position().y + 0.2) {
+        if (player.collidedHorizontally
+                && target.getY() + 1.0D > player.posY + 0.2D) {
             handleStuck(player, params);
         }
     }
@@ -224,14 +224,14 @@ public final class RtsClientPathfinding {
      * For precision landing ({@code targetYOffset > 0}): uses the fixed offset
      * above the block (e.g. Y+1 for landing on top).
      */
-    private static Vec3 computeTargetPos() {
+    private static Vec3d computeTargetPos() {
         double y;
         if (targetYOffset > 0) {
             y = target.getY() + targetYOffset;
         } else {
             y = getBlockSurfaceY(target);
         }
-        return new Vec3(target.getX() + 0.5, y, target.getZ() + 0.5);
+        return new Vec3d(target.getX() + 0.5D, y, target.getZ() + 0.5D);
     }
 
     /**
@@ -246,24 +246,23 @@ public final class RtsClientPathfinding {
      * </ul>
      */
     private static double getBlockSurfaceY(BlockPos pos) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) return pos.getY() + 1.0;
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc.world == null) return pos.getY() + 1.0D;
 
-        BlockState state = mc.level.getBlockState(pos);
-        VoxelShape collisionShape = state.getCollisionShape(mc.level, pos);
+        IBlockState state = mc.world.getBlockState(pos);
+        AxisAlignedBB collision = state.getCollisionBoundingBox(mc.world, pos);
 
-        if (!collisionShape.isEmpty()) {
-            // Block has collision — use the actual top surface
-            return pos.getY() + collisionShape.max(Direction.Axis.Y);
+        if (collision != null && collision != Block.NULL_AABB) {
+            return pos.getY() + collision.maxY;
         }
 
         // No collision (air, torches, signs, etc.) — check the block below
-        BlockPos below = pos.below();
-        BlockState belowState = mc.level.getBlockState(below);
-        VoxelShape belowShape = belowState.getCollisionShape(mc.level, below);
+        BlockPos below = pos.down();
+        IBlockState belowState = mc.world.getBlockState(below);
+        AxisAlignedBB belowCollision = belowState.getCollisionBoundingBox(mc.world, below);
 
-        if (!belowShape.isEmpty()) {
-            return below.getY() + belowShape.max(Direction.Axis.Y);
+        if (belowCollision != null && belowCollision != Block.NULL_AABB) {
+            return below.getY() + belowCollision.maxY;
         }
 
         // Two blocks of nothing — target the center of the target block
@@ -273,12 +272,12 @@ public final class RtsClientPathfinding {
     /**
      * Sets the player's yaw to face the target direction.
      */
-    private static void faceTarget(LocalPlayer player, Vec3 toTarget) {
+    private static void faceTarget(EntityPlayerSP player, Vec3d toTarget) {
         float yaw = (float) Math.toDegrees(Math.atan2(-toTarget.x, toTarget.z));
-        player.setYRot(yaw);
-        player.setYHeadRot(yaw);
-        player.yBodyRot = yaw;
-        player.yBodyRotO = yaw;
+        player.rotationYaw = yaw;
+        player.setRotationYawHead(yaw);
+        player.renderYawOffset = yaw;
+        player.prevRenderYawOffset = yaw;
     }
 
     /**
@@ -287,8 +286,7 @@ public final class RtsClientPathfinding {
      *
      * @return params, or {@code null} if no mode found
      */
-    @Nullable
-    private static MovementParams resolveMode(LocalPlayer player) {
+    private static MovementParams resolveMode(EntityPlayerSP player) {
         MovementModeHandler currentMode = RtsMovementModeRegistry.findActive(player);
         if (currentMode == null) return null;
 
@@ -299,10 +297,10 @@ public final class RtsClientPathfinding {
             previousMode = currentMode;
         }
 
-        Vec3 toTarget = new Vec3(
-                target.getX() + 0.5 - player.position().x,
-                target.getY() + (targetYOffset > 0 ? targetYOffset : 1.0) - player.position().y,
-                target.getZ() + 0.5 - player.position().z);
+        Vec3d toTarget = new Vec3d(
+                target.getX() + 0.5D - player.posX,
+                target.getY() + (targetYOffset > 0 ? targetYOffset : 1.0D) - player.posY,
+                target.getZ() + 0.5D - player.posZ);
         double horizontalDist = Math.sqrt(toTarget.x * toTarget.x + toTarget.z * toTarget.z);
         return currentMode.computeParams(player, toTarget, horizontalDist);
     }
@@ -318,7 +316,8 @@ public final class RtsClientPathfinding {
      * shape (slabs, stairs, carpets, etc.). The pathfinding is cancelled and
      * walking mode takes over for genuine touchdown.
      */
-    private static boolean isArrived(LocalPlayer player, Vec3 playerPos, Vec3 targetPos, MovementParams params) {
+    private static boolean isArrived(EntityPlayerSP player, Vec3d playerPos,
+                                     Vec3d targetPos, MovementParams params) {
         double dx = playerPos.x - targetPos.x;
         double dz = playerPos.z - targetPos.z;
         double horizDistSq = dx * dx + dz * dz;
@@ -333,9 +332,9 @@ public final class RtsClientPathfinding {
                     // Close enough — initiate genuine landing:
                     // disable creative flight so gravity pulls the player down
                     // onto the block surface (handles slabs/stairs/carpets natively).
-                    if (player.getAbilities().flying && !player.isFallFlying()) {
-                        player.getAbilities().flying = false;
-                        player.onUpdateAbilities();
+                    if (player.capabilities.isFlying && !player.isElytraFlying()) {
+                        player.capabilities.isFlying = false;
+                        player.sendPlayerAbilities();
                     }
                     return true;
                 }
@@ -356,27 +355,28 @@ public final class RtsClientPathfinding {
      *   <li>Velocity-driven modes: pitch flat (velocity vector handles vertical).</li>
      * </ul>
      */
-    private static void applyPitch(LocalPlayer player, Vec3 toTarget, double horizontalDist, MovementParams params) {
+    private static void applyPitch(EntityPlayerSP player, Vec3d toTarget,
+                                   double horizontalDist, MovementParams params) {
         if (params.useInputSystem()) {
             if (targetYOffset > 0) {
                 float pitch = (float) -Math.toDegrees(Math.atan2(toTarget.y, horizontalDist + EPSILON));
-                player.setXRot(pitch);
+                player.rotationPitch = pitch;
             }
             // Fly-over: keep current pitch
         } else {
-            player.setXRot(0);
+            player.rotationPitch = 0.0F;
         }
     }
 
     /**
      * Applies sprinting rules per the mode's {@link MovementParams#allowSprint()}.
      */
-    private static void applySprint(LocalPlayer player, MovementParams params) {
+    private static void applySprint(EntityPlayerSP player, MovementParams params) {
         if (params.allowSprint()) {
-            boolean canSprint = !player.getAbilities().flying
-                    && player.getFoodData().getFoodLevel() > 6
-                    && !player.isUsingItem()
-                    && (player.onGround() || player.isInWater() || player.isInLava());
+            boolean canSprint = !player.capabilities.isFlying
+                    && player.getFoodStats().getFoodLevel() > 6
+                    && !player.isHandActive()
+                    && (player.onGround || player.isInWater() || player.isInLava());
             player.setSprinting(canSprint);
         } else {
             player.setSprinting(false);
@@ -385,16 +385,16 @@ public final class RtsClientPathfinding {
 
     /**
      * Applies velocity toward the target using either the input system
-     * (elytra) or direct {@code setDeltaMovement} (other modes).
+     * (elytra) or direct 1.12 motion fields (other modes).
      */
-    private static void applyVelocity(LocalPlayer player, Vec3 toTarget, Vec3 horizontal,
-                                       double horizontalDist, Vec3 targetPos, Vec3 playerPos,
+    private static void applyVelocity(EntityPlayerSP player, Vec3d toTarget, Vec3d horizontal,
+                                       double horizontalDist, Vec3d targetPos, Vec3d playerPos,
                                        MovementParams params) {
         if (params.useInputSystem()) {
             // Elytra: forwardImpulse = +1 means "press W", activates forward thrust.
             // The adjusted pitch above naturally steers the player toward the target.
-            player.input.forwardImpulse = 1.0F;
-            player.hurtMarked = true;
+            player.movementInput.moveForward = 1.0F;
+            player.velocityChanged = true;
             return;
         }
 
@@ -410,46 +410,54 @@ public final class RtsClientPathfinding {
             // 3D velocity: swim directly toward the target
             double dist3D = toTarget.length();
             if (dist3D > EPSILON) {
-                player.setDeltaMovement(toTarget.scale(speed / dist3D));
+                Vec3d velocity = toTarget.scale(speed / dist3D);
+                setVelocity(player, velocity);
             }
         } else {
             // 2D velocity: horizontal only
-            Vec3 velocity = horizontal.scale(speed / horizontalDist);
+            Vec3d velocity = horizontal.scale(speed / horizontalDist);
 
             if (targetYOffset > 0) {
                 // Precision landing: gentle vertical guidance
                 double dy = targetPos.y - playerPos.y;
                 double vertSpeed = Math.min(Math.abs(dy) * 0.15, 0.4) * Math.signum(dy);
-                velocity = new Vec3(velocity.x, vertSpeed, velocity.z);
+                velocity = new Vec3d(velocity.x, vertSpeed, velocity.z);
             } else {
-                velocity = new Vec3(velocity.x, player.getDeltaMovement().y, velocity.z);
+                velocity = new Vec3d(velocity.x, player.motionY, velocity.z);
             }
 
             if (params.applyEntityInsideSlow()) {
                 velocity = applyEntityInsideSlow(player, velocity);
             }
-            player.setDeltaMovement(velocity);
+            setVelocity(player, velocity);
         }
 
-        player.hurtMarked = true;
+        player.velocityChanged = true;
     }
 
     /**
      * Handles being stuck against an obstacle based on the mode's configured
      * {@link MovementParams.StuckBehavior}.
      */
-    private static void handleStuck(LocalPlayer player, MovementParams params) {
+    private static void handleStuck(EntityPlayerSP player, MovementParams params) {
         MovementParams.StuckBehavior behavior = params.stuckBehavior();
         if (behavior == null || behavior == MovementParams.StuckBehavior.NONE) return;
 
         switch (behavior) {
-            case JUMP -> {
-                if (player.onGround()) {
-                    player.jumpFromGround();
-                    player.hurtMarked = true;
+            case JUMP:
+                if (player.onGround) {
+                    double jumpSpeed = 0.42D;
+                    PotionEffect jumpBoost = player.getActivePotionEffect(MobEffects.JUMP_BOOST);
+                    if (jumpBoost != null) {
+                        jumpSpeed += 0.1D * (jumpBoost.getAmplifier() + 1);
+                    }
+                    player.motionY = jumpSpeed;
+                    player.isAirBorne = true;
+                    player.velocityChanged = true;
+                    ForgeHooks.onLivingJump(player);
                 }
-            }
-            case FLOAT_UP -> {
+                break;
+            case FLOAT_UP:
                 // LivingEntity.travel() adds +0.04 to deltaMovement.y every tick in water
                 // (natural buoyancy). We replicate that here so the player gently rises
                 // when blocked, matching vanilla liquid behaviour.
@@ -457,19 +465,29 @@ public final class RtsClientPathfinding {
                 // pushes the player into the shore wall every tick, preventing them from
                 // floating up and climbing out.
                 double floatSpeed = player.isInWater() ? 0.04 : 0.02;
-                player.setDeltaMovement(0, floatSpeed, 0);
-                player.hurtMarked = true;
-            }
-            case FLY_UP -> {
+                player.motionX = 0.0D;
+                player.motionY = floatSpeed;
+                player.motionZ = 0.0D;
+                player.velocityChanged = true;
+                break;
+            case FLY_UP:
                 // Gentle upward boost to clear obstacles during flight
-                player.setDeltaMovement(player.getDeltaMovement().x, 0.1, player.getDeltaMovement().z);
-                player.hurtMarked = true;
-            }
+                player.motionY = 0.1D;
+                player.velocityChanged = true;
+                break;
+            default:
+                break;
         }
     }
 
+    private static void setVelocity(EntityPlayerSP player, Vec3d velocity) {
+        player.motionX = velocity.x;
+        player.motionY = velocity.y;
+        player.motionZ = velocity.z;
+    }
+
     private static void setHighlightedTarget(BlockPos pos) {
-        highlightedTarget = pos == null ? null : pos.immutable();
+        highlightedTarget = pos == null ? null : pos.toImmutable();
         highlightFadeStartedAtMs = 0L;
         highlightFading = false;
     }
@@ -488,6 +506,35 @@ public final class RtsClientPathfinding {
         highlightFading = false;
     }
 
-    public record MoveTargetHighlight(BlockPos target, float alpha) {
+    /** Java 8 下替代 record 的不可变渲染快照。 */
+    public static final class MoveTargetHighlight {
+        private final BlockPos target;
+        private final float alpha;
+
+        public MoveTargetHighlight(BlockPos target, float alpha) {
+            this.target = target.toImmutable();
+            this.alpha = alpha;
+        }
+
+        public BlockPos target() { return target; }
+        public float alpha() { return alpha; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof MoveTargetHighlight)) return false;
+            MoveTargetHighlight that = (MoveTargetHighlight) other;
+            return Float.compare(alpha, that.alpha) == 0 && target.equals(that.target);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * target.hashCode() + Float.floatToIntBits(alpha);
+        }
+
+        @Override
+        public String toString() {
+            return "MoveTargetHighlight[target=" + target + ", alpha=" + alpha + ']';
+        }
     }
 }

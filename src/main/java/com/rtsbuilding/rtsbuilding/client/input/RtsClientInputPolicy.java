@@ -4,8 +4,8 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.inventory.GuiContainer;
 
 /**
  * 容器叠层输入资格的唯一策略。
@@ -17,13 +17,13 @@ final class RtsClientInputPolicy {
     private RtsClientInputPolicy() {
     }
 
-    static boolean isOverlayContainer(Screen screen) {
-        return screen instanceof AbstractContainerScreen<?>
+    static boolean isOverlayContainer(GuiScreen screen) {
+        return screen instanceof GuiContainer
                 && !(screen instanceof BuilderScreen)
                 && !(screen instanceof RtsCraftTerminalScreen);
     }
 
-    static boolean canHandleOverlayInput(Screen screen) {
+    static boolean canHandleOverlayInput(GuiScreen screen) {
         return ClientRtsController.get().canUseStorageOverlay()
                 && RtsClientUiStateStore.isContainerOverlayEnabled()
                 && isOverlayContainer(screen);

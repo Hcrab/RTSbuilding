@@ -2,224 +2,142 @@ package com.rtsbuilding.rtsbuilding.client.compat;
 
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.Container;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ChestMenu;
-import net.minecraft.world.inventory.ContainerLevelAccess;
-import net.minecraft.world.level.Level;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.ContainerChest;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.lang.reflect.Field;
-import java.util.Optional;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 
+/** 客户端远程容器存活与 GUI/Container 安全配对兼容层。 */
+@SideOnly(Side.CLIENT)
 public final class RtsClientRemoteMenuCompat {
-    private static final String STORAGE_SCREEN_BASE_CLASS = "net.p3pp3rf1y.sophisticatedcore.client.gui.StorageScreenBase";
+    private static final String[] STORAGE_SCREEN_BASE_CLASSES = {
+            "net.p3pp3rf1y.sophisticatedcore.client.gui.StorageScreenBase",
+            "net.p3pp3rf1y.sophisticatedcore.client.gui.StorageGuiContainerBase"
+    };
 
     private RtsClientRemoteMenuCompat() {
     }
 
-    public static AbstractContainerMenu install(Minecraft minecraft, AbstractContainerMenu menu) {
-        if (minecraft == null || minecraft.player == null || menu == null) {
-            return menu;
-        }
-        AbstractContainerMenu wrapped = RtsRemoteMenuCompat.wrapRemoteMenu(menu);
+    public static Container install(Minecraft minecraft, Container menu) {
+        if (minecraft == null || minecraft.player == null || menu == null) return menu;
+
+        Container wrapped = RtsRemoteMenuCompat.wrapRemoteMenu(menu);
         if (RtsRemoteMenuCompat.isSupportedRemoteMenu(wrapped)) {
             RtsRemoteMenuCompat.markClientRemoteMenu(wrapped);
         } else {
             RtsRemoteMenuCompat.clearClientRemoteMenu();
         }
-        if (!isScreenMenuPairSafe(minecraft.screen, wrapped)) {
-            throw new IllegalStateException("Incompatible menu " + wrapped.getClass().getName()
-                    + " for screen " + minecraft.screen.getClass().getName());
+
+        GuiScreen screen = minecraft.currentScreen;
+        if (!isScreenMenuPairSafe(screen, wrapped)) {
+            throw new IllegalStateException("Incompatible container " + wrapped.getClass().getName()
+                    + " for screen " + screen.getClass().getName());
         }
-        if (wrapped == menu) {
-            return menu;
-        }
-        minecraft.player.containerMenu = wrapped;
-        remapContainerScreenMenu(minecraft.screen, wrapped);
+
+        minecraft.player.openContainer = wrapped;
+        remapContainerScreenMenu(screen, wrapped);
         return wrapped;
     }
 
-    public static void relaxValidation(AbstractContainerMenu menu) {
-        if (menu == null || RtsRemoteMenuCompat.isRemoteMenuPersistenceDisabledForProbe()) {
-            return;
-        }
-        boolean preserveContainerIdentity = menu instanceof ChestMenu;
+    /**
+     * 1.12 没有 ContainerLevelAccess；距离校验通常落在 Container#canInteractWith
+     * 或其持有的 IInventory。前者由远程菜单跟踪/mixin 放宽，后者在不破坏具体
+     * Container 类型的前提下包装为始终可用。
+     */
+    public static void relaxValidation(Container menu) {
+        if (menu == null || RtsRemoteMenuCompat.isRemoteMenuPersistenceDisabledForProbe()) return;
+        boolean preserveInventoryIdentity = menu instanceof ContainerChest;
         Class<?> type = menu.getClass();
         while (type != null && type != Object.class) {
             for (Field field : type.getDeclaredFields()) {
-                try {
-                    field.setAccessible(true);
-                    Class<?> fieldType = field.getType();
-
-                    if (ContainerLevelAccess.class.isAssignableFrom(fieldType)) {
-                        Object current = field.get(menu);
-                        if (current instanceof ContainerLevelAccess access
-                                && !(access instanceof RelaxedContainerLevelAccess)) {
-                            field.set(menu, new RelaxedContainerLevelAccess(access));
-                        } else if (current == null) {
-                            field.set(menu, ContainerLevelAccess.NULL);
-                        }
-                        continue;
-                    }
-
-                    if (fieldType == Container.class && !preserveContainerIdentity) {
-                        Object current = field.get(menu);
-                        if (current instanceof Container delegate && !(delegate instanceof AlwaysValidContainer)) {
-                            field.set(menu, new AlwaysValidContainer(delegate));
-                        }
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                    // Some runtime-specific/final fields cannot be patched reflectively.
-                }
-            }
-            type = type.getSuperclass();
-        }
-    }
-
-    private static void remapContainerScreenMenu(Screen screen, AbstractContainerMenu menu) {
-        if (screen == null || menu == null) {
-            return;
-        }
-        Class<?> type = screen.getClass();
-        while (type != null && type != Object.class) {
-            for (Field field : type.getDeclaredFields()) {
-                if (!AbstractContainerMenu.class.isAssignableFrom(field.getType())) {
+                if (!IInventory.class.isAssignableFrom(field.getType())
+                        || !field.getType().isAssignableFrom(AlwaysValidInventory.class)
+                        || preserveInventoryIdentity) {
                     continue;
                 }
                 try {
                     field.setAccessible(true);
-                    field.set(screen, menu);
-                    return;
-                } catch (ReflectiveOperationException ignored) {
-                    // Some runtime-specific/final fields cannot be patched reflectively.
+                    Object current = field.get(menu);
+                    if (current instanceof IInventory && !(current instanceof AlwaysValidInventory)) {
+                        field.set(menu, new AlwaysValidInventory((IInventory) current));
+                    }
+                } catch (ReflectiveOperationException | SecurityException ignored) {
+                    // 可选模组的 final/受保护字段可能无法替换；容器级跟踪仍会继续工作。
                 }
             }
             type = type.getSuperclass();
         }
     }
 
-    private static boolean isScreenMenuPairSafe(Screen screen, AbstractContainerMenu menu) {
-        if (screen == null || menu == null) {
-            return true;
+    private static void remapContainerScreenMenu(GuiScreen screen, Container menu) {
+        if (!(screen instanceof GuiContainer) || menu == null) return;
+        ((GuiContainer) screen).inventorySlots = menu;
+    }
+
+    private static boolean isScreenMenuPairSafe(GuiScreen screen, Container menu) {
+        if (screen == null || menu == null) return true;
+        String name = screen.getClass().getName();
+        if (!name.startsWith("net.p3pp3rf1y.sophisticated")) return true;
+
+        for (String baseClass : STORAGE_SCREEN_BASE_CLASSES) {
+            if (isInstanceOf(screen, baseClass)) {
+                return RtsRemoteMenuCompat.isStorageContainerMenuBase(menu);
+            }
         }
-        String screenClassName = screen.getClass().getName();
-        if (!screenClassName.startsWith("net.p3pp3rf1y.sophisticated")) {
-            return true;
-        }
-        if (!isInstanceOf(screen, STORAGE_SCREEN_BASE_CLASS)) {
-            return true;
-        }
-        return RtsRemoteMenuCompat.isStorageContainerMenuBase(menu);
+        // 可选模组类在该 1.12 运行环境不存在时不误关原版或其它 GUI。
+        return true;
     }
 
     private static boolean isInstanceOf(Object instance, String className) {
         try {
             return Class.forName(className).isInstance(instance);
         } catch (ClassNotFoundException | LinkageError ignored) {
-            // Optional mod client classes can fail to resolve in dev/remapped runtimes.
-            // In that case fail open: the compatibility guard must not close vanilla menus.
             return false;
         }
     }
 
-    private static final class AlwaysValidContainer implements Container {
-        private final Container delegate;
+    /** 仅放宽可用距离，其余库存语义完整委托给原实例。 */
+    private static final class AlwaysValidInventory implements IInventory {
+        private final IInventory delegate;
 
-        private AlwaysValidContainer(Container delegate) {
+        private AlwaysValidInventory(IInventory delegate) {
             this.delegate = delegate;
         }
 
-        @Override
-        public int getContainerSize() {
-            return this.delegate.getContainerSize();
+        @Override public int getSizeInventory() { return delegate.getSizeInventory(); }
+        @Override public boolean isEmpty() { return delegate.isEmpty(); }
+        @Override public ItemStack getStackInSlot(int slot) { return delegate.getStackInSlot(slot); }
+        @Override public ItemStack decrStackSize(int slot, int amount) {
+            return delegate.decrStackSize(slot, amount);
         }
-
-        @Override
-        public boolean isEmpty() {
-            return this.delegate.isEmpty();
+        @Override public ItemStack removeStackFromSlot(int slot) {
+            return delegate.removeStackFromSlot(slot);
         }
-
-        @Override
-        public net.minecraft.world.item.ItemStack getItem(int slot) {
-            return this.delegate.getItem(slot);
+        @Override public void setInventorySlotContents(int slot, ItemStack stack) {
+            delegate.setInventorySlotContents(slot, stack);
         }
-
-        @Override
-        public net.minecraft.world.item.ItemStack removeItem(int slot, int amount) {
-            return this.delegate.removeItem(slot, amount);
+        @Override public int getInventoryStackLimit() { return delegate.getInventoryStackLimit(); }
+        @Override public void markDirty() { delegate.markDirty(); }
+        @Override public boolean isUsableByPlayer(EntityPlayer player) { return true; }
+        @Override public void openInventory(EntityPlayer player) { delegate.openInventory(player); }
+        @Override public void closeInventory(EntityPlayer player) { delegate.closeInventory(player); }
+        @Override public boolean isItemValidForSlot(int slot, ItemStack stack) {
+            return delegate.isItemValidForSlot(slot, stack);
         }
-
-        @Override
-        public net.minecraft.world.item.ItemStack removeItemNoUpdate(int slot) {
-            return this.delegate.removeItemNoUpdate(slot);
-        }
-
-        @Override
-        public void setItem(int slot, net.minecraft.world.item.ItemStack stack) {
-            this.delegate.setItem(slot, stack);
-        }
-
-        @Override
-        public int getMaxStackSize() {
-            return this.delegate.getMaxStackSize();
-        }
-
-        @Override
-        public void setChanged() {
-            this.delegate.setChanged();
-        }
-
-        @Override
-        public boolean stillValid(net.minecraft.world.entity.player.Player player) {
-            return true;
-        }
-
-        @Override
-        public void startOpen(net.minecraft.world.entity.player.Player player) {
-            this.delegate.startOpen(player);
-        }
-
-        @Override
-        public void stopOpen(net.minecraft.world.entity.player.Player player) {
-            this.delegate.stopOpen(player);
-        }
-
-        @Override
-        public boolean canPlaceItem(int slot, net.minecraft.world.item.ItemStack stack) {
-            return this.delegate.canPlaceItem(slot, stack);
-        }
-
-        @Override
-        public void clearContent() {
-            this.delegate.clearContent();
-        }
-    }
-
-    private static final class RelaxedContainerLevelAccess implements ContainerLevelAccess {
-        private final ContainerLevelAccess delegate;
-
-        private RelaxedContainerLevelAccess(ContainerLevelAccess delegate) {
-            this.delegate = delegate == null ? ContainerLevelAccess.NULL : delegate;
-        }
-
-        @Override
-        public <T> Optional<T> evaluate(BiFunction<Level, BlockPos, T> evaluator) {
-            Optional<T> result = this.delegate.evaluate(evaluator);
-            if (result.isPresent() && result.get() instanceof Boolean) {
-                @SuppressWarnings("unchecked")
-                T forcedTrue = (T) Boolean.TRUE;
-                return Optional.of(forcedTrue);
-            }
-            return result;
-        }
-
-        @Override
-        public void execute(BiConsumer<Level, BlockPos> consumer) {
-            this.delegate.execute(consumer);
-        }
+        @Override public int getField(int id) { return delegate.getField(id); }
+        @Override public void setField(int id, int value) { delegate.setField(id, value); }
+        @Override public int getFieldCount() { return delegate.getFieldCount(); }
+        @Override public void clear() { delegate.clear(); }
+        @Override public String getName() { return delegate.getName(); }
+        @Override public boolean hasCustomName() { return delegate.hasCustomName(); }
+        @Override public ITextComponent getDisplayName() { return delegate.getDisplayName(); }
     }
 }

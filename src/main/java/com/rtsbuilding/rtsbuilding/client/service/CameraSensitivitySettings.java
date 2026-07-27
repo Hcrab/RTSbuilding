@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.service;
 
-import net.minecraft.util.Mth;
+import net.minecraft.util.math.MathHelper;
 
 /**
  * 相机灵敏度、平滑开关和拖拽反向选项的唯一状态 owner。
@@ -26,8 +26,8 @@ final class CameraSensitivitySettings {
     private boolean invertPanY;
 
     float rotate() { return rotate; }
-    void increaseRotate() { rotate = Mth.clamp(rotate + ROTATE_STEP, MIN_ROTATE, MAX_ROTATE); }
-    void decreaseRotate() { rotate = Mth.clamp(rotate - ROTATE_STEP, MIN_ROTATE, MAX_ROTATE); }
+    void increaseRotate() { rotate = MathHelper.clamp(rotate + ROTATE_STEP, MIN_ROTATE, MAX_ROTATE); }
+    void decreaseRotate() { rotate = MathHelper.clamp(rotate - ROTATE_STEP, MIN_ROTATE, MAX_ROTATE); }
 
     String inputLabel() { return label(view); }
     int inputIndex() { return input; }
@@ -66,7 +66,7 @@ final class CameraSensitivitySettings {
     private void setAll(int index) { input = index; pan = index; view = index; keyboard = index; wheel = index; }
     private static String label(int index) { return String.format(java.util.Locale.ROOT, "x%.2f", PRESETS[sanitize(index)]); }
     private static int fromFraction(double fraction) {
-        return sanitize((int) Math.round(Mth.clamp(fraction, 0.0D, 1.0D) * (PRESETS.length - 1)));
+        return sanitize((int) Math.round(MathHelper.clamp(fraction, 0.0D, 1.0D) * (PRESETS.length - 1)));
     }
-    private static int sanitize(int index) { return Mth.clamp(index, 0, PRESETS.length - 1); }
+    private static int sanitize(int index) { return MathHelper.clamp(index, 0, PRESETS.length - 1); }
 }

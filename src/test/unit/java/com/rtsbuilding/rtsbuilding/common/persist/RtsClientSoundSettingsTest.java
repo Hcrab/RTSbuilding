@@ -44,16 +44,14 @@ class RtsClientSoundSettingsTest {
 
     @Test
     void legacyJsonWithoutPlacementSoundFieldDefaultsToEnabled() {
-        String legacyJson = """
-                {
-                  "_storeVersion": 3,
-                  "sound": {
-                    "rtsSoundsEnabled": true,
-                    "breakSoundsEnabled": true,
-                    "blockSoundsPerTick": 8
-                  }
-                }
-                """;
+        String legacyJson = "{\n"
+                + "  \"_storeVersion\": 3,\n"
+                + "  \"sound\": {\n"
+                + "    \"rtsSoundsEnabled\": true,\n"
+                + "    \"breakSoundsEnabled\": true,\n"
+                + "    \"blockSoundsPerTick\": 8\n"
+                + "  }\n"
+                + "}";
 
         RtsClientUiStateStore.UiState decoded =
                 new Gson().fromJson(legacyJson, RtsClientUiStateStore.UiState.class);

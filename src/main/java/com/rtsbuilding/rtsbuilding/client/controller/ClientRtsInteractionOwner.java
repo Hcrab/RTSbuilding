@@ -31,21 +31,20 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.inventory.GuiCrafting;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.block.state.IBlockState;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
 
@@ -113,7 +112,7 @@ final class ClientRtsInteractionOwner {
                     () -> controller.setMode(BuilderMode.INTERACT));
         }
 
-    void setGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
+    void setGuiBinding(int index, BlockPos pos, EnumFacing face, String itemIdHint) {
             controller.storageStateManager.setGuiBinding(index, pos, face, itemIdHint);
         }
 
@@ -125,15 +124,15 @@ final class ClientRtsInteractionOwner {
             controller.storageStateManager.openGuiBinding(index);
         }
 
-    void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
+    void placeSelected(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir) {
             controller.placeSelected(hit, forcePlace, rayOrigin, rayDir, false, false);
         }
 
-    void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
+    void placeSelected(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied) {
             controller.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied, false);
         }
 
-    void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied,
+    void placeSelected(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied,
                 boolean quickBuild) {
             String itemId = controller.buildPlacementService.getSelectedItemId();
             controller.buildPlacementService.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied, quickBuild,
@@ -142,7 +141,7 @@ final class ClientRtsInteractionOwner {
                         if (controller.isLocalPlayerCreative()) return false;
                         ItemStack preview = controller.buildPlacementService.getSelectedItemPreview();
                         return preview != null && !preview.isEmpty()
-                                && preview.getItem() instanceof BlockItem
+                                && preview.getItem() instanceof ItemBlock
                                 && controller.storageStateManager.hasStoragePageSnapshot()
                                 && controller.storageStateManager.getStorageTotalCount(itemId) <= 0L;
                     },
@@ -152,19 +151,19 @@ final class ClientRtsInteractionOwner {
                     controller.storageStateManager.hasStoragePageSnapshot());
         }
 
-    void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
+    void placeSelectedBatch(List<RayTraceResult> hits, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir,
                 boolean skipIfOccupied) {
             controller.placeSelectedBatch(hits, hits == null || hits.isEmpty() ? null : hits.get(0), forcePlace, rayOrigin, rayDir,
                     skipIfOccupied);
         }
 
-    void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
-                Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
+    void placeSelectedBatch(List<RayTraceResult> hits, RayTraceResult templateHit, boolean forcePlace,
+                Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied) {
             controller.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, false);
         }
 
-    void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
-                Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied, boolean overwriteExisting) {
+    void placeSelectedBatch(List<RayTraceResult> hits, RayTraceResult templateHit, boolean forcePlace,
+                Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied, boolean overwriteExisting) {
             String itemId = controller.buildPlacementService.getSelectedItemId();
             controller.buildPlacementService.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied,
                     overwriteExisting,
@@ -173,7 +172,7 @@ final class ClientRtsInteractionOwner {
                         if (controller.isLocalPlayerCreative()) return false;
                         ItemStack preview = controller.buildPlacementService.getSelectedItemPreview();
                         return preview != null && !preview.isEmpty()
-                                && preview.getItem() instanceof BlockItem
+                                && preview.getItem() instanceof ItemBlock
                                 && controller.storageStateManager.hasStoragePageSnapshot()
                                 && controller.storageStateManager.getStorageTotalCount(itemId) <= 0L;
                     },
@@ -183,7 +182,7 @@ final class ClientRtsInteractionOwner {
                     controller.storageStateManager.hasStoragePageSnapshot());
         }
 
-    void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
+    void placeSelectedFluid(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir) {
             controller.buildPlacementService.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
         }
 
@@ -199,39 +198,39 @@ final class ClientRtsInteractionOwner {
             controller.buildPlacementService.storeFluidFromToolSlot(toolSlot);
         }
 
-    void interactEmpty(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
+    void interactEmpty(RayTraceResult hit, Vec3d rayOrigin, Vec3d rayDir) {
             controller.buildPlacementService.interactEmpty(hit, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
         }
 
-    void interactEntityEmpty(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir) {
+    void interactEntityEmpty(int entityId, Vec3d hitLocation, Vec3d rayOrigin, Vec3d rayDir) {
             controller.buildPlacementService.interactEntityEmpty(entityId, hitLocation, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
         }
 
-    void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+    void interactBlockWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) {
             controller.buildPlacementService.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
         }
 
-    void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+    void useItemInAirWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) {
             controller.buildPlacementService.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
         }
 
-    void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
+    void interactBlockWithPinnedItem(RayTraceResult hit, String itemId, Vec3d rayOrigin, Vec3d rayDir) {
             controller.buildPlacementService.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
         }
 
-    void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+    void interactEntityWithToolSlot(int entityId, Vec3d hitLocation, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) {
             controller.buildPlacementService.interactEntityWithToolSlot(entityId, hitLocation, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
         }
 
-    void interactEntityWithPinnedItem(int entityId, Vec3 hitLocation, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
+    void interactEntityWithPinnedItem(int entityId, Vec3d hitLocation, String itemId, Vec3d rayOrigin, Vec3d rayDir) {
             controller.buildPlacementService.interactEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
         }
 
     void breakPlaced(BlockPos pos) {
-            controller.buildPlacementService.breakPlaced(pos, Direction.UP, false);
+            controller.buildPlacementService.breakPlaced(pos, EnumFacing.UP, false);
         }
 
-    void breakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) {
+    void breakPlaced(BlockPos pos, EnumFacing face, boolean allowAdjacentFallback) {
             controller.buildPlacementService.breakPlaced(pos, face, allowAdjacentFallback);
         }
 
@@ -347,12 +346,12 @@ final class ClientRtsInteractionOwner {
             controller.buildPlacementService.setPlacementStateProperty(propertyName, valueName);
         }
 
-    void copyPlacementState(BlockState state) {
+    void copyPlacementState(IBlockState state) {
             controller.buildPlacementService.copyPlacementState(state);
         }
 
     void syncVisualCameraFrame() {
-            Minecraft minecraft = Minecraft.getInstance();
+            Minecraft minecraft = Minecraft.getMinecraft();
             controller.cameraOrbitService.syncVisualCameraFrame(minecraft, controller.anchorX, controller.anchorY, controller.anchorZ, controller.maxRadius, controller.enabled);
         }
 

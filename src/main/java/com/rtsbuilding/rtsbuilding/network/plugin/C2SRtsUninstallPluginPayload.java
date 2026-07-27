@@ -1,21 +1,29 @@
 package com.rtsbuilding.rtsbuilding.network.plugin;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsUninstallPluginPayload(String pluginId) implements CustomPacketPayload {
-    public static final Type<C2SRtsUninstallPluginPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_uninstall_plugin"));
+public final class C2SRtsUninstallPluginPayload implements IMessage {
+    private static final int MAX_PLUGIN_ID_CHARS = 128;
+    private String pluginId = "";
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsUninstallPluginPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeUtf(payload.pluginId() == null ? "" : payload.pluginId(), 128),
-            (buf) -> new C2SRtsUninstallPluginPayload(buf.readUtf(128)));
+    public C2SRtsUninstallPluginPayload() {
+    }
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsUninstallPluginPayload(String pluginId) {
+        this.pluginId = pluginId == null ? "" : pluginId;
+    }
+
+    public String pluginId() { return pluginId; }
+    public boolean isValid() { return !pluginId.trim().isEmpty() && pluginId.length() <= MAX_PLUGIN_ID_CHARS; }
+
+    @Override public void fromBytes(ByteBuf buffer) {
+        pluginId = RtsPacketBuffer.readString(buffer, MAX_PLUGIN_ID_CHARS, "plugin id");
+    }
+
+    @Override public void toBytes(ByteBuf buffer) {
+        if (!isValid()) throw new IllegalArgumentException("plugin id is invalid");
+        RtsPacketBuffer.writeString(buffer, pluginId, MAX_PLUGIN_ID_CHARS, "plugin id");
     }
 }

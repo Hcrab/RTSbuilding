@@ -1,68 +1,56 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import org.lwjgl.opengl.GL11;
 
 import java.util.List;
 
 /**
- * Blueprint ghost preview renderer (facade class).
- * <p>
- * Orchestrates the complete rendering pipeline for blueprint ghost previews,
- * delegating sub-tasks to dedicated sub-renderers:
- * <ul>
- *   <li>{@link BlueprintGhostBoundsFilter} — bounds clipping</li>
- *   <li>{@link BlueprintGhostBlockModelRenderer} — translucent block model rendering</li>
- *   <li>{@link BlueprintGhostFallbackRenderer} — fallback wireframes for missing/non-model blocks</li>
- *   <li>{@link BlueprintGhostEnvelopeRenderer} — overall bounding box outline</li>
- * </ul>
- * <p>
- * Public API is kept for backward compatibility.
+ * 1.12 蓝图虚影总渲染入口。
+ *
+ * <p>模型批次与线框批次均使用本包私有缓冲，调用方不需要也不得把 Minecraft 正在使用的
+ * Tessellator 缓冲交给这里。入口依次执行边界裁剪、方块模型、fallback 与整体包络框。</p>
  */
 public final class BlueprintGhostRenderer {
-
     private static final float TRUNCATED_BOX_ALPHA = 0.22F;
+    private static final BufferBuilder LINE_BUFFER = new BufferBuilder(512 * 1024);
+    private static final WorldVertexBufferUploader LINE_UPLOADER = new WorldVertexBufferUploader();
 
     private BlueprintGhostRenderer() {
     }
 
-    /**
-     * Renders the blueprint ghost preview.
-     *
-     * @param minecraft  Minecraft client instance
-     * @param poseStack  Pose stack for coordinate transforms
-     * @param lineBuffer Line vertex buffer
-     * @param fillBuffer Fill vertex buffer (reserved, currently unused)
-     */
-    public static void renderBlueprintGhostPreview(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer,
-            VertexConsumer fillBuffer) {
-        // Only render in BuilderScreen
-        if (!(minecraft.screen instanceof BuilderScreen builderScreen)) {
+    public static void renderBlueprintGhostPreview(Minecraft minecraft) {
+        if (minecraft == null || !(minecraft.currentScreen instanceof BuilderScreen)) {
             return;
         }
 
-        BlueprintGhostPreview preview = builderScreen.getBlueprintGhostPreview();
-        if (preview.blocks().isEmpty()) {
+        BuilderScreen screen = (BuilderScreen) minecraft.currentScreen;
+        BlueprintGhostPreview preview = screen.getBlueprintGhostPreview();
+        if (preview == null || preview.blocks() == null || preview.blocks().isEmpty()) {
             return;
         }
 
-        // 1. Filter out blocks outside RTS bounds
-        List<BlueprintGhostBlock> filteredBlocks =
-                BlueprintGhostBoundsFilter.filter(preview.blocks());
-        if (filteredBlocks.isEmpty()) {
+        List<BlueprintGhostBlock> blocks = BlueprintGhostBoundsFilter.filter(preview.blocks());
+        if (blocks.isEmpty()) {
             return;
         }
 
-        // 2. Choose colour based on material availability (ready: green, missing: red)
+        RenderManager renderManager = minecraft.getRenderManager();
+        double cameraX = renderManager.viewerPosX;
+        double cameraY = renderManager.viewerPosY;
+        double cameraZ = renderManager.viewerPosZ;
         float lineR = preview.materialsReady() ? 0.35F : 1.00F;
         float lineG = preview.materialsReady() ? 0.95F : 0.72F;
         float lineB = preview.materialsReady() ? 0.72F : 0.22F;
 
-        // 3. Initialise bounding box bounds
         int[] minX = {Integer.MAX_VALUE};
         int[] minY = {Integer.MAX_VALUE};
         int[] minZ = {Integer.MAX_VALUE};
@@ -70,22 +58,67 @@ public final class BlueprintGhostRenderer {
         int[] maxY = {Integer.MIN_VALUE};
         int[] maxZ = {Integer.MIN_VALUE};
 
-        // 4. Render translucent block models (collecting bounding box bounds simultaneously)
-        BlueprintGhostBlockModelRenderer.renderModels(
-                minecraft, filteredBlocks, poseStack,
-                minX, minY, minZ,
-                maxX, maxY, maxZ);
+        BlueprintGhostBlockModelRenderer.renderModels(minecraft, blocks, cameraX, cameraY, cameraZ,
+                minX, minY, minZ, maxX, maxY, maxZ);
 
-        // 5. Render fallback wireframes for missing/non-model blocks
-        BlueprintGhostFallbackRenderer.renderFallbacks(filteredBlocks, poseStack, lineBuffer, lineR, lineG, lineB);
+        LINE_BUFFER.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+        LINE_BUFFER.setTranslation(-cameraX, -cameraY, -cameraZ);
+        try {
+            BlueprintGhostFallbackRenderer.renderFallbacks(blocks, LINE_BUFFER, lineR, lineG, lineB);
+            float envelopeAlpha = preview.truncated()
+                    ? TRUNCATED_BOX_ALPHA : BlueprintGhostBlockModelRenderer.GHOST_ALPHA;
+            BlueprintGhostEnvelopeRenderer.render(LINE_BUFFER,
+                    minX[0], minY[0], minZ[0], maxX[0], maxY[0], maxZ[0],
+                    lineR, lineG, lineB, envelopeAlpha);
+            drawLines();
+        } catch (RuntimeException exception) {
+            discardLineBuffer();
+            throw exception;
+        }
+    }
 
-        // 6. Render overall bounding box outline
-        float envelopeAlpha = preview.truncated() ? TRUNCATED_BOX_ALPHA : BlueprintGhostBlockModelRenderer.GHOST_ALPHA;
-        BlueprintGhostEnvelopeRenderer.render(
-                poseStack, lineBuffer,
-                minX[0], minY[0], minZ[0],
-                maxX[0], maxY[0], maxZ[0],
-                lineR, lineG, lineB,
-                envelopeAlpha);
+    /**
+     * 迁移期兼容入口。两个参数只用于标明旧总渲染器已有的缓冲所有权；本类不会读写或结束它们。
+     */
+    public static void renderBlueprintGhostPreview(Minecraft minecraft,
+            BufferBuilder callerLineBuffer, BufferBuilder callerFillBuffer) {
+        renderBlueprintGhostPreview(minecraft);
+    }
+
+    private static void drawLines() {
+        if (LINE_BUFFER.getVertexCount() == 0) {
+            LINE_BUFFER.finishDrawing();
+            LINE_BUFFER.reset();
+            LINE_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
+            return;
+        }
+
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(
+                GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
+        GlStateManager.disableTexture2D();
+        GlStateManager.depthMask(false);
+        GlStateManager.glLineWidth(1.5F);
+        try {
+            LINE_UPLOADER.draw(LINE_BUFFER);
+        } finally {
+            LINE_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
+            GlStateManager.glLineWidth(1.0F);
+            GlStateManager.depthMask(true);
+            GlStateManager.enableTexture2D();
+            GlStateManager.disableBlend();
+            GlStateManager.resetColor();
+        }
+    }
+
+    private static void discardLineBuffer() {
+        try {
+            LINE_BUFFER.finishDrawing();
+        } catch (IllegalStateException ignored) {
+            // 上传器可能已经 finish，只是尚未来得及 reset。
+        }
+        LINE_BUFFER.reset();
+        LINE_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
     }
 }

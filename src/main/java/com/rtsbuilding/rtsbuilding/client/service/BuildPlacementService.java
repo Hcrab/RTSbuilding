@@ -8,16 +8,17 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 import java.util.List;
 import java.util.function.BooleanSupplier;
@@ -55,8 +56,8 @@ public final class BuildPlacementService {
     public String getSelectedFluidId() { return this.selectedFluidId; }
     public String getSelectedFluidLabel() { return this.selectedFluidLabel; }
     public ItemStack getSelectedFluidPreview() { return this.selectedFluidPreview; }
-    public boolean hasSelectedItem() { return !this.selectedItemId.isBlank(); }
-    public boolean hasSelectedFluid() { return !this.selectedFluidId.isBlank(); }
+    public boolean hasSelectedItem() { return !isBlank(this.selectedItemId); }
+    public boolean hasSelectedFluid() { return !isBlank(this.selectedFluidId); }
     public boolean isEmptyHandSelected() { return this.emptyHandSelected; }
     public int getPlaceRotateDegrees() { return this.placeRotateSteps * 90; }
     public String getPlacementStatePreset() { return this.placementStatePreset; }
@@ -88,7 +89,7 @@ public final class BuildPlacementService {
             return;
         }
         StorageEntry entry = entries.get(index);
-        setSelectedItem(entry.itemId(), entry.stack().getHoverName().getString(), entry.stack().copy());
+        setSelectedItem(entry.itemId(), entry.stack().getDisplayName(), entry.stack().copy());
         clearSelectedFluid();
         setModeInteract.run();
     }
@@ -146,20 +147,21 @@ public final class BuildPlacementService {
 
     public void selectQuickSlot(int index, String qsItemId, ItemStack qsPreview, String qsLabel,
                                 Runnable setModeInteract) {
-        if (qsItemId == null || qsItemId.isBlank()) {
+        if (isBlank(qsItemId)) {
             return;
         }
         ItemStack preview = qsPreview;
         if (preview.isEmpty()) {
-            ResourceLocation id = ResourceLocation.tryParse(qsItemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+            ResourceLocation id = parseResourceLocation(qsItemId);
+            Item item = id == null ? null : ForgeRegistries.ITEMS.getValue(id);
+            if (item == null) {
                 return;
             }
-            preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            preview = new ItemStack(item);
         }
         String label = qsLabel;
-        if (label == null || label.isBlank()) {
-            label = preview.getHoverName().getString();
+        if (isBlank(label)) {
+            label = preview.getDisplayName();
         }
         setSelectedItem(qsItemId, label, preview.copy());
         clearSelectedFluid();
@@ -168,12 +170,12 @@ public final class BuildPlacementService {
 
     public void selectItemForPlacement(String itemId, String label, ItemStack preview,
                                        Runnable setModeInteract) {
-        if (itemId == null || itemId.isBlank() || preview == null || preview.isEmpty()) {
+        if (isBlank(itemId) || preview == null || preview.isEmpty()) {
             return;
         }
         ItemStack safePreview = preview.copy();
         safePreview.setCount(1);
-        setSelectedItem(itemId, label == null || label.isBlank() ? safePreview.getHoverName().getString() : label, safePreview);
+        setSelectedItem(itemId, isBlank(label) ? safePreview.getDisplayName() : label, safePreview);
         clearSelectedFluid();
         setModeInteract.run();
     }
@@ -182,7 +184,7 @@ public final class BuildPlacementService {
     //  Placement operations
     // =========================================================================
 
-    public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
+    public void placeSelected(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir,
                               boolean skipIfOccupied, boolean quickBuild,
                               Runnable beginRemoteMenuOpenGrace,
                               BooleanSupplier shouldAutoClearSelectedItemWhenUnavailable,
@@ -192,31 +194,31 @@ public final class BuildPlacementService {
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
         long selectedCount = getSelectedItemCountForPlacement(itemId, isLocalPlayerCreative, storageTotalCount, hasStoragePageSnapshot);
         boolean autoClearUnavailable = shouldAutoClearSelectedItemWhenUnavailable.getAsBoolean();
-        if (!itemId.isBlank() && autoClearUnavailable && selectedCount <= 0L) {
+        if (!isBlank(itemId) && autoClearUnavailable && selectedCount <= 0L) {
             selectEmptyHandPreserveMode();
             itemId = "";
         }
 
         String payloadItemId = itemId;
-        if (payloadItemId.isBlank()) {
-            Minecraft mc = Minecraft.getInstance();
+        if (isBlank(payloadItemId)) {
+            Minecraft mc = Minecraft.getMinecraft();
             if (mc.player != null) {
-                int slot = Mth.clamp(mc.player.getInventory().selected, 0, 8);
-                ItemStack toolStack = mc.player.getInventory().getItem(slot);
-                if (!toolStack.isEmpty() && toolStack.getItem() instanceof BlockItem) {
-                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+                int slot = MathHelper.clamp(mc.player.inventory.currentItem, 0, 8);
+                ItemStack toolStack = mc.player.inventory.getStackInSlot(slot);
+                if (!toolStack.isEmpty() && toolStack.getItem() instanceof ItemBlock) {
+                    ResourceLocation id = ForgeRegistries.ITEMS.getKey(toolStack.getItem());
                     if (id != null) {
                         payloadItemId = id.toString();
                     }
                 }
             }
         }
-        boolean clearAfterPlace = !payloadItemId.isBlank() && autoClearUnavailable && selectedCount <= 1L;
-        ItemStack itemPrototype = payloadItemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview;
+        boolean clearAfterPlace = !isBlank(payloadItemId) && autoClearUnavailable && selectedCount <= 1L;
+        ItemStack itemPrototype = isBlank(payloadItemId) ? ItemStack.EMPTY : this.selectedItemPreview;
 
         RtsClientPacketGateway.sendPlace(hit, forcePlace, skipIfOccupied, payloadItemId, itemPrototype,
-                payloadItemId.isBlank() ? 0 : this.placeRotateSteps,
-                payloadItemId.isBlank() ? "" : this.placementStatePreset,
+                isBlank(payloadItemId) ? 0 : this.placeRotateSteps,
+                isBlank(payloadItemId) ? "" : this.placementStatePreset,
                 rayOrigin, rayDir, quickBuild);
         if (clearAfterPlace) {
             selectEmptyHandPreserveMode();
@@ -224,8 +226,8 @@ public final class BuildPlacementService {
         }
     }
 
-    public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit,
-                                   boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
+    public void placeSelectedBatch(List<RayTraceResult> hits, RayTraceResult templateHit,
+                                   boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir,
                                    boolean skipIfOccupied, boolean overwriteExisting,
                                    Runnable beginRemoteMenuOpenGrace,
                                    BooleanSupplier shouldAutoClearSelectedItemWhenUnavailable,
@@ -236,23 +238,23 @@ public final class BuildPlacementService {
         String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
         long selectedCount = getSelectedItemCountForPlacement(itemId, isLocalPlayerCreative, storageTotalCount, hasStoragePageSnapshot);
         boolean autoClearUnavailable = shouldAutoClearSelectedItemWhenUnavailable.getAsBoolean();
-        if (!itemId.isBlank() && autoClearUnavailable && selectedCount <= 0L) {
+        if (!isBlank(itemId) && autoClearUnavailable && selectedCount <= 0L) {
             selectEmptyHandPreserveMode();
             itemId = "";
         }
         int attemptedPlacements = hits == null ? 0 : hits.size();
-        boolean clearAfterPlace = !itemId.isBlank()
+        boolean clearAfterPlace = !isBlank(itemId)
                 && autoClearUnavailable
                 && selectedCount <= Math.max(1, attemptedPlacements);
 
         String payloadItemId = itemId;
-        if (payloadItemId.isBlank()) {
-            Minecraft mc = Minecraft.getInstance();
+        if (isBlank(payloadItemId)) {
+            Minecraft mc = Minecraft.getMinecraft();
             if (mc.player != null) {
-                int slot = Mth.clamp(mc.player.getInventory().selected, 0, 8);
-                ItemStack toolStack = mc.player.getInventory().getItem(slot);
-                if (!toolStack.isEmpty() && toolStack.getItem() instanceof BlockItem) {
-                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+                int slot = MathHelper.clamp(mc.player.inventory.currentItem, 0, 8);
+                ItemStack toolStack = mc.player.inventory.getStackInSlot(slot);
+                if (!toolStack.isEmpty() && toolStack.getItem() instanceof ItemBlock) {
+                    ResourceLocation id = ForgeRegistries.ITEMS.getKey(toolStack.getItem());
                     if (id != null) {
                         payloadItemId = id.toString();
                     }
@@ -262,9 +264,9 @@ public final class BuildPlacementService {
 
         RtsClientPacketGateway.sendPlaceBatch(hits, templateHit, forcePlace, skipIfOccupied, overwriteExisting,
                 payloadItemId,
-                payloadItemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview,
-                payloadItemId.isBlank() ? 0 : this.placeRotateSteps,
-                payloadItemId.isBlank() ? "" : this.placementStatePreset,
+                isBlank(payloadItemId) ? ItemStack.EMPTY : this.selectedItemPreview,
+                isBlank(payloadItemId) ? 0 : this.placeRotateSteps,
+                isBlank(payloadItemId) ? "" : this.placementStatePreset,
                 rayOrigin, rayDir);
         if (clearAfterPlace) {
             selectEmptyHandPreserveMode();
@@ -272,8 +274,8 @@ public final class BuildPlacementService {
         }
     }
 
-    public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
-        if (hit == null || this.selectedFluidId.isBlank()) {
+    public void placeSelectedFluid(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir) {
+        if (hit == null || isBlank(this.selectedFluidId)) {
             return;
         }
         RtsClientPacketGateway.sendPlaceFluid(hit, forcePlace, this.selectedFluidId, rayOrigin, rayDir);
@@ -284,12 +286,12 @@ public final class BuildPlacementService {
     // =========================================================================
 
     public void storeFluidFromStorageItem(String itemId) {
-        if (itemId == null || itemId.isBlank()) return;
+        if (isBlank(itemId)) return;
         RtsClientPacketGateway.sendStoreFluid(C2SRtsStoreFluidPayload.SOURCE_STORAGE_ITEM, 0, itemId);
     }
 
     public void storeFluidFromPinnedItem(String itemId) {
-        if (itemId == null || itemId.isBlank()) return;
+        if (isBlank(itemId)) return;
         RtsClientPacketGateway.sendStoreFluid(C2SRtsStoreFluidPayload.SOURCE_PIN_ITEM, 0, itemId);
     }
 
@@ -301,49 +303,49 @@ public final class BuildPlacementService {
     //  Interaction operations
     // =========================================================================
 
-    public void interactEmpty(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir,
+    public void interactEmpty(RayTraceResult hit, Vec3d rayOrigin, Vec3d rayDir,
                               Runnable beginRemoteMenuOpenGrace) {
         beginRemoteMenuOpenGrace.run();
         RtsClientPacketGateway.sendEmptyHandPlace(hit, rayOrigin, rayDir);
     }
 
-    public void interactEntityEmpty(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir,
+    public void interactEntityEmpty(int entityId, Vec3d hitLocation, Vec3d rayOrigin, Vec3d rayDir,
                                     Runnable beginRemoteMenuOpenGrace) {
         beginRemoteMenuOpenGrace.run();
         RtsClientPacketGateway.sendInteractEntityEmptyHand(entityId, hitLocation, rayOrigin, rayDir);
     }
 
-    public void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+    public void interactBlockWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir,
                                           Runnable beginRemoteMenuOpenGrace) {
         if (hit == null) return;
         beginRemoteMenuOpenGrace.run();
         RtsClientPacketGateway.sendInteractBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
     }
 
-    public void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+    public void useItemInAirWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir,
                                          Runnable beginRemoteMenuOpenGrace) {
         if (hit == null) return;
         beginRemoteMenuOpenGrace.run();
         RtsClientPacketGateway.sendUseItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
     }
 
-    public void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir,
+    public void interactBlockWithPinnedItem(RayTraceResult hit, String itemId, Vec3d rayOrigin, Vec3d rayDir,
                                             Runnable beginRemoteMenuOpenGrace) {
-        if (hit == null || itemId == null || itemId.isBlank()) return;
+        if (hit == null || isBlank(itemId)) return;
         beginRemoteMenuOpenGrace.run();
         RtsClientPacketGateway.sendInteractBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir);
     }
 
-    public void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+    public void interactEntityWithToolSlot(int entityId, Vec3d hitLocation, int toolSlot, Vec3d rayOrigin, Vec3d rayDir,
                                            Runnable beginRemoteMenuOpenGrace) {
         if (entityId < 0 || hitLocation == null) return;
         beginRemoteMenuOpenGrace.run();
         RtsClientPacketGateway.sendInteractEntityWithToolSlot(entityId, hitLocation, toolSlot, rayOrigin, rayDir);
     }
 
-    public void interactEntityWithPinnedItem(int entityId, Vec3 hitLocation, String itemId, Vec3 rayOrigin, Vec3 rayDir,
+    public void interactEntityWithPinnedItem(int entityId, Vec3d hitLocation, String itemId, Vec3d rayOrigin, Vec3d rayDir,
                                              Runnable beginRemoteMenuOpenGrace) {
-        if (entityId < 0 || hitLocation == null || itemId == null || itemId.isBlank()) return;
+        if (entityId < 0 || hitLocation == null || isBlank(itemId)) return;
         beginRemoteMenuOpenGrace.run();
         RtsClientPacketGateway.sendInteractEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir);
     }
@@ -352,9 +354,9 @@ public final class BuildPlacementService {
     //  Break operations
     // =========================================================================
 
-    public void breakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) {
+    public void breakPlaced(BlockPos pos, EnumFacing face, boolean allowAdjacentFallback) {
         if (pos == null) return;
-        Direction resolvedFace = face == null ? Direction.UP : face;
+        EnumFacing resolvedFace = face == null ? EnumFacing.UP : face;
         RtsClientPacketGateway.sendBreakPlaced(pos, resolvedFace, allowAdjacentFallback);
     }
 
@@ -369,7 +371,7 @@ public final class BuildPlacementService {
 
     public void rotateBlockStep(
             BlockPos pos,
-            Direction axisDirection,
+            EnumFacing axisDirection,
             int quarterTurns) {
         if (pos != null && axisDirection != null && quarterTurns != 0) {
             RtsClientPacketGateway.sendRotateBlockStep(
@@ -391,10 +393,11 @@ public final class BuildPlacementService {
         this.placementStateItemId = this.selectedItemId;
     }
 
-    public void copyPlacementState(BlockState state) {
+    public void copyPlacementState(IBlockState state) {
         this.placeRotateSteps = 0;
         this.placementStatePreset = PlacementStatePreset.fromBlockState(state);
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
+        Item item = Item.getItemFromBlock(state.getBlock());
+        ResourceLocation itemId = item == null ? null : ForgeRegistries.ITEMS.getKey(item);
         this.placementStateItemId = itemId == null ? "" : itemId.toString();
     }
 
@@ -421,7 +424,7 @@ public final class BuildPlacementService {
 
     private long getSelectedItemCountForPlacement(String itemId, boolean isLocalPlayerCreative,
                                                   long storageTotalCount, boolean hasStoragePageSnapshot) {
-        if (itemId == null || itemId.isBlank()) return Long.MAX_VALUE;
+        if (isBlank(itemId)) return Long.MAX_VALUE;
         if (isLocalPlayerCreative) return Long.MAX_VALUE;
         return hasStoragePageSnapshot ? storageTotalCount : Long.MAX_VALUE;
     }
@@ -440,7 +443,7 @@ public final class BuildPlacementService {
         this.selectedItemId = nextItemId;
         this.selectedItemLabel = label == null ? "" : label;
         this.selectedItemPreview = preview == null ? ItemStack.EMPTY : preview;
-        if (!this.selectedItemId.isBlank()) {
+        if (!isBlank(this.selectedItemId)) {
             this.emptyHandSelected = false;
         }
     }
@@ -449,7 +452,7 @@ public final class BuildPlacementService {
         this.selectedFluidId = fluidId == null ? "" : fluidId;
         this.selectedFluidLabel = label == null ? "" : label;
         this.selectedFluidPreview = preview == null ? ItemStack.EMPTY : preview;
-        if (!this.selectedFluidId.isBlank()) {
+        if (!isBlank(this.selectedFluidId)) {
             this.emptyHandSelected = false;
         }
     }
@@ -462,7 +465,7 @@ public final class BuildPlacementService {
     public void syncSelectedPreviewFromStorage(List<StorageEntry> entries,
                                                boolean hasStoragePageSnapshot,
                                                long storageTotalCount) {
-        if (this.selectedItemId == null || this.selectedItemId.isBlank()) {
+        if (isBlank(this.selectedItemId)) {
             return;
         }
         for (StorageEntry entry : entries) {
@@ -482,13 +485,26 @@ public final class BuildPlacementService {
         if (isLocalPlayerCreative()) return false;
         return this.selectedItemPreview != null
                 && !this.selectedItemPreview.isEmpty()
-                && this.selectedItemPreview.getItem() instanceof BlockItem
+                && this.selectedItemPreview.getItem() instanceof ItemBlock
                 && hasStoragePageSnapshot
                 && storageTotalCount <= 0L;
     }
 
     private static boolean isLocalPlayerCreative() {
-        Minecraft minecraft = Minecraft.getInstance();
-        return minecraft != null && minecraft.player != null && minecraft.player.isCreative();
+        Minecraft minecraft = Minecraft.getMinecraft();
+        return minecraft != null && minecraft.player != null && minecraft.player.capabilities.isCreativeMode;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private static ResourceLocation parseResourceLocation(String value) {
+        if (isBlank(value)) return null;
+        try {
+            return new ResourceLocation(value);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 }

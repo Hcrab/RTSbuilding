@@ -4,14 +4,15 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.client.event.ScreenEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import org.lwjgl.input.Keyboard;
 
 import static com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate.*;
 import static com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayInputHandler.*;
@@ -27,27 +28,25 @@ final class RtsClientInputRouter {
     private RtsClientInputRouter() {
     }
 
-    static void onScreenKeyPressed(ScreenEvent.KeyPressed.Pre event) {
-        if (!RtsClientInputPolicy.canHandleOverlayInput(event.getScreen())) {
-            return;
+    static boolean onScreenKeyPressed(GuiScreen screen, int keyCode, char typedChar) {
+        if (!RtsClientInputPolicy.canHandleOverlayInput(screen)) {
+            return false;
         }
 
         if (OVERLAY_CRAFT_DIALOG.isOpen()) {
-            OVERLAY_CRAFT_DIALOG.keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers());
+            OVERLAY_CRAFT_DIALOG.keyPressed(keyCode, 0, 0);
             submitOverlayCraftDialogIfReady();
-            event.setCanceled(true);
-            return;
+            return true;
         }
 
         if (!overlaySearchFocused && !overlayCraftSearchFocused) {
-            return;
+            return false;
         }
 
-        int keyCode = event.getKeyCode();
-        boolean ctrl = (event.getModifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean ctrl = GuiScreen.isCtrlKeyDown();
         boolean craftSearch = overlayCraftSearchFocused;
 
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE) {
             if (craftSearch) {
                 overlayCraftSearchDraft = "";
                 overlayCraftSearchFocused = false;
@@ -57,20 +56,18 @@ final class RtsClientInputRouter {
                 overlaySearchFocused = false;
                 ClientRtsController.get().setStorageSearch("");
             }
-            event.setCanceled(true);
-            return;
+            return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             if (craftSearch) {
                 overlayCraftSearchFocused = false;
                 applyOverlayCraftSearch();
             } else {
                 overlaySearchFocused = false;
             }
-            event.setCanceled(true);
-            return;
+            return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+        if (keyCode == Keyboard.KEY_BACK) {
             if (craftSearch) {
                 if (!overlayCraftSearchDraft.isEmpty()) {
                     overlayCraftSearchDraft = overlayCraftSearchDraft.substring(0, overlayCraftSearchDraft.length() - 1);
@@ -79,55 +76,32 @@ final class RtsClientInputRouter {
                 overlaySearchDraft = overlaySearchDraft.substring(0, overlaySearchDraft.length() - 1);
                 ClientRtsController.get().setStorageSearch(overlaySearchDraft);
             }
-            event.setCanceled(true);
-            return;
+            return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_DELETE) {
+        if (keyCode == Keyboard.KEY_DELETE) {
             if (craftSearch) {
                 overlayCraftSearchDraft = "";
             } else {
                 overlaySearchDraft = "";
                 ClientRtsController.get().setStorageSearch("");
             }
-            event.setCanceled(true);
-            return;
+            return true;
         }
-        if (ctrl && keyCode == GLFW.GLFW_KEY_V) {
-            Minecraft minecraft = Minecraft.getInstance();
-            String clip = minecraft.keyboardHandler.getClipboard();
+        if (ctrl && keyCode == Keyboard.KEY_V) {
+            String clip = GuiScreen.getClipboardString();
             if (clip != null && !clip.isEmpty()) {
                 appendSearchText(clip, craftSearch);
             }
-            event.setCanceled(true);
-            return;
+            return true;
         }
 
-        event.setCanceled(true);
+        if (!Character.isISOControl(typedChar)) {
+            appendSearchText(Character.toString(typedChar), craftSearch);
+        }
+        return true;
     }
 
-    static void onScreenCharTyped(ScreenEvent.CharacterTyped.Pre event) {
-        if (!RtsClientInputPolicy.canHandleOverlayInput(event.getScreen())) {
-            return;
-        }
-        if (OVERLAY_CRAFT_DIALOG.isOpen()) {
-            OVERLAY_CRAFT_DIALOG.charTyped((char) event.getCodePoint(), 0);
-            submitOverlayCraftDialogIfReady();
-            event.setCanceled(true);
-            return;
-        }
-        if (!overlaySearchFocused && !overlayCraftSearchFocused) {
-            return;
-        }
-        int codePoint = event.getCodePoint();
-        if (!Character.isValidCodePoint(codePoint) || Character.isISOControl(codePoint)) {
-            event.setCanceled(true);
-            return;
-        }
-        appendSearchText(new String(Character.toChars(codePoint)), overlayCraftSearchFocused);
-        event.setCanceled(true);
-    }
-
-    static void onScreenClosing(ScreenEvent.Closing event) {
+    static void onScreenClosing(GuiScreen screen) {
         captureLeftRelease = false;
         captureRightRelease = false;
         overlaySearchFocused = false;
@@ -145,42 +119,43 @@ final class RtsClientInputRouter {
             pendingOverlayCarriedItemId = "";
             return;
         }
-        if (event.getScreen() instanceof BuilderScreen) {
+        if (screen instanceof BuilderScreen) {
             return;
         }
-        if (event.getScreen() instanceof RtsCraftTerminalScreen) {
+        if (screen instanceof RtsCraftTerminalScreen) {
             pendingOverlayCarriedItemId = "";
             return;
         }
-        if (!(event.getScreen() instanceof AbstractContainerScreen<?>)) {
+        if (!(screen instanceof GuiContainer)) {
             pendingOverlayCarriedItemId = "";
             return;
         }
 
-        if (pendingOverlayCarriedItemId.isBlank()) {
+        if (pendingOverlayCarriedItemId == null || pendingOverlayCarriedItemId.trim().isEmpty()) {
             return;
         }
 
-        Minecraft minecraft = Minecraft.getInstance();
+        Minecraft minecraft = Minecraft.getMinecraft();
         if (minecraft.player == null) {
             pendingOverlayCarriedItemId = "";
             return;
         }
 
-        ItemStack carried = minecraft.player.containerMenu.getCarried();
+        ItemStack carried = minecraft.player.inventory.getItemStack();
         if (carried.isEmpty()) {
             pendingOverlayCarriedItemId = "";
             return;
         }
 
-        var carriedId = BuiltInRegistries.ITEM.getKey(carried.getItem());
+        ResourceLocation carriedId = ForgeRegistries.ITEMS.getKey(carried.getItem());
         if (carriedId == null || !pendingOverlayCarriedItemId.equals(carriedId.toString())) {
             pendingOverlayCarriedItemId = "";
             return;
         }
 
-        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(pendingOverlayCarriedItemId, carried.getCount()));
-        minecraft.player.containerMenu.setCarried(ItemStack.EMPTY);
+        RtsPayloadRegistrar.sendToServer(new C2SRtsReturnCarriedPayload(
+                pendingOverlayCarriedItemId, carried.getCount()));
+        minecraft.player.inventory.setItemStack(ItemStack.EMPTY);
         pendingOverlayCarriedItemId = "";
     }
 

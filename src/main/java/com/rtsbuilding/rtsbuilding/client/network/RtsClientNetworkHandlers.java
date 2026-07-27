@@ -28,111 +28,119 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.client.Minecraft;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
+
+@SideOnly(Side.CLIENT)
 public final class RtsClientNetworkHandlers {
     private RtsClientNetworkHandlers() {
     }
 
-    public static void handleCameraState(S2CRtsCameraStatePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyServerCameraState(payload));
+    /** SimpleNetworkWrapper 的 Netty 线程不得直接修改客户端世界或 UI。 */
+    private static void schedule(Runnable task) {
+        Minecraft.getMinecraft().addScheduledTask(task);
     }
 
-    public static void handleCameraAnchor(S2CRtsCameraAnchorPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyServerCameraAnchor(payload));
+    public static void handleCameraState(S2CRtsCameraStatePayload payload) {
+        schedule(() -> ClientRtsController.get().applyServerCameraState(payload));
     }
 
-    public static void handleStoragePage(S2CRtsStoragePagePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
+    public static void handleCameraAnchor(S2CRtsCameraAnchorPayload payload) {
+        schedule(() -> ClientRtsController.get().applyServerCameraAnchor(payload));
+    }
+
+    public static void handleStoragePage(S2CRtsStoragePagePayload payload) {
+        schedule(() -> {
             ClientRtsController.get().applyStoragePage(payload);
             RtsDeveloperScenarioTracker.getInstance().record("storage_page_received", "page=" + payload.page());
         });
     }
 
-    public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyStorageDirty(payload));
+    public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload) {
+        schedule(() -> ClientRtsController.get().applyStorageDirty(payload));
     }
 
-    public static void handleRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyRemoteMenuHint(payload));
+    public static void handleRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload) {
+        schedule(() -> ClientRtsController.get().applyRemoteMenuHint(payload));
     }
 
-    public static void handleCraftables(S2CRtsCraftablesPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyCraftables(payload));
+    public static void handleCraftables(S2CRtsCraftablesPayload payload) {
+        schedule(() -> ClientRtsController.get().applyCraftables(payload));
     }
 
-    public static void handleCraftFeedback(S2CRtsCraftFeedbackPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyCraftFeedback(payload));
+    public static void handleCraftFeedback(S2CRtsCraftFeedbackPayload payload) {
+        schedule(() -> ClientRtsController.get().applyCraftFeedback(payload));
     }
 
-    public static void handleCullingState(S2CRtsCullingStatePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> RtsCullingClientState.applyCurrentWorldState(payload));
+    public static void handleCullingState(S2CRtsCullingStatePayload payload) {
+        schedule(() -> RtsCullingClientState.applyCurrentWorldState(payload));
     }
 
-    public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyDamageFeedback(payload));
+    public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload) {
+        schedule(() -> ClientRtsController.get().applyDamageFeedback(payload));
     }
 
-    public static void handleQuestDetectStatus(S2CRtsQuestDetectStatusPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyQuestDetectStatus(payload));
+    public static void handleQuestDetectStatus(S2CRtsQuestDetectStatusPayload payload) {
+        schedule(() -> ClientRtsController.get().applyQuestDetectStatus(payload));
     }
 
-    public static void handleMineProgress(S2CRtsMineProgressPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyMineProgress(payload));
+    public static void handleMineProgress(S2CRtsMineProgressPayload payload) {
+        schedule(() -> ClientRtsController.get().applyMineProgress(payload));
     }
 
-    public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyUltimineProgress(payload));
+    public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload) {
+        schedule(() -> ClientRtsController.get().applyUltimineProgress(payload));
     }
 
     public static void handleHarvestTierSkipped(
-            S2CRtsHarvestTierSkippedPayload payload,
-            IPayloadContext context) {
-        context.enqueueWork(() -> {
-            Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft.screen instanceof BuilderScreen builderScreen) {
+            S2CRtsHarvestTierSkippedPayload payload) {
+        schedule(() -> {
+            Minecraft minecraft = Minecraft.getMinecraft();
+            if (minecraft.currentScreen instanceof BuilderScreen) {
+                BuilderScreen builderScreen = (BuilderScreen) minecraft.currentScreen;
                 builderScreen.getShapeController()
                         .removeConfirmedRangeDestroyPreviewBlocks(payload.positions());
             }
         });
     }
 
-    public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
+    public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload) {
+        schedule(() -> {
             PlacementAnimationRenderer.confirmPlacement(payload.pos(), payload.state());
             RtsDeveloperScenarioTracker.getInstance().record(
-                    "place_confirmed", "pos=" + payload.pos().toShortString());
+                    "place_confirmed", "pos=" + payload.pos());
         });
     }
 
-    public static void handleBreakAnimation(S2CRtsBreakAnimationPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
+    public static void handleBreakAnimation(S2CRtsBreakAnimationPayload payload) {
+        schedule(() -> {
             ClientFakeAirBlocks.hideUntilServerState(payload.pos(), payload.state(), payload.resultState());
             PlacementAnimationRenderer.addDestroy(payload.pos(), payload.state());
             ShapeGhostRenderer.markDestroyed(payload.pos());
             RtsDeveloperScenarioTracker.getInstance().record(
-                    "break_confirmed", "pos=" + payload.pos().toShortString());
+                    "break_confirmed", "pos=" + payload.pos());
         });
     }
 
-    public static void handleBlockActionSound(S2CRtsBlockActionSoundPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> RtsBlockActionSoundPlayer.play(payload));
+    public static void handleBlockActionSound(S2CRtsBlockActionSoundPayload payload) {
+        schedule(() -> RtsBlockActionSoundPlayer.play(payload));
     }
 
-    public static void handleProgressionState(S2CRtsProgressionStatePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyProgressionState(payload));
+    public static void handleProgressionState(S2CRtsProgressionStatePayload payload) {
+        schedule(() -> ClientRtsController.get().applyProgressionState(payload));
     }
 
-    public static void handlePluginState(S2CRtsPluginStatePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyPluginState(payload));
+    public static void handlePluginState(S2CRtsPluginStatePayload payload) {
+        schedule(() -> ClientRtsController.get().applyPluginState(payload));
     }
 
-    public static void handleHistorySync(S2CRtsHistorySyncPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize()));
+    public static void handleHistorySync(S2CRtsHistorySyncPayload payload) {
+        schedule(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize()));
     }
 
-    public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
+    public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload) {
+        schedule(() -> {
             ClientRtsController.get().applyWorkflowProgress(payload);
             RtsDeveloperScenarioTracker.getInstance().record(
                     "workflow_update_received", "completed=" + payload.completedBlocks()
@@ -140,36 +148,38 @@ public final class RtsClientNetworkHandlers {
         });
     }
 
-    public static void handleWorkflowProgressBatch(S2CRtsWorkflowProgressBatchPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
+    public static void handleWorkflowProgressBatch(S2CRtsWorkflowProgressBatchPayload payload) {
+        schedule(() -> {
             ClientRtsController.get().applyWorkflowProgressBatch(payload);
             RtsDeveloperScenarioTracker.getInstance().record(
                     "workflow_update_received", "entries=" + payload.entries().size());
         });
     }
 
-    public static void handleResumePlacementScan(S2CRtsResumePlacementScanPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
+    public static void handleResumePlacementScan(S2CRtsResumePlacementScanPayload payload) {
+        schedule(() -> {
             ClientRtsController controller = ClientRtsController.get();
             controller.applyResumePlacementScan(payload);
             // 打开重启面板
-            if (Minecraft.getInstance().screen instanceof BuilderScreen bs) {
+            if (Minecraft.getMinecraft().currentScreen instanceof BuilderScreen) {
+                BuilderScreen bs = (BuilderScreen) Minecraft.getMinecraft().currentScreen;
                 RtsResumePlacementPanel panel = bs.getResumePlacementPanel();
                 panel.openWithData(payload);
             }
         });
     }
 
-    public static void handleBlueprintResumeScan(S2CRtsBlueprintResumeScanPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (Minecraft.getInstance().screen instanceof BuilderScreen bs) {
+    public static void handleBlueprintResumeScan(S2CRtsBlueprintResumeScanPayload payload) {
+        schedule(() -> {
+            if (Minecraft.getMinecraft().currentScreen instanceof BuilderScreen) {
+                BuilderScreen bs = (BuilderScreen) Minecraft.getMinecraft().currentScreen;
                 RtsBlueprintResumePanel panel = bs.getBlueprintResumePanel();
                 panel.openWithData(payload);
             }
         });
     }
 
-    public static void handleBlueprintStatus(S2CBlueprintStatusPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> BlueprintPanel.setStatus(payload.status(), payload.messageKey(), payload.detail()));
+    public static void handleBlueprintStatus(S2CBlueprintStatusPayload payload) {
+        schedule(() -> BlueprintPanel.setStatus(payload.status(), payload.messageKey(), payload.detail()));
     }
 }

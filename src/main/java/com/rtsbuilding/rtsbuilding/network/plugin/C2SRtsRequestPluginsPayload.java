@@ -1,22 +1,15 @@
 package com.rtsbuilding.rtsbuilding.network.plugin;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsRequestPluginsPayload() implements CustomPacketPayload {
-    public static final Type<C2SRtsRequestPluginsPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_request_plugins"));
+public final class C2SRtsRequestPluginsPayload implements IMessage {
+    public C2SRtsRequestPluginsPayload() {
+    }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsRequestPluginsPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-            },
-            (buf) -> new C2SRtsRequestPluginsPayload());
+    @Override public void fromBytes(ByteBuf buffer) {
+    }
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    @Override public void toBytes(ByteBuf buffer) {
     }
 }

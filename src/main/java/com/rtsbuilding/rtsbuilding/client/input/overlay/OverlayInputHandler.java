@@ -2,9 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.util.Mth;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.util.math.MathHelper;
+import org.lwjgl.input.Mouse;
 
 import static com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate.*;
 import static com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayLayoutHelper.*;
@@ -46,7 +46,7 @@ public final class OverlayInputHandler {
         }
     }
 
-    public static void requestOverlayBootstrap(Screen screen, ClientRtsController controller) {
+    public static void requestOverlayBootstrap(GuiScreen screen, ClientRtsController controller) {
         if (overlayBootstrapRequested || controller == null) {
             return;
         }
@@ -100,7 +100,7 @@ public final class OverlayInputHandler {
         }
     }
 
-    public static void syncOverlayScreen(Screen screen, ClientRtsController controller) {
+    public static void syncOverlayScreen(GuiScreen screen, ClientRtsController controller) {
         if (screen == activeOverlayScreen) {
             return;
         }
@@ -144,15 +144,15 @@ public final class OverlayInputHandler {
         overlayDragOffsetY = mouseY - layout.panelY();
     }
 
-    public static void updateOverlayDrag(Screen screen, double mouseX, double mouseY, OverlayProfile profile) {
+    public static void updateOverlayDrag(GuiScreen screen, double mouseX, double mouseY, OverlayProfile profile) {
         int sw = overlayVirtualWidth(profile);
         int sh = overlayVirtualHeight(profile);
         int minX = OVERLAY_MARGIN;
         int maxX = Math.max(minX, sw - currentOverlayWidth(profile) - OVERLAY_MARGIN);
         int minY = OVERLAY_MARGIN;
         int maxY = Math.max(minY, sh - overlayHeight(profile) - OVERLAY_MARGIN);
-        int panelX = Mth.clamp((int) Math.round(mouseX - overlayDragOffsetX), minX, maxX);
-        int panelY = Mth.clamp((int) Math.round(mouseY - overlayDragOffsetY), minY, maxY);
+        int panelX = MathHelper.clamp((int) Math.round(mouseX - overlayDragOffsetX), minX, maxX);
+        int panelY = MathHelper.clamp((int) Math.round(mouseY - overlayDragOffsetY), minY, maxY);
 
         ClientRtsController controller = ClientRtsController.get();
         controller.updateStoragePanelLayout(
@@ -187,9 +187,6 @@ public final class OverlayInputHandler {
     }
 
     public static boolean isLeftMouseDown() {
-        Minecraft minecraft = Minecraft.getInstance();
-        return minecraft != null
-                && minecraft.getWindow() != null
-                && org.lwjgl.glfw.GLFW.glfwGetMouseButton(minecraft.getWindow().getWindow(), org.lwjgl.glfw.GLFW.GLFW_MOUSE_BUTTON_LEFT) == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+        return Mouse.isButtonDown(0);
     }
 }

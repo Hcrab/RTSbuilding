@@ -31,21 +31,22 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.inventory.GuiCrafting;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.init.SoundEvents;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.block.state.IBlockState;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
 
@@ -173,7 +174,7 @@ final class ClientRtsCommandOwner {
 
     void rotateBlockStep(
                 BlockPos pos,
-                Direction axisDirection,
+                EnumFacing axisDirection,
                 int quarterTurns) {
             controller.buildPlacementService.rotateBlockStep(
                     pos, axisDirection, quarterTurns);
@@ -195,16 +196,12 @@ final class ClientRtsCommandOwner {
             RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
         }
 
-    boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
-            if (controller.pendingCraftTerminalOpen) {
-                return true;
-            }
-            return craftingScreen.getTitle() != null
-                    && "RTS Craft Terminal".equals(craftingScreen.getTitle().getString());
+    boolean shouldUseRtsCraftTerminalScreen(GuiCrafting craftingScreen) {
+            return controller.pendingCraftTerminalOpen;
         }
 
-    void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) {
-            if (itemId == null || itemId.isBlank() || dropPos == null) {
+    void quickDropSelectedItem(String itemId, int amount, Vec3d dropPos) {
+            if (itemId == null || itemId.trim().isEmpty() || dropPos == null) {
                 return;
             }
             RtsClientPacketGateway.sendQuickDrop(itemId, amount, dropPos);
@@ -238,16 +235,17 @@ final class ClientRtsCommandOwner {
         }
 
     void applyDamageFeedback(S2CRtsDamageFeedbackPayload payload) {
-            Minecraft minecraft = Minecraft.getInstance();
+            Minecraft minecraft = Minecraft.getMinecraft();
             if (minecraft.player == null) {
                 return;
             }
-            if (minecraft.screen instanceof BuilderScreen builderScreen) {
+            if (minecraft.currentScreen instanceof BuilderScreen) {
+                BuilderScreen builderScreen = (BuilderScreen) minecraft.currentScreen;
                 builderScreen.triggerDamageFlash();
             }
             if (RtsClientUiStateStore.isRtsSoundsEnabled() && controller.isDamageSoundEnabled()) {
-                float volume = Mth.clamp(0.45F + Math.max(0.0F, payload.amount()) * 0.08F, 0.45F, 1.2F);
-                minecraft.player.playSound(SoundEvents.PLAYER_HURT, volume, 1.0F);
+                float volume = MathHelper.clamp(0.45F + Math.max(0.0F, payload.amount()) * 0.08F, 0.45F, 1.2F);
+                minecraft.player.playSound(SoundEvents.ENTITY_PLAYER_HURT, volume, 1.0F);
             }
             if (payload.lowHealth() && controller.isDamageAutoReturnEnabled() && controller.enabled) {
                 RtsClientPacketGateway.sendToggleCamera(controller.isStartCameraAtPlayerHead());
@@ -328,10 +326,10 @@ final class ClientRtsCommandOwner {
         }
 
     void handleRemoteMenuOpenFailure(Minecraft minecraft, Throwable throwable) {
-            String menuClass = minecraft.player != null && minecraft.player.containerMenu != null
-                    ? minecraft.player.containerMenu.getClass().getName()
+            String menuClass = minecraft.player != null && minecraft.player.openContainer != null
+                    ? minecraft.player.openContainer.getClass().getName()
                     : "null";
-            String screenClass = minecraft.screen != null ? minecraft.screen.getClass().getName() : "null";
+            String screenClass = minecraft.currentScreen != null ? minecraft.currentScreen.getClass().getName() : "null";
             RtsbuildingMod.LOGGER.error(
                     "RTS remote menu open failed for menu {} on screen {}; closing container to prevent a client crash.",
                     menuClass,
@@ -341,10 +339,10 @@ final class ClientRtsCommandOwner {
             controller.pendingRemoteMenuOpenTicks = 0;
             if (minecraft.player != null) {
                 RtsClientPacketGateway.sendCloseRemoteMenu();
-                minecraft.player.closeContainer();
-                minecraft.player.displayClientMessage(Component.literal("Open failed."), true);
+                minecraft.player.closeScreen();
+                minecraft.player.sendStatusMessage(new TextComponentString("Open failed."), true);
             }
-            minecraft.setScreen(null);
+            minecraft.displayGuiScreen(null);
         }
 
     void clearRemoteMenuValidationState() {
@@ -353,8 +351,9 @@ final class ClientRtsCommandOwner {
         }
 
     boolean isLocalPlayerCreative() {
-            Minecraft minecraft = Minecraft.getInstance();
-            return minecraft != null && minecraft.player != null && minecraft.player.isCreative();
+            Minecraft minecraft = Minecraft.getMinecraft();
+            return minecraft != null && minecraft.player != null
+                    && minecraft.player.capabilities.isCreativeMode;
         }
 
 }

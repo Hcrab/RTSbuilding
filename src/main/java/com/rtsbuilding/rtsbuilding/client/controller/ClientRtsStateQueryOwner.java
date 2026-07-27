@@ -31,21 +31,20 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
-import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.entity.EntityPlayerSP;
+import net.minecraft.client.gui.inventory.GuiCrafting;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.block.state.IBlockState;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
 
@@ -367,7 +366,7 @@ final class ClientRtsStateQueryOwner {
             if (controller.questDetectPhase == S2CRtsQuestDetectStatusPayload.PHASE_STARTED) {
                 return (float) Math.min(0.92D, elapsed / 1000.0D * 0.92D);
             }
-            return (float) Mth.clamp(elapsed / (double) ClientRtsController.QUEST_DETECT_MIN_PROGRESS_MS, 0.0D, 1.0D);
+            return (float) MathHelper.clamp(elapsed / (double) ClientRtsController.QUEST_DETECT_MIN_PROGRESS_MS, 0.0D, 1.0D);
         }
 
     boolean isStorageScanPopupVisible() {

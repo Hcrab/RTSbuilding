@@ -8,13 +8,13 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 import java.util.List;
 
@@ -86,8 +86,8 @@ public final class MiningOperationService {
      * Updates the render destroy progress; a negative stage clears rendering.
      */
     public void applyMineProgress(BlockPos pos, int stage) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.world == null) {
             return;
         }
 
@@ -98,15 +98,15 @@ public final class MiningOperationService {
         }
 
         if (this.mineRenderPos != null && !this.mineRenderPos.equals(pos)) {
-            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
+            minecraft.world.sendBlockBreakProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
         }
-        minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, pos, Math.min(9, stage));
-        this.mineRenderPos = pos.immutable();
+        minecraft.world.sendBlockBreakProgress(RTS_MINE_RENDER_ID, pos, Math.min(9, stage));
+        this.mineRenderPos = pos.toImmutable();
         this.mineRenderStage = Math.min(9, stage);
     }
 
     private void rememberMineProgressCompleted(BlockPos pos) {
-        this.mineProgressCompletedPos = pos == null ? null : pos.immutable();
+        this.mineProgressCompletedPos = pos == null ? null : pos.toImmutable();
         this.mineProgressCompletedAtMs = System.currentTimeMillis();
     }
 
@@ -123,9 +123,9 @@ public final class MiningOperationService {
         if (pos == null) {
             return;
         }
-        this.activeMinePos = pos.immutable();
+        this.activeMinePos = pos.toImmutable();
         this.activeMineFace = face;
-        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.activeMineToolSlot = MathHelper.clamp(toolSlot, 0, 8);
         this.mineRenderPos = this.activeMinePos;
         this.mineRenderStage = 0;
         RtsClientPacketGateway.sendMineStart(
@@ -147,9 +147,9 @@ public final class MiningOperationService {
         if (pos == null) {
             return;
         }
-        this.activeMinePos = pos.immutable();
+        this.activeMinePos = pos.toImmutable();
         this.activeMineFace = face;
-        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.activeMineToolSlot = MathHelper.clamp(toolSlot, 0, 8);
         this.mineRenderPos = this.activeMinePos;
         this.mineRenderStage = 0;
         RtsClientPacketGateway.sendUltimineStart(
@@ -254,7 +254,7 @@ public final class MiningOperationService {
     // ---------- Selection management ----------
 
     public void setAreaMinePointA(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
-        this.areaMinePointA = pos == null ? null : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        this.areaMinePointA = pos == null ? null : clampToBounds(pos.toImmutable(), anchorX, anchorZ, maxRadius, hasBounds);
         this.areaMinePointB = null;
         this.areaMineHeightOffset = 0;
         this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_SECOND;
@@ -263,7 +263,7 @@ public final class MiningOperationService {
     }
 
     public void setAreaMinePointB(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
-        this.areaMinePointB = pos == null ? null : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        this.areaMinePointB = pos == null ? null : clampToBounds(pos.toImmutable(), anchorX, anchorZ, maxRadius, hasBounds);
         this.areaMineHeightOffset = 0;
         this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_HEIGHT;
         this.mineRenderPos = this.areaMinePointB;
@@ -274,14 +274,14 @@ public final class MiningOperationService {
         if (pos == null || !hasBounds) {
             return pos;
         }
-        int minBlockX = Mth.floor(anchorX - maxRadius);
-        int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
-        int minBlockZ = Mth.floor(anchorZ - maxRadius);
-        int maxBlockZ = Mth.ceil(anchorZ + maxRadius) - 1;
+        int minBlockX = MathHelper.floor(anchorX - maxRadius);
+        int maxBlockX = MathHelper.ceil(anchorX + maxRadius) - 1;
+        int minBlockZ = MathHelper.floor(anchorZ - maxRadius);
+        int maxBlockZ = MathHelper.ceil(anchorZ + maxRadius) - 1;
         return new BlockPos(
-                Mth.clamp(pos.getX(), minBlockX, maxBlockX),
+                MathHelper.clamp(pos.getX(), minBlockX, maxBlockX),
                 pos.getY(),
-                Mth.clamp(pos.getZ(), minBlockZ, maxBlockZ));
+                MathHelper.clamp(pos.getZ(), minBlockZ, maxBlockZ));
     }
 
     public void clearAreaMineSession() {
@@ -301,9 +301,9 @@ public final class MiningOperationService {
         AreaMineBounds bounds = computeAreaMineBounds(
                 this.areaMinePointA, this.areaMinePointB, this.areaMineHeightOffset);
 
-        this.activeMinePos = this.areaMinePointA.immutable();
-        this.activeMineFace = Direction.UP.get3DDataValue();
-        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.activeMinePos = this.areaMinePointA.toImmutable();
+        this.activeMineFace = EnumFacing.UP.getIndex();
+        this.activeMineToolSlot = MathHelper.clamp(toolSlot, 0, 8);
         this.mineRenderPos = this.activeMinePos;
         this.mineRenderStage = 0;
 
@@ -326,10 +326,10 @@ public final class MiningOperationService {
         if (targets == null || targets.isEmpty()) {
             return;
         }
-        BlockPos first = targets.get(0).immutable();
+        BlockPos first = targets.get(0).toImmutable();
         this.activeMinePos = first;
-        this.activeMineFace = Direction.UP.get3DDataValue();
-        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.activeMineFace = EnumFacing.UP.getIndex();
+        this.activeMineToolSlot = MathHelper.clamp(toolSlot, 0, 8);
         this.mineRenderPos = first;
         this.mineRenderStage = 0;
         RtsClientPacketGateway.sendAreaDestroy(
@@ -350,15 +350,15 @@ public final class MiningOperationService {
         if (prototype.isEmpty()) {
             return "";
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(prototype.getItem());
+        ResourceLocation id = ForgeRegistries.ITEMS.getKey(prototype.getItem());
         return id == null ? "" : id.toString();
     }
 
     private ItemStack selectedMiningToolPrototype(String selectedItemId, ItemStack selectedItemPreview) {
-        if (selectedItemId == null || selectedItemId.isBlank() || selectedItemPreview == null || selectedItemPreview.isEmpty()) {
+        if (isBlank(selectedItemId) || selectedItemPreview == null || selectedItemPreview.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        if (selectedItemPreview.getItem() instanceof BlockItem
+        if (selectedItemPreview.getItem() instanceof ItemBlock
                 || RtsClientPluginCatalog.isPluginItem(selectedItemPreview)) {
             return ItemStack.EMPTY;
         }
@@ -368,16 +368,20 @@ public final class MiningOperationService {
     }
 
     private static byte areaShapeOrdinal(AreaMineShape shape) {
-        AreaShape areaShape = switch (shape == null ? AreaMineShape.BLOCK : shape) {
-            case LINE -> AreaShape.LINE;
-            case SQUARE -> AreaShape.SQUARE;
-            case WALL -> AreaShape.WALL;
-            case CIRCLE -> AreaShape.CIRCLE;
-            case BOX -> AreaShape.BOX;
-            case CYLINDER -> AreaShape.CYLINDER;
-            case BALL -> AreaShape.BALL;
-            case BLOCK, CHAIN -> AreaShape.BLOCK;
-        };
+        AreaMineShape resolved = shape == null ? AreaMineShape.BLOCK : shape;
+        AreaShape areaShape;
+        switch (resolved) {
+            case LINE: areaShape = AreaShape.LINE; break;
+            case SQUARE: areaShape = AreaShape.SQUARE; break;
+            case WALL: areaShape = AreaShape.WALL; break;
+            case CIRCLE: areaShape = AreaShape.CIRCLE; break;
+            case BOX: areaShape = AreaShape.BOX; break;
+            case CYLINDER: areaShape = AreaShape.CYLINDER; break;
+            case BALL: areaShape = AreaShape.BALL; break;
+            case BLOCK:
+            case CHAIN:
+            default: areaShape = AreaShape.BLOCK; break;
+        }
         return (byte) areaShape.ordinal();
     }
 
@@ -483,15 +487,15 @@ public final class MiningOperationService {
     }
 
     private void clearMineProgressRender(BlockPos fallbackPos) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level != null
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.world != null
                 && this.mineRenderPos != null
                 && (fallbackPos == null || this.mineRenderPos.equals(fallbackPos))) {
-            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
+            minecraft.world.sendBlockBreakProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
             this.mineRenderPos = null;
             this.mineRenderStage = -1;
-        } else if (minecraft.level != null && fallbackPos != null) {
-            minecraft.level.destroyBlockProgress(RTS_MINE_RENDER_ID, fallbackPos, -1);
+        } else if (minecraft.world != null && fallbackPos != null) {
+            minecraft.world.sendBlockBreakProgress(RTS_MINE_RENDER_ID, fallbackPos, -1);
             if (fallbackPos.equals(this.mineRenderPos)) {
                 this.mineRenderPos = null;
                 this.mineRenderStage = -1;
@@ -508,5 +512,9 @@ public final class MiningOperationService {
         }
         this.activeMinePos = null;
         this.activeMineFace = -1;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

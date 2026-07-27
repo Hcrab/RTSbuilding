@@ -1,66 +1,81 @@
 package com.rtsbuilding.rtsbuilding.client.compat;
 
-
-import com.mojang.brigadier.Command;
 import com.rtsbuilding.rtsbuilding.RtsCommunityLinks;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.world.level.storage.LevelResource;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
-import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.minecraft.client.multiplayer.ServerData;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.text.event.ClickEvent;
+import net.minecraft.util.text.event.HoverEvent;
+import net.minecraftforge.client.ClientCommandHandler;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.relauncher.Side;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
+import java.nio.file.Path;
+
+/**
+ * Forge 1.12.2 客户端入门提醒。
+ *
+ * <p>本类只管理连接级延迟、提示文本和本地隐藏命令；作用域归一化与磁盘状态仍由独立组件负责。
+ * 它不参与服务端加载，也不会把单人世界的隐藏状态错误地扩散到其他存档。</p>
+ */
+@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Side.CLIENT)
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
     private static final String STABLE_VERSION = "1.1.5-patch4";
     private static final int SHOW_DELAY_TICKS = 80;
 
+    private static boolean commandRegistered;
     private static boolean shownThisConnection;
     private static int ticksUntilReminder = -1;
 
     private RtsClientOnboardingReminder() {
     }
 
-    @SubscribeEvent
-    public static void registerClientCommands(RegisterClientCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal(DISMISS_COMMAND).executes(context -> dismissIntroReminder()));
-        event.getDispatcher().register(Commands.literal("rtsbuilding")
-                .then(Commands.literal("hide")
-                        .then(Commands.literal("intro").executes(context -> dismissIntroReminder()))));
+    /** 由客户端引导层调用一次，注册不发送到服务端的本地隐藏命令。 */
+    public static synchronized void registerClientCommand() {
+        if (commandRegistered) {
+            return;
+        }
+        ClientCommandHandler.instance.registerCommand(new DismissCommand());
+        commandRegistered = true;
     }
 
     private static int dismissIntroReminder() {
-        Minecraft minecraft = Minecraft.getInstance();
+        Minecraft minecraft = Minecraft.getMinecraft();
         String key = currentReminderKey(minecraft);
-        if (key.isBlank()) {
+        if (key.trim().isEmpty()) {
             return 0;
         }
         RtsClientUiStateStore.dismissIntroReminder(key);
         if (minecraft.player != null) {
-            minecraft.player.displayClientMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"), false);
+            minecraft.player.sendMessage(new TextComponentTranslation("chat.rtsbuilding.intro.dismissed"));
         }
-        return Command.SINGLE_SUCCESS;
+        return 1;
     }
 
     @SubscribeEvent
-    public static void onClientTickPost(ClientTickEvent.Post event) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null || minecraft.level == null) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) {
+            return;
+        }
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.player == null || minecraft.world == null) {
             shownThisConnection = false;
             ticksUntilReminder = -1;
             return;
         }
-
         if (shownThisConnection) {
             return;
         }
@@ -72,8 +87,7 @@ public final class RtsClientOnboardingReminder {
         }
 
         String key = currentReminderKey(minecraft);
-        if (key.isBlank()) {
-            // 服务器/存档身份尚未稳定时稍后重试，避免把提醒错误地记到维度或全局键上。
+        if (key.trim().isEmpty()) {
             ticksUntilReminder = SHOW_DELAY_TICKS;
             return;
         }
@@ -82,84 +96,85 @@ public final class RtsClientOnboardingReminder {
             return;
         }
 
-        minecraft.player.displayClientMessage(Component.translatable(
-                "chat.rtsbuilding.intro.rts_key",
-                Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA), false);
-        minecraft.player.displayClientMessage(Component.translatable(
-                "chat.rtsbuilding.intro.version_warning",
-                Component.literal(currentDisplayVersion()),
-                Component.literal(STABLE_VERSION),
-                websiteComponent())
-                .withStyle(ChatFormatting.GOLD), false);
-        minecraft.player.displayClientMessage(Component.translatable(
-                "chat.rtsbuilding.intro.feedback",
-                discordComponent(),
-                githubComponent(),
-                Component.literal(RtsCommunityLinks.QQ_GROUP).withStyle(style -> style
-                        .withColor(ChatFormatting.GREEN)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.COPY_TO_CLIPBOARD, RtsCommunityLinks.QQ_GROUP))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.translatable("chat.rtsbuilding.intro.copy_qq")))))
-                .withStyle(ChatFormatting.GRAY), false);
-        minecraft.player.displayClientMessage(Component.translatable("chat.rtsbuilding.intro.config_hint")
-                .withStyle(ChatFormatting.GRAY)
-                .append(Component.literal(" "))
-                .append(Component.translatable("chat.rtsbuilding.intro.dismiss").withStyle(style -> style
-                        .withColor(ChatFormatting.YELLOW)
-                        .withUnderlined(true)
-                        .withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + DISMISS_COMMAND))
-                        .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.translatable("chat.rtsbuilding.intro.dismiss.hover"))))), false);
+        minecraft.player.sendMessage(new TextComponentTranslation("chat.rtsbuilding.intro.rts_key",
+                styled(new TextComponentTranslation("key.rtsbuilding.toggle_rts"), TextFormatting.AQUA, null, null)));
+        minecraft.player.sendMessage(styled(new TextComponentTranslation("chat.rtsbuilding.intro.version_warning",
+                new TextComponentString(currentDisplayVersion()), new TextComponentString(STABLE_VERSION),
+                link(RtsCommunityLinks.WEBSITE)), TextFormatting.GOLD, null, null));
+        minecraft.player.sendMessage(styled(new TextComponentTranslation("chat.rtsbuilding.intro.feedback",
+                link(RtsCommunityLinks.DISCORD_INVITE), link(RtsCommunityLinks.GITHUB_REPOSITORY),
+                new TextComponentString(RtsCommunityLinks.QQ_GROUP)), TextFormatting.GRAY, null, null));
+
+        ITextComponent dismiss = styled(new TextComponentTranslation("chat.rtsbuilding.intro.dismiss"),
+                TextFormatting.YELLOW,
+                new ClickEvent(ClickEvent.Action.RUN_COMMAND, "/" + DISMISS_COMMAND),
+                new HoverEvent(HoverEvent.Action.SHOW_TEXT,
+                        new TextComponentTranslation("chat.rtsbuilding.intro.dismiss.hover")));
+        ITextComponent hint = styled(new TextComponentTranslation("chat.rtsbuilding.intro.config_hint"),
+                TextFormatting.GRAY, null, null);
+        hint.appendText(" ").appendSibling(dismiss);
+        minecraft.player.sendMessage(hint);
     }
 
-    private static Component discordComponent() {
-        return Component.literal(RtsCommunityLinks.DISCORD_INVITE).withStyle(style -> style
-                .withColor(ChatFormatting.BLUE)
-                .withUnderlined(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, RtsCommunityLinks.DISCORD_INVITE))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.DISCORD_INVITE))));
+    private static ITextComponent link(String url) {
+        return styled(new TextComponentString(url), TextFormatting.BLUE,
+                new ClickEvent(ClickEvent.Action.OPEN_URL, url),
+                new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TextComponentString(url)));
     }
 
-    /**
-     * 从实际加载的 ModContainer 读取当前版本系列。
-     *
-     * <p>入门提醒面向普通玩家，只展示 {@code 1.1.6} 这一公开版本号；
-     * Pilot 构建自身仍保留完整的 {@code 1.1.6-pilotN} JAR 元数据，便于日志诊断。
-     */
+    private static ITextComponent styled(ITextComponent component, TextFormatting color,
+            ClickEvent click, HoverEvent hover) {
+        Style style = new Style().setColor(color);
+        if (click != null) {
+            style.setClickEvent(click).setUnderlined(true);
+        }
+        if (hover != null) {
+            style.setHoverEvent(hover);
+        }
+        component.setStyle(style);
+        return component;
+    }
+
     private static String currentDisplayVersion() {
-        String version = ModList.get()
-                .getModContainerById(RtsbuildingMod.MODID)
-                .map(container -> container.getModInfo().getVersion().toString())
-                .orElse("unknown");
+        net.minecraftforge.fml.common.ModContainer container =
+                Loader.instance().getIndexedModList().get(RtsbuildingMod.MODID);
+        String version = container == null ? "unknown" : container.getVersion();
         int qualifier = version.indexOf('-');
         return qualifier > 0 ? version.substring(0, qualifier) : version;
-    }
-
-    private static Component websiteComponent() {
-        return Component.literal(RtsCommunityLinks.WEBSITE).withStyle(style -> style
-                .withColor(ChatFormatting.BLUE)
-                .withUnderlined(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, RtsCommunityLinks.WEBSITE))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.WEBSITE))));
-    }
-
-    private static Component githubComponent() {
-        return Component.literal(RtsCommunityLinks.GITHUB_REPOSITORY).withStyle(style -> style
-                .withColor(ChatFormatting.BLUE)
-                .withUnderlined(true)
-                .withClickEvent(new ClickEvent(ClickEvent.Action.OPEN_URL, RtsCommunityLinks.GITHUB_REPOSITORY))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.GITHUB_REPOSITORY))));
     }
 
     private static String currentReminderKey(Minecraft minecraft) {
         if (minecraft == null) {
             return "";
         }
-        if (minecraft.getSingleplayerServer() != null) {
-            return RtsIntroReminderScope.singleplayerKey(
-                    minecraft.getSingleplayerServer().getWorldPath(LevelResource.ROOT));
+        if (minecraft.isSingleplayer() && minecraft.world != null && minecraft.world.getSaveHandler() != null) {
+            Path worldRoot = minecraft.world.getSaveHandler().getWorldDirectory().toPath();
+            return RtsIntroReminderScope.singleplayerKey(worldRoot);
         }
-        if (minecraft.getCurrentServer() != null && minecraft.getCurrentServer().ip != null) {
-            return RtsIntroReminderScope.serverKey(minecraft.getCurrentServer().ip);
+        ServerData server = minecraft.getCurrentServerData();
+        return server == null ? "" : RtsIntroReminderScope.serverKey(server.serverIP);
+    }
+
+    private static final class DismissCommand extends CommandBase {
+        @Override
+        public String getName() {
+            return DISMISS_COMMAND;
         }
-        return "";
+
+        @Override
+        public String getUsage(ICommandSender sender) {
+            return "/" + DISMISS_COMMAND;
+        }
+
+        @Override
+        public int getRequiredPermissionLevel() {
+            return 0;
+        }
+
+        @Override
+        public void execute(net.minecraft.server.MinecraftServer server, ICommandSender sender,
+                String[] args) throws CommandException {
+            dismissIntroReminder();
+        }
     }
 }

@@ -16,7 +16,7 @@ class RtsIntroReminderScopeTest {
 
     @Test
     void singleplayerScopeUsesNormalizedWorldDirectory() {
-        Path root = Path.of("E:", "Minecraft", "saves", "Demo", "..", "Demo");
+        Path root = java.nio.file.Paths.get("E:", "Minecraft", "saves", "Demo", "..", "Demo");
 
         assertEquals(
                 RtsIntroReminderScope.singleplayerKey(root.normalize()),
@@ -26,8 +26,8 @@ class RtsIntroReminderScopeTest {
     @Test
     void differentWorldDirectoriesRemainIndependent() {
         assertNotEquals(
-                RtsIntroReminderScope.singleplayerKey(Path.of("E:", "Minecraft", "saves", "World-A")),
-                RtsIntroReminderScope.singleplayerKey(Path.of("E:", "Minecraft", "saves", "World-B")));
+                RtsIntroReminderScope.singleplayerKey(java.nio.file.Paths.get("E:", "Minecraft", "saves", "World-A")),
+                RtsIntroReminderScope.singleplayerKey(java.nio.file.Paths.get("E:", "Minecraft", "saves", "World-B")));
     }
 
     @Test

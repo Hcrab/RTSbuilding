@@ -8,12 +8,12 @@ import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
 import net.minecraft.client.Minecraft;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.ClientTickEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.relauncher.Side;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
+@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Side.CLIENT)
 public final class ClientInputHandler {
     private static boolean toggleKeyWasDown = false;
     private static int toggleCooldownTicks = 0;
@@ -22,15 +22,14 @@ public final class ClientInputHandler {
     }
 
     @SubscribeEvent
-    public static void onClientTickPre(ClientTickEvent.Pre event) {
-        ClientRtsController.get().preTick();
-        RtsClientPathfinding.tickPre();
-    }
-
-    @SubscribeEvent
-    public static void onClientTickPost(ClientTickEvent.Post event) {
+    public static void onClientTick(TickEvent.ClientTickEvent event) {
+        if (event.phase == TickEvent.Phase.START) {
+            ClientRtsController.get().preTick();
+            RtsClientPathfinding.tickPre();
+            return;
+        }
         ClientFakeAirBlocks.tick();
-        Minecraft minecraft = Minecraft.getInstance();
+        Minecraft minecraft = Minecraft.getMinecraft();
         if (minecraft.player == null) {
             toggleKeyWasDown = false;
             toggleCooldownTicks = 0;
@@ -42,7 +41,7 @@ public final class ClientInputHandler {
             toggleCooldownTicks--;
         }
 
-        boolean toggleKeyDown = ClientKeyMappings.TOGGLE_RTS.isDown();
+        boolean toggleKeyDown = ClientKeyMappings.TOGGLE_RTS.isKeyDown();
         if (!toggleKeyDown && toggleKeyWasDown && toggleCooldownTicks == 0) {
             RtsClientPacketGateway.sendToggleCamera(ClientRtsController.get().isStartCameraAtPlayerHead());
             toggleCooldownTicks = 6;

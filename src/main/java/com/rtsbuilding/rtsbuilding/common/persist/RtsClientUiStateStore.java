@@ -5,10 +5,9 @@ import com.google.gson.ExclusionStrategy;
 import com.google.gson.FieldAttributes;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
-import net.neoforged.fml.loading.FMLPaths;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import net.minecraftforge.fml.common.Loader;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,7 +25,7 @@ import java.util.*;
  * 防止玩家直接编辑文件篡改配置。文件被篡改时自动忽略并恢复默认值。
  *
  * <p>此层只做 I/O 和数据校验，不含业务逻辑。
- * 批量的加载/保存协调由 {@link RtsScreenUiStateManager} 负责。
+ * 批量的加载/保存协调由客户端的 RtsScreenUiStateManager 负责。
  * {@link UiStateCache} 提供内存缓存以避免冗余的文件读写。
  *
  * <h3>架构</h3>
@@ -37,13 +36,12 @@ import java.util.*;
  *   <li><b>校验</b> — {@link UiState#sanitized()} 在每次写入前清理非法值</li>
  * </ul>
  *
- * @see RtsScreenUiStateManager
  * @see UiStateCache
  * @see UiState
  * @see UiStateCodec
  */
 public final class RtsClientUiStateStore {
-    private static final Logger LOG = LoggerFactory.getLogger("RtsClientUiState");
+    private static final Logger LOG = LogManager.getLogger("RtsClientUiState");
     private static final Gson GSON = new GsonBuilder()
             .setPrettyPrinting()
             .addSerializationExclusionStrategy(new ExclusionStrategy() {
@@ -68,7 +66,7 @@ public final class RtsClientUiStateStore {
     static final int CURRENT_STORE_VERSION = 4;
 
     /** 持久化配置文件路径：config/rts_building/rtsbuilding-client-ui.rtsd（二进制编译格式） */
-    private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
+    private static final Path CONFIG_PATH = Loader.instance().getConfigDir().toPath()
             .resolve("rts_building")
             .resolve("rtsbuilding-client-ui.rtsd");
 
@@ -210,7 +208,7 @@ public final class RtsClientUiStateStore {
      * 否则玩家不打开 RTS 界面便退出时，选择会丢失。</p>
      */
     public static synchronized void dismissIntroReminder(String key) {
-        if (key == null || key.isBlank()) {
+        if (isBlank(key)) {
             return;
         }
         CACHE.get().addDismissedIntroReminderKey(key);
@@ -619,7 +617,7 @@ public final class RtsClientUiStateStore {
          */
         public boolean isIntroReminderDismissed(String key) {
             String normalized = normalizeKey(key);
-            if (normalized.isBlank()) {
+            if (isBlank(normalized)) {
                 return false;
             }
             for (String existing : sanitizeKeys(this.dismissedIntroReminderKeys)) {
@@ -633,7 +631,7 @@ public final class RtsClientUiStateStore {
         /** 包级私有：添加一个引导提醒键到已关闭列表（由 Store 调用）。 */
         void addDismissedIntroReminderKey(String key) {
             String normalized = normalizeKey(key);
-            if (normalized.isBlank()) {
+            if (isBlank(normalized)) {
                 return;
             }
             List<String> clean = sanitizeKeys(this.dismissedIntroReminderKeys);
@@ -647,7 +645,7 @@ public final class RtsClientUiStateStore {
          * 校验并标准化枚举值。
          */
         private static String sanitizeEnum(String value, String fallback) {
-            if (value == null || value.isBlank()) {
+            if (isBlank(value)) {
                 return fallback;
             }
             return value.trim().toUpperCase(Locale.ROOT);
@@ -680,12 +678,17 @@ public final class RtsClientUiStateStore {
             if (values != null) {
                 for (String value : values) {
                     String normalized = normalizeKey(value);
-                    if (!normalized.isBlank()) {
+                    if (!isBlank(normalized)) {
                         unique.add(normalized);
                     }
                 }
             }
             return new ArrayList<>(unique);
+        }
+
+        /** 避免纯数据清理触发外层存储类（以及 Forge Loader）的静态初始化。 */
+        private static boolean isBlank(String value) {
+            return value == null || value.trim().isEmpty();
         }
 
         /**
@@ -694,5 +697,9 @@ public final class RtsClientUiStateStore {
         private static String normalizeKey(String key) {
             return key == null ? "" : key.trim().toLowerCase(Locale.ROOT);
         }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

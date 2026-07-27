@@ -8,5 +8,6 @@
 	"credits": "${mod_credits}",
 	"url": "${mod_url}",
 	"updateJSON": "${mod_update_json}",
+	"guiFactory": "com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap",
 	"logoFile": "${mod_logo_path}"
 }]

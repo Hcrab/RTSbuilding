@@ -9,16 +9,10 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.fluids.FluidUtil;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.*;
 
@@ -199,7 +193,7 @@ public final class StorageStateManager {
     }
 
     public long getStorageTotalCount(String itemId) {
-        if (itemId == null || itemId.isBlank()) {
+        if (itemId == null || itemId.trim().isEmpty()) {
             return 0L;
         }
         return Math.max(0L, this.storageTotalCounts.getOrDefault(itemId, 0L));
@@ -368,7 +362,7 @@ public final class StorageStateManager {
         if (preview != null && !preview.isEmpty()) {
             // 服务端保存的 label 可能已经按服务端语言展开。优先用客户端
             // 物品预览重新解析名称，让 AE 线缆、机器等绑定跟随玩家的当前语言。
-            return preview.getHoverName().getString();
+            return preview.getDisplayName();
         }
         return this.bindingState.bindingLabel(index);
     }
@@ -397,7 +391,7 @@ public final class StorageStateManager {
     }
 
     public void updateStoragePageSize(int pageSize) {
-        int safePageSize = Mth.clamp(pageSize, 1, MAX_STORAGE_PAGE_SIZE);
+        int safePageSize = MathHelper.clamp(pageSize, 1, MAX_STORAGE_PAGE_SIZE);
         if (this.storagePageSize == safePageSize) {
             return;
         }
@@ -544,7 +538,7 @@ public final class StorageStateManager {
         this.bindingState.clearQuick(index);
     }
 
-    public void setGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
+    public void setGuiBinding(int index, BlockPos pos, EnumFacing face, String itemIdHint) {
         this.bindingState.setBinding(index, pos, face, itemIdHint);
     }
 
@@ -759,7 +753,7 @@ public final class StorageStateManager {
     }
 
     private long getStorageFluidAmount(String fluidId) {
-        if (fluidId == null || fluidId.isBlank()) {
+        if (fluidId == null || fluidId.trim().isEmpty()) {
             return 0L;
         }
         for (FluidEntry entry : this.fluidEntries) {
@@ -778,7 +772,7 @@ public final class StorageStateManager {
         if (!Double.isFinite(value)) {
             return 0.0D;
         }
-        return Mth.clamp(value, 0.0D, 1.0D);
+        return MathHelper.clamp(value, 0.0D, 1.0D);
     }
 
     private static String normalizeCategory(String category) {

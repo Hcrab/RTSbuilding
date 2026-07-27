@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.controller;
 
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 public final class ProgressionStateManager {
     private boolean progressionEnabled;
     private boolean progressionHomeSet;
-    private BlockPos progressionHomePos = BlockPos.ZERO;
+    private BlockPos progressionHomePos = BlockPos.ORIGIN;
     private String progressionHomeDimension = "";
     private long progressionHomeCooldownTicks;
     private int progressionRadiusBlocks = 48;

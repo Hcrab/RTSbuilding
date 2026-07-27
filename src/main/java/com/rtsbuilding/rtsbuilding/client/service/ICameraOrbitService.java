@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.service;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.entity.Entity;
 
 /**
  * Interface for camera orbit, pan, dolly, rotation sensitivity, smoothing,
@@ -121,7 +121,7 @@ public interface ICameraOrbitService {
 
     float getLocalPitchDeg();
 
-    net.minecraft.world.entity.Entity getLocalMirrorCamera();
+    net.minecraft.entity.Entity getLocalMirrorCamera();
 
     // ======================== Input queueing ========================
 

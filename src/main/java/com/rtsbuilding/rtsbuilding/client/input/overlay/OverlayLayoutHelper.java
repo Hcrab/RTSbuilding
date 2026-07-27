@@ -1,23 +1,19 @@
 package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.util.Mth;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.util.math.MathHelper;
+
+import java.awt.Rectangle;
 
 import static com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate.overlayCollapsed;
 import static com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate.overlayCraftCollapsed;
@@ -81,7 +77,7 @@ public final class OverlayLayoutHelper {
     //  Records
     // =========================================================================
 
-    public record JeiOverlayIngredient(net.minecraft.world.item.ItemStack stack, Rect2i area) {
+    public record JeiOverlayIngredient(net.minecraft.item.ItemStack stack, Rectangle area) {
     }
 
     public record ButtonLayout(int x, int y, int w, int h) {
@@ -211,18 +207,19 @@ public final class OverlayLayoutHelper {
         boolean highScale = guiScale > HIGH_SCALE_COMPACT_THRESHOLD;
         boolean extremeScale = guiScale >= EXTREME_SCALE_COMPACT_THRESHOLD;
         double renderScale = highScale
-                ? Mth.clamp(OVERLAY_TARGET_GUI_SCALE / guiScale, 0.45D, 1.0D)
+                ? MathHelper.clamp(OVERLAY_TARGET_GUI_SCALE / guiScale, 0.45D, 1.0D)
                 : 1.0D;
         int rows = extremeScale ? 2 : highScale ? 3 : STORAGE_ROWS;
         return new OverlayProfile(guiScale, renderScale, rows, highScale);
     }
 
     public static double currentGuiScale() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.getWindow() == null || minecraft.getWindow().getGuiScaledWidth() <= 0) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft == null || minecraft.displayWidth <= 0) {
             return OVERLAY_TARGET_GUI_SCALE;
         }
-        double scale = minecraft.getWindow().getScreenWidth() / (double) Math.max(1, minecraft.getWindow().getGuiScaledWidth());
+        ScaledResolution resolution = new ScaledResolution(minecraft);
+        double scale = minecraft.displayWidth / (double) Math.max(1, resolution.getScaledWidth());
         return scale > 0.0D && Double.isFinite(scale) ? scale : OVERLAY_TARGET_GUI_SCALE;
     }
 
@@ -231,23 +228,23 @@ public final class OverlayLayoutHelper {
     }
 
     public static int overlayVirtualWidth(OverlayProfile profile) {
-        Minecraft minecraft = Minecraft.getInstance();
-        int width = minecraft == null || minecraft.getWindow() == null ? 1 : minecraft.getWindow().getGuiScaledWidth();
+        Minecraft minecraft = Minecraft.getMinecraft();
+        int width = minecraft == null ? 1 : new ScaledResolution(minecraft).getScaledWidth();
         return Math.max(1, (int) Math.round(width / Math.max(0.001D, profile.renderScale())));
     }
 
     public static int overlayVirtualHeight(OverlayProfile profile) {
-        Minecraft minecraft = Minecraft.getInstance();
-        int height = minecraft == null || minecraft.getWindow() == null ? 1 : minecraft.getWindow().getGuiScaledHeight();
+        Minecraft minecraft = Minecraft.getMinecraft();
+        int height = minecraft == null ? 1 : new ScaledResolution(minecraft).getScaledHeight();
         return Math.max(1, (int) Math.round(height / Math.max(0.001D, profile.renderScale())));
     }
 
-    public static Rect2i toGuiRect(int x, int y, int w, int h, double scale) {
+    public static Rectangle toGuiRect(int x, int y, int w, int h, double scale) {
         int rx = (int) Math.round(x * scale);
         int ry = (int) Math.round(y * scale);
         int rw = Math.max(1, (int) Math.round(w * scale));
         int rh = Math.max(1, (int) Math.round(h * scale));
-        return new Rect2i(rx, ry, rw, rh);
+        return new Rectangle(rx, ry, rw, rh);
     }
 
     public static int resolveOverlayX(int screenWidth, OverlayProfile profile) {
@@ -262,11 +259,11 @@ public final class OverlayLayoutHelper {
         return minY + (int) Math.round((maxY - minY) * ClientRtsController.get().getStoragePanelYNormalized());
     }
 
-    public static OverlayLayout resolveOverlayLayout(Screen screen) {
+    public static OverlayLayout resolveOverlayLayout(GuiScreen screen) {
         return resolveOverlayLayout(overlayProfile());
     }
 
-    public static VisibleOverlayLayout resolveVisibleOverlayLayout(Screen screen) {
+    public static VisibleOverlayLayout resolveVisibleOverlayLayout(GuiScreen screen) {
         if (!shouldRenderContainerOverlay(screen)) {
             return null;
         }
@@ -274,11 +271,11 @@ public final class OverlayLayoutHelper {
         return new VisibleOverlayLayout(profile, resolveOverlayLayout(profile));
     }
 
-    public static boolean shouldRenderContainerOverlay(Screen screen) {
+    public static boolean shouldRenderContainerOverlay(GuiScreen screen) {
         if (screen == null
                 || screen instanceof BuilderScreen
                 || screen instanceof RtsCraftTerminalScreen
-                || !(screen instanceof AbstractContainerScreen<?>)) {
+                || !(screen instanceof GuiContainer)) {
             return false;
         }
         return RtsClientUiStateStore.isContainerOverlayEnabled()
@@ -290,8 +287,8 @@ public final class OverlayLayoutHelper {
         int sh = overlayVirtualHeight(profile);
         int panelW = currentOverlayWidth(profile);
         int panelH = overlayHeight(profile);
-        int panelX = Mth.clamp(resolveOverlayX(sw, profile), OVERLAY_MARGIN, Math.max(OVERLAY_MARGIN, sw - panelW - OVERLAY_MARGIN));
-        int panelY = Mth.clamp(resolveOverlayY(sh, profile), OVERLAY_MARGIN, Math.max(OVERLAY_MARGIN, sh - panelH - OVERLAY_MARGIN));
+        int panelX = MathHelper.clamp(resolveOverlayX(sw, profile), OVERLAY_MARGIN, Math.max(OVERLAY_MARGIN, sw - panelW - OVERLAY_MARGIN));
+        int panelY = MathHelper.clamp(resolveOverlayY(sh, profile), OVERLAY_MARGIN, Math.max(OVERLAY_MARGIN, sh - panelH - OVERLAY_MARGIN));
         boolean stacked = profile.stackCraftBelow();
         boolean collapsed = overlayCollapsed;
         boolean craftCollapsed = collapsed || isCraftPanelCollapsed(profile);
@@ -395,41 +392,35 @@ public final class OverlayLayoutHelper {
     //  Drawing helpers
     // =========================================================================
 
-    public static void drawPanelFrame(GuiGraphics g, Font font, int x, int y, int w, int h,
+    public static void drawPanelFrame(LegacyGuiGraphics g, FontRenderer font, int x, int y, int w, int h,
                                       UiColor fillColor, UiColor light, UiColor dark) {
-        drawPanelFrame(new MinecraftUiCanvas(g, font), x, y, w, h,
-                fillColor, light, dark);
+        g.fill(x, y, x + w, y + h, fillColor.toArgb());
+        g.fill(x, y, x + w, y + 1, light.toArgb());
+        g.fill(x, y, x + 1, y + h, light.toArgb());
+        g.fill(x, y + h - 1, x + w, y + h, dark.toArgb());
+        g.fill(x + w - 1, y, x + w, y + h, dark.toArgb());
     }
 
-    public static void drawPanelFrame(MinecraftUiCanvas canvas, int x, int y,
-                                      int w, int h, UiColor fillColor,
-                                      UiColor light, UiColor dark) {
-        UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, w, h),
-                fillColor, light, dark);
-    }
-
-    public static void drawOverlayWindowFrame(GuiGraphics g, Font font, int x, int y, int w, int h) {
-        UiChromeRenderer.frame(new MinecraftUiCanvas(g, font), new UiRect(x, y, w, h), 1.0D,
-                ContainerOverlayStyle.WINDOW_BACKGROUND,
-                ContainerOverlayStyle.WINDOW_BORDER_LIGHT,
-                ContainerOverlayStyle.WINDOW_BORDER_DARK);
+    public static void drawOverlayWindowFrame(LegacyGuiGraphics g, FontRenderer font, int x, int y, int w, int h) {
+        drawPanelFrame(g, font, x, y, w, h, ContainerOverlayStyle.WINDOW_BACKGROUND,
+                ContainerOverlayStyle.WINDOW_BORDER_LIGHT, ContainerOverlayStyle.WINDOW_BORDER_DARK);
         g.fill(x + 1, y + 1, x + w - 1, y + OVERLAY_WINDOW_TITLE_H,
                 ContainerOverlayStyle.WINDOW_TITLE.toArgb());
     }
 
-    public static void drawMiniButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label) {
+    public static void drawMiniButton(LegacyGuiGraphics g, FontRenderer font, int x, int y, int w, int h, String label) {
         drawPanelFrame(g, font, x, y, w, h,
                 ContainerOverlayStyle.MINI_BUTTON_BACKGROUND,
                 ContainerOverlayStyle.BUTTON_BORDER_LIGHT,
                 ContainerOverlayStyle.BUTTON_BORDER_DARK);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, label, x + w / 2, y + 2,
-                ContainerOverlayStyle.BUTTON_TEXT.toArgb());
+        g.drawCenteredString(font, label, x + w / 2, y + 2, ContainerOverlayStyle.BUTTON_TEXT.toArgb());
     }
 
-    public static void drawSlotCountOverlay(GuiGraphics g, Font font, int slotX, int slotY,
+    public static void drawSlotCountOverlay(LegacyGuiGraphics g, FontRenderer font, int slotX, int slotY,
             int slotSize, String countText, UiColor color) {
-        RtsClientUiUtil.drawSlotCountOverlay(g, font, slotX, slotY, slotSize,
-                countText, color.toArgb());
+        if (countText == null || countText.isEmpty()) return;
+        int x = slotX + slotSize - font.getStringWidth(countText) - 1;
+        g.drawString(font, countText, x, slotY + slotSize - 8, color.toArgb());
     }
 
     public static String sortShort(com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort sort) {
@@ -440,18 +431,18 @@ public final class OverlayLayoutHelper {
         };
     }
 
-    public static String trimToWidth(Font font, String text, int maxWidth) {
-        return RtsClientUiUtil.trimToWidth(font, text, maxWidth);
+    public static String trimToWidth(FontRenderer font, String text, int maxWidth) {
+        return font.trimStringToWidth(text == null ? "" : text, Math.max(0, maxWidth), false);
     }
 
     public static double normalizeBetween(int value, int min, int max) {
         if (max <= min) {
             return 0.0D;
         }
-        return Mth.clamp((value - (double) min) / (double) (max - min), 0.0D, 1.0D);
+        return MathHelper.clamp((value - (double) min) / (double) (max - min), 0.0D, 1.0D);
     }
 
     public static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return UiRect.contains(x, y, w, h, mouseX, mouseY);
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 }

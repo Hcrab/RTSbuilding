@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.persist;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * UI 状态的内存缓存，带脏标记回写机制。
@@ -13,7 +13,7 @@ import org.slf4j.LoggerFactory;
  * <p>线程安全：所有公开方法均为 {@code synchronized}。
  */
 public final class UiStateCache {
-    private static final Logger LOG = LoggerFactory.getLogger("RtsClientUiState");
+    private static final Logger LOG = LogManager.getLogger("RtsClientUiState");
 
     private RtsClientUiStateStore.UiState cached;
     private boolean dirty;

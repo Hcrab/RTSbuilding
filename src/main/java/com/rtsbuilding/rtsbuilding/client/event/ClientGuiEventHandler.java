@@ -1,41 +1,39 @@
 package com.rtsbuilding.rtsbuilding.client.event;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.CustomizeGuiOverlayEvent;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraftforge.client.event.RenderGameOverlayEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.relauncher.Side;
 
-/**
- * Client-side event handler for GUI overlay customization.
- * <p>
- * Adjusts the vanilla chat overlay position when the RTS Builder screen is open,
- * so the chat renders above the RTS bottom panel instead of being hidden behind it.
- */
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
+import java.lang.reflect.Method;
+
+/** RTS 主面板打开时，把原版聊天区抬到下方面板上方。 */
+@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Side.CLIENT)
 public final class ClientGuiEventHandler {
-
     private static final int CHAT_BOTTOM_MARGIN = 4;
+    private static final String BUILDER_SCREEN =
+            "com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen";
 
     private ClientGuiEventHandler() {
     }
 
-    /**
-     * Called before the chat messages overlay is rendered.
-     * <p>
-     * When the RTS {@link BuilderScreen} is open, raises the chat Y position
-     * to just above the bottom panel's top edge, so chat messages are visible
-     * instead of being occluded by the panel.
-     */
     @SubscribeEvent
-    public static void onChatOverlay(CustomizeGuiOverlayEvent.Chat event) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.screen instanceof BuilderScreen builderScreen) {
-            int bottomPanelTopY = builderScreen.getBottomY();
-            // Position the chat area bottom just above the bottom panel
-            event.setPosY(bottomPanelTopY - CHAT_BOTTOM_MARGIN);
+    public static void onChatOverlay(RenderGameOverlayEvent.Chat event) {
+        GuiScreen screen = Minecraft.getMinecraft().currentScreen;
+        if (screen == null || !BUILDER_SCREEN.equals(screen.getClass().getName())) {
+            return;
+        }
+        try {
+            Method getBottomY = screen.getClass().getMethod("getBottomY");
+            Object value = getBottomY.invoke(screen);
+            if (value instanceof Number) {
+                event.setPosY(((Number) value).intValue() - CHAT_BOTTOM_MARGIN);
+            }
+        } catch (ReflectiveOperationException ignored) {
+            // 屏幕尚未完成平台迁移时保持原版聊天位置；不让兼容辅助功能阻断主界面。
         }
     }
 }

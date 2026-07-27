@@ -1,57 +1,72 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-public record C2SRtsJeiTransferPayload(
-        String recipeId,
-        List<ItemStack> ingredientPrototypes,
-        boolean maxTransfer,
-        boolean clearGridFirst) implements CustomPacketPayload {
+public final class C2SRtsJeiTransferPayload implements IMessage {
     private static final int GRID_SIZE = 9;
+    private static final int MAX_RECIPE_ID_CHARS = 256;
+    private String recipeId = "";
+    private List<ItemStack> ingredientPrototypes = emptyGrid();
+    private boolean maxTransfer;
+    private boolean clearGridFirst;
 
-    public static final Type<C2SRtsJeiTransferPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_jei_transfer"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsJeiTransferPayload> STREAM_CODEC =
-            StreamCodec.of(
-                    (buf, payload) -> {
-                        buf.writeUtf(payload.recipeId(), 256);
-                        List<ItemStack> prototypes = payload.ingredientPrototypes();
-                        for (int i = 0; i < GRID_SIZE; i++) {
-                            ItemStack prototype = prototypes != null && i < prototypes.size() ? prototypes.get(i) : ItemStack.EMPTY;
-                            if (prototype == null || prototype.isEmpty()) {
-                                buf.writeBoolean(false);
-                                continue;
-                            }
-                            buf.writeBoolean(true);
-                            ItemStack.STREAM_CODEC.encode(buf, prototype.copyWithCount(1));
-                        }
-                        buf.writeBoolean(payload.maxTransfer());
-                        buf.writeBoolean(payload.clearGridFirst());
-                    },
-                    (buf) -> {
-                        String recipeId = buf.readUtf(256);
-                        List<ItemStack> prototypes = new ArrayList<>(GRID_SIZE);
-                        for (int i = 0; i < GRID_SIZE; i++) {
-                            prototypes.add(buf.readBoolean() ? ItemStack.STREAM_CODEC.decode(buf) : ItemStack.EMPTY);
-                        }
-                        return new C2SRtsJeiTransferPayload(
-                                recipeId,
-                                prototypes,
-                                buf.readBoolean(),
-                                buf.readBoolean());
-                    });
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsJeiTransferPayload() {
+    }
+    public C2SRtsJeiTransferPayload(String recipeId, List<ItemStack> ingredientPrototypes,
+                                    boolean maxTransfer, boolean clearGridFirst) {
+        this.recipeId = recipeId == null ? "" : recipeId;
+        this.ingredientPrototypes = normalizeGrid(ingredientPrototypes);
+        this.maxTransfer = maxTransfer;
+        this.clearGridFirst = clearGridFirst;
+    }
+    public String recipeId() { return recipeId; }
+    public List<ItemStack> ingredientPrototypes() { return ingredientPrototypes; }
+    public boolean maxTransfer() { return maxTransfer; }
+    public boolean clearGridFirst() { return clearGridFirst; }
+    public boolean isValid() {
+        return !recipeId.trim().isEmpty() && recipeId.length() <= MAX_RECIPE_ID_CHARS
+                && ingredientPrototypes.size() == GRID_SIZE;
+    }
+    @Override public void fromBytes(ByteBuf buffer) {
+        recipeId = RtsPacketBuffer.readString(buffer, MAX_RECIPE_ID_CHARS, "JEI recipe id");
+        List<ItemStack> decoded = new ArrayList<>(GRID_SIZE);
+        for (int i = 0; i < GRID_SIZE; i++) {
+            decoded.add(buffer.readBoolean() ? normalizeStack(RtsPacketBuffer.readItemStack(buffer)) : ItemStack.EMPTY);
+        }
+        ingredientPrototypes = Collections.unmodifiableList(decoded);
+        maxTransfer = buffer.readBoolean();
+        clearGridFirst = buffer.readBoolean();
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        if (!isValid()) throw new IllegalArgumentException("JEI transfer request is invalid");
+        RtsPacketBuffer.writeString(buffer, recipeId, MAX_RECIPE_ID_CHARS, "JEI recipe id");
+        for (ItemStack stack : ingredientPrototypes) {
+            boolean present = stack != null && !stack.isEmpty();
+            buffer.writeBoolean(present);
+            if (present) RtsPacketBuffer.writeItemStack(buffer, normalizeStack(stack));
+        }
+        buffer.writeBoolean(maxTransfer);
+        buffer.writeBoolean(clearGridFirst);
+    }
+    private static List<ItemStack> normalizeGrid(List<ItemStack> values) {
+        List<ItemStack> result = new ArrayList<>(GRID_SIZE);
+        for (int i = 0; i < GRID_SIZE; i++) {
+            result.add(values != null && i < values.size() ? normalizeStack(values.get(i)) : ItemStack.EMPTY);
+        }
+        return Collections.unmodifiableList(result);
+    }
+    private static List<ItemStack> emptyGrid() { return normalizeGrid(null); }
+    private static ItemStack normalizeStack(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+        ItemStack copy = stack.copy();
+        copy.setCount(1);
+        return copy;
     }
 }
