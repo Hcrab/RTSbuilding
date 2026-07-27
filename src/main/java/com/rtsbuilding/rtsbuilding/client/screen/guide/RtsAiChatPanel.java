@@ -1,20 +1,21 @@
 package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.AiChatStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +54,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         this.session = new RtsAiChatSession(controller);
         this.input = new WindowTextBox(screen.font(), 0, 0, 100, INPUT_H);
         this.input.setMaxLength(500);
-        this.input.setPlaceholder(Component.translatable("screen.rtsbuilding.ai_chat.placeholder").getString());
+        this.input.setPlaceholder(I18n.format("screen.rtsbuilding.ai_chat.placeholder"));
     }
 
     public void open() {
@@ -65,7 +66,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         int x = contentX() + PAD;
         int y = contentY() + PAD;
         int w = Math.max(80, contentWidth() - PAD * 2);
@@ -73,9 +74,9 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         int refreshW = 70;
 
         drawButton(g, x + w - refreshW, y, refreshW, BUTTON_H, mouseX, mouseY,
-                Component.translatable("screen.rtsbuilding.ai_chat.refresh"), false);
-        String limit = Component.translatable("screen.rtsbuilding.ai_chat.turns",
-                this.session.exchangeCount(), RtsAiConversation.MAX_EXCHANGES).getString();
+                I18n.format("screen.rtsbuilding.ai_chat.refresh"), false);
+        String limit = I18n.format("screen.rtsbuilding.ai_chat.turns",
+                this.session.exchangeCount(), RtsAiConversation.MAX_EXCHANGES);
         g.drawString(screen.font(), limit, x, y + LIMIT_TEXT_Y_OFFSET,
                 AiChatStyle.LIMIT_TEXT.toArgb(), false);
 
@@ -105,25 +106,25 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
                 lineY += 12;
             }
         } finally {
-            g.disableScissor();
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
         }
 
         int sendW = 64;
         int inputW = Math.max(80, w - sendW - 6);
         this.input.setX(x);
         this.input.setY(footerY);
-        this.input.setWidth(inputW);
-        this.input.setEditable(!this.session.waiting());
+        this.input.width = inputW;
+        this.input.setEnabled(!this.session.waiting());
         this.input.render(g, mouseX, mouseY, partialTick);
         drawButton(g, x + inputW + 6, footerY, sendW, INPUT_H, mouseX, mouseY,
-                Component.translatable(this.session.waiting()
+                I18n.format(this.session.waiting()
                         ? "screen.rtsbuilding.ai_chat.waiting"
                         : "screen.rtsbuilding.ai_chat.send"), this.session.waiting());
     }
 
     @Override
     protected void handleContentClick(double mouseX, double mouseY, int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button != 0) {
             return;
         }
         int x = contentX() + PAD;
@@ -159,10 +160,10 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
     @Override
     protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
         if (this.input != null && this.input.isFocused()) {
-            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
                 submit();
             } else {
-                this.input.keyPressed(keyCode, scanCode, modifiers);
+                this.input.textboxKeyTyped((char) 0, keyCode);
             }
             // 文本框拥有焦点时吞掉完整按键事件，防止 WASD、快捷键和镜头动作穿透。
             return true;
@@ -172,7 +173,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
-        return this.input != null && this.input.charTyped(codePoint, modifiers);
+        return this.input != null && this.input.textboxKeyTyped(codePoint, 0);
     }
 
     /** 文本框聚焦期间，BuilderScreen 与相机服务必须把键盘所有权交给本窗口。 */
@@ -181,8 +182,8 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable("screen.rtsbuilding.ai_chat.title");
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation("screen.rtsbuilding.ai_chat.title");
     }
 
     @Override
@@ -221,7 +222,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         if (this.session == null || this.session.waiting() || this.input == null) {
             return;
         }
-        String question = this.input.getValue().strip();
+        String question = this.input.getValue().trim();
         if (question.isEmpty()) {
             return;
         }
@@ -238,7 +239,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         this.scrollLines = 0;
         if (this.input != null) {
             this.input.setValue("");
-            this.input.setEditable(true);
+            this.input.setEnabled(true);
             this.input.setFocused(true);
         }
     }
@@ -257,26 +258,26 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         if (this.session.conversationEmpty()
                 && this.session.pendingQuestion().isEmpty()
                 && this.session.notices().isEmpty()) {
-            appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.welcome").getString(),
+            appendWrapped(lines, I18n.format("screen.rtsbuilding.ai_chat.welcome"),
                     maxWidth, AiChatStyle.WELCOME_TEXT.toArgb());
         }
         for (RtsAiConversation.Exchange exchange : this.session.exchanges()) {
-            appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.you").getString()
+            appendWrapped(lines, I18n.format("screen.rtsbuilding.ai_chat.you")
                     + " " + exchange.question(), maxWidth, AiChatStyle.PLAYER_TEXT.toArgb());
-            appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.ai").getString()
+            appendWrapped(lines, I18n.format("screen.rtsbuilding.ai_chat.ai")
                     + " " + exchange.answer(), maxWidth, AiChatStyle.AI_TEXT.toArgb());
             lines.add(new RenderLine(
-                    FormattedCharSequence.forward("", null),
+                    "",
                     AiChatStyle.AI_TEXT.toArgb()));
         }
         if (!this.session.pendingQuestion().isEmpty()) {
-            appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.you").getString()
+            appendWrapped(lines, I18n.format("screen.rtsbuilding.ai_chat.you")
                     + " " + this.session.pendingQuestion(), maxWidth, AiChatStyle.PLAYER_TEXT.toArgb());
             String answer = this.session.streamingAnswer();
             if (answer.isEmpty()) {
-                answer = Component.translatable("screen.rtsbuilding.ai_chat.connecting").getString();
+                answer = I18n.format("screen.rtsbuilding.ai_chat.connecting");
             }
-            appendWrapped(lines, Component.translatable("screen.rtsbuilding.ai_chat.ai").getString()
+            appendWrapped(lines, I18n.format("screen.rtsbuilding.ai_chat.ai")
                     + " " + answer, maxWidth, AiChatStyle.AI_TEXT.toArgb());
         }
         for (RtsAiChatSession.Notice notice : this.session.notices()) {
@@ -286,23 +287,22 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
     }
 
     private void appendWrapped(List<RenderLine> target, String text, int maxWidth, int color) {
-        for (FormattedCharSequence line : screen.font().split(Component.literal(text), Math.max(40, maxWidth))) {
+        for (String line : screen.font().listFormattedStringToWidth(text, Math.max(40, maxWidth))) {
             target.add(new RenderLine(line, color));
         }
     }
 
-    private void drawButton(GuiGraphics g, int x, int y, int w, int h,
-                            int mouseX, int mouseY, Component label, boolean disabled) {
+    private void drawButton(LegacyGuiGraphics g, int x, int y, int w, int h,
+                            int mouseX, int mouseY, String label, boolean disabled) {
         boolean hovered = !disabled && inside(mouseX, mouseY, x, y, w, h);
         WindowButtonChromeRenderer.renderSolid(
                 new MinecraftUiCanvas(g, screen.font(), screen),
                 new UiRect(x, y, w, h),
                 hovered);
-        String text = RtsClientUiUtil.trimToWidth(
-                screen.font(), label.getString(), w - TEXT_HORIZONTAL_INSET);
+        String text = trimToWidth(label, w - TEXT_HORIZONTAL_INSET);
         g.drawString(screen.font(), text,
-                x + Math.max(4, (w - screen.font().width(text)) / 2),
-                y + (h - screen.font().lineHeight) / 2,
+                x + Math.max(4, (w - screen.font().getStringWidth(text)) / 2),
+                y + (h - screen.font().FONT_HEIGHT) / 2,
                 WindowButtonStyle.text(!disabled).toArgb(), false);
     }
 
@@ -310,12 +310,24 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         return UiRect.contains(x, y, w, h, mouseX, mouseY);
     }
 
-    private record RenderLine(FormattedCharSequence text, int color) {
+    private static final class RenderLine {
+        private final String text;
+        private final int color;
+        private RenderLine(String text, int color) { this.text = text; this.color = color; }
+        private String text() { return this.text; }
+        private int color() { return this.color; }
     }
 
-    private final List<PersistableProperty> properties = List.of(
-            PersistableProperty.bounds("ai_chat", this)
-    );
+    private final List<PersistableProperty> properties = java.util.Collections.singletonList(
+            PersistableProperty.bounds("ai_chat", this));
+
+    private String trimToWidth(String value, int maxWidth) {
+        String safe = value == null ? "" : value;
+        if (this.screen.font().getStringWidth(safe) <= maxWidth) return safe;
+        String suffix = "...";
+        int width = Math.max(0, maxWidth - this.screen.font().getStringWidth(suffix));
+        return this.screen.font().trimStringToWidth(safe, width) + suffix;
+    }
 
     @Override
     public List<PersistableProperty> persistableProperties() {

@@ -3,98 +3,130 @@ package com.rtsbuilding.rtsbuilding.client.screen.guide;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
+import javax.net.ssl.HttpsURLConnection;
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /**
- * 只访问官方 HTTPS relay 的轻量 SSE 客户端。
+ * 只访问官方 HTTPS relay 的 Java 8 SSE 客户端。
  *
- * <p>API 密钥和模型回退均留在边缘函数中；模组只发送一个 {@code question} 字段，
- * 不携带任何供应商密钥，也不会尝试 HTTP 降级。
+ * <p>请求仍只发送 question 字段，不携带供应商密钥。连接禁止重定向，保留连接/读取超时；取消
+ * Future 时会主动断开底层连接，关闭或刷新聊天窗口不会留下持续占用的网络读取。</p>
  */
 public final class RtsAiChatClient {
     public static final URI ENDPOINT = URI.create("https://rts-ai.wordmate.site/v1/chat");
 
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(8))
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .build();
+    public CompletableFuture<Void> ask(final String prompt,
+                                       final Consumer<String> onChunk,
+                                       final Consumer<String> onError,
+                                       final Runnable onComplete) {
+        final AtomicReference<HttpsURLConnection> activeConnection = new AtomicReference<HttpsURLConnection>();
+        final CompletableFuture<Void> future = CompletableFuture.runAsync(new Runnable() {
+            @Override
+            public void run() {
+                HttpsURLConnection connection = null;
+                try {
+                    connection = (HttpsURLConnection) ENDPOINT.toURL().openConnection();
+                    activeConnection.set(connection);
+                    connection.setConnectTimeout(8_000);
+                    connection.setReadTimeout(45_000);
+                    connection.setInstanceFollowRedirects(false);
+                    connection.setRequestMethod("POST");
+                    connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                    connection.setRequestProperty("Accept", "text/event-stream");
+                    connection.setDoOutput(true);
 
-    public CompletableFuture<Void> ask(String prompt,
-                                       Consumer<String> onChunk,
-                                       Consumer<String> onError,
-                                       Runnable onComplete) {
-        JsonObject requestJson = new JsonObject();
-        requestJson.addProperty("question", prompt);
-        HttpRequest request = HttpRequest.newBuilder(ENDPOINT)
-                .timeout(Duration.ofSeconds(45))
-                .header("Content-Type", "application/json; charset=utf-8")
-                .header("Accept", "text/event-stream")
-                .POST(HttpRequest.BodyPublishers.ofString(requestJson.toString(), StandardCharsets.UTF_8))
-                .build();
+                    JsonObject requestJson = new JsonObject();
+                    requestJson.addProperty("question", prompt);
+                    byte[] body = requestJson.toString().getBytes(StandardCharsets.UTF_8);
+                    connection.setFixedLengthStreamingMode(body.length);
+                    OutputStream output = connection.getOutputStream();
+                    try {
+                        output.write(body);
+                    } finally {
+                        output.close();
+                    }
 
-        return CompletableFuture.runAsync(() -> {
-            try {
-                HttpResponse<InputStream> response = this.httpClient.send(
-                        request, HttpResponse.BodyHandlers.ofInputStream());
-                if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                    String detail = new String(response.body().readAllBytes(), StandardCharsets.UTF_8);
-                    onError.accept("HTTP " + response.statusCode() + ": " + compact(detail));
-                    return;
+                    int status = connection.getResponseCode();
+                    if (status < 200 || status >= 300) {
+                        InputStream error = connection.getErrorStream();
+                        String detail = error == null ? "" : readAll(error);
+                        onError.accept("HTTP " + status + ": " + compact(detail));
+                        return;
+                    }
+                    readSse(connection.getInputStream(), onChunk);
+                    if (!Thread.currentThread().isInterrupted()) {
+                        onComplete.run();
+                    }
+                } catch (IOException failure) {
+                    if (!Thread.currentThread().isInterrupted()) {
+                        onError.accept(compact(failure.getMessage()));
+                    }
+                } catch (RuntimeException failure) {
+                    if (!Thread.currentThread().isInterrupted()) {
+                        onError.accept(compact(failure.getMessage()));
+                    }
+                } finally {
+                    activeConnection.compareAndSet(connection, null);
+                    if (connection != null) connection.disconnect();
                 }
-                readSse(response.body(), onChunk);
-                onComplete.run();
-            } catch (InterruptedException interrupted) {
-                Thread.currentThread().interrupt();
-            } catch (IOException | RuntimeException failure) {
-                onError.accept(compact(failure.getMessage()));
             }
         });
+        future.whenComplete((ignored, failure) -> {
+            if (future.isCancelled()) {
+                HttpsURLConnection connection = activeConnection.getAndSet(null);
+                if (connection != null) connection.disconnect();
+            }
+        });
+        return future;
     }
 
     static void readSse(InputStream stream, Consumer<String> onChunk) throws IOException {
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(stream, StandardCharsets.UTF_8))) {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
+        try {
             String line;
             while ((line = reader.readLine()) != null) {
-                if (!line.startsWith("data:")) {
-                    continue;
-                }
-                String data = line.substring(5).strip();
-                if (data.isEmpty() || "[DONE]".equals(data)) {
-                    continue;
-                }
-                JsonObject root = JsonParser.parseString(data).getAsJsonObject();
-                if (!root.has("choices") || root.getAsJsonArray("choices").isEmpty()) {
-                    continue;
-                }
+                if (!line.startsWith("data:")) continue;
+                String data = line.substring(5).trim();
+                if (data.isEmpty() || "[DONE]".equals(data)) continue;
+                JsonObject root = new JsonParser().parse(data).getAsJsonObject();
+                if (!root.has("choices") || root.getAsJsonArray("choices").size() == 0) continue;
                 JsonObject choice = root.getAsJsonArray("choices").get(0).getAsJsonObject();
-                if (!choice.has("delta")) {
-                    continue;
-                }
+                if (!choice.has("delta")) continue;
                 JsonObject delta = choice.getAsJsonObject("delta");
                 if (delta.has("content") && !delta.get("content").isJsonNull()) {
                     onChunk.accept(delta.get("content").getAsString());
                 }
             }
+        } finally {
+            reader.close();
+        }
+    }
+
+    private static String readAll(InputStream input) throws IOException {
+        try {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            byte[] buffer = new byte[2048];
+            int read;
+            while ((read = input.read(buffer)) >= 0) output.write(buffer, 0, read);
+            return new String(output.toByteArray(), StandardCharsets.UTF_8);
+        } finally {
+            input.close();
         }
     }
 
     private static String compact(String value) {
-        if (value == null || value.isBlank()) {
-            return "unknown error";
-        }
-        String singleLine = value.replace('\r', ' ').replace('\n', ' ').strip();
+        if (value == null || value.trim().isEmpty()) return "unknown error";
+        String singleLine = value.replace('\r', ' ').replace('\n', ' ').trim();
         return singleLine.length() <= 240 ? singleLine : singleLine.substring(0, 240) + "...";
     }
 }

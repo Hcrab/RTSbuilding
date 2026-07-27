@@ -14,8 +14,8 @@ import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiState;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiValue;
 import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsWindowLayout;
-import net.minecraft.network.chat.Component;
-import net.neoforged.fml.ModList;
+import net.minecraft.client.resources.I18n;
+import net.minecraftforge.fml.common.Loader;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -195,7 +195,7 @@ final class GearMenuUiAdapter {
                 + SettingsWindowLayout.HINT_BUTTON_GAP;
         int toggleX = x + width - SettingsWindowLayout.TOGGLE_RIGHT_INSET;
         int maxWidth = Math.max(24, toggleX - hintX - 8);
-        return screen.font().width(Component.translatable(id.hintKey).getString()) > maxWidth;
+        return screen.font().getStringWidth(I18n.format(id.hintKey)) > maxWidth;
     }
 
     private static SettingsUiValue toggle(boolean value) {
@@ -207,6 +207,6 @@ final class GearMenuUiAdapter {
     }
 
     private static boolean isJadeLoaded() {
-        return ModList.get().isLoaded("jade");
+        return Loader.isModLoaded("jade");
     }
 }

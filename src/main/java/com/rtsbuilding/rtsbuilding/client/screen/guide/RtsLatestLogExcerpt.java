@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.CodingErrorAction;
+import java.nio.charset.CharsetDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -68,7 +69,7 @@ public final class RtsLatestLogExcerpt {
         Deque<String> rts = new ArrayDeque<>(RTS_LINE_LIMIT);
         // 整合包日志可能混入第三方模组直接写出的非 UTF-8 字节。诊断摘录应替换坏字符并继续读取，
         // 不能因为一处编码瑕疵把整份存在且可读的 latest.log 判定为“不可用”。
-        var decoder = StandardCharsets.UTF_8.newDecoder()
+        CharsetDecoder decoder = StandardCharsets.UTF_8.newDecoder()
                 .onMalformedInput(CodingErrorAction.REPLACE)
                 .onUnmappableCharacter(CodingErrorAction.REPLACE);
         try (BufferedReader reader = new BufferedReader(
@@ -87,7 +88,7 @@ public final class RtsLatestLogExcerpt {
     }
 
     static boolean isRtsBuildingLine(String line) {
-        if (line == null || line.isBlank()) {
+        if (line == null || line.trim().isEmpty()) {
             return false;
         }
         String normalized = line.toLowerCase(Locale.ROOT);
@@ -105,7 +106,18 @@ public final class RtsLatestLogExcerpt {
         lines.addLast(line);
     }
 
-    public record Result(String latestLines, String rtsLines, boolean available) {
+    public static final class Result {
+        private final String latestLines;
+        private final String rtsLines;
+        private final boolean available;
+        private Result(String latestLines, String rtsLines, boolean available) {
+            this.latestLines = latestLines;
+            this.rtsLines = rtsLines;
+            this.available = available;
+        }
+        public String latestLines() { return this.latestLines; }
+        public String rtsLines() { return this.rtsLines; }
+        public boolean available() { return this.available; }
         private static Result unavailable() {
             return new Result("", "", false);
         }

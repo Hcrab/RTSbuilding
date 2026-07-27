@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.workflow;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowResumeChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowResumeStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.item.ItemStack;
 
 /**
  * 蓝图材料恢复窗口的 Minecraft 薄绘制适配。
@@ -20,8 +20,8 @@ final class BlueprintResumePanelRenderer {
     }
 
     static void render(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.BlueprintGeometry geometry,
             S2CRtsBlueprintResumeScanPayload data,
             int scrollOffset,
@@ -69,8 +69,8 @@ final class BlueprintResumePanelRenderer {
     }
 
     private static void renderHeader(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.BlueprintGeometry geometry,
             S2CRtsBlueprintResumeScanPayload data) {
         WorkflowResumeRenderSupport.draw(
@@ -112,8 +112,8 @@ final class BlueprintResumePanelRenderer {
     }
 
     private static void renderRows(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.BlueprintGeometry geometry,
             S2CRtsBlueprintResumeScanPayload data,
             int scrollOffset) {
@@ -133,8 +133,8 @@ final class BlueprintResumePanelRenderer {
     }
 
     private static void renderRow(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.BlueprintGeometry geometry,
             WorkflowResumeWindowLayout.BlueprintRowGeometry row,
             String itemId,

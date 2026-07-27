@@ -1,16 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.screen.workflow;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -29,8 +31,8 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable(
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation(
                 "screen.rtsbuilding.workflow.blueprint_resume.title");
     }
 
@@ -118,7 +120,7 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             int mouseX,
             int mouseY,
             float partialTick) {
@@ -151,7 +153,7 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
                 mouseX,
                 mouseY,
                 canResume)) {
-            PacketDistributor.sendToServer(
+            RtsPayloadRegistrar.sendToServer(
                     new C2SRtsResumePlacementActionPayload(
                             0,
                             this.workflowEntryId));
@@ -175,9 +177,8 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
                 visibleRows);
     }
 
-    private final List<PersistableProperty> properties = List.of(
-            PersistableProperty.bounds("blueprint_resume", this)
-    );
+    private final List<PersistableProperty> properties = Collections.singletonList(
+            PersistableProperty.bounds("blueprint_resume", this));
 
     @Override
     public List<PersistableProperty> persistableProperties() {

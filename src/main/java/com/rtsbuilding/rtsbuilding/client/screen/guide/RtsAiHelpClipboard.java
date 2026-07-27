@@ -3,18 +3,21 @@ package com.rtsbuilding.rtsbuilding.client.screen.guide;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.loading.FMLPaths;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.client.resources.IResource;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.common.ForgeVersion;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.stream.Collectors;
 
 /**
@@ -25,55 +28,50 @@ import java.util.stream.Collectors;
  */
 public final class RtsAiHelpClipboard {
     private static final ResourceLocation CHINESE_TUTORIAL =
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "tutorial/ai_help_zh_cn.md");
+            new ResourceLocation(RtsbuildingMod.MODID, "tutorial/ai_help_zh_cn.md");
     private static final ResourceLocation ENGLISH_TUTORIAL =
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "tutorial/ai_help_en_us.md");
+            new ResourceLocation(RtsbuildingMod.MODID, "tutorial/ai_help_en_us.md");
 
     private RtsAiHelpClipboard() {
     }
 
     public static boolean copy(ClientRtsController controller) {
-        Minecraft minecraft = Minecraft.getInstance();
-        String language = minecraft.getLanguageManager().getSelected();
+        Minecraft minecraft = Minecraft.getMinecraft();
+        String language = minecraft.getLanguageManager().getCurrentLanguage().getLanguageCode();
         boolean chinese = language != null && language.toLowerCase(java.util.Locale.ROOT).startsWith("zh_");
         String tutorial = readTutorial(minecraft, chinese);
         if (tutorial == null) {
             return false;
         }
-        Path loaderGameDir = FMLPaths.GAMEDIR.get();
+        Path loaderGameDir = minecraft.gameDir.toPath();
         RtsLatestLogExcerpt.Result logs = RtsLatestLogExcerpt.readFirstAvailable(
                 loaderGameDir.resolve("logs").resolve("latest.log"),
-                minecraft.gameDirectory.toPath().resolve("logs").resolve("latest.log"),
-                Path.of("").toAbsolutePath().resolve("logs").resolve("latest.log"));
+                minecraft.gameDir.toPath().resolve("logs").resolve("latest.log"),
+                Paths.get("").toAbsolutePath().resolve("logs").resolve("latest.log"));
 
         String prompt = RtsAiHelpPrompt.compose(
                 chinese,
                 modVersion(RtsbuildingMod.MODID),
-                SharedConstants.getCurrentVersion().getName(),
-                modVersion("neoforge"),
+                ForgeVersion.mcVersion,
+                ForgeVersion.getVersion(),
                 language,
                 localizedMode(controller == null ? null : controller.getMode()),
                 tutorial,
                 logs.latestLines(),
                 logs.rtsLines(),
                 logs.available());
-        minecraft.keyboardHandler.setClipboard(prompt);
+        GuiScreen.setClipboardString(prompt);
         return true;
     }
 
     private static String readTutorial(Minecraft minecraft, ResourceLocation id) {
         try {
-            return minecraft.getResourceManager().getResource(id)
-                    .map(resource -> {
-                        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
-                                resource.open(), StandardCharsets.UTF_8))) {
-                            return reader.lines().collect(Collectors.joining("\n"));
-                        } catch (IOException ignored) {
-                            return null;
-                        }
-                    })
-                    .orElse(null);
-        } catch (RuntimeException ignored) {
+            IResource resource = minecraft.getResourceManager().getResource(id);
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    resource.getInputStream(), StandardCharsets.UTF_8))) {
+                return reader.lines().collect(Collectors.joining("\n"));
+            }
+        } catch (IOException | RuntimeException ignored) {
             return null;
         }
     }
@@ -89,9 +87,8 @@ public final class RtsAiHelpClipboard {
 
     private static String modVersion(String modId) {
         try {
-            return ModList.get().getModContainerById(modId)
-                    .map(container -> container.getModInfo().getVersion().toString())
-                    .orElse("unknown");
+            ModContainer container = Loader.instance().getIndexedModList().get(modId);
+            return container == null ? "unknown" : container.getVersion();
         } catch (RuntimeException | LinkageError ignored) {
             return "unknown";
         }
@@ -99,16 +96,17 @@ public final class RtsAiHelpClipboard {
 
     private static String localizedMode(BuilderMode mode) {
         if (mode == null) {
-            return Component.translatable("screen.rtsbuilding.mode.idle").getString();
+            return I18n.format("screen.rtsbuilding.mode.idle");
         }
-        String key = switch (mode) {
-            case INTERACT -> "screen.rtsbuilding.mode.interact";
-            case LINK_STORAGE -> "screen.rtsbuilding.mode.link_storage";
-            case FUNNEL -> "screen.rtsbuilding.mode.funnel";
-            case ROTATE -> "screen.rtsbuilding.mode.rotate";
-            case SELECT_PAN -> "screen.rtsbuilding.mode.camera";
-            case OFF -> "screen.rtsbuilding.mode.idle";
-        };
-        return Component.translatable(key).getString();
+        String key;
+        switch (mode) {
+            case INTERACT: key = "screen.rtsbuilding.mode.interact"; break;
+            case LINK_STORAGE: key = "screen.rtsbuilding.mode.link_storage"; break;
+            case FUNNEL: key = "screen.rtsbuilding.mode.funnel"; break;
+            case ROTATE: key = "screen.rtsbuilding.mode.rotate"; break;
+            case SELECT_PAN: key = "screen.rtsbuilding.mode.camera"; break;
+            case OFF: default: key = "screen.rtsbuilding.mode.idle"; break;
+        }
+        return I18n.format(key);
     }
 }

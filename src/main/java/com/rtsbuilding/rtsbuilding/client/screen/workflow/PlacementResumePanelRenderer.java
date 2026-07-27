@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.workflow;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowResumeChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowResumeStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.item.ItemStack;
 
 /**
  * 普通放置恢复窗口的 Minecraft 薄绘制适配。
@@ -20,8 +20,8 @@ final class PlacementResumePanelRenderer {
     }
 
     static void render(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.PlacementGeometry geometry,
             S2CRtsResumePlacementScanPayload data,
             int mouseX,
@@ -45,8 +45,8 @@ final class PlacementResumePanelRenderer {
     }
 
     private static void renderItem(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.PlacementGeometry geometry,
             S2CRtsResumePlacementScanPayload data) {
         ItemStack displayStack =
@@ -75,8 +75,8 @@ final class PlacementResumePanelRenderer {
     }
 
     private static void renderStats(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.PlacementGeometry geometry,
             S2CRtsResumePlacementScanPayload data,
             boolean enough) {
@@ -139,8 +139,8 @@ final class PlacementResumePanelRenderer {
     }
 
     private static void renderActions(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.PlacementGeometry geometry,
             boolean enough,
             int mouseX,
@@ -184,8 +184,8 @@ final class PlacementResumePanelRenderer {
     }
 
     private static void drawAction(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect action,
             String key,
             WorkflowResumeStyle.ActionKind kind,
@@ -204,8 +204,8 @@ final class PlacementResumePanelRenderer {
     }
 
     private static void drawStat(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             WorkflowResumeWindowLayout.PlacementGeometry geometry,
             int row,
             String labelKey,

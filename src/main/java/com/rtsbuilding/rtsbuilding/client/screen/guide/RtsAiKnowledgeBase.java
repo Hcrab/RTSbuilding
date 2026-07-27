@@ -7,10 +7,11 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiTopic;
-import net.minecraft.SharedConstants;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
-import net.neoforged.fml.ModList;
+import net.minecraft.client.resources.I18n;
+import net.minecraftforge.common.ForgeVersion;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
 
 import java.util.Locale;
 
@@ -27,32 +28,32 @@ public final class RtsAiKnowledgeBase {
     }
 
     public static String build(ClientRtsController controller) {
-        Minecraft minecraft = Minecraft.getInstance();
-        String language = minecraft.getLanguageManager().getSelected();
+        Minecraft minecraft = Minecraft.getMinecraft();
+        String language = minecraft.getLanguageManager().getCurrentLanguage().getLanguageCode();
         boolean chinese = language != null && language.toLowerCase(Locale.ROOT).startsWith("zh_");
         StringBuilder text = new StringBuilder(12_000);
 
         if (chinese) {
             text.append("## 当前游戏信息\n");
             appendInfo(text, "RTSBuilding 版本", modVersion(RtsbuildingMod.MODID));
-            appendInfo(text, "Minecraft 版本", SharedConstants.getCurrentVersion().getName());
-            appendInfo(text, "NeoForge 版本", modVersion("neoforge"));
+            appendInfo(text, "Minecraft 版本", ForgeVersion.mcVersion);
+            appendInfo(text, "Forge 版本", ForgeVersion.getVersion());
             appendInfo(text, "语言", language);
             appendInfo(text, "当前 RTS 模式", localizedMode(controller == null ? null : controller.getMode()));
             text.append("\n## 随当前版本发布的教程\n");
         } else {
             text.append("## Current game information\n");
             appendInfo(text, "RTSBuilding version", modVersion(RtsbuildingMod.MODID));
-            appendInfo(text, "Minecraft version", SharedConstants.getCurrentVersion().getName());
-            appendInfo(text, "NeoForge version", modVersion("neoforge"));
+            appendInfo(text, "Minecraft version", ForgeVersion.mcVersion);
+            appendInfo(text, "Forge version", ForgeVersion.getVersion());
             appendInfo(text, "Language", language);
             appendInfo(text, "Current RTS mode", localizedMode(controller == null ? null : controller.getMode()));
             text.append("\n## Tutorials bundled with this version\n");
         }
 
         String tutorial = RtsAiHelpClipboard.readTutorial(minecraft, chinese);
-        if (tutorial != null && !tutorial.isBlank()) {
-            text.append('\n').append(tutorial.strip()).append('\n');
+        if (tutorial != null && !tutorial.trim().isEmpty()) {
+            text.append('\n').append(tutorial.trim()).append('\n');
         } else {
             appendGuide(text, GuideUiContext.TOP);
             appendGuide(text, GuideUiContext.BOTTOM);
@@ -73,29 +74,28 @@ public final class RtsAiKnowledgeBase {
 
     private static void appendGuide(StringBuilder text, GuideUiContext context) {
         text.append("\n### ")
-                .append(Component.translatable(GuideUiCatalog.titleKey(context)).getString())
+                .append(I18n.format(GuideUiCatalog.titleKey(context)))
                 .append('\n');
         for (GuideUiTopic topic : GuideUiCatalog.topics(context)) {
             text.append("\n#### ")
-                    .append(Component.translatable(topic.titleKey).getString())
+                    .append(I18n.format(topic.titleKey))
                     .append('\n');
             for (String lineKey : topic.lineKeys) {
-                text.append("- ").append(Component.translatable(lineKey).getString()).append('\n');
+                text.append("- ").append(I18n.format(lineKey)).append('\n');
             }
         }
     }
 
     private static void appendInfo(StringBuilder text, String label, String value) {
         text.append("- ").append(label).append(": ")
-                .append(value == null || value.isBlank() ? "unknown" : value.strip())
+                .append(value == null || value.trim().isEmpty() ? "unknown" : value.trim())
                 .append('\n');
     }
 
     private static String modVersion(String modId) {
         try {
-            return ModList.get().getModContainerById(modId)
-                    .map(container -> container.getModInfo().getVersion().toString())
-                    .orElse("unknown");
+            ModContainer container = Loader.instance().getIndexedModList().get(modId);
+            return container == null ? "unknown" : container.getVersion();
         } catch (RuntimeException | LinkageError ignored) {
             return "unknown";
         }
@@ -103,16 +103,17 @@ public final class RtsAiKnowledgeBase {
 
     private static String localizedMode(BuilderMode mode) {
         if (mode == null) {
-            return Component.translatable("screen.rtsbuilding.mode.idle").getString();
+            return I18n.format("screen.rtsbuilding.mode.idle");
         }
-        String key = switch (mode) {
-            case INTERACT -> "screen.rtsbuilding.mode.interact";
-            case LINK_STORAGE -> "screen.rtsbuilding.mode.link_storage";
-            case FUNNEL -> "screen.rtsbuilding.mode.funnel";
-            case ROTATE -> "screen.rtsbuilding.mode.rotate";
-            case SELECT_PAN -> "screen.rtsbuilding.mode.camera";
-            case OFF -> "screen.rtsbuilding.mode.idle";
-        };
-        return Component.translatable(key).getString();
+        String key;
+        switch (mode) {
+            case INTERACT: key = "screen.rtsbuilding.mode.interact"; break;
+            case LINK_STORAGE: key = "screen.rtsbuilding.mode.link_storage"; break;
+            case FUNNEL: key = "screen.rtsbuilding.mode.funnel"; break;
+            case ROTATE: key = "screen.rtsbuilding.mode.rotate"; break;
+            case SELECT_PAN: key = "screen.rtsbuilding.mode.camera"; break;
+            case OFF: default: key = "screen.rtsbuilding.mode.idle"; break;
+        }
+        return I18n.format(key);
     }
 }

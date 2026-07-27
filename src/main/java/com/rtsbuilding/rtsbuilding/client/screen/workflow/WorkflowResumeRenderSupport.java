@@ -1,13 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.workflow;
 
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
 /**
  * 两类恢复窗口 renderer 共用的 Minecraft 字体与物品小工具。
@@ -19,8 +18,8 @@ final class WorkflowResumeRenderSupport {
     }
 
     static void draw(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             String text,
             int x,
             int y,
@@ -29,44 +28,49 @@ final class WorkflowResumeRenderSupport {
     }
 
     static void drawActionText(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             UiRect action,
             String translationKey,
             int color) {
-        RtsClientUiUtil.drawCenteredStringNoShadow(
-                graphics,
-                font,
-                text(translationKey),
+        graphics.drawCenteredString(font, text(translationKey),
                 (int) (action.getX() + action.getWidth() / 2.0D),
-                (int) action.getY() + 4,
-                color);
+                (int) action.getY() + 4, color);
     }
 
     static ItemStack item(String itemId) {
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        if (itemId == null || itemId.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(id));
+        final ResourceLocation id;
+        try {
+            id = new ResourceLocation(itemId);
+        } catch (RuntimeException exception) {
+            return ItemStack.EMPTY;
+        }
+        if (!Item.REGISTRY.containsKey(id)) {
+            return ItemStack.EMPTY;
+        }
+        Item item = Item.REGISTRY.getObject(id);
+        return item == null ? ItemStack.EMPTY : new ItemStack(item);
     }
 
     static String truncate(
             String label,
-            Font font,
+            FontRenderer font,
             int maxPixels) {
         String safe = label == null ? "" : label;
-        if (font.width(safe) <= maxPixels) {
+        if (font.getStringWidth(safe) <= maxPixels) {
             return safe;
         }
         while (!safe.isEmpty()
-                && font.width(safe + "…") > maxPixels) {
+                && font.getStringWidth(safe + "…") > maxPixels) {
             safe = safe.substring(0, safe.length() - 1);
         }
         return safe + "…";
     }
 
     static String text(String key, Object... args) {
-        return Component.translatable(key, args).getString();
+        return I18n.format(key, args);
     }
 }

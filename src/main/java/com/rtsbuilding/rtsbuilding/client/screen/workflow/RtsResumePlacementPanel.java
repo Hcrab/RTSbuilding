@@ -1,16 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.screen.workflow;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -27,8 +29,8 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable(
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation(
                 "screen.rtsbuilding.workflow.resume_placement.title");
     }
 
@@ -98,7 +100,7 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             int mouseX,
             int mouseY,
             float partialTick) {
@@ -146,16 +148,15 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
     }
 
     private void sendAction(int strategy) {
-        PacketDistributor.sendToServer(
+        RtsPayloadRegistrar.sendToServer(
                 new C2SRtsResumePlacementActionPayload(
                         strategy,
                         this.workflowEntryId));
         setOpen(false);
     }
 
-    private final List<PersistableProperty> properties = List.of(
-            PersistableProperty.bounds("resume_placement", this)
-    );
+    private final List<PersistableProperty> properties = Collections.singletonList(
+            PersistableProperty.bounds("resume_placement", this));
 
     @Override
     public List<PersistableProperty> persistableProperties() {

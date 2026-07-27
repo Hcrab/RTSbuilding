@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.guide;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.uikit.theme.AiChatStyle;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.resources.I18n;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +32,7 @@ public final class RtsAiChatSession {
     }
 
     public boolean submit(String question) {
-        String safeQuestion = question == null ? "" : question.strip();
+        String safeQuestion = question == null ? "" : question.trim();
         if (this.waiting || safeQuestion.isEmpty()) {
             return false;
         }
@@ -42,8 +42,8 @@ public final class RtsAiChatSession {
         this.waiting = true;
         int generation = ++this.requestGeneration;
 
-        Minecraft minecraft = Minecraft.getInstance();
-        String language = minecraft.getLanguageManager().getSelected();
+        Minecraft minecraft = Minecraft.getMinecraft();
+        String language = minecraft.getLanguageManager().getCurrentLanguage().getLanguageCode();
         boolean chinese = language != null && language.toLowerCase(Locale.ROOT).startsWith("zh_");
         String prompt = RtsAiPrompt.compose(chinese, RtsAiKnowledgeBase.build(this.controller),
                 this.conversation.snapshot(), safeQuestion);
@@ -53,18 +53,18 @@ public final class RtsAiChatSession {
                     this.waiting = false;
                     this.pendingQuestion = "";
                     this.streamingAnswer.setLength(0);
-                    this.notices.add(new Notice(Component.translatable(
-                            "screen.rtsbuilding.ai_chat.error", error).getString(),
+                    this.notices.add(new Notice(I18n.format(
+                            "screen.rtsbuilding.ai_chat.error", error),
                             AiChatStyle.ERROR_TEXT.toArgb()));
                 }),
                 () -> runOnClient(generation, () -> {
                     String answer = RtsAiResponseSanitizer
-                            .forInGameDisplay(this.streamingAnswer.toString()).strip();
+                            .forInGameDisplay(this.streamingAnswer.toString()).trim();
                     if (!answer.isEmpty()) {
                         this.conversation.add(this.pendingQuestion, answer);
                     } else {
-                        this.notices.add(new Notice(Component.translatable(
-                                "screen.rtsbuilding.ai_chat.empty").getString(),
+                        this.notices.add(new Notice(I18n.format(
+                                "screen.rtsbuilding.ai_chat.empty"),
                                 AiChatStyle.WARNING_TEXT.toArgb()));
                     }
                     this.pendingQuestion = "";
@@ -80,8 +80,8 @@ public final class RtsAiChatSession {
         this.notices.clear();
         this.pendingQuestion = "";
         this.streamingAnswer.setLength(0);
-        this.notices.add(new Notice(Component.translatable(
-                "screen.rtsbuilding.ai_chat.cleared").getString(),
+        this.notices.add(new Notice(I18n.format(
+                "screen.rtsbuilding.ai_chat.cleared"),
                 AiChatStyle.SUCCESS_TEXT.toArgb()));
     }
 
@@ -119,17 +119,22 @@ public final class RtsAiChatSession {
     }
 
     public List<Notice> notices() {
-        return List.copyOf(this.notices);
+        return java.util.Collections.unmodifiableList(new ArrayList<Notice>(this.notices));
     }
 
     private void runOnClient(int generation, Runnable action) {
-        Minecraft.getInstance().execute(() -> {
+        Minecraft.getMinecraft().addScheduledTask(() -> {
             if (generation == this.requestGeneration) {
                 action.run();
             }
         });
     }
 
-    public record Notice(String text, int color) {
+    public static final class Notice {
+        private final String text;
+        private final int color;
+        private Notice(String text, int color) { this.text = text; this.color = color; }
+        public String text() { return this.text; }
+        public int color() { return this.color; }
     }
 }

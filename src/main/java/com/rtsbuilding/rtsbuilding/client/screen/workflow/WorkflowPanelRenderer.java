@@ -1,14 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.workflow;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiRow;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.FontRenderer;
 
 /**
  * 工作流共享 chrome 到 Minecraft 字体与字形的薄适配层。
@@ -21,8 +20,8 @@ final class WorkflowPanelRenderer {
     }
 
     static void renderRow(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             MinecraftUiCanvas canvas,
             WorkflowWindowLayout.RowGeometry geometry,
             WorkflowUiRow row,
@@ -41,10 +40,8 @@ final class WorkflowPanelRenderer {
                 geometry.row.contains(mouseX, mouseY));
         graphics.drawString(
                 font,
-                RtsClientUiUtil.trimToWidth(
-                        font,
-                        row.label,
-                        (int) geometry.row.getWidth() - 8),
+                WorkflowResumeRenderSupport.truncate(
+                        row.label, font, (int) geometry.row.getWidth() - 8),
                 (int) geometry.row.getX()
                         + WorkflowWindowLayout.LABEL_X,
                 (int) geometry.row.getY()
@@ -53,10 +50,8 @@ final class WorkflowPanelRenderer {
                 false);
         graphics.drawString(
                 font,
-                RtsClientUiUtil.trimToWidth(
-                        font,
-                        row.progressText,
-                        (int) geometry.progress.getWidth() - 4),
+                WorkflowResumeRenderSupport.truncate(
+                        row.progressText, font, (int) geometry.progress.getWidth() - 4),
                 (int) geometry.progress.getX()
                         + WorkflowWindowLayout.PROGRESS_TEXT_X,
                 (int) geometry.progress.getY()
@@ -94,15 +89,13 @@ final class WorkflowPanelRenderer {
     }
 
     private static void drawCenteredGlyph(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             UiRect bounds,
             String glyph,
             int color) {
-        RtsClientUiUtil.drawCenteredStringNoShadow(
-                graphics,
-                font,
-                glyph,
+        graphics.drawCenteredString(
+                font, glyph,
                 (int) bounds.getX()
                         + (int) bounds.getWidth() / 2,
                 (int) bounds.getY() + 4,

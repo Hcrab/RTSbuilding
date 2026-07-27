@@ -2,11 +2,14 @@ package com.rtsbuilding.rtsbuilding.client.util;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
 
 import java.util.*;
 
@@ -76,26 +79,17 @@ public final class RtsCreativeItemCatalog {
         this.lastRebuildMs = System.currentTimeMillis();
         this.entriesVersion++;
 
-        CreativeModeTab.ItemDisplayParameters parameters = resolveItemDisplayParameters();
         Map<String, Set<String>> modToTabs = new LinkedHashMap<>();
         Map<String, String> tabLabels = new LinkedHashMap<>();
         Map<String, String> modLabels = new LinkedHashMap<>();
         Set<String> seenItems = new HashSet<>();
-        for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
-            if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
-                continue;
-            }
-            ResourceLocation tabId = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
-            if (tabId == null) {
-                continue;
-            }
-            String namespace = tabId.getNamespace();
-            String tabKey = tabId.toString();
+        for (CreativeTabs tab : CreativeTabs.CREATIVE_TAB_ARRAY) {
+            if (tab == null) continue;
+            String tabLabel = tab.getTabLabel();
+            String namespace = namespaceForTab(tab);
+            String tabKey = namespace + ":" + sanitizePath(tabLabel);
             String token = encodeTabCategory(namespace, tabKey);
-            String label = safeTabLabel(tab, tabId);
-            // 1.21.1 的 shouldDisplay() 本身以 displayItems 非空为前提。必须先装填，
-            // 再根据实际结果过滤；否则从未打开原版创造物品栏时所有分类都会被跳过。
-            buildContentsIfPossible(tab, parameters);
+            String label = safeTabLabel(tab, tabKey);
             Collection<ItemStack> displayItems = safeDisplayItems(tab);
             if (displayItems.isEmpty()) {
                 continue;
@@ -110,7 +104,8 @@ public final class RtsCreativeItemCatalog {
         List<String> namespaces = new ArrayList<>(modToTabs.keySet());
         namespaces.sort(RtsCreativeItemCatalog::compareNamespace);
         for (String namespace : namespaces) {
-            List<String> tabs = new ArrayList<>(modToTabs.getOrDefault(namespace, Set.of()));
+            List<String> tabs = new ArrayList<>(modToTabs.containsKey(namespace)
+                    ? modToTabs.get(namespace) : Collections.<String>emptySet());
             tabs.sort((a, b) -> compareTabLabel(a, b, namespace, tabLabels));
             String modLabel = resolveModLabel(namespace, modLabels.getOrDefault(namespace, humanizeToken(namespace)));
             this.categories.add(new CreativeCategory(encodeModCategory(namespace), modLabel, 0, !tabs.isEmpty(), namespace));
@@ -125,33 +120,13 @@ public final class RtsCreativeItemCatalog {
     }
 
     private static String currentContextKey() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.level == null) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.world == null) {
             return "no-level";
         }
-        String dimension = String.valueOf(mc.level.dimension().location());
-        boolean operatorTabs = mc.player != null && mc.player.canUseGameMasterBlocks();
+        String dimension = String.valueOf(mc.world.provider.getDimension());
+        boolean operatorTabs = mc.player != null && mc.player.canUseCommand(2, "gamemode");
         return dimension + "|op=" + operatorTabs;
-    }
-
-    private static CreativeModeTab.ItemDisplayParameters resolveItemDisplayParameters() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.level == null) {
-            return null;
-        }
-        boolean operatorTabs = mc.player != null && mc.player.canUseGameMasterBlocks();
-        return new CreativeModeTab.ItemDisplayParameters(mc.level.enabledFeatures(), operatorTabs, mc.level.registryAccess());
-    }
-
-    private static void buildContentsIfPossible(CreativeModeTab tab, CreativeModeTab.ItemDisplayParameters parameters) {
-        if (parameters == null) {
-            return;
-        }
-        try {
-            tab.buildContents(parameters);
-        } catch (RuntimeException | LinkageError ignored) {
-            // Bad modded creative tabs should disappear from the RTS picker instead of crashing the screen.
-        }
     }
 
     private void addEntry(String categoryToken, ItemStack stack, Set<String> seenItems) {
@@ -160,42 +135,61 @@ public final class RtsCreativeItemCatalog {
         }
         ItemStack preview = stack.copy();
         preview.setCount(1);
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(preview.getItem());
+        ResourceLocation itemId = Item.REGISTRY.getNameForObject(preview.getItem());
         if (itemId == null) {
             return;
         }
         String itemKey = itemId.toString();
         String label;
         try {
-            label = preview.getHoverName().getString();
+            label = preview.getDisplayName();
         } catch (RuntimeException ex) {
             label = itemKey;
         }
-        String uniqueKey = categoryToken + "|" + itemKey + "|" + label;
+        String uniqueKey = categoryToken + "|" + itemKey + "|" + preview.getMetadata()
+                + "|" + String.valueOf(preview.getTagCompound());
         if (!seenItems.add(uniqueKey)) {
             return;
         }
-        String mod = itemId.getNamespace();
-        String name = itemId.getPath();
+        String mod = itemId.getResourceDomain();
+        String name = itemId.getResourcePath();
         this.entries.add(new CreativeEntry(preview, itemKey, categoryToken, label, mod, name,
                 RtsCreativeSearchCache.index(categoryToken, itemKey, label, mod, name)));
     }
 
-    private static Collection<ItemStack> safeDisplayItems(CreativeModeTab tab) {
+    private static Collection<ItemStack> safeDisplayItems(CreativeTabs tab) {
         try {
-            return tab.getDisplayItems();
-        } catch (RuntimeException ex) {
-            return List.of();
+            NonNullList<ItemStack> stacks = NonNullList.create();
+            tab.displayAllRelevantItems(stacks);
+            return stacks;
+        } catch (RuntimeException | LinkageError ex) {
+            return Collections.emptyList();
         }
     }
 
-    private static String safeTabLabel(CreativeModeTab tab, ResourceLocation fallback) {
+    private static String safeTabLabel(CreativeTabs tab, String fallback) {
         try {
-            String label = tab.getDisplayName().getString();
-            return label == null || label.isBlank() ? fallback.toString() : label;
+            String label = I18n.format(tab.getTranslationKey());
+            return isBlank(label) ? fallback : label;
         } catch (RuntimeException ex) {
-            return fallback.toString();
+            return fallback;
         }
+    }
+
+    private static String namespaceForTab(CreativeTabs tab) {
+        try {
+            ItemStack icon = tab.getIcon();
+            ResourceLocation id = icon.isEmpty() ? null : Item.REGISTRY.getNameForObject(icon.getItem());
+            return id == null ? "minecraft" : id.getResourceDomain();
+        } catch (RuntimeException | LinkageError ignored) {
+            return "minecraft";
+        }
+    }
+
+    private static String sanitizePath(String value) {
+        String safe = value == null ? "unknown" : value.toLowerCase(Locale.ROOT);
+        safe = safe.replaceAll("[^a-z0-9_./-]", "_");
+        return safe.isEmpty() ? "unknown" : safe;
     }
 
     private static String encodeModCategory(String namespace) {
@@ -207,7 +201,7 @@ public final class RtsCreativeItemCatalog {
     }
 
     private static void rememberBestModLabel(Map<String, String> modLabels, String namespace, String candidate) {
-        if (candidate == null || candidate.isBlank()) {
+        if (isBlank(candidate)) {
             return;
         }
         String current = modLabels.get(namespace);
@@ -218,10 +212,9 @@ public final class RtsCreativeItemCatalog {
 
     private static String resolveModLabel(String namespace, String fallback) {
         try {
-            return ModList.get().getModContainerById(namespace)
-                    .map(container -> container.getModInfo().getDisplayName())
-                    .filter(label -> label != null && !label.isBlank())
-                    .orElse(fallback);
+            ModContainer container = Loader.instance().getIndexedModList().get(namespace);
+            String label = container == null ? null : container.getName();
+            return isBlank(label) ? fallback : label;
         } catch (RuntimeException | LinkageError ignored) {
             return fallback;
         }
@@ -245,12 +238,17 @@ public final class RtsCreativeItemCatalog {
     }
 
     private static String humanizeTabKey(String tabKey) {
-        ResourceLocation key = ResourceLocation.tryParse(tabKey);
-        return humanizeToken(key == null ? tabKey : key.getPath());
+        ResourceLocation key;
+        try {
+            key = new ResourceLocation(tabKey);
+        } catch (RuntimeException ex) {
+            key = null;
+        }
+        return humanizeToken(key == null ? tabKey : key.getResourcePath());
     }
 
     private static String humanizeToken(String token) {
-        if (token == null || token.isBlank()) {
+        if (isBlank(token)) {
             return "";
         }
         String normalized = token.replace('_', ' ').replace('-', ' ').trim();
@@ -274,10 +272,58 @@ public final class RtsCreativeItemCatalog {
         return sb.toString();
     }
 
-    public record CreativeCategory(String token, String label, int depth, boolean expandable, String modNamespace) {
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
-    public record CreativeEntry(ItemStack stack, String itemId, String categoryToken, String label, String mod, String name,
-                                RtsCreativeSearchCache.IndexedEntry searchIndex) {
+    public static final class CreativeCategory {
+        private final String token;
+        private final String label;
+        private final int depth;
+        private final boolean expandable;
+        private final String modNamespace;
+
+        public CreativeCategory(String token, String label, int depth, boolean expandable, String modNamespace) {
+            this.token = token;
+            this.label = label;
+            this.depth = depth;
+            this.expandable = expandable;
+            this.modNamespace = modNamespace;
+        }
+
+        public String token() { return token; }
+        public String label() { return label; }
+        public int depth() { return depth; }
+        public boolean expandable() { return expandable; }
+        public String modNamespace() { return modNamespace; }
+    }
+
+    public static final class CreativeEntry {
+        private final ItemStack stack;
+        private final String itemId;
+        private final String categoryToken;
+        private final String label;
+        private final String mod;
+        private final String name;
+        private final RtsCreativeSearchCache.IndexedEntry searchIndex;
+
+        public CreativeEntry(ItemStack stack, String itemId, String categoryToken, String label,
+                             String mod, String name, RtsCreativeSearchCache.IndexedEntry searchIndex) {
+            this.stack = stack;
+            this.itemId = itemId;
+            this.categoryToken = categoryToken;
+            this.label = label;
+            this.mod = mod;
+            this.name = name;
+            this.searchIndex = searchIndex;
+        }
+
+        public ItemStack stack() { return stack; }
+        public String itemId() { return itemId; }
+        public String categoryToken() { return categoryToken; }
+        public String label() { return label; }
+        public String mod() { return mod; }
+        public String name() { return name; }
+        public RtsCreativeSearchCache.IndexedEntry searchIndex() { return searchIndex; }
     }
 }

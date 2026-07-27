@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.workflow;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
@@ -10,9 +11,11 @@ import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiRow;
 import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraftforge.fml.client.config.GuiUtils;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -31,8 +34,8 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable("screen.rtsbuilding.workflow.title");
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation("screen.rtsbuilding.workflow.title");
     }
 
     @Override
@@ -75,21 +78,20 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
 
     @Override
     public void renderOverlays(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             int mouseX,
             int mouseY) {
         if (!this.open || !canShowWindow() || this.screen == null) return;
         WorkflowUiRow hovered =
                 workflowAtProtectionButton(mouseX, mouseY);
         if (hovered == null) return;
-        graphics.renderTooltip(
-                this.screen.font(),
-                Component.translatable(
+        GuiUtils.drawHoveringText(
+                Collections.singletonList(WorkflowResumeRenderSupport.text(
                         hovered.protectedWorkflow
                                 ? "screen.rtsbuilding.workflow.allow_replace"
-                                : "screen.rtsbuilding.workflow.keep"),
-                mouseX,
-                mouseY);
+                                : "screen.rtsbuilding.workflow.keep")),
+                mouseX, mouseY, this.screen.width, this.screen.height,
+                300, this.screen.font());
     }
 
     @Override
@@ -105,7 +107,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
 
     @Override
     public void render(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             int mouseX,
             int mouseY,
             float partialTick) {
@@ -144,7 +146,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             int mouseX,
             int mouseY,
             float partialTick) {
@@ -230,9 +232,8 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
         return state.rows.get(hit.rowIndex);
     }
 
-    private final List<PersistableProperty> properties = List.of(
-            PersistableProperty.bounds("workflow", this)
-    );
+    private final List<PersistableProperty> properties = Collections.singletonList(
+            PersistableProperty.bounds("workflow", this));
 
     @Override
     public List<PersistableProperty> persistableProperties() {

@@ -16,8 +16,8 @@ public final class RtsAiConversation {
     private final List<Exchange> exchanges = new ArrayList<>();
 
     public void add(String question, String answer) {
-        String safeQuestion = question == null ? "" : question.strip();
-        String safeAnswer = answer == null ? "" : answer.strip();
+        String safeQuestion = question == null ? "" : question.trim();
+        String safeAnswer = answer == null ? "" : answer.trim();
         if (safeQuestion.isEmpty() || safeAnswer.isEmpty()) {
             return;
         }
@@ -43,6 +43,14 @@ public final class RtsAiConversation {
         return Collections.unmodifiableList(new ArrayList<>(this.exchanges));
     }
 
-    public record Exchange(String question, String answer) {
+    public static final class Exchange {
+        private final String question;
+        private final String answer;
+        private Exchange(String question, String answer) {
+            this.question = question;
+            this.answer = answer;
+        }
+        public String question() { return this.question; }
+        public String answer() { return this.answer; }
     }
 }

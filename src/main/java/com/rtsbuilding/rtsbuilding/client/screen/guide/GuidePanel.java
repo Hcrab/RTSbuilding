@@ -2,13 +2,13 @@ package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
 import com.rtsbuilding.rtsbuilding.RtsCommunityLinks;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.JadeOverlayLayout;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiAction;
@@ -24,12 +24,13 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.GuideWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.GuideWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.Util;
-import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +64,7 @@ public final class GuidePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (this.context == GuideUiContext.TOP) {
             renderAiHelp(g, mouseX, mouseY);
             return;
@@ -84,8 +85,8 @@ public final class GuidePanel extends RtsWindowPanel {
             boolean active = i == this.page;
             GuideWindowChromeRenderer.renderTopic(canvas, row, active);
             if (this.context == GuideUiContext.BOTTOM) {
-                String label = RtsClientUiUtil.trimToWidth(screen.font(),
-                        Component.translatable(topics[i].titleKey).getString(),
+                String label = trimToWidth(
+                        I18n.format(topics[i].titleKey),
                         tabW - GuideWindowLayout.TOPIC_LABEL_HORIZONTAL_PAD);
                 g.drawString(screen.font(), label,
                         tabX + GuideWindowLayout.TOPIC_LABEL_INSET_X,
@@ -106,14 +107,13 @@ public final class GuidePanel extends RtsWindowPanel {
         int maxTextW = (int) geometry.title.getWidth();
         GuideUiTopic topic = topics[this.page];
         g.drawString(screen.font(),
-                RtsClientUiUtil.trimToWidth(screen.font(),
-                        Component.translatable(topic.titleKey).getString(), maxTextW),
+                trimToWidth(I18n.format(topic.titleKey), maxTextW),
                 textX, lineY, GuideWindowStyle.TITLE_TEXT.toArgb(), false);
 
         int bodyTop = (int) geometry.body.getY();
         int bodyAreaH = (int) geometry.body.getHeight();
         int visibleTextLines = geometry.visibleTextLines;
-        List<FormattedCharSequence> bodyLines = collectTextLines(topic, maxTextW);
+        List<String> bodyLines = collectTextLines(topic, maxTextW);
         syncFromCore(new GuideUiState(this.context, this.page, this.topicScroll, this.textScroll,
                 visibleTopics, bodyLines.size(), visibleTextLines));
         int lineEnd = Math.min(bodyLines.size(), this.textScroll + visibleTextLines);
@@ -125,7 +125,7 @@ public final class GuidePanel extends RtsWindowPanel {
                         GuideWindowStyle.BODY_TEXT.toArgb(), false);
             }
         } finally {
-            g.disableScissor();
+            GL11.glDisable(GL11.GL_SCISSOR_TEST);
         }
         GuideWindowChromeRenderer.renderScrollbar(canvas, geometry.bodyScrollbar,
                 this.textScroll, bodyLines.size(), visibleTextLines);
@@ -189,7 +189,7 @@ public final class GuidePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
+    protected ITextComponent getTitle() {
         return title();
     }
 
@@ -261,7 +261,7 @@ public final class GuidePanel extends RtsWindowPanel {
         markBroughtToFront();
     }
 
-    public void renderTopHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+    public void renderTopHint(LegacyGuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         if (this.open && this.context == GuideUiContext.TOP) {
             return;
         }
@@ -288,9 +288,8 @@ public final class GuidePanel extends RtsWindowPanel {
         if (maxW < 42) {
             return;
         }
-        String hint = RtsClientUiUtil.trimToWidth(screen.font(),
-                Component.translatable("screen.rtsbuilding.top_hint.guide").getString(), maxW - 8);
-        if (hint.isBlank()) {
+        String hint = trimToWidth(I18n.format("screen.rtsbuilding.top_hint.guide"), maxW - 8);
+        if (hint.trim().isEmpty()) {
             return;
         }
         int y = 12;
@@ -299,32 +298,29 @@ public final class GuidePanel extends RtsWindowPanel {
                 GuideWindowStyle.HINT_TEXT.toArgb(), false);
     }
 
-    private Component title() {
+    private ITextComponent title() {
         if (this.context == GuideUiContext.TOP) {
-            return Component.translatable("screen.rtsbuilding.ai_help.title");
+            return new TextComponentTranslation("screen.rtsbuilding.ai_help.title");
         }
-        return Component.translatable(GuideUiCatalog.titleKey(this.context));
+        return new TextComponentTranslation(GuideUiCatalog.titleKey(this.context));
     }
 
-    private void renderAiHelp(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderAiHelp(LegacyGuiGraphics g, int mouseX, int mouseY) {
         int x = contentX() + 10;
         int y = contentY() + 9;
         int w = Math.max(80, contentWidth() - 20);
-        String description = RtsClientUiUtil.trimToWidth(
-                screen.font(),
-                Component.translatable("screen.rtsbuilding.ai_help.description").getString(),
-                w);
+        String description = trimToWidth(I18n.format("screen.rtsbuilding.ai_help.description"), w);
         g.drawString(screen.font(), description, x, y,
                 GuideWindowStyle.BODY_TEXT.toArgb(), false);
 
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
         int buttonY = contentY() + 29;
         drawAiHelpButton(canvas, x, buttonY, w, 22, mouseX, mouseY,
-                Component.translatable("screen.rtsbuilding.ai_help.chat"));
+                I18n.format("screen.rtsbuilding.ai_help.chat"));
         drawAiHelpButton(canvas, x, buttonY + 26, w, 22, mouseX, mouseY,
-                Component.translatable("screen.rtsbuilding.ai_help.copy"));
+                I18n.format("screen.rtsbuilding.ai_help.copy"));
         drawAiHelpButton(canvas, x, buttonY + 52, w, 22, mouseX, mouseY,
-                Component.translatable("screen.rtsbuilding.ai_help.website"));
+                I18n.format("screen.rtsbuilding.ai_help.website"));
     }
 
     private void handleAiHelpClick(double mouseX, double mouseY) {
@@ -337,12 +333,16 @@ public final class GuidePanel extends RtsWindowPanel {
         } else if (UiRect.contains(x, buttonY + 26, w, 22, mouseX, mouseY)) {
             boolean copied = RtsAiHelpClipboard.copy(this.controller);
             if (screen.getMinecraft().player != null) {
-                screen.getMinecraft().player.displayClientMessage(Component.translatable(copied
+                screen.getMinecraft().player.sendStatusMessage(new TextComponentTranslation(copied
                         ? "message.rtsbuilding.ai_help.copied"
                         : "message.rtsbuilding.ai_help.copy_failed"), true);
             }
         } else if (UiRect.contains(x, buttonY + 52, w, 22, mouseX, mouseY)) {
-            Util.getPlatform().openUri(RtsCommunityLinks.WEBSITE);
+            try {
+                java.awt.Desktop.getDesktop().browse(java.net.URI.create(RtsCommunityLinks.WEBSITE));
+            } catch (Exception ignored) {
+                // 旧版启动器或无桌面环境可能不支持打开浏览器；按钮仍保持离线求助入口可用。
+            }
         }
     }
 
@@ -354,14 +354,13 @@ public final class GuidePanel extends RtsWindowPanel {
             int h,
             int mouseX,
             int mouseY,
-            Component label) {
+            String label) {
         boolean hovered = UiRect.contains(x, y, w, h, mouseX, mouseY);
         WindowButtonChromeRenderer.renderSolid(canvas, new UiRect(x, y, w, h), hovered);
-        String text = RtsClientUiUtil.trimToWidth(
-                screen.font(), label.getString(), w - AI_HELP_BUTTON_TEXT_INSET);
+        String text = trimToWidth(label, w - AI_HELP_BUTTON_TEXT_INSET);
         canvas.text(text,
-                x + Math.max(5, (w - screen.font().width(text)) / 2),
-                y + (h - screen.font().lineHeight) / 2,
+                x + Math.max(5, (w - screen.font().getStringWidth(text)) / 2),
+                y + (h - screen.font().FONT_HEIGHT) / 2,
                 WindowButtonStyle.TEXT);
     }
 
@@ -393,10 +392,10 @@ public final class GuidePanel extends RtsWindowPanel {
         return hit.target == GuideWindowLayout.Target.TOPIC ? hit.topicIndex : -1;
     }
 
-    private List<FormattedCharSequence> collectTextLines(GuideUiTopic topic, int maxTextW) {
-        List<FormattedCharSequence> lines = new ArrayList<>();
+    private List<String> collectTextLines(GuideUiTopic topic, int maxTextW) {
+        List<String> lines = new ArrayList<>();
         for (String key : topic.lineKeys) {
-            lines.addAll(screen.font().split(Component.translatable(key), maxTextW));
+            lines.addAll(screen.font().listFormattedStringToWidth(I18n.format(key), maxTextW));
         }
         return lines;
     }
@@ -408,32 +407,45 @@ public final class GuidePanel extends RtsWindowPanel {
         this.textScroll = state.textScroll;
     }
 
-    private void drawTopicIcon(GuiGraphics g, GuideUiIcon icon, int cx, int cy, UiColor color) {
+    private void drawTopicIcon(LegacyGuiGraphics g, GuideUiIcon icon, int cx, int cy, UiColor color) {
         GuideIconTextures.Entry entry = GuideIconTextures.entry(icon);
         if (entry.tinted()) {
-            RenderSystem.setShaderColor(
+            GlStateManager.color(
                     color.red() / 255.0F,
                     color.green() / 255.0F,
                     color.blue() / 255.0F,
                     color.alpha() / 255.0F);
-            g.blit(entry.texture(), cx - 9, cy - 9, 0, 0, 18, 18, 18, 18);
-            RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+            blit(entry.texture(), cx - 9, cy - 9, 18, 18);
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         } else {
             drawGuideTextureIcon(g, entry.texture(), cx, cy);
         }
     }
 
-    private void drawGuideTextureIcon(GuiGraphics g, ResourceLocation texture, int cx, int cy) {
-        g.pose().pushPose();
-        g.pose().translate(cx - 9, cy - 9, 0.0F);
-        g.pose().scale(0.75F, 0.75F, 1.0F);
-        g.blit(texture, 0, 0, 0, 0, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H);
-        g.pose().popPose();
+    private void drawGuideTextureIcon(LegacyGuiGraphics g, ResourceLocation texture, int cx, int cy) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(cx - 9, cy - 9, 0.0F);
+        GlStateManager.scale(0.75F, 0.75F, 1.0F);
+        blit(texture, 0, 0, TOP_BUTTON_H, TOP_BUTTON_H);
+        GlStateManager.popMatrix();
     }
 
-    private final List<PersistableProperty> properties = List.of(
-            PersistableProperty.bounds("guide", this)
-    );
+    private final List<PersistableProperty> properties = java.util.Collections.singletonList(
+            PersistableProperty.bounds("guide", this));
+
+    private void blit(ResourceLocation texture, int x, int y, int width, int height) {
+        this.screen.getMinecraft().getTextureManager().bindTexture(texture);
+        Gui.drawModalRectWithCustomSizedTexture(x, y, 0.0F, 0.0F,
+                width, height, width, height);
+    }
+
+    private String trimToWidth(String text, int maxWidth) {
+        String safe = text == null ? "" : text;
+        if (this.screen.font().getStringWidth(safe) <= maxWidth) return safe;
+        String suffix = "...";
+        int width = Math.max(0, maxWidth - this.screen.font().getStringWidth(suffix));
+        return this.screen.font().trimStringToWidth(safe, width) + suffix;
+    }
 
     @Override
     public List<PersistableProperty> persistableProperties() {
