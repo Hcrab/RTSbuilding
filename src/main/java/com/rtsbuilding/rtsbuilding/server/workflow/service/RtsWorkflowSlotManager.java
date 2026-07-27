@@ -1,11 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.service;
 
-import com.rtsbuilding.rtsbuilding.server.workflow.core.IWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEntry;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraftforge.common.util.Constants;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -21,7 +20,7 @@ import java.util.function.Predicate;
  * 当条目被移除时，后面的条目会向前移动——
  * 但不可变的 {@link RtsWorkflowEntry#id()} 在索引偏移后仍然有效。</p>
  *
- * <p>本类有意保持为简单的容器；所有协调逻辑位于 {@link IWorkflowEngine} 中。</p>
+ * <p>本类有意保持为简单的容器；所有协调逻辑位于工作流引擎中。</p>
  */
 public final class RtsWorkflowSlotManager {
 
@@ -354,18 +353,18 @@ public final class RtsWorkflowSlotManager {
     /**
      * 将此槽位管理器（所有条目 + nextId）序列化为 {@link CompoundTag}。
      */
-    public CompoundTag saveToNbt() {
+    public NBTTagCompound saveToNbt() {
         rwLock.readLock().lock();
         try {
-            CompoundTag tag = new CompoundTag();
-            tag.putInt(NBT_NEXT_ID, nextId);
-            ListTag entriesList = new ListTag();
+            NBTTagCompound tag = new NBTTagCompound();
+            tag.setInteger(NBT_NEXT_ID, nextId);
+            NBTTagList entriesList = new NBTTagList();
             for (RtsWorkflowEntry entry : entries) {
                 if (entry.isOccupied()) {
-                    entriesList.add(entry.toNbt());
+                    entriesList.appendTag(entry.toNbt());
                 }
             }
-            tag.put(NBT_ENTRIES, entriesList);
+            tag.setTag(NBT_ENTRIES, entriesList);
             return tag;
         } finally {
             rwLock.readLock().unlock();
@@ -379,13 +378,13 @@ public final class RtsWorkflowSlotManager {
      * @param tag 之前由 {@link #saveToNbt()} 生成的 NBT 标签
      * @return 恢复了所有条目的新槽位管理器
      */
-    public static RtsWorkflowSlotManager loadFromNbt(CompoundTag tag) {
+    public static RtsWorkflowSlotManager loadFromNbt(NBTTagCompound tag) {
         RtsWorkflowSlotManager manager = new RtsWorkflowSlotManager();
-        manager.nextId = tag.getInt(NBT_NEXT_ID);
-        if (tag.contains(NBT_ENTRIES, Tag.TAG_LIST)) {
-            ListTag entriesList = tag.getList(NBT_ENTRIES, Tag.TAG_COMPOUND);
-            for (int i = 0; i < entriesList.size(); i++) {
-                RtsWorkflowEntry entry = RtsWorkflowEntry.fromNbt(entriesList.getCompound(i));
+        manager.nextId = tag.getInteger(NBT_NEXT_ID);
+        if (tag.hasKey(NBT_ENTRIES, Constants.NBT.TAG_LIST)) {
+            NBTTagList entriesList = tag.getTagList(NBT_ENTRIES, Constants.NBT.TAG_COMPOUND);
+            for (int i = 0; i < entriesList.tagCount(); i++) {
+                RtsWorkflowEntry entry = RtsWorkflowEntry.fromNbt(entriesList.getCompoundTagAt(i));
                 if (entry.isOccupied()) {
                     manager.entries.add(entry);
                     manager.entryIndex.put(entry.id(), entry);
@@ -417,7 +416,7 @@ public final class RtsWorkflowSlotManager {
     public List<RtsWorkflowEntry> allEntries() {
         rwLock.readLock().lock();
         try {
-            return List.copyOf(entries);
+            return Collections.unmodifiableList(new ArrayList<RtsWorkflowEntry>(entries));
         } finally {
             rwLock.readLock().unlock();
         }
@@ -441,9 +440,11 @@ public final class RtsWorkflowSlotManager {
      * @return 被移除的条目 ID 列表
      */
     public List<Integer> removeStaleEntries(long maxIdleMillis) {
-        return removeStaleEntrySnapshots(maxIdleMillis).stream()
-                .map(RtsWorkflowEntry::id)
-                .toList();
+        List<Integer> ids = new ArrayList<Integer>();
+        for (RtsWorkflowEntry entry : removeStaleEntrySnapshots(maxIdleMillis)) {
+            ids.add(entry.id());
+        }
+        return ids;
     }
 
     /**

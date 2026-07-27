@@ -3,13 +3,14 @@ package com.rtsbuilding.rtsbuilding.server.workflow.core;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraftforge.common.util.Constants;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -51,7 +52,7 @@ public final class RtsWorkflowEntry {
     private boolean terminal;
 
     /** 工作流类型特定的额外持久化数据（如蓝图蓝图源数据、剩余队列等）。 */
-    private @Nullable CompoundTag extraData;
+    private @Nullable NBTTagCompound extraData;
 
     // ──────────────────────────────────────────────────────────────────
     //  构造
@@ -87,7 +88,9 @@ public final class RtsWorkflowEntry {
     public int failedBlocks() { return failedBlocks; }
 
     /** 当前缺少的物品 ID 列表。 */
-    public List<String> missingItems() { return List.copyOf(missingItems); }
+    public List<String> missingItems() {
+        return Collections.unmodifiableList(new ArrayList<String>(missingItems));
+    }
 
     /** 关于当前工作流的可选人类可读详情。 */
     public String detailMessage() { return detailMessage; }
@@ -105,10 +108,10 @@ public final class RtsWorkflowEntry {
     public boolean terminal() { return terminal; }
 
     /** 返回工作流类型特定的额外持久化数据，可能为 null。 */
-    public @Nullable CompoundTag getExtraData() { return extraData; }
+    public @Nullable NBTTagCompound getExtraData() { return extraData; }
 
     /** 设置工作流类型特定的额外持久化数据。 */
-    public void setExtraData(@Nullable CompoundTag extraData) {
+    public void setExtraData(@Nullable NBTTagCompound extraData) {
         this.extraData = extraData;
         touch();
     }
@@ -163,7 +166,7 @@ public final class RtsWorkflowEntry {
         }
         return RtsWorkflowStatus.fromRaw(
                 type, priority, totalBlocks, completedBlocks, failedBlocks,
-                List.copyOf(missingItems), detailMessage, suspended, paused, protectedWorkflow, id);
+                missingItems, detailMessage, suspended, paused, protectedWorkflow, id);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -294,35 +297,35 @@ public final class RtsWorkflowEntry {
     /**
      * 将此条目序列化为 {@link CompoundTag}。
      */
-    public CompoundTag toNbt() {
-        CompoundTag tag = new CompoundTag();
-        tag.putInt(NBT_ID, id);
+    public NBTTagCompound toNbt() {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger(NBT_ID, id);
         if (type != null) {
-            tag.putString(NBT_TYPE, type.name());
+            tag.setString(NBT_TYPE, type.name());
         }
-        tag.putInt(NBT_PRIORITY, priority.rank());
-        tag.putInt(NBT_TOTAL_BLOCKS, totalBlocks);
-        tag.putInt(NBT_COMPLETED_BLOCKS, completedBlocks);
-        tag.putInt(NBT_FAILED_BLOCKS, failedBlocks);
+        tag.setInteger(NBT_PRIORITY, priority.rank());
+        tag.setInteger(NBT_TOTAL_BLOCKS, totalBlocks);
+        tag.setInteger(NBT_COMPLETED_BLOCKS, completedBlocks);
+        tag.setInteger(NBT_FAILED_BLOCKS, failedBlocks);
         if (!missingItems.isEmpty()) {
-            ListTag items = new ListTag();
+            NBTTagList items = new NBTTagList();
             for (String item : missingItems) {
-                items.add(StringTag.valueOf(item));
+                items.appendTag(new NBTTagString(item));
             }
-            tag.put(NBT_MISSING_ITEMS, items);
+            tag.setTag(NBT_MISSING_ITEMS, items);
         }
         if (!detailMessage.isEmpty()) {
-            tag.putString(NBT_DETAIL, detailMessage);
+            tag.setString(NBT_DETAIL, detailMessage);
         }
-        tag.putBoolean(NBT_SUSPENDED, suspended);
-        tag.putBoolean(NBT_PAUSED, paused);
-        tag.putBoolean(NBT_PROTECTED, protectedWorkflow);
-        tag.putBoolean(NBT_TERMINAL, terminal);
+        tag.setBoolean(NBT_SUSPENDED, suspended);
+        tag.setBoolean(NBT_PAUSED, paused);
+        tag.setBoolean(NBT_PROTECTED, protectedWorkflow);
+        tag.setBoolean(NBT_TERMINAL, terminal);
         if (extraData != null && !extraData.isEmpty()) {
-            tag.put(NBT_EXTRA_DATA, extraData.copy());
+            tag.setTag(NBT_EXTRA_DATA, extraData.copy());
         }
-        tag.putLong(NBT_CREATED_AT, createdAt);
-        tag.putLong(NBT_LAST_UPDATED_AT, lastUpdatedAt);
+        tag.setLong(NBT_CREATED_AT, createdAt);
+        tag.setLong(NBT_LAST_UPDATED_AT, lastUpdatedAt);
         return tag;
     }
 
@@ -332,11 +335,11 @@ public final class RtsWorkflowEntry {
      * @param tag 之前由 {@link #toNbt()} 生成的 NBT 标签
      * @return 恢复了所有字段的新条目
      */
-    public static RtsWorkflowEntry fromNbt(CompoundTag tag) {
-        int id = tag.getInt(NBT_ID);
+    public static RtsWorkflowEntry fromNbt(NBTTagCompound tag) {
+        int id = tag.getInteger(NBT_ID);
         RtsWorkflowEntry entry = new RtsWorkflowEntry(id);
 
-        if (tag.contains(NBT_TYPE, Tag.TAG_STRING)) {
+        if (tag.hasKey(NBT_TYPE, Constants.NBT.TAG_STRING)) {
             try {
                 entry.type = RtsWorkflowType.valueOf(tag.getString(NBT_TYPE));
             } catch (IllegalArgumentException ignored) {
@@ -345,7 +348,7 @@ public final class RtsWorkflowEntry {
         }
 
         // 优先级以 rank 形式存储；查找匹配的枚举值
-        int priorityRank = tag.getInt(NBT_PRIORITY);
+        int priorityRank = tag.getInteger(NBT_PRIORITY);
         for (RtsWorkflowPriority p : RtsWorkflowPriority.values()) {
             if (p.rank() == priorityRank) {
                 entry.priority = p;
@@ -353,21 +356,21 @@ public final class RtsWorkflowEntry {
             }
         }
 
-        entry.totalBlocks = Math.max(0, tag.getInt(NBT_TOTAL_BLOCKS));
-        entry.completedBlocks = Math.max(0, tag.getInt(NBT_COMPLETED_BLOCKS));
-        entry.failedBlocks = Math.max(0, tag.getInt(NBT_FAILED_BLOCKS));
+        entry.totalBlocks = Math.max(0, tag.getInteger(NBT_TOTAL_BLOCKS));
+        entry.completedBlocks = Math.max(0, tag.getInteger(NBT_COMPLETED_BLOCKS));
+        entry.failedBlocks = Math.max(0, tag.getInteger(NBT_FAILED_BLOCKS));
 
-        if (tag.contains(NBT_MISSING_ITEMS, Tag.TAG_LIST)) {
-            ListTag items = tag.getList(NBT_MISSING_ITEMS, Tag.TAG_STRING);
-            for (int i = 0; i < items.size(); i++) {
-                String item = items.getString(i);
-                if (item != null && !item.isBlank()) {
+        if (tag.hasKey(NBT_MISSING_ITEMS, Constants.NBT.TAG_LIST)) {
+            NBTTagList items = tag.getTagList(NBT_MISSING_ITEMS, Constants.NBT.TAG_STRING);
+            for (int i = 0; i < items.tagCount(); i++) {
+                String item = items.getStringTagAt(i);
+                if (item != null && !item.trim().isEmpty()) {
                     entry.missingItems.add(item);
                 }
             }
         }
 
-        entry.detailMessage = tag.contains(NBT_DETAIL, Tag.TAG_STRING)
+        entry.detailMessage = tag.hasKey(NBT_DETAIL, Constants.NBT.TAG_STRING)
                 ? tag.getString(NBT_DETAIL) : "";
         entry.suspended = tag.getBoolean(NBT_SUSPENDED);
         entry.paused = tag.getBoolean(NBT_PAUSED);
@@ -375,15 +378,15 @@ public final class RtsWorkflowEntry {
         entry.terminal = tag.getBoolean(NBT_TERMINAL);
 
         // 恢复工作流类型特定的额外数据
-        if (tag.contains(NBT_EXTRA_DATA, Tag.TAG_COMPOUND)) {
-            entry.extraData = tag.getCompound(NBT_EXTRA_DATA).copy();
+        if (tag.hasKey(NBT_EXTRA_DATA, Constants.NBT.TAG_COMPOUND)) {
+            entry.extraData = tag.getCompoundTag(NBT_EXTRA_DATA).copy();
         }
 
         // 恢复时间戳——仅在存在时覆盖
-        if (tag.contains(NBT_CREATED_AT, Tag.TAG_ANY_NUMERIC)) {
+        if (tag.hasKey(NBT_CREATED_AT, Constants.NBT.TAG_ANY_NUMERIC)) {
             entry.setCreatedAtRaw(tag.getLong(NBT_CREATED_AT));
         }
-        if (tag.contains(NBT_LAST_UPDATED_AT, Tag.TAG_ANY_NUMERIC)) {
+        if (tag.hasKey(NBT_LAST_UPDATED_AT, Constants.NBT.TAG_ANY_NUMERIC)) {
             entry.lastUpdatedAt = tag.getLong(NBT_LAST_UPDATED_AT);
         }
 
@@ -402,7 +405,8 @@ public final class RtsWorkflowEntry {
     @Override
     public boolean equals(Object obj) {
         if (obj == this) return true;
-        if (!(obj instanceof RtsWorkflowEntry other)) return false;
+        if (!(obj instanceof RtsWorkflowEntry)) return false;
+        RtsWorkflowEntry other = (RtsWorkflowEntry) obj;
         return this.id == other.id;
     }
 

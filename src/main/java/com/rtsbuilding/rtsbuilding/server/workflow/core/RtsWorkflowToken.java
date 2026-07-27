@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -54,22 +52,26 @@ import java.util.UUID;
  * <p>令牌<b>不是</b>线程安全的——它们设计用于单线程的服务端 tick 处理。
  * 为每个不同的工作流创建新的令牌。</p>
  */
-public record RtsWorkflowToken(
-        UUID playerId,
-        int entryId,
-        ResourceKey<Level> dimension,
-        RtsWorkflowEngine engine
-) {
+public final class RtsWorkflowToken {
+    private final UUID playerId;
+    private final int entryId;
+    private final int dimension;
+    private final RtsWorkflowEngine engine;
 
     // ──────────────────────────────────────────────────────────────────
     //  构造（紧凑构造器——由 record 自动生成，仅做验证）
     // ──────────────────────────────────────────────────────────────────
 
-    public RtsWorkflowToken {
-        Objects.requireNonNull(playerId, "playerId");
-        Objects.requireNonNull(dimension, "dimension");
-        Objects.requireNonNull(engine, "engine");
+    public RtsWorkflowToken(UUID playerId, int entryId, int dimension, RtsWorkflowEngine engine) {
+        this.playerId = Objects.requireNonNull(playerId, "playerId");
+        this.entryId = entryId;
+        this.dimension = dimension;
+        this.engine = Objects.requireNonNull(engine, "engine");
     }
+
+    public UUID playerId() { return playerId; }
+    public int entryId() { return entryId; }
+    public int dimension() { return dimension; }
 
     // ──────────────────────────────────────────────────────────────────
     //  标识
@@ -305,7 +307,8 @@ public record RtsWorkflowToken(
     @Override
     public boolean equals(Object obj) {
         if (obj == this) return true;
-        if (!(obj instanceof RtsWorkflowToken other)) return false;
+        if (!(obj instanceof RtsWorkflowToken)) return false;
+        RtsWorkflowToken other = (RtsWorkflowToken) obj;
         return this.playerId.equals(other.playerId) && this.entryId == other.entryId;
     }
 

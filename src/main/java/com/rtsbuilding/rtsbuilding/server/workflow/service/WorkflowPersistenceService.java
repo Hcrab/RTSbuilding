@@ -1,9 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.service;
 
 import com.rtsbuilding.rtsbuilding.server.data.RtsWorkflowStore;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.Level;
 
 import java.util.Map;
 import java.util.UUID;
@@ -32,7 +30,7 @@ public final class WorkflowPersistenceService {
      * @param playerSlots 引擎当前持有的 slot 管理器映射
      */
     public void saveAll(MinecraftServer server,
-                        Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerSlots) {
+                        Map<UUID, Map<Integer, RtsWorkflowSlotManager>> playerSlots) {
         if (server == null) return;
         RtsWorkflowStore.saveAll(server, playerSlots);
     }
@@ -44,9 +42,9 @@ public final class WorkflowPersistenceService {
      * @param playerId 玩家 UUID
      * @return 按维度分组的 slot 管理器映射，可能为空
      */
-    public Map<ResourceKey<Level>, RtsWorkflowSlotManager> loadPlayerFromStore(
+    public Map<Integer, RtsWorkflowSlotManager> loadPlayerFromStore(
             MinecraftServer server, UUID playerId) {
-        if (server == null || playerId == null) return Map.of();
+        if (server == null || playerId == null) return java.util.Collections.emptyMap();
         return RtsWorkflowStore.loadPlayer(server, playerId);
     }
 }

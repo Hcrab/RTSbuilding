@@ -13,16 +13,15 @@ import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSyncServic
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowTimeoutService;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceService;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -59,13 +58,13 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     // ──────────────────────────────────────────────────────────────────
 
     /** 每个玩家每个维度的槽位管理器，懒加载创建。 */
-    private final Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerSlots = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<Integer, RtsWorkflowSlotManager>> playerSlots = new ConcurrentHashMap<>();
 
     /**
      * 追踪每个 UUID 最近的有效 {@link ServerPlayer} 引用。
      * 每次调用 {@code start()}、{@code from()} 和 {@code lastActive()} 时更新。
      */
-    private final Map<UUID, ServerPlayer> playerRefs = new ConcurrentHashMap<>();
+    private final Map<UUID, EntityPlayerMP> playerRefs = new ConcurrentHashMap<>();
 
     /** 生命周期事件的事件总线。 */
     private final RtsWorkflowEventBus eventBus = new RtsWorkflowEventBus();
@@ -90,7 +89,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
 
     @FunctionalInterface
     public interface BlueprintRestoreHandler {
-        void restore(ServerPlayer player, RtsWorkflowEntry entry);
+        void restore(EntityPlayerMP player, RtsWorkflowEntry entry);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -148,7 +147,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 包级私有——由 {@link RtsWorkflowToken} 调用。
      */
     @Nullable
-    RtsWorkflowEntry findEntry(UUID playerId, ResourceKey<Level> dimension, int entryId) {
+    RtsWorkflowEntry findEntry(UUID playerId, int dimension, int entryId) {
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
         if (slots == null) return null;
         return slots.findEntryById(entryId);
@@ -160,9 +159,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 等跨包组件使用，避免重复的 engine.from() → token.isPaused() 两次独立 lookup。
      */
     @Nullable
-    public RtsWorkflowEntry findEntryByPlayer(ServerPlayer player, int entryId) {
+    public RtsWorkflowEntry findEntryByPlayer(EntityPlayerMP player, int entryId) {
         if (player == null) return null;
-        return findEntry(player.getUUID(), player.level().dimension(), entryId);
+        return findEntry(player.getUniqueID(), player.dimension, entryId);
     }
 
     /**
@@ -170,8 +169,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * <p>供调用方已有 UUID 和维度时的 hot path 使用，避免 {@code player.level().dimension()} 额外开销。
      */
     @Nullable
-    public RtsWorkflowEntry findEntryByPlayer(UUID playerId, ResourceKey<Level> dimension, int entryId) {
-        if (playerId == null || dimension == null) return null;
+    public RtsWorkflowEntry findEntryByPlayer(UUID playerId, int dimension, int entryId) {
+        if (playerId == null) return null;
         return findEntry(playerId, dimension, entryId);
     }
 
@@ -184,7 +183,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 当没有剩余条目时，{@link RtsWorkflowSyncService#notifyPlayer} 内部会
      * 自动分发 {@code idle()}，因此调用者无需提前检查 {@code occupiedCount()}。</p>
      */
-    void removeEntry(UUID playerId, ResourceKey<Level> dimension, int entryId) {
+    void removeEntry(UUID playerId, int dimension, int entryId) {
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
         if (slots == null) return;
 
@@ -199,7 +198,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 向指定维度的玩家发送完整的工作流状态更新。
      * 包级私有——由 {@link RtsWorkflowToken} 调用。
      */
-    void notifyPlayer(UUID playerId, ResourceKey<Level> dimension) {
+    void notifyPlayer(UUID playerId, int dimension) {
         if (getSlots(playerId, dimension) != null) {
             RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension);
         }
@@ -209,9 +208,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 仅由 Tick 末副作用提交器调用。普通业务代码应调用 token 方法并留下脏标记，
      * 避免同一 Tick 重复构建和发送完整工作流快照。
      */
-    public void flushPlayerNow(UUID playerId, ResourceKey<Level> dimension) {
+    public void flushPlayerNow(UUID playerId, int dimension) {
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
-        ServerPlayer player = findPlayerByUUID(playerId);
+        EntityPlayerMP player = findPlayerByUUID(playerId);
         if (player == null) {
             return;
         }
@@ -236,19 +235,19 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     // ──────────────────────────────────────────────────────────────────
 
     @Override
-    public Optional<RtsWorkflowToken> start(ServerPlayer player,
+    public Optional<RtsWorkflowToken> start(EntityPlayerMP player,
                                             RtsWorkflowType type, RtsWorkflowPriority priority, int totalBlocks) {
         if (player == null || type == null) {
             return Optional.empty();
         }
         RtsWorkflowSlotManager slots = getOrCreateSlots(player);
-        ResourceKey<Level> dimension = player.level().dimension();
+        int dimension = player.dimension;
         if (slots.isFull()) {
             RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
             if (replaced != null) {
                 com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                         .cancelWorkflowTask(player, replaced.id());
-                fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), replaced.id(), replaced);
+                fireEvent(WorkflowEventType.CANCELLED, player.getUniqueID(), replaced.id(), replaced);
                 RtsbuildingMod.LOGGER.debug("[Workflow] {} 自动替换可覆盖工作流 #{}: {}",
                         player.getGameProfile().getName(), replaced.id(), replaced.type());
             }
@@ -269,20 +268,19 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             String name = player.getGameProfile().getName();
             RtsbuildingMod.LOGGER.debug("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
                     name, RtsWorkflowSlotManager.MAX_SLOTS, type);
-            player.displayClientMessage(
-                    Component.translatable("message.rtsbuilding.workflow.full_protected"),
-                    true);
+            player.sendStatusMessage(
+                    new TextComponentTranslation("message.rtsbuilding.workflow.full_protected"), true);
             return Optional.empty();
         }
         entry.setType(type);
         entry.setTotalBlocks(totalBlocks);
 
         // 追踪玩家引用，供后续通知使用
-        playerRefs.put(player.getUUID(), player);
+        playerRefs.put(player.getUniqueID(), player);
 
-        RtsWorkflowToken token = new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this);
-        fireEvent(WorkflowEventType.STARTED, player.getUUID(), entry.id(), entry);
-        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), dimension);
+        RtsWorkflowToken token = new RtsWorkflowToken(player.getUniqueID(), entry.id(), dimension, this);
+        fireEvent(WorkflowEventType.STARTED, player.getUniqueID(), entry.id(), entry);
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUniqueID(), dimension);
 
         RtsbuildingMod.LOGGER.debug("[Workflow] {} 开始工作流 #{}: {} (共 {} 方块)",
                 player.getGameProfile().getName(), entry.id(), type, totalBlocks);
@@ -296,18 +294,18 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * UI 投影。恢复时保留原 workflowEntryId，避免把控制操作接到另一条任务上。</p>
      */
     public Optional<RtsWorkflowToken> restoreDurableProjection(
-            ServerPlayer player,
+            EntityPlayerMP player,
             int entryId,
             RtsWorkflowType type,
             int totalBlocks,
             int completedBlocks,
             int failedBlocks) {
         if (player == null || entryId < 0 || type == null) return Optional.empty();
-        ResourceKey<Level> dimension = player.level().dimension();
+        int dimension = player.dimension;
         RtsWorkflowSlotManager slots = getOrCreateSlots(player);
         RtsWorkflowEntry existing = slots.findEntryById(entryId);
         if (existing != null) {
-            return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
+            return Optional.of(new RtsWorkflowToken(player.getUniqueID(), entryId, dimension, this));
         }
 
         // 旧持久任务的恢复不能反过来淘汰已经可见的新工作流。
@@ -322,11 +320,11 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         restored.addFailedBlocks(Math.max(0, failedBlocks));
         if (!slots.addRestoredEntry(restored)) return Optional.empty();
 
-        playerRefs.put(player.getUUID(), player);
-        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), dimension);
+        playerRefs.put(player.getUniqueID(), player);
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUniqueID(), dimension);
         RtsbuildingMod.LOGGER.info("[Workflow] 为 {} 恢复持久任务投影 #{}: {}",
                 player.getGameProfile().getName(), entryId, type);
-        return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
+        return Optional.of(new RtsWorkflowToken(player.getUniqueID(), entryId, dimension, this));
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -334,48 +332,49 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     // ──────────────────────────────────────────────────────────────────
 
     @Override
-    public Optional<RtsWorkflowToken> from(ServerPlayer player, int entryId) {
+    public Optional<RtsWorkflowToken> from(EntityPlayerMP player, int entryId) {
         if (player == null) return Optional.empty();
-        playerRefs.putIfAbsent(player.getUUID(), player);
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        playerRefs.putIfAbsent(player.getUniqueID(), player);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null || slots.findEntryById(entryId) == null) {
             return Optional.empty();
         }
-        return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
+        return Optional.of(new RtsWorkflowToken(player.getUniqueID(), entryId, dimension, this));
     }
 
     /**
      * 在每玩家最多八个槽位中精确查找 durable 蓝图薄投影。
      * 该查询只读 {@code durable_task_id}，不会把旧 heavy extraData 误认成新执行许可。
      */
-    public Optional<RtsWorkflowToken> findDurableBlueprintProjection(ServerPlayer player, UUID taskId) {
+    public Optional<RtsWorkflowToken> findDurableBlueprintProjection(EntityPlayerMP player, UUID taskId) {
         if (player == null || taskId == null) return Optional.empty();
-        playerRefs.putIfAbsent(player.getUUID(), player);
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        playerRefs.putIfAbsent(player.getUniqueID(), player);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) return Optional.empty();
         for (RtsWorkflowEntry entry : slots.allEntries()) {
-            CompoundTag extra = entry.getExtraData();
+            NBTTagCompound extra = entry.getExtraData();
             if (entry.type() == RtsWorkflowType.BLUEPRINT_BUILD && extra != null
-                    && extra.hasUUID("durable_task_id")
-                    && taskId.equals(extra.getUUID("durable_task_id"))) {
-                return Optional.of(new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this));
+                    && extra.hasUniqueId("durable_task_id")
+                    && taskId.equals(com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat
+                            .getUuid(extra, "durable_task_id"))) {
+                return Optional.of(new RtsWorkflowToken(player.getUniqueID(), entry.id(), dimension, this));
             }
         }
         return Optional.empty();
     }
 
     @Override
-    public Optional<RtsWorkflowToken> lastActive(ServerPlayer player) {
+    public Optional<RtsWorkflowToken> lastActive(EntityPlayerMP player) {
         if (player == null) return Optional.empty();
-        playerRefs.putIfAbsent(player.getUUID(), player);
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        playerRefs.putIfAbsent(player.getUniqueID(), player);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) return Optional.empty();
         RtsWorkflowEntry entry = slots.lastActive();
         if (entry == null) return Optional.empty();
-        return Optional.of(new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this));
+        return Optional.of(new RtsWorkflowToken(player.getUniqueID(), entry.id(), dimension, this));
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -402,10 +401,10 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     @Override
-    public RtsWorkflowStatus getProgress(ServerPlayer player, int entryId) {
+    public RtsWorkflowStatus getProgress(EntityPlayerMP player, int entryId) {
         if (player == null) return RtsWorkflowStatus.idle();
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) return RtsWorkflowStatus.idle();
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
         if (entry == null || !entry.isOccupied()) return RtsWorkflowStatus.idle();
@@ -413,45 +412,45 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     @Override
-    public List<RtsWorkflowStatus> getAllProgress(ServerPlayer player) {
-        if (player == null) return List.of();
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
-        if (slots == null) return List.of();
-        return slots.occupiedEntries().stream()
-                .map(RtsWorkflowEntry::snapshot)
-                .toList();
+    public List<RtsWorkflowStatus> getAllProgress(EntityPlayerMP player) {
+        if (player == null) return java.util.Collections.emptyList();
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
+        if (slots == null) return java.util.Collections.emptyList();
+        List<RtsWorkflowStatus> statuses = new ArrayList<RtsWorkflowStatus>();
+        for (RtsWorkflowEntry entry : slots.occupiedEntries()) statuses.add(entry.snapshot());
+        return java.util.Collections.unmodifiableList(statuses);
     }
 
     @Override
-    public boolean hasActiveWorkflow(ServerPlayer player) {
+    public boolean hasActiveWorkflow(EntityPlayerMP player) {
         if (player == null) return false;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         return slots != null && slots.hasActiveWorkflow();
     }
 
     @Override
-    public int activeWorkflowCount(ServerPlayer player) {
+    public int activeWorkflowCount(EntityPlayerMP player) {
         if (player == null) return 0;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         return slots != null ? slots.activeCount() : 0;
     }
 
     @Override
-    public int occupiedSlotCount(ServerPlayer player) {
+    public int occupiedSlotCount(EntityPlayerMP player) {
         if (player == null) return 0;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         return slots != null ? slots.occupiedCount() : 0;
     }
 
     @Override
-    public boolean isFull(ServerPlayer player) {
+    public boolean isFull(EntityPlayerMP player) {
         if (player == null) return false;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         return slots != null && slots.isFull();
     }
 
@@ -475,14 +474,14 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * @param type    事件类型（通常为 {@link WorkflowEventType#SYNC_PHASE_COMPLETED}
      *                或 {@link WorkflowEventType#CANCELLED}）
      */
-    public void firePipelineEvent(ServerPlayer player, int entryId, WorkflowEventType type) {
+    public void firePipelineEvent(EntityPlayerMP player, int entryId, WorkflowEventType type) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) return;
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
         if (entry == null) return;
-        fireEvent(type, player.getUUID(), entryId, entry);
+        fireEvent(type, player.getUniqueID(), entryId, entry);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -494,8 +493,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     // ──────────────────────────────────────────────────────────────────
 
     @Override
-    public boolean isEntryPaused(UUID playerId, ResourceKey<Level> dimension, int entryId) {
-        if (playerId == null || dimension == null) return false;
+    public boolean isEntryPaused(UUID playerId, int dimension, int entryId) {
+        if (playerId == null) return false;
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
         if (slots == null) return false;
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
@@ -503,8 +502,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     @Override
-    public boolean isEntrySuspended(UUID playerId, ResourceKey<Level> dimension, int entryId) {
-        if (playerId == null || dimension == null) return false;
+    public boolean isEntrySuspended(UUID playerId, int dimension, int entryId) {
+        if (playerId == null) return false;
         RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
         if (slots == null) return false;
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
@@ -516,10 +515,10 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     // ──────────────────────────────────────────────────────────────────
 
     @Override
-    public void setWorkflowExtraData(ServerPlayer player, int entryId, @Nullable CompoundTag data) {
+    public void setWorkflowExtraData(EntityPlayerMP player, int entryId, @Nullable NBTTagCompound data) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) return;
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
         if (entry == null) return;
@@ -527,10 +526,10 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     @Override
-    public @Nullable CompoundTag getWorkflowExtraData(ServerPlayer player, int entryId) {
+    public @Nullable NBTTagCompound getWorkflowExtraData(EntityPlayerMP player, int entryId) {
         if (player == null) return null;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) return null;
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
         return entry == null ? null : entry.getExtraData();
@@ -547,11 +546,11 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      */
     public void pauseAllActive(UUID playerId, boolean notify) {
         if (playerId == null) return;
-        Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimMap = playerSlots.get(playerId);
+        Map<Integer, RtsWorkflowSlotManager> dimMap = playerSlots.get(playerId);
         if (dimMap == null) return;
 
-        for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimEntry : dimMap.entrySet()) {
-            ResourceKey<Level> dimension = dimEntry.getKey();
+        for (Map.Entry<Integer, RtsWorkflowSlotManager> dimEntry : dimMap.entrySet()) {
+            int dimension = dimEntry.getKey();
             RtsWorkflowSlotManager slots = dimEntry.getValue();
             boolean anyChanged = false;
 
@@ -564,7 +563,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             }
 
             if (anyChanged && notify) {
-                ServerPlayer player = findPlayerByUUID(playerId);
+                EntityPlayerMP player = findPlayerByUUID(playerId);
                 if (player != null) {
                     syncService.notifyPlayer(player, slots);
                 }
@@ -573,10 +572,10 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     @Override
-    public void deleteWorkflow(ServerPlayer player, int entryId) {
+    public void deleteWorkflow(EntityPlayerMP player, int entryId) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) {
             // 客户端可能仍显示服务端已经清理的旧条目；叉号同时承担一次权威状态对账。
             syncService.sendIdle(player);
@@ -594,7 +593,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
 
         com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .cancelWorkflowTask(player, entryId);
-        fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entryId, entry);
+        fireEvent(WorkflowEventType.CANCELLED, player.getUniqueID(), entryId, entry);
         slots.removeEntryById(entryId);
 
         if (slots.occupiedCount() > 0) {
@@ -605,10 +604,10 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     }
 
     @Override
-    public void setWorkflowProtected(ServerPlayer player, int entryId, boolean protectedWorkflow) {
+    public void setWorkflowProtected(EntityPlayerMP player, int entryId, boolean protectedWorkflow) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) return;
 
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
@@ -617,24 +616,24 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         entry.setProtectedWorkflow(protectedWorkflow);
         syncService.notifyPlayer(player, slots);
 
-        player.displayClientMessage(
-                Component.translatable(protectedWorkflow
+        player.sendStatusMessage(
+                new TextComponentTranslation(protectedWorkflow
                         ? "message.rtsbuilding.workflow.protected"
                         : "message.rtsbuilding.workflow.replaceable"),
                 true);
     }
 
     @Override
-    public void cancelAll(ServerPlayer player) {
+    public void cancelAll(EntityPlayerMP player) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
-        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        int dimension = player.dimension;
+        RtsWorkflowSlotManager slots = getSlots(player.getUniqueID(), dimension);
         if (slots == null) return;
 
         for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
             com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                     .cancelWorkflowTask(player, entry.id());
-            fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entry.id(), entry);
+            fireEvent(WorkflowEventType.CANCELLED, player.getUniqueID(), entry.id(), entry);
         }
         slots.clear();
         syncService.sendIdle(player);
@@ -669,28 +668,28 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     /**
      * 从世界存档加载玩家工作流并合并到内存。
      */
-    public void loadPlayerFromStore(MinecraftServer server, ServerPlayer player) {
+    public void loadPlayerFromStore(MinecraftServer server, EntityPlayerMP player) {
         if (server == null || player == null) return;
-        UUID playerId = player.getUUID();
+        UUID playerId = player.getUniqueID();
 
-        Map<ResourceKey<Level>, RtsWorkflowSlotManager> loaded =
+        Map<Integer, RtsWorkflowSlotManager> loaded =
                 WorkflowPersistenceService.getInstance().loadPlayerFromStore(server, playerId);
 
         if (loaded.isEmpty()) return;
 
         // 将加载的槽位管理器合并到引擎的内存映射中
-        Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimMap = playerSlots
+        Map<Integer, RtsWorkflowSlotManager> dimMap = playerSlots
                 .computeIfAbsent(playerId, k -> new ConcurrentHashMap<>());
 
-        for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> entry : loaded.entrySet()) {
-            ResourceKey<Level> dimension = entry.getKey();
+        for (Map.Entry<Integer, RtsWorkflowSlotManager> entry : loaded.entrySet()) {
+            int dimension = entry.getKey();
             if (!dimMap.containsKey(dimension)) {
                 dimMap.put(dimension, entry.getValue());
             }
         }
 
         // 通知客户端，使 UI 显示恢复的条目
-        ResourceKey<Level> currentDim = player.level().dimension();
+        int currentDim = player.dimension;
         RtsWorkflowSlotManager currentSlots = getSlots(playerId, currentDim);
         if (currentSlots != null && currentSlots.occupiedCount() > 0) {
             syncService.notifyPlayer(player, currentSlots);
@@ -699,7 +698,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         // 尝试恢复蓝图工作流的 Tick 管道
         if (blueprintRestoreHandler != null) {
             int restored = 0;
-            for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> entry : loaded.entrySet()) {
+            for (Map.Entry<Integer, RtsWorkflowSlotManager> entry : loaded.entrySet()) {
                 for (RtsWorkflowEntry we : entry.getValue().occupiedEntries()) {
                     if (we.type() == RtsWorkflowType.BLUEPRINT_BUILD && we.getExtraData() != null) {
                         blueprintRestoreHandler.restore(player, we);
@@ -723,10 +722,10 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * <p>离线时间不算作“30 秒无进展”，否则玩家隔天进入存档时会在第一轮扫描中
      * 立刻失去尚未查看的等待任务。</p>
      */
-    public void refreshPlayerIdleClocks(ServerPlayer player) {
+    public void refreshPlayerIdleClocks(EntityPlayerMP player) {
         if (player == null) return;
-        Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimensions =
-                playerSlots.get(player.getUUID());
+        Map<Integer, RtsWorkflowSlotManager> dimensions =
+                playerSlots.get(player.getUniqueID());
         if (dimensions == null) return;
         for (RtsWorkflowSlotManager slots : dimensions.values()) {
             for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
@@ -742,11 +741,11 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     /**
      * 获取或创建指定玩家在当前维度的槽位管理器。
      */
-    private RtsWorkflowSlotManager getOrCreateSlots(ServerPlayer player) {
-        playerRefs.put(player.getUUID(), player);
-        ResourceKey<Level> dimension = player.level().dimension();
+    private RtsWorkflowSlotManager getOrCreateSlots(EntityPlayerMP player) {
+        playerRefs.put(player.getUniqueID(), player);
+        int dimension = player.dimension;
         return playerSlots
-                .computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
+                .computeIfAbsent(player.getUniqueID(), k -> new ConcurrentHashMap<Integer, RtsWorkflowSlotManager>())
                 .computeIfAbsent(dimension, k -> new RtsWorkflowSlotManager());
     }
 
@@ -754,8 +753,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 获取指定玩家和维度的槽位管理器，若不存在则返回 {@code null}。
      */
     @Nullable
-    private RtsWorkflowSlotManager getSlots(UUID playerId, ResourceKey<Level> dimension) {
-        Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimMap = playerSlots.get(playerId);
+    private RtsWorkflowSlotManager getSlots(UUID playerId, int dimension) {
+        Map<Integer, RtsWorkflowSlotManager> dimMap = playerSlots.get(playerId);
         if (dimMap == null) return null;
         return dimMap.get(dimension);
     }
@@ -766,16 +765,16 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 如果玩家离线或未找到则返回 null。
      */
     @Nullable
-    private ServerPlayer findPlayerByUUID(UUID playerId) {
+    private EntityPlayerMP findPlayerByUUID(UUID playerId) {
         // 先检查缓存的引用
-        ServerPlayer cached = playerRefs.get(playerId);
-        if (cached != null && cached.level() != null && !cached.level().isClientSide()) {
+        EntityPlayerMP cached = playerRefs.get(playerId);
+        if (cached != null && cached.world != null && !cached.world.isRemote) {
             return cached;
         }
         // 回退：扫描服务器的玩家列表
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
         if (server != null) {
-            ServerPlayer online = server.getPlayerList().getPlayer(playerId);
+            EntityPlayerMP online = server.getPlayerList().getPlayerByUUID(playerId);
             if (online != null) {
                 playerRefs.put(playerId, online);
                 return online;

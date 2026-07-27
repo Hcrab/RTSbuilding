@@ -8,9 +8,8 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEntry;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.RtsWorkflowEventBus;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
-import net.minecraft.resources.ResourceKey;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.Level;
 
 import java.time.Duration;
 import java.util.List;
@@ -34,9 +33,9 @@ public final class RtsWorkflowTimeoutService {
 
     private static final long MILLIS_PER_TICK = 50L;
 
-    private final Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers;
+    private final Map<UUID, Map<Integer, RtsWorkflowSlotManager>> slotManagers;
     private final RtsWorkflowEventBus eventBus;
-    private final BiConsumer<UUID, ResourceKey<Level>> workflowDirtySink;
+    private final BiConsumer<UUID, Integer> workflowDirtySink;
     private final Predicate<MinecraftServer> serverThreadCheck;
     private final TimeoutTaskCanceller taskCanceller;
     private final WorkflowActivityGuard activityGuard;
@@ -52,16 +51,16 @@ public final class RtsWorkflowTimeoutService {
      * @param eventBus     工作流生命周期事件总线
      */
     public RtsWorkflowTimeoutService(
-            Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers,
+            Map<UUID, Map<Integer, RtsWorkflowSlotManager>> slotManagers,
             RtsWorkflowEventBus eventBus) {
         this(
                 slotManagers,
                 eventBus,
                 (playerId, dimension) -> RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension),
-                server -> server != null && server.isSameThread(),
+                server -> server != null && server.isCallingFromMinecraftThread(),
                 (server, playerId, dimension, entryId) -> {
                     if (server == null) return;
-                    var player = server.getPlayerList().getPlayer(playerId);
+                    EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(playerId);
                     if (player != null) {
                         RtsTaskEngine.INSTANCE.cancelWorkflowTask(player, dimension, entryId);
                     }
@@ -69,7 +68,9 @@ public final class RtsWorkflowTimeoutService {
                 (server, playerId, dimension, entryId) -> TaskPersistenceRuntime.INSTANCE
                         .coordinator()
                         .query()
-                        .findByWorkflow(playerId, dimension.location().toString(), entryId)
+                        .findByWorkflow(playerId,
+                                com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec
+                                        .fromDimension(dimension), entryId)
                         .filter(snapshot -> !snapshot.state().terminal())
                         .isPresent());
     }
@@ -78,9 +79,9 @@ public final class RtsWorkflowTimeoutService {
      * 测试注入入口。它只替换 Tick 末脏标记接收者与线程判定，不改变生产调度逻辑。
      */
     RtsWorkflowTimeoutService(
-            Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers,
+            Map<UUID, Map<Integer, RtsWorkflowSlotManager>> slotManagers,
             RtsWorkflowEventBus eventBus,
-            BiConsumer<UUID, ResourceKey<Level>> workflowDirtySink,
+            BiConsumer<UUID, Integer> workflowDirtySink,
             Predicate<MinecraftServer> serverThreadCheck,
             TimeoutTaskCanceller taskCanceller) {
         this(slotManagers, eventBus, workflowDirtySink, serverThreadCheck, taskCanceller,
@@ -89,9 +90,9 @@ public final class RtsWorkflowTimeoutService {
 
     /** 测试注入入口；允许测试精确模拟某个面板条目仍由 durable task 占用。 */
     RtsWorkflowTimeoutService(
-            Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers,
+            Map<UUID, Map<Integer, RtsWorkflowSlotManager>> slotManagers,
             RtsWorkflowEventBus eventBus,
-            BiConsumer<UUID, ResourceKey<Level>> workflowDirtySink,
+            BiConsumer<UUID, Integer> workflowDirtySink,
             Predicate<MinecraftServer> serverThreadCheck,
             TimeoutTaskCanceller taskCanceller,
             WorkflowActivityGuard activityGuard) {
@@ -168,18 +169,18 @@ public final class RtsWorkflowTimeoutService {
     private void scanAndCleanup(MinecraftServer server) {
         int total = 0;
 
-        for (Map.Entry<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerEntry
+        for (Map.Entry<UUID, Map<Integer, RtsWorkflowSlotManager>> playerEntry
                 : slotManagers.entrySet()) {
             UUID playerId = playerEntry.getKey();
             // 离线玩家无法安全完成历史收口；等其重新登录并恢复投影后再开始 30 秒计时。
-            if (server != null && server.getPlayerList().getPlayer(playerId) == null) {
+            if (server != null && server.getPlayerList().getPlayerByUUID(playerId) == null) {
                 continue;
             }
-            Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimensions = playerEntry.getValue();
+            Map<Integer, RtsWorkflowSlotManager> dimensions = playerEntry.getValue();
 
-            for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimensionEntry
+            for (Map.Entry<Integer, RtsWorkflowSlotManager> dimensionEntry
                     : dimensions.entrySet()) {
-                ResourceKey<Level> dimension = dimensionEntry.getKey();
+                int dimension = dimensionEntry.getKey();
                 RtsWorkflowSlotManager slots = dimensionEntry.getValue();
                 List<RtsWorkflowEntry> staleEntries = slots.removeStaleEntrySnapshots(
                         maxIdleMillis,
@@ -214,7 +215,7 @@ public final class RtsWorkflowTimeoutService {
 
     @FunctionalInterface
     interface TimeoutTaskCanceller {
-        void cancel(MinecraftServer server, UUID playerId, ResourceKey<Level> dimension, int entryId);
+        void cancel(MinecraftServer server, UUID playerId, int dimension, int entryId);
     }
 
     @FunctionalInterface
@@ -222,7 +223,7 @@ public final class RtsWorkflowTimeoutService {
         boolean hasActiveTask(
                 MinecraftServer server,
                 UUID playerId,
-                ResourceKey<Level> dimension,
+                int dimension,
                 int entryId);
     }
 }

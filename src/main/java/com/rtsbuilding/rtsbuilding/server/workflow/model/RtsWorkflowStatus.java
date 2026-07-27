@@ -1,128 +1,125 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.model;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
 
 /**
- * 当前工作流进度的不可变快照——用于服务端查询、网络传输和客户端 UI 的统一记录。
+ * 工作流进度的不可变快照。
  *
- * <p>本 record 将旧的 {@code RtsWorkflowStatus}（原始字段 + 计算方法）
- * 和 {@code RtsWorkflowProgressData}（预计算字段 + UI 辅助）合并为一个。
- * 派生值（{@link #remainingBlocks()}、{@link #progress()}、
- * {@link #isComplete()}）在快照创建时预计算，消费者无需重新计算。</p>
- *
- * @param type            当前活动的工作流类型
- * @param priority        活动工作流的优先级
- * @param totalBlocks     待处理的总方块数（未知则为 0）
- * @param completedBlocks 已成功处理的方块数
- * @param failedBlocks    处理失败的方块数
- * @param remainingBlocks 待处理的方块数（预计算）
- * @param progress        进度，浮点数范围 [0.0, 1.0]（预计算）
- * @param suspended       {@code true} 表示此工作流已挂起（等待物品）
- * @param paused          {@code true} 表示此工作流已被用户暂停
- * @param isComplete      {@code true} 表示所有方块均已处理完成（预计算）
- * @param missingItems    当前缺少的物品 ID 列表
- * @param detailMessage   关于当前工作流的可选人类可读详情
- * @param entryId         不可变的工作流条目 ID，用于与待处理作业关联
+ * <p>1.12.2 运行时没有 record 和 Java 9 集合工厂，因此这里显式保留与
+ * 主线 record 完全相同的访问器名称，同时在构造边界防御性复制缺失物品列表。</p>
  */
-public record RtsWorkflowStatus(
-        RtsWorkflowType type,
-        RtsWorkflowPriority priority,
-        int totalBlocks,
-        int completedBlocks,
-        int failedBlocks,
-        int remainingBlocks,
-        float progress,
-        boolean suspended,
-        boolean paused,
-        boolean protectedWorkflow,
-        boolean isComplete,
-        List<String> missingItems,
-        String detailMessage,
-        int entryId) {
+public final class RtsWorkflowStatus {
+    private final RtsWorkflowType type;
+    private final RtsWorkflowPriority priority;
+    private final int totalBlocks;
+    private final int completedBlocks;
+    private final int failedBlocks;
+    private final int remainingBlocks;
+    private final float progress;
+    private final boolean suspended;
+    private final boolean paused;
+    private final boolean protectedWorkflow;
+    private final boolean complete;
+    private final List<String> missingItems;
+    private final String detailMessage;
+    private final int entryId;
 
-    // ──────────────────────────────────────────────────────────────────
-    //  工厂方法
-    // ──────────────────────────────────────────────────────────────────
+    public RtsWorkflowStatus(RtsWorkflowType type, RtsWorkflowPriority priority,
+            int totalBlocks, int completedBlocks, int failedBlocks, int remainingBlocks,
+            float progress, boolean suspended, boolean paused, boolean protectedWorkflow,
+            boolean complete, List<String> missingItems, String detailMessage, int entryId) {
+        this.type = type;
+        this.priority = priority == null ? RtsWorkflowPriority.NORMAL : priority;
+        this.totalBlocks = totalBlocks;
+        this.completedBlocks = completedBlocks;
+        this.failedBlocks = failedBlocks;
+        this.remainingBlocks = remainingBlocks;
+        this.progress = progress;
+        this.suspended = suspended;
+        this.paused = paused;
+        this.protectedWorkflow = protectedWorkflow;
+        this.complete = complete;
+        this.missingItems = immutableCopy(missingItems);
+        this.detailMessage = detailMessage == null ? "" : detailMessage;
+        this.entryId = entryId;
+    }
 
-    /**
-     * 从原始（非派生）值创建状态，预计算
-     * {@code remainingBlocks}、{@code progress} 和 {@code isComplete}。
-     *
-     * <p>在从网络负载或可变条目状态构造时使用此工厂方法。</p>
-     */
-    public static RtsWorkflowStatus fromRaw(
-            RtsWorkflowType type, RtsWorkflowPriority priority,
+    public static RtsWorkflowStatus fromRaw(RtsWorkflowType type, RtsWorkflowPriority priority,
             int totalBlocks, int completedBlocks, int failedBlocks,
             List<String> missingItems, String detailMessage,
             boolean suspended, boolean paused, boolean protectedWorkflow, int entryId) {
         int remaining = totalBlocks > 0
-                ? Math.max(0, totalBlocks - (completedBlocks + failedBlocks))
-                : 0;
+                ? Math.max(0, totalBlocks - (completedBlocks + failedBlocks)) : 0;
         float progress = totalBlocks > 0
-                ? Math.min(1.0F, (float) (completedBlocks + failedBlocks) / (float) totalBlocks)
-                : 0.0F;
-        boolean isComplete = totalBlocks > 0
-                && (completedBlocks + failedBlocks) >= totalBlocks;
-        return new RtsWorkflowStatus(type, priority, totalBlocks, completedBlocks,
-                failedBlocks, remaining, progress, suspended, paused, protectedWorkflow, isComplete,
-                missingItems == null ? List.of() : List.copyOf(missingItems),
-                detailMessage == null ? "" : detailMessage, entryId);
+                ? Math.min(1.0F, (float) (completedBlocks + failedBlocks) / totalBlocks) : 0.0F;
+        boolean complete = totalBlocks > 0 && completedBlocks + failedBlocks >= totalBlocks;
+        return new RtsWorkflowStatus(type, priority, totalBlocks, completedBlocks, failedBlocks,
+                remaining, progress, suspended, paused, protectedWorkflow, complete,
+                missingItems, detailMessage, entryId);
     }
 
-    /**
-     * 创建一个空（无活动工作流）状态。
-     */
     public static RtsWorkflowStatus idle() {
-        return new RtsWorkflowStatus(null, RtsWorkflowPriority.NORMAL,
-                0, 0, 0, 0, 0.0F, false, false, false, false,
-                List.of(), "", -1);
+        return new RtsWorkflowStatus(null, RtsWorkflowPriority.NORMAL, 0, 0, 0, 0, 0.0F,
+                false, false, false, false, Collections.<String>emptyList(), "", -1);
     }
 
-    // ──────────────────────────────────────────────────────────────────
-    //  便捷查询
-    // ──────────────────────────────────────────────────────────────────
-
-    /**
-     * 返回 {@code true} 表示这是一个活动（非空闲）工作流。
-     */
-    public boolean isActive() {
-        return type != null;
+    private static List<String> immutableCopy(List<String> source) {
+        if (source == null || source.isEmpty()) return Collections.emptyList();
+        return Collections.unmodifiableList(new ArrayList<String>(source));
     }
 
-    /**
-     * 返回 {@code true} 表示此工作流有需要关注的缺失物品。
-     */
-    public boolean hasMissingItems() {
-        return !missingItems.isEmpty();
-    }
+    public RtsWorkflowType type() { return type; }
+    public RtsWorkflowPriority priority() { return priority; }
+    public int totalBlocks() { return totalBlocks; }
+    public int completedBlocks() { return completedBlocks; }
+    public int failedBlocks() { return failedBlocks; }
+    public int remainingBlocks() { return remainingBlocks; }
+    public float progress() { return progress; }
+    public boolean suspended() { return suspended; }
+    public boolean paused() { return paused; }
+    public boolean protectedWorkflow() { return protectedWorkflow; }
+    public boolean isComplete() { return complete; }
+    public List<String> missingItems() { return missingItems; }
+    public String detailMessage() { return detailMessage; }
+    public int entryId() { return entryId; }
 
-    /**
-     * 返回 {@code true} 表示此工作流有失败记录。
-     */
-    public boolean hasFailures() {
-        return failedBlocks > 0;
-    }
-
-    // ──────────────────────────────────────────────────────────────────
-    //  显示辅助方法
-    // ──────────────────────────────────────────────────────────────────
-
-    /**
-     * 返回人类可读的进度摘要字符串，
-     * 例如 {@code "45/100"} 或 {@code "0/0"}。
-     */
-    public String progressText() {
-        return completedBlocks + "/" + (totalBlocks > 0 ? totalBlocks : 0);
-    }
-
-    /**
-     * 返回工作流类型的翻译键。
-     *
-     * <p>工作流状态会跨网络同步，因此这里不能在服务端提前固定为某种语言；
-     * 由客户端渲染时根据玩家的语言解析。</p>
-     */
+    public boolean isActive() { return type != null; }
+    public boolean hasMissingItems() { return !missingItems.isEmpty(); }
+    public boolean hasFailures() { return failedBlocks > 0; }
+    public String progressText() { return completedBlocks + "/" + Math.max(0, totalBlocks); }
     public String typeTranslationKey() {
-        if (type == null) return "screen.rtsbuilding.workflow.type.idle";
-        return "screen.rtsbuilding.workflow.type." + type.name().toLowerCase(java.util.Locale.ROOT);
+        return type == null ? "screen.rtsbuilding.workflow.type.idle"
+                : "screen.rtsbuilding.workflow.type." + type.name().toLowerCase(Locale.ROOT);
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (!(object instanceof RtsWorkflowStatus)) return false;
+        RtsWorkflowStatus other = (RtsWorkflowStatus) object;
+        return totalBlocks == other.totalBlocks && completedBlocks == other.completedBlocks
+                && failedBlocks == other.failedBlocks && remainingBlocks == other.remainingBlocks
+                && Float.compare(progress, other.progress) == 0 && suspended == other.suspended
+                && paused == other.paused && protectedWorkflow == other.protectedWorkflow
+                && complete == other.complete && entryId == other.entryId && type == other.type
+                && priority == other.priority && missingItems.equals(other.missingItems)
+                && detailMessage.equals(other.detailMessage);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(type, priority, totalBlocks, completedBlocks, failedBlocks,
+                remainingBlocks, progress, suspended, paused, protectedWorkflow, complete,
+                missingItems, detailMessage, entryId);
+    }
+
+    @Override
+    public String toString() {
+        return "RtsWorkflowStatus{type=" + type + ", entryId=" + entryId
+                + ", progress=" + completedBlocks + "/" + totalBlocks + "}";
     }
 }

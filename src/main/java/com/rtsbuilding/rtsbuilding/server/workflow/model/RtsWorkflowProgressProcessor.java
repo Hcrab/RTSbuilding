@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.model;
 
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.resources.I18n;
 
 /**
  * 工作流进度数据的统一 API 处理器。
@@ -55,9 +55,9 @@ public final class RtsWorkflowProgressProcessor {
      */
     public static String formatLabel(RtsWorkflowStatus status) {
         if (status == null || !status.isActive()) return "";
-        String label = Component.translatable(status.typeTranslationKey()).getString();
+        String label = I18n.format(status.typeTranslationKey());
         if (status.suspended()) {
-            label = Component.translatable("screen.rtsbuilding.workflow.suspended", label).getString();
+            label = I18n.format("screen.rtsbuilding.workflow.suspended", label);
         }
         return label;
     }

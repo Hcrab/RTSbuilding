@@ -5,10 +5,8 @@ import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -49,7 +47,7 @@ public interface IWorkflowEngine {
      * @return 表示该工作流的令牌，若已达上限则返回空
      */
     Optional<RtsWorkflowToken> start(
-            ServerPlayer player,
+            EntityPlayerMP player,
             RtsWorkflowType type, RtsWorkflowPriority priority, int totalBlocks);
 
     // ======================================================================
@@ -62,7 +60,7 @@ public interface IWorkflowEngine {
      *
      * @return 令牌，若条目已不存在则返回空
      */
-    Optional<RtsWorkflowToken> from(ServerPlayer player, int entryId);
+    Optional<RtsWorkflowToken> from(EntityPlayerMP player, int entryId);
 
     /**
      * 为最近的活动（非挂起）工作流条目创建令牌。
@@ -70,7 +68,7 @@ public interface IWorkflowEngine {
      *
      * @return 令牌，若没有活动工作流则返回空
      */
-    Optional<RtsWorkflowToken> lastActive(ServerPlayer player);
+    Optional<RtsWorkflowToken> lastActive(EntityPlayerMP player);
 
     // ======================================================================
     //  事件订阅
@@ -101,22 +99,22 @@ public interface IWorkflowEngine {
      *
      * @return 工作流状态，若未找到则返回 {@link RtsWorkflowStatus#idle()}
      */
-    RtsWorkflowStatus getProgress(ServerPlayer player, int entryId);
+    RtsWorkflowStatus getProgress(EntityPlayerMP player, int entryId);
 
     /** 返回玩家所有已占用工作流条目的进度数据。 */
-    List<RtsWorkflowStatus> getAllProgress(ServerPlayer player);
+    List<RtsWorkflowStatus> getAllProgress(EntityPlayerMP player);
 
     /** 返回玩家是否有任何活动（非挂起）的工作流。 */
-    boolean hasActiveWorkflow(ServerPlayer player);
+    boolean hasActiveWorkflow(EntityPlayerMP player);
 
     /** 返回玩家的活动工作流条目数。 */
-    int activeWorkflowCount(ServerPlayer player);
+    int activeWorkflowCount(EntityPlayerMP player);
 
     /** 返回已占用的槽位总数（活动 + 挂起）。 */
-    int occupiedSlotCount(ServerPlayer player);
+    int occupiedSlotCount(EntityPlayerMP player);
 
     /** 返回是否所有工作流槽位均已占用。 */
-    boolean isFull(ServerPlayer player);
+    boolean isFull(EntityPlayerMP player);
 
     /**
      * 设置工作流条目的额外持久化数据（工作流类型特定的上下文）。
@@ -125,17 +123,17 @@ public interface IWorkflowEngine {
      * @param entryId  目标条目 ID
      * @param data     额外数据（可为 null 以清除）
      */
-    void setWorkflowExtraData(ServerPlayer player, int entryId, @Nullable CompoundTag data);
+    void setWorkflowExtraData(EntityPlayerMP player, int entryId, @Nullable NBTTagCompound data);
 
     /** 设置此工作流是否跳过自动覆盖和超时清理。 */
-    void setWorkflowProtected(ServerPlayer player, int entryId, boolean protectedWorkflow);
+    void setWorkflowProtected(EntityPlayerMP player, int entryId, boolean protectedWorkflow);
 
     /**
      * 返回工作流条目的额外持久化数据。
      *
      * @return 额外数据，不存在时返回 null
      */
-    @Nullable CompoundTag getWorkflowExtraData(ServerPlayer player, int entryId);
+    @Nullable NBTTagCompound getWorkflowExtraData(EntityPlayerMP player, int entryId);
 
     // ======================================================================
     //  管理操作
@@ -145,10 +143,10 @@ public interface IWorkflowEngine {
      * 根据条目 ID 删除工作流。通知客户端并触发
      * {@link WorkflowEventType#CANCELLED} 事件。
      */
-    void deleteWorkflow(ServerPlayer player, int entryId);
+    void deleteWorkflow(EntityPlayerMP player, int entryId);
 
     /** 取消当前维度中指定玩家的所有工作流。 */
-    void cancelAll(ServerPlayer player);
+    void cancelAll(EntityPlayerMP player);
 
     // ======================================================================
     //  世界切换清理
@@ -179,7 +177,7 @@ public interface IWorkflowEngine {
      * @param dimension 工作流创建时的维度
      * @param entryId   不可变的工作流条目 ID
      */
-    boolean isEntryPaused(UUID playerId, ResourceKey<Level> dimension, int entryId);
+    boolean isEntryPaused(UUID playerId, int dimension, int entryId);
 
     /**
      * 返回指定工作流条目是否处于挂起（等待物品）状态。
@@ -188,5 +186,5 @@ public interface IWorkflowEngine {
      * @param dimension 工作流创建时的维度
      * @param entryId   不可变的工作流条目 ID
      */
-    boolean isEntrySuspended(UUID playerId, ResourceKey<Level> dimension, int entryId);
+    boolean isEntrySuspended(UUID playerId, int dimension, int entryId);
 }

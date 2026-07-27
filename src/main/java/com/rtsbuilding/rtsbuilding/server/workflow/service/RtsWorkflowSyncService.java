@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEntry;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -29,7 +29,7 @@ public final class RtsWorkflowSyncService {
      * @param player 要通知的服务端玩家
      * @param slots  该玩家的槽位管理器
      */
-    public void notifyPlayer(ServerPlayer player, RtsWorkflowSlotManager slots) {
+    public void notifyPlayer(EntityPlayerMP player, RtsWorkflowSlotManager slots) {
         if (player == null || slots == null) return;
 
         int totalCount = slots.occupiedCount();
@@ -70,7 +70,7 @@ public final class RtsWorkflowSyncService {
      * 向客户端发送单个条目的最终快照，然后通知更新后的状态。
      * 在工作流完成时调用。
      */
-    public void notifyCompletion(ServerPlayer player, RtsWorkflowSlotManager slots,
+    public void notifyCompletion(EntityPlayerMP player, RtsWorkflowSlotManager slots,
                                   RtsWorkflowEntry entry, int removedAtIndex) {
         if (player == null || entry == null) return;
 
@@ -99,7 +99,7 @@ public final class RtsWorkflowSyncService {
     /**
      * 向客户端发送空闲（无活动工作流）负载。
      */
-    public void sendIdle(ServerPlayer player) {
+    public void sendIdle(EntityPlayerMP player) {
         if (player != null) {
             RtsClientboundPackets.sendToPlayer(player, S2CRtsWorkflowProgressPayload.idle());
         }
