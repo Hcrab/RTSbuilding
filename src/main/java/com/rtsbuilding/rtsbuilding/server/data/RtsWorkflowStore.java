@@ -34,7 +34,7 @@ public final class RtsWorkflowStore {
                 RtsWorkflowSlotManager slots = dimEntry.getValue();
                 if (slots == null || slots.occupiedCount() == 0) continue;
                 NBTTagCompound slotsTag = slots.saveToNbt();
-                if (slotsTag != null && !slotsTag.hasNoTags()) {
+                if (slotsTag != null && !slotsTag.isEmpty()) {
                     dimensions.setTag(dimensionName(dimEntry.getKey()), slotsTag);
                     hasData = true;
                 }
@@ -52,7 +52,7 @@ public final class RtsWorkflowStore {
             MinecraftServer server, UUID playerId) {
         DataCluster cluster = cluster(server, playerId);
         NBTTagCompound root = cluster.get(WorkflowComponents.FULL_WORKFLOW);
-        if (!root.hasNoTags() && root.hasKey(KEY_DIMENSIONS)) {
+        if (!root.isEmpty() && root.hasKey(KEY_DIMENSIONS)) {
             return deserializeDimensions(root.getCompoundTag(KEY_DIMENSIONS));
         }
         return loadPlayerLegacy(server, playerId);
@@ -68,7 +68,7 @@ public final class RtsWorkflowStore {
             Integer dimension = parseDimension(dimKey);
             if (dimension == null) continue;
             NBTTagCompound slotsTag = dimensions.getCompoundTag(dimKey);
-            if (!slotsTag.hasNoTags()) {
+            if (!slotsTag.isEmpty()) {
                 RtsWorkflowSlotManager slots = RtsWorkflowSlotManager.loadFromNbt(slotsTag);
                 if (slots.occupiedCount() > 0) result.put(dimension, slots);
             }
@@ -93,7 +93,7 @@ public final class RtsWorkflowStore {
         NBTTagCompound root = ((RtsNbtStore.ReadResult.Found) readResult).root();
         NBTTagCompound players = root.getCompoundTag(KEY_PLAYERS);
         String playerKey = playerId.toString();
-        if (root.hasNoTags() || players.hasNoTags() || !players.hasKey(playerKey)) return result;
+        if (root.isEmpty() || players.isEmpty() || !players.hasKey(playerKey)) return result;
 
         result.putAll(deserializeDimensions(players.getCompoundTag(playerKey)
                 .getCompoundTag(KEY_DIMENSIONS)));

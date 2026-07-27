@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.task.effect;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -23,7 +24,7 @@ public final class RtsEffectLedger<K extends RtsEffectTarget> {
     private long activeLeaseId;
 
     public synchronized void mark(K key, RtsEffectKind kind) {
-        mark(key, RtsEffectcom.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(kind));
+        mark(key, RtsEffectSet.of(kind));
     }
 
     public synchronized void mark(K key, RtsEffectSet effects) {
@@ -83,7 +84,7 @@ public final class RtsEffectLedger<K extends RtsEffectTarget> {
         long leaseId = nextLeaseId++;
         if (leaseId == 0L) leaseId = nextLeaseId++;
         List<Entry<K>> entries = new ArrayList<>(1);
-        var iterator = pending.entrySet().iterator();
+        Iterator<Map.Entry<K, RtsEffectSet>> iterator = pending.entrySet().iterator();
         if (iterator.hasNext()) {
             Map.Entry<K, RtsEffectSet> entry = iterator.next();
             entries.add(new Entry<>(entry.getKey(), entry.getValue()));
@@ -130,19 +131,31 @@ public final class RtsEffectLedger<K extends RtsEffectTarget> {
         return mergedKinds;
     }
 
-    record Entry<K>(K key, RtsEffectSet effects) {
-        Entry {
-            Objects.requireNonNull(key, "key");
-            Objects.requireNonNull(effects, "effects");
+    static final class Entry<K> {
+        private final K key;
+        private final RtsEffectSet effects;
+
+        Entry(K key, RtsEffectSet effects) {
+            this.key = Objects.requireNonNull(key, "key");
+            this.effects = Objects.requireNonNull(effects, "effects");
         }
+
+        K key() { return key; }
+        RtsEffectSet effects() { return effects; }
     }
 
-    record Lease<K>(long id, List<Entry<K>> entries) {
+    static final class Lease<K> {
         private static final Lease<?> EMPTY = new Lease<>(0L, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf());
+        private final long id;
+        private final List<Entry<K>> entries;
 
-        Lease {
-            entries = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(entries);
+        Lease(long id, List<Entry<K>> entries) {
+            this.id = id;
+            this.entries = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(entries);
         }
+
+        long id() { return id; }
+        List<Entry<K>> entries() { return entries; }
 
         @SuppressWarnings("unchecked")
         static <K> Lease<K> empty() {

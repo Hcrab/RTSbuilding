@@ -10,16 +10,13 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.WorldServer;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.world.level.Level;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.LinkedList;
 
@@ -79,27 +76,27 @@ public final class BlueprintPersistence {
         RtsBlueprint blueprint = bctx.getBlueprint();
         if (blueprint != null) {
             data.put(KEY_BLUEPRINT_STRUCTURE, BlueprintWriters.toVanillaStructureTag(blueprint));
-            data.putString(KEY_BP_NAME, blueprint.name() != null ? blueprint.name() : "");
-            data.putString(KEY_BP_SOURCE, blueprint.sourceName() != null ? blueprint.sourceName() : "");
-            data.putString(KEY_BP_FORMAT, blueprint.format() != null ? blueprint.format().name() : "VANILLA_NBT");
+            data.setString(KEY_BP_NAME, blueprint.name() != null ? blueprint.name() : "");
+            data.setString(KEY_BP_SOURCE, blueprint.sourceName() != null ? blueprint.sourceName() : "");
+            data.setString(KEY_BP_FORMAT, blueprint.format() != null ? blueprint.format().name() : "VANILLA_NBT");
         }
 
         // 放置参数
         BlockPos anchor = bctx.getAnchor();
         if (anchor != null) {
-            data.putInt(KEY_ANCHOR_X, anchor.getX());
-            data.putInt(KEY_ANCHOR_Y, anchor.getY());
-            data.putInt(KEY_ANCHOR_Z, anchor.getZ());
+            data.setInteger(KEY_ANCHOR_X, anchor.getX());
+            data.setInteger(KEY_ANCHOR_Y, anchor.getY());
+            data.setInteger(KEY_ANCHOR_Z, anchor.getZ());
         }
         BlockPos centerOffset = bctx.getData(BlueprintContext.KEY_CENTER_OFFSET);
         if (centerOffset != null) {
-            data.putInt(KEY_CENTER_OFFSET_X, centerOffset.getX());
-            data.putInt(KEY_CENTER_OFFSET_Y, centerOffset.getY());
-            data.putInt(KEY_CENTER_OFFSET_Z, centerOffset.getZ());
+            data.setInteger(KEY_CENTER_OFFSET_X, centerOffset.getX());
+            data.setInteger(KEY_CENTER_OFFSET_Y, centerOffset.getY());
+            data.setInteger(KEY_CENTER_OFFSET_Z, centerOffset.getZ());
         }
-        data.putInt(KEY_Y_STEPS, bctx.getYRotationSteps());
-        data.putInt(KEY_X_STEPS, bctx.getXRotationSteps());
-        data.putInt(KEY_Z_STEPS, bctx.getZRotationSteps());
+        data.setInteger(KEY_Y_STEPS, bctx.getYRotationSteps());
+        data.setInteger(KEY_X_STEPS, bctx.getXRotationSteps());
+        data.setInteger(KEY_Z_STEPS, bctx.getZRotationSteps());
 
         // 剩余队列
         LinkedList<Integer> remaining = bctx.getRemainingQueue();
@@ -109,21 +106,21 @@ public final class BlueprintPersistence {
             for (int idx : remaining) {
                 arr[i++] = idx;
             }
-            data.putIntArray(KEY_REMAINING, arr);
+            data.setIntArray(KEY_REMAINING, arr);
         } else {
-            data.putIntArray(KEY_REMAINING, new int[0]);
+            data.setIntArray(KEY_REMAINING, new int[0]);
         }
 
         // 进度计数
-        data.putInt(KEY_PLACED_COUNT, bctx.getPlacedCount());
-        data.putInt(KEY_SKIPPED_MISSING, bctx.getSkippedMissing());
-        data.putInt(KEY_SKIPPED_UNSUPPORTED, bctx.getSkippedUnsupported());
-        data.putInt(KEY_SKIPPED_MISSING_BLOCKS, bctx.getSkippedMissingBlocks());
-        data.putInt(KEY_SKIPPED_BLOCKED, bctx.getSkippedBlocked());
-        data.putBoolean(KEY_PREPARING, bctx.isPreparing());
-        ResourceKey<Level> sourceDimension = bctx.getData(BlueprintContext.KEY_SOURCE_DIMENSION);
-        if (sourceDimension == null) sourceDimension = player.serverLevel().dimension();
-        data.putString(KEY_SOURCE_DIMENSION, sourceDimension.location().toString());
+        data.setInteger(KEY_PLACED_COUNT, bctx.getPlacedCount());
+        data.setInteger(KEY_SKIPPED_MISSING, bctx.getSkippedMissing());
+        data.setInteger(KEY_SKIPPED_UNSUPPORTED, bctx.getSkippedUnsupported());
+        data.setInteger(KEY_SKIPPED_MISSING_BLOCKS, bctx.getSkippedMissingBlocks());
+        data.setInteger(KEY_SKIPPED_BLOCKED, bctx.getSkippedBlocked());
+        data.setBoolean(KEY_PREPARING, bctx.isPreparing());
+        Integer sourceDimension = bctx.getData(BlueprintContext.KEY_SOURCE_DIMENSION);
+        if (sourceDimension == null) sourceDimension = player.dimension;
+        data.setString(KEY_SOURCE_DIMENSION, DimensionIdCodec.fromDimension(sourceDimension));
 
         // 持久化到工作流条目
         com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
@@ -153,32 +150,31 @@ public final class BlueprintPersistence {
         NBTTagCompound data = entry.getExtraData();
         if (data == null || data.isEmpty()) return;
 
-        WorldServer level = player.serverLevel();
+        WorldServer level = player.getServerWorld();
 
         // ── 重建蓝图 ─────────────────────────────────────────────
-        NBTTagCompound structureTag = data.contains(KEY_BLUEPRINT_STRUCTURE, Tag.TAG_COMPOUND)
-                ? data.getCompound(KEY_BLUEPRINT_STRUCTURE) : null;
+        NBTTagCompound structureTag = data.hasKey(KEY_BLUEPRINT_STRUCTURE, Constants.NBT.TAG_COMPOUND)
+                ? data.getCompoundTag(KEY_BLUEPRINT_STRUCTURE) : null;
         if (structureTag == null || structureTag.isEmpty()) return;
 
         String bpName = data.getString(KEY_BP_NAME);
         String bpSource = data.getString(KEY_BP_SOURCE);
-        RtsBlueprint blueprint = VanillaStructureNbtReader.parse(structureTag, bpName, bpSource, level.registryAccess());
+        RtsBlueprint blueprint = VanillaStructureNbtReader.parse(structureTag, bpName, bpSource);
         if (blueprint.blocks().isEmpty()) return;
 
         // ── 读取放置参数 ─────────────────────────────────────────
-        BlockPos anchor = new BlockPos(data.getInt(KEY_ANCHOR_X), data.getInt(KEY_ANCHOR_Y), data.getInt(KEY_ANCHOR_Z));
+        BlockPos anchor = new BlockPos(data.getInteger(KEY_ANCHOR_X), data.getInteger(KEY_ANCHOR_Y), data.getInteger(KEY_ANCHOR_Z));
         BlockPos centerOffset = new BlockPos(
-                data.getInt(KEY_CENTER_OFFSET_X), data.getInt(KEY_CENTER_OFFSET_Y), data.getInt(KEY_CENTER_OFFSET_Z));
-        int ySteps = data.getInt(KEY_Y_STEPS);
-        int xSteps = data.getInt(KEY_X_STEPS);
-        int zSteps = data.getInt(KEY_Z_STEPS);
-        ResourceKey<Level> sourceDimension = player.serverLevel().dimension();
+                data.getInteger(KEY_CENTER_OFFSET_X), data.getInteger(KEY_CENTER_OFFSET_Y), data.getInteger(KEY_CENTER_OFFSET_Z));
+        int ySteps = data.getInteger(KEY_Y_STEPS);
+        int xSteps = data.getInteger(KEY_X_STEPS);
+        int zSteps = data.getInteger(KEY_Z_STEPS);
+        int sourceDimension = player.dimension;
         String sourceDimensionId = data.getString(KEY_SOURCE_DIMENSION);
         if (!sourceDimensionId.trim().isEmpty()) {
-            ResourceLocation parsed = ResourceLocation.tryParse(sourceDimensionId);
-            if (parsed != null) {
-                sourceDimension = ResourceKey.create(Registries.DIMENSION, parsed);
-            } else {
+            try {
+                sourceDimension = DimensionIdCodec.toDimension(sourceDimensionId);
+            } catch (IllegalArgumentException invalidDimension) {
                 RtsbuildingMod.LOGGER.warn(
                         "[BlueprintPersistence] 蓝图工作流 #{} 的来源维度无效：{}，保守绑定当前维度",
                         entry.id(), sourceDimensionId);
@@ -186,13 +182,13 @@ public final class BlueprintPersistence {
         } else {
             RtsbuildingMod.LOGGER.info(
                     "[BlueprintPersistence] 蓝图工作流 #{} 缺少来源维度，按旧数据迁移到当前维度 {}",
-                    entry.id(), sourceDimension.location());
+                    entry.id(), sourceDimension);
         }
 
         // ── 重算放置计划 ─────────────────────────────────────────
         // ── 重建剩余队列 ─────────────────────────────────────────
         LinkedList<Integer> remaining = new LinkedList<>();
-        if (data.contains(KEY_REMAINING, Tag.TAG_INT_ARRAY)) {
+        if (data.hasKey(KEY_REMAINING, Constants.NBT.TAG_INT_ARRAY)) {
             int[] arr = data.getIntArray(KEY_REMAINING);
             for (int idx : arr) {
                 remaining.add(idx);
@@ -203,16 +199,16 @@ public final class BlueprintPersistence {
         }
 
         // ── 读取进度计数 ─────────────────────────────────────────
-        int placedCount = data.getInt(KEY_PLACED_COUNT);
-        int skippedMissing = data.getInt(KEY_SKIPPED_MISSING);
-        int skippedUnsupported = data.getInt(KEY_SKIPPED_UNSUPPORTED);
-        int skippedMissingBlocks = data.getInt(KEY_SKIPPED_MISSING_BLOCKS);
-        int skippedBlocked = data.getInt(KEY_SKIPPED_BLOCKED);
+        int placedCount = data.getInteger(KEY_PLACED_COUNT);
+        int skippedMissing = data.getInteger(KEY_SKIPPED_MISSING);
+        int skippedUnsupported = data.getInteger(KEY_SKIPPED_UNSUPPORTED);
+        int skippedMissingBlocks = data.getInteger(KEY_SKIPPED_MISSING_BLOCKS);
+        int skippedBlocked = data.getInteger(KEY_SKIPPED_BLOCKED);
 
         // ── 构建管线上下文 ───────────────────────────────────────
         SubmissionId legacySubmission = SubmissionId.fromLegacy(
-                player.getUUID(), "blueprint",
-                sourceDimension.location() + ":" + entry.id());
+                player.getUniqueID(), "blueprint",
+                sourceDimension + ":" + entry.id());
         BlueprintContext ctx = BlueprintContext.builder(player)
                 .submissionId(legacySubmission.value())
                 .blueprint(blueprint)

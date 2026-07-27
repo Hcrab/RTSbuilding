@@ -6,9 +6,8 @@ import com.rtsbuilding.rtsbuilding.server.task.effect.RtsEffectLedger;
 import com.rtsbuilding.rtsbuilding.server.task.effect.RtsEffectLedgerMetrics;
 import com.rtsbuilding.rtsbuilding.server.task.effect.RtsPlayerEffectTarget;
 import com.rtsbuilding.rtsbuilding.server.task.effect.RtsProductionEffectCommitter;
-import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.Level;
+import net.minecraft.world.WorldServer;
 
 import java.util.UUID;
 
@@ -29,15 +28,15 @@ public final class RtsEffectAccumulator {
     private RtsEffectAccumulator() {
     }
 
-    public void markStorageViewDirty(UUID playerId, ResourceKey<Level> dimension) {
+    public void markStorageViewDirty(UUID playerId, int dimension) {
         ledger.mark(dimensionTarget(playerId, dimension), RtsEffectKind.STORAGE_VIEW_DIRTY);
     }
 
-    public void markWorkflow(UUID playerId, ResourceKey<Level> dimension) {
+    public void markWorkflow(UUID playerId, int dimension) {
         ledger.mark(dimensionTarget(playerId, dimension), RtsEffectKind.WORKFLOW_SNAPSHOT);
     }
 
-    public void markPersistence(UUID playerId, ResourceKey<Level> ignoredDimension) {
+    public void markPersistence(UUID playerId, int ignoredDimension) {
         ledger.mark(RtsPlayerEffectTarget.global(playerId), RtsEffectKind.SESSION_PERSISTENCE);
     }
 
@@ -55,11 +54,12 @@ public final class RtsEffectAccumulator {
 
     /** 每个服务器 Tick 只允许一次提交；同 Tick 的重复调用是常数成本空操作。 */
     public RtsEffectCommitBarrier.CommitReport flush(MinecraftServer server) {
-        if (server == null || server.overworld() == null) {
+        WorldServer overworld = server == null ? null : server.getWorld(0);
+        if (overworld == null) {
             return new RtsEffectCommitBarrier.CommitReport(
                     Long.MIN_VALUE, true, 0, 0, 0, 0, 0, 0, ledger.pendingTargetCount());
         }
-        long tick = server.overworld().getGameTime();
+        long tick = overworld.getTotalWorldTime();
         return barrier.commit(tick, new RtsProductionEffectCommitter(server));
     }
 
@@ -75,9 +75,9 @@ public final class RtsEffectAccumulator {
         if (playerId != null) ledger.discardMatching(target -> target.playerId().equals(playerId));
     }
 
-    public void clearDimension(UUID playerId, ResourceKey<Level> dimension) {
-        if (playerId == null || dimension == null) return;
-        String dimensionId = dimension.location().toString();
+    public void clearDimension(UUID playerId, int dimension) {
+        if (playerId == null) return;
+        String dimensionId = Integer.toString(dimension);
         ledger.discardMatching(target -> target.playerId().equals(playerId)
                 && !target.isGlobal() && target.dimensionId().equals(dimensionId));
     }
@@ -93,8 +93,7 @@ public final class RtsEffectAccumulator {
     }
 
     private static RtsPlayerEffectTarget dimensionTarget(
-            UUID playerId, ResourceKey<Level> dimension) {
-        if (dimension == null) throw new IllegalArgumentException("dimension 不能为空");
-        return RtsPlayerEffectTarget.inDimension(playerId, dimension.location().toString());
+            UUID playerId, int dimension) {
+        return RtsPlayerEffectTarget.inDimension(playerId, Integer.toString(dimension));
     }
 }

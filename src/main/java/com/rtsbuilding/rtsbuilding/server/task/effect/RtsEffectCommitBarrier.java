@@ -66,7 +66,7 @@ public final class RtsEffectCommitBarrier<K extends RtsEffectTarget> {
             }
             RtsEffectLedger.Lease<K> lease = ledger.beginCommit();
             if (lease.isEmpty()) break;
-            RtsEffectLedger.Entry<K> entry = lease.entries().getFirst();
+            RtsEffectLedger.Entry<K> entry = lease.entries().get(0);
             attemptedTargets++;
             Map<K, RtsEffectSet> retry = new LinkedHashMap<>();
             RtsEffectSet acknowledged = RtsEffectSet.empty();
@@ -106,10 +106,75 @@ public final class RtsEffectCommitBarrier<K extends RtsEffectTarget> {
         lastCommitTick = Long.MIN_VALUE;
     }
 
-    public record CommitReport(long tick, boolean skipped, int attemptedTargets,
-                               int committedTargets, int committedKinds,
-                               int retryTargets, int deferredTargets, int failedTargets,
-                               int pendingTargetsAfterCommit) {
+    public static final class CommitReport {
+        private final long tick;
+        private final boolean skipped;
+        private final int attemptedTargets;
+        private final int committedTargets;
+        private final int committedKinds;
+        private final int retryTargets;
+        private final int deferredTargets;
+        private final int failedTargets;
+        private final int pendingTargetsAfterCommit;
+
+        public CommitReport(long tick, boolean skipped, int attemptedTargets,
+                int committedTargets, int committedKinds, int retryTargets,
+                int deferredTargets, int failedTargets, int pendingTargetsAfterCommit) {
+            this.tick = tick;
+            this.skipped = skipped;
+            this.attemptedTargets = attemptedTargets;
+            this.committedTargets = committedTargets;
+            this.committedKinds = committedKinds;
+            this.retryTargets = retryTargets;
+            this.deferredTargets = deferredTargets;
+            this.failedTargets = failedTargets;
+            this.pendingTargetsAfterCommit = pendingTargetsAfterCommit;
+        }
+
+        public long tick() { return tick; }
+        public boolean skipped() { return skipped; }
+        public int attemptedTargets() { return attemptedTargets; }
+        public int committedTargets() { return committedTargets; }
+        public int committedKinds() { return committedKinds; }
+        public int retryTargets() { return retryTargets; }
+        public int deferredTargets() { return deferredTargets; }
+        public int failedTargets() { return failedTargets; }
+        public int pendingTargetsAfterCommit() { return pendingTargetsAfterCommit; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof CommitReport)) return false;
+            CommitReport value = (CommitReport) other;
+            return tick == value.tick && skipped == value.skipped
+                    && attemptedTargets == value.attemptedTargets
+                    && committedTargets == value.committedTargets
+                    && committedKinds == value.committedKinds
+                    && retryTargets == value.retryTargets
+                    && deferredTargets == value.deferredTargets
+                    && failedTargets == value.failedTargets
+                    && pendingTargetsAfterCommit == value.pendingTargetsAfterCommit;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tick, skipped, attemptedTargets, committedTargets,
+                    committedKinds, retryTargets, deferredTargets, failedTargets,
+                    pendingTargetsAfterCommit);
+        }
+
+        @Override
+        public String toString() {
+            return "CommitReport[tick=" + tick + ", skipped=" + skipped
+                    + ", attemptedTargets=" + attemptedTargets
+                    + ", committedTargets=" + committedTargets
+                    + ", committedKinds=" + committedKinds
+                    + ", retryTargets=" + retryTargets
+                    + ", deferredTargets=" + deferredTargets
+                    + ", failedTargets=" + failedTargets
+                    + ", pendingTargetsAfterCommit=" + pendingTargetsAfterCommit + "]";
+        }
+
         static CommitReport skipped(long tick) {
             return new CommitReport(tick, true, 0, 0, 0, 0, 0, 0, 0);
         }

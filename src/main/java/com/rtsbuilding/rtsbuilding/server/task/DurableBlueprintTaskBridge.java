@@ -13,6 +13,8 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey;
@@ -21,14 +23,10 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.world.level.Level;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -76,8 +74,8 @@ public final class DurableBlueprintTaskBridge {
         Objects.requireNonNull(context, "context");
         EntityPlayerMP player = context.player();
         SubmissionId submissionId = new SubmissionId(context.getSubmissionId());
-        TaskId taskId = TaskId.fromSubmission(player.getUUID(), submissionId);
-        ResourceKey<Level> dimension = player.serverLevel().dimension();
+        TaskId taskId = TaskId.fromSubmission(player.getUniqueID(), submissionId);
+        int dimension = player.dimension;
         FrozenSubmission frozen = FrozenSubmission.from(taskId, submissionId, context, dimension);
 
         FrozenSubmission existingPending = pending.get(taskId);
@@ -92,11 +90,11 @@ public final class DurableBlueprintTaskBridge {
             requireSameIdentity(existingRoot, frozen);
             var durableBlob = persistence.loadDurableBlueprint(taskId);
             if (!durableBlob.structure().equals(frozen.structure())
-                    || existingRoot.payload().getLong(PAYLOAD_ANCHOR) != frozen.anchor().asLong()
-                    || existingRoot.payload().getLong(PAYLOAD_CENTER) != frozen.center().asLong()
-                    || existingRoot.payload().getInt(PAYLOAD_Y) != frozen.ySteps()
-                    || existingRoot.payload().getInt(PAYLOAD_X) != frozen.xSteps()
-                    || existingRoot.payload().getInt(PAYLOAD_Z) != frozen.zSteps()) {
+                    || existingRoot.payload().getLong(PAYLOAD_ANCHOR) != frozen.anchor().toLong()
+                    || existingRoot.payload().getLong(PAYLOAD_CENTER) != frozen.center().toLong()
+                    || existingRoot.payload().getInteger(PAYLOAD_Y) != frozen.ySteps()
+                    || existingRoot.payload().getInteger(PAYLOAD_X) != frozen.xSteps()
+                    || existingRoot.payload().getInteger(PAYLOAD_Z) != frozen.zSteps()) {
                 throw new IllegalStateException("同一 submissionId 已绑定不同蓝图内容");
             }
             // root ACK 可能先于 legacy heavy→thin 投影。保留冻结请求，activator 才能认领原槽而不新开槽。
@@ -151,7 +149,7 @@ public final class DurableBlueprintTaskBridge {
         }
         int attempts = 0;
         int inspected = 0;
-        long gameTime = server.overworld().getGameTime();
+        long gameTime = server.getWorld(0).getTotalWorldTime();
         List<TaskId> retry = new ArrayList<>();
         var iterator = activationQueue.iterator();
         while (iterator.hasNext() && attempts < MAX_ACTIVATIONS_PER_TICK && inspected++ < 8) {
@@ -192,7 +190,7 @@ public final class DurableBlueprintTaskBridge {
     }
 
     void afterTaskTick(MinecraftServer server) {
-        long gameTime = server.overworld().getGameTime();
+        long gameTime = server.getWorld(0).getTotalWorldTime();
         for (var iterator = active.entrySet().iterator(); iterator.hasNext();) {
             Map.Entry<TaskId, ActiveBinding> entry = iterator.next();
             ActiveBinding binding = entry.getValue();
@@ -231,7 +229,7 @@ public final class DurableBlueprintTaskBridge {
         for (Map.Entry<TaskId, ActiveBinding> entry : active.entrySet()) {
             if (!entry.getValue().record().ownerId().equals(ownerId)) continue;
             ActiveBinding binding = entry.getValue();
-            long gameTime = binding.context().player().serverLevel().getGameTime();
+            long gameTime = binding.context().player().getServerWorld().getTotalWorldTime();
             TaskLifecycleState state = durableState(binding.record().status());
             TaskSnapshot next = nextSnapshot(binding.snapshot(), binding.context(), binding.record(), state, gameTime);
             persistence.coordinator().replace(next);
@@ -269,10 +267,10 @@ public final class DurableBlueprintTaskBridge {
             pending.remove(taskId);
             return true;
         }
-        EntityPlayerMP player = server.getPlayerList().getPlayer(snapshot.ownerId());
+        EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(snapshot.ownerId());
         if (player == null) return false;
-        ResourceKey<Level> dimension = parseDimension(snapshot.dimensionId());
-        if (!player.serverLevel().dimension().equals(dimension)) return false;
+        int dimension = parseDimension(snapshot.dimensionId());
+        if (!player.dimension.equals(dimension)) return false;
 
         BlueprintContext context;
         FrozenSubmission frozen = pending.get(taskId);
@@ -297,7 +295,7 @@ public final class DurableBlueprintTaskBridge {
                     : materializeFromDurableRoot(player, snapshot);
         } catch (RuntimeException corrupt) {
             RtsbuildingMod.LOGGER.error("恢复 durable 蓝图任务失败: {}", taskId, corrupt);
-            failSnapshot(snapshot, player.serverLevel().getGameTime());
+            failSnapshot(snapshot, player.getServerWorld().getTotalWorldTime());
             BlueprintNetworkHandlers.send(player, S2CBlueprintStatusPayload.ERROR,
                     "screen.rtsbuilding.blueprints.status.restore_failed", "");
             pending.remove(taskId);
@@ -346,15 +344,15 @@ public final class DurableBlueprintTaskBridge {
             context.setData(PipelineContext.KEY_WORKFLOW_ENTRY_ID, token.entryId());
             context.setData(BlueprintContext.KEY_DURABLE_TASK_ID, taskId.value());
             NBTTagCompound projection = new NBTTagCompound();
-            projection.putUUID(WORKFLOW_TASK_ID, taskId.value());
+            NbtCompat.setUuid(projection, WORKFLOW_TASK_ID, taskId.value());
             workflowEngine.setWorkflowExtraData(player, token.entryId(), projection);
             TaskRecord record = taskEngine.activateDurableBlueprint(taskId, snapshot, context, dimension);
             TaskSnapshot projected = snapshot.nextRevision(snapshot.state(), snapshot.waitKey(),
-                    player.serverLevel().getGameTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
+                    player.getServerWorld().getTotalWorldTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
                     snapshot.failedUnits(), snapshot.payload());
             persistence.coordinator().replace(projected);
             active.put(taskId, new ActiveBinding(record, context, projected,
-                    player.serverLevel().getGameTime()));
+                    player.getServerWorld().getTotalWorldTime()));
             pending.remove(taskId);
             return true;
         } catch (RuntimeException failure) {
@@ -380,13 +378,13 @@ public final class DurableBlueprintTaskBridge {
         BlueprintContext context = BlueprintContext.builder(player)
                 .submissionId(snapshot.submissionId().value())
                 .blueprint(blueprint)
-                .anchor(BlockPos.of(payload.getLong(PAYLOAD_ANCHOR)))
-                .yRotationSteps(payload.getInt(PAYLOAD_Y))
-                .xRotationSteps(payload.getInt(PAYLOAD_X))
-                .zRotationSteps(payload.getInt(PAYLOAD_Z))
+                .anchor(BlockPos.fromLong(payload.getLong(PAYLOAD_ANCHOR)))
+                .yRotationSteps(payload.getInteger(PAYLOAD_Y))
+                .xRotationSteps(payload.getInteger(PAYLOAD_X))
+                .zRotationSteps(payload.getInteger(PAYLOAD_Z))
                 .totalBlocks(snapshot.totalUnits())
                 .build();
-        context.setData(BlueprintContext.KEY_CENTER_OFFSET, BlockPos.of(payload.getLong(PAYLOAD_CENTER)));
+        context.setData(BlueprintContext.KEY_CENTER_OFFSET, BlockPos.fromLong(payload.getLong(PAYLOAD_CENTER)));
         context.setData(BlueprintContext.KEY_SOURCE_DIMENSION, parseDimension(snapshot.dimensionId()));
         context.setData(SessionValidatePipe.KEY_SESSION,
                 ServiceRegistry.getInstance().session().getOrCreate(player));
@@ -421,15 +419,15 @@ public final class DurableBlueprintTaskBridge {
 
     private static NBTTagCompound runtimePayload(NBTTagCompound base, BlueprintContext context) {
         NBTTagCompound payload = base.copy();
-        payload.putBoolean(PAYLOAD_PREPARING, context.isPreparing());
+        payload.setBoolean(PAYLOAD_PREPARING, context.isPreparing());
         LinkedList<Integer> remaining = context.getRemainingQueue();
         if (remaining == null || remaining.isEmpty()) {
-            payload.putIntArray(PAYLOAD_REMAINING, new int[0]);
+            payload.setIntArray(PAYLOAD_REMAINING, new int[0]);
         } else {
             int[] indices = new int[remaining.size()];
             int cursor = 0;
             for (int index : remaining) indices[cursor++] = index;
-            payload.putIntArray(PAYLOAD_REMAINING, indices);
+            payload.setIntArray(PAYLOAD_REMAINING, indices);
         }
         return payload;
     }
@@ -460,12 +458,12 @@ public final class DurableBlueprintTaskBridge {
     /** 将“先 recovery completion、后 legacy restore”的顺序反转压缩成可执行纯状态门。 */
     static ProjectionClaimDecision decideProjectionClaim(
             NBTTagCompound extra, UUID taskId, boolean hasFrozenLegacyRequest) {
-        if (extra == null || !extra.hasUUID(WORKFLOW_TASK_ID)) {
+        if (extra == null || !NbtCompat.hasUuid(extra, WORKFLOW_TASK_ID)) {
             return hasFrozenLegacyRequest
                     ? ProjectionClaimDecision.CLAIM_HEAVY
                     : ProjectionClaimDecision.DEFER_UNCLAIMED_HEAVY;
         }
-        return taskId.equals(extra.getUUID(WORKFLOW_TASK_ID))
+        return taskId.equals(NbtCompat.getUuid(extra, WORKFLOW_TASK_ID))
                 ? ProjectionClaimDecision.REUSE_MATCHING_THIN
                 : ProjectionClaimDecision.FAIL_CONFLICT;
     }
@@ -492,21 +490,24 @@ public final class DurableBlueprintTaskBridge {
     record InitialProgress(int cursor, int succeeded, int failed) {
     }
 
-    private static ResourceKey<Level> parseDimension(String dimensionId) {
-        ResourceLocation parsed = ResourceLocation.tryParse(dimensionId);
-        if (parsed == null) throw new IllegalStateException("durable 蓝图维度无效: " + dimensionId);
-        return ResourceKey.create(Registries.DIMENSION, parsed);
+    private static int parseDimension(String dimensionId) {
+        try {
+            return DimensionIdCodec.toDimension(dimensionId);
+        } catch (IllegalArgumentException invalidDimension) {
+            throw new IllegalStateException("durable 蓝图维度无法映射到 1.12.2 整数 ID: "
+                    + dimensionId, invalidDimension);
+        }
     }
 
     private static void requirePayload(NBTTagCompound payload, TaskId taskId) {
-        if (payload.getInt(PAYLOAD_SCHEMA) != 1
-                || !payload.hasUUID(PAYLOAD_ASSET_ID)
-                || !payload.contains(PAYLOAD_ANCHOR, Tag.TAG_LONG)
-                || !payload.contains(PAYLOAD_CENTER, Tag.TAG_LONG)) {
+        if (payload.getInteger(PAYLOAD_SCHEMA) != 1
+                || !NbtCompat.hasUuid(payload, PAYLOAD_ASSET_ID)
+                || !payload.hasKey(PAYLOAD_ANCHOR, Constants.NBT.TAG_LONG)
+                || !payload.hasKey(PAYLOAD_CENTER, Constants.NBT.TAG_LONG)) {
             throw new IllegalStateException("durable 蓝图 payload 缺失或 schema 不兼容");
         }
         UUID expected = TaskAssetId.forTask(taskId, "blueprint").value();
-        if (!expected.equals(payload.getUUID(PAYLOAD_ASSET_ID))) {
+        if (!expected.equals(NbtCompat.getUuid(payload, PAYLOAD_ASSET_ID))) {
             throw new IllegalStateException("durable 蓝图 asset_id 与 TaskId 不一致");
         }
     }
@@ -514,7 +515,7 @@ public final class DurableBlueprintTaskBridge {
     private static void requireSameIdentity(TaskSnapshot root, FrozenSubmission request) {
         if (!root.ownerId().equals(request.ownerId())
                 || !root.submissionId().equals(request.submissionId())
-                || !root.dimensionId().equals(request.dimension().location().toString())
+                || !root.dimensionId().equals(DimensionIdCodec.fromDimension(request.dimension()))
                 || root.type() != TaskType.BLUEPRINT) {
             throw new IllegalStateException("稳定 TaskId 已绑定到另一 durable root");
         }
@@ -534,28 +535,28 @@ public final class DurableBlueprintTaskBridge {
     }
 
     private record FrozenSubmission(TaskId taskId, SubmissionId submissionId, UUID ownerId,
-            ResourceKey<Level> dimension, RtsBlueprint blueprint, BlockPos anchor,
+            int dimension, RtsBlueprint blueprint, BlockPos anchor,
             BlockPos center, int ySteps, int xSteps, int zSteps,
             int preferredWorkflowEntryId, NBTTagCompound structure, TaskSnapshot initialSnapshot) {
         static FrozenSubmission from(TaskId taskId, SubmissionId submissionId,
-                BlueprintContext context, ResourceKey<Level> dimension) {
+                BlueprintContext context, int dimension) {
             RtsBlueprint blueprint = context.getBlueprint();
             NBTTagCompound structure = BlueprintWriters.toVanillaStructureTag(blueprint);
             NBTTagCompound payload = new NBTTagCompound();
-            payload.putInt(PAYLOAD_SCHEMA, 1);
-            payload.putUUID(PAYLOAD_ASSET_ID, TaskAssetId.forTask(taskId, "blueprint").value());
-            payload.putLong(PAYLOAD_ANCHOR, context.getAnchor().asLong());
+            payload.setInteger(PAYLOAD_SCHEMA, 1);
+            NbtCompat.setUuid(payload, PAYLOAD_ASSET_ID, TaskAssetId.forTask(taskId, "blueprint").value());
+            payload.setLong(PAYLOAD_ANCHOR, context.getAnchor().toLong());
             BlockPos center = context.getData(BlueprintContext.KEY_CENTER_OFFSET);
-            payload.putLong(PAYLOAD_CENTER, center.asLong());
-            payload.putInt(PAYLOAD_Y, context.getYRotationSteps());
-            payload.putInt(PAYLOAD_X, context.getXRotationSteps());
-            payload.putInt(PAYLOAD_Z, context.getZRotationSteps());
-            payload.putBoolean(PAYLOAD_PREPARING, context.isPreparing());
+            payload.setLong(PAYLOAD_CENTER, center.toLong());
+            payload.setInteger(PAYLOAD_Y, context.getYRotationSteps());
+            payload.setInteger(PAYLOAD_X, context.getXRotationSteps());
+            payload.setInteger(PAYLOAD_Z, context.getZRotationSteps());
+            payload.setBoolean(PAYLOAD_PREPARING, context.isPreparing());
             LinkedList<Integer> remaining = context.getRemainingQueue();
             int[] remainingIndices = remaining == null ? new int[0] : remaining.stream()
                     .mapToInt(Integer::intValue).toArray();
-            payload.putIntArray(PAYLOAD_REMAINING, remainingIndices);
-            long gameTime = context.player().serverLevel().getGameTime();
+            payload.setIntArray(PAYLOAD_REMAINING, remainingIndices);
+            long gameTime = context.player().getServerWorld().getTotalWorldTime();
             Integer preferred = context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
             int preferredWorkflowEntryId = preferred == null ? -1 : preferred;
             TaskLifecycleState initialState = TaskLifecycleState.QUEUED;
@@ -575,11 +576,11 @@ public final class DurableBlueprintTaskBridge {
             InitialProgress progress = initialProgress(
                     context.isPreparing(), blueprint.blockCount(), remainingIndices.length, succeeded, failed);
             TaskSnapshot snapshot = new TaskSnapshot(
-                    taskId, submissionId, context.player().getUUID(), dimension.location().toString(),
+                    taskId, submissionId, context.player().getUniqueID(), DimensionIdCodec.fromDimension(dimension),
                     TaskType.BLUEPRINT, initialState, preferredWorkflowEntryId, waitKey, 1L,
                     gameTime, gameTime, blueprint.blockCount(), progress.cursor(),
                     progress.succeeded(), progress.failed(), payload);
-            return new FrozenSubmission(taskId, submissionId, context.player().getUUID(), dimension,
+            return new FrozenSubmission(taskId, submissionId, context.player().getUniqueID(), dimension,
                     blueprint, context.getAnchor(), center, context.getYRotationSteps(),
                     context.getXRotationSteps(), context.getZRotationSteps(), preferredWorkflowEntryId,
                     structure, snapshot);

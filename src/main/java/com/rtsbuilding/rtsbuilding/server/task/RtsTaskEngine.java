@@ -63,7 +63,7 @@ public final class RtsTaskEngine {
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot> durableCandidates =
                 new java.util.LinkedHashMap<>();
         for (var player : server.getPlayerList().getPlayers()) {
-            coordinator.query().runnableFor(player.getUUID(), player.serverLevel().dimension().location().toString())
+            coordinator.query().runnableFor(player.getUniqueID(), dimensionId(player.dimension))
                     .stream()
                     .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT
                             || snapshot.type() == TaskType.DESTRUCTION
@@ -182,11 +182,11 @@ public final class RtsTaskEngine {
     public void checkpointAllDurableExecutions(MinecraftServer server) {
         durableRuntime.checkpointMiningExecutions(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.coordinator(),
-                server.overworld().getGameTime());
+                server.getWorld(0).getTotalWorldTime());
         durableRuntime.checkpointDestructionExecutions(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.coordinator(),
-                server.overworld().getGameTime());
-        durableBlueprintBridge.checkpointAll(server.overworld().getGameTime());
+                server.getWorld(0).getTotalWorldTime());
+        durableBlueprintBridge.checkpointAll(server.getWorld(0).getTotalWorldTime());
     }
 
     /** persistence.stop 成功后调用，清除单例中的旧世界引用。 */
@@ -207,7 +207,7 @@ public final class RtsTaskEngine {
             boolean paused) {
         if (player == null || workflowEntryId < 0) return false;
         WorkflowTaskKey key = new WorkflowTaskKey(
-                player.getUUID(), player.serverLevel().dimension(), workflowEntryId);
+                player.getUniqueID(), player.dimension, workflowEntryId);
         var workflowEngine =
                 com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
         var workflowEntry = workflowEngine.findEntryByPlayer(player, workflowEntryId);
@@ -218,7 +218,7 @@ public final class RtsTaskEngine {
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
         var durable = coordinator.query().findByWorkflow(
-                player.getUUID(), player.serverLevel().dimension().location().toString(), workflowEntryId)
+                player.getUniqueID(), dimensionId(player.dimension), workflowEntryId)
                 .orElse(null);
         if (durable != null && (durable.type() == TaskType.PLACEMENT
                 || durable.type() == TaskType.DESTRUCTION
@@ -228,12 +228,12 @@ public final class RtsTaskEngine {
                     : com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED;
             var next = durable.type() == TaskType.MINING
                     ? durableRuntime.transitionMiningSnapshot(
-                            durable, state, player.serverLevel().getGameTime())
+                            durable, state, gameTime(player))
                     : durable.type() == TaskType.DESTRUCTION
                             ? durableRuntime.transitionDestructionSnapshot(
-                                    durable, state, player.serverLevel().getGameTime())
+                                    durable, state, gameTime(player))
                             : durable.nextRevision(state, null,
-                                    player.serverLevel().getGameTime(), durable.cursorUnits(),
+                                    gameTime(player), durable.cursorUnits(),
                                     durable.succeededUnits(), durable.failedUnits(), durable.payload());
             coordinator.replace(next);
         }
@@ -260,7 +260,7 @@ public final class RtsTaskEngine {
     /** 删除工作流前先收拢对应领域任务，不等待下一个 tick 通过“token 缺失”兜底。 */
     public boolean cancelWorkflowTask(net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         if (player == null) return false;
-        return cancelWorkflowTask(player, player.serverLevel().dimension(), workflowEntryId);
+        return cancelWorkflowTask(player, player.dimension, workflowEntryId);
     }
 
     /**
@@ -269,17 +269,17 @@ public final class RtsTaskEngine {
      */
     public boolean cancelWorkflowTask(
             net.minecraft.entity.player.EntityPlayerMP player,
-            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
+            int dimension,
             int workflowEntryId) {
-        if (player == null || dimension == null || workflowEntryId < 0) return false;
-        boolean currentDimension = player.serverLevel().dimension().equals(dimension);
+        if (player == null || workflowEntryId < 0) return false;
+        boolean currentDimension = player.dimension == dimension;
         WorkflowTaskKey key = new WorkflowTaskKey(
-                player.getUUID(), dimension, workflowEntryId);
+                player.getUniqueID(), dimension, workflowEntryId);
         TaskRecord record = findWorkflowTask(key);
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
         var durable = coordinator.query().findByWorkflow(
-                player.getUUID(), dimension.location().toString(), workflowEntryId)
+                player.getUniqueID(), dimensionId(dimension), workflowEntryId)
                 .orElse(null);
         boolean durableCancelled = false;
         if (durable != null && (durable.type() == TaskType.PLACEMENT
@@ -310,15 +310,15 @@ public final class RtsTaskEngine {
                 cancelled = durable.type() == TaskType.MINING
                         ? durableRuntime.transitionMiningSnapshot(durable,
                                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                                player.serverLevel().getGameTime())
+                                gameTime(player))
                         : durable.nextRevision(
                                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                                null, player.serverLevel().getGameTime(), durable.cursorUnits(),
+                                null, gameTime(player), durable.cursorUnits(),
                                 durable.succeededUnits(), durable.failedUnits(), durable.payload());
             } catch (RuntimeException malformedMining) {
                 cancelled = durable.nextRevision(
                         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                        null, player.serverLevel().getGameTime(), durable.cursorUnits(),
+                        null, gameTime(player), durable.cursorUnits(),
                         durable.succeededUnits(), durable.failedUnits(), durable.payload());
             }
             coordinator.replace(cancelled);
@@ -349,14 +349,14 @@ public final class RtsTaskEngine {
         if (player == null || changedItemIds == null || changedItemIds.isEmpty()) return;
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
-        long gameTime = player.serverLevel().getGameTime();
+        long gameTime = gameTime(player);
         for (String itemId : new java.util.LinkedHashSet<>(changedItemIds)) {
             if (itemId == null || itemId.trim().isEmpty()) continue;
             var key = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey("item", itemId);
             for (var snapshot : coordinator.query().waitingFor(key)) {
-                if (!snapshot.ownerId().equals(player.getUUID()) || snapshot.type() != TaskType.PLACEMENT
+                if (!snapshot.ownerId().equals(player.getUniqueID()) || snapshot.type() != TaskType.PLACEMENT
                         || !snapshot.dimensionId().equals(
-                                player.serverLevel().dimension().location().toString())) continue;
+                                dimensionId(player.dimension))) continue;
                 coordinator.replace(snapshot.nextRevision(
                         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
                         null, gameTime, snapshot.cursorUnits(), snapshot.succeededUnits(),
@@ -371,9 +371,9 @@ public final class RtsTaskEngine {
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
         int resumed = 0;
-        long gameTime = player.serverLevel().getGameTime();
-        String dimensionId = player.serverLevel().dimension().location().toString();
-        for (var snapshot : coordinator.query().ownedBy(player.getUUID())) {
+        long gameTime = gameTime(player);
+        String dimensionId = dimensionId(player.dimension);
+        for (var snapshot : coordinator.query().ownedBy(player.getUniqueID())) {
             if (snapshot.type() != TaskType.PLACEMENT
                     || !snapshot.dimensionId().equals(dimensionId)
                     || snapshot.state() != com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE) {
@@ -394,7 +394,7 @@ public final class RtsTaskEngine {
         if (player == null || workflowEntryId < 0) return null;
         var snapshot = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator().query().findByWorkflow(
-                        player.getUUID(), player.serverLevel().dimension().location().toString(), workflowEntryId)
+                        player.getUniqueID(), dimensionId(player.dimension), workflowEntryId)
                 .orElse(null);
         if (snapshot == null || snapshot.type() != TaskType.PLACEMENT
                 || snapshot.state()
@@ -404,7 +404,7 @@ public final class RtsTaskEngine {
         PlacementTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
                 .decode(snapshot.payload());
         if (!payload.ownerId().equals(snapshot.ownerId())
-                || !payload.dimension().location().toString().equals(snapshot.dimensionId())
+                || !dimensionId(payload.dimension()).equals(snapshot.dimensionId())
                 || payload.workflowEntryId() != snapshot.workflowEntryId()) {
             throw new IllegalStateException("placement task snapshot/payload 身份不一致");
         }
@@ -427,8 +427,8 @@ public final class RtsTaskEngine {
                 .orElse(null);
         if (snapshot == null || snapshot.type() != TaskType.PLACEMENT
                 || snapshot.revision() != expectedRevision
-                || !snapshot.ownerId().equals(player.getUUID())
-                || !snapshot.dimensionId().equals(player.serverLevel().dimension().location().toString())
+                || !snapshot.ownerId().equals(player.getUniqueID())
+                || !snapshot.dimensionId().equals(dimensionId(player.dimension))
                 || snapshot.workflowEntryId() != workflowEntryId
                 || snapshot.state()
                 != com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.WAITING_RESOURCE) {
@@ -437,14 +437,14 @@ public final class RtsTaskEngine {
         PlacementTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
                 .decode(snapshot.payload());
         if (!payload.ownerId().equals(snapshot.ownerId())
-                || !payload.dimension().location().toString().equals(snapshot.dimensionId())
+                || !dimensionId(payload.dimension()).equals(snapshot.dimensionId())
                 || payload.workflowEntryId() != workflowEntryId) return false;
         var nextState = RtsPlacementBatch.applyDetachedResumeStrategy(player, payload.state(), strategy);
         if (nextState == null) return false;
         var nextPayload = payload.withState(nextState);
         coordinator.replace(snapshot.nextRevision(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
-                null, player.serverLevel().getGameTime(), nextState.cursorUnits(),
+                null, gameTime(player), nextState.cursorUnits(),
                 nextState.succeededUnits(), nextState.failedUnits(),
                 com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload)));
         return true;
@@ -453,7 +453,7 @@ public final class RtsTaskEngine {
     public String firstPlacementItemId(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return "";
         return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
-                .coordinator().query().ownedBy(player.getUUID()).stream()
+                .coordinator().query().ownedBy(player.getUniqueID()).stream()
                 .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT && !snapshot.state().terminal())
                 .map(snapshot -> com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
                         .decode(snapshot.payload()).state().definition().getString("itemId"))
@@ -464,9 +464,9 @@ public final class RtsTaskEngine {
     /** 返回当前维度一个仍活动的 durable mining workflow；控制管道不再读取 Session 游标。 */
     public int activeMiningWorkflowEntry(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return -1;
-        String dimensionId = player.serverLevel().dimension().location().toString();
+        String dimensionId = dimensionId(player.dimension);
         return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
-                .coordinator().query().ownedBy(player.getUUID()).stream()
+                .coordinator().query().ownedBy(player.getUniqueID()).stream()
                 .filter(snapshot -> snapshot.type() == TaskType.MINING && !snapshot.state().terminal())
                 .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
                 .mapToInt(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::workflowEntryId)
@@ -482,9 +482,9 @@ public final class RtsTaskEngine {
      */
     public boolean hasCommittedMiningBatch(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return false;
-        String dimensionId = player.serverLevel().dimension().location().toString();
+        String dimensionId = dimensionId(player.dimension);
         var states = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
-                .coordinator().query().ownedBy(player.getUUID()).stream()
+                .coordinator().query().ownedBy(player.getUniqueID()).stream()
                 .filter(snapshot -> snapshot.type() == TaskType.MINING && !snapshot.state().terminal())
                 .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
                 .map(durableRuntime::currentMiningState)
@@ -496,9 +496,9 @@ public final class RtsTaskEngine {
     /** 停止当前维度的全部 durable mining；Session 清理由旧迁移兼容层随后完成。 */
     public int cancelActiveMiningTasks(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return 0;
-        String dimensionId = player.serverLevel().dimension().location().toString();
+        String dimensionId = dimensionId(player.dimension);
         var workflowIds = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
-                .coordinator().query().ownedBy(player.getUUID()).stream()
+                .coordinator().query().ownedBy(player.getUniqueID()).stream()
                 .filter(snapshot -> snapshot.type() == TaskType.MINING && !snapshot.state().terminal())
                 .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
                 .map(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::workflowEntryId)
@@ -517,7 +517,7 @@ public final class RtsTaskEngine {
         if (player == null || workflowEntryId < 0) return 0;
         return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator().query().findByWorkflow(
-                        player.getUUID(), player.serverLevel().dimension().location().toString(), workflowEntryId)
+                        player.getUniqueID(), dimensionId(player.dimension), workflowEntryId)
                 .map(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::totalUnits)
                 .orElse(0);
     }
@@ -533,30 +533,30 @@ public final class RtsTaskEngine {
                 || session.mining.miningToolLease.isEmpty()))
                 || com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator
                         .isToolNearBreak(player, session)) return;
-        resumeWaitKey(coordinator, player.getUUID(),
+        resumeWaitKey(coordinator, player.getUniqueID(),
                 new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
-                        "tool", "usable_mining_tool"), player.serverLevel().getGameTime());
+                        "tool", "usable_mining_tool"), gameTime(player));
         for (int slot = 0; slot < 9; slot++) {
-            resumeWaitKey(coordinator, player.getUUID(),
+            resumeWaitKey(coordinator, player.getUniqueID(),
                     new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
-                            "tool", "hotbar:" + slot), player.serverLevel().getGameTime());
+                            "tool", "hotbar:" + slot), gameTime(player));
         }
     }
 
     /** Chunk Load 事件只命中该 chunk 的 WaitIndex 桶。 */
     public void resumeLoadedChunk(net.minecraft.world.WorldServer level,
-            net.minecraft.world.level.ChunkPos chunkPos) {
+            net.minecraft.util.math.ChunkPos chunkPos) {
         if (level == null || chunkPos == null) return;
         var runtime = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE;
         // GameTest/专用服务器会在 ServerStarting 之前提升出生区块；此时还没有恢复索引可唤醒。
         if (!runtime.isStarted()) return;
         var coordinator = runtime.coordinator();
         var key = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
-                "chunk", level.dimension().location() + ":" + chunkPos.x + ":" + chunkPos.z);
+                "chunk", level.provider.getDimension() + ":" + chunkPos.x + ":" + chunkPos.z);
         for (var snapshot : coordinator.query().waitingFor(key)) {
             coordinator.replace(snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
-                    null, level.getGameTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
+                    null, level.getTotalWorldTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
                     snapshot.failedUnits(), snapshot.payload()));
         }
     }
@@ -580,7 +580,7 @@ public final class RtsTaskEngine {
      */
     public void submitBlueprint(BlueprintContext context, java.util.LinkedList<Integer> restoredRemaining) {
         if (context == null || context.player() == null) return;
-        submitBlueprint(context, restoredRemaining, context.player().serverLevel().dimension());
+        submitBlueprint(context, restoredRemaining, context.player().dimension);
     }
 
     /** root 已 ACK 后由 durable bridge 调用；TaskRecord 复用稳定 TaskId，不再生成 workflow 派生 UUID。 */
@@ -588,16 +588,16 @@ public final class RtsTaskEngine {
             com.rtsbuilding.rtsbuilding.server.task.identity.TaskId taskId,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
             BlueprintContext context,
-            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> sourceDimension) {
+            int sourceDimension) {
         int entryId = context.getData(
                 com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext.KEY_WORKFLOW_ENTRY_ID);
-        WorkflowTaskKey key = new WorkflowTaskKey(context.player().getUUID(), sourceDimension, entryId);
+        WorkflowTaskKey key = new WorkflowTaskKey(context.player().getUniqueID(), sourceDimension, entryId);
         TaskRecord existing = blueprintRecords.get(key);
         if (existing != null && !existing.status().terminal()) return existing;
         long now = System.nanoTime();
         BlueprintTaskPayload payload = new BlueprintTaskPayload(context,
                 context.isPreparing() ? null : context.getRemainingQueue(), sourceDimension);
-        TaskRecord record = new TaskRecord(taskId.value(), context.player().getUUID(),
+        TaskRecord record = new TaskRecord(taskId.value(), context.player().getUniqueID(),
                 TaskType.BLUEPRINT, payload, snapshot.totalUnits(), now);
         record.restoreDurableSnapshot(snapshot.cursorUnits(), snapshot.succeededUnits(),
                 snapshot.failedUnits(), DurableBlueprintTaskBridge.runtimeState(snapshot.state()), now);
@@ -607,23 +607,23 @@ public final class RtsTaskEngine {
     }
 
     public void submitBlueprint(BlueprintContext context, java.util.LinkedList<Integer> restoredRemaining,
-            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> sourceDimension) {
+            int sourceDimension) {
         if (context == null || context.player() == null) return;
         Integer entryId = context.getData(
                 com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext.KEY_WORKFLOW_ENTRY_ID);
         if (entryId == null || entryId < 0) return;
         WorkflowTaskKey key = new WorkflowTaskKey(
-                context.player().getUUID(), sourceDimension, entryId);
+                context.player().getUniqueID(), sourceDimension, entryId);
         TaskRecord existing = blueprintRecords.get(key);
         if (existing != null && !existing.status().terminal()) return;
 
         long now = System.nanoTime();
         BlueprintTaskPayload payload = new BlueprintTaskPayload(context, restoredRemaining, sourceDimension);
         TaskRecord record = new TaskRecord(
-                UUID.nameUUIDFromBytes((context.player().getUUID() + ":blueprint:"
-                        + sourceDimension.location() + ":" + entryId)
+                UUID.nameUUIDFromBytes((context.player().getUniqueID() + ":blueprint:"
+                        + sourceDimension + ":" + entryId)
                         .getBytes(StandardCharsets.UTF_8)),
-                context.player().getUUID(), TaskType.BLUEPRINT, payload,
+                context.player().getUniqueID(), TaskType.BLUEPRINT, payload,
                 context.getBlueprint().blockCount(), now);
         if (restoredRemaining != null) {
             int cursor = Math.max(0, context.getBlueprint().blockCount() - restoredRemaining.size());
@@ -639,7 +639,7 @@ public final class RtsTaskEngine {
             net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         if (player == null) return null;
         TaskRecord record = blueprintRecords.get(new WorkflowTaskKey(
-                player.getUUID(), player.serverLevel().dimension(), workflowEntryId));
+                player.getUniqueID(), player.dimension, workflowEntryId));
         if (record == null || record.status().terminal()
                 || !(record.payload() instanceof BlueprintTaskPayload payload)) return null;
         return payload.context();
@@ -649,7 +649,7 @@ public final class RtsTaskEngine {
             net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         TaskRecord record = player == null ? null
                 : blueprintRecords.get(new WorkflowTaskKey(
-                        player.getUUID(), player.serverLevel().dimension(), workflowEntryId));
+                        player.getUniqueID(), player.dimension, workflowEntryId));
         if (record == null || record.status().terminal()) return false;
         if (record.payload() instanceof BlueprintTaskPayload payload) {
             payload.resetPlacementCycle();
@@ -672,8 +672,8 @@ public final class RtsTaskEngine {
                 .coordinator()
                 .query()
                 .findByWorkflow(
-                        player.getUUID(),
-                        player.serverLevel().dimension().location().toString(),
+                        player.getUniqueID(),
+                        dimensionId(player.dimension),
                         workflowEntryId)
                 .isPresent();
     }
@@ -695,7 +695,7 @@ public final class RtsTaskEngine {
             return false;
         }
         PlacementTaskPayload payload = new PlacementTaskPayload(
-                player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
+                player.getUniqueID(), player.dimension, job.workflowEntryId(),
                 RtsPlacementBatch.snapshotDetachedState(job, player.registryAccess()));
         /*
          * workflowEntryId 只属于当前工作流存档代次。玩家每次新放置都必须获得新的
@@ -703,11 +703,11 @@ public final class RtsTaskEngine {
          */
         var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
         var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
-                .fromSubmission(player.getUUID(), submission);
-        long gameTime = player.serverLevel().getGameTime();
+                .fromSubmission(player.getUniqueID(), submission);
+        long gameTime = gameTime(player);
         var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
-                taskId, submission, player.getUUID(),
-                player.serverLevel().dimension().location().toString(), TaskType.PLACEMENT,
+                taskId, submission, player.getUniqueID(),
+                dimensionId(player.dimension), TaskType.PLACEMENT,
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
                 job.workflowEntryId(), null, 1L, gameTime, gameTime,
                 job.totalCount(), job.getIndex(), job.successfulCount(), job.failedCount(),
@@ -731,9 +731,9 @@ public final class RtsTaskEngine {
             int limit,
             java.util.function.Predicate<com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot>
                     occupiesFamilySlot) {
-        String dimensionId = player.serverLevel().dimension().location().toString();
+        String dimensionId = dimensionId(player.dimension);
         while (true) {
-            var queued = coordinator.query().ownedBy(player.getUUID()).stream()
+            var queued = coordinator.query().ownedBy(player.getUniqueID()).stream()
                     .filter(snapshot -> snapshot.type() == taskType)
                     .filter(snapshot -> !snapshot.state().terminal())
                     .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
@@ -766,9 +766,9 @@ public final class RtsTaskEngine {
     private void reconcileHiddenDurableWorkflows(
             net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator) {
-        String dimensionId = player.serverLevel().dimension().location().toString();
+        String dimensionId = dimensionId(player.dimension);
         var workflowEngine = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
-        var hiddenTasks = coordinator.query().ownedBy(player.getUUID()).stream()
+        var hiddenTasks = coordinator.query().ownedBy(player.getUniqueID()).stream()
                 .filter(snapshot -> !snapshot.state().terminal())
                 .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT
                         || snapshot.type() == TaskType.DESTRUCTION
@@ -788,14 +788,14 @@ public final class RtsTaskEngine {
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
         if (snapshot.workflowEntryId() >= 0
-                && cancelWorkflowTask(player, player.serverLevel().dimension(), snapshot.workflowEntryId())) {
+                && cancelWorkflowTask(player, player.dimension, snapshot.workflowEntryId())) {
             return;
         }
         var current = coordinator.query().get(snapshot.id()).orElse(null);
         if (current == null || current.state().terminal()) return;
         var cancelled = current.nextRevision(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                null, player.serverLevel().getGameTime(), current.cursorUnits(),
+                null, gameTime(player), current.cursorUnits(),
                 current.succeededUnits(), current.failedUnits(), current.payload());
         coordinator.replace(cancelled);
         coordinator.requestTombstone(cancelled.id(), cancelled.updatedGameTime());
@@ -822,16 +822,16 @@ public final class RtsTaskEngine {
                 player, coordinator, TaskType.DESTRUCTION,
                 RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS, ignored -> true)) return false;
         DestructionTaskPayload payload = new DestructionTaskPayload(
-                player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
+                player.getUniqueID(), player.dimension, job.workflowEntryId(),
                 RtsDestructionBatch.snapshotDetachedState(job));
         // 与放置、挖掘一致：新操作不能复用历史 workflow 编号作为 durable submission。
         var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
         var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
-                .fromSubmission(player.getUUID(), submission);
-        long gameTime = player.serverLevel().getGameTime();
+                .fromSubmission(player.getUniqueID(), submission);
+        long gameTime = gameTime(player);
         var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
-                taskId, submission, player.getUUID(),
-                player.serverLevel().dimension().location().toString(), TaskType.DESTRUCTION,
+                taskId, submission, player.getUniqueID(),
+                dimensionId(player.dimension), TaskType.DESTRUCTION,
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
                 job.workflowEntryId(), null, 1L, gameTime, gameTime,
                 job.totalCount(), job.getIndex(), job.successfulCount(), job.failedCount(),
@@ -879,7 +879,7 @@ public final class RtsTaskEngine {
                 .coordinator();
         reconcileHiddenDurableWorkflows(player, coordinator);
         MiningTaskPayload payload = new MiningTaskPayload(
-                player.getUUID(), player.serverLevel().dimension(), state.workflowEntryId(), state);
+                player.getUniqueID(), player.dimension, state.workflowEntryId(), state);
         /*
          * workflowEntryId 只在当前工作流存档代次内单调递增，旧世界/测试存档恢复时可能再次出现相同值。
          * 这里处理的是玩家刚刚发起的新操作，不是旧 durable 记录迁移；必须生成新的 submission，
@@ -887,11 +887,11 @@ public final class RtsTaskEngine {
          */
         var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
         var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
-                .fromSubmission(player.getUUID(), submission);
-        long gameTime = player.serverLevel().getGameTime();
+                .fromSubmission(player.getUniqueID(), submission);
+        long gameTime = gameTime(player);
         var snapshot = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot(
-                taskId, submission, player.getUUID(),
-                player.serverLevel().dimension().location().toString(), TaskType.MINING,
+                taskId, submission, player.getUniqueID(),
+                dimensionId(player.dimension), TaskType.MINING,
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
                 state.workflowEntryId(), null, 1L, gameTime, gameTime,
                 state.totalUnits(), state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
@@ -911,7 +911,7 @@ public final class RtsTaskEngine {
 
     private TaskStepResult executeBlueprint(TaskRecord task, TaskBudget budget) {
         BlueprintTaskPayload payload = (BlueprintTaskPayload) task.payload();
-        if (!payload.player().serverLevel().dimension().equals(payload.dimension())) {
+        if (payload.player().dimension != payload.dimension()) {
             return TaskStepResult.nextTick(0, 0, 0, 0);
         }
         var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
@@ -935,18 +935,18 @@ public final class RtsTaskEngine {
 
     private void syncFunnelTask(net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
-        TaskRecord existing = funnelRecords.get(player.getUUID());
+        TaskRecord existing = funnelRecords.get(player.getUniqueID());
         boolean active = session.funnel.funnelEnabled
                 && session.mode == com.rtsbuilding.rtsbuilding.common.build.BuilderMode.FUNNEL;
         if (!active) {
-            if (existing != null && existing.status().terminal()) funnelRecords.remove(player.getUUID());
+            if (existing != null && existing.status().terminal()) funnelRecords.remove(player.getUniqueID());
             return;
         }
         if (existing != null && !existing.status().terminal()) return;
         long now = System.nanoTime();
-        TaskRecord record = new TaskRecord(UUID.randomUUID(), player.getUUID(), TaskType.FUNNEL,
+        TaskRecord record = new TaskRecord(UUID.randomUUID(), player.getUniqueID(), TaskType.FUNNEL,
                 new FunnelTaskPayload(player, session), 0, now);
-        funnelRecords.put(player.getUUID(), record);
+        funnelRecords.put(player.getUniqueID(), record);
         scheduler.submit(record);
     }
 
@@ -961,17 +961,17 @@ public final class RtsTaskEngine {
 
     private void syncPlacedRecoveryTask(net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
-        TaskRecord existing = recoveryRecords.get(player.getUUID());
+        TaskRecord existing = recoveryRecords.get(player.getUniqueID());
         if (session.placement.recoveryJobs.isEmpty()) {
-            if (existing != null && existing.status().terminal()) recoveryRecords.remove(player.getUUID());
+            if (existing != null && existing.status().terminal()) recoveryRecords.remove(player.getUniqueID());
             return;
         }
         if (existing != null && !existing.status().terminal()) return;
         long now = System.nanoTime();
         TaskRecord record = new TaskRecord(
-                UUID.randomUUID(), player.getUUID(), TaskType.PLACED_RECOVERY,
+                UUID.randomUUID(), player.getUniqueID(), TaskType.PLACED_RECOVERY,
                 new PlacedRecoveryTaskPayload(player, session), 0, now);
-        recoveryRecords.put(player.getUUID(), record);
+        recoveryRecords.put(player.getUniqueID(), record);
         scheduler.submit(record);
     }
 
@@ -986,18 +986,18 @@ public final class RtsTaskEngine {
 
     private void applyInitialPause(net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId,
             TaskRecord record, long now) {
-        applyInitialPause(player, workflowEntryId, record, now, player.serverLevel().dimension());
+        applyInitialPause(player, workflowEntryId, record, now, player.dimension);
     }
 
     private void applyInitialPause(net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId,
             TaskRecord record, long now,
-            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension) {
+            int dimension) {
         if (workflowEntryId < 0) return;
         WorkflowTaskKey key = new WorkflowTaskKey(
-                player.getUUID(), dimension, workflowEntryId);
+                player.getUniqueID(), dimension, workflowEntryId);
         Boolean override = workflowPauseOverrides.get(key);
         var entry = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
-                .findEntryByPlayer(player.getUUID(), dimension, workflowEntryId);
+                .findEntryByPlayer(player.getUniqueID(), dimension, workflowEntryId);
         boolean paused = override != null ? override : entry != null && entry.paused();
         if (paused) record.pause(now);
     }
@@ -1059,11 +1059,11 @@ public final class RtsTaskEngine {
         java.util.Set<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId> activeIds =
                 new java.util.HashSet<>();
         for (var player : server.getPlayerList().getPlayers()) {
-            for (var snapshot : coordinator.query().ownedBy(player.getUUID())) {
+            for (var snapshot : coordinator.query().ownedBy(player.getUniqueID())) {
                 if (snapshot.type() != TaskType.PLACEMENT && snapshot.type() != TaskType.DESTRUCTION
                         && snapshot.type() != TaskType.MINING) continue;
                 if (!snapshot.dimensionId().equals(
-                        player.serverLevel().dimension().location().toString())) continue;
+                        dimensionId(player.dimension))) continue;
                 activeIds.add(snapshot.id());
                 if (snapshot.workflowEntryId() < 0) {
                     if (snapshot.state().terminal()) {
@@ -1248,7 +1248,7 @@ public final class RtsTaskEngine {
                 record.ownerId(), entryId, dimension, engine);
     }
 
-    private net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> taskDimension(TaskRecord record) {
+    private int taskDimension(TaskRecord record) {
         if (record.payload() instanceof BlueprintTaskPayload payload) return payload.dimension();
         if (record.payload() instanceof PlacementTaskPayload payload) return payload.dimension();
         if (record.payload() instanceof DestructionTaskPayload payload) return payload.dimension();
@@ -1262,6 +1262,16 @@ public final class RtsTaskEngine {
         if (record.payload() instanceof MiningTaskPayload payload) return payload.workflowEntryId();
         if (record.payload() instanceof BlueprintTaskPayload payload) return payload.workflowEntryId();
         return -1;
+    }
+
+    /** 1.12.2 维度持久化统一使用规范十进制整数，避免模组维度被错误映射到原版名称。 */
+    private static String dimensionId(int dimension) {
+        return com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec
+                .fromDimension(dimension);
+    }
+
+    private static long gameTime(net.minecraft.entity.player.EntityPlayerMP player) {
+        return player.getServerWorld().getTotalWorldTime();
     }
 
     private boolean isTaskEngineWorkflow(
@@ -1290,7 +1300,7 @@ public final class RtsTaskEngine {
     }
 
     private record WorkflowTaskKey(
-            UUID playerId, net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
+            UUID playerId, int dimension,
             int workflowEntryId) {
     }
 

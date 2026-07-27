@@ -6,8 +6,6 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlann
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -27,7 +25,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
     private enum PreparationStage { PLANS, ORDER, QUEUE, READY }
 
     private final BlueprintContext context;
-    private final ResourceKey<Level> dimension;
+    private final int dimension;
     private final LinkedList<Integer> restoredRemaining;
     private final List<PlacementPlan> plans = new ArrayList<>();
     private PriorityQueue<Integer> orderedIndices;
@@ -38,11 +36,11 @@ public final class BlueprintTaskPayload implements TaskPayload {
     private final NoProgressCycleTracker placementCycle = new NoProgressCycleTracker();
 
     public BlueprintTaskPayload(BlueprintContext context, @Nullable LinkedList<Integer> restoredRemaining) {
-        this(context, restoredRemaining, context.player().serverLevel().dimension());
+        this(context, restoredRemaining, context.player().dimension);
     }
 
     public BlueprintTaskPayload(BlueprintContext context, @Nullable LinkedList<Integer> restoredRemaining,
-            ResourceKey<Level> dimension) {
+            int dimension) {
         this.context = context;
         this.dimension = dimension;
         context.setData(BlueprintContext.KEY_SOURCE_DIMENSION, dimension);
@@ -57,7 +55,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
         return context.player();
     }
 
-    public ResourceKey<Level> dimension() {
+    public int dimension() {
         return dimension;
     }
 
@@ -89,7 +87,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
 
     /** 正常进度最多每秒写一次快照；等待和终态由调用方强制写。 */
     public boolean shouldCheckpoint(boolean force) {
-        long tick = player().serverLevel().getGameTime();
+        long tick = player().getServerWorld().getTotalWorldTime();
         if (!force && lastCheckpointTick != Long.MIN_VALUE && tick - lastCheckpointTick < 20L) {
             return false;
         }

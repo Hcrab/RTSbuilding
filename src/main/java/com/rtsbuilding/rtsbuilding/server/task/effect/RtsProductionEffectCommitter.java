@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -29,13 +30,13 @@ public final class RtsProductionEffectCommitter
 
     @Override
     public RtsEffectCommitResult commit(RtsPlayerEffectTarget target, RtsEffectSet effects) {
-        EntityPlayerMP player = server.getPlayerList().getPlayer(target.playerId());
-        if (player == null || player.isRemoved()) {
+        EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(target.playerId());
+        if (player == null || player.isDead) {
             // 登出路径会直接完成最终 Session/Workflow 保存；离线网络投影已经失去接收者。
             return RtsEffectCommitResult.all(effects);
         }
         if (!target.isGlobal()
-                && !player.level().dimension().location().toString().equals(target.dimensionId())) {
+                && !DimensionIdCodec.fromDimension(player.dimension).equals(target.dimensionId())) {
             // 旧维度页面和 Workflow 投影不能发送到新维度，也不应永久占据重试队列。
             return RtsEffectCommitResult.all(effects);
         }
@@ -45,11 +46,11 @@ public final class RtsProductionEffectCommitter
             if (!effects.contains(kind)) continue;
             try {
                 commitOne(player, kind);
-                acknowledged = acknowledged.union(RtsEffectcom.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(kind));
+                acknowledged = acknowledged.union(RtsEffectSet.of(kind));
             } catch (RuntimeException failure) {
                 RtsbuildingMod.LOGGER.error(
                         "提交玩家 {} 的副作用 {} 失败，已保留到后续 tick 重试",
-                        player.getUUID(), kind, failure);
+                        player.getUniqueID(), kind, failure);
             }
         }
         return new RtsEffectCommitResult(acknowledged);
@@ -72,7 +73,7 @@ public final class RtsProductionEffectCommitter
             }
             case WORKFLOW_SNAPSHOT -> {
                 RtsWorkflowEngine.getInstance().flushPlayerNow(
-                        player.getUUID(), player.level().dimension());
+                        player.getUniqueID(), player.dimension);
                 RtsDeveloperMetrics.recordWorkflowSnapshot(player);
             }
             case HISTORY_SNAPSHOT -> {
