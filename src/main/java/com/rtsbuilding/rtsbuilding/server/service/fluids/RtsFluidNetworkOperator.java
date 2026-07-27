@@ -4,9 +4,11 @@ import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResol
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidTankProperties;
 
 import java.util.List;
 
@@ -49,10 +51,12 @@ public final class RtsFluidNetworkOperator {
             if (handler == null) {
                 continue;
             }
-            for (int tank = 0; tank < handler.getTanks(); tank++) {
-                FluidStack stack = handler.getFluidInTank(tank);
-                if (!stack.isEmpty() && stack.getFluid() == fluid) {
-                    total = RtsCountUtil.saturatedAdd(total, stack.getAmount());
+            IFluidTankProperties[] properties = handler.getTankProperties();
+            if (properties == null) continue;
+            for (IFluidTankProperties tank : properties) {
+                FluidStack stack = tank == null ? null : tank.getContents();
+                if (!RtsFluidBufferService.isEmpty(stack) && stack.getFluid() == fluid) {
+                    total = RtsCountUtil.saturatedAdd(total, stack.amount);
                 }
             }
         }
@@ -74,13 +78,14 @@ public final class RtsFluidNetworkOperator {
         }
 
         int remaining = amount;
+        if (fluidHandlers == null) fluidHandlers = java.util.Collections.emptyList();
         for (LinkedFluidHandler linked : RtsLinkedHandlerResolutionService.orderFluidHandlersForExtract(fluidHandlers)) {
             if (remaining <= 0) {
                 break;
             }
             FluidStack drained = drainMatchingFluid(linked.handler(), fluid, remaining, execute);
-            if (!drained.isEmpty()) {
-                remaining -= drained.getAmount();
+            if (!RtsFluidBufferService.isEmpty(drained)) {
+                remaining -= drained.amount;
             }
         }
 
@@ -101,37 +106,39 @@ public final class RtsFluidNetworkOperator {
      * 将流体插入网络（先链接处理器，再内部缓冲区作为溢出）。
      * 返回实际存储的量（以 mb 为单位）。
      */
-    public static int insertFluidIntoNetwork(net.minecraft.server.level.ServerPlayer player,
+    public static int insertFluidIntoNetwork(EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
             List<LinkedFluidHandler> fluidHandlers, FluidStack fluidStack, boolean execute) {
-        if (fluidStack.isEmpty() || fluidStack.getAmount() <= 0) {
+        if (RtsFluidBufferService.isEmpty(fluidStack)) {
             return 0;
         }
-        int remaining = fluidStack.getAmount();
+        int remaining = fluidStack.amount;
 
+        if (fluidHandlers == null) fluidHandlers = java.util.Collections.emptyList();
         for (LinkedFluidHandler linked : RtsLinkedHandlerResolutionService.orderFluidHandlersForInsert(fluidHandlers)) {
             if (remaining <= 0) {
                 break;
             }
             FluidStack candidate = fluidStack.copy();
-            candidate.setAmount(remaining);
-            int filled = linked.handler().fill(candidate,
-                    execute ? IFluidHandler.FluidAction.EXECUTE : IFluidHandler.FluidAction.SIMULATE);
+            candidate.amount = remaining;
+            int filled = linked.handler().fill(candidate, execute);
             if (filled > 0) {
-                remaining -= filled;
+                remaining -= Math.min(remaining, filled);
             }
         }
 
         if (remaining <= 0) {
             if (execute) session.transfer.pageDataVersion.incrementAndGet();
-            return fluidStack.getAmount();
+            return fluidStack.amount;
         }
 
-        int intoBuffer = RtsFluidBufferService.insertIntoBuffer(session, player, fluidStack, execute);
+        FluidStack bufferCandidate = fluidStack.copy();
+        bufferCandidate.amount = remaining;
+        int intoBuffer = RtsFluidBufferService.insertIntoBuffer(session, player, bufferCandidate, execute);
         remaining -= intoBuffer;
 
-        if (execute && remaining < fluidStack.getAmount()) session.transfer.pageDataVersion.incrementAndGet();
-        return fluidStack.getAmount() - remaining;
+        if (execute && remaining < fluidStack.amount) session.transfer.pageDataVersion.incrementAndGet();
+        return fluidStack.amount - remaining;
     }
 
     // ======================================================================
@@ -144,23 +151,24 @@ public final class RtsFluidNetworkOperator {
      */
     private static FluidStack drainMatchingFluid(IFluidHandler handler, Fluid fluid, int amount, boolean execute) {
         if (handler == null || fluid == null || amount <= 0) {
-            return FluidStack.EMPTY;
+            return null;
         }
-        IFluidHandler.FluidAction action = execute ? IFluidHandler.FluidAction.EXECUTE : IFluidHandler.FluidAction.SIMULATE;
         FluidStack request = new FluidStack(fluid, amount);
-        FluidStack exact = handler.drain(request, action);
-        if (!exact.isEmpty()) {
-            return exact;
+        FluidStack exactPreview = handler.drain(request, false);
+        if (!RtsFluidBufferService.isEmpty(exactPreview) && exactPreview.getFluid() == fluid) {
+            if (!execute) return exactPreview;
+            FluidStack exact = handler.drain(exactPreview, true);
+            return !RtsFluidBufferService.isEmpty(exact) && exact.getFluid() == fluid ? exact : null;
         }
 
-        FluidStack genericPreview = handler.drain(amount, IFluidHandler.FluidAction.SIMULATE);
-        if (genericPreview.isEmpty() || genericPreview.getFluid() != fluid) {
-            return FluidStack.EMPTY;
+        FluidStack genericPreview = handler.drain(amount, false);
+        if (RtsFluidBufferService.isEmpty(genericPreview) || genericPreview.getFluid() != fluid) {
+            return null;
         }
         if (!execute) {
             return genericPreview;
         }
-        FluidStack generic = handler.drain(amount, IFluidHandler.FluidAction.EXECUTE);
-        return !generic.isEmpty() && generic.getFluid() == fluid ? generic : FluidStack.EMPTY;
+        FluidStack generic = handler.drain(amount, true);
+        return !RtsFluidBufferService.isEmpty(generic) && generic.getFluid() == fluid ? generic : null;
     }
 }

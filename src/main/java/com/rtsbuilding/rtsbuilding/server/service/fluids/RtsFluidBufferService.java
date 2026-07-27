@@ -3,18 +3,13 @@ package com.rtsbuilding.rtsbuilding.server.service.fluids;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.fluids.FluidUtil;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.fluids.capability.IFluidHandlerItem;
-
-import java.util.Optional;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidRegistry;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 
 /**
  * 内部流体缓冲区管理器，存储少量流体至 {@link RtsStorageSession} 会话对象中。
@@ -43,11 +38,11 @@ public final class RtsFluidBufferService {
      * 返回给定玩家的最大内部流体缓冲区容量（以 mb 为单位），
      * 已将科技树升级纳入考虑。
      */
-    public static long internalFluidCapacityMb(ServerPlayer player) {
+    public static long internalFluidCapacityMb(EntityPlayerMP player) {
         if (player == null) {
             return Config.internalFluidCapacityMb();
         }
-        return Math.max(0L, (long) RtsProgressionManager.getFluidCapacityBuckets(player) * FluidType.BUCKET_VOLUME);
+        return Math.max(0L, (long) RtsProgressionManager.getFluidCapacityBuckets(player) * Fluid.BUCKET_VOLUME);
     }
 
     /**
@@ -57,29 +52,28 @@ public final class RtsFluidBufferService {
         if (session == null || fluid == null) {
             return 0L;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
-        if (id == null) {
+        String fluidId = FluidRegistry.getFluidName(fluid);
+        if (fluidId == null) {
             return 0L;
         }
-        return Math.max(0L, session.sessionFlags.internalFluidMb.getOrDefault(id.toString(), 0L));
+        return Math.max(0L, session.sessionFlags.internalFluidMb.getOrDefault(fluidId, 0L));
     }
 
     /**
      * 将流体插入会话的内部缓冲区。返回实际存储的量（以 mb 为单位），
      * 可能少于请求的量，如果缓冲区接近容量上限。
      */
-    public static int insertIntoBuffer(RtsStorageSession session, ServerPlayer player, FluidStack fluidStack, boolean execute) {
-        if (session == null || player == null || fluidStack == null || fluidStack.isEmpty()) {
+    public static int insertIntoBuffer(RtsStorageSession session, EntityPlayerMP player, FluidStack fluidStack, boolean execute) {
+        if (session == null || player == null || fluidStack == null || fluidStack.amount <= 0) {
             return 0;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluidStack.getFluid());
-        if (id == null) {
+        String fluidId = FluidRegistry.getFluidName(fluidStack);
+        if (fluidId == null) {
             return 0;
         }
-        String fluidId = id.toString();
         long stored = session.sessionFlags.internalFluidMb.getOrDefault(fluidId, 0L);
         long space = Math.max(0L, internalFluidCapacityMb(player) - stored);
-        int toInternal = (int) Math.min((long) fluidStack.getAmount(), space);
+        int toInternal = (int) Math.min((long) fluidStack.amount, space);
         if (toInternal > 0 && execute) {
             session.sessionFlags.internalFluidMb.put(fluidId, stored + toInternal);
         }
@@ -93,11 +87,10 @@ public final class RtsFluidBufferService {
         if (session == null || fluid == null || amount <= 0) {
             return 0;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
-        if (id == null) {
+        String fluidId = FluidRegistry.getFluidName(fluid);
+        if (fluidId == null) {
             return 0;
         }
-        String fluidId = id.toString();
         long internal = session.sessionFlags.internalFluidMb.getOrDefault(fluidId, 0L);
         int drained = (int) Math.min((long) amount, Math.max(0L, internal));
         if (drained > 0 && execute) {
@@ -119,23 +112,25 @@ public final class RtsFluidBufferService {
         if (container.isEmpty() || amount <= 0) {
             return DrainOutcome.EMPTY;
         }
-        ItemStack single = container.copyWithCount(1);
-        Optional<IFluidHandlerItem> optHandler = FluidUtil.getFluidHandler(single);
-        if (optHandler.isEmpty()) {
+        ItemStack single = container.copy();
+        single.setCount(1);
+        IFluidHandlerItem handler = FluidUtil.getFluidHandler(single);
+        if (handler == null) {
             return DrainOutcome.EMPTY;
         }
-
-        IFluidHandlerItem handler = optHandler.get();
-        FluidStack simulated = handler.drain(amount, IFluidHandler.FluidAction.SIMULATE);
-        if (simulated.isEmpty()) {
+        FluidStack simulated = handler.drain(amount, false);
+        if (isEmpty(simulated)) {
             return DrainOutcome.EMPTY;
         }
         if (!execute) {
             return new DrainOutcome(simulated.copy(), handler.getContainer().copy());
         }
 
-        FluidStack drained = handler.drain(amount, IFluidHandler.FluidAction.EXECUTE);
-        if (drained.isEmpty()) {
+        FluidStack request = simulated.copy();
+        request.amount = Math.min(amount, simulated.amount);
+        FluidStack drained = handler.drain(request, true);
+        if (isEmpty(drained) || drained.getFluid() != simulated.getFluid()
+                || !FluidStack.areFluidStackTagsEqual(drained, simulated)) {
             return DrainOutcome.EMPTY;
         }
         return new DrainOutcome(drained.copy(), handler.getContainer().copy());
@@ -144,11 +139,25 @@ public final class RtsFluidBufferService {
     /**
      * 排空流体容器物品的结果。
      */
-    public record DrainOutcome(FluidStack fluid, ItemStack remainder) {
-        public static final DrainOutcome EMPTY = new DrainOutcome(FluidStack.EMPTY, ItemStack.EMPTY);
+    public static final class DrainOutcome {
+        public static final DrainOutcome EMPTY = new DrainOutcome(null, ItemStack.EMPTY);
+        private final FluidStack fluid;
+        private final ItemStack remainder;
+
+        public DrainOutcome(FluidStack fluid, ItemStack remainder) {
+            this.fluid = fluid;
+            this.remainder = remainder == null ? ItemStack.EMPTY : remainder;
+        }
+
+        public FluidStack fluid() { return fluid; }
+        public ItemStack remainder() { return remainder; }
 
         public boolean isEmpty() {
-            return this.fluid.isEmpty();
+            return RtsFluidBufferService.isEmpty(this.fluid);
         }
+    }
+
+    static boolean isEmpty(FluidStack stack) {
+        return stack == null || stack.getFluid() == null || stack.amount <= 0;
     }
 }

@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.item.crafting.Ingredient;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -37,7 +37,7 @@ final class RtsCraftingAvailability {
      * 返回一个 {@link RecipeAvailability}，指示是否可用给定的可用物品栈合成配方，
      * 如果不能，则返回缺失的内容。
      */
-    static RecipeAvailability evaluateRecipeAvailability(CraftingRecipe recipe, List<AvailableCraftItem> availableStacks) {
+    static RecipeAvailability evaluateRecipeAvailability(IRecipe recipe, List<AvailableCraftItem> availableStacks) {
         CraftIngredientPlan plan = resolveCraftIngredientPlan(recipe, availableStacks);
         if (plan != null) {
             return new RecipeAvailability(true, "", 0);
@@ -49,7 +49,7 @@ final class RtsCraftingAvailability {
      * 尝试从可用物品栈中为配方找到有效的材料分配。
      * 如果成功返回计划，如果材料不足则返回 {@code null}。
      */
-    static CraftIngredientPlan resolveCraftIngredientPlan(CraftingRecipe recipe, List<AvailableCraftItem> availableStacks) {
+    static CraftIngredientPlan resolveCraftIngredientPlan(IRecipe recipe, List<AvailableCraftItem> availableStacks) {
         Ingredient[] required = RtsCraftingUtils.mapCraftingIngredients(recipe);
         List<AvailableCraftItem> remaining = RtsCraftingUtils.copyAvailableCraftItems(availableStacks);
         ItemStack[] planned = new ItemStack[9];
@@ -59,7 +59,7 @@ final class RtsCraftingAvailability {
         List<Integer> requiredSlots = new ArrayList<>();
         for (int i = 0; i < required.length; i++) {
             Ingredient ingredient = required[i];
-            if (ingredient != null && !ingredient.isEmpty()) {
+            if (!RtsCraftingUtils.isIngredientEmpty(ingredient)) {
                 requiredSlots.add(i);
             }
         }
@@ -74,11 +74,11 @@ final class RtsCraftingAvailability {
     /**
      * 从给定的处理器和可选的玩家背包中快照可用物品。
      */
-    static List<AvailableCraftItem> snapshotAvailable(ServerPlayer player, java.util.List<IItemHandler> handlers,
+    static List<AvailableCraftItem> snapshotAvailable(EntityPlayerMP player, java.util.List<IItemHandler> handlers,
             boolean includePlayerMainInventory) {
         java.util.List<AvailableCraftItem> entries = new ArrayList<>();
         if (handlers == null) {
-            handlers = java.util.List.of();
+            handlers = java.util.Collections.emptyList();
         }
         for (IItemHandler handler : handlers) {
             if (handler == null) {
@@ -97,7 +97,7 @@ final class RtsCraftingAvailability {
             int start = com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder.getPlayerMainInventoryStart(player);
             int end = com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
             for (int slot = start; slot < end; slot++) {
-                ItemStack stack = player.getInventory().getItem(slot);
+                ItemStack stack = player.inventory.getStackInSlot(slot);
                 if (!stack.isEmpty()) {
                     RtsCraftingUtils.mergeAvailableCraftItem(entries, stack, stack.getCount());
                 }
@@ -123,7 +123,7 @@ final class RtsCraftingAvailability {
             if (candidate.count() <= 0L) {
                 continue;
             }
-            planned[slot] = candidate.prototype().copyWithCount(1);
+            planned[slot] = RtsCraftingUtils.one(candidate.prototype());
             remaining.set(index, new AvailableCraftItem(candidate.prototype(), candidate.count() - 1L));
             if (assignCraftIngredients(required, requiredSlots, remaining, planned, depth + 1)) {
                 return true;
@@ -136,7 +136,7 @@ final class RtsCraftingAvailability {
 
     private static List<Integer> matchingAvailableIndexes(Ingredient ingredient, List<AvailableCraftItem> remaining) {
         List<Integer> indexes = new ArrayList<>();
-        if (ingredient == null || ingredient.isEmpty() || remaining == null) {
+        if (RtsCraftingUtils.isIngredientEmpty(ingredient) || remaining == null) {
             return indexes;
         }
         for (int i = 0; i < remaining.size(); i++) {
@@ -144,7 +144,7 @@ final class RtsCraftingAvailability {
             if (item == null || item.count() <= 0L || item.prototype().isEmpty()) {
                 continue;
             }
-            if (ingredient.test(item.prototype())) {
+            if (ingredient.apply(item.prototype())) {
                 indexes.add(i);
             }
         }
@@ -153,11 +153,11 @@ final class RtsCraftingAvailability {
 
     private static int countAvailableMatches(Ingredient ingredient, List<AvailableCraftItem> remaining) {
         int matches = 0;
-        if (ingredient == null || ingredient.isEmpty() || remaining == null) {
+        if (RtsCraftingUtils.isIngredientEmpty(ingredient) || remaining == null) {
             return matches;
         }
         for (AvailableCraftItem item : remaining) {
-            if (item != null && item.count() > 0L && !item.prototype().isEmpty() && ingredient.test(item.prototype())) {
+            if (item != null && item.count() > 0L && !item.prototype().isEmpty() && ingredient.apply(item.prototype())) {
                 matches++;
             }
         }
@@ -166,13 +166,13 @@ final class RtsCraftingAvailability {
 
     // ---- missing-ingredient estimation --------------------------------------------
 
-    private static RecipeAvailability estimateMissingIngredients(CraftingRecipe recipe, List<AvailableCraftItem> availableStacks) {
+    private static RecipeAvailability estimateMissingIngredients(IRecipe recipe, List<AvailableCraftItem> availableStacks) {
         Ingredient[] required = RtsCraftingUtils.mapCraftingIngredients(recipe);
         List<AvailableCraftItem> remaining = RtsCraftingUtils.copyAvailableCraftItems(availableStacks);
         List<Integer> requiredSlots = new ArrayList<>();
         for (int i = 0; i < required.length; i++) {
             Ingredient ingredient = required[i];
-            if (ingredient != null && !ingredient.isEmpty()) {
+            if (!RtsCraftingUtils.isIngredientEmpty(ingredient)) {
                 requiredSlots.add(i);
             }
         }
@@ -183,7 +183,7 @@ final class RtsCraftingAvailability {
         int missingTotal = 0;
         for (int slot : requiredSlots) {
             Ingredient ingredient = required[slot];
-            if (ingredient == null || ingredient.isEmpty()) {
+            if (RtsCraftingUtils.isIngredientEmpty(ingredient)) {
                 continue;
             }
             List<Integer> matches = matchingAvailableIndexes(ingredient, remaining);

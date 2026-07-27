@@ -1,199 +1,97 @@
 package com.rtsbuilding.rtsbuilding.server.service.fluids;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.block.LiquidBlockContainer;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidTank;
+import net.minecraftforge.fluids.FluidUtil;
+import net.minecraftforge.fluids.capability.IFluidHandler;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 世界级流体放置器，负责在世界中放置流体方块和填充现有流体处理器。
+ * 1.12.2 世界流体适配器。
  *
- * <p>核心功能：
- * <ul>
- *   <li>{@link #fillFluidHandlerAtTarget} — 在点击位置及其周围搜索 {@link IFluidHandler} 并尝试填充，
- *   按点击面→无面→六方向→相邻块对面等顺序搜索候选处理器</li>
- *   <li>{@link #resolveFluidPlacementPos} — 解析流体方块的放置位置（点击位置或相邻位置）</li>
- *   <li>{@link #placeFluidBlock} — 在世界中放置流体方块，处理 {@link LiquidBlockContainer}、
- *   汽化、非固体替换等场景</li>
- * </ul>
- *
- * <p><b>职责边界：</b>
- * <ul>
- *   <li>不处理会话内部缓冲区（由 {@link RtsFluidBufferService} 负责）</li>
- *   <li>不处理跨链接网络操作（由 {@link RtsFluidNetworkOperator} 负责）</li>
- * </ul>
+ * <p>容器填充严格执行“先模拟、再按模拟量执行”；世界放置交给 Forge 的
+ * {@link FluidUtil#tryPlaceFluid}，从而保留模组流体的 IFluidBlock、汽化与方块替换规则。
+ * 权限检查仍由调用本类前的保护服务负责，本类不绕过该边界。</p>
  */
 public final class RtsFluidWorldPlacer {
-
     private RtsFluidWorldPlacer() {
     }
 
-    /**
-     * 尝试填充点击位置或其周围的现有流体处理器。
-     * 返回填充的流体量（以 mb 为单位），如果未找到兼容的处理器则返回 0。
-     */
-    public static int fillFluidHandlerAtTarget(ServerLevel level, BlockPos clickedPos, Direction face, FluidStack fluidStack) {
-        if (fluidStack.isEmpty() || !level.hasChunkAt(clickedPos)) {
-            return 0;
-        }
-        List<IFluidHandler> candidates = new ArrayList<>();
+    public static int fillFluidHandlerAtTarget(WorldServer level, BlockPos clickedPos,
+            EnumFacing face, FluidStack fluidStack) {
+        if (level == null || clickedPos == null || face == null
+                || RtsFluidBufferService.isEmpty(fluidStack)
+                || !level.isBlockLoaded(clickedPos)) return 0;
+
+        List<IFluidHandler> candidates = new ArrayList<IFluidHandler>();
         addFluidHandlerCandidate(level, clickedPos, face, candidates);
         addFluidHandlerCandidate(level, clickedPos, null, candidates);
-        for (Direction direction : Direction.values()) {
+        for (EnumFacing direction : EnumFacing.values()) {
             addFluidHandlerCandidate(level, clickedPos, direction, candidates);
         }
 
-        BlockPos adjacent = clickedPos.relative(face);
-        if (level.hasChunkAt(adjacent)) {
+        BlockPos adjacent = clickedPos.offset(face);
+        if (level.isBlockLoaded(adjacent)) {
             addFluidHandlerCandidate(level, adjacent, face.getOpposite(), candidates);
             addFluidHandlerCandidate(level, adjacent, null, candidates);
-            for (Direction direction : Direction.values()) {
+            for (EnumFacing direction : EnumFacing.values()) {
                 addFluidHandlerCandidate(level, adjacent, direction, candidates);
             }
         }
 
         for (IFluidHandler handler : candidates) {
             FluidStack candidate = fluidStack.copy();
-            int simulated = handler.fill(candidate, IFluidHandler.FluidAction.SIMULATE);
-            if (simulated <= 0) {
-                continue;
-            }
-            candidate.setAmount(simulated);
-            return handler.fill(candidate, IFluidHandler.FluidAction.EXECUTE);
+            int simulated = handler.fill(candidate, false);
+            if (simulated <= 0) continue;
+            candidate.amount = Math.min(candidate.amount, simulated);
+            return Math.max(0, handler.fill(candidate, true));
         }
         return 0;
     }
 
-    private static void addFluidHandlerCandidate(ServerLevel level, BlockPos pos, Direction side, List<IFluidHandler> out) {
-        IFluidHandler handler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos, side);
-        if (handler != null && !out.contains(handler)) {
-            out.add(handler);
-        }
+    private static void addFluidHandlerCandidate(WorldServer level, BlockPos pos,
+            EnumFacing side, List<IFluidHandler> out) {
+        IFluidHandler handler = FluidUtil.getFluidHandler(level, pos, side);
+        if (handler != null && !out.contains(handler)) out.add(handler);
     }
 
-    /**
-     * 解析流体方块应该被放置的位置。
-     * 如果在点击位置或相邻位置都无法放置，则返回 null。
-     */
-    public static BlockPos resolveFluidPlacementPos(ServerLevel level, ServerPlayer player, BlockHitResult hit,
-            FluidStack fluidStack) {
+    public static BlockPos resolveFluidPlacementPos(WorldServer level, EntityPlayerMP player,
+            RayTraceResult hit, FluidStack fluidStack) {
+        if (level == null || hit == null || hit.getBlockPos() == null || hit.sideHit == null) return null;
         BlockPos clicked = hit.getBlockPos();
-        if (canPlaceFluidAt(level, player, clicked, fluidStack, resolveFluidPlacementHit(hit, clicked))) {
-            return clicked;
-        }
-
-        BlockPos adjacent = clicked.relative(hit.getDirection());
-        if (level.hasChunkAt(adjacent)
-                && canPlaceFluidAt(level, player, adjacent, fluidStack, resolveFluidPlacementHit(hit, adjacent))) {
-            return adjacent;
-        }
-        return null;
+        if (canPlaceFluidAt(level, clicked, fluidStack)) return clicked;
+        BlockPos adjacent = clicked.offset(hit.sideHit);
+        return canPlaceFluidAt(level, adjacent, fluidStack) ? adjacent : null;
     }
 
-    /**
-     * 在世界的指定位置放置一个流体方块。
-     */
-    public static boolean placeFluidBlock(ServerLevel level, ServerPlayer player, BlockPos pos, FluidStack fluidStack,
-            BlockHitResult placementHit) {
-        if (!canPlaceFluidAt(level, player, pos, fluidStack, placementHit)) {
-            return false;
-        }
+    public static boolean placeFluidBlock(WorldServer level, EntityPlayerMP player, BlockPos pos,
+            FluidStack fluidStack, RayTraceResult placementHit) {
+        if (!canPlaceFluidAt(level, pos, fluidStack) || player == null
+                || !level.isBlockModifiable(player, pos)
+                || !player.canPlayerEdit(pos, EnumFacing.UP, net.minecraft.item.ItemStack.EMPTY)) return false;
+        FluidStack source = fluidStack.copy();
+        FluidTank tank = new FluidTank(source, source.amount);
+        tank.setCanFill(false);
+        return FluidUtil.tryPlaceFluid(player, level, pos, tank, source);
+    }
 
+    private static boolean canPlaceFluidAt(WorldServer level, BlockPos pos, FluidStack fluidStack) {
+        if (level == null || pos == null || RtsFluidBufferService.isEmpty(fluidStack)
+                || !level.isBlockLoaded(pos)) return false;
         Fluid fluid = fluidStack.getFluid();
-        BlockState state = level.getBlockState(pos);
-        if (fluid.getFluidType().isVaporizedOnPlacement(level, pos, fluidStack)) {
-            fluid.getFluidType().onVaporize(player, level, pos, fluidStack);
-            return true;
-        }
-
-        if (state.getBlock() instanceof LiquidBlockContainer liquidContainer
-                && liquidContainer.canPlaceLiquid(player, level, pos, state, fluid)) {
-            return liquidContainer.placeLiquid(level, pos, state, fluid.defaultFluidState());
-        }
-
-        BlockState placeState = fluid.getFluidType().getBlockForFluidState(
-                level,
-                pos,
-                fluid.getFluidType().getStateForPlacement(level, pos, fluidStack));
-        if (placeState.isAir()) {
-            return false;
-        }
-
-        BlockPlaceContext context = new BlockPlaceContext(
-                level,
-                player,
-                InteractionHand.MAIN_HAND,
-                ItemStack.EMPTY,
-                placementHit);
-        boolean isDestNonSolid = !state.isSolid();
-        boolean isDestReplaceable = state.canBeReplaced(context);
-        if ((isDestNonSolid || isDestReplaceable) && !state.liquid()) {
-            level.destroyBlock(pos, true);
-        }
-        return level.setBlock(pos, placeState, 11);
-    }
-
-    private static boolean canPlaceFluidAt(ServerLevel level, ServerPlayer player, BlockPos pos, FluidStack fluidStack,
-            BlockHitResult placementHit) {
-        if (fluidStack.isEmpty() || !level.hasChunkAt(pos)) {
-            return false;
-        }
-        Fluid fluid = fluidStack.getFluid();
-        if (!fluid.getFluidType().canBePlacedInLevel(level, pos, fluidStack)) {
-            return false;
-        }
-
-        BlockState state = level.getBlockState(pos);
-        BlockPlaceContext context = new BlockPlaceContext(
-                level,
-                player,
-                InteractionHand.MAIN_HAND,
-                ItemStack.EMPTY,
-                placementHit == null ? new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false) : placementHit);
-        boolean canContain = state.getBlock() instanceof LiquidBlockContainer liquidContainer
-                && liquidContainer.canPlaceLiquid(player, level, pos, state, fluid);
-        boolean isDestNonSolid = !state.isSolid();
-        boolean isDestReplaceable = state.canBeReplaced(context);
-        return level.isEmptyBlock(pos) || isDestNonSolid || isDestReplaceable || canContain;
-    }
-
-    private static BlockHitResult resolveFluidPlacementHit(BlockHitResult sourceHit, BlockPos targetPos) {
-        if (targetPos == null) {
-            return new BlockHitResult(Vec3.atCenterOf(BlockPos.ZERO), Direction.UP, BlockPos.ZERO, false);
-        }
-        if (sourceHit == null) {
-            return new BlockHitResult(Vec3.atCenterOf(targetPos), Direction.UP, targetPos, false);
-        }
-
-        BlockPos clicked = sourceHit.getBlockPos();
-        Direction face = sourceHit.getDirection();
-        if (targetPos.equals(clicked)) {
-            return new BlockHitResult(sourceHit.getLocation(), face, targetPos, false);
-        }
-
-        if (targetPos.equals(clicked.relative(face))) {
-            Direction targetFace = face.getOpposite();
-            Vec3 targetLocation = Vec3.atCenterOf(targetPos).add(
-                    targetFace.getStepX() * 0.498D,
-                    targetFace.getStepY() * 0.498D,
-                    targetFace.getStepZ() * 0.498D);
-            return new BlockHitResult(targetLocation, targetFace, targetPos, false);
-        }
-
-        return new BlockHitResult(Vec3.atCenterOf(targetPos), face, targetPos, false);
+        if (fluid == null || !fluid.canBePlacedInWorld()) return false;
+        IBlockState state = level.getBlockState(pos);
+        return level.isAirBlock(pos)
+                || state.getBlock().isReplaceable(level, pos)
+                || !state.getMaterial().isSolid();
     }
 }

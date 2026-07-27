@@ -1,223 +1,144 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.inventory.CraftingContainer;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.ShapedRecipe;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.item.crafting.Ingredient;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.common.crafting.IShapedRecipe;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * craft 子包共享工具方法集合。
- *
- * <p>提供在合成流程中多处复用的静态辅助方法，涵盖：
- * <ul>
- *   <li><b>配方材料映射</b>（{@link #mapCraftingIngredients}）— 将任意 {@link CraftingRecipe}
- *   的 Ingredient 列表平铺为固定的 9 槽位数组（有序配方按 3x3 布局定位）</li>
- *   <li><b>容器反射</b>（{@link #resolveCraftingContainer}）— 通过反射从 {@link net.minecraft.world.inventory.CraftingMenu}
- *   中获取 {@link net.minecraft.world.inventory.CraftingContainer}，用于触发结果更新</li>
- *   <li><b>物品合并与统计</b>— 可用物品列表合并（{@link #mergeAvailableCraftItem}）、
- *   消耗计数收集与合并（{@link #collectConsumedCounts} / {@link #mergeConsumedCounts}）</li>
- *   <li><b>人类可读摘要</b>— 缺少材料摘要（{@link #buildMissingSummary}）、
- *   配方材料摘要（{@link #buildRecipeSummary}）、材料名称解析（{@link #resolveIngredientLabel}）</li>
- * </ul>
- */
+/** 1.12.2 合成服务的版本适配与精确物品栈工具。 */
 final class RtsCraftingUtils {
+    private RtsCraftingUtils() {}
 
-    private RtsCraftingUtils() {
-    }
-
-    /**
-     * 将合成配方的材料映射为扁平的 9 槽 Ingredient 数组。
-     * 有形状的配方定位为 3x3 网格；无序配方按顺序填满槽位。
-     */
-    static Ingredient[] mapCraftingIngredients(CraftingRecipe recipe) {
+    static Ingredient[] mapCraftingIngredients(IRecipe recipe) {
         Ingredient[] mapped = new Ingredient[9];
-        for (int i = 0; i < mapped.length; i++) {
-            mapped[i] = Ingredient.EMPTY;
-        }
+        java.util.Arrays.fill(mapped, Ingredient.EMPTY);
+        if (recipe == null || recipe.getIngredients() == null) return mapped;
         List<Ingredient> ingredients = recipe.getIngredients();
-        if (recipe instanceof ShapedRecipe shaped) {
-            int width = Math.max(1, Math.min(3, shaped.getWidth()));
-            int height = Math.max(1, Math.min(3, shaped.getHeight()));
+        if (recipe instanceof IShapedRecipe) {
+            IShapedRecipe shaped = (IShapedRecipe) recipe;
+            int width = Math.max(1, Math.min(3, shaped.getRecipeWidth()));
+            int height = Math.max(1, Math.min(3, shaped.getRecipeHeight()));
             for (int y = 0; y < height; y++) {
                 for (int x = 0; x < width; x++) {
-                    int src = y * width + x;
-                    if (src < 0 || src >= ingredients.size()) {
-                        continue;
-                    }
-                    mapped[y * 3 + x] = ingredients.get(src);
+                    int source = y * width + x;
+                    if (source < ingredients.size()) mapped[y * 3 + x] = ingredients.get(source);
                 }
             }
         } else {
-            int count = Math.min(9, ingredients.size());
-            for (int i = 0; i < count; i++) {
-                mapped[i] = ingredients.get(i);
-            }
+            for (int i = 0; i < Math.min(9, ingredients.size()); i++) mapped[i] = ingredients.get(i);
         }
         return mapped;
     }
 
-    /**
-     * 尝试通过反射从 {@link CraftingMenu} 解析 {@link CraftingContainer}。
-     * 如果字段不可访问，则回退返回 {@code null}。
-     */
-    static CraftingContainer resolveCraftingContainer(CraftingMenu menu) {
-        Class<?> type = menu.getClass();
-        while (type != null && type != Object.class) {
-            for (Field field : type.getDeclaredFields()) {
-                if (!CraftingContainer.class.isAssignableFrom(field.getType())) {
-                    continue;
-                }
-                try {
-                    field.setAccessible(true);
-                    Object current = field.get(menu);
-                    if (current instanceof CraftingContainer craftSlots) {
-                        return craftSlots;
-                    }
-                } catch (ReflectiveOperationException ignored) {
-                    // Fall back to the menu's default sync path.
-                }
-            }
-            type = type.getSuperclass();
-        }
-        return null;
+    static boolean isIngredientEmpty(Ingredient ingredient) {
+        return ingredient == null || ingredient == Ingredient.EMPTY || ingredient.getMatchingStacks().length == 0;
     }
 
-    /**
-     * 将逐槽消耗计数映射合并到累积映射中。
-     */
+    static ItemStack one(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+        ItemStack copy = stack.copy();
+        copy.setCount(1);
+        return copy;
+    }
+
+    static InventoryCrafting newCraftingGrid() {
+        return new InventoryCrafting(new Container() {
+            @Override
+            public boolean canInteractWith(EntityPlayer player) { return false; }
+        }, 3, 3);
+    }
+
+    /** item、metadata 与完整 NBT 均一致才视为同一原型。 */
+    static boolean sameStack(ItemStack left, ItemStack right) {
+        return left != null && right != null
+                && ItemStack.areItemsEqual(left, right)
+                && ItemStack.areItemStackTagsEqual(left, right);
+    }
+
+    static boolean isBlank(String value) { return value == null || value.trim().isEmpty(); }
+
     static void mergeConsumedCounts(Map<String, Integer> into, Map<String, Integer> added) {
-        if (into == null || added == null || added.isEmpty()) {
-            return;
-        }
-        for (var entry : added.entrySet()) {
-            if (entry.getKey() == null || entry.getKey().isBlank()) {
-                continue;
-            }
+        if (into == null || added == null) return;
+        for (Map.Entry<String, Integer> entry : added.entrySet()) {
+            if (isBlank(entry.getKey())) continue;
             int delta = entry.getValue() == null ? 0 : Math.max(0, entry.getValue());
-            if (delta <= 0) {
-                continue;
-            }
-            into.merge(entry.getKey(), delta, Integer::sum);
+            if (delta > 0) into.put(entry.getKey(), into.containsKey(entry.getKey()) ? into.get(entry.getKey()) + delta : delta);
         }
     }
 
-    /**
-     * 从已提取的材料构建消耗计数映射。
-     */
     static Map<String, Integer> collectConsumedCounts(ExtractedIngredient[] extracted) {
-        Map<String, Integer> consumed = new LinkedHashMap<>();
-        if (extracted == null) {
-            return consumed;
-        }
+        Map<String, Integer> consumed = new LinkedHashMap<String, Integer>();
+        if (extracted == null) return consumed;
         for (ExtractedIngredient ingredient : extracted) {
-            if (ingredient == null || ingredient.stack().isEmpty()) {
-                continue;
-            }
-            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(ingredient.stack().getItem());
-            if (itemId == null) {
-                continue;
-            }
-            consumed.merge(itemId.toString(), Math.max(1, ingredient.stack().getCount()), Integer::sum);
+            if (ingredient == null || ingredient.stack() == null || ingredient.stack().isEmpty()) continue;
+            ResourceLocation id = ForgeRegistries.ITEMS.getKey(ingredient.stack().getItem());
+            if (id == null) continue;
+            String key = id.toString();
+            int count = Math.max(1, ingredient.stack().getCount());
+            consumed.put(key, consumed.containsKey(key) ? consumed.get(key) + count : count);
         }
         return consumed;
     }
 
-    /**
-     * 返回材料中第一个非空物品的显示名称。
-     */
     static String resolveIngredientLabel(Ingredient ingredient) {
-        for (ItemStack option : ingredient.getItems()) {
-            if (!option.isEmpty()) {
-                return option.getHoverName().getString();
-            }
+        if (isIngredientEmpty(ingredient)) return "Ingredient";
+        for (ItemStack option : ingredient.getMatchingStacks()) {
+            if (option != null && !option.isEmpty()) return option.getDisplayName();
         }
         return "Ingredient";
     }
 
-    /**
-     * 构建人类可读的"缺少：item xN, ..."摘要（最多 3 种缺少的物品）。
-     */
     static String buildMissingSummary(Map<String, Integer> missing) {
-        if (missing.isEmpty()) {
-            return "";
-        }
+        if (missing == null || missing.isEmpty()) return "";
         StringBuilder summary = new StringBuilder("Missing: ");
         int index = 0;
-        int total = missing.size();
-        for (var entry : missing.entrySet()) {
-            if (index > 0) {
-                summary.append(", ");
-            }
+        for (Map.Entry<String, Integer> entry : missing.entrySet()) {
+            if (index > 0) summary.append(", ");
             summary.append(entry.getKey()).append(" x").append(entry.getValue());
             index++;
-            if (index >= 3 && total > index) {
-                summary.append("...");
-                break;
-            }
+            if (index >= 3 && missing.size() > index) { summary.append("..."); break; }
         }
         return summary.toString();
     }
 
-    /**
-     * 为配方选择面板构建紧凑的材料摘要（最多 3 种材料）。
-     */
-    static String buildRecipeSummary(CraftingRecipe recipe) {
-        if (recipe == null) {
-            return "Recipe";
-        }
-        Map<String, Integer> ingredients = new LinkedHashMap<>();
+    static String buildRecipeSummary(IRecipe recipe) {
+        if (recipe == null) return "Recipe";
+        Map<String, Integer> counts = new LinkedHashMap<String, Integer>();
         for (Ingredient ingredient : mapCraftingIngredients(recipe)) {
-            if (ingredient == null || ingredient.isEmpty()) {
-                continue;
-            }
-            ingredients.merge(resolveIngredientLabel(ingredient), 1, Integer::sum);
+            if (isIngredientEmpty(ingredient)) continue;
+            String label = resolveIngredientLabel(ingredient);
+            counts.put(label, counts.containsKey(label) ? counts.get(label) + 1 : 1);
         }
-        if (ingredients.isEmpty()) {
-            return "Recipe";
-        }
+        if (counts.isEmpty()) return "Recipe";
         StringBuilder summary = new StringBuilder();
         int index = 0;
-        int total = ingredients.size();
-        for (var entry : ingredients.entrySet()) {
-            if (index > 0) {
-                summary.append(", ");
-            }
+        for (Map.Entry<String, Integer> entry : counts.entrySet()) {
+            if (index > 0) summary.append(", ");
             summary.append(entry.getKey());
-            if (entry.getValue() > 1) {
-                summary.append(" x").append(entry.getValue());
-            }
+            if (entry.getValue() > 1) summary.append(" x").append(entry.getValue());
             index++;
-            if (index >= 3 && total > index) {
-                summary.append("...");
-                break;
-            }
+            if (index >= 3 && counts.size() > index) { summary.append("..."); break; }
         }
-        return summary.isEmpty() ? "Recipe" : summary.toString();
+        return summary.length() == 0 ? "Recipe" : summary.toString();
     }
 
-    /**
-     * 将物品栈合并到可用物品列表中，聚合相同物品的条目。
-     */
     static void mergeAvailableCraftItem(List<AvailableCraftItem> entries, ItemStack stack, long count) {
-        if (entries == null || stack == null || stack.isEmpty() || count <= 0L) {
-            return;
-        }
-        ItemStack prototype = stack.copyWithCount(1);
+        if (entries == null || stack == null || stack.isEmpty() || count <= 0L) return;
+        ItemStack prototype = one(stack);
         for (int i = 0; i < entries.size(); i++) {
             AvailableCraftItem existing = entries.get(i);
-            if (!ItemStack.isSameItemSameComponents(existing.prototype(), prototype)) {
-                continue;
-            }
+            if (!sameStack(existing.prototype(), prototype)) continue;
             entries.set(i, new AvailableCraftItem(existing.prototype(), saturatedAdd(existing.count(), count)));
             return;
         }
@@ -225,36 +146,24 @@ final class RtsCraftingUtils {
     }
 
     static long saturatedAdd(long left, long right) {
-        if (left >= Long.MAX_VALUE - right) {
-            return Long.MAX_VALUE;
-        }
-        return left + right;
+        return left >= Long.MAX_VALUE - right ? Long.MAX_VALUE : left + right;
     }
 
     static List<AvailableCraftItem> copyAvailableCraftItems(List<AvailableCraftItem> source) {
-        List<AvailableCraftItem> copy = new ArrayList<>();
-        if (source == null) {
-            return copy;
-        }
+        List<AvailableCraftItem> copy = new ArrayList<AvailableCraftItem>();
+        if (source == null) return copy;
         for (AvailableCraftItem item : source) {
-            if (item == null || item.prototype().isEmpty() || item.count() <= 0L) {
-                continue;
+            if (item != null && item.prototype() != null && !item.prototype().isEmpty() && item.count() > 0L) {
+                copy.add(new AvailableCraftItem(one(item.prototype()), item.count()));
             }
-            copy.add(new AvailableCraftItem(item.prototype(), item.count()));
         }
         return copy;
     }
 
-    /**
-     * 刷新打开菜单中的合成结果槽。
-     */
-    static void refreshCraftingResult(CraftingMenu menu) {
-        if (menu == null) {
-            return;
-        }
-        CraftingContainer craftSlots = resolveCraftingContainer(menu);
-        if (craftSlots != null) {
-            menu.slotsChanged(craftSlots);
+    static void refreshCraftingResult(ContainerWorkbench menu) {
+        if (menu != null) {
+            menu.onCraftMatrixChanged(menu.craftMatrix);
+            menu.detectAndSendChanges();
         }
     }
 }
