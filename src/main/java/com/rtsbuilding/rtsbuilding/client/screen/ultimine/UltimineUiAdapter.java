@@ -7,8 +7,8 @@ import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiPhase;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiState;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiTransition;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
 
 import java.util.List;
 
@@ -39,7 +39,7 @@ public final class UltimineUiAdapter {
     }
 
     /** 通过 Core 确认绿色连锁预览，再执行原有撤回记录与服务端请求。 */
-    public static boolean confirmPreview(BuilderScreen screen, BlockHitResult hit,
+    public static boolean confirmPreview(BuilderScreen screen, RayTraceResult hit,
             List<BlockPos> preview) {
         if (screen == null || hit == null || preview == null || preview.isEmpty()) {
             return false;
@@ -51,8 +51,8 @@ public final class UltimineUiAdapter {
         }
         screen.getShapeController().rememberConfirmedChainDestroyPreview(preview);
         screen.getShapeController().recordPendingBreakForUndo(
-                preview, hit.getDirection(), screen.getSelectedToolSlot());
-        screen.uiController().startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
+                preview, hit.sideHit, screen.getSelectedToolSlot());
+        screen.uiController().startUltimine(hit.getBlockPos(), hit.sideHit.getIndex(),
                 screen.getSelectedToolSlot(), transition.state.limit, (byte) 0);
         return true;
     }

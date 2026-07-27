@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.storage;
 
 import com.rtsbuilding.rtsbuilding.client.record.LinkedStorageEntry;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiEntry;
@@ -9,10 +10,9 @@ import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiStatus;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.StorageWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.StorageWindowStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.TextComponentTranslation;
 
 /**
  * 绑定储存共享 chrome 到 Minecraft 文本、ItemStack 与本地化字形的薄适配层。
@@ -24,29 +24,26 @@ final class LinkedStoragePanelRenderer {
     }
 
     static void renderHeader(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             StorageWindowLayout.Geometry geometry) {
         graphics.drawString(
                 font,
-                Component.translatable(
-                        "screen.rtsbuilding.storage_links.header"),
+                translate("screen.rtsbuilding.storage_links.header"),
                 geometry.x,
                 geometry.y,
                 StorageWindowStyle.HEADER_TEXT.toArgb(),
                 false);
         graphics.drawString(
                 font,
-                Component.translatable(
-                        "screen.rtsbuilding.storage_links.priority"),
+                translate("screen.rtsbuilding.storage_links.priority"),
                 geometry.priorityColumnX,
                 geometry.y + StorageWindowLayout.HEADER_COLUMN_TOP,
                 StorageWindowStyle.COLUMN_TEXT.toArgb(),
                 false);
         graphics.drawString(
                 font,
-                Component.translatable(
-                        "screen.rtsbuilding.storage_links.mode_extract_header"),
+                translate("screen.rtsbuilding.storage_links.mode_extract_header"),
                 geometry.extractColumnX,
                 geometry.y + StorageWindowLayout.HEADER_COLUMN_TOP,
                 StorageWindowStyle.COLUMN_TEXT.toArgb(),
@@ -54,8 +51,8 @@ final class LinkedStoragePanelRenderer {
     }
 
     static void renderStatus(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             StorageWindowLayout.Geometry geometry,
             StorageUiState state) {
         String key = state.status == StorageUiStatus.LOADING
@@ -66,7 +63,7 @@ final class LinkedStoragePanelRenderer {
         int statusY = geometry.y + StorageWindowLayout.STATUS_Y;
         graphics.drawString(
                 font,
-                Component.translatable(key),
+                translate(key),
                 geometry.x,
                 statusY,
                 StorageWindowStyle.statusText(state.status).toArgb(),
@@ -75,9 +72,7 @@ final class LinkedStoragePanelRenderer {
                 font,
                 RtsClientUiUtil.trimToWidth(
                         font,
-                        Component.translatable(
-                                "screen.rtsbuilding.storage_links.empty_detail")
-                                .getString(),
+                        translate("screen.rtsbuilding.storage_links.empty_detail"),
                         geometry.innerWidth),
                 geometry.x,
                 statusY + StorageWindowLayout.STATUS_DETAIL_GAP,
@@ -86,8 +81,8 @@ final class LinkedStoragePanelRenderer {
     }
 
     static void renderRow(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             MinecraftUiCanvas canvas,
             StorageWindowLayout.RowGeometry geometry,
             LinkedStorageEntry platformEntry,
@@ -170,37 +165,21 @@ final class LinkedStoragePanelRenderer {
                 font,
                 RtsClientUiUtil.trimToWidth(
                         font,
-                        Component.translatable(extractKey).getString(),
+                        translate(extractKey),
                         StorageWindowLayout.EXTRACT_W - 6),
                 geometry.extract,
                 extractVisual.text.toArgb());
         drawCentered(
                 graphics,
                 font,
-                Component.translatable(
-                        "screen.rtsbuilding.storage_links.unlink"),
+                translate("screen.rtsbuilding.storage_links.unlink"),
                 geometry.unlink,
                 StorageWindowStyle.UNLINK_TEXT.toArgb());
     }
 
     private static void drawCentered(
-            GuiGraphics graphics,
-            Font font,
-            Component text,
-            com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect bounds,
-            int color) {
-        RtsClientUiUtil.drawCenteredStringNoShadow(
-                graphics,
-                font,
-                text,
-                (int) bounds.getX() + (int) bounds.getWidth() / 2,
-                (int) bounds.getY() + StorageWindowLayout.CONTROL_TEXT_Y,
-                color);
-    }
-
-    private static void drawCentered(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             String text,
             com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect bounds,
             int color) {
@@ -211,5 +190,9 @@ final class LinkedStoragePanelRenderer {
                 (int) bounds.getX() + (int) bounds.getWidth() / 2,
                 (int) bounds.getY() + StorageWindowLayout.CONTROL_TEXT_Y,
                 color);
+    }
+
+    private static String translate(String key, Object... args) {
+        return new TextComponentTranslation(key, args).getFormattedText();
     }
 }

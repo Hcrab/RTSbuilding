@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.common;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 import java.util.*;
 
@@ -33,7 +33,7 @@ public final class RtsUltimineCollector {
      * @param filter 候选方块过滤器
      * @return 收集到的方块位置列表（按距离排序）
      */
-    public static List<BlockPos> collect(Level level, BlockPos seed, int limit, CandidateFilter filter) {
+    public static List<BlockPos> collect(World level, BlockPos seed, int limit, CandidateFilter filter) {
         return collect(level, seed, limit, DEFAULT_MAX_RADIUS, filter);
     }
 
@@ -47,9 +47,9 @@ public final class RtsUltimineCollector {
      * @param filter    候选方块过滤器
      * @return 收集到的方块位置列表
      */
-    public static List<BlockPos> collect(Level level, BlockPos seed, int limit, int maxRadius, CandidateFilter filter) {
+    public static List<BlockPos> collect(World level, BlockPos seed, int limit, int maxRadius, CandidateFilter filter) {
         if (level == null || seed == null || limit <= 0 || filter == null) {
-            return List.of();
+            return Collections.emptyList();
         }
         return collect(seed, limit, maxRadius, level::getBlockState,
                 (candidatePos, state, seedState) -> filter.test(candidatePos, state, seedState));
@@ -72,9 +72,9 @@ public final class RtsUltimineCollector {
     public static <S> List<BlockPos> collect(BlockPos seed, int limit, int maxRadius, StateLookup<S> stateLookup,
             GenericCandidateFilter<S> filter) {
         if (seed == null || limit <= 0 || stateLookup == null || filter == null) {
-            return List.of();
+            return Collections.emptyList();
         }
-        BlockPos seedPos = seed.immutable();
+        BlockPos seedPos = seed.toImmutable();
         S seedState = stateLookup.get(seedPos);
 
         int clampedLimit = Math.max(1, limit);
@@ -98,10 +98,10 @@ public final class RtsUltimineCollector {
                 continue;
             }
 
-            result.add(current.immutable());
+            result.add(current.toImmutable());
             // 遍历 26 个邻居方向
             for (int[] offset : NEIGHBOR_OFFSETS) {
-                BlockPos next = current.offset(offset[0], offset[1], offset[2]).immutable();
+                BlockPos next = current.add(offset[0], offset[1], offset[2]).toImmutable();
                 if (chebyshevDistance(seedPos, next) <= clampedRadius && visited.add(next)) {
                     frontier.addLast(next);
                 }
@@ -152,7 +152,7 @@ public final class RtsUltimineCollector {
     /** 候选方块过滤器 —— 判断方块是否符合条件 */
     @FunctionalInterface
     public interface CandidateFilter {
-        boolean test(BlockPos pos, BlockState state, BlockState seedState);
+        boolean test(BlockPos pos, IBlockState state, IBlockState seedState);
     }
 
     /** 方块状态查找接口 —— 获取指定位置的方块状态（泛型友好） */

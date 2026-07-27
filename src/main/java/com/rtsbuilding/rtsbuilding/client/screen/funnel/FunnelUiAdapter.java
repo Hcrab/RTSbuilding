@@ -22,7 +22,7 @@ final class FunnelUiAdapter {
         for (int index = 0; index < count; index++) {
             FunnelBufferEntry entry = source.get(index);
             rows.add(new FunnelUiEntry(index, entry.itemId(),
-                    entry.stack().getHoverName().getString(), entry.count()));
+                    entry.stack().getDisplayName(), entry.count()));
         }
         return new FunnelUiState(controller.getMode() == BuilderMode.FUNNEL,
                 visible, source.size(), capacity, hoveredSourceIndex, rows);

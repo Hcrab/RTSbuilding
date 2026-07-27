@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.storage;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.record.LinkedStorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
@@ -15,13 +16,14 @@ import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiStatus;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiTransition;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.StorageWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
+import java.util.Collections;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.TOP_H;
 
@@ -53,11 +55,11 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
 
     public void openNear(int anchorX, int anchorY) {
         if (!hasUserBoundsPreference()) {
-            int x = Mth.clamp(
+            int x = MathHelper.clamp(
                     anchorX,
                     4,
                     Math.max(4, this.screen.width - PANEL_W - 4));
-            int y = Mth.clamp(
+            int y = MathHelper.clamp(
                     anchorY,
                     TOP_H + 2,
                     Math.max(
@@ -71,7 +73,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             int mouseX,
             int mouseY,
             float partialTick) {
@@ -146,7 +148,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             double mouseX,
             double mouseY,
             int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button != 0) {
             return;
         }
         List<LinkedStorageEntry> entries =
@@ -203,27 +205,24 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected boolean handleWindowKeyPressed(
+    public boolean keyPressed(
             int keyCode,
             int scanCode,
             int modifiers) {
         if (this.priorityInput == null
                 || !this.priorityInput.isFocused()) {
-            return false;
+            return super.keyPressed(keyCode, scanCode, modifiers);
         }
-        if (keyCode == GLFW.GLFW_KEY_ENTER
-                || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == Keyboard.KEY_RETURN
+                || keyCode == Keyboard.KEY_NUMPADENTER) {
             commitPriorityEdit();
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE) {
             cancelPriorityEdit();
             return true;
         }
-        return this.priorityInput.keyPressed(
-                keyCode,
-                scanCode,
-                modifiers);
+        return this.priorityInput.textboxKeyTyped('\0', keyCode);
     }
 
     @Override
@@ -232,7 +231,8 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             int modifiers) {
         return this.priorityInput != null
                 && this.priorityInput.isFocused()
-                && this.priorityInput.charTyped(codePoint, modifiers);
+                && this.priorityInput.textboxKeyTyped(
+                        codePoint, Keyboard.KEY_NONE);
     }
 
     @Override
@@ -257,8 +257,8 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable(
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation(
                 "screen.rtsbuilding.storage_links.title");
     }
 
@@ -418,29 +418,28 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             String value,
             int fallback) {
         if (value == null
-                || value.isBlank()
+                || value.trim().isEmpty()
                 || "-".equals(value)) {
-            return Mth.clamp(
+            return MathHelper.clamp(
                     fallback,
                     PRIORITY_MIN,
                     PRIORITY_MAX);
         }
         try {
-            return Mth.clamp(
+            return MathHelper.clamp(
                     Integer.parseInt(value),
                     PRIORITY_MIN,
                     PRIORITY_MAX);
         } catch (NumberFormatException ignored) {
-            return Mth.clamp(
+            return MathHelper.clamp(
                     fallback,
                     PRIORITY_MIN,
                     PRIORITY_MAX);
         }
     }
 
-    private final List<PersistableProperty> properties = List.of(
-            PersistableProperty.bounds("linked_storage", this)
-    );
+    private final List<PersistableProperty> properties = Collections.singletonList(
+            PersistableProperty.bounds("linked_storage", this));
 
     @Override
     public List<PersistableProperty> persistableProperties() {

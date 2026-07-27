@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.funnel;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
@@ -12,7 +13,6 @@ import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.FunnelBufferChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.FunnelBufferLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.FunnelBufferStyle;
-import net.minecraft.client.gui.GuiGraphics;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.TOP_H;
 
@@ -27,7 +27,7 @@ public final class FunnelBufferPanel {
         this.controller = controller;
     }
 
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
+    public void render(LegacyGuiGraphics g, int mouseX, int mouseY) {
         int panelY = FunnelBufferLayout.panelY(TOP_H);
         int panelH = screen.getFloatingPanelAvailableHeight(panelY);
         int capacity = FunnelBufferLayout.visibleRows(Math.max(20, panelH));

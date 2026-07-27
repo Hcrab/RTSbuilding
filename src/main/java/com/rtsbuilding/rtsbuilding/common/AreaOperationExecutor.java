@@ -5,11 +5,11 @@ import com.rtsbuilding.rtsbuilding.common.shape.generator.ShapeGeneratorRegistry
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +50,7 @@ public final class AreaOperationExecutor {
      * @return 绝对世界坐标列表
      */
     public static List<BlockPos> generatePositions(AreaShape shape, BlockPos start, BlockPos end,
-                                                   int height, Direction face, ShapeFillMode fillMode) {
+                                                   int height, EnumFacing face, ShapeFillMode fillMode) {
         AreaShapeGenerator generator = ShapeGeneratorRegistry.getGenerator(shape);
         AreaShapeInput input = AreaShapeInput.of(start, end, height, face, face);
         return generator.generatePositions(input, fillMode);
@@ -75,7 +75,7 @@ public final class AreaOperationExecutor {
      * @return 尝试破坏的目标位置列表
      */
     public static List<BlockPos> generateDestroyPositions(AreaShape shape, BlockPos start, BlockPos end,
-                                                           int height, Direction face, ShapeFillMode fillMode) {
+                                                           int height, EnumFacing face, ShapeFillMode fillMode) {
         return generatePositions(shape, start, end, height, face, fillMode);
     }
 
@@ -89,14 +89,14 @@ public final class AreaOperationExecutor {
      * @param player  执行操作的玩家
      * @return 过滤后可破坏的位置列表
      */
-    public static List<BlockPos> filterBreakableTargets(ServerLevel level, List<BlockPos> targets, ServerPlayer player) {
+    public static List<BlockPos> filterBreakableTargets(WorldServer level, List<BlockPos> targets, EntityPlayerMP player) {
         List<BlockPos> valid = new ArrayList<>();
         for (BlockPos pos : targets) {
             if (pos == null) continue;
-            if (!level.mayInteract(player, pos)) continue;
-            BlockState state = level.getBlockState(pos);
-            if (state.isAir() || state.getDestroySpeed(level, pos) < 0.0F) continue;
-            valid.add(pos.immutable());
+            if (!level.isBlockModifiable(player, pos)) continue;
+            IBlockState state = level.getBlockState(pos);
+            if (state.getBlock().isAir(state, level, pos) || state.getBlockHardness(level, pos) < 0.0F) continue;
+            valid.add(pos.toImmutable());
         }
         return valid;
     }
@@ -112,16 +112,17 @@ public final class AreaOperationExecutor {
      * @param player  执行操作的玩家
      * @return 过滤后可放置的位置列表
      */
-    public static List<BlockPos> filterPlaceableTargets(ServerLevel level, List<BlockPos> targets,
-                                                         BlockState state, ServerPlayer player) {
+    public static List<BlockPos> filterPlaceableTargets(WorldServer level, List<BlockPos> targets,
+                                                         IBlockState state, EntityPlayerMP player) {
         List<BlockPos> valid = new ArrayList<>();
         for (BlockPos pos : targets) {
             if (pos == null) continue;
-            if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) continue;
-            if (!level.mayInteract(player, pos)) continue;
-            if (!state.canSurvive(level, pos)) continue;
-            if (!level.getBlockState(pos).canBeReplaced()) continue;
-            valid.add(pos.immutable());
+            if (pos.getY() < 0 || pos.getY() >= level.getActualHeight()) continue;
+            if (!level.isBlockModifiable(player, pos)) continue;
+            if (!state.getBlock().canPlaceBlockAt(level, pos)) continue;
+            IBlockState existing = level.getBlockState(pos);
+            if (!existing.getBlock().isReplaceable(level, pos)) continue;
+            valid.add(pos.toImmutable());
         }
         return valid;
     }
@@ -134,7 +135,7 @@ public final class AreaOperationExecutor {
      * @param player 玩家
      * @return true 如果该方块可被破坏
      */
-    public static boolean isValidDestroyTarget(ServerLevel level, BlockPos pos, ServerPlayer player) {
+    public static boolean isValidDestroyTarget(WorldServer level, BlockPos pos, EntityPlayerMP player) {
         return AreaShapeGenerator.validateDestroyPosition(level, pos, player);
     }
 
@@ -147,7 +148,7 @@ public final class AreaOperationExecutor {
      * @param player 玩家
      * @return true 如果此处可以放置方块
      */
-    public static boolean isValidPlacementTarget(ServerLevel level, BlockPos pos, BlockState state, ServerPlayer player) {
+    public static boolean isValidPlacementTarget(WorldServer level, BlockPos pos, IBlockState state, EntityPlayerMP player) {
         return AreaShapeGenerator.validatePlacementPosition(level, pos, state, player);
     }
 
@@ -165,9 +166,9 @@ public final class AreaOperationExecutor {
      * @param fillOrdinal   填充模式序数
      * @return 边界内可破坏的方块位置列表
      */
-    public static List<BlockPos> scanAreaMineTargets(ServerLevel level,
+    public static List<BlockPos> scanAreaMineTargets(WorldServer level,
                                                       int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
-                                                      ServerPlayer player,
+                                                      EntityPlayerMP player,
                                                       byte shapeOrdinal, byte fillOrdinal) {
         AreaShapeGenerator generator = ShapeGeneratorRegistry.getGenerator(shapeOrdinal);
         ShapeFillMode fillMode = fillOrdinal <= 0 ? ShapeFillMode.FILL : ShapeFillMode.values()[Math.min(fillOrdinal, ShapeFillMode.values().length - 1)];
@@ -176,8 +177,8 @@ public final class AreaOperationExecutor {
                 new BlockPos(minX, minY, minZ),
                 new BlockPos(maxX, maxY, maxZ),
                 maxY - minY,
-                Direction.DOWN,
-                Direction.DOWN);
+                EnumFacing.DOWN,
+                EnumFacing.DOWN);
 
         List<BlockPos> candidates = generator.generatePositions(input, fillMode);
         return filterBreakableTargets(level, candidates, player);

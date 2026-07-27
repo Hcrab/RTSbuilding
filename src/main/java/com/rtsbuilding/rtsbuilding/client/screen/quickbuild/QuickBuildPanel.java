@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
@@ -15,11 +16,13 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiReducer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
 
@@ -156,7 +159,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     private static int sanitizeChainLimit(int value) {
-        return Mth.clamp(value, ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT);
+        return MathHelper.clamp(value, ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT);
     }
 
     // ======================== 渲染 ========================
@@ -165,13 +168,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      * 动态调整窗口高度，底部信息区高度由 Kit 布局统一提供。
      */
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         this.windowHeight = QuickBuildWindowLayout.windowHeight(isDestroyModeActive());
         super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
-    public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
+    public void renderOverlays(LegacyGuiGraphics g, int mouseX, int mouseY) {
         if (!this.open || !canShowWindow()) return;
         QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         QuickBuildWindowLayout.Geometry layout = QuickBuildWindowLayout.geometry(
@@ -181,7 +184,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         int x = this.windowX;
         int y = this.windowY;
@@ -198,9 +201,11 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     String confirmKeyLabel(boolean destroyMode) {
-        return (destroyMode ? ClientKeyMappings.CONFIRM_BATCH_DESTROY : ClientKeyMappings.CONFIRM_BATCH_PLACE)
-                .getTranslatedKeyMessage()
-                .getString();
+        KeyBinding binding = destroyMode
+                ? ClientKeyMappings.CONFIRM_BATCH_DESTROY
+                : ClientKeyMappings.CONFIRM_BATCH_PLACE;
+        return binding.getKeyCode() == Keyboard.KEY_NONE
+                ? "" : Keyboard.getKeyName(binding.getKeyCode());
     }
 
     // ======================== 输入处理 ========================
@@ -243,8 +248,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     // ======================== 抽象方法实现 ========================
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable("screen.rtsbuilding.quick_build.title");
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation("screen.rtsbuilding.quick_build.title");
     }
 
     @Override
@@ -378,8 +383,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      * {@code screen.getMinecraft()}。</p>
      */
     boolean hasCreativePlayer() {
-        var player = Minecraft.getInstance().player;
-        return player != null && player.isCreative();
+        net.minecraft.client.entity.EntityPlayerSP player = Minecraft.getMinecraft().player;
+        return player != null && player.capabilities.isCreativeMode;
     }
 
     boolean isOverwriteSelected() {
@@ -410,10 +415,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     static boolean supportsAdvancedShape(BuildShape shape) {
-        return switch (shape == null ? BuildShape.BLOCK : shape) {
-            case SQUARE, WALL, CIRCLE, CYLINDER, BALL, BOX -> true;
-            case BLOCK, LINE -> false;
-        };
+        BuildShape actual = shape == null ? BuildShape.BLOCK : shape;
+        return actual == BuildShape.SQUARE
+                || actual == BuildShape.WALL
+                || actual == BuildShape.CIRCLE
+                || actual == BuildShape.CYLINDER
+                || actual == BuildShape.BALL
+                || actual == BuildShape.BOX;
     }
 
     static boolean supportsVerticalToggle(BuildShape shape) {
@@ -439,29 +447,34 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     public static AreaMineShape toAreaMineShape(BuildShape shape) {
-        return switch (shape == null ? BuildShape.BLOCK : shape) {
-            case LINE -> AreaMineShape.LINE;
-            case SQUARE -> AreaMineShape.SQUARE;
-            case WALL -> AreaMineShape.WALL;
-            case CIRCLE -> AreaMineShape.CIRCLE;
-            case CYLINDER -> AreaMineShape.CYLINDER;
-            case BALL -> AreaMineShape.BALL;
-            case BOX -> AreaMineShape.BOX;
-            case BLOCK -> AreaMineShape.BLOCK;
-        };
+        BuildShape actual = shape == null ? BuildShape.BLOCK : shape;
+        switch (actual) {
+            case LINE: return AreaMineShape.LINE;
+            case SQUARE: return AreaMineShape.SQUARE;
+            case WALL: return AreaMineShape.WALL;
+            case CIRCLE: return AreaMineShape.CIRCLE;
+            case CYLINDER: return AreaMineShape.CYLINDER;
+            case BALL: return AreaMineShape.BALL;
+            case BOX: return AreaMineShape.BOX;
+            case BLOCK:
+            default: return AreaMineShape.BLOCK;
+        }
     }
 
     private static BuildShape toBuildShape(AreaMineShape shape) {
-        return switch (shape == null ? AreaMineShape.BLOCK : shape) {
-            case LINE -> BuildShape.LINE;
-            case SQUARE -> BuildShape.SQUARE;
-            case WALL -> BuildShape.WALL;
-            case CIRCLE -> BuildShape.CIRCLE;
-            case CYLINDER -> BuildShape.CYLINDER;
-            case BALL -> BuildShape.BALL;
-            case BOX -> BuildShape.BOX;
-            case BLOCK, CHAIN -> BuildShape.BLOCK;
-        };
+        AreaMineShape actual = shape == null ? AreaMineShape.BLOCK : shape;
+        switch (actual) {
+            case LINE: return BuildShape.LINE;
+            case SQUARE: return BuildShape.SQUARE;
+            case WALL: return BuildShape.WALL;
+            case CIRCLE: return BuildShape.CIRCLE;
+            case CYLINDER: return BuildShape.CYLINDER;
+            case BALL: return BuildShape.BALL;
+            case BOX: return BuildShape.BOX;
+            case BLOCK:
+            case CHAIN:
+            default: return BuildShape.BLOCK;
+        }
     }
 
     @Override
@@ -564,10 +577,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         if (!selected.isEmpty()) {
             return selected;
         }
-        var mc = Minecraft.getInstance();
+        Minecraft mc = Minecraft.getMinecraft();
         if (mc.player == null) {
             return ItemStack.EMPTY;
         }
-        return mc.player.getInventory().getItem(mc.player.getInventory().selected);
+        return mc.player.inventory.getStackInSlot(mc.player.inventory.currentItem);
     }
 }

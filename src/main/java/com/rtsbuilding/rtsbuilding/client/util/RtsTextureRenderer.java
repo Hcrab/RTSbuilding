@@ -1,121 +1,133 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
-import com.mojang.blaze3d.systems.RenderSystem;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.ResourceLocation;
+import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
+
+import java.nio.FloatBuffer;
 
 /**
- * High-precision vector texture renderer.
- * <p>
- * Uses floating-point coordinates and PoseStack matrix transforms for sub-pixel accuracy,
- * supports centre rotation, colour tinting, and does not pollute global GL texture filter state.
+ * Forge 1.12 GUI 的高精度纹理绘制器。
+ *
+ * <p>本类只使用 1.12 的固定管线和私有的 Tessellator 绘制批次。每次绘制都会恢复进入方法前的
+ * 矩阵、颜色、混合函数、纹理过滤、纹理绑定与纹理启用状态，避免窗口图标污染后续 HUD。</p>
  */
 public final class RtsTextureRenderer {
-
     private RtsTextureRenderer() {
     }
 
-    /**
-     * High-precision texture drawing.
-     * <p>
-     * Compared with a direct {@code GuiGraphics.blit} call, this method:
-     * <ul>
-     *   <li>Uses float-precision target position and UV, enabling sub-pixel positioning</li>
-     *   <li>Supports centre rotation (in degrees)</li>
-     *   <li>Supports colour tinting (multiplicative), format 0xAARRGGBB</li>
-     *   <li>Does not pollute global GL texture filter state</li>
-     * </ul>
-     *
-     * @param guiGraphics   render context
-     * @param texLocation   texture resource path
-     * @param x             target top-left X (float precision)
-     * @param y             target top-left Y (float precision)
-     * @param width         target draw width
-     * @param height        target draw height
-     * @param uOffset       source texture U offset (float precision)
-     * @param vOffset       source texture V offset (float precision)
-     * @param uWidth        source texture region width
-     * @param vHeight       source texture region height
-     * @param textureWidth  full texture total width
-     * @param textureHeight full texture total height
-     * @param rotationDeg   rotation angle in degrees; 0 means no rotation
-     * @param color         colour tint 0xAARRGGBB; 0xFFFFFFFF means no tint
-     */
     public static void drawTextureHighPrecision(
-            GuiGraphics guiGraphics,
-            ResourceLocation texLocation,
-            float x, float y,
-            float width, float height,
-            float uOffset, float vOffset,
-            float uWidth, float vHeight,
-            int textureWidth, int textureHeight,
+            LegacyGuiGraphics ignoredGraphics,
+            ResourceLocation textureLocation,
+            float x,
+            float y,
+            float width,
+            float height,
+            float uOffset,
+            float vOffset,
+            float uWidth,
+            float vHeight,
+            int textureWidth,
+            int textureHeight,
             float rotationDeg,
-            int color
-    ) {
-        // 1. Ensure the texture is loaded (same as WindowButton.renderWithTexture)
-        var textureManager = Minecraft.getInstance().getTextureManager();
-        var texture = textureManager.getTexture(texLocation);
-        if (texture == null) {
-            try {
-                RenderSystem.setShaderTexture(0, texLocation);
-                texture = textureManager.getTexture(texLocation);
-                if (texture == null) return;
-            } catch (Exception e) {
-                e.printStackTrace();
-                return;
+            int color) {
+        if (textureLocation == null || width <= 0.0F || height <= 0.0F
+                || textureWidth <= 0 || textureHeight <= 0) {
+            return;
+        }
+
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft == null || minecraft.getTextureManager() == null) {
+            return;
+        }
+
+        boolean textureEnabled = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+        boolean blendEnabled = GL11.glIsEnabled(GL11.GL_BLEND);
+        int previousTexture = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        int blendSrcRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+        int blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+        int blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+        int blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+        FloatBuffer previousColor = BufferUtils.createFloatBuffer(4);
+        GL11.glGetFloat(GL11.GL_CURRENT_COLOR, previousColor);
+        float oldRed = previousColor.get(0);
+        float oldGreen = previousColor.get(1);
+        float oldBlue = previousColor.get(2);
+        float oldAlpha = previousColor.get(3);
+
+        int previousMinFilter = GL11.GL_NEAREST;
+        int previousMagFilter = GL11.GL_NEAREST;
+        boolean targetBound = false;
+        GlStateManager.pushMatrix();
+        try {
+            GlStateManager.enableTexture2D();
+            minecraft.getTextureManager().bindTexture(textureLocation);
+            targetBound = true;
+            previousMinFilter = GL11.glGetTexParameteri(
+                    GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER);
+            previousMagFilter = GL11.glGetTexParameteri(
+                    GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
+            GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
+
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(
+                    GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
+                    GL11.GL_ONE, GL11.GL_ZERO);
+            GlStateManager.color(
+                    ((color >>> 16) & 0xFF) / 255.0F,
+                    ((color >>> 8) & 0xFF) / 255.0F,
+                    (color & 0xFF) / 255.0F,
+                    ((color >>> 24) & 0xFF) / 255.0F);
+
+            GlStateManager.translate(x + width * 0.5F, y + height * 0.5F, 0.0F);
+            if (rotationDeg != 0.0F) {
+                GlStateManager.rotate(rotationDeg, 0.0F, 0.0F, 1.0F);
             }
+
+            double u0 = uOffset / textureWidth;
+            double v0 = vOffset / textureHeight;
+            double u1 = (uOffset + uWidth) / textureWidth;
+            double v1 = (vOffset + vHeight) / textureHeight;
+            double halfWidth = width * 0.5D;
+            double halfHeight = height * 0.5D;
+            BufferBuilder buffer = Tessellator.getInstance().getBuffer();
+            buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
+            buffer.pos(-halfWidth, halfHeight, 0.0D).tex(u0, v1).endVertex();
+            buffer.pos(halfWidth, halfHeight, 0.0D).tex(u1, v1).endVertex();
+            buffer.pos(halfWidth, -halfHeight, 0.0D).tex(u1, v0).endVertex();
+            buffer.pos(-halfWidth, -halfHeight, 0.0D).tex(u0, v0).endVertex();
+            Tessellator.getInstance().draw();
+        } catch (RuntimeException ignored) {
+            // 缺失或损坏的可选纹理不应击穿整个 RTS 界面。
+        } finally {
+            if (targetBound) {
+                GL11.glTexParameteri(
+                        GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, previousMinFilter);
+                GL11.glTexParameteri(
+                        GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, previousMagFilter);
+            }
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, previousTexture);
+            GL14.glBlendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
+            if (blendEnabled) {
+                GlStateManager.enableBlend();
+            } else {
+                GlStateManager.disableBlend();
+            }
+            if (textureEnabled) {
+                GlStateManager.enableTexture2D();
+            } else {
+                GlStateManager.disableTexture2D();
+            }
+            GlStateManager.color(oldRed, oldGreen, oldBlue, oldAlpha);
+            GlStateManager.popMatrix();
         }
-
-        // 2. Enable blending
-        RenderSystem.enableBlend();
-        RenderSystem.defaultBlendFunc();
-
-        // 3. Bind the texture and set high-quality filter parameters
-        RenderSystem.setShaderTexture(0, texLocation);
-        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
-        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-
-        // 4. Colour tinting
-        boolean hasTint = (color & 0xFFFFFFFFL) != 0xFFFFFFFFL;
-        if (hasTint) {
-            guiGraphics.setColor(
-                    ((color >> 16) & 0xFF) / 255.0f,
-                    ((color >> 8) & 0xFF) / 255.0f,
-                    (color & 0xFF) / 255.0f,
-                    ((color >> 24) & 0xFF) / 255.0f
-            );
-        }
-
-        // 5. Use PoseStack transform (same as WindowButton.renderWithTexture)
-        var pose = guiGraphics.pose();
-        pose.pushPose();
-        pose.translate(x, y, 0);
-        float scaleX = width / uWidth;
-        float scaleY = height / vHeight;
-        pose.scale(scaleX, scaleY, 1.0f);
-
-        // 6. Draw (in transformed coordinates, texture is drawn at (0,0) with original UV size)
-        guiGraphics.blit(
-                texLocation,
-                0, 0,
-                (int) uOffset, (int) vOffset,
-                (int) uWidth, (int) vHeight,
-                textureWidth, textureHeight
-        );
-
-        // 7. Restore transform
-        pose.popPose();
-
-        // 8. Restore colour
-        if (hasTint) {
-            guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-        }
-
-        // 9. Restore blend and texture filter
-        RenderSystem.disableBlend();
-        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
-        RenderSystem.texParameter(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
     }
 }

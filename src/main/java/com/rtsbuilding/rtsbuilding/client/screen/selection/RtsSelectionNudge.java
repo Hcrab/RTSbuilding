@@ -2,8 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.screen.selection;
 
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.Direction;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.EnumFacing;
+import org.lwjgl.input.Keyboard;
 
 /**
  * 统一处理世界空间选择框的键盘微调。
@@ -17,74 +18,85 @@ public final class RtsSelectionNudge {
 
     public static Delta fromKey(int keyCode, int scanCode) {
         int step = fastStep();
-        Direction forward = currentHorizontalFacingDirection();
-        Direction right = rightOf(forward);
-        if (ClientKeyMappings.SELECTION_NUDGE_FORWARD.matches(keyCode, scanCode)
-                || keyCode == GLFW.GLFW_KEY_KP_8) {
+        EnumFacing forward = currentHorizontalFacingDirection();
+        EnumFacing right = rightOf(forward);
+        if (matches(ClientKeyMappings.SELECTION_NUDGE_FORWARD, keyCode)
+                || keyCode == Keyboard.KEY_NUMPAD8) {
             return Delta.of(forward, step);
         }
-        if (ClientKeyMappings.SELECTION_NUDGE_BACK.matches(keyCode, scanCode)
-                || keyCode == GLFW.GLFW_KEY_KP_2) {
+        if (matches(ClientKeyMappings.SELECTION_NUDGE_BACK, keyCode)
+                || keyCode == Keyboard.KEY_NUMPAD2) {
             return Delta.of(forward, -step);
         }
-        if (ClientKeyMappings.SELECTION_NUDGE_LEFT.matches(keyCode, scanCode)
-                || keyCode == GLFW.GLFW_KEY_KP_4) {
+        if (matches(ClientKeyMappings.SELECTION_NUDGE_LEFT, keyCode)
+                || keyCode == Keyboard.KEY_NUMPAD4) {
             return Delta.of(right, -step);
         }
-        if (ClientKeyMappings.SELECTION_NUDGE_RIGHT.matches(keyCode, scanCode)
-                || keyCode == GLFW.GLFW_KEY_KP_6) {
+        if (matches(ClientKeyMappings.SELECTION_NUDGE_RIGHT, keyCode)
+                || keyCode == Keyboard.KEY_NUMPAD6) {
             return Delta.of(right, step);
         }
-        if (ClientKeyMappings.SELECTION_NUDGE_UP.matches(keyCode, scanCode)) {
+        if (matches(ClientKeyMappings.SELECTION_NUDGE_UP, keyCode)) {
             return new Delta(0, step, 0);
         }
-        if (ClientKeyMappings.SELECTION_NUDGE_DOWN.matches(keyCode, scanCode)) {
+        if (matches(ClientKeyMappings.SELECTION_NUDGE_DOWN, keyCode)) {
             return new Delta(0, -step, 0);
         }
         return null;
     }
 
     private static int fastStep() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.getWindow() == null) {
-            return 1;
-        }
-        long window = minecraft.getWindow().getWindow();
-        return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS
+        return Keyboard.isKeyDown(Keyboard.KEY_LMENU)
+                || Keyboard.isKeyDown(Keyboard.KEY_RMENU)
                 ? 4 : 1;
     }
 
-    private static Direction currentHorizontalFacingDirection() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft != null && minecraft.gameRenderer != null) {
-            return Direction.fromYRot(minecraft.gameRenderer.getMainCamera().getYRot());
-        }
-        if (minecraft != null && minecraft.getCameraEntity() != null) {
-            return Direction.fromYRot(minecraft.getCameraEntity().getYRot());
+    private static EnumFacing currentHorizontalFacingDirection() {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        Entity camera = minecraft == null ? null : minecraft.getRenderViewEntity();
+        if (camera != null) {
+            return EnumFacing.fromAngle(camera.rotationYaw);
         }
         if (minecraft != null && minecraft.player != null) {
-            return Direction.fromYRot(minecraft.player.getYRot());
+            return EnumFacing.fromAngle(minecraft.player.rotationYaw);
         }
-        return Direction.SOUTH;
+        return EnumFacing.SOUTH;
     }
 
-    private static Direction rightOf(Direction forward) {
-        return switch (forward) {
-            case NORTH -> Direction.EAST;
-            case EAST -> Direction.SOUTH;
-            case SOUTH -> Direction.WEST;
-            case WEST -> Direction.NORTH;
-            default -> Direction.WEST;
-        };
+    private static EnumFacing rightOf(EnumFacing forward) {
+        switch (forward) {
+            case NORTH: return EnumFacing.EAST;
+            case EAST: return EnumFacing.SOUTH;
+            case SOUTH: return EnumFacing.WEST;
+            case WEST: return EnumFacing.NORTH;
+            default: return EnumFacing.WEST;
+        }
     }
 
-    public record Delta(int dx, int dy, int dz) {
-        static Delta of(Direction direction, int amount) {
+    private static boolean matches(net.minecraft.client.settings.KeyBinding binding, int keyCode) {
+        return binding != null && binding.getKeyCode() == keyCode;
+    }
+
+    public static final class Delta {
+        private final int dx;
+        private final int dy;
+        private final int dz;
+
+        private Delta(int dx, int dy, int dz) {
+            this.dx = dx;
+            this.dy = dy;
+            this.dz = dz;
+        }
+
+        public int dx() { return this.dx; }
+        public int dy() { return this.dy; }
+        public int dz() { return this.dz; }
+
+        static Delta of(EnumFacing direction, int amount) {
             return new Delta(
-                    direction.getStepX() * amount,
-                    direction.getStepY() * amount,
-                    direction.getStepZ() * amount);
+                    direction.getXOffset() * amount,
+                    direction.getYOffset() * amount,
+                    direction.getZOffset() * amount);
         }
     }
 }

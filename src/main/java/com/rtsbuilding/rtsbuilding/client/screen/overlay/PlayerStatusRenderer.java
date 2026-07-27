@@ -1,15 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.PlayerStatusChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.PlayerStatusLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.PlayerStatusStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.util.Mth;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.math.MathHelper;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.TOP_H;
 
@@ -33,22 +33,22 @@ public final class PlayerStatusRenderer {
      * Renders all player status bars (HP, food, armor, absorption) at the
      * top-right corner of the screen. Absorption is only drawn when active.
      */
-    public void render(GuiGraphics g) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.player == null || mc.player.isRemoved()) return;
+    public void render(LegacyGuiGraphics g) {
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.player == null || !mc.player.isEntityAlive()) return;
 
-        var player = mc.player;
+        EntityPlayer player = mc.player;
         float health = player.getHealth();
         float maxHealth = player.getMaxHealth();
-        int food = player.getFoodData().getFoodLevel();
-        int armor = player.getArmorValue();
+        int food = player.getFoodStats().getFoodLevel();
+        int armor = player.getTotalArmorValue();
         float absorption = player.getAbsorptionAmount();
 
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, this.screen.font(), this.screen);
         int row = 0;
 
         // ---- Health Bar (red) ----
-        float healthRatio = Mth.clamp(health / maxHealth, 0.0F, 1.0F);
+        float healthRatio = MathHelper.clamp(health / maxHealth, 0.0F, 1.0F);
         UiRect bounds = PlayerStatusLayout.bar(this.screen.width, TOP_H, row++);
         PlayerStatusChromeRenderer.renderBar(
                 canvas, bounds, healthRatio, PlayerStatusStyle.health(healthRatio));
@@ -57,7 +57,7 @@ public final class PlayerStatusRenderer {
                 PlayerStatusStyle.TEXT.toArgb(), false);
 
         // ---- Food Bar (gold) ----
-        float foodRatio = Mth.clamp(food / 20.0F, 0.0F, 1.0F);
+        float foodRatio = MathHelper.clamp(food / 20.0F, 0.0F, 1.0F);
         bounds = PlayerStatusLayout.bar(this.screen.width, TOP_H, row++);
         PlayerStatusChromeRenderer.renderBar(
                 canvas, bounds, foodRatio, PlayerStatusStyle.food(foodRatio));
@@ -67,7 +67,7 @@ public final class PlayerStatusRenderer {
 
         // ---- Armor Bar (steel blue) ----
         float armorMax = Math.max(20, armor);
-        float armorRatio = Mth.clamp(armor / armorMax, 0.0F, 1.0F);
+        float armorRatio = MathHelper.clamp(armor / armorMax, 0.0F, 1.0F);
         bounds = PlayerStatusLayout.bar(this.screen.width, TOP_H, row++);
         PlayerStatusChromeRenderer.renderBar(
                 canvas, bounds, armorRatio, PlayerStatusStyle.ARMOR);
@@ -78,7 +78,7 @@ public final class PlayerStatusRenderer {
         // ---- Absorption Bar (golden yellow, only when active) ----
         if (absorption > 0.0F) {
             float absMax = Math.max(maxHealth, absorption);
-            float absorptionRatio = Mth.clamp(absorption / absMax, 0.0F, 1.0F);
+            float absorptionRatio = MathHelper.clamp(absorption / absMax, 0.0F, 1.0F);
             bounds = PlayerStatusLayout.bar(this.screen.width, TOP_H, row);
             PlayerStatusChromeRenderer.renderBar(
                     canvas, bounds, absorptionRatio, PlayerStatusStyle.ABSORPTION);

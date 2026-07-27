@@ -9,10 +9,10 @@ import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiState;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiStatus;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiTransition;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +62,7 @@ final class StorageUiAdapter {
     }
     private static StorageUiEntry toCore(LinkedStorageEntry entry){
         ItemStack preview=entry.preview(); ResourceLocation id=preview==null||preview.isEmpty()?null:
-                BuiltInRegistries.ITEM.getKey(preview.getItem());
+                Item.REGISTRY.getNameForObject(preview.getItem());
         BlockPos p=entry.pos(); String pos=!entry.worldAvailable()?"N/A":p==null?"? ? ?":
                 p.getX()+", "+p.getY()+", "+p.getZ();
         return new StorageUiEntry(key(entry),entry.label(),pos,entry.priority(),
