@@ -1,162 +1,204 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
-import mezz.jei.api.constants.RecipeTypes;
-import mezz.jei.api.constants.VanillaTypes;
-import mezz.jei.api.gui.ingredient.IRecipeSlotView;
-import mezz.jei.api.gui.ingredient.IRecipeSlotsView;
-import mezz.jei.api.recipe.RecipeIngredientRole;
-import mezz.jei.api.recipe.RecipeType;
+import mezz.jei.api.gui.IGuiIngredient;
+import mezz.jei.api.gui.IRecipeLayout;
+import mezz.jei.api.recipe.VanillaRecipeCategoryUid;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
+import mezz.jei.api.recipe.transfer.IRecipeTransferRegistry;
 import net.minecraft.client.Minecraft;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.ShapedRecipe;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.CraftingManager;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.util.ResourceLocation;
 
+import javax.annotation.Nullable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.Map;
 
+/**
+ * 把 JEI 4 的九宫格原型转成 RTS 服务端可验证的填充请求。
+ *
+ * <p>JEI 4 只按容器类和分类保存一个处理器，而 RTS 终端沿用原版
+ * {@link ContainerWorkbench}。注册本类会覆盖 JEI 的原版工作台处理器，因此构造时必须
+ * 保存原处理器，并在当前屏幕不是 RTS 终端时原样委托。捕获过程只反射 JEI 4 的注册表
+ * 内部实现；失败时插件不会注册本类，形成安全降级。
+ */
 public final class RtsCraftTerminalJeiTransferHandler
-        implements IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> {
-    private static final int CRAFT_GRID_SLOT_START = 1;
-    private static final int CRAFT_GRID_SLOT_COUNT = 9;
-    private static final int INVENTORY_SLOT_START = 10;
-    private static final int INVENTORY_SLOT_COUNT = 36;
+        implements IRecipeTransferHandler<ContainerWorkbench> {
+    private static final int GRID_SIZE = 9;
+    private static final int JEI_FIRST_INPUT_SLOT = 1;
 
-    private final IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> vanillaDelegate;
+    private final IRecipeTransferHandlerHelper transferHelper;
+    private final IRecipeTransferHandler<ContainerWorkbench> vanillaDelegate;
 
-    public RtsCraftTerminalJeiTransferHandler(IRecipeTransferHandlerHelper transferHelper) {
-        Objects.requireNonNull(transferHelper, "transferHelper");
-        this.vanillaDelegate = transferHelper.createUnregisteredRecipeTransferHandler(
-                transferHelper.createBasicRecipeTransferInfo(
-                        CraftingMenu.class,
-                        MenuType.CRAFTING,
-                        RecipeTypes.CRAFTING,
-                        CRAFT_GRID_SLOT_START,
-                        CRAFT_GRID_SLOT_COUNT,
-                        INVENTORY_SLOT_START,
-                        INVENTORY_SLOT_COUNT));
+    RtsCraftTerminalJeiTransferHandler(
+            IRecipeTransferHandlerHelper transferHelper,
+            IRecipeTransferHandler<ContainerWorkbench> vanillaDelegate) {
+        if (transferHelper == null || vanillaDelegate == null) {
+            throw new IllegalArgumentException("JEI transfer helpers must be present");
+        }
+        this.transferHelper = transferHelper;
+        this.vanillaDelegate = vanillaDelegate;
     }
 
     @Override
-    public Class<? extends CraftingMenu> getContainerClass() {
-        return CraftingMenu.class;
+    public Class<ContainerWorkbench> getContainerClass() {
+        return ContainerWorkbench.class;
     }
 
+    @Nullable
     @Override
-    public Optional<MenuType<CraftingMenu>> getMenuType() {
-        return Optional.of(MenuType.CRAFTING);
-    }
-
-    @Override
-    public RecipeType<RecipeHolder<CraftingRecipe>> getRecipeType() {
-        return RecipeTypes.CRAFTING;
-    }
-
-    @Override
-    public IRecipeTransferError transferRecipe(CraftingMenu container, RecipeHolder<CraftingRecipe> recipe,
-            IRecipeSlotsView recipeSlots, Player player, boolean maxTransfer, boolean doTransfer) {
+    public IRecipeTransferError transferRecipe(
+            ContainerWorkbench container,
+            IRecipeLayout recipeLayout,
+            EntityPlayer player,
+            boolean maxTransfer,
+            boolean doTransfer) {
         if (!isRtsCraftTerminalScreen(container)) {
-            return this.vanillaDelegate.transferRecipe(container, recipe, recipeSlots, player, maxTransfer, doTransfer);
-        }
-        if (!doTransfer) {
-            return null;
+            return this.vanillaDelegate.transferRecipe(
+                    container, recipeLayout, player, maxTransfer, doTransfer);
         }
 
-        PacketDistributor.sendToServer(new C2SRtsJeiTransferPayload(
-                recipe.id().toString(),
-                buildIngredientPrototypes(recipe.value(), recipeSlots),
-                maxTransfer,
-                true));
+        ResolvedRecipe resolved = resolveRecipe(recipeLayout, player);
+        if (resolved == null) {
+            return this.transferHelper.createUserErrorWithTooltip(
+                    "RTSBuilding could not resolve this 1.12.2 crafting recipe");
+        }
+        if (doTransfer) {
+            RtsPayloadRegistrar.sendToServer(new C2SRtsJeiTransferPayload(
+                    resolved.recipeId, resolved.prototypes, maxTransfer, true));
+        }
         return null;
     }
 
-    private static boolean isRtsCraftTerminalScreen(CraftingMenu container) {
-        Minecraft minecraft = Minecraft.getInstance();
+    private static boolean isRtsCraftTerminalScreen(ContainerWorkbench container) {
+        Minecraft minecraft = Minecraft.getMinecraft();
         return minecraft != null
-                && minecraft.screen instanceof RtsCraftTerminalScreen screen
-                && screen.getMenu() == container;
+                && minecraft.currentScreen instanceof RtsCraftTerminalScreen
+                && ((RtsCraftTerminalScreen) minecraft.currentScreen).inventorySlots == container;
     }
 
-    private static List<ItemStack> buildIngredientPrototypes(CraftingRecipe recipe, IRecipeSlotsView recipeSlots) {
-        List<ItemStack> prototypes = new ArrayList<>(9);
-        for (int i = 0; i < 9; i++) {
-            prototypes.add(ItemStack.EMPTY);
+    @Nullable
+    private static ResolvedRecipe resolveRecipe(IRecipeLayout recipeLayout, EntityPlayer player) {
+        if (recipeLayout == null || player == null || player.world == null) {
+            return null;
         }
-        if (recipe == null || recipeSlots == null) {
-            return prototypes;
+        List<ItemStack> prototypes = buildIngredientPrototypes(recipeLayout);
+        InventoryCrafting matrix = new InventoryCrafting(new Container() {
+            @Override
+            public boolean canInteractWith(EntityPlayer ignored) {
+                return false;
+            }
+        }, 3, 3);
+        for (int i = 0; i < GRID_SIZE; i++) {
+            matrix.setInventorySlotContents(i, prototypes.get(i).copy());
         }
 
-        List<IRecipeSlotView> inputViews = recipeSlots.getSlotViews().stream()
-                .filter(view -> view.getRole() == RecipeIngredientRole.INPUT || view.getRole() == RecipeIngredientRole.CATALYST)
-                .toList();
-        Ingredient[] mapped = mapCraftingIngredients(recipe);
-        int viewIndex = 0;
-        for (int slot = 0; slot < mapped.length && viewIndex < inputViews.size(); slot++) {
-            Ingredient ingredient = mapped[slot];
-            if (ingredient == null || ingredient.isEmpty()) {
-                continue;
-            }
-            ItemStack chosen = choosePrototype(inputViews.get(viewIndex), ingredient);
-            prototypes.set(slot, chosen.isEmpty() ? ItemStack.EMPTY : chosen.copyWithCount(1));
-            viewIndex++;
+        IRecipe recipe;
+        try {
+            recipe = CraftingManager.findMatchingRecipe(matrix, player.world);
+        } catch (RuntimeException incompatibleRecipe) {
+            return null;
+        }
+        ResourceLocation id = recipe == null ? null : recipe.getRegistryName();
+        return id == null ? null : new ResolvedRecipe(id.toString(), prototypes);
+    }
+
+    private static List<ItemStack> buildIngredientPrototypes(IRecipeLayout recipeLayout) {
+        List<ItemStack> prototypes = new ArrayList<ItemStack>(GRID_SIZE);
+        Map<Integer, ? extends IGuiIngredient<ItemStack>> ingredients =
+                recipeLayout.getItemStacks().getGuiIngredients();
+        for (int i = 0; i < GRID_SIZE; i++) {
+            IGuiIngredient<ItemStack> ingredient = ingredients.get(JEI_FIRST_INPUT_SLOT + i);
+            prototypes.add(choosePrototype(ingredient));
         }
         return prototypes;
     }
 
-    private static ItemStack choosePrototype(IRecipeSlotView view, Ingredient ingredient) {
-        if (view == null) {
+    private static ItemStack choosePrototype(@Nullable IGuiIngredient<ItemStack> ingredient) {
+        if (ingredient == null || !ingredient.isInput()) {
             return ItemStack.EMPTY;
         }
-        List<ItemStack> stacks = view.getIngredients(VanillaTypes.ITEM_STACK).toList();
-        for (ItemStack stack : stacks) {
-            if (stack != null && !stack.isEmpty() && ingredient.test(stack)) {
-                return stack;
-            }
+        ItemStack displayed = ingredient.getDisplayedIngredient();
+        if (displayed != null && !displayed.isEmpty()) {
+            return one(displayed);
         }
-        for (ItemStack stack : stacks) {
-            if (stack != null && !stack.isEmpty()) {
-                return stack;
+        for (ItemStack candidate : ingredient.getAllIngredients()) {
+            if (candidate != null && !candidate.isEmpty()) {
+                return one(candidate);
             }
         }
         return ItemStack.EMPTY;
     }
 
-    private static Ingredient[] mapCraftingIngredients(CraftingRecipe recipe) {
-        Ingredient[] mapped = new Ingredient[9];
-        for (int i = 0; i < mapped.length; i++) {
-            mapped[i] = Ingredient.EMPTY;
-        }
-        List<Ingredient> ingredients = recipe.getIngredients();
-        if (recipe instanceof ShapedRecipe shaped) {
-            int width = Math.max(1, Math.min(3, shaped.getWidth()));
-            int height = Math.max(1, Math.min(3, shaped.getHeight()));
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    int src = y * width + x;
-                    if (src >= 0 && src < ingredients.size()) {
-                        mapped[y * 3 + x] = ingredients.get(src);
-                    }
-                }
-            }
-            return mapped;
-        }
+    private static ItemStack one(ItemStack stack) {
+        ItemStack copy = stack.copy();
+        copy.setCount(1);
+        return copy;
+    }
 
-        int count = Math.min(9, ingredients.size());
-        for (int i = 0; i < count; i++) {
-            mapped[i] = ingredients.get(i);
+    /**
+     * JEI 4 的 API 没有公开“取得当前处理器”的方法；此处仅探测官方 4.x 实现。
+     * 任一结构不符都返回 {@code null}，调用者据此不安装 RTS 转移覆盖。
+     */
+    @Nullable
+    @SuppressWarnings("unchecked")
+    static IRecipeTransferHandler<ContainerWorkbench> captureVanillaDelegate(
+            IRecipeTransferRegistry registry) {
+        if (registry == null) {
+            return null;
         }
-        return mapped;
+        try {
+            Object table = findHandlerTable(registry);
+            if (table == null) {
+                return null;
+            }
+            Method get = table.getClass().getMethod("get", Object.class, Object.class);
+            Object handler = get.invoke(
+                    table, ContainerWorkbench.class, VanillaRecipeCategoryUid.CRAFTING);
+            return handler instanceof IRecipeTransferHandler
+                    ? (IRecipeTransferHandler<ContainerWorkbench>) handler
+                    : null;
+        } catch (ReflectiveOperationException | RuntimeException incompatibleJei) {
+            return null;
+        }
+    }
+
+    @Nullable
+    private static Object findHandlerTable(IRecipeTransferRegistry registry)
+            throws ReflectiveOperationException {
+        Class<?> type = registry.getClass();
+        while (type != null) {
+            try {
+                Field field = type.getDeclaredField("recipeTransferHandlers");
+                field.setAccessible(true);
+                return field.get(registry);
+            } catch (NoSuchFieldException missingHere) {
+                type = type.getSuperclass();
+            }
+        }
+        return null;
+    }
+
+    private static final class ResolvedRecipe {
+        private final String recipeId;
+        private final List<ItemStack> prototypes;
+
+        private ResolvedRecipe(String recipeId, List<ItemStack> prototypes) {
+            this.recipeId = recipeId;
+            this.prototypes = prototypes;
+        }
     }
 }

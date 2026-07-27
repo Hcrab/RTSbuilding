@@ -2,48 +2,36 @@ package com.rtsbuilding.rtsbuilding.compat.jei;
 
 import com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayLayoutHelper;
-import mezz.jei.api.gui.handlers.IGlobalGuiHandler;
-import mezz.jei.api.runtime.IClickableIngredient;
-import mezz.jei.api.runtime.IIngredientManager;
+import mezz.jei.api.gui.IGlobalGuiHandler;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.item.ItemStack;
 
+import javax.annotation.Nullable;
+import java.awt.Rectangle;
 import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
+import java.util.Collections;
 
+/** 让 JEI 4 为普通容器上的 RTS 储存覆盖层预留空间并识别其物品。 */
 final class RtsOverlayJeiGlobalGuiHandler implements IGlobalGuiHandler {
-    private final IIngredientManager ingredientManager;
-
-    RtsOverlayJeiGlobalGuiHandler(IIngredientManager ingredientManager) {
-        this.ingredientManager = ingredientManager;
+    @Override
+    public Collection<Rectangle> getGuiExtraAreas() {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        GuiScreen screen = minecraft == null ? null : minecraft.currentScreen;
+        return screen == null
+                ? Collections.<Rectangle>emptyList()
+                : RtsClientInputGate.getJeiOverlayExtraAreas(screen);
     }
 
+    @Nullable
     @Override
-    public Collection<Rect2i> getGuiExtraAreas() {
-        Minecraft minecraft = Minecraft.getInstance();
-        Screen screen = minecraft == null ? null : minecraft.screen;
-        if (screen == null) {
-            return List.of();
-        }
-        return RtsClientInputGate.getJeiOverlayExtraAreas(screen);
-    }
-
-    @Override
-    public Optional<IClickableIngredient<?>> getClickableIngredientUnderMouse(double mouseX, double mouseY) {
-        OverlayLayoutHelper.JeiOverlayIngredient ingredient = RtsClientInputGate.getJeiOverlayIngredientUnderMouse(mouseX, mouseY);
+    public Object getIngredientUnderMouse(int mouseX, int mouseY) {
+        OverlayLayoutHelper.JeiOverlayIngredient ingredient =
+                RtsClientInputGate.getJeiOverlayIngredientUnderMouse(mouseX, mouseY);
         if (ingredient == null) {
-            return Optional.empty();
+            return null;
         }
         ItemStack stack = ingredient.stack();
-        if (stack == null || stack.isEmpty()) {
-            return Optional.empty();
-        }
-
-        return this.ingredientManager
-                .createClickableIngredient(stack.copy(), ingredient.area(), true)
-                .map(clickable -> (IClickableIngredient<?>) clickable);
+        return stack == null || stack.isEmpty() ? null : stack.copy();
     }
 }

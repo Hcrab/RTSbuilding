@@ -2,49 +2,35 @@ package com.rtsbuilding.rtsbuilding.compat.jei;
 
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
-import mezz.jei.api.gui.handlers.IGuiContainerHandler;
-import mezz.jei.api.runtime.IClickableIngredient;
-import mezz.jei.api.runtime.IIngredientManager;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.world.item.ItemStack;
+import mezz.jei.api.gui.IAdvancedGuiHandler;
+import net.minecraft.item.ItemStack;
 
+import javax.annotation.Nullable;
+import java.awt.Rectangle;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
-final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler<RtsCraftTerminalScreen> {
-    private final IIngredientManager ingredientManager;
-
-    RtsCraftTerminalJeiGuiHandler(IIngredientManager ingredientManager) {
-        this.ingredientManager = ingredientManager;
+/** 让 JEI 4 识别 RTS 合成终端右侧的额外面板和虚拟物品槽。 */
+final class RtsCraftTerminalJeiGuiHandler implements IAdvancedGuiHandler<RtsCraftTerminalScreen> {
+    @Override
+    public Class<RtsCraftTerminalScreen> getGuiContainerClass() {
+        return RtsCraftTerminalScreen.class;
     }
 
     @Override
-    public List<Rect2i> getGuiExtraAreas(RtsCraftTerminalScreen screen) {
-        return List.of(screen.getLinkedPanelArea());
+    public List<Rectangle> getGuiExtraAreas(RtsCraftTerminalScreen screen) {
+        Rectangle area = screen.getLinkedPanelArea();
+        return area == null ? Collections.<Rectangle>emptyList() : Collections.singletonList(area);
     }
 
+    @Nullable
     @Override
-    public Optional<IClickableIngredient<?>> getClickableIngredientUnderMouse(
-            RtsCraftTerminalScreen screen,
-            double mouseX,
-            double mouseY) {
+    public Object getIngredientUnderMouse(RtsCraftTerminalScreen screen, int mouseX, int mouseY) {
         StorageEntry entry = screen.getLinkedEntryAt(mouseX, mouseY);
         if (entry == null) {
-            return Optional.empty();
+            return null;
         }
         ItemStack stack = entry.stack();
-        if (stack == null || stack.isEmpty()) {
-            return Optional.empty();
-        }
-
-        Rect2i area = screen.getLinkedSlotAreaAt(mouseX, mouseY);
-        if (area == null) {
-            return Optional.empty();
-        }
-
-        return this.ingredientManager
-                .createClickableIngredient(stack.copy(), area, true)
-                .map(clickable -> (IClickableIngredient<?>) clickable);
+        return stack == null || stack.isEmpty() ? null : stack.copy();
     }
 }
-
