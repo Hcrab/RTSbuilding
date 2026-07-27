@@ -5,12 +5,12 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
 import com.rtsbuilding.rtsbuilding.network.blueprint.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -50,7 +50,7 @@ final class BlueprintPlacementSession {
 
     boolean hasSelection() {
         BlueprintEntry entry = selectedEntry.get();
-        return entry != null && entry.error().isBlank();
+        return entry != null && entry.error().trim().isEmpty();
     }
 
     int yRotationSteps() {
@@ -84,7 +84,7 @@ final class BlueprintPlacementSession {
                     "screen.rtsbuilding.blueprints.status.no_selection", "");
             return false;
         }
-        pinnedAnchor = anchor.immutable();
+        pinnedAnchor = anchor.toImmutable();
         status.set(S2CBlueprintStatusPayload.INFO,
                 "screen.rtsbuilding.blueprints.status.preview_pinned", shortPos(pinnedAnchor));
         return true;
@@ -100,7 +100,7 @@ final class BlueprintPlacementSession {
             ClientRtsController controller) {
         BlueprintEntry entry = selectedEntry.get();
         if (!Config.areBlueprintsEnabled() || anchor == null
-                || entry == null || !entry.error().isBlank()) {
+                || entry == null || !entry.error().trim().isEmpty()) {
             return BlueprintGhostPreview.EMPTY;
         }
         return BlueprintPlacementPreviewFactory.create(
@@ -115,7 +115,7 @@ final class BlueprintPlacementSession {
             return true;
         }
         BlueprintEntry entry = selectedEntry.get();
-        if (entry == null || !entry.error().isBlank()) {
+        if (entry == null || !entry.error().trim().isEmpty()) {
             status.set(S2CBlueprintStatusPayload.ERROR,
                     "screen.rtsbuilding.blueprints.status.no_selection", "");
             return false;
@@ -138,7 +138,7 @@ final class BlueprintPlacementSession {
                 (byte) BlueprintTransform.normalizeSteps(yRotation),
                 (byte) BlueprintTransform.normalizeSteps(xRotation),
                 (byte) BlueprintTransform.normalizeSteps(zRotation));
-        PacketDistributor.sendToServer(payload);
+        RtsPayloadRegistrar.sendToServer(payload);
         status.set(S2CBlueprintStatusPayload.INFO,
                 "screen.rtsbuilding.blueprints.status.uploading", entry.name());
         pinnedAnchor = null;
@@ -189,13 +189,13 @@ final class BlueprintPlacementSession {
                     "screen.rtsbuilding.blueprints.status.no_preview", "");
             return true;
         }
-        BlockPos next = clampAnchor(pinnedAnchor.offset(dx, dy, dz), controller);
+        BlockPos next = clampAnchor(pinnedAnchor.add(dx, dy, dz), controller);
         if (next.equals(pinnedAnchor)) {
             status.set(S2CBlueprintStatusPayload.INFO,
                     "screen.rtsbuilding.blueprints.status.nudge_blocked", "");
             return true;
         }
-        pinnedAnchor = next.immutable();
+        pinnedAnchor = next.toImmutable();
         status.set(S2CBlueprintStatusPayload.INFO,
                 "screen.rtsbuilding.blueprints.status.nudged", shortPos(pinnedAnchor));
         return true;
@@ -207,7 +207,7 @@ final class BlueprintPlacementSession {
                     "screen.rtsbuilding.blueprints.status.no_preview", "");
             return true;
         }
-        pinnedAnchor = clampAnchor(anchor, controller).immutable();
+        pinnedAnchor = clampAnchor(anchor, controller).toImmutable();
         status.set(S2CBlueprintStatusPayload.INFO,
                 "screen.rtsbuilding.blueprints.status.nudged", shortPos(pinnedAnchor));
         return true;
@@ -215,10 +215,10 @@ final class BlueprintPlacementSession {
 
     boolean nudgeRelative(int rightSteps, int forwardSteps, int upSteps,
             ClientRtsController controller) {
-        Direction forward = currentHorizontalFacingDirection();
-        Direction right = rightOf(forward);
-        int dx = forward.getStepX() * forwardSteps + right.getStepX() * rightSteps;
-        int dz = forward.getStepZ() * forwardSteps + right.getStepZ() * rightSteps;
+        EnumFacing forward = currentHorizontalFacingDirection();
+        EnumFacing right = rightOf(forward);
+        int dx = forward.getXOffset() * forwardSteps + right.getXOffset() * rightSteps;
+        int dz = forward.getZOffset() * forwardSteps + right.getZOffset() * rightSteps;
         return nudge(dx, upSteps, dz, controller);
     }
 
@@ -242,7 +242,7 @@ final class BlueprintPlacementSession {
 
     private void rememberRotation() {
         BlueprintEntry entry = selectedEntry.get();
-        if (entry == null || !entry.error().isBlank()) return;
+        if (entry == null || !entry.error().trim().isEmpty()) return;
         IOException error = BlueprintRotationDefaults.remember(
                 entry.fileName(), yRotationSteps, xRotationSteps, zRotationSteps);
         if (error != null) {
@@ -254,46 +254,31 @@ final class BlueprintPlacementSession {
                 "screen.rtsbuilding.blueprints.status.rotated", "");
     }
 
-    private static Direction currentHorizontalFacingDirection() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft != null && minecraft.gameRenderer != null) {
-            return Direction.fromYRot(minecraft.gameRenderer.getMainCamera().getYRot());
-        }
-        if (minecraft != null && minecraft.getCameraEntity() != null) {
-            return Direction.fromYRot(minecraft.getCameraEntity().getYRot());
-        }
-        if (minecraft != null && minecraft.player != null) {
-            return Direction.fromYRot(minecraft.player.getYRot());
-        }
-        return Direction.SOUTH;
+    private static EnumFacing currentHorizontalFacingDirection() {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        Entity camera = minecraft == null ? null : minecraft.getRenderViewEntity();
+        if (camera != null) return EnumFacing.fromAngle(camera.rotationYaw);
+        if (minecraft != null && minecraft.player != null) return EnumFacing.fromAngle(minecraft.player.rotationYaw);
+        return EnumFacing.SOUTH;
     }
 
-    private static Direction rightOf(Direction forward) {
-        return switch (forward) {
-            case NORTH -> Direction.EAST;
-            case EAST -> Direction.SOUTH;
-            case SOUTH -> Direction.WEST;
-            case WEST -> Direction.NORTH;
-            default -> Direction.WEST;
-        };
+    private static EnumFacing rightOf(EnumFacing forward) {
+        return forward.getAxis().isHorizontal() ? forward.rotateY() : EnumFacing.WEST;
     }
 
     private static BlockPos clampAnchor(BlockPos pos, ClientRtsController controller) {
         int x = pos.getX();
         int y = pos.getY();
         int z = pos.getZ();
-        Level level = Minecraft.getInstance().level;
-        if (level != null) {
-            y = Mth.clamp(y, level.getMinBuildHeight(), level.getMaxBuildHeight() - 1);
-        }
+        y = MathHelper.clamp(y, 0, 255);
         if (controller != null && controller.hasBounds()) {
             double halfExtent = controller.getMaxRadius() + 8.0D;
-            int minX = Mth.ceil(controller.getAnchorX() - halfExtent - 0.5D);
-            int maxX = Mth.floor(controller.getAnchorX() + halfExtent - 0.5D);
-            int minZ = Mth.ceil(controller.getAnchorZ() - halfExtent - 0.5D);
-            int maxZ = Mth.floor(controller.getAnchorZ() + halfExtent - 0.5D);
-            if (minX <= maxX) x = Mth.clamp(x, minX, maxX);
-            if (minZ <= maxZ) z = Mth.clamp(z, minZ, maxZ);
+            int minX = MathHelper.ceil(controller.getAnchorX() - halfExtent - 0.5D);
+            int maxX = MathHelper.floor(controller.getAnchorX() + halfExtent - 0.5D);
+            int minZ = MathHelper.ceil(controller.getAnchorZ() - halfExtent - 0.5D);
+            int maxZ = MathHelper.floor(controller.getAnchorZ() + halfExtent - 0.5D);
+            if (minX <= maxX) x = MathHelper.clamp(x, minX, maxX);
+            if (minZ <= maxZ) z = MathHelper.clamp(z, minZ, maxZ);
         }
         return new BlockPos(x, y, z);
     }

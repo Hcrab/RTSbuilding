@@ -7,6 +7,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -55,7 +57,7 @@ final class BlueprintRotationDefaults {
     }
 
     static IOException remember(String fileName, int y, int x, int z) {
-        if (fileName == null || fileName.isBlank()) {
+        if (fileName == null || fileName.trim().isEmpty()) {
             return null;
         }
         ensureLoaded();
@@ -66,7 +68,7 @@ final class BlueprintRotationDefaults {
     static IOException rename(String oldFileName, String newFileName) {
         ensureLoaded();
         RotationPreset preset = DEFAULT_ROTATIONS.remove(oldFileName);
-        if (preset == null || newFileName == null || newFileName.isBlank()) {
+        if (preset == null || newFileName == null || newFileName.trim().isEmpty()) {
             return null;
         }
         DEFAULT_ROTATIONS.put(newFileName, preset);
@@ -91,8 +93,15 @@ final class BlueprintRotationDefaults {
         }
         try {
             Files.createDirectories(BlueprintPanelFiles.blueprintFolder());
-            try (OutputStream stream = Files.newOutputStream(BlueprintPanelFiles.defaultsPath())) {
+            Path target = BlueprintPanelFiles.defaultsPath();
+            Path temporary = Files.createTempFile(BlueprintPanelFiles.blueprintFolder(), ".rotation-defaults-", ".tmp");
+            try (OutputStream stream = Files.newOutputStream(temporary, StandardOpenOption.TRUNCATE_EXISTING)) {
                 properties.store(stream, "RTSBuilding blueprint rotation defaults");
+            }
+            try {
+                Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
             }
             return null;
         } catch (IOException ex) {
@@ -109,5 +118,18 @@ final class BlueprintRotationDefaults {
     }
 }
 
-record RotationPreset(int y, int x, int z) {
+final class RotationPreset {
+    private final int y;
+    private final int x;
+    private final int z;
+
+    RotationPreset(int y, int x, int z) {
+        this.y = y;
+        this.x = x;
+        this.z = z;
+    }
+
+    int y() { return y; }
+    int x() { return x; }
+    int z() { return z; }
 }

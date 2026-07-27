@@ -1,11 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.resources.I18n;
 
 /**
  * 蓝图库生产绘制的无状态字体与本地化支持。
@@ -18,36 +17,24 @@ final class BlueprintLibraryRenderSupport {
     }
 
     static void drawCentered(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             UiRect bounds,
             String label) {
-        RtsClientUiUtil.drawCenteredStringNoShadow(
-                graphics,
-                font,
-                trim(
-                        font,
-                        label,
-                        Math.max(
-                                8,
-                                (int) bounds.getWidth() - 6)),
-                (int) bounds.getX()
-                        + (int) bounds.getWidth() / 2,
-                (int) bounds.getY() + 3,
-                BlueprintLibraryStyle.BUTTON_TEXT.toArgb());
+        String fitted = trim(font, label, Math.max(8, (int) bounds.getWidth() - 6));
+        graphics.drawString(font, fitted,
+                (int) bounds.getX() + ((int) bounds.getWidth() - font.getStringWidth(fitted)) / 2,
+                (int) bounds.getY() + 3, BlueprintLibraryStyle.BUTTON_TEXT.toArgb(), false);
     }
 
     static String text(String key) {
-        return Component.translatable(key).getString();
+        return I18n.format(key);
     }
 
     static String trim(
-            Font font,
+            FontRenderer font,
             String value,
             int width) {
-        return RtsClientUiUtil.trimToWidth(
-                font,
-                value == null ? "" : value,
-                width);
+        return BlueprintPanelUi.trim(font, value, width);
     }
 }

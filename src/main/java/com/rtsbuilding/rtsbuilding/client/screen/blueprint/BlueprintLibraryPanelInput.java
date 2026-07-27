@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
-import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.FontRenderer;
 
 import java.util.List;
 
@@ -24,7 +24,7 @@ final class BlueprintLibraryPanelInput {
     static boolean mouseClicked(
             double mouseX,
             double mouseY,
-            Font font,
+            FontRenderer font,
             int x,
             int y,
             int width,

@@ -1,10 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import net.neoforged.fml.loading.FMLPaths;
+import net.minecraftforge.fml.common.Loader;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -24,7 +26,10 @@ final class BlueprintPanelFiles {
      * Returns the RTSBuilding-owned blueprint folder inside the current instance.
      */
     static Path blueprintFolder() {
-        return FMLPaths.GAMEDIR.get().resolve("rtsbuilding-blueprints");
+        Path config = Loader.instance().getConfigDir().toPath().toAbsolutePath().normalize();
+        Path gameDir = config.getParent();
+        if (gameDir == null) gameDir = config;
+        return gameDir.resolve("rtsbuilding-blueprints").normalize();
     }
 
     /**
@@ -32,8 +37,8 @@ final class BlueprintPanelFiles {
      * RTSBuilding's own blueprint folder.
      */
     static List<Path> otherModBlueprintFolders() {
-        Path gameDir = FMLPaths.GAMEDIR.get();
-        return List.of(
+        Path gameDir = blueprintFolder().getParent();
+        return Arrays.asList(
                 gameDir.resolve("schematics"),
                 gameDir.resolve("buildinggadgets"),
                 gameDir.resolve("buildinggadgets").resolve("templates"),
@@ -61,7 +66,7 @@ final class BlueprintPanelFiles {
      * Adds an extension to a selected path when the user omitted one.
      */
     static Path ensureExtension(Path path, String extension) {
-        if (path == null || extension == null || extension.isBlank()) {
+        if (path == null || extension == null || extension.trim().isEmpty()) {
             return path;
         }
         String name = path.getFileName() == null ? "" : path.getFileName().toString();
@@ -69,7 +74,7 @@ final class BlueprintPanelFiles {
             return path;
         }
         Path parent = path.getParent();
-        Path renamed = Path.of(name + "." + extension);
+        Path renamed = Paths.get(name + "." + extension);
         return parent == null ? renamed : parent.resolve(renamed);
     }
 
@@ -77,7 +82,7 @@ final class BlueprintPanelFiles {
      * Removes any supported blueprint extension while preserving the base label.
      */
     static String stripBlueprintExtension(String fileName) {
-        String clean = fileName == null || fileName.isBlank() ? "blueprint" : fileName;
+        String clean = fileName == null || fileName.trim().isEmpty() ? "blueprint" : fileName;
         String lower = clean.toLowerCase(Locale.ROOT);
         if (lower.endsWith(".schematic")) {
             return clean.substring(0, clean.length() - ".schematic".length());
@@ -117,7 +122,7 @@ final class BlueprintPanelFiles {
         if (lower.endsWith(".nbt")) {
             return "nbt";
         }
-        return fallback == null || fallback.isBlank() ? "nbt" : fallback;
+        return fallback == null || fallback.trim().isEmpty() ? "nbt" : fallback;
     }
 
     /**
@@ -127,7 +132,7 @@ final class BlueprintPanelFiles {
         String clean = sanitizeFileBase(base);
         String candidate = clean + ".nbt";
         int suffix = 2;
-        while (Files.exists(blueprintFolder().resolve(candidate))) {
+        while (Files.exists(resolveInBlueprintFolder(candidate))) {
             candidate = clean + "_" + suffix + ".nbt";
             suffix++;
         }
@@ -140,14 +145,14 @@ final class BlueprintPanelFiles {
      */
     static Path uniqueBlueprintPath(String base, String extension, Path currentPath) {
         String clean = sanitizeFileBase(base);
-        String safeExtension = extension == null || extension.isBlank() ? "nbt" : extension;
+        String safeExtension = extension == null || extension.trim().isEmpty() ? "nbt" : extension;
         Path folder = blueprintFolder();
         Path current = currentPath == null ? null : currentPath.toAbsolutePath().normalize();
-        Path candidate = folder.resolve(clean + "." + safeExtension);
+        Path candidate = resolveInBlueprintFolder(clean + "." + safeExtension);
         int suffix = 2;
         while (Files.exists(candidate)
                 && (current == null || !candidate.toAbsolutePath().normalize().equals(current))) {
-            candidate = folder.resolve(clean + "_" + suffix + "." + safeExtension);
+            candidate = resolveInBlueprintFolder(clean + "_" + suffix + "." + safeExtension);
             suffix++;
         }
         return candidate;
@@ -178,8 +183,13 @@ final class BlueprintPanelFiles {
         clean = clean.replaceAll("[\\\\/:*?\"<>|]+", "_").replaceAll("\\s+", "_");
         clean = clean.replaceAll("[^A-Za-z0-9._\\-\\u4e00-\\u9fff]+", "_");
         clean = clean.replaceAll("_+", "_");
-        if (clean.isBlank() || clean.equals(".") || clean.equals("..")) {
+        clean = clean.replaceAll("^\\.+", "").replaceAll("\\.+$", "");
+        if (clean.trim().isEmpty() || clean.replaceAll("[._-]", "").isEmpty()
+                || clean.equals(".") || clean.equals("..")) {
             clean = "blueprint";
+        }
+        if (clean.matches("(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\..*)?$")) {
+            clean = "_" + clean;
         }
         return clean.length() > 80 ? clean.substring(0, 80) : clean;
     }
@@ -207,11 +217,21 @@ final class BlueprintPanelFiles {
             return true;
         }
         try {
-            String text = Files.readString(path, StandardCharsets.UTF_8);
+            String text = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
             return text.contains("\"statePosArrayList\"")
                     || (text.contains("\"header\"") && text.contains("\"body\""));
         } catch (Exception ex) {
             return false;
         }
+    }
+
+    /** 把受玩家输入影响的目标文件严格锁在模组蓝图目录内。 */
+    static Path resolveInBlueprintFolder(String fileName) {
+        Path folder = blueprintFolder().toAbsolutePath().normalize();
+        Path resolved = folder.resolve(fileName == null ? "" : fileName).normalize();
+        if (!resolved.startsWith(folder) || resolved.equals(folder)) {
+            throw new IllegalArgumentException("Blueprint path escapes its directory");
+        }
+        return resolved;
     }
 }

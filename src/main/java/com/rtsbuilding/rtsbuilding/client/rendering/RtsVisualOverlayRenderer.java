@@ -1,8 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.rendering;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.*;
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintCaptureRenderer;
@@ -10,232 +7,183 @@ import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintGhostRend
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.AdvancedShapeSelectionBoxRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderer;
-import com.rtsbuilding.rtsbuilding.client.rendering.overlay.*;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.BoundaryLineRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.ChunkGuideRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.InteractionTargetRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.PlayerMoveTargetRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.overlay.StorageRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.PlacedBlockRotationHandleRenderer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.math.Vec3d;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
+
+import java.nio.FloatBuffer;
 
 /**
- * Central dispatch point for all RTS visual overlay effects.
- * Renders during the AFTER_TRANSLUCENT_BLOCKS stage, delegating to
- * sub-renderers in a fixed order.
+ * Forge 1.12 世界末尾阶段的 RTS 视觉总入口。
+ *
+ * <p>本类是这一阶段唯一的事件订阅点，并按固定顺序分派边界、交互、建造、剔除、
+ * 蓝图和放置动画。已经拥有私有缓冲的子渲染器由它们自行提交；只有仍接受调用方
+ * 缓冲的形状预览与选择手柄使用本类的私有缓冲。这里永远不会读取、结束或重置
+ * {@code Tessellator.getInstance().getBuffer()}。</p>
  */
-@EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsVisualOverlayRenderer {
-    private static final int GL_LEQUAL = 515;
+    private static final BufferBuilder LINE_BUFFER = new BufferBuilder(2 * 1024 * 1024);
+    private static final BufferBuilder FILL_BUFFER = new BufferBuilder(2 * 1024 * 1024);
+    private static final WorldVertexBufferUploader UPLOADER = new WorldVertexBufferUploader();
 
-    // ===== Custom RenderTypes =====
-
-    private static final RenderType CHUNK_XRAY_FILL = RenderType.create(
-            "rtsbuilding_chunk_xray_fill",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final RenderType CHUNK_XRAY_LINES = RenderType.create(
-            "rtsbuilding_chunk_xray_lines",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.LINES, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    /** Bounding box bracket quads — QUADS mode ensures visibility from any angle */
-    private static final RenderType BRACKET_QUADS = RenderType.create(
-            "rtsbuilding_bracket_quads",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.LEQUAL_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final RenderType TARGET_NO_DEPTH_QUADS = RenderType.create(
-            "rtsbuilding_target_no_depth_quads",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final RenderType CULLING_HANDLE_NO_DEPTH_FILL = RenderType.create(
-            "rtsbuilding_culling_handle_no_depth_fill",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final RenderType CULLING_HANDLE_NO_DEPTH_LINES = RenderType.create(
-            "rtsbuilding_culling_handle_no_depth_lines",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.LINES, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    /** 使用原版 forcefield 纹理渲染 RTS 边界，避免发布包携带额外小资源。 */
-    private static final RenderType BOUNDARY_BARRIER = RenderType.entityTranslucent(
-            ResourceLocation.fromNamespaceAndPath("minecraft", "textures/misc/forcefield.png"));
-
-    private static final RenderType LINES = RenderType.lines();
-    private static final RenderType FILLED_BOX = RenderType.debugFilledBox();
-
-    // ===== Backing buffers =====
-
-    private static final ByteBufferBuilder CHUNK_FILL_BACKING = new ByteBufferBuilder(CHUNK_XRAY_FILL.bufferSize());
-    private static final ByteBufferBuilder CHUNK_LINE_BACKING = new ByteBufferBuilder(CHUNK_XRAY_LINES.bufferSize());
-    private static final ByteBufferBuilder LINE_BACKING = new ByteBufferBuilder(LINES.bufferSize());
-    private static final ByteBufferBuilder FILL_BACKING = new ByteBufferBuilder(FILLED_BOX.bufferSize());
-    private static final ByteBufferBuilder BRACKET_BACKING = new ByteBufferBuilder(BRACKET_QUADS.bufferSize());
-    private static final ByteBufferBuilder TARGET_NO_DEPTH_BACKING = new ByteBufferBuilder(TARGET_NO_DEPTH_QUADS.bufferSize());
-    private static final ByteBufferBuilder BOUNDARY_BARRIER_BACKING = new ByteBufferBuilder(BOUNDARY_BARRIER.bufferSize());
-    private static final ByteBufferBuilder CULLING_HANDLE_FILL_BACKING = new ByteBufferBuilder(CULLING_HANDLE_NO_DEPTH_FILL.bufferSize());
-    private static final ByteBufferBuilder CULLING_HANDLE_LINE_BACKING = new ByteBufferBuilder(CULLING_HANDLE_NO_DEPTH_LINES.bufferSize());
-
-    private RtsVisualOverlayRenderer() {}
+    private RtsVisualOverlayRenderer() {
+    }
 
     @SubscribeEvent
-    public static void onRenderLevel(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+    public static void onRenderWorldLast(RenderWorldLastEvent event) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft == null || minecraft.world == null || minecraft.player == null) return;
 
         ClientRtsController controller = ClientRtsController.get();
-        if (!controller.hasBounds()) return;
+        if (controller == null || !controller.hasBounds()) return;
 
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null) return;
+        RenderManager manager = minecraft.getRenderManager();
+        Vec3d camera = new Vec3d(manager.viewerPosX, manager.viewerPosY, manager.viewerPosZ);
 
-        Vec3 camPos = event.getCamera().getPosition();
-        PoseStack poseStack = event.getPoseStack();
-        poseStack.pushPose();
+        // 顺序与 1.21 主线一致：先环境引导，再交互/建造，最后覆盖型预览和动画。
+        if (controller.isChunkCurtainVisible()) {
+            ChunkGuideRenderer.renderChunkGuides(minecraft, camera);
+        }
+
+        double radius = controller.getMaxRadius();
+        double minX = controller.getAnchorX() - radius;
+        double maxX = controller.getAnchorX() + radius;
+        double minZ = controller.getAnchorZ() - radius;
+        double maxZ = controller.getAnchorZ() + radius;
+        BoundaryLineRenderer.renderBarrierBoundary(
+                minX, minZ, maxX, maxZ, controller.getAnchorY(), minecraft.world);
+        StorageRenderer.renderLinkedStorages(minecraft, controller);
+        InteractionTargetRenderer.renderHoveredInteractionTarget(minecraft, controller);
+        PlayerMoveTargetRenderer.render(minecraft);
+
+        renderCallerBufferedLayers(minecraft, manager);
+        PlacedBlockRotationHandleRenderer.render(minecraft);
+        RtsCullingRenderer.render();
+        BlueprintCaptureRenderer.renderBlueprintCaptureBox();
+        BlueprintGhostRenderer.renderBlueprintGhostPreview(minecraft);
+        PlacementAnimationRenderer.render(minecraft);
+    }
+
+    private static void renderCallerBufferedLayers(Minecraft minecraft, RenderManager manager) {
+        LINE_BUFFER.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+        LINE_BUFFER.setTranslation(-manager.viewerPosX, -manager.viewerPosY, -manager.viewerPosZ);
         try {
-            poseStack.translate(-camPos.x, -camPos.y, -camPos.z);
+            FILL_BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+            FILL_BUFFER.setTranslation(-manager.viewerPosX, -manager.viewerPosY, -manager.viewerPosZ);
+        } catch (RuntimeException exception) {
+            discard(LINE_BUFFER);
+            resetTranslations();
+            throw exception;
+        }
 
-            // 1. Chunk guide grid (X-ray)
-            if (controller.isChunkCurtainVisible()) {
-                renderChunkGuides(minecraft, camPos, poseStack);
-            }
+        try {
+            ShapeGhostRenderer.renderShapeGhostPreview(minecraft, LINE_BUFFER, FILL_BUFFER);
+            AdvancedShapeSelectionBoxRenderer.render(minecraft, LINE_BUFFER, FILL_BUFFER);
+            drawPrivateBuffers();
+        } catch (RuntimeException exception) {
+            discard(LINE_BUFFER);
+            discard(FILL_BUFFER);
+            resetTranslations();
+            throw exception;
+        }
+    }
 
-            // 2. General render pipeline (lines + filledBox + brackets)
-            double ax = controller.getAnchorX(), ay = controller.getAnchorY(), az = controller.getAnchorZ();
-            double r = controller.getMaxRadius();
-            double minX = ax - r, maxX = ax + r, minZ = az - r, maxZ = az + r;
-
-            BufferBuilder lineBuffer = bufferFor(LINES, LINE_BACKING);
-            BufferBuilder fillBuffer = bufferFor(FILLED_BOX, FILL_BACKING);
-            BufferBuilder bracketBuffer = bufferFor(BRACKET_QUADS, BRACKET_BACKING);
-            BufferBuilder targetNoDepthBuffer = bufferFor(TARGET_NO_DEPTH_QUADS, TARGET_NO_DEPTH_BACKING);
-            BufferBuilder cullingHandleFillBuffer = bufferFor(CULLING_HANDLE_NO_DEPTH_FILL, CULLING_HANDLE_FILL_BACKING);
-            BufferBuilder cullingHandleLineBuffer = bufferFor(CULLING_HANDLE_NO_DEPTH_LINES, CULLING_HANDLE_LINE_BACKING);
-
-            BufferBuilder barrierBuffer = bufferFor(BOUNDARY_BARRIER, BOUNDARY_BARRIER_BACKING);
-
-            BoundaryLineRenderer.renderBarrierBoundary(poseStack, barrierBuffer, minX, minZ, maxX, maxZ, ay, minecraft.level);
-            StorageRenderer.renderLinkedStorages(minecraft, controller, poseStack, bracketBuffer);
-            InteractionTargetRenderer.renderHoveredInteractionTarget(minecraft, controller, poseStack, bracketBuffer, targetNoDepthBuffer);
-            PlayerMoveTargetRenderer.render(minecraft, poseStack, bracketBuffer, targetNoDepthBuffer);
-            ShapeGhostRenderer.renderShapeGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
-            PlacedBlockRotationHandleRenderer.render(
-                    minecraft,
-                    poseStack,
-                    cullingHandleLineBuffer,
-                    cullingHandleFillBuffer);
-            AdvancedShapeSelectionBoxRenderer.render(minecraft, poseStack, cullingHandleLineBuffer, cullingHandleFillBuffer);
-            RtsCullingRenderer.render(poseStack, lineBuffer, fillBuffer, cullingHandleLineBuffer, cullingHandleFillBuffer);
-            BlueprintCaptureRenderer.renderBlueprintCaptureBox(
-                    poseStack,
-                    lineBuffer,
-                    fillBuffer,
-                    cullingHandleLineBuffer,
-                    cullingHandleFillBuffer);
-            BlueprintGhostRenderer.renderBlueprintGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
-            PlacementAnimationRenderer.render(minecraft, poseStack, lineBuffer, fillBuffer);
-
-            drawIfNotEmpty(BOUNDARY_BARRIER, barrierBuffer);
-            drawIfNotEmpty(LINES, lineBuffer);
-            drawIfNotEmpty(FILLED_BOX, fillBuffer);
-            drawBrackets(bracketBuffer);
-            drawNoDepth(TARGET_NO_DEPTH_QUADS, targetNoDepthBuffer);
-            drawNoDepth(CULLING_HANDLE_NO_DEPTH_FILL, cullingHandleFillBuffer);
-            drawNoDepth(CULLING_HANDLE_NO_DEPTH_LINES, cullingHandleLineBuffer);
+    private static void drawPrivateBuffers() {
+        GlSnapshot snapshot = GlSnapshot.capture();
+        try {
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(
+                    GlStateManager.SourceFactor.SRC_ALPHA,
+                    GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                    GlStateManager.SourceFactor.ONE,
+                    GlStateManager.DestFactor.ZERO);
+            GlStateManager.disableTexture2D();
+            GlStateManager.disableCull();
+            GlStateManager.depthMask(false);
+            uploadOrDiscard(FILL_BUFFER);
+            GlStateManager.glLineWidth(1.5F);
+            uploadOrDiscard(LINE_BUFFER);
         } finally {
-            poseStack.popPose();
+            resetTranslations();
+            snapshot.restore();
         }
     }
 
-    private static void renderChunkGuides(Minecraft minecraft, Vec3 camPos, PoseStack poseStack) {
-        BufferBuilder fillBuffer = bufferFor(CHUNK_XRAY_FILL, CHUNK_FILL_BACKING);
-        BufferBuilder lineBuffer = bufferFor(CHUNK_XRAY_LINES, CHUNK_LINE_BACKING);
-        ChunkGuideRenderer.renderChunkGuides(minecraft, camPos, poseStack, fillBuffer, lineBuffer);
-        drawNoDepth(CHUNK_XRAY_FILL, fillBuffer);
-        drawNoDepth(CHUNK_XRAY_LINES, lineBuffer);
-    }
-
-    // ===== Utility methods =====
-
-    private static BufferBuilder bufferFor(RenderType type, ByteBufferBuilder backing) {
-        return new BufferBuilder(backing, type.mode, type.format);
-    }
-
-    private static void drawIfNotEmpty(RenderType type, BufferBuilder buffer) {
-        MeshData data = buffer.build();
-        if (data != null) type.draw(data);
-    }
-
-    /** Draws interaction target bounding boxes (uses polygon offset to prevent Z-fighting) */
-    private static void drawBrackets(BufferBuilder buffer) {
-        MeshData data = buffer.build();
-        if (data != null) {
-            RenderSystem.enablePolygonOffset();
-            RenderSystem.polygonOffset(-1.0F, -1.0F);
-            BRACKET_QUADS.draw(data);
-            RenderSystem.polygonOffset(0.0F, 0.0F);
-            RenderSystem.disablePolygonOffset();
+    private static void uploadOrDiscard(BufferBuilder buffer) {
+        if (buffer.getVertexCount() > 0) {
+            UPLOADER.draw(buffer);
+        } else {
+            discard(buffer);
         }
     }
 
-    /** Draws with depth test disabled (X-ray see-through effect) */
-    private static void drawNoDepth(RenderType type, BufferBuilder buffer) {
-        MeshData data = buffer.build();
-        if (data != null) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            type.draw(data);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
-            RenderSystem.depthFunc(GL_LEQUAL);
+    private static void discard(BufferBuilder buffer) {
+        try {
+            buffer.finishDrawing();
+        } catch (IllegalStateException ignored) {
+            // 仅清理本类私有缓冲；上传器可能已经结束了它。
+        }
+        buffer.reset();
+    }
+
+    private static void resetTranslations() {
+        LINE_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
+        FILL_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
+    }
+
+    /** 精确恢复总入口本身修改的兼容管线状态。 */
+    private static final class GlSnapshot {
+        private final boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
+        private final boolean texture = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+        private final boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        private final boolean depth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        private final boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        private final float lineWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
+        private final int blendSrcRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+        private final int blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+        private final int blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+        private final int blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+        private final float[] color = currentColor();
+
+        private static GlSnapshot capture() {
+            return new GlSnapshot();
+        }
+
+        private void restore() {
+            GlStateManager.tryBlendFuncSeparate(
+                    this.blendSrcRgb, this.blendDstRgb, this.blendSrcAlpha, this.blendDstAlpha);
+            set(GL11.GL_BLEND, this.blend);
+            set(GL11.GL_TEXTURE_2D, this.texture);
+            set(GL11.GL_CULL_FACE, this.cull);
+            set(GL11.GL_DEPTH_TEST, this.depth);
+            GlStateManager.depthMask(this.depthMask);
+            GlStateManager.glLineWidth(this.lineWidth);
+            GlStateManager.color(this.color[0], this.color[1], this.color[2], this.color[3]);
+        }
+
+        private static float[] currentColor() {
+            FloatBuffer values = BufferUtils.createFloatBuffer(4);
+            GL11.glGetFloat(GL11.GL_CURRENT_COLOR, values);
+            return new float[] {values.get(0), values.get(1), values.get(2), values.get(3)};
+        }
+
+        private static void set(int capability, boolean enabled) {
+            if (enabled) GL11.glEnable(capability); else GL11.glDisable(capability);
         }
     }
 }

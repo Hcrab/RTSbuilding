@@ -1,14 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.FontRenderer;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.text;
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.trim;
@@ -24,7 +23,7 @@ final class BlueprintNameDialog {
     }
 
     /** 直接消费 Core 快照，避免生产窗与离屏窗各自拼装一套字段。 */
-    static void renderCoreContent(GuiGraphics g, Font font, int x, int y, int w, int h,
+    static void renderCoreContent(LegacyGuiGraphics g, FontRenderer font, int x, int y, int w, int h,
             int mouseX, int mouseY, BlueprintUiState state) {
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         int textY = y + BlueprintWindowLayout.NAME_SUMMARY_TOP;
@@ -99,15 +98,15 @@ final class BlueprintNameDialog {
     }
 
     /** 当前窗口化命名流程使用共享九宫格。 */
-    private static void drawCoreButton(GuiGraphics g, Font font, MinecraftUiCanvas canvas,
+    private static void drawCoreButton(LegacyGuiGraphics g, FontRenderer font, MinecraftUiCanvas canvas,
             int x, int y, int w, int h, String label, boolean hovered) {
         UiChromeRenderer.frame(canvas, new UiRect(x, y, w, h), 1.0D,
                 hovered ? BlueprintDialogStyle.BUTTON_HOVER_BACKGROUND
                         : BlueprintDialogStyle.BUTTON_BACKGROUND,
                 BlueprintDialogStyle.BUTTON_BORDER, BlueprintDialogStyle.BUTTON_DARK_BORDER);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, font,
-                trim(font, label, w - BlueprintWindowLayout.NAME_BUTTON_TEXT_INSET),
-                x + w / 2, y + BlueprintWindowLayout.NAME_BUTTON_TEXT_TOP,
-                BlueprintDialogStyle.PRIMARY_TEXT.toArgb());
+        String fitted = trim(font, label, w - BlueprintWindowLayout.NAME_BUTTON_TEXT_INSET);
+        g.drawString(font, fitted, x + (w - font.getStringWidth(fitted)) / 2,
+                y + BlueprintWindowLayout.NAME_BUTTON_TEXT_TOP,
+                BlueprintDialogStyle.PRIMARY_TEXT.toArgb(), false);
     }
 }

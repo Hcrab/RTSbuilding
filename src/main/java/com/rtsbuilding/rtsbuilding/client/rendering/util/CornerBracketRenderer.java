@@ -1,192 +1,78 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.renderer.BufferBuilder;
 
-/**
- * Renders thickened corner brackets around an AABB using quad-based geometry.
- *
- * <p>Each bracket segment is drawn as two perpendicular quads forming a cross-shaped
- * cross-section, giving visible thickness from any viewing angle. The thickness
- * automatically scales with distance beyond {@link #THICKNESS_SCALE_DISTANCE} so
- * brackets remain clearly visible far away.
- *
- * <p>All methods are static; this class is never instantiated.
- */
+/** 向 1.12 POSITION_COLOR 私有缓冲追加有体感宽度的包围盒角框。 */
 public final class CornerBracketRenderer {
-
-    /** Base half-thickness (in world units) of each bracket quad. */
     private static final double BRACKET_THICKNESS = 0.04D;
-
-    /**
-     * Distance threshold (in blocks) at which bracket thickness begins to scale up.
-     * Beyond this distance the thickness grows proportionally so brackets stay visible.
-     */
     private static final double THICKNESS_SCALE_DISTANCE = 16.0D;
 
-    /** Axis along which a bracket segment extends. Used to determine which quad faces to draw. */
     private enum Axis { X, Y, Z }
 
     private CornerBracketRenderer() {
     }
 
-    /**
-     * Renders thickened corner brackets around an AABB using quad-based geometry.
-     *
-     * @param poseStack current transformation stack
-     * @param consumer  vertex consumer for bracket quads
-     * @param minX      AABB minimum X (world space)
-     * @param minY      AABB minimum Y (world space)
-     * @param minZ      AABB minimum Z (world space)
-     * @param maxX      AABB maximum X (world space)
-     * @param maxY      AABB maximum Y (world space)
-     * @param maxZ      AABB maximum Z (world space)
-     * @param r         red   colour component [0, 1]
-     * @param g         green colour component [0, 1]
-     * @param b         blue  colour component [0, 1]
-     * @param distance  camera-to-target distance (used for thickness scaling)
-     */
-    public static void renderCornerBrackets(PoseStack poseStack, VertexConsumer consumer,
+    public static void renderCornerBrackets(BufferBuilder buffer,
             double minX, double minY, double minZ,
             double maxX, double maxY, double maxZ,
-            float r, float g, float b,
-            double distance) {
-        renderCornerBrackets(poseStack, consumer, minX, minY, minZ, maxX, maxY, maxZ, r, g, b, 1.0F, distance);
+            float red, float green, float blue, double distance) {
+        renderCornerBrackets(buffer, minX, minY, minZ, maxX, maxY, maxZ,
+                red, green, blue, 1.0F, distance, 1.0D);
     }
 
-    /**
-     * Renders thickened corner brackets with configurable alpha.
-     *
-     * @param poseStack current transformation stack
-     * @param consumer  vertex consumer for bracket quads
-     * @param minX      AABB minimum X (world space)
-     * @param minY      AABB minimum Y (world space)
-     * @param minZ      AABB minimum Z (world space)
-     * @param maxX      AABB maximum X (world space)
-     * @param maxY      AABB maximum Y (world space)
-     * @param maxZ      AABB maximum Z (world space)
-     * @param r         red   colour component [0, 1]
-     * @param g         green colour component [0, 1]
-     * @param b         blue  colour component [0, 1]
-     * @param a         alpha component [0, 1]
-     * @param distance  camera-to-target distance (used for thickness scaling)
-     */
-    public static void renderCornerBrackets(PoseStack poseStack, VertexConsumer consumer,
+    public static void renderCornerBrackets(BufferBuilder buffer,
             double minX, double minY, double minZ,
             double maxX, double maxY, double maxZ,
-            float r, float g, float b, float a,
-            double distance) {
-        renderCornerBrackets(poseStack, consumer, minX, minY, minZ, maxX, maxY, maxZ, r, g, b, a, distance, 1.0D);
+            float red, float green, float blue, float alpha, double distance) {
+        renderCornerBrackets(buffer, minX, minY, minZ, maxX, maxY, maxZ,
+                red, green, blue, alpha, distance, 1.0D);
     }
 
-    /**
-     * Renders thickened corner brackets with a caller-controlled thickness multiplier.
-     */
-    public static void renderCornerBrackets(PoseStack poseStack, VertexConsumer consumer,
+    public static void renderCornerBrackets(BufferBuilder buffer,
             double minX, double minY, double minZ,
             double maxX, double maxY, double maxZ,
-            float r, float g, float b, float a,
+            float red, float green, float blue, float alpha,
             double distance, double thicknessMultiplier) {
-
-        double scaledThickness = BRACKET_THICKNESS
-                * Math.max(0.25D, thicknessMultiplier)
-                * Math.max(1.0D, distance / THICKNESS_SCALE_DISTANCE);
-        double halfThick = scaledThickness * 0.5D;
-
-        // Bottom horizontal ring
-        drawHorizontalRing(consumer, poseStack, minX, minZ, maxX, maxZ, minY, r, g, b, a, halfThick);
-        // Top horizontal ring
-        drawHorizontalRing(consumer, poseStack, minX, minZ, maxX, maxZ, maxY, r, g, b, a, halfThick);
-        // Vertical edges at the four corners
-        drawVerticalEdges(consumer, poseStack, minX, minZ, maxX, maxZ, minY, maxY, r, g, b, a, halfThick);
+        if (buffer == null) return;
+        double thickness = BRACKET_THICKNESS * Math.max(0.25D, thicknessMultiplier)
+                * Math.max(1.0D, distance / THICKNESS_SCALE_DISTANCE) * 0.5D;
+        horizontalRing(buffer, minX, minZ, maxX, maxZ, minY,
+                red, green, blue, alpha, thickness);
+        horizontalRing(buffer, minX, minZ, maxX, maxZ, maxY,
+                red, green, blue, alpha, thickness);
+        segment(buffer, minX,minY,minZ,minX,maxY,minZ,red,green,blue,alpha,Axis.Y,thickness);
+        segment(buffer, maxX,minY,minZ,maxX,maxY,minZ,red,green,blue,alpha,Axis.Y,thickness);
+        segment(buffer, maxX,minY,maxZ,maxX,maxY,maxZ,red,green,blue,alpha,Axis.Y,thickness);
+        segment(buffer, minX,minY,maxZ,minX,maxY,maxZ,red,green,blue,alpha,Axis.Y,thickness);
     }
 
-    /**
-     * Draws the four horizontal bracket segments at a given Y-level, forming a rectangular
-     * ring. Each segment is a thickened quad extruded along the plane's dominant axis.
-     */
-    private static void drawHorizontalRing(VertexConsumer consumer, PoseStack poseStack,
-            double minX, double minZ, double maxX, double maxZ,
-            double y, float r, float g, float b, float a, double t) {
-        // X-aligned segment at Z = minZ  (front)
-        drawBracketSegment(consumer, poseStack, minX, y, minZ, maxX, y, minZ, r, g, b, a, Axis.X, t);
-        // Z-aligned segment at X = maxX  (right)
-        drawBracketSegment(consumer, poseStack, maxX, y, minZ, maxX, y, maxZ, r, g, b, a, Axis.Z, t);
-        // X-aligned segment at Z = maxZ  (back)
-        drawBracketSegment(consumer, poseStack, maxX, y, maxZ, minX, y, maxZ, r, g, b, a, Axis.X, t);
-        // Z-aligned segment at X = minX  (left)
-        drawBracketSegment(consumer, poseStack, minX, y, maxZ, minX, y, minZ, r, g, b, a, Axis.Z, t);
+    private static void horizontalRing(BufferBuilder buffer,
+            double minX, double minZ, double maxX, double maxZ, double y,
+            float red, float green, float blue, float alpha, double thickness) {
+        segment(buffer,minX,y,minZ,maxX,y,minZ,red,green,blue,alpha,Axis.X,thickness);
+        segment(buffer,maxX,y,minZ,maxX,y,maxZ,red,green,blue,alpha,Axis.Z,thickness);
+        segment(buffer,maxX,y,maxZ,minX,y,maxZ,red,green,blue,alpha,Axis.X,thickness);
+        segment(buffer,minX,y,maxZ,minX,y,minZ,red,green,blue,alpha,Axis.Z,thickness);
     }
 
-    /**
-     * Draws the four vertical bracket segments at the four corners of the AABB.
-     */
-    private static void drawVerticalEdges(VertexConsumer consumer, PoseStack poseStack,
-            double minX, double minZ, double maxX, double maxZ,
-            double minY, double maxY, float r, float g, float b, float a, double t) {
-        // Y-aligned at (minX, minZ)
-        drawBracketSegment(consumer, poseStack, minX, minY, minZ, minX, maxY, minZ, r, g, b, a, Axis.Y, t);
-        // Y-aligned at (maxX, minZ)
-        drawBracketSegment(consumer, poseStack, maxX, minY, minZ, maxX, maxY, minZ, r, g, b, a, Axis.Y, t);
-        // Y-aligned at (maxX, maxZ)
-        drawBracketSegment(consumer, poseStack, maxX, minY, maxZ, maxX, maxY, maxZ, r, g, b, a, Axis.Y, t);
-        // Y-aligned at (minX, maxZ)
-        drawBracketSegment(consumer, poseStack, minX, minY, maxZ, minX, maxY, maxZ, r, g, b, a, Axis.Y, t);
-    }
-
-    /**
-     * Draws a single thickened bracket segment from (x1, y1, z1) to (x2, y2, z2).
-     * The segment is rendered as two perpendicular quads that form a cross-shaped cross-section,
-     * giving the line visible thickness from any viewing angle.
-     */
-    private static void drawBracketSegment(VertexConsumer consumer, PoseStack poseStack,
-            double x1, double y1, double z1,
-            double x2, double y2, double z2,
-            float r, float g, float b, float a, Axis axis,
-            double t) {
+    private static void segment(BufferBuilder buffer,
+            double x1,double y1,double z1,double x2,double y2,double z2,
+            float red,float green,float blue,float alpha,Axis axis,double t) {
         switch (axis) {
-            case X -> {
-                // Quad expanding in Y: faces YZ-plane
-                RenderingUtil.quad(consumer, poseStack,
-                        x1, y1 - t, z1,
-                        x1, y1 + t, z1,
-                        x2, y2 + t, z2,
-                        x2, y2 - t, z2, r, g, b, a);
-                // Quad expanding in Z: faces XY-plane
-                RenderingUtil.quad(consumer, poseStack,
-                        x1, y1, z1 - t,
-                        x1, y1, z1 + t,
-                        x2, y2, z2 + t,
-                        x2, y2, z2 - t, r, g, b, a);
-            }
-            case Y -> {
-                // Quad expanding in Z: faces XZ-plane
-                RenderingUtil.quad(consumer, poseStack,
-                        x1, y1, z1 - t,
-                        x1, y1, z1 + t,
-                        x2, y2, z2 + t,
-                        x2, y2, z2 - t, r, g, b, a);
-                // Quad expanding in X: faces YZ-plane
-                RenderingUtil.quad(consumer, poseStack,
-                        x1 - t, y1, z1,
-                        x1 + t, y1, z1,
-                        x2 + t, y2, z2,
-                        x2 - t, y2, z2, r, g, b, a);
-            }
-            case Z -> {
-                // Quad expanding in X: faces YZ-plane
-                RenderingUtil.quad(consumer, poseStack,
-                        x1 - t, y1, z1,
-                        x1 + t, y1, z1,
-                        x2 + t, y2, z2,
-                        x2 - t, y2, z2, r, g, b, a);
-                // Quad expanding in Y: faces XZ-plane
-                RenderingUtil.quad(consumer, poseStack,
-                        x1, y1 - t, z1,
-                        x1, y1 + t, z1,
-                        x2, y2 + t, z2,
-                        x2, y2 - t, z2, r, g, b, a);
-            }
+            case X:
+                RenderingUtil.quad(buffer,x1,y1-t,z1,x1,y1+t,z1,x2,y2+t,z2,x2,y2-t,z2,red,green,blue,alpha);
+                RenderingUtil.quad(buffer,x1,y1,z1-t,x1,y1,z1+t,x2,y2,z2+t,x2,y2,z2-t,red,green,blue,alpha);
+                break;
+            case Y:
+                RenderingUtil.quad(buffer,x1,y1,z1-t,x1,y1,z1+t,x2,y2,z2+t,x2,y2,z2-t,red,green,blue,alpha);
+                RenderingUtil.quad(buffer,x1-t,y1,z1,x1+t,y1,z1,x2+t,y2,z2,x2-t,y2,z2,red,green,blue,alpha);
+                break;
+            case Z:
+                RenderingUtil.quad(buffer,x1-t,y1,z1,x1+t,y1,z1,x2+t,y2,z2,x2-t,y2,z2,red,green,blue,alpha);
+                RenderingUtil.quad(buffer,x1,y1-t,z1,x1,y1+t,z1,x2,y2+t,z2,x2,y2-t,z2,red,green,blue,alpha);
+                break;
+            default:
+                break;
         }
     }
 }

@@ -2,17 +2,19 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
+import java.util.Collections;
 
 /**
  * Window-layer shell for blueprint save/rename naming.
@@ -44,18 +46,19 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         BlueprintUiState state = BlueprintUiStateAdapter.snapshot();
         if (!state.nameWindowOpen) {
             return;
         }
-        BlueprintNameDialog.renderCoreContent(g, screen.font(), contentX(), contentY(),
+        BlueprintNameDialog.renderCoreContent(g,
+                net.minecraft.client.Minecraft.getMinecraft().fontRenderer, contentX(), contentY(),
                 contentWidth(), contentHeight(), mouseX, mouseY, state);
     }
 
     @Override
     protected void handleContentClick(double mouseX, double mouseY, int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !BlueprintUiStateAdapter.snapshot().nameWindowOpen) {
+        if (button != 0 || !BlueprintUiStateAdapter.snapshot().nameWindowOpen) {
             return;
         }
         BlueprintNameDialog.ClickResult click = BlueprintNameDialog.clickContent(
@@ -77,13 +80,13 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
         if (!state.nameWindowOpen) {
             return false;
         }
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
                     BlueprintUiAction.Type.CONFIRM_NAME), controller);
             setOpen(false);
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+        if (keyCode == Keyboard.KEY_BACK) {
             BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
                     BlueprintUiAction.Type.BACKSPACE_NAME), controller);
             return true;
@@ -109,8 +112,8 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable(BlueprintUiStateAdapter.snapshot().captureNameMode
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation(BlueprintUiStateAdapter.snapshot().captureNameMode
                 ? "screen.rtsbuilding.blueprints.name_dialog_capture_title"
                 : "screen.rtsbuilding.blueprints.name_dialog_rename_title");
     }
@@ -143,11 +146,11 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
     @Override
     protected void computeDefaultPosition() {
         this.windowX = Math.max(8, (this.screen.width - this.windowWidth) / 2);
-        this.windowY = Mth.clamp((this.screen.height - this.windowHeight) / 2,
+        this.windowY = MathHelper.clamp((this.screen.height - this.windowHeight) / 2,
                 24, Math.max(24, this.screen.height - this.windowHeight - 8));
     }
 
-    private final List<PersistableProperty> properties = List.of(
+    private final List<PersistableProperty> properties = Collections.singletonList(
             PersistableProperty.bounds("blueprint_name", this)
     );
 

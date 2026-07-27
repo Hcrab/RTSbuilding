@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintLibraryChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.FontRenderer;
 
 import java.util.List;
 
@@ -26,8 +26,8 @@ final class BlueprintLibraryRowRenderer {
     }
 
     static void render(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             MinecraftUiCanvas canvas,
             BlueprintLibraryLayout.Geometry geometry,
             BlueprintLibraryUiState state,
@@ -100,8 +100,8 @@ final class BlueprintLibraryRowRenderer {
     }
 
     private static void drawText(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BlueprintLibraryLayout.RowGeometry geometry,
             BlueprintLibraryUiEntry entry,
             boolean showActions) {

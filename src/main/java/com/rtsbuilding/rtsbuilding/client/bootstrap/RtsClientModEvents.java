@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraRenderSync;
+import com.rtsbuilding.rtsbuilding.client.rendering.RtsVisualOverlayRenderer;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.ModelRegistryEvent;
@@ -41,6 +42,7 @@ public final class RtsClientModEvents {
         RenderingRegistry.registerEntityRenderingHandler(
                 RtsCameraEntity.class, RtsCameraEntityRenderer::new);
         MinecraftForge.EVENT_BUS.register(RtsCameraRenderSync.INSTANCE);
+        MinecraftForge.EVENT_BUS.register(RtsVisualOverlayRenderer.class);
         initializeMovementModes();
         registered = true;
 

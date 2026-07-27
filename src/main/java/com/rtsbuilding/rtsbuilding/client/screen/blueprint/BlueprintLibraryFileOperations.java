@@ -1,351 +1,332 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
-import net.minecraft.Util;
-import org.lwjgl.PointerBuffer;
-import org.lwjgl.system.MemoryStack;
-import org.lwjgl.util.tinyfd.TinyFileDialogs;
 
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileNameExtensionFilter;
+import java.awt.Desktop;
+import java.awt.GraphicsEnvironment;
+import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelFiles.*;
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.text;
 import static com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload.*;
 
 /**
- * 本地蓝图库的对话框和文件系统操作边界。
- *
- * <p>负责打开目录、导入、Create 蓝图同步、另存为、重命名和删除。操作结果只描述是否
- * 需要重载、如何恢复选择以及应显示的状态；它不修改 {@link BlueprintPanel} 的选择、
- * 滚动、捕获、放置或弹窗状态，也不拥有蓝图列表。这样文件 I/O 失败不会把 UI 状态机的
- * 中间字段散落到每个异常分支。</p>
+ * 蓝图库的文件系统边界。内部写入都先规范化并锁在蓝图目录，文件选择器只负责显式导入/导出。
  */
 final class BlueprintLibraryFileOperations {
-    enum SelectionMode {
-        NONE,
-        INDEX_ONLY,
-        FULL
+    enum SelectionMode { NONE, INDEX_ONLY, FULL }
+
+    static final class Result {
+        private final boolean reload;
+        private final String selectedFileName;
+        private final SelectionMode selectionMode;
+        private final Byte status;
+        private final String messageKey;
+        private final String detail;
+
+        Result(boolean reload, String selectedFileName, SelectionMode selectionMode, Byte status,
+                String messageKey, String detail) {
+            this.reload = reload;
+            this.selectedFileName = selectedFileName == null ? "" : selectedFileName;
+            this.selectionMode = selectionMode == null ? SelectionMode.NONE : selectionMode;
+            this.status = status;
+            this.messageKey = messageKey == null ? "" : messageKey;
+            this.detail = detail == null ? "" : detail;
+        }
+
+        boolean reload() { return reload; }
+        String selectedFileName() { return selectedFileName; }
+        SelectionMode selectionMode() { return selectionMode; }
+        Byte status() { return status; }
+        String messageKey() { return messageKey; }
+        String detail() { return detail; }
+
+        static Result status(byte status, String key, String detail) {
+            return new Result(false, "", SelectionMode.NONE, status, key, detail);
+        }
+
+        static Result reloadAndSelect(byte status, String key, String detail, String selected) {
+            return new Result(true, selected, SelectionMode.INDEX_ONLY, status, key, detail);
+        }
+
+        static Result selectFully(String selected) {
+            return new Result(false, selected, SelectionMode.FULL, null, "", "");
+        }
     }
 
-    record Result(
-            boolean reload,
-            String selectedFileName,
-            SelectionMode selectionMode,
-            Byte status,
-            String messageKey,
-            String detail) {
-        Result {
-            selectedFileName = selectedFileName == null ? "" : selectedFileName;
-            selectionMode = selectionMode == null ? SelectionMode.NONE : selectionMode;
-            messageKey = messageKey == null ? "" : messageKey;
-            detail = detail == null ? "" : detail;
+    static final class UploadReadResult {
+        private final byte[] data;
+        private final boolean tooLarge;
+        private final String errorDetail;
+
+        UploadReadResult(byte[] data, boolean tooLarge, String errorDetail) {
+            this.data = data == null ? new byte[0] : data;
+            this.tooLarge = tooLarge;
+            this.errorDetail = errorDetail == null ? "" : errorDetail;
         }
 
-        static Result status(byte status, String messageKey, String detail) {
-            return new Result(false, "", SelectionMode.NONE,
-                    status, messageKey, detail);
-        }
-
-        static Result reloadAndSelect(
-                byte status,
-                String messageKey,
-                String detail,
-                String selectedFileName) {
-            return new Result(true, selectedFileName, SelectionMode.INDEX_ONLY,
-                    status, messageKey, detail);
-        }
-
-        static Result selectFully(String selectedFileName) {
-            return new Result(false, selectedFileName, SelectionMode.FULL,
-                    null, "", "");
-        }
-    }
-
-    /**
-     * 放置上传前的本地文件读取结果。
-     *
-     * <p>这里只描述磁盘边界的结果，不发送网络包，也不改变蓝图选择或预览状态。</p>
-     */
-    record UploadReadResult(byte[] data, boolean tooLarge, String errorDetail) {
-        UploadReadResult {
-            data = data == null ? new byte[0] : data;
-            errorDetail = errorDetail == null ? "" : errorDetail;
-        }
-
-        boolean succeeded() {
-            return !tooLarge && errorDetail.isBlank();
-        }
+        byte[] data() { return data; }
+        boolean tooLarge() { return tooLarge; }
+        String errorDetail() { return errorDetail; }
+        boolean succeeded() { return !tooLarge && errorDetail.trim().isEmpty(); }
     }
 
     private BlueprintLibraryFileOperations() {}
 
-    /**
-     * 读取待上传的蓝图，并在文件跨过网络协议上限时提前拒绝。
-     */
     static UploadReadResult readForUpload(BlueprintEntry entry, int maxBytes) {
         if (entry == null || entry.path() == null) {
-            return new UploadReadResult(new byte[0], false, "Missing blueprint file");
+            return new UploadReadResult(null, false, "Missing blueprint file");
         }
         try {
-            byte[] data = Files.readAllBytes(entry.path());
+            Path source = requireLibraryFile(entry.path());
+            long size = Files.size(source);
+            if (size > maxBytes) return new UploadReadResult(null, true, "");
+            byte[] data = Files.readAllBytes(source);
             return new UploadReadResult(data, data.length > maxBytes, "");
-        } catch (IOException ex) {
-            return new UploadReadResult(new byte[0], false, ex.getMessage());
+        } catch (Exception ex) {
+            return new UploadReadResult(null, false, failureDetail(ex));
         }
     }
 
     static Result openFolder() {
-        Path folder = blueprintFolder();
         try {
+            Path folder = blueprintFolder();
             Files.createDirectories(folder);
-            Util.getPlatform().openFile(folder.toFile());
-            return Result.status(INFO,
-                    "screen.rtsbuilding.blueprints.status.folder_opened", "");
+            if (GraphicsEnvironment.isHeadless() || !Desktop.isDesktopSupported()) {
+                throw new IOException("Desktop folder opening is unavailable in this environment");
+            }
+            Desktop.getDesktop().open(folder.toFile());
+            return Result.status(INFO, "screen.rtsbuilding.blueprints.status.folder_opened", "");
         } catch (Exception ex) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.folder_failed",
-                    ex.getMessage());
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.folder_failed", failureDetail(ex));
         }
     }
 
     static Result importFile() {
-        String selected;
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            PointerBuffer filters = stack.mallocPointer(5);
-            filters.put(stack.UTF8("*.nbt"));
-            filters.put(stack.UTF8("*.schem"));
-            filters.put(stack.UTF8("*.schematic"));
-            filters.put(stack.UTF8("*.litematic"));
-            filters.put(stack.UTF8("*.json"));
-            filters.flip();
-            selected = TinyFileDialogs.tinyfd_openFileDialog(
-                    text("screen.rtsbuilding.blueprints.import_file"),
-                    null,
-                    filters,
-                    "Blueprint files",
-                    false);
+        final Path source;
+        try {
+            source = chooseFile(false, "nbt", null);
+        } catch (Exception ex) {
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.import_failed", failureDetail(ex));
         }
-        if (selected == null || selected.isBlank()) {
-            return Result.status(INFO,
-                    "screen.rtsbuilding.blueprints.status.import_cancelled", "");
-        }
-        Path source = Path.of(selected);
+        if (source == null) return Result.status(INFO, "screen.rtsbuilding.blueprints.status.import_cancelled", "");
         if (!Files.isRegularFile(source) || !isBlueprintFile(source)) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.invalid_file", "");
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.invalid_file", "");
         }
         try {
             Files.createDirectories(blueprintFolder());
-            Path dest = blueprintFolder().resolve(source.getFileName().toString());
-            Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
-            return Result.reloadAndSelect(
-                    SUCCESS,
-                    "screen.rtsbuilding.blueprints.status.imported",
-                    dest.getFileName().toString(),
-                    dest.getFileName().toString());
+            Path dest = resolveInBlueprintFolder(sanitizeImportedFileName(source.getFileName().toString()));
+            atomicCopy(source, dest, true);
+            return Result.reloadAndSelect(SUCCESS, "screen.rtsbuilding.blueprints.status.imported",
+                    dest.getFileName().toString(), dest.getFileName().toString());
         } catch (Exception ex) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.import_failed",
-                    ex.getMessage());
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.import_failed", failureDetail(ex));
         }
     }
 
     static Result syncOtherMods() {
-        List<Path> sourceFolders = otherModBlueprintFolders().stream()
-                .map(path -> path.toAbsolutePath().normalize())
-                .filter(Files::isDirectory)
-                .distinct()
-                .toList();
-        if (sourceFolders.isEmpty()) {
-            return Result.status(INFO,
-                    "screen.rtsbuilding.blueprints.status.create_sync_missing", "");
+        Set<Path> unique = new LinkedHashSet<Path>();
+        for (Path path : otherModBlueprintFolders()) {
+            Path normalized = path.toAbsolutePath().normalize();
+            if (Files.isDirectory(normalized)) unique.add(normalized);
         }
-        int copied = 0;
-        int skipped = 0;
-        int failed = 0;
+        if (unique.isEmpty()) return Result.status(INFO,
+                "screen.rtsbuilding.blueprints.status.create_sync_missing", "");
+        int copied = 0, skipped = 0, failed = 0;
         String lastCopied = "";
         try {
             Files.createDirectories(blueprintFolder());
-            Map<String, Path> filesByName = new LinkedHashMap<>();
-            for (Path sourceFolder : sourceFolders) {
-                try (var stream = Files.walk(sourceFolder, 3)) {
-                    stream.filter(Files::isRegularFile)
-                            .filter(BlueprintPanelFiles::isSyncBlueprintFile)
-                            .sorted(Comparator.comparing(
-                                    path -> path.getFileName().toString(),
-                                    String.CASE_INSENSITIVE_ORDER))
-                            .limit(512)
-                            .forEach(path -> filesByName.putIfAbsent(
-                                    path.getFileName().toString(), path));
-                } catch (IOException ex) {
-                    failed++;
-                }
+            Map<String, Path> filesByName = new LinkedHashMap<String, Path>();
+            for (Path sourceFolder : unique) {
+                try (Stream<Path> stream = Files.walk(sourceFolder, 3)) {
+                    List<Path> found = new ArrayList<Path>();
+                    stream.filter(Files::isRegularFile).filter(BlueprintPanelFiles::isSyncBlueprintFile)
+                            .limit(512).forEach(found::add);
+                    Collections.sort(found, Comparator.comparing(path -> path.getFileName().toString(),
+                            String.CASE_INSENSITIVE_ORDER));
+                    for (Path path : found) if (!filesByName.containsKey(path.getFileName().toString()))
+                        filesByName.put(path.getFileName().toString(), path);
+                } catch (IOException ex) { failed++; }
             }
             for (Map.Entry<String, Path> entry : filesByName.entrySet()) {
-                Path dest = blueprintFolder().resolve(entry.getKey());
-                if (Files.exists(dest)) {
-                    skipped++;
-                    continue;
-                }
-                try {
-                    Files.copy(entry.getValue(), dest);
-                    copied++;
-                    lastCopied = entry.getKey();
-                } catch (IOException ex) {
-                    failed++;
-                }
+                Path dest = resolveInBlueprintFolder(sanitizeImportedFileName(entry.getKey()));
+                if (Files.exists(dest)) { skipped++; continue; }
+                try { atomicCopy(entry.getValue(), dest, false); copied++; lastCopied = dest.getFileName().toString(); }
+                catch (IOException ex) { failed++; }
             }
             boolean reload = copied > 0;
-            String selected = reload ? lastCopied : "";
-            if (copied == 0 && skipped == 0 && failed == 0) {
-                return new Result(false, "", SelectionMode.NONE, INFO,
-                        "screen.rtsbuilding.blueprints.status.create_sync_empty", "");
-            }
-            if (failed > 0) {
-                return new Result(reload, selected, SelectionMode.INDEX_ONLY, ERROR,
-                        "screen.rtsbuilding.blueprints.status.create_sync_partial",
-                        copied + "/" + skipped + "/" + failed);
-            }
-            return new Result(reload, selected, SelectionMode.INDEX_ONLY, SUCCESS,
-                    "screen.rtsbuilding.blueprints.status.create_sync_done",
-                    copied + "/" + skipped);
+            if (copied == 0 && skipped == 0 && failed == 0) return new Result(false, "", SelectionMode.NONE,
+                    INFO, "screen.rtsbuilding.blueprints.status.create_sync_empty", "");
+            if (failed > 0) return new Result(reload, lastCopied, SelectionMode.INDEX_ONLY, ERROR,
+                    "screen.rtsbuilding.blueprints.status.create_sync_partial", copied + "/" + skipped + "/" + failed);
+            return new Result(reload, lastCopied, SelectionMode.INDEX_ONLY, SUCCESS,
+                    "screen.rtsbuilding.blueprints.status.create_sync_done", copied + "/" + skipped);
         } catch (Exception ex) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.create_sync_failed",
-                    ex.getMessage());
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.create_sync_failed", failureDetail(ex));
         }
     }
 
     static Result saveAs(BlueprintEntry entry) {
-        if (entry == null || !entry.error().isBlank()) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.no_selection", "");
-        }
-        String sourceExtension =
-                blueprintExtension(entry.fileName(), entry.format().extension());
-        String defaultFileName =
-                sanitizeFileBase(stripBlueprintExtension(entry.fileName()))
-                        + "." + sourceExtension;
-        String selected;
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-            PointerBuffer filters = stack.mallocPointer(1);
-            filters.put(stack.UTF8("*." + sourceExtension));
-            filters.flip();
-            selected = TinyFileDialogs.tinyfd_saveFileDialog(
-                    text("screen.rtsbuilding.blueprints.save_as_title"),
-                    blueprintFolder().resolve(defaultFileName).toString(),
-                    filters,
-                    "Blueprint files");
-        }
-        if (selected == null || selected.isBlank()) {
-            return Result.status(INFO,
-                    "screen.rtsbuilding.blueprints.status.export_cancelled", "");
-        }
-        Path dest = ensureExtension(Path.of(selected), sourceExtension);
+        if (entry == null || !entry.error().trim().isEmpty()) return Result.status(ERROR,
+                "screen.rtsbuilding.blueprints.status.no_selection", "");
+        String extension = blueprintExtension(entry.fileName(), entry.format().extension());
+        String defaultName = sanitizeFileBase(stripBlueprintExtension(entry.fileName())) + "." + extension;
+        final Path dest;
         try {
-            Path parent = dest.toAbsolutePath().getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            Path source = entry.path();
-            if (source != null && Files.isRegularFile(source)) {
-                Path normalizedSource = source.toAbsolutePath().normalize();
-                Path normalizedDest = dest.toAbsolutePath().normalize();
-                if (!normalizedSource.equals(normalizedDest)) {
-                    Files.copy(source, dest, StandardCopyOption.REPLACE_EXISTING);
-                }
-            } else {
-                BlueprintWriters.writeVanillaStructure(entry.blueprint(), dest);
-            }
-            return Result.status(
-                    SUCCESS,
-                    "screen.rtsbuilding.blueprints.status.exported",
-                    dest.getFileName() == null
-                            ? dest.toString()
-                            : dest.getFileName().toString());
+            dest = chooseFile(true, extension, blueprintFolder().resolve(defaultName));
         } catch (Exception ex) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.export_failed",
-                    ex.getMessage());
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.export_failed", failureDetail(ex));
+        }
+        if (dest == null) return Result.status(INFO, "screen.rtsbuilding.blueprints.status.export_cancelled", "");
+        Path output = ensureExtension(dest, extension).toAbsolutePath().normalize();
+        try {
+            Path parent = output.getParent();
+            if (parent != null) Files.createDirectories(parent);
+            Path source = entry.path();
+            if (source != null && Files.isRegularFile(source)) atomicCopy(requireLibraryFile(source), output, true);
+            else writeBlueprintAtomically(entry, output);
+            return Result.status(SUCCESS, "screen.rtsbuilding.blueprints.status.exported",
+                    output.getFileName() == null ? output.toString() : output.getFileName().toString());
+        } catch (Exception ex) {
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.export_failed", failureDetail(ex));
         }
     }
 
     static Result rename(BlueprintEntry entry, String requestedName) {
-        Path source = entry == null ? null : entry.path();
-        if (source == null || !Files.isRegularFile(source)) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.rename_failed",
-                    "Missing source file");
-        }
-        String extension =
-                blueprintExtension(entry.fileName(), entry.format().extension());
         try {
-            Files.createDirectories(blueprintFolder());
+            Path source = requireLibraryFile(entry == null ? null : entry.path());
+            if (!Files.isRegularFile(source)) throw new IOException("Missing source file");
+            String extension = blueprintExtension(entry.fileName(), entry.format().extension());
             Path dest = uniqueBlueprintPath(requestedName, extension, source);
-            if (source.toAbsolutePath().normalize()
-                    .equals(dest.toAbsolutePath().normalize())) {
-                return Result.selectFully(entry.fileName());
-            }
-            Files.move(source, dest);
-            IOException rotationError = BlueprintRotationDefaults.rename(
-                    entry.fileName(), dest.getFileName().toString());
-            if (rotationError == null) {
-                return Result.reloadAndSelect(
-                        SUCCESS,
-                        "screen.rtsbuilding.blueprints.status.renamed",
-                        dest.getFileName().toString(),
-                        dest.getFileName().toString());
-            }
-            return Result.reloadAndSelect(
-                    ERROR,
-                    "screen.rtsbuilding.blueprints.status.save_failed",
-                    rotationError.getMessage(),
-                    dest.getFileName().toString());
+            if (source.equals(dest.toAbsolutePath().normalize())) return Result.selectFully(entry.fileName());
+            try { Files.move(source, dest, StandardCopyOption.ATOMIC_MOVE); }
+            catch (AtomicMoveNotSupportedException ignored) { Files.move(source, dest); }
+            IOException rotationError = BlueprintRotationDefaults.rename(entry.fileName(), dest.getFileName().toString());
+            return rotationError == null
+                    ? Result.reloadAndSelect(SUCCESS, "screen.rtsbuilding.blueprints.status.renamed",
+                            dest.getFileName().toString(), dest.getFileName().toString())
+                    : Result.reloadAndSelect(ERROR, "screen.rtsbuilding.blueprints.status.save_failed",
+                            rotationError.getMessage(), dest.getFileName().toString());
         } catch (Exception ex) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.rename_failed",
-                    ex.getMessage());
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.rename_failed", failureDetail(ex));
         }
     }
 
     static Result delete(BlueprintEntry entry) {
-        boolean confirmed = TinyFileDialogs.tinyfd_messageBox(
-                text("screen.rtsbuilding.blueprints.delete_confirm_title"),
-                text("screen.rtsbuilding.blueprints.delete_confirm_message",
-                        entry.name()),
-                "yesno",
-                "warning",
-                false);
-        if (!confirmed) {
-            return Result.status(INFO,
-                    "screen.rtsbuilding.blueprints.status.delete_cancelled", "");
-        }
+        final boolean confirmed;
+        try { confirmed = confirmDelete(entry == null ? "" : entry.name()); }
+        catch (Exception ex) { return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.delete_failed", failureDetail(ex)); }
+        if (!confirmed) return Result.status(INFO, "screen.rtsbuilding.blueprints.status.delete_cancelled", "");
         try {
-            Path source = entry.path();
-            if (source != null) {
-                Files.deleteIfExists(source);
-            }
-            IOException rotationError =
-                    BlueprintRotationDefaults.remove(entry.fileName());
-            if (rotationError == null) {
-                return new Result(true, "", SelectionMode.NONE, SUCCESS,
-                        "screen.rtsbuilding.blueprints.status.deleted",
-                        entry.name());
-            }
-            return new Result(true, "", SelectionMode.NONE, ERROR,
-                    "screen.rtsbuilding.blueprints.status.save_failed",
-                    rotationError.getMessage());
+            Path source = requireLibraryFile(entry == null ? null : entry.path());
+            Files.deleteIfExists(source);
+            IOException rotationError = BlueprintRotationDefaults.remove(entry.fileName());
+            return rotationError == null
+                    ? new Result(true, "", SelectionMode.NONE, SUCCESS,
+                            "screen.rtsbuilding.blueprints.status.deleted", entry.name())
+                    : new Result(true, "", SelectionMode.NONE, ERROR,
+                            "screen.rtsbuilding.blueprints.status.save_failed", rotationError.getMessage());
         } catch (Exception ex) {
-            return Result.status(ERROR,
-                    "screen.rtsbuilding.blueprints.status.delete_failed",
-                    ex.getMessage());
+            return Result.status(ERROR, "screen.rtsbuilding.blueprints.status.delete_failed", failureDetail(ex));
         }
+    }
+
+    private static Path chooseFile(final boolean save, final String extension, final Path initial) throws Exception {
+        if (GraphicsEnvironment.isHeadless()) throw new IOException("File chooser unavailable in headless mode");
+        final Path[] result = new Path[1];
+        Runnable task = () -> {
+            JFileChooser chooser = new JFileChooser(initial == null ? blueprintFolder().toFile() : initial.toFile());
+            chooser.setDialogTitle(text(save ? "screen.rtsbuilding.blueprints.save_as_title"
+                    : "screen.rtsbuilding.blueprints.import_file"));
+            chooser.setFileFilter(new FileNameExtensionFilter("Blueprint files",
+                    save ? new String[] {extension} : new String[] {"nbt", "schem", "schematic", "litematic", "json"}));
+            int answer = save ? chooser.showSaveDialog(null) : chooser.showOpenDialog(null);
+            if (answer == JFileChooser.APPROVE_OPTION) result[0] = chooser.getSelectedFile().toPath();
+        };
+        runOnEdt(task);
+        return result[0];
+    }
+
+    private static boolean confirmDelete(final String name) throws Exception {
+        if (GraphicsEnvironment.isHeadless()) throw new IOException("Delete confirmation unavailable in headless mode");
+        final boolean[] result = new boolean[1];
+        runOnEdt(() -> result[0] = JOptionPane.showConfirmDialog(null,
+                text("screen.rtsbuilding.blueprints.delete_confirm_message", name),
+                text("screen.rtsbuilding.blueprints.delete_confirm_title"),
+                JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE) == JOptionPane.YES_OPTION);
+        return result[0];
+    }
+
+    private static void runOnEdt(Runnable task) throws InvocationTargetException, InterruptedException {
+        if (SwingUtilities.isEventDispatchThread()) task.run();
+        else SwingUtilities.invokeAndWait(task);
+    }
+
+    private static Path requireLibraryFile(Path path) throws IOException {
+        if (path == null) throw new IOException("Missing blueprint file");
+        Path folder = blueprintFolder().toAbsolutePath().normalize();
+        Path normalized = path.toAbsolutePath().normalize();
+        if (!normalized.startsWith(folder) || normalized.equals(folder))
+            throw new IOException("Blueprint path escapes its directory");
+        return normalized;
+    }
+
+    private static String sanitizeImportedFileName(String name) {
+        String extension = blueprintExtension(name, "nbt");
+        return sanitizeFileBase(stripBlueprintExtension(name)) + "." + extension;
+    }
+
+    private static void atomicCopy(Path source, Path destination, boolean replace) throws IOException {
+        if (source.toAbsolutePath().normalize().equals(destination.toAbsolutePath().normalize())) return;
+        Path parent = destination.toAbsolutePath().getParent();
+        if (parent != null) Files.createDirectories(parent);
+        Path temporary = Files.createTempFile(parent, ".blueprint-copy-", ".tmp");
+        try {
+            Files.copy(source, temporary, StandardCopyOption.REPLACE_EXISTING);
+            try {
+                if (replace) Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                else Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE);
+            } catch (AtomicMoveNotSupportedException ignored) {
+                if (replace) Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING);
+                else Files.move(temporary, destination);
+            }
+        } finally { Files.deleteIfExists(temporary); }
+    }
+
+    private static void writeBlueprintAtomically(BlueprintEntry entry, Path destination) throws IOException {
+        Path parent = destination.toAbsolutePath().getParent();
+        if (parent != null) Files.createDirectories(parent);
+        Path temporary = Files.createTempFile(parent, ".blueprint-write-", ".tmp");
+        try {
+            BlueprintWriters.writeVanillaStructure(entry.blueprint(), temporary);
+            try { Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+            catch (AtomicMoveNotSupportedException ignored) { Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING); }
+        } finally { Files.deleteIfExists(temporary); }
+    }
+
+    private static String failureDetail(Throwable throwable) {
+        Throwable cause = throwable == null ? null : throwable.getCause() == null ? throwable : throwable.getCause();
+        if (cause == null) return "Unknown error";
+        String message = cause.getMessage();
+        return message == null || message.trim().isEmpty() ? cause.getClass().getSimpleName() : message;
     }
 }

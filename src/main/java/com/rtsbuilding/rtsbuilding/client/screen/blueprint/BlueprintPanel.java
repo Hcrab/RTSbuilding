@@ -11,18 +11,22 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.World;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
+import java.util.Collections;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelFiles.sanitizeFileBase;
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelFiles.stripBlueprintExtension;
@@ -40,14 +44,14 @@ public final class BlueprintPanel {
             BlueprintPanel::setStatus, BlueprintPanel::onLibrarySelectionChanged);
     private static final BlueprintPlacementSession PLACEMENT = new BlueprintPlacementSession(
             LIBRARY::selectedEntry, BlueprintPanel::setStatus);
-    private static Component statusText = Component.translatable(
+    private static ITextComponent statusText = new TextComponentTranslation(
             "screen.rtsbuilding.blueprints.status.ready");
     private static int statusColor = BlueprintLibraryStyle.STATUS_DEFAULT_TEXT.toArgb();
 
     private BlueprintPanel() {
     }
 
-    public static void render(GuiGraphics graphics, Font font, ClientRtsController controller,
+    public static void render(LegacyGuiGraphics graphics, FontRenderer font, ClientRtsController controller,
             int x, int y, int width, int height, int mouseX, int mouseY) {
         if (!Config.areBlueprintsEnabled()) {
             CAPTURE.clearSilently();
@@ -74,7 +78,7 @@ public final class BlueprintPanel {
             return true;
         }
         return BlueprintLibraryPanelInput.mouseClicked(
-                mouseX, mouseY, Minecraft.getInstance().font,
+                mouseX, mouseY, Minecraft.getMinecraft().fontRenderer,
                 x, y, width, height,
                 BlueprintLibraryUiAdapter.snapshot(controller), controller);
     }
@@ -100,7 +104,7 @@ public final class BlueprintPanel {
                     CAPTURE, keyCode, scanCode, BlueprintPanel::setStatus,
                     BlueprintPanel::cancelCaptureMode, BlueprintPanel::saveCapturedArea);
         }
-        boolean cancelKey = ClientKeyMappings.BLUEPRINT_CANCEL.matches(keyCode, scanCode);
+        boolean cancelKey = matches(ClientKeyMappings.BLUEPRINT_CANCEL, keyCode);
         if (!library.searchFocused && hasSelectedBlueprint()
                 && isBlueprintRotateKey(keyCode, scanCode)) {
             return rotateSelectedBlueprintY(isShiftDown() ? -1 : 1);
@@ -119,7 +123,7 @@ public final class BlueprintPanel {
             return false;
         }
         if (!library.searchFocused) return false;
-        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_BACKSPACE) {
+        if (keyCode == Keyboard.KEY_BACK) {
             if (!library.query.isEmpty()) {
                 BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.text(
                         BlueprintLibraryUiAction.Type.SET_QUERY,
@@ -127,8 +131,7 @@ public final class BlueprintPanel {
             }
             return true;
         }
-        if (keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE
-                || keyCode == org.lwjgl.glfw.GLFW.GLFW_KEY_ENTER) {
+        if (keyCode == Keyboard.KEY_ESCAPE || keyCode == Keyboard.KEY_RETURN) {
             BlueprintLibraryUiAdapter.dispatch(BlueprintLibraryUiAction.simple(
                     BlueprintLibraryUiAction.Type.BLUR_SEARCH), controller);
             return true;
@@ -152,8 +155,8 @@ public final class BlueprintPanel {
     }
 
     public static boolean isBlueprintRotateKey(int keyCode, int scanCode) {
-        return ClientKeyMappings.ROTATE_SHAPE.matches(keyCode, scanCode)
-                || ClientKeyMappings.MODE_ROTATE.matches(keyCode, scanCode);
+        return matches(ClientKeyMappings.ROTATE_SHAPE, keyCode)
+                || matches(ClientKeyMappings.MODE_ROTATE, keyCode);
     }
 
     public static boolean hasSelectedBlueprint() {
@@ -229,22 +232,22 @@ public final class BlueprintPanel {
     static int captureSizeY() { return CAPTURE.sizeY(); }
     static int captureSizeZ() { return CAPTURE.sizeZ(); }
     static long countCaptureBlocks() {
-        return CAPTURE.countCapturableBlocks(Minecraft.getInstance().level);
+        return CAPTURE.countCapturableBlocks(Minecraft.getMinecraft().world);
     }
     static String captureSaveProgressLine() { return CAPTURE.saveProgressLine(); }
     public static void updateCaptureHoverPoint(BlockPos pos) { CAPTURE.updateHoverPoint(pos); }
-    public static void updateCaptureHover(Vec3 origin, Vec3 direction, BlockPos pos) {
+    public static void updateCaptureHover(Vec3d origin, Vec3d direction, BlockPos pos) {
         CAPTURE.updateHoverPoint(pos);
         CAPTURE.updateHandleHover(origin, direction);
     }
     public static BlockPos getCapturePreviewPointB() { return CAPTURE.previewPointB(); }
     public static com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox
             getCapturePreviewBoxForRender() { return CAPTURE.previewBox(); }
-    public static AABB getCapturePreviewAabbForRender() { return CAPTURE.previewAabbForRender(); }
-    public static Direction getCaptureHoveredHandleDirection() {
+    public static AxisAlignedBB getCapturePreviewAabbForRender() { return CAPTURE.previewAabbForRender(); }
+    public static EnumFacing getCaptureHoveredHandleDirection() {
         return CAPTURE.hoveredHandleDirection();
     }
-    public static Direction getCaptureActiveHandleDirection() {
+    public static EnumFacing getCaptureActiveHandleDirection() {
         return CAPTURE.activeHandleDirection();
     }
     public static boolean releaseCaptureActiveHandleIfDragged() {
@@ -252,8 +255,8 @@ public final class BlueprintPanel {
     }
     public static List<BlockPos> getCaptureIncludedBlocksForRender(int limit) {
         return Config.areBlueprintsEnabled()
-                ? CAPTURE.includedBlocksForRender(Minecraft.getInstance().level, limit)
-                : List.of();
+                ? CAPTURE.includedBlocksForRender(Minecraft.getMinecraft().world, limit)
+                : Collections.<BlockPos>emptyList();
     }
     public static boolean shouldRenderCaptureBlockHighlights(int limit) {
         return Config.areBlueprintsEnabled() && CAPTURE.shouldRenderBlockHighlights(limit);
@@ -261,7 +264,7 @@ public final class BlueprintPanel {
     public static List<BlockPos> getCaptureExcludedBlocksForRender(int limit) {
         return Config.areBlueprintsEnabled()
                 ? CAPTURE.excludedBlocksForRender(limit)
-                : List.of();
+                : Collections.<BlockPos>emptyList();
     }
     public static boolean acceptCapturePoint(BlockPos pos) {
         return pos != null && BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
@@ -273,7 +276,7 @@ public final class BlueprintPanel {
                 && CAPTURE.acceptPoint(pos, BlueprintPanel::setStatus);
     }
     public static boolean handleCaptureWorldAction(
-            BlockHitResult hit, Vec3 origin, Vec3 direction) {
+            RayTraceResult hit, Vec3d origin, Vec3d direction) {
         return Config.areBlueprintsEnabled()
                 && CAPTURE.handleWorldAction(hit, origin, direction, BlueprintPanel::setStatus);
     }
@@ -377,25 +380,25 @@ public final class BlueprintPanel {
     static boolean saveLibraryEntryAs(String fileName) { return LIBRARY.saveAs(fileName); }
     static boolean renameLibraryEntry(String fileName) {
         BlueprintEntry entry = LIBRARY.entryByFileName(fileName);
-        if (entry == null || !entry.error().isBlank()) return false;
+        if (entry == null || !entry.error().trim().isEmpty()) return false;
         openRenameDialog(entry);
         return true;
     }
     static boolean deleteLibraryEntry(String fileName) { return LIBRARY.delete(fileName); }
 
-    static Component statusText() { return statusText; }
+    static ITextComponent statusText() { return statusText; }
     static int statusColor() { return statusColor; }
     public static void setStatus(byte status, String messageKey, String detail) {
-        statusText = detail == null || detail.isBlank()
-                ? Component.translatable(messageKey)
-                : Component.translatable(messageKey, detail);
-        statusColor = switch (status) {
-            case S2CBlueprintStatusPayload.SUCCESS ->
-                    BlueprintLibraryStyle.STATUS_SUCCESS_TEXT.toArgb();
-            case S2CBlueprintStatusPayload.ERROR ->
-                    BlueprintLibraryStyle.STATUS_ERROR_TEXT.toArgb();
-            default -> BlueprintLibraryStyle.STATUS_DEFAULT_TEXT.toArgb();
-        };
+        statusText = detail == null || detail.trim().isEmpty()
+                ? new TextComponentTranslation(messageKey)
+                : new TextComponentTranslation(messageKey, detail);
+        if (status == S2CBlueprintStatusPayload.SUCCESS) {
+            statusColor = BlueprintLibraryStyle.STATUS_SUCCESS_TEXT.toArgb();
+        } else if (status == S2CBlueprintStatusPayload.ERROR) {
+            statusColor = BlueprintLibraryStyle.STATUS_ERROR_TEXT.toArgb();
+        } else {
+            statusColor = BlueprintLibraryStyle.STATUS_DEFAULT_TEXT.toArgb();
+        }
     }
 
     public static void reload() {
@@ -409,7 +412,7 @@ public final class BlueprintPanel {
                     "screen.rtsbuilding.blueprints.status.save_busy", "");
             return;
         }
-        Level level = Minecraft.getInstance().level;
+        World level = Minecraft.getMinecraft().world;
         if (level == null) {
             setStatus(S2CBlueprintStatusPayload.ERROR,
                     "screen.rtsbuilding.blueprints.status.save_failed", "No world");
@@ -433,7 +436,7 @@ public final class BlueprintPanel {
         }
         String cleanName = sanitizeFileBase(stripBlueprintExtension(
                 requestedName == null ? "" : requestedName));
-        if (cleanName.isBlank()) {
+        if (cleanName.trim().isEmpty()) {
             setStatus(S2CBlueprintStatusPayload.ERROR,
                     "screen.rtsbuilding.blueprints.status.name_required", "");
             return;
@@ -470,7 +473,7 @@ public final class BlueprintPanel {
     private static void openCaptureNameDialog() {
         DIALOGS.openCaptureName(
                 sanitizeFileBase("captured_" + System.currentTimeMillis()),
-                CAPTURE.countCapturableBlocks(Minecraft.getInstance().level));
+                CAPTURE.countCapturableBlocks(Minecraft.getMinecraft().world));
         LIBRARY.setSearchFocused(false);
     }
 
@@ -491,7 +494,7 @@ public final class BlueprintPanel {
     private static void confirmNameDialog() {
         if (!isNameDialogOpen()) return;
         String cleanName = sanitizeFileBase(stripBlueprintExtension(DIALOGS.nameValue()));
-        if (cleanName.isBlank()) {
+        if (cleanName.trim().isEmpty()) {
             setStatus(S2CBlueprintStatusPayload.ERROR,
                     "screen.rtsbuilding.blueprints.status.name_required", "");
             return;
@@ -506,7 +509,7 @@ public final class BlueprintPanel {
 
     private static void startCaptureSave(String requestedName) {
         BlueprintCaptureSaveCoordinator.start(
-                CAPTURE, Minecraft.getInstance().level,
+                CAPTURE, Minecraft.getMinecraft().world,
                 requestedName, BlueprintPanel::setStatus);
     }
 
@@ -523,15 +526,12 @@ public final class BlueprintPanel {
     }
 
     private static boolean isShiftDown() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.getWindow() == null) return false;
-        long window = minecraft.getWindow().getWindow();
-        return org.lwjgl.glfw.GLFW.glfwGetKey(
-                window, org.lwjgl.glfw.GLFW.GLFW_KEY_LEFT_SHIFT)
-                == org.lwjgl.glfw.GLFW.GLFW_PRESS
-                || org.lwjgl.glfw.GLFW.glfwGetKey(
-                        window, org.lwjgl.glfw.GLFW.GLFW_KEY_RIGHT_SHIFT)
-                == org.lwjgl.glfw.GLFW.GLFW_PRESS;
+        return Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)
+                || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+    }
+
+    private static boolean matches(KeyBinding binding, int keyCode) {
+        return binding != null && binding.getKeyCode() == keyCode;
     }
 
     private static String shortPos(BlockPos pos) {

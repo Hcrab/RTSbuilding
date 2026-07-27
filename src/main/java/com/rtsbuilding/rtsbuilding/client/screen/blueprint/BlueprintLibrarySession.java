@@ -93,7 +93,7 @@ final class BlueprintLibrarySession {
         for (int step = 1; step <= repository.size(); step++) {
             int index = Math.floorMod(start + delta * step, repository.size());
             BlueprintEntry entry = repository.get(index);
-            if (entry.error().isBlank()) {
+            if (entry.error().trim().isEmpty()) {
                 select(entry);
                 return;
             }
@@ -111,7 +111,7 @@ final class BlueprintLibrarySession {
 
     boolean saveAs(String fileName) {
         BlueprintEntry entry = entryByFileName(fileName);
-        if (entry == null || !entry.error().isBlank()) {
+        if (entry == null || !entry.error().trim().isEmpty()) {
             return false;
         }
         applyFileOperation(BlueprintLibraryFileOperations.saveAs(entry));
@@ -152,7 +152,7 @@ final class BlueprintLibrarySession {
         if (result.reload()) {
             reload();
         }
-        if (!result.selectedFileName().isBlank()) {
+        if (!result.selectedFileName().trim().isEmpty()) {
             if (result.selectionMode() == BlueprintLibraryFileOperations.SelectionMode.FULL) {
                 BlueprintEntry entry = entryByFileName(result.selectedFileName());
                 if (entry != null) {
@@ -163,7 +163,7 @@ final class BlueprintLibrarySession {
                 selectIndexByFileName(result.selectedFileName());
             }
         }
-        if (result.status() != null && !result.messageKey().isBlank()) {
+        if (result.status() != null && !result.messageKey().trim().isEmpty()) {
             status.set(result.status(), result.messageKey(), result.detail());
         }
     }
@@ -172,7 +172,7 @@ final class BlueprintLibrarySession {
             BlueprintCaptureController capture) {
         BlueprintCaptureSaveCoordinator.Completion completion =
                 BlueprintCaptureSaveCoordinator.poll(capture, repository);
-        if (completion != null && !completion.selectedFileName().isBlank()) {
+        if (completion != null && !completion.selectedFileName().trim().isEmpty()) {
             selectIndexByFileName(completion.selectedFileName());
         }
         return completion;
@@ -195,12 +195,12 @@ final class BlueprintLibrarySession {
         selectedIndex = repository.indexOf(entry);
         selectionChanged.accept(entry);
         status.set(
-                entry.error().isBlank()
+                entry.error().trim().isEmpty()
                         ? S2CBlueprintStatusPayload.INFO
                         : S2CBlueprintStatusPayload.ERROR,
-                entry.error().isBlank()
+                entry.error().trim().isEmpty()
                         ? "screen.rtsbuilding.blueprints.status.selected"
                         : "screen.rtsbuilding.blueprints.status.parse_failed",
-                entry.error().isBlank() ? entry.name() : entry.error());
+                entry.error().trim().isEmpty() ? entry.name() : entry.error());
     }
 }

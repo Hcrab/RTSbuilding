@@ -5,21 +5,25 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import net.minecraft.Util;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.world.World;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +44,7 @@ final class BlueprintCaptureSaveJob {
     private static final long CAPTURE_SCAN_MIN_INTERVAL_MS = 15L;
     private static final long CAPTURE_STATUS_INTERVAL_MS = 250L;
 
-    private final Level level;
+    private final World level;
     private final int minX;
     private final int minY;
     private final int captureMinY;
@@ -73,7 +77,7 @@ final class BlueprintCaptureSaveJob {
      * {@link BlueprintPanel} can then keep ticking this object without repeating
      * coordinate math every frame.</p>
      */
-    BlueprintCaptureSaveJob(Level level, BlockPos first, BlockPos second, Set<BlockPos> excludedBlocks,
+    BlueprintCaptureSaveJob(World level, BlockPos first, BlockPos second, Set<BlockPos> excludedBlocks,
             String name, String fileName, Path dest, StatusSink statusSink) {
         this.level = Objects.requireNonNull(level, "level");
         this.minX = Math.min(first.getX(), second.getX());
@@ -86,9 +90,9 @@ final class BlueprintCaptureSaveJob {
         this.size = new Vec3i(this.maxX - this.minX + 1, Math.max(0, this.maxY - this.minY), this.maxZ - this.minZ + 1);
         this.name = Objects.requireNonNull(name, "name");
         this.fileName = Objects.requireNonNull(fileName, "fileName");
-        this.dest = Objects.requireNonNull(dest, "dest");
+        this.dest = requireOwnedDestination(Objects.requireNonNull(dest, "dest"));
         this.volume = (long) this.size.getX() * this.size.getY() * this.size.getZ();
-        this.excludedBlocks = Set.copyOf(excludedBlocks);
+        this.excludedBlocks = Collections.unmodifiableSet(new HashSet<BlockPos>(excludedBlocks));
         this.statusSink = Objects.requireNonNull(statusSink, "statusSink");
         this.x = this.minX;
         this.y = this.captureMinY;
@@ -115,7 +119,7 @@ final class BlueprintCaptureSaveJob {
             }
         }
 
-        long now = Util.getMillis();
+        long now = Minecraft.getSystemTime();
         if (!this.scanComplete && now - this.lastScanMillis < CAPTURE_SCAN_MIN_INTERVAL_MS) {
             updateStatus("screen.rtsbuilding.blueprints.status.save_scanning", progressLine());
             return null;
@@ -149,7 +153,7 @@ final class BlueprintCaptureSaveJob {
                 this.fileName,
                 BlueprintFormat.VANILLA_NBT,
                 this.size,
-                List.copyOf(this.blocks));
+                Collections.unmodifiableList(new ArrayList<RtsBlueprintBlock>(this.blocks)));
         updateStatus("screen.rtsbuilding.blueprints.status.save_writing", "");
         this.writeFuture = CompletableFuture.supplyAsync(() -> writeBlueprint(blueprint));
         return null;
@@ -176,13 +180,13 @@ final class BlueprintCaptureSaveJob {
      * it is a supported non-air block inside a loaded chunk.
      */
     private Result scanCurrentBlock() {
-        this.cursor.set(this.x, this.y, this.z);
-        if (this.excludedBlocks.contains(this.cursor) || !this.level.hasChunkAt(this.cursor)) {
+        this.cursor.setPos(this.x, this.y, this.z);
+        if (this.excludedBlocks.contains(this.cursor) || !this.level.isBlockLoaded(this.cursor)) {
             return null;
         }
 
-        BlockState state = this.level.getBlockState(this.cursor);
-        if (state.isAir() || state.is(Blocks.STRUCTURE_VOID)) {
+        IBlockState state = this.level.getBlockState(this.cursor);
+        if (state.getBlock() == Blocks.AIR || state.getBlock() == Blocks.STRUCTURE_VOID) {
             return null;
         }
 
@@ -200,38 +204,38 @@ final class BlueprintCaptureSaveJob {
         return null;
     }
 
-    private CompoundTag captureBlockEntityTag(BlockPos pos) {
-        BlockEntity blockEntity = this.level.getBlockEntity(pos);
+    private NBTTagCompound captureBlockEntityTag(BlockPos pos) {
+        TileEntity blockEntity = this.level.getTileEntity(pos);
         if (blockEntity == null) {
-            return new CompoundTag();
+            return new NBTTagCompound();
         }
         try {
-            CompoundTag tag = blockEntity.saveWithFullMetadata(this.level.registryAccess());
-            tag.remove("x");
-            tag.remove("y");
-            tag.remove("z");
+            NBTTagCompound tag = blockEntity.writeToNBT(new NBTTagCompound());
+            tag.removeTag("x");
+            tag.removeTag("y");
+            tag.removeTag("z");
             return tag;
         } catch (RuntimeException ignored) {
-            return new CompoundTag();
+            return new NBTTagCompound();
         }
     }
 
-    private String resolveMaterialItemId(BlockState state, BlockPos pos) {
+    private String resolveMaterialItemId(IBlockState state, BlockPos pos) {
         if (state == null || pos == null) {
             return "";
         }
         try {
-            ItemStack cloneStack = state.getBlock().getCloneItemStack(this.level, pos, state);
+            ItemStack cloneStack = state.getBlock().getItem(this.level, pos, state);
             if (!cloneStack.isEmpty()) {
-                ResourceLocation id = BuiltInRegistries.ITEM.getKey(cloneStack.getItem());
-                if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+                ResourceLocation id = Item.REGISTRY.getNameForObject(cloneStack.getItem());
+                if (id != null && Item.REGISTRY.containsKey(id)) {
                     return id.toString();
                 }
             }
         } catch (RuntimeException ignored) {
         }
-        ResourceLocation fallback = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
-        return fallback == null || !BuiltInRegistries.ITEM.containsKey(fallback) ? "" : fallback.toString();
+        ResourceLocation fallback = Item.REGISTRY.getNameForObject(Item.getItemFromBlock(state.getBlock()));
+        return fallback == null || !Item.REGISTRY.containsKey(fallback) ? "" : fallback.toString();
     }
 
     /**
@@ -239,7 +243,19 @@ final class BlueprintCaptureSaveJob {
      */
     private Result writeBlueprint(RtsBlueprint blueprint) {
         try {
-            BlueprintWriters.writeVanillaStructure(blueprint, this.dest);
+            Path parent = this.dest.getParent();
+            Files.createDirectories(parent);
+            Path temporary = Files.createTempFile(parent, ".blueprint-", ".tmp");
+            try {
+                BlueprintWriters.writeVanillaStructure(blueprint, temporary);
+                try {
+                    Files.move(temporary, this.dest, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+                } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
+                    Files.move(temporary, this.dest, StandardCopyOption.REPLACE_EXISTING);
+                }
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
             return Result.success(this.fileName, this.dest, blueprint);
         } catch (Exception ex) {
             return Result.failure("screen.rtsbuilding.blueprints.status.save_failed", failureDetail(ex));
@@ -250,7 +266,7 @@ final class BlueprintCaptureSaveJob {
      * Pushes status updates through the panel's existing status rendering path.
      */
     private void updateStatus(String key, String detail) {
-        long now = Util.getMillis();
+        long now = Minecraft.getSystemTime();
         if (now - this.lastStatusMillis < CAPTURE_STATUS_INTERVAL_MS) {
             return;
         }
@@ -282,7 +298,7 @@ final class BlueprintCaptureSaveJob {
         }
         Throwable cause = throwable.getCause() == null ? throwable : throwable.getCause();
         String message = cause.getMessage();
-        return message == null || message.isBlank() ? cause.getClass().getSimpleName() : message;
+        return message == null || message.trim().isEmpty() ? cause.getClass().getSimpleName() : message;
     }
 
     /**
@@ -296,7 +312,30 @@ final class BlueprintCaptureSaveJob {
     /**
      * Completion object returned once a capture job is no longer pending.
      */
-    record Result(boolean success, String fileName, Path path, RtsBlueprint blueprint, String messageKey, String detail) {
+    static final class Result {
+        private final boolean success;
+        private final String fileName;
+        private final Path path;
+        private final RtsBlueprint blueprint;
+        private final String messageKey;
+        private final String detail;
+
+        private Result(boolean success, String fileName, Path path, RtsBlueprint blueprint,
+                String messageKey, String detail) {
+            this.success = success;
+            this.fileName = fileName;
+            this.path = path;
+            this.blueprint = blueprint;
+            this.messageKey = messageKey;
+            this.detail = detail;
+        }
+
+        boolean success() { return success; }
+        String fileName() { return fileName; }
+        Path path() { return path; }
+        RtsBlueprint blueprint() { return blueprint; }
+        String messageKey() { return messageKey; }
+        String detail() { return detail; }
         static Result success(String fileName, Path path, RtsBlueprint blueprint) {
             return new Result(true, fileName, path, blueprint, "", "");
         }
@@ -304,6 +343,15 @@ final class BlueprintCaptureSaveJob {
         static Result failure(String messageKey, String detail) {
             return new Result(false, "", null, null, messageKey, detail == null ? "" : detail);
         }
+    }
+
+    private static Path requireOwnedDestination(Path destination) {
+        Path folder = BlueprintPanelFiles.blueprintFolder().toAbsolutePath().normalize();
+        Path normalized = destination.toAbsolutePath().normalize();
+        if (!normalized.startsWith(folder) || normalized.equals(folder)) {
+            throw new IllegalArgumentException("Blueprint destination escapes its directory");
+        }
+        return normalized;
     }
 
 }

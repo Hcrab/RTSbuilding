@@ -1,18 +1,17 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.List;
 
@@ -32,13 +31,13 @@ final class BlueprintMaterialDialog {
     private BlueprintMaterialDialog() {
     }
 
-    static int renderCoreContent(GuiGraphics g, Font font, BlueprintMaterialUiState state,
+    static int renderCoreContent(LegacyGuiGraphics g, FontRenderer font, BlueprintMaterialUiState state,
             int x, int y, int w, int h, int mouseX, int mouseY, int scroll) {
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         Layout layout = layoutFromBounds(x, y, w, h);
         int visible = visibleRows(layout.listH());
         int columns = columns(layout);
-        int clampedScroll = Mth.clamp(scroll, 0, maxScroll(state.rows.size(), visible, columns));
+        int clampedScroll = MathHelper.clamp(scroll, 0, maxScroll(state.rows.size(), visible, columns));
         g.drawString(font, trim(font, state.blueprintName, layout.w() - 20),
                 layout.x() + 10, layout.y() + 8, BlueprintDialogStyle.PRIMARY_TEXT.toArgb(), false);
         String summary = state.rows.isEmpty()
@@ -69,10 +68,10 @@ final class BlueprintMaterialDialog {
         Layout layout = layoutFromBounds(0, 0, w, h);
         int visible = visibleRows(layout.listH());
         int maxScroll = maxScroll(state.rows.size(), visible, columns(layout));
-        return Mth.clamp(currentScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
+        return MathHelper.clamp(currentScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
     }
 
-    private static void renderCoreRows(GuiGraphics g, Font font, List<BlueprintMaterialUiState.Row> lines,
+    private static void renderCoreRows(LegacyGuiGraphics g, FontRenderer font, List<BlueprintMaterialUiState.Row> lines,
             Layout layout, int mouseX, int mouseY, int scroll, int visible, int columns) {
         int cellW = (layout.listW() - 8 - (columns - 1) * COLUMN_GAP) / columns;
         for (int row = 0; row < visible; row++) {
@@ -89,17 +88,18 @@ final class BlueprintMaterialDialog {
                             BlueprintDialogStyle.ROW_HOVER.toArgb());
                 }
                 ItemStack preview = ItemStack.EMPTY;
-                ResourceLocation id = ResourceLocation.tryParse(line.iconId);
-                if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                    preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
+                ResourceLocation id = parseResourceLocation(line.iconId);
+                Item item = id == null ? null : Item.REGISTRY.getObject(id);
+                if (item != null) {
+                    preview = new ItemStack(item);
                 }
                 if (!preview.isEmpty()) {
                     g.renderItem(preview, rowX + 4, rowY + 2);
                 } else {
                     g.fill(rowX + 6, rowY + 4, rowX + 20, rowY + 18,
                             BlueprintDialogStyle.MISSING_ICON_BACKGROUND.toArgb());
-                    RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "?", rowX + 13, rowY + 6,
-                            BlueprintDialogStyle.MISSING_ICON_TEXT.toArgb());
+                    g.drawString(font, "?", rowX + 13 - font.getStringWidth("?") / 2, rowY + 6,
+                            BlueprintDialogStyle.MISSING_ICON_TEXT.toArgb(), false);
                 }
                 int detailW = Math.min(86, Math.max(54, cellW / 3));
                 int detailX = rowX + cellW - detailW - 4;
@@ -111,7 +111,7 @@ final class BlueprintMaterialDialog {
         }
     }
 
-    private static void renderScrollbar(GuiGraphics g, int lineCount, Layout layout, int scroll,
+    private static void renderScrollbar(LegacyGuiGraphics g, int lineCount, Layout layout, int scroll,
             int visible, int columns) {
         int maxScroll = maxScroll(lineCount, visible, columns);
         if (maxScroll <= 0) {
@@ -151,6 +151,22 @@ final class BlueprintMaterialDialog {
                 shared.listX, shared.listY, shared.listW, shared.listH);
     }
 
-    private record Layout(int x, int y, int w, int h, int listX, int listY, int listW, int listH) {
+    private static ResourceLocation parseResourceLocation(String value) {
+        try {
+            return value == null || value.isEmpty() ? null : new ResourceLocation(value);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static final class Layout {
+        private final int x, y, w, h, listX, listY, listW, listH;
+        private Layout(int x, int y, int w, int h, int listX, int listY, int listW, int listH) {
+            this.x = x; this.y = y; this.w = w; this.h = h;
+            this.listX = listX; this.listY = listY; this.listW = listW; this.listH = listH;
+        }
+        int x() { return x; } int y() { return y; } int w() { return w; } int h() { return h; }
+        int listX() { return listX; } int listY() { return listY; }
+        int listW() { return listW; } int listH() { return listH; }
     }
 }

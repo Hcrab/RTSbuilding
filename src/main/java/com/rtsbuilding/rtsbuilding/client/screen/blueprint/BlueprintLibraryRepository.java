@@ -3,14 +3,14 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintReaders;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import net.minecraft.client.Minecraft;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Stream;
 
 /**
  * 管理本地蓝图库的扫描、解析、排序与文件名索引。
@@ -38,7 +38,7 @@ final class BlueprintLibraryRepository {
         Path folder = BlueprintPanelFiles.blueprintFolder();
         try {
             Files.createDirectories(folder);
-            try (var stream = Files.list(folder)) {
+            try (Stream<Path> stream = Files.list(folder)) {
                 stream.filter(Files::isRegularFile)
                         .filter(BlueprintPanelFiles::isBlueprintFile)
                         .sorted(Comparator.comparing(
@@ -70,7 +70,7 @@ final class BlueprintLibraryRepository {
     }
 
     List<BlueprintEntry> copyEntries() {
-        return List.copyOf(entries);
+        return Collections.unmodifiableList(new ArrayList<BlueprintEntry>(entries));
     }
 
     boolean contains(BlueprintEntry entry) {
@@ -120,10 +120,7 @@ final class BlueprintLibraryRepository {
         String fileName = path.getFileName().toString();
         try {
             byte[] data = Files.readAllBytes(path);
-            RtsBlueprint blueprint = BlueprintReaders.parse(
-                    data,
-                    fileName,
-                    Minecraft.getInstance().level.registryAccess());
+            RtsBlueprint blueprint = BlueprintReaders.parse(data, fileName);
             entries.add(BlueprintEntry.from(path, fileName, blueprint, ""));
         } catch (Exception ex) {
             entries.add(BlueprintEntry.error(path, fileName, ex.getMessage()));

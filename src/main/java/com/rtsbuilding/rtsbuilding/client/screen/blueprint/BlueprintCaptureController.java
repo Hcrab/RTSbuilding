@@ -6,18 +6,18 @@ import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimat
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -72,11 +72,11 @@ final class BlueprintCaptureController {
         return box == null ? null : box.max();
     }
 
-    Direction hoveredHandleDirection() {
+    EnumFacing hoveredHandleDirection() {
         return handleInteraction.hoveredDirection();
     }
 
-    Direction activeHandleDirection() {
+    EnumFacing activeHandleDirection() {
         return handleInteraction.activeDirection();
     }
 
@@ -108,16 +108,16 @@ final class BlueprintCaptureController {
         return new RtsCullingBox(1, firstWorldCorner, second);
     }
 
-    AABB previewAabbForRender() {
+    AxisAlignedBB previewAabbForRender() {
         RtsCullingBox box = previewBox();
         return box == null ? null : boxAnimator.renderAabb(box);
     }
 
     void updateHoverPoint(BlockPos pos) {
-        hoverPoint = pos == null ? null : pos.immutable();
+        hoverPoint = pos == null ? null : pos.toImmutable();
     }
 
-    void updateHandleHover(Vec3 origin, Vec3 direction) {
+    void updateHandleHover(Vec3d origin, Vec3d direction) {
         handleInteraction.updateHover(selectionBox(), origin, direction, active);
     }
 
@@ -142,9 +142,9 @@ final class BlueprintCaptureController {
         return volume > 0L && volume <= limit;
     }
 
-    List<BlockPos> includedBlocksForRender(Level level, int limit) {
+    List<BlockPos> includedBlocksForRender(World level, int limit) {
         if (level == null || !shouldRenderBlockHighlights(limit)) {
-            return List.of();
+            return Collections.emptyList();
         }
         long volume = captureVolume(pointA, pointB);
         List<BlockPos> blocks = new ArrayList<>((int) volume);
@@ -155,19 +155,19 @@ final class BlueprintCaptureController {
         int maxY = Math.max(pointA.getY(), pointB.getY());
         int maxZ = Math.max(pointA.getZ(), pointB.getZ());
         if (minY > maxY) {
-            return List.of();
+            return Collections.emptyList();
         }
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int y = minY; y <= maxY; y++) {
             for (int z = minZ; z <= maxZ; z++) {
                 for (int x = minX; x <= maxX; x++) {
-                    cursor.set(x, y, z);
-                    if (excludedBlocks.contains(cursor) || !level.hasChunkAt(cursor)) {
+                    cursor.setPos(x, y, z);
+                    if (excludedBlocks.contains(cursor) || !level.isBlockLoaded(cursor)) {
                         continue;
                     }
-                    BlockState state = level.getBlockState(cursor);
-                    if (!state.isAir() && !state.is(Blocks.STRUCTURE_VOID)) {
-                        blocks.add(cursor.immutable());
+                    IBlockState state = level.getBlockState(cursor);
+                    if (state.getBlock() != Blocks.AIR && state.getBlock() != Blocks.STRUCTURE_VOID) {
+                        blocks.add(cursor.toImmutable());
                     }
                 }
             }
@@ -177,7 +177,7 @@ final class BlueprintCaptureController {
 
     List<BlockPos> excludedBlocksForRender(int limit) {
         if (!active || pointA == null || pointB == null || limit <= 0) {
-            return List.of();
+            return Collections.emptyList();
         }
         List<BlockPos> blocks = new ArrayList<>(Math.min(limit, excludedBlocks.size()));
         for (BlockPos pos : excludedBlocks) {
@@ -234,7 +234,7 @@ final class BlueprintCaptureController {
         return handleInteraction.releaseActiveHandleIfDragged();
     }
 
-    boolean handleWorldAction(BlockHitResult hit, Vec3 origin, Vec3 direction, StatusSink status) {
+    boolean handleWorldAction(RayTraceResult hit, Vec3d origin, Vec3d direction, StatusSink status) {
         if (!active) {
             return false;
         }
@@ -251,10 +251,10 @@ final class BlueprintCaptureController {
             }
             status.set(S2CBlueprintStatusPayload.INFO,
                     "screen.rtsbuilding.blueprints.status.capture_handle_selected",
-                    handleClick.direction().getName());
+                    handleClick.direction().getName2());
             return true;
         }
-        if (hit == null || hit.getType() != HitResult.Type.BLOCK) {
+        if (hit == null || hit.typeOfHit != RayTraceResult.Type.BLOCK) {
             return true;
         }
         if (pointB == null) {
@@ -310,14 +310,14 @@ final class BlueprintCaptureController {
             return false;
         }
         if (firstWorldCorner == null) {
-            firstWorldCorner = pos.immutable();
-            pointA = pos.below().immutable();
+            firstWorldCorner = pos.toImmutable();
+            pointA = pos.down().toImmutable();
             pointB = null;
-            hoverPoint = pos.immutable();
+            hoverPoint = pos.toImmutable();
             excludedBlocks.clear();
             status.set(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_a", "");
         } else {
-            applySelectionBox(new RtsCullingBox(1, firstWorldCorner, pos.immutable()));
+            applySelectionBox(new RtsCullingBox(1, firstWorldCorner, pos.toImmutable()));
             excludedBlocks.clear();
             status.set(S2CBlueprintStatusPayload.SUCCESS, "screen.rtsbuilding.blueprints.status.capture_b",
                     sizeText());
@@ -345,7 +345,7 @@ final class BlueprintCaptureController {
         if (!isInsideSelection(pointA, pointB, pos)) {
             return false;
         }
-        BlockPos key = pos.immutable();
+        BlockPos key = pos.toImmutable();
         if (excludedBlocks.remove(key)) {
             status.set(S2CBlueprintStatusPayload.SUCCESS,
                     "screen.rtsbuilding.blueprints.status.capture_block_included", shortPos(key));
@@ -372,19 +372,19 @@ final class BlueprintCaptureController {
         }
         RtsCullingBox previous = selectionBox();
         if (firstWorldCorner != null) {
-            firstWorldCorner = firstWorldCorner.offset(deltaX, deltaY, deltaZ);
+            firstWorldCorner = firstWorldCorner.add(deltaX, deltaY, deltaZ);
         }
-        pointA = pointA.offset(deltaX, deltaY, deltaZ);
+        pointA = pointA.add(deltaX, deltaY, deltaZ);
         if (pointB != null) {
-            pointB = pointB.offset(deltaX, deltaY, deltaZ);
+            pointB = pointB.add(deltaX, deltaY, deltaZ);
         }
         if (hoverPoint != null) {
-            hoverPoint = hoverPoint.offset(deltaX, deltaY, deltaZ);
+            hoverPoint = hoverPoint.add(deltaX, deltaY, deltaZ);
         }
         if (!excludedBlocks.isEmpty()) {
             Set<BlockPos> moved = new HashSet<>();
             for (BlockPos pos : excludedBlocks) {
-                moved.add(pos.offset(deltaX, deltaY, deltaZ));
+                moved.add(pos.add(deltaX, deltaY, deltaZ));
             }
             excludedBlocks.clear();
             excludedBlocks.addAll(moved);
@@ -395,7 +395,7 @@ final class BlueprintCaptureController {
     }
 
     void expandVertical(int deltaY, StatusSink status) {
-        adjustSelectionFromHandle(Direction.UP, deltaY, status);
+        adjustSelectionFromHandle(EnumFacing.UP, deltaY, status);
     }
 
     void resizeSelection(int deltaX, int deltaY, int deltaZ, StatusSink status) {
@@ -427,7 +427,7 @@ final class BlueprintCaptureController {
         status.set(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.capture_resized", sizeText());
     }
 
-    void adjustSelectionFromHandle(Direction direction, int delta, StatusSink status) {
+    void adjustSelectionFromHandle(EnumFacing direction, int delta, StatusSink status) {
         RtsCullingBox box = selectionBox();
         if (box == null || direction == null || delta == 0) {
             status.set(S2CBlueprintStatusPayload.ERROR, "screen.rtsbuilding.blueprints.status.capture_incomplete", "");
@@ -460,7 +460,7 @@ final class BlueprintCaptureController {
         return saveJob == null ? "" : saveJob.progressLine();
     }
 
-    long countCapturableBlocks(Level level) {
+    long countCapturableBlocks(World level) {
         if (level == null || pointA == null || pointB == null) {
             return 0L;
         }
@@ -479,12 +479,12 @@ final class BlueprintCaptureController {
         for (int y = minY; y <= maxY; y++) {
             for (int z = minZ; z <= maxZ; z++) {
                 for (int x = minX; x <= maxX; x++) {
-                    cursor.set(x, y, z);
-                    if (excludedBlocks.contains(cursor) || !level.hasChunkAt(cursor)) {
+                    cursor.setPos(x, y, z);
+                    if (excludedBlocks.contains(cursor) || !level.isBlockLoaded(cursor)) {
                         continue;
                     }
-                    BlockState state = level.getBlockState(cursor);
-                    if (!state.isAir() && !state.is(Blocks.STRUCTURE_VOID)) {
+                    IBlockState state = level.getBlockState(cursor);
+                    if (state.getBlock() != Blocks.AIR && state.getBlock() != Blocks.STRUCTURE_VOID) {
                         count++;
                     }
                 }
@@ -493,7 +493,7 @@ final class BlueprintCaptureController {
         return count;
     }
 
-    void startSave(Level level, String fileName, Path dest, StatusSink status) {
+    void startSave(World level, String fileName, Path dest, StatusSink status) {
         if (saveJob != null) {
             status.set(S2CBlueprintStatusPayload.INFO, "screen.rtsbuilding.blueprints.status.save_busy", "");
             return;
@@ -567,7 +567,26 @@ final class BlueprintCaptureController {
         void set(byte status, String messageKey, String detail);
     }
 
-    record SaveResult(Path path, RtsBlueprint blueprint, String fileName, String messageKey, String detail) {
+    static final class SaveResult {
+        private final Path path;
+        private final RtsBlueprint blueprint;
+        private final String fileName;
+        private final String messageKey;
+        private final String detail;
+
+        private SaveResult(Path path, RtsBlueprint blueprint, String fileName, String messageKey, String detail) {
+            this.path = path;
+            this.blueprint = blueprint;
+            this.fileName = fileName;
+            this.messageKey = messageKey;
+            this.detail = detail;
+        }
+
+        Path path() { return path; }
+        RtsBlueprint blueprint() { return blueprint; }
+        String fileName() { return fileName; }
+        String messageKey() { return messageKey; }
+        String detail() { return detail; }
         static SaveResult success(Path path, RtsBlueprint blueprint, String fileName) {
             return new SaveResult(path, blueprint, fileName, "", "");
         }

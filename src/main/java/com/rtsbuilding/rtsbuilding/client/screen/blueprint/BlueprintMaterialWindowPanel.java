@@ -2,18 +2,20 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import org.lwjgl.input.Keyboard;
 
 import java.util.List;
+import java.util.Collections;
 
 /**
  * Window-layer shell for blueprint material details.
@@ -46,14 +48,15 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         BlueprintUiState state = BlueprintUiStateAdapter.snapshot(controller);
         if (!state.materialWindowOpen || state.materials.blueprintName.isEmpty()) {
             BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
                     BlueprintUiAction.Type.CLOSE_MATERIALS), controller);
             return;
         }
-        int scroll = BlueprintMaterialDialog.renderCoreContent(g, screen.font(), state.materials,
+        int scroll = BlueprintMaterialDialog.renderCoreContent(g,
+                net.minecraft.client.Minecraft.getMinecraft().fontRenderer, state.materials,
                 contentX(), contentY(), contentWidth(), contentHeight(),
                 mouseX, mouseY, state.materialScroll);
         if (scroll != state.materialScroll) {
@@ -83,7 +86,7 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
                     BlueprintUiAction.Type.CLOSE_MATERIALS), controller);
             setOpen(false);
@@ -101,8 +104,8 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable("screen.rtsbuilding.blueprints.details_title");
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation("screen.rtsbuilding.blueprints.details_title");
     }
 
     @Override
@@ -128,11 +131,11 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
     @Override
     protected void computeDefaultPosition() {
         this.windowX = Math.max(8, (this.screen.width - this.windowWidth) / 2);
-        this.windowY = Mth.clamp((this.screen.height - this.windowHeight) / 2,
+        this.windowY = MathHelper.clamp((this.screen.height - this.windowHeight) / 2,
                 24, Math.max(24, this.screen.height - this.windowHeight - 8));
     }
 
-    private final List<PersistableProperty> properties = List.of(
+    private final List<PersistableProperty> properties = Collections.singletonList(
             PersistableProperty.bounds("blueprint_materials", this)
     );
 

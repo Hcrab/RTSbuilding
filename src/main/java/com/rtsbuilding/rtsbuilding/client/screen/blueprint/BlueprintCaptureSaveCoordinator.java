@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import net.minecraft.world.level.Level;
+import net.minecraft.world.World;
 
 import java.nio.file.Path;
 
@@ -17,7 +17,7 @@ final class BlueprintCaptureSaveCoordinator {
 
     static void start(
             BlueprintCaptureController capture,
-            Level level,
+            World level,
             String requestedName,
             StatusSink status) {
         if (capture.isSaving()) {
@@ -43,12 +43,12 @@ final class BlueprintCaptureSaveCoordinator {
         }
 
         String fileName = BlueprintPanelFiles.uniqueNbtFileName(requestedName);
-        Path destination = BlueprintPanelFiles.blueprintFolder().resolve(fileName);
+        Path destination = BlueprintPanelFiles.resolveInBlueprintFolder(fileName);
         try {
             capture.startSave(level, fileName, destination, status::set);
         } catch (Throwable throwable) {
-            if (throwable instanceof Error error) {
-                throw error;
+            if (throwable instanceof Error) {
+                throw (Error) throwable;
             }
             status.set(
                     S2CBlueprintStatusPayload.ERROR,
@@ -86,16 +86,28 @@ final class BlueprintCaptureSaveCoordinator {
         }
         Throwable cause = throwable.getCause() == null ? throwable : throwable.getCause();
         String message = cause.getMessage();
-        return message == null || message.isBlank()
+        return message == null || message.trim().isEmpty()
                 ? cause.getClass().getSimpleName()
                 : message;
     }
 
-    record Completion(
-            String selectedFileName,
-            byte status,
-            String messageKey,
-            String detail) {
+    static final class Completion {
+        private final String selectedFileName;
+        private final byte status;
+        private final String messageKey;
+        private final String detail;
+
+        Completion(String selectedFileName, byte status, String messageKey, String detail) {
+            this.selectedFileName = selectedFileName;
+            this.status = status;
+            this.messageKey = messageKey;
+            this.detail = detail;
+        }
+
+        String selectedFileName() { return selectedFileName; }
+        byte status() { return status; }
+        String messageKey() { return messageKey; }
+        String detail() { return detail; }
     }
 
     @FunctionalInterface

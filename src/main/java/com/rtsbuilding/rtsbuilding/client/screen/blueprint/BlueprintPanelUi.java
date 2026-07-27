@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import net.minecraft.client.gui.Font;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.resources.I18n;
 
 /**
  * 蓝图生产适配层仍共用的本地化、裁字与坐标辅助。
@@ -17,14 +17,14 @@ final class BlueprintPanelUi {
      * Resolves a translation key to the current language text.
      */
     static String text(String key) {
-        return Component.translatable(key).getString();
+        return I18n.format(key);
     }
 
     /**
      * Resolves a translation key with arguments to the current language text.
      */
     static String text(String key, Object... args) {
-        return Component.translatable(key, args).getString();
+        return I18n.format(key, args);
     }
 
     /**
@@ -34,14 +34,14 @@ final class BlueprintPanelUi {
      * languages, so this uses the live {@link Font} measurement instead of a
      * character count.</p>
      */
-    static String trim(Font font, String text, int maxWidth) {
-        if (font == null || text == null || font.width(text) <= maxWidth) {
+    static String trim(FontRenderer font, String text, int maxWidth) {
+        if (font == null || text == null || font.getStringWidth(text) <= maxWidth) {
             return text == null ? "" : text;
         }
         String ellipsis = "...";
-        int limit = Math.max(0, maxWidth - font.width(ellipsis));
+        int limit = Math.max(0, maxWidth - font.getStringWidth(ellipsis));
         int cut = text.length();
-        while (cut > 0 && font.width(text.substring(0, cut)) > limit) {
+        while (cut > 0 && font.getStringWidth(text.substring(0, cut)) > limit) {
             cut--;
         }
         return text.substring(0, cut) + ellipsis;

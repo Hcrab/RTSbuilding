@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.input.Keyboard;
 
 /**
  * 蓝图捕获会话的键盘输入路由。
@@ -34,16 +34,16 @@ final class BlueprintCaptureInputRouter {
             return true;
         }
         boolean cancelKey =
-                ClientKeyMappings.BLUEPRINT_CANCEL.matches(keyCode, scanCode)
-                        || keyCode == GLFW.GLFW_KEY_ESCAPE;
+                ClientKeyMappings.BLUEPRINT_CANCEL.getKeyCode() == keyCode
+                        || keyCode == Keyboard.KEY_ESCAPE;
         if (cancelKey) {
             if (!capture.releaseActiveHandle()) {
                 cancelCapture.run();
             }
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_ENTER
-                || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == Keyboard.KEY_RETURN
+                || keyCode == Keyboard.KEY_NUMPADENTER) {
             saveCapture.run();
             return true;
         }

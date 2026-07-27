@@ -7,8 +7,9 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.item.Item;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,7 +58,7 @@ final class BlueprintUiStateAdapter {
                 BlueprintPanel.countCaptureBlocks(),
                 mode == BlueprintUiState.Mode.CAPTURE_SAVING
                         ? BlueprintPanel.captureSaveProgressLine()
-                        : BlueprintPanel.statusText().getString(),
+                        : BlueprintPanel.statusText().getUnformattedText(),
                 BlueprintPanel.statusColor(),
                 anchor == null ? null : new BlueprintInt3(anchor.getX(), anchor.getY(), anchor.getZ()),
                 BlueprintPanel.getYRotationSteps(), BlueprintPanel.getXRotationSteps(),
@@ -76,8 +77,9 @@ final class BlueprintUiStateAdapter {
         BuildStats stats = BlueprintMaterialInspector.buildStats(entry, controller);
         List<BlueprintMaterialUiState.Row> rows = new ArrayList<>();
         for (DetailLine line : BlueprintMaterialInspector.detailLines(entry, controller)) {
-            String iconId = line.preview().isEmpty() ? ""
-                    : BuiltInRegistries.ITEM.getKey(line.preview().getItem()).toString();
+            ResourceLocation iconKey = line.preview().isEmpty() ? null
+                    : Item.REGISTRY.getNameForObject(line.preview().getItem());
+            String iconId = iconKey == null ? "" : iconKey.toString();
             rows.add(new BlueprintMaterialUiState.Row(
                     iconId, line.label(), line.detail(), line.tone()));
         }

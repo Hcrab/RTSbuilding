@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintLibraryChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.FontRenderer;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintLibraryRenderSupport.drawCentered;
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintLibraryRenderSupport.text;
@@ -24,8 +24,8 @@ final class BlueprintLibraryPanelRenderer {
     }
 
     static void renderDisabled(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             int x,
             int y,
             int width,
@@ -59,8 +59,8 @@ final class BlueprintLibraryPanelRenderer {
     }
 
     static void render(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BlueprintLibraryUiState state,
             int x,
             int y,
@@ -129,7 +129,7 @@ final class BlueprintLibraryPanelRenderer {
     }
 
     static BlueprintLibraryLayout.TopBar topBar(
-            Font font,
+            FontRenderer font,
             int x,
             int width,
             boolean captureLocked) {
@@ -137,31 +137,31 @@ final class BlueprintLibraryPanelRenderer {
                 x,
                 width,
                 captureLocked,
-                font.width(text(
+                font.getStringWidth(text(
                         "screen.rtsbuilding.blueprints.open_folder_short")),
-                font.width(text(
+                font.getStringWidth(text(
                         "screen.rtsbuilding.blueprints.import_file_short")),
-                font.width(text(
+                font.getStringWidth(text(
                         "screen.rtsbuilding.blueprints.sync_create_short")),
-                font.width(text(captureLocked
+                font.getStringWidth(text(captureLocked
                         ? "screen.rtsbuilding.blueprints.capture_active_short"
                         : "screen.rtsbuilding.blueprints.capture_short")));
     }
 
     static BlueprintLibraryLayout.ActionTextWidths actionWidths(
-            Font font) {
+            FontRenderer font) {
         return new BlueprintLibraryLayout.ActionTextWidths(
-                font.width(text(
+                font.getStringWidth(text(
                         "screen.rtsbuilding.blueprints.save_as_short")),
-                font.width(text(
+                font.getStringWidth(text(
                         "screen.rtsbuilding.blueprints.rename")),
-                font.width(text(
+                font.getStringWidth(text(
                         "screen.rtsbuilding.blueprints.delete")));
     }
 
     private static void drawTopText(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BlueprintLibraryLayout.Geometry geometry,
             BlueprintLibraryLayout.TopBar top,
             BlueprintLibraryUiState state) {
@@ -192,7 +192,7 @@ final class BlueprintLibraryPanelRenderer {
                 && !state.searchFocused
                 ? text("screen.rtsbuilding.blueprints.search")
                 : state.query + (state.searchFocused
-                        && (net.minecraft.Util.getMillis() / 500L) % 2L == 0L
+                        && (net.minecraft.client.Minecraft.getSystemTime() / 500L) % 2L == 0L
                         ? "_"
                         : "");
         graphics.drawString(
@@ -209,8 +209,8 @@ final class BlueprintLibraryPanelRenderer {
     }
 
     private static void drawCaptureLocked(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BlueprintLibraryLayout.Geometry geometry,
             boolean saving) {
         graphics.drawString(

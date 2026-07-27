@@ -1,15 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintLibraryChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.item.ItemStack;
 
 import java.util.List;
 
@@ -27,8 +27,8 @@ final class BlueprintLibraryDetailsRenderer {
     }
 
     static void render(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             MinecraftUiCanvas canvas,
             BlueprintLibraryLayout.Geometry geometry,
             BlueprintLibraryUiState state) {
@@ -61,7 +61,7 @@ final class BlueprintLibraryDetailsRenderer {
         boolean invalidEntryHasThreeTextLines =
                 BlueprintLibraryLayout.invalidDetailsShowMeta(
                         geometry.listH,
-                        font.lineHeight);
+                        font.FONT_HEIGHT);
         if (entry.valid() || invalidEntryHasThreeTextLines) {
             graphics.drawString(
                     font,
@@ -82,7 +82,7 @@ final class BlueprintLibraryDetailsRenderer {
                     x + BlueprintLibraryLayout.FRAME_TEXT_X,
                     y + BlueprintLibraryLayout.invalidDetailsTextY(
                             geometry.listH,
-                            font.lineHeight),
+                            font.FONT_HEIGHT),
                     BlueprintLibraryStyle.INVALID_TEXT.toArgb(),
                     false);
             return;
@@ -113,7 +113,7 @@ final class BlueprintLibraryDetailsRenderer {
     }
 
     private static void drawPreviewItems(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             MinecraftUiCanvas canvas,
             BlueprintLibraryLayout.DetailsGeometry details,
             BlueprintEntry entry) {

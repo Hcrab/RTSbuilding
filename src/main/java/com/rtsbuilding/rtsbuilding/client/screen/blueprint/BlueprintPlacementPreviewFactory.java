@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +27,7 @@ final class BlueprintPlacementPreviewFactory {
             int yRotationSteps,
             int xRotationSteps,
             int zRotationSteps) {
-        if (cursorTarget == null || entry == null || !entry.error().isBlank()) {
+        if (cursorTarget == null || entry == null || !entry.error().trim().isEmpty()) {
             return cursorTarget;
         }
         int y = BlueprintTransform.normalizeSteps(yRotationSteps);
@@ -38,7 +38,7 @@ final class BlueprintPlacementPreviewFactory {
         if (bounds == null) {
             return cursorTarget;
         }
-        return cursorTarget.offset(
+        return cursorTarget.add(
                 -bounds.centerX(), -bounds.minY(), -bounds.centerZ());
     }
 
@@ -50,7 +50,7 @@ final class BlueprintPlacementPreviewFactory {
             int zRotationSteps,
             int previewLimit,
             boolean materialsReady) {
-        if (entry == null || anchor == null || !entry.error().isBlank()) {
+        if (entry == null || anchor == null || !entry.error().trim().isEmpty()) {
             return BlueprintGhostPreview.EMPTY;
         }
         int safeLimit = Math.max(1, previewLimit);
@@ -62,10 +62,10 @@ final class BlueprintPlacementPreviewFactory {
         BlockPos centerOffset = BlueprintTransform.centerRotationOffset(
                 entry.blueprint().size(), y, x, z);
         for (RtsBlueprintBlock block : entry.blueprint().blocks()) {
-            BlockPos pos = anchor.offset(BlueprintTransform.rotateAroundCenter(
-                    block.relativePos(), y, x, z, centerOffset)).immutable();
-            BlockState state = block.isMissingBlock()
-                    ? Blocks.AIR.defaultBlockState()
+            BlockPos pos = anchor.add(BlueprintTransform.rotateAroundCenter(
+                    block.relativePos(), y, x, z, centerOffset));
+            IBlockState state = block.isMissingBlock()
+                    ? Blocks.AIR.getDefaultState()
                     : BlueprintTransform.rotateState(block.state(), y, x, z);
             blocks.add(new BlueprintGhostBlock(
                     pos, state, block.isMissingBlock()));
@@ -74,7 +74,7 @@ final class BlueprintPlacementPreviewFactory {
             }
         }
         return new BlueprintGhostPreview(
-                List.copyOf(blocks),
+                java.util.Collections.unmodifiableList(new ArrayList<BlueprintGhostBlock>(blocks)),
                 materialsReady,
                 entry.blockCount() > blocks.size());
     }
@@ -96,7 +96,7 @@ final class BlueprintPlacementPreviewFactory {
         for (RtsBlueprintBlock block : blueprint.blocks()) {
             if (block == null
                     || (!block.isMissingBlock()
-                    && (block.state() == null || block.state().isAir()))) {
+                    && (block.state() == null || block.state().getBlock() == Blocks.AIR))) {
                 continue;
             }
             BlockPos pos = BlueprintTransform.rotateAroundCenter(
@@ -114,13 +114,24 @@ final class BlueprintPlacementPreviewFactory {
                 : null;
     }
 
-    private record ContentBounds(
-            int minX,
-            int minY,
-            int minZ,
-            int maxX,
-            int maxY,
-            int maxZ) {
+    private static final class ContentBounds {
+        private final int minX;
+        private final int minY;
+        private final int minZ;
+        private final int maxX;
+        private final int maxY;
+        private final int maxZ;
+
+        private ContentBounds(int minX, int minY, int minZ, int maxX, int maxY, int maxZ) {
+            this.minX = minX;
+            this.minY = minY;
+            this.minZ = minZ;
+            this.maxX = maxX;
+            this.maxY = maxY;
+            this.maxZ = maxZ;
+        }
+
+        int minY() { return minY; }
         int centerX() {
             return this.minX + ((this.maxX - this.minX) / 2);
         }
