@@ -2,9 +2,9 @@ package com.rtsbuilding.rtsbuilding.server;
 
 import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,17 +57,25 @@ public final class RtsStorageUiPayloads {
     }
 
     private static ItemStack sanitizeQuickSlotPreview(String itemId, ItemStack preview) {
-        if (itemId == null || itemId.isBlank()) {
+        if (itemId == null || itemId.trim().isEmpty()) {
             return ItemStack.EMPTY;
         }
-        ResourceLocation key = ResourceLocation.tryParse(itemId);
-        if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+        ResourceLocation key;
+        try {
+            key = new ResourceLocation(itemId);
+        } catch (RuntimeException invalidId) {
             return ItemStack.EMPTY;
         }
-        if (preview != null && !preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.get(key))) {
-            return preview.copyWithCount(1);
+        Item item = Item.REGISTRY.getObject(key);
+        if (item == null || !Item.REGISTRY.containsKey(key)) {
+            return ItemStack.EMPTY;
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
+        if (preview != null && !preview.isEmpty() && preview.getItem() == item) {
+            ItemStack copy = preview.copy();
+            copy.setCount(1);
+            return copy;
+        }
+        return new ItemStack(item);
     }
 
     /**
