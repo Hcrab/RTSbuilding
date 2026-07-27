@@ -1,86 +1,70 @@
 package com.rtsbuilding.rtsbuilding.compat.openpac;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
+import com.rtsbuilding.rtsbuilding.compat.ftb.RtsFtbCompat;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.Loader;
 
 /**
- * Open Parties and Claims 的可选兼容入口。
+ * 1.12 claim 兼容聚合门面。
  *
- * <p>RTSBuilding 不直接依赖 OpenPAC jar，所有调用都经过反射；这样没有安装
- * OpenPAC 的整合包仍然保持原有加载路径。这里暴露的是玩家语义需要的能力：
- * 队伍 key/名称，以及放置、破坏、交互这几类动作级区块保护检查。
+ * <p>历史原因使服务层仍从这个类进入，但它不再代表“只检查 OpenPAC”：
+ * 所有世界动作都会先叠加 FTB Utilities 5.4.1.x 的真实 claim 判定。
+ * OpenPAC 官方没有 1.12.2 版本，所以正常环境下它只贡献空队伍和“不额外拒绝”；
+ * 如果整合包出现同名的未知非官方 backport，本门面会保守拒绝动作，绝不假装现代
+ * {@code OpenPACServerAPI} 能在 1.12 工作。</p>
  */
 public final class RtsOpenPacCompat {
     private static final String MOD_ID = "openpartiesandclaims";
-    private static final boolean OPENPAC_LOADED = ModList.get().isLoaded(MOD_ID);
-    private static final RtsOpenPacCompatImpl IMPL = createImpl();
+    private static final boolean OPENPAC_LOADED = Loader.isModLoaded(MOD_ID);
+
+    static {
+        if (OPENPAC_LOADED) {
+            RtsbuildingMod.LOGGER.warn(
+                    "{}; detected mod id '{}' will be fail-closed for RTS actions.",
+                    RtsOpenPacCompatImpl.unavailableReason(), MOD_ID);
+        }
+    }
 
     private RtsOpenPacCompat() {
     }
 
-    public static String progressionTeamKey(ServerPlayer player) {
-        if (IMPL == null || player == null) {
-            return "";
-        }
-        RtsOpenPacCompatImpl.TeamInfo team = IMPL.teamInfo(player);
-        return team == null ? "" : team.key();
+    public static String progressionTeamKey(EntityPlayerMP player) {
+        return "";
     }
 
-    public static String progressionTeamLabel(ServerPlayer player) {
-        if (IMPL == null || player == null) {
-            return "";
-        }
-        RtsOpenPacCompatImpl.TeamInfo team = IMPL.teamInfo(player);
-        return team == null ? "" : team.label();
+    public static String progressionTeamLabel(EntityPlayerMP player) {
+        return "";
     }
 
-    public static boolean canBreakBlock(ServerPlayer player, BlockPos pos, Direction face) {
-        if (IMPL == null || player == null || pos == null) {
-            return true;
-        }
-        return IMPL.canBreakBlock(player, pos, face == null ? Direction.DOWN : face);
+    public static boolean canBreakBlock(EntityPlayerMP player, BlockPos pos, EnumFacing face) {
+        return player != null && pos != null
+                && RtsFtbCompat.canEditBlock(player, pos)
+                && !OPENPAC_LOADED;
     }
 
-    public static boolean canPlaceBlock(ServerPlayer player, BlockPos pos) {
-        if (IMPL == null || player == null || pos == null) {
-            return true;
-        }
-        return IMPL.canPlaceBlock(player, pos);
+    public static boolean canPlaceBlock(EntityPlayerMP player, BlockPos pos) {
+        return player != null && pos != null
+                && RtsFtbCompat.canEditBlock(player, pos)
+                && !OPENPAC_LOADED;
     }
 
-    public static boolean canInteractBlock(ServerPlayer player, BlockPos pos, Direction face,
-            InteractionHand hand, ItemStack heldItem) {
-        if (IMPL == null || player == null || pos == null) {
-            return true;
-        }
-        return IMPL.canInteractBlock(player, pos, face == null ? Direction.UP : face, hand, heldItem);
+    public static boolean canInteractBlock(EntityPlayerMP player, BlockPos pos, EnumFacing face,
+            EnumHand hand, ItemStack heldItem) {
+        return player != null && pos != null
+                && RtsFtbCompat.canInteractBlock(player, pos, face, hand, heldItem)
+                && !OPENPAC_LOADED;
     }
 
-    public static boolean canInteractEntity(ServerPlayer player, Entity target, InteractionHand hand,
+    public static boolean canInteractEntity(EntityPlayerMP player, Entity target, EnumHand hand,
             ItemStack heldItem, boolean attack) {
-        if (IMPL == null || player == null || target == null) {
-            return true;
-        }
-        return IMPL.canInteractEntity(player, target, hand, heldItem, attack);
-    }
-
-    private static RtsOpenPacCompatImpl createImpl() {
-        if (!OPENPAC_LOADED) {
-            return null;
-        }
-        try {
-            return new RtsOpenPacCompatImpl();
-        } catch (Throwable throwable) {
-            RtsbuildingMod.LOGGER.warn(
-                    "OpenPAC compat init failed; RTSBuilding will not use OpenPAC parties or claim checks.",
-                    throwable);
-            return null;
-        }
+        return player != null && target != null
+                && RtsFtbCompat.canInteractEntity(player, target, hand, heldItem, attack)
+                && !OPENPAC_LOADED;
     }
 }

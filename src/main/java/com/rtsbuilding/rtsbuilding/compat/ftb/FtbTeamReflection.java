@@ -1,85 +1,80 @@
 package com.rtsbuilding.rtsbuilding.compat.ftb;
 
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Shared FTB Teams reflection for team lookup.
- * <p>
- * Eliminates the duplicated {@code resolveTeam()} logic between
- * {@link RtsFtbCompatImpl} and {@link RtsFtbTeamsCompatImpl}.
+ * FTB Library Legacy（1.12）的队伍反射入口。
+ *
+ * <p>1.12 没有后来的 FTB Teams API。玩家和队伍由
+ * {@code com.feed_the_beast.ftblib.lib.data.Universe} 管理，
+ * {@code ForgePlayer#team} 是该版本公开且持久化的队伍引用。</p>
  */
-record FtbTeamReflection(
-        Method teamsApiMethod,
-        Method getTeamManagerMethod,
-        Method getTeamForPlayerMethod,
-        boolean teamLookupUsesServerPlayer) {
+final class FtbTeamReflection {
+    private final Method universeLoadedMethod;
+    private final Method universeGetMethod;
+    private final Method universeGetPlayerMethod;
+    private final Method playerHasTeamMethod;
+    private final Field playerTeamField;
+    private final Method teamGetIdMethod;
+    private final Method teamGetTitleMethod;
 
-    FtbTeamReflection {
-        if (teamsApiMethod == null || getTeamManagerMethod == null || getTeamForPlayerMethod == null) {
-            throw new IllegalArgumentException("All reflection methods must be non-null");
-        }
+    private FtbTeamReflection(Method universeLoadedMethod, Method universeGetMethod,
+            Method universeGetPlayerMethod, Method playerHasTeamMethod, Field playerTeamField,
+            Method teamGetIdMethod, Method teamGetTitleMethod) {
+        this.universeLoadedMethod = universeLoadedMethod;
+        this.universeGetMethod = universeGetMethod;
+        this.universeGetPlayerMethod = universeGetPlayerMethod;
+        this.playerHasTeamMethod = playerHasTeamMethod;
+        this.playerTeamField = playerTeamField;
+        this.teamGetIdMethod = teamGetIdMethod;
+        this.teamGetTitleMethod = teamGetTitleMethod;
     }
 
-    /**
-     * Loads all required FTB Teams reflection methods. Throws on failure so
-     * callers can catch and disable the feature gracefully.
-     */
     static FtbTeamReflection create() throws ReflectiveOperationException {
-        Class<?> ftbTeamsApiClass = Class.forName("dev.ftb.mods.ftbteams.api.FTBTeamsAPI");
-        Method teamsApiMethod = ftbTeamsApiClass.getMethod("api");
-        Method getTeamManagerMethod = teamsApiMethod.getReturnType().getMethod("getManager");
-        Method getTeamForPlayerMethod = resolveTeamLookupMethod(getTeamManagerMethod.getReturnType());
-        boolean teamLookupUsesServerPlayer =
-                getTeamForPlayerMethod.getParameterTypes()[0].isAssignableFrom(ServerPlayer.class);
-        return new FtbTeamReflection(teamsApiMethod, getTeamManagerMethod, getTeamForPlayerMethod,
-                teamLookupUsesServerPlayer);
+        Class<?> universeClass = Class.forName("com.feed_the_beast.ftblib.lib.data.Universe");
+        Class<?> forgePlayerClass = Class.forName("com.feed_the_beast.ftblib.lib.data.ForgePlayer");
+        Class<?> forgeTeamClass = Class.forName("com.feed_the_beast.ftblib.lib.data.ForgeTeam");
+        return new FtbTeamReflection(
+                universeClass.getMethod("loaded"),
+                universeClass.getMethod("get"),
+                universeClass.getMethod("getPlayer", UUID.class),
+                forgePlayerClass.getMethod("hasTeam"),
+                forgePlayerClass.getField("team"),
+                forgeTeamClass.getMethod("getId"),
+                forgeTeamClass.getMethod("getTitle"));
     }
 
-    /**
-     * Resolves the FTB Team for the given player, or {@code null} if the
-     * player has no team or an error occurs.
-     */
-    Object resolveTeam(ServerPlayer player) throws ReflectiveOperationException {
-        if (player == null) {
+    Object resolveTeam(EntityPlayerMP player) throws ReflectiveOperationException {
+        if (player == null || !Boolean.TRUE.equals(this.universeLoadedMethod.invoke(null))) {
             return null;
         }
-        Object api = this.teamsApiMethod.invoke(null);
-        if (api == null) {
+        Object universe = this.universeGetMethod.invoke(null);
+        Object forgePlayer = this.universeGetPlayerMethod.invoke(universe, player.getUniqueID());
+        if (forgePlayer == null || !Boolean.TRUE.equals(this.playerHasTeamMethod.invoke(forgePlayer))) {
             return null;
         }
-        Object manager = this.getTeamManagerMethod.invoke(api);
-        if (manager == null) {
-            return null;
-        }
-        Object rawTeam = this.teamLookupUsesServerPlayer
-                ? this.getTeamForPlayerMethod.invoke(manager, player)
-                : this.getTeamForPlayerMethod.invoke(manager, player.getUUID());
-        return unwrapOptional(rawTeam);
+        return this.playerTeamField.get(forgePlayer);
     }
 
-    private static Method resolveTeamLookupMethod(Class<?> managerClass) throws NoSuchMethodException {
-        for (String name : new String[]{"getTeamForPlayerID", "getTeamForPlayer"}) {
-            for (Method method : managerClass.getMethods()) {
-                if (!name.equals(method.getName()) || method.getParameterCount() != 1) {
-                    continue;
-                }
-                Class<?> parameterType = method.getParameterTypes()[0];
-                if (parameterType == UUID.class || parameterType.isAssignableFrom(ServerPlayer.class)) {
-                    return method;
-                }
-            }
-        }
-        throw new NoSuchMethodException("Missing team lookup method on " + managerClass.getName());
+    String teamId(Object team) throws ReflectiveOperationException {
+        Object value = team == null ? null : this.teamGetIdMethod.invoke(team);
+        return value == null ? "" : value.toString().trim();
     }
 
-    private static Object unwrapOptional(Object value) {
-        if (value instanceof Optional<?> optional) {
-            return optional.orElse(null);
+    String teamLabel(Object team) throws ReflectiveOperationException {
+        Object title = team == null ? null : this.teamGetTitleMethod.invoke(team);
+        if (title == null) {
+            return "";
         }
-        return value;
+        try {
+            Object text = title.getClass().getMethod("getUnformattedText").invoke(title);
+            return text == null ? "" : text.toString().trim();
+        } catch (NoSuchMethodException ignored) {
+            return title.toString().trim();
+        }
     }
 }
