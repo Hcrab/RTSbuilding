@@ -1,63 +1,56 @@
 package com.rtsbuilding.rtsbuilding.compat;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.Container;
 
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
-/**
- * Shared tracker for remote-menu state management. Both vanilla chests and
- * modded storage containers (Sophisticated Storage, etc.) follow the same
- * pattern: mark a menu as "remote-opened" so that {@code stillValid()} checks
- * accept the remote origin.
- *
- * <p>Each compat module creates its own instance with a
- * {@code isSupportedMenu} predicate and delegates the shared logic here,
- * eliminating the duplication previously present across compat classes.
- */
+/** Forge 1.12.2 服务端/客户端远程容器 windowId 状态跟踪器。 */
 public final class RemoteMenuTracker {
-    private final Predicate<AbstractContainerMenu> isSupportedMenu;
+    private final Predicate<Container> isSupportedMenu;
     private final Map<UUID, Integer> serverMenuIds = new ConcurrentHashMap<>();
     private volatile int clientMenuId = -1;
     private volatile boolean clientMenuPending;
 
-    public RemoteMenuTracker(Predicate<AbstractContainerMenu> isSupportedMenu) {
+    public RemoteMenuTracker(Predicate<Container> isSupportedMenu) {
         this.isSupportedMenu = isSupportedMenu;
     }
 
-    public boolean isSupported(AbstractContainerMenu menu) {
+    public boolean isSupported(Container menu) {
         return menu != null && this.isSupportedMenu.test(menu);
     }
 
-    public void markServer(ServerPlayer player, AbstractContainerMenu menu) {
-        if (player == null || !isSupported(menu)) {
-            clearServer(player);
-            return;
-        }
-        this.serverMenuIds.put(player.getUUID(), menu.containerId);
-    }
-
-    public void clearServer(ServerPlayer player) {
+    public void markServer(EntityPlayerMP player, Container menu) {
         if (player == null) {
             return;
         }
-        this.serverMenuIds.remove(player.getUUID());
+        if (!isSupported(menu)) {
+            clearServer(player);
+            return;
+        }
+        this.serverMenuIds.put(player.getUniqueID(), menu.windowId);
+    }
+
+    public void clearServer(EntityPlayerMP player) {
+        if (player != null) {
+            this.serverMenuIds.remove(player.getUniqueID());
+        }
     }
 
     public void beginClientOpen() {
         this.clientMenuPending = true;
     }
 
-    public void markClient(AbstractContainerMenu menu) {
+    public void markClient(Container menu) {
         if (!isSupported(menu)) {
             clearClient();
             return;
         }
-        this.clientMenuId = menu.containerId;
+        this.clientMenuId = menu.windowId;
         this.clientMenuPending = false;
     }
 
@@ -66,16 +59,16 @@ public final class RemoteMenuTracker {
         this.clientMenuPending = false;
     }
 
-    public boolean shouldForceStillValid(AbstractContainerMenu menu, Player player) {
-        if (!isSupported(menu) || player == null) {
+    public boolean shouldForceStillValid(Container menu, EntityPlayer player) {
+        if (!isSupported(menu) || player == null || player.world == null) {
             return false;
         }
-        if (player.level().isClientSide()) {
-            return this.clientMenuPending || menu.containerId == this.clientMenuId;
+        if (player.world.isRemote) {
+            return this.clientMenuPending || menu.windowId == this.clientMenuId;
         }
-        if (player instanceof ServerPlayer serverPlayer) {
-            Integer remoteMenuId = this.serverMenuIds.get(serverPlayer.getUUID());
-            return remoteMenuId != null && remoteMenuId == menu.containerId;
+        if (player instanceof EntityPlayerMP) {
+            Integer expected = this.serverMenuIds.get(player.getUniqueID());
+            return expected != null && expected.intValue() == menu.windowId;
         }
         return false;
     }

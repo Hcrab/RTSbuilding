@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.input;
 
 import java.util.function.IntPredicate;
+import java.util.Objects;
 
 /**
  * 决定 RTS 中键选取方块后应使用玩家物品栏还是远程选择。
@@ -37,9 +38,31 @@ public final class RtsPickBlockPlacementSelector {
         REMOTE
     }
 
-    public record Selection(Route route, int slot) {
+    public static final class Selection {
+        private final Route route;
+        private final int slot;
+
+        public Selection(Route route, int slot) {
+            this.route = route;
+            this.slot = slot;
+        }
+
+        public Route route() { return route; }
+        public int slot() { return slot; }
+
         private static Selection remote() {
             return new Selection(Route.REMOTE, -1);
         }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Selection)) return false;
+            Selection that = (Selection) other;
+            return slot == that.slot && route == that.route;
+        }
+
+        @Override public int hashCode() { return Objects.hash(route, slot); }
+        @Override public String toString() { return "Selection[route=" + route + ", slot=" + slot + "]"; }
     }
 }

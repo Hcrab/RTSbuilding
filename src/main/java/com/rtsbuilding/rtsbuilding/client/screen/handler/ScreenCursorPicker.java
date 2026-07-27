@@ -11,12 +11,15 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
 import com.rtsbuilding.rtsbuilding.common.blueprint.rule.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.projectile.ProjectileUtil;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.phys.*;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import org.lwjgl.input.Mouse;
+
+import java.util.List;
 
 public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     private static final double BLUEPRINT_AIR_FALLBACK_DISTANCE = 24.0D;
@@ -40,21 +43,21 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
+        if (mc == null || mc.world == null || mc.getRenderViewEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
-        Vec3 dir = computeCursorRayDirection();
-        Vec3 to = camPos.add(dir.scale(BLOCK_RAY_DISTANCE));
-        BlockHitResult blockHit = clipBlockHit(mc, camPos, dir, includeFluidSource, true);
-        EntityHitResult entityHit = pickEntityHit(camPos, to, dir);
-        double blockDist = blockHit != null ? camPos.distanceToSqr(blockHit.getLocation()) : Double.MAX_VALUE;
-        double entityDist = entityHit != null ? camPos.distanceToSqr(entityHit.getLocation()) : Double.MAX_VALUE;
+        Vec3d camPos = cameraPosition(mc);
+        Vec3d dir = computeCursorRayDirection();
+        Vec3d to = camPos.add(dir.scale(BLOCK_RAY_DISTANCE));
+        RayTraceResult blockHit = clipBlockHit(mc, camPos, dir, includeFluidSource, true);
+        RayTraceResult entityHit = pickEntityHit(camPos, to, dir);
+        double blockDist = blockHit != null ? camPos.squareDistanceTo(blockHit.hitVec) : Double.MAX_VALUE;
+        double entityDist = entityHit != null ? camPos.squareDistanceTo(entityHit.hitVec) : Double.MAX_VALUE;
         if (entityHit != null && entityDist <= blockDist) {
-            Entity entity = entityHit.getEntity();
+            Entity entity = entityHit.entityHit;
             return new InteractionTypes.InteractionTarget(
-                    entity.getId(),
-                    entityHit.getLocation(),
+                    entity.getEntityId(),
+                    entityHit.hitVec,
                     null,
                     camPos,
                     dir);
@@ -62,16 +65,16 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (blockHit != null) {
             return new InteractionTypes.InteractionTarget(
                     C2SRtsInteractPayload.NO_ENTITY,
-                    blockHit.getLocation(),
+                    blockHit.hitVec,
                     blockHit,
                     camPos,
                     dir);
         }
-        BlockHitResult airShapeHit = tryCreateAirShapeHit(camPos, dir);
+        RayTraceResult airShapeHit = tryCreateAirShapeHit(camPos, dir);
         if (airShapeHit != null) {
             return new InteractionTypes.InteractionTarget(
                     C2SRtsInteractPayload.NO_ENTITY,
-                    airShapeHit.getLocation(),
+                    airShapeHit.hitVec,
                     airShapeHit,
                     camPos,
                     dir);
@@ -84,63 +87,63 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.level == null || mc.player == null || mc.getCameraEntity() == null) {
+        if (mc == null || mc.world == null || mc.player == null || mc.getRenderViewEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
-        Vec3 dir = computeCursorRayDirection();
-        BlockHitResult airHit = createItemAirInteractionHit(camPos, dir);
+        Vec3d camPos = cameraPosition(mc);
+        Vec3d dir = computeCursorRayDirection();
+        RayTraceResult airHit = createItemAirInteractionHit(camPos, dir);
         if (airHit == null) {
             return null;
         }
         return new InteractionTypes.InteractionTarget(
                 C2SRtsInteractPayload.NO_ENTITY,
-                airHit.getLocation(),
+                airHit.hitVec,
                 airHit,
                 camPos,
                 dir);
     }
 
-    public BlockHitResult pickBlockHit() {
+    public RayTraceResult pickBlockHit() {
         return pickBlockHit(false);
     }
 
-    public BlockHitResult pickBlockHit(boolean includeFluidSource) {
+    public RayTraceResult pickBlockHit(boolean includeFluidSource) {
         if (this.screen == null) {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
+        if (mc == null || mc.world == null || mc.getRenderViewEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
-        Vec3 dir = computeCursorRayDirection();
-        BlockHitResult hit = clipBlockHit(mc, camPos, dir, includeFluidSource, true);
+        Vec3d camPos = cameraPosition(mc);
+        Vec3d dir = computeCursorRayDirection();
+        RayTraceResult hit = clipBlockHit(mc, camPos, dir, includeFluidSource, true);
         if (hit != null) {
             return hit;
         }
         return tryCreateAirShapeHit(camPos, dir);
     }
 
-    public BlockHitResult pickBlockHitIgnoringRangeCulling(boolean includeFluidSource) {
+    public RayTraceResult pickBlockHitIgnoringRangeCulling(boolean includeFluidSource) {
         if (this.screen == null) {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
+        if (mc == null || mc.world == null || mc.getRenderViewEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
-        Vec3 dir = computeCursorRayDirection();
+        Vec3d camPos = cameraPosition(mc);
+        Vec3d dir = computeCursorRayDirection();
         return clipBlockHit(mc, camPos, dir, includeFluidSource, false);
     }
 
     @Override
-    public BlockHitResult pickCullingAwareBlockHit() {
+    public RayTraceResult pickCullingAwareBlockHit() {
         return pickBlockHit(false);
     }
 
-    public BlockHitResult pickBlueprintPlacementHit() {
+    public RayTraceResult pickBlueprintPlacementHit() {
         InteractionTypes.InteractionTarget target = pickInteractionTarget(false);
         if (target != null && target.blockHit() != null) {
             return target.blockHit();
@@ -148,91 +151,82 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         return tryCreateBlueprintAirHit();
     }
 
-    public BlockPos resolveBlueprintAnchor(BlockHitResult hit) {
+    public BlockPos resolveBlueprintAnchor(RayTraceResult hit) {
         if (this.screen == null) {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (hit == null || mc == null || mc.level == null) {
+        if (hit == null || mc == null || mc.world == null) {
             return null;
         }
         BlockPos clicked = hit.getBlockPos();
         // Blueprint dragging should keep the building center vertically above the cursor target.
-        return BlueprintReplaceRules.canBlueprintReplace(mc.level.getBlockState(clicked))
+        return BlueprintReplaceRules.canBlueprintReplace(mc.world.getBlockState(clicked))
                 ? clicked
-                : clicked.above();
+                : clicked.up();
     }
 
-    public Vec3 computeCursorRayDirection() {
+    public Vec3d computeCursorRayDirection() {
         if (this.screen == null) {
-            return new Vec3(0, 0, -1);
+            return new Vec3d(0, 0, -1);
         }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null) {
-            return new Vec3(0, 0, -1);
+            return new Vec3d(0, 0, -1);
         }
         if (RtsPlacementRayFreeze.isFrozen()) {
-            return RtsPlacementRayFreeze.directionOr(new Vec3(0.0D, 0.0D, 1.0D));
+            return RtsPlacementRayFreeze.directionOr(new Vec3d(0.0D, 0.0D, 1.0D));
         }
-        double mouseX = mc.mouseHandler.xpos();
-        double mouseY = mc.mouseHandler.ypos();
-        double width = Math.max(1.0D, mc.getWindow().getScreenWidth());
-        double height = Math.max(1.0D, mc.getWindow().getScreenHeight());
+        double width = Math.max(1.0D, mc.displayWidth);
+        double height = Math.max(1.0D, mc.displayHeight);
+        double mouseX = Mouse.getX();
+        double mouseY = height - Mouse.getY() - 1.0D;
         double nx = (mouseX / width) * 2.0D - 1.0D;
         double ny = 1.0D - (mouseY / height) * 2.0D;
-        float yawDeg = mc.gameRenderer.getMainCamera().getYRot();
-        float pitchDeg = mc.gameRenderer.getMainCamera().getXRot();
+        Entity camera = mc.getRenderViewEntity();
+        float yawDeg = camera == null ? 0.0F : camera.rotationYaw;
+        float pitchDeg = camera == null ? 0.0F : camera.rotationPitch;
         double yaw = Math.toRadians(yawDeg);
         double pitch = Math.toRadians(pitchDeg);
-        Vec3 forward = new Vec3(
+        Vec3d forward = new Vec3d(
                 -Math.sin(yaw) * Math.cos(pitch),
                 -Math.sin(pitch),
                 Math.cos(yaw) * Math.cos(pitch)).normalize();
-        Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
-        Vec3 up = forward.cross(right).normalize();
-        double fovY = Math.toRadians(mc.options.fov().get());
+        Vec3d right = new Vec3d(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
+        Vec3d up = forward.crossProduct(right).normalize();
+        double fovY = Math.toRadians(mc.gameSettings.fovSetting);
         double tanY = Math.tan(fovY * 0.5D);
         double tanX = tanY * (width / height);
         return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();
     }
 
-    public Vec3 currentRayOrigin() {
+    public Vec3d currentRayOrigin() {
         if (this.screen == null) {
-            return Vec3.ZERO;
+            return Vec3d.ZERO;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.gameRenderer == null) {
-            return Vec3.ZERO;
+        if (mc == null || mc.entityRenderer == null) {
+            return Vec3d.ZERO;
         }
         return RtsPlacementRayFreeze.originOr(
-                mc.gameRenderer.getMainCamera().getPosition());
+                cameraPosition(mc));
     }
 
     // ===== Private helpers =====
 
-    private BlockHitResult clipBlockHit(Minecraft mc, Vec3 camPos, Vec3 dir, boolean includeFluidSource,
+    private RayTraceResult clipBlockHit(Minecraft mc, Vec3d camPos, Vec3d dir, boolean includeFluidSource,
             boolean respectRangeCulling) {
-        ClipContext.Fluid fluidMode = includeFluidSource ? ClipContext.Fluid.SOURCE_ONLY : ClipContext.Fluid.NONE;
         if (!respectRangeCulling) {
-            Vec3 normalizedDir = dir.normalize();
-            HitResult raw = mc.level.clip(new ClipContext(
-                    camPos,
-                    camPos.add(normalizedDir.scale(BLOCK_RAY_DISTANCE)),
-                    ClipContext.Block.OUTLINE,
-                    fluidMode,
-                    mc.getCameraEntity()));
-            return raw instanceof BlockHitResult bhr && raw.getType() == HitResult.Type.BLOCK ? bhr : null;
+            Vec3d normalizedDir = dir.normalize();
+            RayTraceResult raw = mc.world.rayTraceBlocks(camPos,
+                    camPos.add(normalizedDir.scale(BLOCK_RAY_DISTANCE)), includeFluidSource, false, false);
+            return raw != null && raw.typeOfHit == RayTraceResult.Type.BLOCK ? raw : null;
         }
         return RtsCullingRayClipper.clip(
                 camPos,
                 dir,
                 BLOCK_RAY_DISTANCE,
-                (start, end) -> mc.level.clip(new ClipContext(
-                        start,
-                        end,
-                        ClipContext.Block.OUTLINE,
-                        fluidMode,
-                        mc.getCameraEntity())),
+                (start, end) -> mc.world.rayTraceBlocks(start, end, includeFluidSource, false, false),
                 new RtsCullingRayClipper.CullingQuery() {
                     @Override
                     public boolean shouldCull(BlockPos pos) {
@@ -240,33 +234,39 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
                     }
 
                     @Override
-                    public double distanceAfterCulledBlock(Vec3 origin, Vec3 direction, BlockPos pos, double maxDistance) {
+                    public double distanceAfterCulledBlock(Vec3d origin, Vec3d direction, BlockPos pos, double maxDistance) {
                         return RtsCullingClientState.distanceAfterCulledBlock(origin, direction, pos, maxDistance);
                     }
                 });
     }
 
-    private EntityHitResult pickEntityHit(Vec3 camPos, Vec3 to, Vec3 dir) {
+    private RayTraceResult pickEntityHit(Vec3d camPos, Vec3d to, Vec3d dir) {
         Minecraft mc = this.screen.getMinecraft();
-        Entity cameraEntity = mc != null ? mc.getCameraEntity() : null;
+        Entity cameraEntity = mc != null ? mc.getRenderViewEntity() : null;
         if (cameraEntity == null || mc == null || mc.player == null) {
             return null;
         }
-        AABB search = cameraEntity.getBoundingBox().expandTowards(dir.scale(128.0D)).inflate(1.0D);
-        return ProjectileUtil.getEntityHitResult(
-                cameraEntity,
-                camPos,
-                to,
-                search,
-                entity -> entity != null
-                        && entity.isAlive()
-                        && entity.isPickable()
-                        && entity != cameraEntity
-                        && entity != mc.player,
-                128.0D * 128.0D);
+        AxisAlignedBB search = cameraEntity.getEntityBoundingBox().expand(
+                dir.x * BLOCK_RAY_DISTANCE, dir.y * BLOCK_RAY_DISTANCE, dir.z * BLOCK_RAY_DISTANCE).grow(1.0D);
+        List<Entity> candidates = mc.world.getEntitiesWithinAABBExcludingEntity(cameraEntity, search);
+        Entity closest = null;
+        Vec3d closestHit = null;
+        double closestDistance = BLOCK_RAY_DISTANCE * BLOCK_RAY_DISTANCE;
+        for (Entity entity : candidates) {
+            if (entity == null || entity == mc.player || !entity.isEntityAlive() || !entity.canBeCollidedWith()) continue;
+            AxisAlignedBB bounds = entity.getEntityBoundingBox().grow(entity.getCollisionBorderSize());
+            RayTraceResult intercept = bounds.calculateIntercept(camPos, to);
+            if (bounds.contains(camPos)) {
+                if (closestDistance >= 0.0D) { closest = entity; closestHit = camPos; closestDistance = 0.0D; }
+            } else if (intercept != null) {
+                double distance = camPos.squareDistanceTo(intercept.hitVec);
+                if (distance < closestDistance) { closest = entity; closestHit = intercept.hitVec; closestDistance = distance; }
+            }
+        }
+        return closest == null ? null : new RayTraceResult(closest, closestHit);
     }
 
-    private BlockHitResult tryCreateAirShapeHit(Vec3 camPos, Vec3 dir) {
+    private RayTraceResult tryCreateAirShapeHit(Vec3d camPos, Vec3d dir) {
         if (camPos == null || dir == null) {
             return null;
         }
@@ -274,79 +274,67 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
                 && (this.shapeController.getShapeBuildSession() == null || this.shapeController.getShapeBuildSession().shape() == BuildShape.BLOCK)) {
             return null;
         }
-        Direction face = resolveAirShapeFace(dir);
-        Vec3 planeAnchor = resolveAirShapePlaneAnchor(face);
+        EnumFacing face = resolveAirShapeFace(dir);
+        Vec3d planeAnchor = resolveAirShapePlaneAnchor(face);
         if (face == null || planeAnchor == null) {
             return null;
         }
-        double dirComponent = switch (face.getAxis()) {
-            case X -> dir.x;
-            case Y -> dir.y;
-            case Z -> dir.z;
-        };
+        double dirComponent = axisComponent(face.getAxis(), dir);
         if (Math.abs(dirComponent) < 1.0E-5D) {
             return null;
         }
-        double planeCoord = switch (face.getAxis()) {
-            case X -> planeAnchor.x;
-            case Y -> planeAnchor.y;
-            case Z -> planeAnchor.z;
-        };
-        double originCoord = switch (face.getAxis()) {
-            case X -> camPos.x;
-            case Y -> camPos.y;
-            case Z -> camPos.z;
-        };
+        double planeCoord = axisComponent(face.getAxis(), planeAnchor);
+        double originCoord = axisComponent(face.getAxis(), camPos);
         double t = (planeCoord - originCoord) / dirComponent;
         if (t <= 0.0D || t > 128.0D) {
             return null;
         }
-        Vec3 hitVec = camPos.add(dir.scale(t));
-        BlockPos hitPos = BlockPos.containing(hitVec);
+        Vec3d hitVec = camPos.add(dir.scale(t));
+        BlockPos hitPos = new BlockPos(hitVec);
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
         }
-        return new BlockHitResult(hitVec, face, hitPos, false);
+        return new RayTraceResult(hitVec, face, hitPos);
     }
 
-    private BlockHitResult tryCreateBlueprintAirHit() {
+    private RayTraceResult tryCreateBlueprintAirHit() {
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.level == null || mc.player == null
-                || mc.getCameraEntity() == null) {
+        if (mc == null || mc.world == null || mc.player == null
+                || mc.getRenderViewEntity() == null) {
             return null;
         }
-        Vec3 camPos = mc.gameRenderer.getMainCamera().getPosition();
-        Vec3 dir = computeCursorRayDirection();
-        double planeY = mc.player.blockPosition().getY();
+        Vec3d camPos = cameraPosition(mc);
+        Vec3d dir = computeCursorRayDirection();
+        double planeY = mc.player.getPosition().getY();
         double t = Math.abs(dir.y) < 1.0E-5D
                 ? BLUEPRINT_AIR_FALLBACK_DISTANCE
                 : (planeY - camPos.y) / dir.y;
         if (t <= 0.0D || t > 128.0D) {
             t = BLUEPRINT_AIR_FALLBACK_DISTANCE;
         }
-        Vec3 hitVec = camPos.add(dir.scale(t));
-        BlockPos hitPos = BlockPos.containing(hitVec);
+        Vec3d hitVec = camPos.add(dir.scale(t));
+        BlockPos hitPos = new BlockPos(hitVec);
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
         }
-        return new BlockHitResult(hitVec, Direction.UP, hitPos, false);
+        return new RayTraceResult(hitVec, EnumFacing.UP, hitPos);
     }
 
-    private BlockHitResult createItemAirInteractionHit(Vec3 camPos, Vec3 dir) {
-        if (camPos == null || dir == null || dir.lengthSqr() < 1.0E-6D) {
+    private RayTraceResult createItemAirInteractionHit(Vec3d camPos, Vec3d dir) {
+        if (camPos == null || dir == null || dir.lengthSquared() < 1.0E-6D) {
             return null;
         }
-        Vec3 normalizedDir = dir.normalize();
-        Vec3 hitVec = camPos.add(normalizedDir.scale(ITEM_AIR_INTERACTION_DISTANCE));
-        BlockPos hitPos = BlockPos.containing(hitVec);
+        Vec3d normalizedDir = dir.normalize();
+        Vec3d hitVec = camPos.add(normalizedDir.scale(ITEM_AIR_INTERACTION_DISTANCE));
+        BlockPos hitPos = new BlockPos(hitVec);
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
         }
-        Direction face = Direction.getNearest(-normalizedDir.x, -normalizedDir.y, -normalizedDir.z);
-        return new BlockHitResult(hitVec, face, hitPos, false);
+        EnumFacing face = nearestFacing(-normalizedDir.x, -normalizedDir.y, -normalizedDir.z);
+        return new RayTraceResult(hitVec, face, hitPos);
     }
 
-    private Direction resolveAirShapeFace(Vec3 dir) {
+    private EnumFacing resolveAirShapeFace(Vec3d dir) {
         if (this.shapeController.getShapeBuildSession() != null && this.shapeController.getShapeBuildSession().planeFace() != null) {
             return this.shapeController.getShapeBuildSession().planeFace();
         }
@@ -355,27 +343,55 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
                 || shape == BuildShape.SQUARE
                 || shape == BuildShape.CYLINDER
                 || shape == BuildShape.BOX) {
-            return Direction.UP;
+            return EnumFacing.UP;
         }
         if (shape == BuildShape.WALL) {
-            return Direction.UP;
+            return EnumFacing.UP;
         }
-        return Direction.getNearest(-dir.x, -dir.y, -dir.z);
+        return nearestFacing(-dir.x, -dir.y, -dir.z);
     }
 
-    private Vec3 resolveAirShapePlaneAnchor(Direction face) {
+    private Vec3d resolveAirShapePlaneAnchor(EnumFacing face) {
         Minecraft mc = this.screen.getMinecraft();
         if (face == null || mc == null || mc.player == null) {
             return null;
         }
         if (this.shapeController.getShapeBuildSession() != null) {
             if (this.shapeController.getShapeBuildSession().pointA() != null) {
-                return Vec3.atCenterOf(this.shapeController.getShapeBuildSession().pointA());
+                return centerOf(this.shapeController.getShapeBuildSession().pointA());
             }
             if (this.shapeController.getShapeBuildSession().pointB() != null) {
-                return Vec3.atCenterOf(this.shapeController.getShapeBuildSession().pointB());
+                return centerOf(this.shapeController.getShapeBuildSession().pointB());
             }
         }
-        return Vec3.atCenterOf(mc.player.blockPosition());
+        return centerOf(mc.player.getPosition());
+    }
+
+    private static Vec3d cameraPosition(Minecraft mc) {
+        Entity camera = mc == null ? null : mc.getRenderViewEntity();
+        return camera == null ? Vec3d.ZERO : camera.getPositionEyes(1.0F);
+    }
+
+    private static Vec3d centerOf(BlockPos pos) {
+        return new Vec3d(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);
+    }
+
+    private static double axisComponent(EnumFacing.Axis axis, Vec3d vector) {
+        switch (axis) {
+            case X: return vector.x;
+            case Y: return vector.y;
+            case Z: return vector.z;
+            default: throw new IllegalArgumentException("Unknown axis " + axis);
+        }
+    }
+
+    private static EnumFacing nearestFacing(double x, double y, double z) {
+        EnumFacing best = EnumFacing.NORTH;
+        double score = -Double.MAX_VALUE;
+        for (EnumFacing facing : EnumFacing.values()) {
+            double dot = x * facing.getXOffset() + y * facing.getYOffset() + z * facing.getZOffset();
+            if (dot > score) { score = dot; best = facing; }
+        }
+        return best;
     }
 }

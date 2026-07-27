@@ -7,13 +7,13 @@ import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.StorageLinkDetailStyle;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
@@ -65,7 +65,7 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         boolean hovered = isInsideWindow(mouseX, mouseY);
         int x = contentX();
         int y = contentY();
@@ -77,8 +77,8 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
                 StorageLinkDetailStyle.background(hovered),
                 StorageLinkDetailStyle.border(hovered),
                 StorageLinkDetailStyle.BORDER_DARK);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
-                screen.trimToWidth(this.actionLabel, Math.max(8, contentWidth() - 8)),
+        g.drawCenteredString(screen.font(),
+                screen.font().trimStringToWidth(this.actionLabel, Math.max(8, contentWidth() - 8)),
                 contentX() + contentWidth() / 2,
                 contentY() + 4,
                 StorageLinkDetailStyle.TEXT.toArgb());
@@ -94,8 +94,8 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.empty();
+    protected ITextComponent getTitle() {
+        return new TextComponentString("");
     }
 
     @Override
@@ -167,7 +167,7 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
     private int actionX(TopBarTypes.TopBarButtonLayout linkButton, String label) {
         int w = actionW(linkButton, label);
         int centered = linkButton.x() + linkButton.width() / 2 - w / 2;
-        return Mth.clamp(centered, 4, Math.max(4, screen.width - w - 4));
+        return MathHelper.clamp(centered, 4, Math.max(4, screen.width - w - 4));
     }
 
     private int actionY() {
@@ -175,7 +175,7 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
     }
 
     private int actionW(TopBarTypes.TopBarButtonLayout linkButton, String label) {
-        int desired = Math.max(linkButton.width(), screen.font().width(label) + 12);
+        int desired = Math.max(linkButton.width(), screen.font().getStringWidth(label) + 12);
         return Math.min(desired, Math.max(40, screen.width - 8));
     }
 

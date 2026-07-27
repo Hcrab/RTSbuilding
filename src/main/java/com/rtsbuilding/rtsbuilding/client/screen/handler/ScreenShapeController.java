@@ -23,14 +23,15 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeWorldOperationPlanne
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import org.lwjgl.input.Keyboard;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -272,7 +273,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
 
     // ===== Shape building flow =====
 
-    public void placeWithShape(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, double mouseY,
+    public void placeWithShape(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, double mouseY,
             boolean fluidPlacement, InteractionTypes.PlacementReplayKind replayKind, String replayItemId, int replayToolSlot) {
         if (hit == null) {
             return;
@@ -287,13 +288,13 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
                 // Single block pending ghost 鈥?resolve target position for accurate direction
                 BlockPos placePos = ShapePlacementTargetResolver.resolveClickedTarget(
                         hit.getBlockPos(),
-                        hit.getDirection(),
+                        hit.sideHit,
                         ShapePlacementTargetResolver.minecraftWorld(
                                 this.screen.getMinecraft(),
                                 this.worldOperations.placementStack()));
-                BlockState pendingState = resolvePendingGhostBlockState(placePos);
+                IBlockState pendingState = resolvePendingGhostBlockState(placePos);
                 if (placePos != null) {
-                    PlacementAnimationRenderer.addPendingBatch(List.of(placePos.immutable()), pendingState);
+                    PlacementAnimationRenderer.addPendingBatch(Collections.singletonList(placePos.toImmutable()), pendingState);
                 }
             }
             return;
@@ -304,7 +305,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         }
     }
 
-    public void selectRangeDestroyShape(BlockHitResult hit, double mouseY, Vec3 rayDir) {
+    public void selectRangeDestroyShape(RayTraceResult hit, double mouseY, Vec3d rayDir) {
         if (hit == null) {
             return;
         }
@@ -312,13 +313,13 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         if (shape == BuildShape.BLOCK) {
             clearShapeBuildSession();
             List<BlockPos> breakable = ShapeDestroyTargetClassifier.breakableTargets(
-                    List.of(hit.getBlockPos().immutable()),
+                    Collections.singletonList(hit.getBlockPos().toImmutable()),
                     this::isBreakableDestroyTarget);
             if (!breakable.isEmpty()) {
                 List<BlockPos> boundsFiltered = filterToBounds(breakable);
                 if (!boundsFiltered.isEmpty()) {
                     rememberConfirmedRangeDestroyPreview(
-                            new ShapeDestroyTargetClassifier.Selection(boundsFiltered, List.of()));
+                            new ShapeDestroyTargetClassifier.Selection(boundsFiltered, Collections.<BlockPos>emptyList()));
                     this.controller.confirmShapeAreaDestroy(boundsFiltered, this.screen.getSelectedToolSlot());
                 }
             }
@@ -335,7 +336,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
     }
 
     /** 将一次点击交给会话 owner；顶层只负责确认预览的生命周期。 */
-    private void advanceShapeSession(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
+    private void advanceShapeSession(RayTraceResult hit, Vec3d rayDir, double mouseY, BuildShape shape) {
         this.confirmedDestroyWorkArea.clearChain();
         this.selectionSession.advance(hit, rayDir, mouseY, shape);
     }
@@ -375,11 +376,11 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         return this.selectionBox.box();
     }
 
-    public AABB advancedRangeDestroyRenderAabb() {
+    public AxisAlignedBB advancedRangeDestroyRenderAabb() {
         return shapeSelectionRenderAabb();
     }
 
-    public AABB shapeSelectionRenderAabb() {
+    public AxisAlignedBB shapeSelectionRenderAabb() {
         ShapeBuildTypes.Session session = this.selectionSession.current();
         if (session == null || this.controller.getBuildShape() == BuildShape.BLOCK) {
             return null;
@@ -392,23 +393,23 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         return this.selectionBox.renderAabb(this.worldOperations.generatedBounds());
     }
 
-    public Direction advancedRangeDestroyHoveredHandle() {
+    public EnumFacing advancedRangeDestroyHoveredHandle() {
         return this.selectionBox.hoveredHandle();
     }
 
-    public Direction advancedRangeDestroyActiveHandle() {
+    public EnumFacing advancedRangeDestroyActiveHandle() {
         return this.selectionBox.activeHandle();
     }
 
-    public Set<Direction> advancedRangeDestroyAllowedHandleDirections() {
+    public Set<EnumFacing> advancedRangeDestroyAllowedHandleDirections() {
         return this.selectionBox.allowedDirections();
     }
 
-    public void updateAdvancedRangeDestroyHover(Vec3 origin, Vec3 rayDirection, boolean enabled) {
+    public void updateAdvancedRangeDestroyHover(Vec3d origin, Vec3d rayDirection, boolean enabled) {
         this.selectionBox.updateHover(origin, rayDirection, enabled);
     }
 
-    public boolean clickAdvancedRangeDestroyHandle(Vec3 origin, Vec3 rayDirection) {
+    public boolean clickAdvancedRangeDestroyHandle(Vec3d origin, Vec3d rayDirection) {
         return this.selectionBox.click(origin, rayDirection);
     }
 
@@ -442,18 +443,18 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
 
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null) return false;
-        Vec3 rayOrigin = mc.gameRenderer.getMainCamera().getPosition();
-        Vec3 rayDir = this.screen.computeCursorRayDirection();
-        BlockHitResult templateHit = this.worldOperations.templateHit(input);
+        Vec3d rayOrigin = this.screen.currentRayOrigin();
+        Vec3d rayDir = this.screen.computeCursorRayDirection();
+        RayTraceResult templateHit = this.worldOperations.templateHit(input);
 
         return this.worldOperations.execute(
                 input,
                 (in, raw) -> filterOccupiedReadyShapeTargets(in, raw),
                 bounded -> {
-                    List<BlockHitResult> hits = ShapeWorldOperationPlanner.wrapPlacementHits(
+                    List<RayTraceResult> hits = ShapeWorldOperationPlanner.wrapPlacementHits(
                             bounded, input.placementFace());
                     if (useFluid) {
-                        for (BlockHitResult shapedHit : hits) {
+                        for (RayTraceResult shapedHit : hits) {
                             this.controller.placeSelectedFluid(shapedHit, forcePlace, rayOrigin, rayDir);
                         }
                     } else {
@@ -476,7 +477,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
     }
 
     @Override
-    public ShapeBuildTypes.Input resolveInput(BlockHitResult cursorHit, boolean requireReady) {
+    public ShapeBuildTypes.Input resolveInput(RayTraceResult cursorHit, boolean requireReady) {
         return resolveCurrentShapeBuildInput(cursorHit, requireReady);
     }
 
@@ -529,13 +530,13 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         return this.placementHistory.undo();
     }
 
-    public void recordSinglePlacementForUndo(BlockHitResult hit, InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot) {
+    public void recordSinglePlacementForUndo(RayTraceResult hit, InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot) {
     }
 
-    public void recordBreakForUndo(List<BlockPos> positions, Direction face, int toolSlot) {
+    public void recordBreakForUndo(List<BlockPos> positions, EnumFacing face, int toolSlot) {
     }
 
-    public void recordPendingBreakForUndo(List<BlockPos> positions, Direction face, int toolSlot) {
+    public void recordPendingBreakForUndo(List<BlockPos> positions, EnumFacing face, int toolSlot) {
     }
 
     // ===== Dimension / Nudge adjustments =====
@@ -574,11 +575,11 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
     public String currentShapeSizeText() {
         BuildShape shape = this.controller.getBuildShape();
         if (shape == BuildShape.BLOCK) {
-            return ShapeSelectionTextPresenter.sizeText(shape, List.of());
+            return ShapeSelectionTextPresenter.sizeText(shape, Collections.<BlockPos>emptyList());
         }
         ShapeBuildTypes.Input input = resolveCurrentShapeBuildInput(this.screen.pickBlockHit(), false);
         if (input == null) {
-            return ShapeSelectionTextPresenter.sizeText(shape, List.of());
+            return ShapeSelectionTextPresenter.sizeText(shape, Collections.<BlockPos>emptyList());
         }
         return ShapeSelectionTextPresenter.sizeText(shape, generateShapePositions(input));
     }
@@ -624,8 +625,8 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
     private String confirmKeyLabel(boolean destroyMode) {
         if (Config.isKeyboardBatchConfirmEnabled()) {
             return (destroyMode ? ClientKeyMappings.CONFIRM_BATCH_DESTROY : ClientKeyMappings.CONFIRM_BATCH_PLACE)
-                    .getTranslatedKeyMessage()
-                    .getString();
+                    .getKeyCode() == 0 ? "" : Keyboard.getKeyName(
+                    (destroyMode ? ClientKeyMappings.CONFIRM_BATCH_DESTROY : ClientKeyMappings.CONFIRM_BATCH_PLACE).getKeyCode());
         }
         return this.screen.text(destroyMode ? "screen.rtsbuilding.input.lmb" : "screen.rtsbuilding.input.rmb");
     }
@@ -636,11 +637,11 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
 
     // ===== Internal helpers =====
 
-    private BlockState resolvePendingGhostBlockState(BlockPos targetPos) {
+    private IBlockState resolvePendingGhostBlockState(BlockPos targetPos) {
         return this.worldOperations.pendingGhostState(targetPos);
     }
 
-    private ShapeBuildTypes.Input resolveCurrentShapeBuildInput(BlockHitResult cursorHit, boolean requireReady) {
+    private ShapeBuildTypes.Input resolveCurrentShapeBuildInput(RayTraceResult cursorHit, boolean requireReady) {
         return this.selectionSession.resolveInput(
                 cursorHit,
                 requireReady,
@@ -678,9 +679,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         if (mc == null) {
             return false;
         }
-        long window = mc.getWindow().getWindow();
-        return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
+        return Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU);
     }
 
 }

@@ -1,45 +1,35 @@
 package com.rtsbuilding.rtsbuilding.compat;
 
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
 /**
- * Optional extension for item handlers that can insert a stack into any
- * suitable slot in a single operation, rather than iterating slots manually.
- *
- * <p>Implementations should also provide a bulk extraction path to avoid
- * O(n) slot iteration on large storage networks (AE2, BD, etc.).
+ * 可选的批量物品处理扩展。实现类可以绕过逐槽扫描，直接访问大型网络库存。
  */
 public interface AnySlotInsertItemHandler {
 
-    /**
-     * Inserts a stack into any suitable slot in a single operation.
-     *
-     * @return the remainder (items that could not be inserted)
-     */
+    /** 插入任意合适位置，并返回未插入的原样余量（包括 metadata 与 NBT）。 */
     ItemStack insertItemAnywhere(ItemStack stack, boolean simulate);
 
     /**
-     * Extracts up to {@code amount} items of the given type in a single
-     * operation, avoiding per-slot iteration.
-     *
-     * <p>The default implementation scans all slots linearly. Bulk-aware
-     * handlers (AE2, BD networks) SHOULD override this with a direct
-     * bulk-extract call.
-     *
-     * @param targetItem the item type to extract
-     * @param amount     maximum number to extract
-     * @param simulate   if true, only simulate the extraction
-     * @return the extracted stack, or {@link ItemStack#EMPTY}
+     * 提取指定物品的一个实际变体。默认实现会使用槽内真实栈发起提取，
+     * 因而不会把 metadata 或 NBT 从返回值上抹掉。
      */
     default ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
-        // Fallback: linear scan — override in bulk-capable handlers
-        for (int slot = 0; slot < ((net.neoforged.neoforge.items.IItemHandler) this).getSlots() && amount > 0; slot++) {
-            net.neoforged.neoforge.items.IItemHandler handler = (net.neoforged.neoforge.items.IItemHandler) this;
+        if (!(this instanceof IItemHandler) || targetItem == null || amount <= 0) {
+            return ItemStack.EMPTY;
+        }
+        IItemHandler handler = (IItemHandler) this;
+        for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack slotStack = handler.getStackInSlot(slot);
-            if (slotStack.isEmpty() || slotStack.getItem() != targetItem) continue;
+            if (slotStack.isEmpty() || slotStack.getItem() != targetItem) {
+                continue;
+            }
             ItemStack extracted = handler.extractItem(slot, amount, simulate);
-            if (!extracted.isEmpty()) return extracted;
+            if (!extracted.isEmpty()) {
+                return extracted;
+            }
         }
         return ItemStack.EMPTY;
     }

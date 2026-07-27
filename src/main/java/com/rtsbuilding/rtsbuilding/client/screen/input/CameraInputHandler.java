@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.screen.input;
 
-import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
@@ -10,17 +9,17 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineUiAdapter;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import org.lwjgl.input.Keyboard;
 
+import java.util.Collections;
 import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.MIDDLE_CLICK_DRAG_THRESHOLD;
@@ -100,28 +99,28 @@ public final class CameraInputHandler {
     // ======================== 静态输入辅助方法 ========================
 
     public static boolean isPrimaryActionMouse(int button) {
-        return ClientKeyMappings.ACTION_PRIMARY.matchesMouse(button);
+        return matchesMouse(ClientKeyMappings.ACTION_PRIMARY, button);
     }
 
     public static boolean isBreakActionMouse(int button) {
-        return ClientKeyMappings.ACTION_BREAK.matchesMouse(button);
+        return matchesMouse(ClientKeyMappings.ACTION_BREAK, button);
     }
 
     public static boolean isRotateDragActionMouse(int button) {
-        return ClientKeyMappings.CAMERA_ROTATE_DRAG.matchesMouse(button);
+        return matchesMouse(ClientKeyMappings.CAMERA_ROTATE_DRAG, button);
     }
 
     public static boolean isPanDragActionMouse(int button) {
-        return ClientKeyMappings.CAMERA_PAN_DRAG.matchesMouse(button);
+        return matchesMouse(ClientKeyMappings.CAMERA_PAN_DRAG, button);
     }
 
     public static boolean isKeyboardPanDragActionHeld() {
-        InputConstants.Key key = ClientKeyMappings.CAMERA_PAN_DRAG.getKey();
-        return key.getType() == InputConstants.Type.KEYSYM && ClientKeyMappings.CAMERA_PAN_DRAG.isDown();
+        int keyCode = ClientKeyMappings.CAMERA_PAN_DRAG.getKeyCode();
+        return keyCode >= 0 && Keyboard.isKeyDown(keyCode);
     }
 
     public static boolean isPickBlockActionMouse(int button) {
-        return ClientKeyMappings.PICK_BLOCK.matchesMouse(button);
+        return matchesMouse(ClientKeyMappings.PICK_BLOCK, button);
     }
 
     public static boolean canStartBreakActionOnMouse(int button) {
@@ -134,11 +133,11 @@ public final class CameraInputHandler {
     // ======================== 镜头/输入状态查询 ========================
 
     public boolean isCameraUpActionHeld() {
-        return this.cameraUpActionHeld || ClientKeyMappings.CAMERA_UP.isDown();
+        return this.cameraUpActionHeld || isKeyboardDown(ClientKeyMappings.CAMERA_UP);
     }
 
     public boolean isCameraDownActionHeld() {
-        return this.cameraDownActionHeld || ClientKeyMappings.CAMERA_DOWN.isDown();
+        return this.cameraDownActionHeld || isKeyboardDown(ClientKeyMappings.CAMERA_DOWN);
     }
 
     public boolean isLeftMiningActive() {
@@ -372,11 +371,11 @@ public final class CameraInputHandler {
 
     public boolean updateCameraVerticalHeldState(int keyCode, int scanCode, boolean down) {
         boolean handled = false;
-        if (ClientKeyMappings.CAMERA_UP.matches(keyCode, scanCode)) {
+        if (ClientKeyMappings.CAMERA_UP.getKeyCode() == keyCode) {
             this.cameraUpActionHeld = down;
             handled = true;
         }
-        if (ClientKeyMappings.CAMERA_DOWN.matches(keyCode, scanCode)) {
+        if (ClientKeyMappings.CAMERA_DOWN.getKeyCode() == keyCode) {
             this.cameraDownActionHeld = down;
             handled = true;
         }
@@ -414,7 +413,7 @@ public final class CameraInputHandler {
             if (lookTarget != null && lookTarget.isEntityTarget()) {
                 return false;
             }
-            BlockHitResult hit = screen.pickBlockHit();
+            RayTraceResult hit = screen.pickBlockHit();
             if (hit == null) {
                 return false;
             }
@@ -426,15 +425,15 @@ public final class CameraInputHandler {
                 int phase = this.controller.getAreaMinePhase();
                 if (phase == MiningOperationService.AREA_MINE_PHASE_NONE) {
                     // First click: set point A
-                    this.controller.setAreaMinePointA(hit.getBlockPos().immutable());
+                    this.controller.setAreaMinePointA(hit.getBlockPos().toImmutable());
                 } else if (phase == MiningOperationService.AREA_MINE_PHASE_NEED_SECOND) {
                     // Second click: set point B (defines base rectangle), enter height adjustment phase
-                    this.controller.setAreaMinePointB(hit.getBlockPos().immutable());
+                    this.controller.setAreaMinePointB(hit.getBlockPos().toImmutable());
                 }
             } else if (screen.isQuickBuildRangeDestroyChainMode()) {
                 List<BlockPos> preview = screen.collectUltiminePreviewBlocks();
                 if (preview.isEmpty()) {
-                    preview = List.of(hit.getBlockPos().immutable());
+                    preview = Collections.singletonList(hit.getBlockPos().toImmutable());
                 }
                 if (!UltimineUiAdapter.confirmPreview(screen, hit, preview)) {
                     return false;
@@ -442,8 +441,8 @@ public final class CameraInputHandler {
             } else {
                 // 记录普通挖掘操作到撤回栈（等待服务端确认）
                 screen.getShapeController().recordPendingBreakForUndo(
-                        List.of(hit.getBlockPos().immutable()), hit.getDirection(), screen.getSelectedToolSlot());
-                this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
+                        Collections.singletonList(hit.getBlockPos().toImmutable()), hit.sideHit, screen.getSelectedToolSlot());
+                this.controller.startMining(hit.getBlockPos(), hit.sideHit.getIndex(), screen.getSelectedToolSlot());
             }
         }
         this.leftMiningActive = true;
@@ -474,19 +473,19 @@ public final class CameraInputHandler {
 
     public boolean tryPickHoveredBlockForPlacement() {
         Minecraft mc = screen.getMinecraft();
-        if (mc == null || mc.level == null) {
+        if (mc == null || mc.world == null) {
             return false;
         }
-        BlockHitResult hit = screen.pickBlockHit();
-        if (hit == null || hit.getType() != HitResult.Type.BLOCK) {
+        RayTraceResult hit = screen.pickBlockHit();
+        if (hit == null || hit.typeOfHit != RayTraceResult.Type.BLOCK) {
             return false;
         }
-        BlockState state = mc.level.getBlockState(hit.getBlockPos());
-        Item item = state.getBlock().asItem();
+        IBlockState state = mc.world.getBlockState(hit.getBlockPos());
+        Item item = Item.getItemFromBlock(state.getBlock());
         if (item == Items.AIR) {
             return false;
         }
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+        ResourceLocation itemId = Item.REGISTRY.getNameForObject(item);
         if (itemId == null) {
             return false;
         }
@@ -496,30 +495,30 @@ public final class CameraInputHandler {
         }
         screen.clearShapeBuildSession();
         if (mc.player != null) {
-            var inventory = mc.player.getInventory();
+            final net.minecraft.entity.player.InventoryPlayer inventory = mc.player.inventory;
             RtsPickBlockPlacementSelector.Selection selection = RtsPickBlockPlacementSelector.resolve(
-                    inventory.getContainerSize(),
+                    inventory.mainInventory.size(),
                     slot -> {
-                        ItemStack candidate = inventory.getItem(slot);
+                        ItemStack candidate = inventory.mainInventory.get(slot);
                         return !candidate.isEmpty() && candidate.getItem() == preview.getItem();
                     });
             if (selection.route() == RtsPickBlockPlacementSelector.Route.HOTBAR) {
-                inventory.selected = selection.slot();
+                inventory.currentItem = selection.slot();
                 this.controller.clearPlacementSelectionPreserveMode();
                 this.controller.copyPlacementState(state);
                 this.controller.setMode(BuilderMode.INTERACT);
                 return true;
             }
             if (selection.route() == RtsPickBlockPlacementSelector.Route.MAIN_INVENTORY
-                    && mc.gameMode != null) {
-                mc.gameMode.handlePickItem(selection.slot());
+                    && mc.playerController != null) {
+                mc.playerController.pickItem(selection.slot());
                 this.controller.clearPlacementSelectionPreserveMode();
                 this.controller.copyPlacementState(state);
                 this.controller.setMode(BuilderMode.INTERACT);
                 return true;
             }
         }
-        this.controller.selectItemForPlacement(itemId.toString(), preview.getHoverName().getString(), preview);
+        this.controller.selectItemForPlacement(itemId.toString(), preview.getDisplayName(), preview);
         this.controller.copyPlacementState(state);
         return true;
     }
@@ -529,12 +528,14 @@ public final class CameraInputHandler {
     // ======================== Modifier 查询 ========================
 
     private static boolean isAltDown() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.getWindow() == null) {
-            return false;
-        }
-        long window = mc.getWindow().getWindow();
-        return GLFW.glfwGetKey(window, GLFW.GLFW_KEY_LEFT_ALT) == GLFW.GLFW_PRESS
-                || GLFW.glfwGetKey(window, GLFW.GLFW_KEY_RIGHT_ALT) == GLFW.GLFW_PRESS;
+        return Keyboard.isKeyDown(Keyboard.KEY_LMENU) || Keyboard.isKeyDown(Keyboard.KEY_RMENU);
+    }
+
+    private static boolean matchesMouse(KeyBinding binding, int button) {
+        return binding != null && binding.getKeyCode() == button - 100;
+    }
+
+    private static boolean isKeyboardDown(KeyBinding binding) {
+        return binding != null && binding.getKeyCode() >= 0 && Keyboard.isKeyDown(binding.getKeyCode());
     }
 }

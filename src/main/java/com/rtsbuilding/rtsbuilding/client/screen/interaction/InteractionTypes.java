@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.interaction;
 
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+
+import java.util.Objects;
 
 /**
  * Shared data records for RTS screen interaction flows that are still active.
@@ -23,15 +25,53 @@ public final class InteractionTypes {
      * @param rayOrigin   ray-cast origin
      * @param rayDir      ray-cast direction
      */
-    public record InteractionTarget(
-            int entityId,
-            Vec3 hitLocation,
-            BlockHitResult blockHit,
-            Vec3 rayOrigin,
-            Vec3 rayDir) {
+    public static final class InteractionTarget {
+        private final int entityId;
+        private final Vec3d hitLocation;
+        private final RayTraceResult blockHit;
+        private final Vec3d rayOrigin;
+        private final Vec3d rayDir;
+
+        public InteractionTarget(int entityId, Vec3d hitLocation, RayTraceResult blockHit,
+                Vec3d rayOrigin, Vec3d rayDir) {
+            this.entityId = entityId;
+            this.hitLocation = hitLocation;
+            this.blockHit = blockHit;
+            this.rayOrigin = rayOrigin;
+            this.rayDir = rayDir;
+        }
+
+        public int entityId() { return entityId; }
+        public Vec3d hitLocation() { return hitLocation; }
+        public RayTraceResult blockHit() { return blockHit; }
+        public Vec3d rayOrigin() { return rayOrigin; }
+        public Vec3d rayDir() { return rayDir; }
 
         public boolean isEntityTarget() {
             return this.entityId >= 0;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof InteractionTarget)) return false;
+            InteractionTarget that = (InteractionTarget) other;
+            return entityId == that.entityId
+                    && Objects.equals(hitLocation, that.hitLocation)
+                    && Objects.equals(blockHit, that.blockHit)
+                    && Objects.equals(rayOrigin, that.rayOrigin)
+                    && Objects.equals(rayDir, that.rayDir);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(entityId, hitLocation, blockHit, rayOrigin, rayDir);
+        }
+
+        @Override
+        public String toString() {
+            return "InteractionTarget[entityId=" + entityId + ", hitLocation=" + hitLocation
+                    + ", blockHit=" + blockHit + ", rayOrigin=" + rayOrigin + ", rayDir=" + rayDir + "]";
         }
     }
 

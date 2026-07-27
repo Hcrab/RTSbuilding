@@ -1,227 +1,177 @@
 package com.rtsbuilding.rtsbuilding.compat.ae2;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.MenuProvider;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.fml.ModList;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 
-/**
- * Icon resolution for AE2 GUI binding slots.
- *
- * <p>Given a world position and a block entity (typically an AE2 part or
- * terminal), this resolver tries multiple strategies to derive the most
- * specific registered item ID that matches the block's GUI:
- * <ol>
- *   <li>Use the display name or label hint as a candidate path</li>
- *   <li>Check the part class name for the direction-facing sub-component</li>
- *   <li>Fall back to the block entity or menu provider class name</li>
- *   <li>Try alias patterns (crafting_terminal, pattern_terminal, etc.)</li>
- * </ol>
- *
- * <p>All access is reflective so RTSBuilding does not gain a hard runtime
- * dependency on AE2. This class is safe to call even when AE2 is not
- * installed (returns empty string).
- */
+/** AE2 rv6 终端/part 的 GUI 绑定图标解析。AE2 未安装时可安全加载。 */
 public final class RtsAe2IconResolver {
-
     private RtsAe2IconResolver() {
     }
 
-    public static String resolveGuiBindingIconItemId(Level level, BlockPos pos, Direction face, String labelHint) {
-        if (level == null || pos == null || !ModList.get().isLoaded("ae2") || !level.hasChunkAt(pos)) {
+    public static String resolveGuiBindingIconItemId(World world, BlockPos pos, EnumFacing face, String labelHint) {
+        if (world == null || pos == null || !isAe2Loaded() || !world.isBlockLoaded(pos)) {
+            return "";
+        }
+        IBlockState state = world.getBlockState(pos);
+        if (state == null || state.getBlock() == Blocks.AIR) {
             return "";
         }
 
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) {
-            return "";
+        TileEntity tile = world.getTileEntity(pos);
+        Object part = resolveDirectionalPart(tile, face);
+        String partItemId = resolvePartItemId(part);
+        if (!partItemId.isEmpty()) {
+            return partItemId;
         }
 
-        String namespace = resolveItemNamespace(state);
-        if (namespace.isBlank()) {
-            return "";
+        LinkedHashSet<String> candidates = new LinkedHashSet<>();
+        addIconCandidates(candidates, labelHint);
+        addIconCandidates(candidates, part == null ? "" : part.getClass().getName());
+        addIconCandidates(candidates, tile == null ? "" : tile.getClass().getName());
+        Object displayName = invokeNoArgs(part, "getDisplayName");
+        addIconCandidates(candidates, displayName == null ? "" : displayName.toString());
+
+        String candidate = resolveRegisteredItemId(candidates);
+        if (!candidate.isEmpty()) {
+            return candidate;
         }
 
-        BlockEntity blockEntity = level.getBlockEntity(pos);
-        MenuProvider provider = state.getMenuProvider(level, pos);
-        if (provider == null && blockEntity instanceof MenuProvider menuProvider) {
-            provider = menuProvider;
-        }
-
-        LinkedHashSet<String> candidatePaths = new LinkedHashSet<>();
-        addIconCandidates(candidatePaths, labelHint);
-        addIconCandidates(candidatePaths, provider == null || provider.getDisplayName() == null ? "" : provider.getDisplayName().getString());
-        addIconCandidates(candidatePaths, provider == null ? "" : provider.getClass().getName());
-        addIconCandidates(candidatePaths, blockEntity == null ? "" : blockEntity.getClass().getName());
-
-        Object part = resolveDirectionalPart(blockEntity, face);
-        addIconCandidates(candidatePaths, part == null ? "" : part.getClass().getName());
-        if (part instanceof MenuProvider partProvider && partProvider.getDisplayName() != null) {
-            addIconCandidates(candidatePaths, partProvider.getDisplayName().getString());
-        }
-
-        return resolveRegisteredItemId(namespace, candidatePaths);
+        Item blockItem = Item.getItemFromBlock(state.getBlock());
+        ResourceLocation blockItemId = blockItem == null ? null : ForgeRegistries.ITEMS.getKey(blockItem);
+        return isAe2(blockItemId) ? blockItemId.toString() : "";
     }
 
-    private static String resolveItemNamespace(BlockState state) {
-        ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-        if (blockId == null) {
-            return "";
-        }
-        return "ae2".equals(blockId.getNamespace()) ? blockId.getNamespace() : "";
-    }
-
-    private static Object resolveDirectionalPart(BlockEntity blockEntity, Direction face) {
-        if (blockEntity == null || face == null) {
-            return null;
-        }
-        Method method = findMethod(blockEntity.getClass(), "getPart", Direction.class);
-        return method == null ? null : invokeReflectively(method, blockEntity, face);
-    }
-
-    private static Method findMethod(Class<?> owner, String name, Class<?>... parameterTypes) {
-        if (owner == null) {
-            return null;
-        }
-
-        try {
-            Method method = owner.getMethod(name, parameterTypes);
-            method.setAccessible(true);
-            return method;
-        } catch (ReflectiveOperationException ignored) {
-        }
-
-        try {
-            Method method = owner.getDeclaredMethod(name, parameterTypes);
-            method.setAccessible(true);
-            return method;
-        } catch (ReflectiveOperationException ignored) {
-            return null;
-        }
-    }
-
-    private static Object invokeReflectively(Method method, Object target, Object... args) {
-        if (method == null) {
+    /** 1.12 的 IPartHost 同时提供 getPart(EnumFacing)，优先按玩家点中的面识别终端。 */
+    private static Object resolveDirectionalPart(TileEntity tile, EnumFacing face) {
+        if (tile == null || face == null) {
             return null;
         }
         try {
-            return method.invoke(target, args);
-        } catch (IllegalAccessException | InvocationTargetException | IllegalArgumentException ignored) {
+            Class<?> hostClass = Class.forName("appeng.api.parts.IPartHost");
+            if (!hostClass.isInstance(tile)) {
+                return null;
+            }
+            return hostClass.getMethod("getPart", EnumFacing.class).invoke(tile, face);
+        } catch (ReflectiveOperationException | LinkageError ignored) {
             return null;
         }
     }
 
-    private static String resolveRegisteredItemId(String preferredNamespace, LinkedHashSet<String> candidatePaths) {
-        for (String path : candidatePaths) {
-            if (path == null || path.isBlank()) {
-                continue;
+    /** 从真实 part 栈取注册物品；metadata/NBT 仍保留在 part 栈中，不靠类名猜物品。 */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static String resolvePartItemId(Object part) {
+        if (part == null) {
+            return "";
+        }
+        try {
+            Class<?> partClass = Class.forName("appeng.api.parts.IPart");
+            Class<?> stackKindClass = Class.forName("appeng.api.parts.PartItemStack");
+            if (!partClass.isInstance(part)) {
+                return "";
             }
-
-            if (!preferredNamespace.isBlank()) {
-                ResourceLocation preferred = ResourceLocation.tryParse(preferredNamespace + ":" + path);
-                if (preferred != null && BuiltInRegistries.ITEM.containsKey(preferred)) {
-                    return preferred.toString();
-                }
+            Method getItemStack = partClass.getMethod("getItemStack", stackKindClass);
+            Object networkKind = Enum.valueOf((Class<? extends Enum>) stackKindClass.asSubclass(Enum.class), "NETWORK");
+            Object value = getItemStack.invoke(part, networkKind);
+            if (!(value instanceof ItemStack) || ((ItemStack) value).isEmpty()) {
+                return "";
             }
+            ResourceLocation id = ForgeRegistries.ITEMS.getKey(((ItemStack) value).getItem());
+            return isAe2(id) ? id.toString() : "";
+        } catch (ReflectiveOperationException | LinkageError ignored) {
+            return "";
+        }
+    }
 
-            ResourceLocation ae2 = ResourceLocation.tryParse("ae2:" + path);
-            if (ae2 != null && BuiltInRegistries.ITEM.containsKey(ae2)) {
-                return ae2.toString();
-            }
+    private static Object invokeNoArgs(Object target, String methodName) {
+        if (target == null) {
+            return null;
+        }
+        try {
+            return target.getClass().getMethod(methodName).invoke(target);
+        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException ignored) {
+            return null;
+        }
+    }
 
-            for (ResourceLocation key : BuiltInRegistries.ITEM.keySet()) {
-                if (path.equals(key.getPath())) {
-                    return key.toString();
-                }
+    private static String resolveRegisteredItemId(LinkedHashSet<String> candidates) {
+        for (String path : candidates) {
+            ResourceLocation id = resourceLocation("appliedenergistics2", path);
+            if (id != null && ForgeRegistries.ITEMS.containsKey(id)) {
+                return id.toString();
             }
         }
         return "";
     }
 
+    private static ResourceLocation resourceLocation(String namespace, String path) {
+        try {
+            return path == null || path.isEmpty() ? null : new ResourceLocation(namespace, path);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isAe2(ResourceLocation id) {
+        return id != null && "appliedenergistics2".equals(id.getNamespace());
+    }
+
+    private static boolean isAe2Loaded() {
+        try {
+            return Loader.isModLoaded("appliedenergistics2");
+        } catch (RuntimeException | LinkageError loaderNotReady) {
+            return false;
+        }
+    }
+
     private static void addIconCandidates(LinkedHashSet<String> out, String text) {
         String normalized = normalizeToItemPath(text);
-        if (normalized.isBlank()) {
+        if (normalized.isEmpty()) {
             return;
         }
-
-        addCandidate(out, normalized);
-
+        out.add(normalized);
         String stripped = stripGuiNoise(normalized);
-        if (!stripped.equals(normalized)) {
-            addCandidate(out, stripped);
+        out.add(stripped);
+        if (stripped.contains("crafting") && stripped.contains("terminal")) {
+            out.add("crafting_terminal");
         }
-        addAliasCandidates(out, stripped);
-    }
-
-    private static void addAliasCandidates(LinkedHashSet<String> out, String normalized) {
-        boolean terminal = normalized.contains("terminal") || normalized.contains("term");
-        boolean crafting = normalized.contains("crafting");
-        boolean pattern = normalized.contains("pattern");
-        boolean encoding = normalized.contains("encoding");
-        boolean access = normalized.contains("access");
-        boolean provider = normalized.contains("provider");
-
-        if (crafting && terminal) {
-            addCandidate(out, "crafting_terminal");
+        if (stripped.contains("pattern") && stripped.contains("terminal")) {
+            out.add("pattern_terminal");
         }
-        if (pattern && terminal && (encoding || normalized.equals("pattern_terminal"))) {
-            addCandidate(out, "pattern_encoding_terminal");
-            addCandidate(out, "pattern_terminal");
+        if (stripped.contains("interface") && stripped.contains("terminal")) {
+            out.add("interface_terminal");
         }
-        if (pattern && terminal && provider) {
-            addCandidate(out, "pattern_provider_terminal");
-            addCandidate(out, "pattern_access_terminal");
-        }
-        if (pattern && terminal && access) {
-            addCandidate(out, "pattern_access_terminal");
-        }
-        if (pattern && provider && !terminal) {
-            addCandidate(out, "pattern_provider");
-        }
-        if (normalized.equals("terminal")) {
-            addCandidate(out, "terminal");
+        if ("terminal".equals(stripped)) {
+            out.add("terminal");
         }
     }
 
-    private static void addCandidate(LinkedHashSet<String> out, String path) {
-        if (path == null || path.isBlank()) {
-            return;
-        }
-        out.add(path);
-    }
-
-    private static String stripGuiNoise(String normalized) {
-        String stripped = normalized;
-        if (stripped.startsWith("me_")) {
-            stripped = stripped.substring(3);
-        }
-
+    private static String stripGuiNoise(String value) {
+        String stripped = value;
         String previous;
         do {
             previous = stripped;
             stripped = trimSuffix(stripped, "_menu_provider");
-            stripped = trimSuffix(stripped, "_menuprovider");
-            stripped = trimSuffix(stripped, "_menu_host");
-            stripped = trimSuffix(stripped, "_menuhost");
             stripped = trimSuffix(stripped, "_menu");
             stripped = trimSuffix(stripped, "_screen");
             stripped = trimSuffix(stripped, "_part");
             stripped = trimSuffix(stripped, "_host");
-            stripped = trimSuffix(stripped, "_block_entity");
-            stripped = trimSuffix(stripped, "_blockentity");
-            stripped = trimSuffix(stripped, "_block");
+            stripped = trimSuffix(stripped, "_tile_entity");
+            stripped = trimSuffix(stripped, "_tile");
         } while (!previous.equals(stripped));
-
         return stripped;
     }
 
@@ -233,18 +183,12 @@ public final class RtsAe2IconResolver {
         if (text == null) {
             return "";
         }
-
-        String simple = text.strip();
-        if (simple.isEmpty()) {
-            return "";
-        }
+        String simple = text.trim();
         int dot = simple.lastIndexOf('.');
         if (dot >= 0 && dot + 1 < simple.length()) {
             simple = simple.substring(dot + 1);
         }
-
-        String normalized = simple
-                .replaceAll("([a-z0-9])([A-Z])", "$1_$2")
+        String normalized = simple.replaceAll("([a-z0-9])([A-Z])", "$1_$2")
                 .toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9]+", "_")
                 .replaceAll("_+", "_");

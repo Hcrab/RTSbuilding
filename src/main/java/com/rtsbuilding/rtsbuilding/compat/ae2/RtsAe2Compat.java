@@ -3,20 +3,17 @@ package com.rtsbuilding.rtsbuilding.compat.ae2;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
-import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.capabilities.BlockCapability;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.items.IItemHandler;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -24,6 +21,12 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
+/**
+ * AE2 rv6（Minecraft 1.12.2）网络库存桥。
+ *
+ * <p>生产类没有任何 AE2 链接期引用：未安装 AE2 时，这个类及核心模组仍可安全加载。
+ * 安装后反射签名严格对应 rv6 的 IGridHost/IStorageGrid/IMEMonitor/IAEItemStack API。
+ */
 public final class RtsAe2Compat {
     public interface ReportedCountItemHandler extends com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler {
     }
@@ -40,114 +43,74 @@ public final class RtsAe2Compat {
         return REFLECTION != null;
     }
 
-    public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
+    public static IItemHandler createNetworkItemHandler(EntityPlayerMP player, BlockPos pos) {
         if (player == null || pos == null || REFLECTION == null) {
             return null;
         }
-        ServerLevel level = player.serverLevel();
-        if (level == null || !level.hasChunkAt(pos)) {
+        World world = player.world;
+        if (world == null || !world.isBlockLoaded(pos)) {
             return null;
         }
-
-        Object storageService = REFLECTION.findStorageService(level, pos);
-        if (storageService == null) {
-            return null;
-        }
-        return new Ae2NetworkItemHandler(player, storageService, REFLECTION);
+        Object inventory = REFLECTION.findNetworkInventory(world, pos);
+        return inventory == null ? null : new Ae2NetworkItemHandler(player, inventory, REFLECTION);
     }
 
     public static long getReportedCount(IItemHandler handler, int slot, ItemStack fallbackStack) {
-        if (handler instanceof ReportedCountItemHandler reported) {
-            return Math.max(0L, reported.getReportedCount(slot));
+        if (handler instanceof ReportedCountItemHandler) {
+            return Math.max(0L, ((ReportedCountItemHandler) handler).getReportedCount(slot));
         }
         return fallbackStack == null || fallbackStack.isEmpty() ? 0L : Math.max(0L, fallbackStack.getCount());
     }
 
-    /**
-     * Releases AE2-specific handler resources (clears the slot list and nulls
-     * the player / storage service references) so the GC can reclaim memory
-     * immediately. Safe to call on non-AE2 handlers — the instanceof check
-     * will simply skip them.
-     * <p>
-     * Called from the tick service's {@code unregisterPlayer} during
-     * player logout or RTS disable.
-     */
     public static void releaseNetworkHandler(IItemHandler handler) {
-        if (handler instanceof Ae2NetworkItemHandler ae2) {
-            ae2.release();
+        if (handler instanceof Ae2NetworkItemHandler) {
+            ((Ae2NetworkItemHandler) handler).release();
         }
     }
 
-    public static String resolveGuiBindingIconItemId(Level level, BlockPos pos, Direction face, String labelHint) {
-        return RtsAe2IconResolver.resolveGuiBindingIconItemId(level, pos, face, labelHint);
+    public static String resolveGuiBindingIconItemId(World world, BlockPos pos, EnumFacing face, String labelHint) {
+        return RtsAe2IconResolver.resolveGuiBindingIconItemId(world, pos, face, labelHint);
     }
 
     private static final class Ae2NetworkItemHandler implements IItemHandler, ReportedCountItemHandler,
             AnySlotInsertItemHandler, RefreshableSnapshotHandler {
-        private ServerPlayer player;
-        private Object storageService;
+        private EntityPlayerMP player;
+        private Object inventory;
         private final Ae2Reflection reflection;
         private final List<SlotView> slots = new ArrayList<>();
-
-        /**
-         * Throttle counter for {@link #ensureFreshSnapshot()}.
-         * <p>
-         * The {@link RtsHandlerCache} update loop calls {@link #ensureFreshSnapshot()}
-         * once per refresh cycle, and we only perform the expensive
-         * {@code MEStorage.getAvailableStacks()} scan every N calls. This
-         * keeps the effective rate proportional to the adaptive tick rate:
-         * <ul>
-         *   <li>Active use (1 tick rate): refresh every ~10 ticks (500ms)</li>
-         *   <li>Normal (8 tick rate): refresh every ~80 ticks (4s)</li>
-         *   <li>Idle (60 tick rate): refresh every ~600 ticks (30s)</li>
-         * </ul>
-         */
-        private int refreshCounter = 0;
+        private int refreshCounter;
         private boolean snapshotStale;
         private boolean released;
 
-        private Ae2NetworkItemHandler(ServerPlayer player, Object storageService, Ae2Reflection reflection) {
+        private Ae2NetworkItemHandler(EntityPlayerMP player, Object inventory, Ae2Reflection reflection) {
             this.player = player;
-            this.storageService = storageService;
+            this.inventory = inventory;
             this.reflection = reflection;
             refreshSnapshot();
         }
 
         @Override
         public int getSlots() {
-            if (this.released) return 0;
-            // No refresh here — that is delegated to {@link #ensureFreshSnapshot()}
-            // which is called once per update cycle by the cache layer.
-            //
-            // Must return exactly slots.size(), not size()+1 or any other
-            // constant, so RtsHandlerCache iteration and getStackInSlot /
-            // extractItem bounds checks are consistent. The extra +1 that
-            // existed historically created a dead ghost slot that wasted
-            // one readSlot() call per update cycle for no benefit.
-            return this.slots.size();
+            return this.released ? 0 : this.slots.size();
         }
 
         @Override
         public void ensureFreshSnapshot() {
-            if (this.released || this.storageService == null) return;
-            boolean shouldRefresh = this.snapshotStale;
-            if (!shouldRefresh) {
-                this.refreshCounter++;
-                shouldRefresh = this.refreshCounter >= Config.ae2NetworkRefreshThrottle();
+            if (this.released || this.inventory == null) {
+                return;
             }
-            if (shouldRefresh) {
-                // Use cached inventory — O(1) retrieval, no full network scan.
-                refreshSnapshotCached();
+            if (this.snapshotStale || ++this.refreshCounter >= Config.ae2NetworkRefreshThrottle()) {
+                refreshSnapshot();
             }
         }
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            if (slot < 0 || slot >= this.slots.size()) {
+            if (this.released || slot < 0 || slot >= this.slots.size()) {
                 return ItemStack.EMPTY;
             }
             SlotView view = this.slots.get(slot);
-            return view.amount() > 0L ? view.displayStack().copy() : ItemStack.EMPTY;
+            return view.amount > 0L ? view.displayStack.copy() : ItemStack.EMPTY;
         }
 
         @Override
@@ -163,79 +126,53 @@ public final class RtsAe2Compat {
 
         @Override
         public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
-            if (this.released || this.player == null || this.storageService == null
-                    || stack == null || stack.isEmpty()) {
+            if (stack == null || stack.isEmpty()) {
                 return ItemStack.EMPTY;
             }
-            Object key = this.reflection.toItemKey(stack);
-            if (key == null) {
+            if (this.released || this.player == null || this.inventory == null) {
                 return stack.copy();
             }
-
-            long inserted = this.reflection.insert(this.storageService, key, stack.getCount(), this.player, simulate);
-
-            if (inserted <= 0L) {
-                return stack.copy();
-            }
-
-            if (!simulate) {
+            ItemStack remainder = this.reflection.insert(this.inventory, stack, this.player, simulate);
+            if (!simulate && remainder.getCount() < stack.getCount()) {
                 this.snapshotStale = true;
             }
-
-            ItemStack remain = stack.copy();
-            remain.shrink((int) Math.min(Integer.MAX_VALUE, inserted));
-            return remain;
+            return remainder;
         }
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (this.released || this.player == null || this.storageService == null
+            if (this.released || this.player == null || this.inventory == null
                     || slot < 0 || slot >= this.slots.size() || amount <= 0) {
                 return ItemStack.EMPTY;
             }
-
             SlotView view = this.slots.get(slot);
-            if (view.amount() <= 0L) {
-                return ItemStack.EMPTY;
+            ItemStack extracted = this.reflection.extract(this.inventory, view.key, amount, this.player, simulate);
+            if (!simulate && !extracted.isEmpty()) {
+                long next = Math.max(0L, view.amount - extracted.getCount());
+                this.slots.set(slot, new SlotView(view.key, view.displayStack, next));
+                this.snapshotStale = true;
             }
-
-            long extracted = this.reflection.extract(this.storageService, view.key(), amount, this.player, simulate);
-
-            if (extracted <= 0L) {
-                return ItemStack.EMPTY;
-            }
-
-            if (!simulate) {
-                long nextAmount = Math.max(0L, view.amount() - extracted);
-                this.slots.set(slot, new SlotView(view.key(), view.displayStack(), nextAmount));
-            }
-
-            return this.reflection.toStack(view.key(), (int) Math.min(Integer.MAX_VALUE, extracted));
+            return extracted;
         }
 
         @Override
         public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
-            if (this.released || this.player == null || this.storageService == null
+            if (this.released || this.player == null || this.inventory == null
                     || targetItem == null || amount <= 0) {
                 return ItemStack.EMPTY;
             }
-            // Scan internal slots directly (avoids getStackInSlot() copy overhead)
-            // and perform a single bulk extract via AE2's MEStorage.extract().
-            for (int i = 0; i < this.slots.size(); i++) {
-                SlotView view = this.slots.get(i);
-                if (view.amount() <= 0L || view.displayStack().getItem() != targetItem) {
+            for (int slot = 0; slot < this.slots.size(); slot++) {
+                SlotView view = this.slots.get(slot);
+                if (view.amount <= 0L || view.displayStack.getItem() != targetItem) {
                     continue;
                 }
-                long extracted = this.reflection.extract(
-                        this.storageService, view.key(), amount, this.player, simulate);
-                if (extracted <= 0L) {
-                    return ItemStack.EMPTY;
+                ItemStack extracted = this.reflection.extract(this.inventory, view.key, amount, this.player, simulate);
+                if (!simulate && !extracted.isEmpty()) {
+                    long next = Math.max(0L, view.amount - extracted.getCount());
+                    this.slots.set(slot, new SlotView(view.key, view.displayStack, next));
+                    this.snapshotStale = true;
                 }
-                if (!simulate) {
-                    long nextAmount = Math.max(0L, view.amount() - extracted);
-                    this.slots.set(i, new SlotView(view.key(), view.displayStack(), nextAmount));
-                }
-                return this.reflection.toStack(view.key(), (int) Math.min(Integer.MAX_VALUE, extracted));
+                return extracted;
             }
             return ItemStack.EMPTY;
         }
@@ -247,409 +184,337 @@ public final class RtsAe2Compat {
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return !this.released && this.storageService != null
-                    && this.reflection.toItemKey(stack) != null;
+            return !this.released && this.inventory != null && this.reflection.toAeStack(stack) != null;
         }
 
         @Override
         public long getReportedCount(int slot) {
-            if (slot < 0 || slot >= this.slots.size()) {
-                return 0L;
-            }
-            return this.slots.get(slot).amount();
-        }
-
-        /**
-         * Steady-state refresh using AE2's pre-built cached inventory.
-         * <p>
-         * Unlike {@link #refreshSnapshot()} which calls the expensive
-         * {@code MEStorage.getAvailableStacks()} (full network scan),
-         * this uses {@code IStorageService.getCachedInventory()} which
-         * returns an already-computed snapshot built at the end of each
-         * server tick by AE2's {@code StorageService.onServerEndTick()}.
-         * <p>
-         * Retrieving the cached inventory is O(1) — no network scan,
-         * no iterating cells. The data may be up to 1 tick stale, which
-         * is perfectly acceptable for a cache refresh loop.
-         */
-        private void refreshSnapshotCached() {
-            if (this.released || this.storageService == null) return;
-            this.slots.clear();
-            for (SlotView slot : this.reflection.snapshotCached(this.storageService)) {
-                if (slot != null && slot.amount() > 0L && !slot.displayStack().isEmpty()) {
-                    this.slots.add(slot);
-                }
-            }
-            this.refreshCounter = 0;
-            this.snapshotStale = false;
+            return this.released || slot < 0 || slot >= this.slots.size() ? 0L : this.slots.get(slot).amount;
         }
 
         private void refreshSnapshot() {
-            if (this.released || this.storageService == null) return;
-            this.slots.clear();
-            for (SlotView slot : this.reflection.snapshot(this.storageService)) {
-                if (slot != null && slot.amount() > 0L && !slot.displayStack().isEmpty()) {
-                    this.slots.add(slot);
-                }
+            if (this.released || this.inventory == null) {
+                return;
             }
+            List<SlotView> fresh = this.reflection.snapshot(this.inventory);
+            this.slots.clear();
+            this.slots.addAll(fresh);
             this.refreshCounter = 0;
             this.snapshotStale = false;
         }
 
-        /**
-         * Releases all resource-heavy references held by this handler so the
-         * GC can reclaim memory immediately instead of waiting for the handler
-         * object itself to become unreachable.
-         * <p>
-         * Called from {@link RtsAe2Compat#releaseNetworkHandler(IItemHandler)}
-         * when the handler is unmounted from the player's aggregate storage.
-         * After this call the handler must NOT be used again.
-         */
-        void release() {
-            if (this.released) return;
+        private void release() {
+            if (this.released) {
+                return;
+            }
             this.released = true;
             this.slots.clear();
-            // Null out the heavy references so they can be GC'd even if
-            // something accidentally retains a dangling handler reference.
             this.player = null;
-            this.storageService = null;
+            this.inventory = null;
         }
     }
 
-    private record SlotView(Object key, ItemStack displayStack, long amount) {
+    private static final class SlotView {
+        private final Object key;
+        private final ItemStack displayStack;
+        private final long amount;
+
+        private SlotView(Object key, ItemStack displayStack, long amount) {
+            this.key = key;
+            this.displayStack = displayStack;
+            this.amount = amount;
+        }
     }
 
     private static final class Ae2Reflection {
-        private final BlockCapability<?, ?> inWorldGridNodeHostCapability;
-        private final Method hostGetGridNode;
+        private final Class<?> gridHostClass;
+        private final Class<?> gridNodeClass;
+        private final Class<?> partHostClass;
+        private final Class<?> aeStackClass;
+        private final Object internalLocation;
+        private final Method partLocationFromFacing;
+        private final Method partHostGetPart;
+        private final Method partGetGridNode;
+        private final Method gridHostGetGridNode;
         private final Method gridNodeGetGrid;
-        private final Method gridGetService;
-        private final Class<?> storageServiceClass;
-        private final Method storageServiceGetCachedInventory;
-        private final Method storageServiceGetInventory;
-        private final Class<?> keyCounterClass;
-        private final Constructor<?> keyCounterConstructor;
-        private final Method meStorageGetAvailableStacks;
-        private final Method keyCounterIterator;
-        private final Method keyEntryGetKey;
-        private final Method keyEntryGetLongValue;
-        private final Class<?> aeItemKeyClass;
-        private final Method aeItemKeyOfStack;
-        private final Method aeItemKeyToStack;
-        private final Method meStorageInsert;
-        private final Method meStorageExtract;
-        private final Class<?> actionableClass;
-        private final Object actionableSimulate;
-        private final Object actionableModulate;
-        private final Method actionSourceOfPlayer;
+        private final Method gridGetCache;
+        private final Class<?> storageGridClass;
+        private final Object itemChannel;
+        private final Method storageGridGetInventory;
+        private final Method monitorGetStorageList;
+        private final Method channelCreateStack;
+        private final Method aeStackCopy;
+        private final Method aeStackGetSize;
+        private final Method aeStackSetSize;
+        private final Method aeItemCreateStack;
+        private final Method inventoryInject;
+        private final Method inventoryExtract;
+        private final Object simulateAction;
+        private final Object modulateAction;
+        private final Constructor<?> playerSourceConstructor;
 
-        private Ae2Reflection(
-                BlockCapability<?, ?> inWorldGridNodeHostCapability,
-                Method hostGetGridNode,
-                Method gridNodeGetGrid,
-                Method gridGetService,
-                Class<?> storageServiceClass,
-                Method storageServiceGetCachedInventory,
-                Method storageServiceGetInventory,
-                Class<?> keyCounterClass,
-                Constructor<?> keyCounterConstructor,
-                Method meStorageGetAvailableStacks,
-                Method keyCounterIterator,
-                Method keyEntryGetKey,
-                Method keyEntryGetLongValue,
-                Class<?> aeItemKeyClass,
-                Method aeItemKeyOfStack,
-                Method aeItemKeyToStack,
-                Method meStorageInsert,
-                Method meStorageExtract,
-                Class<?> actionableClass,
-                Object actionableSimulate,
-                Object actionableModulate,
-                Method actionSourceOfPlayer) {
-            this.inWorldGridNodeHostCapability = inWorldGridNodeHostCapability;
-            this.hostGetGridNode = hostGetGridNode;
+        private Ae2Reflection(Class<?> gridHostClass, Class<?> gridNodeClass, Class<?> partHostClass,
+                Class<?> aeStackClass, Object internalLocation, Method partLocationFromFacing,
+                Method partHostGetPart, Method partGetGridNode, Method gridHostGetGridNode,
+                Method gridNodeGetGrid, Method gridGetCache, Class<?> storageGridClass,
+                Object itemChannel, Method storageGridGetInventory, Method monitorGetStorageList,
+                Method channelCreateStack, Method aeStackCopy, Method aeStackGetSize,
+                Method aeStackSetSize, Method aeItemCreateStack, Method inventoryInject,
+                Method inventoryExtract, Object simulateAction, Object modulateAction,
+                Constructor<?> playerSourceConstructor) {
+            this.gridHostClass = gridHostClass;
+            this.gridNodeClass = gridNodeClass;
+            this.partHostClass = partHostClass;
+            this.aeStackClass = aeStackClass;
+            this.internalLocation = internalLocation;
+            this.partLocationFromFacing = partLocationFromFacing;
+            this.partHostGetPart = partHostGetPart;
+            this.partGetGridNode = partGetGridNode;
+            this.gridHostGetGridNode = gridHostGetGridNode;
             this.gridNodeGetGrid = gridNodeGetGrid;
-            this.gridGetService = gridGetService;
-            this.storageServiceClass = storageServiceClass;
-            this.storageServiceGetCachedInventory = storageServiceGetCachedInventory;
-            this.storageServiceGetInventory = storageServiceGetInventory;
-            this.keyCounterClass = keyCounterClass;
-            this.keyCounterConstructor = keyCounterConstructor;
-            this.meStorageGetAvailableStacks = meStorageGetAvailableStacks;
-            this.keyCounterIterator = keyCounterIterator;
-            this.keyEntryGetKey = keyEntryGetKey;
-            this.keyEntryGetLongValue = keyEntryGetLongValue;
-            this.aeItemKeyClass = aeItemKeyClass;
-            this.aeItemKeyOfStack = aeItemKeyOfStack;
-            this.aeItemKeyToStack = aeItemKeyToStack;
-            this.meStorageInsert = meStorageInsert;
-            this.meStorageExtract = meStorageExtract;
-            this.actionableClass = actionableClass;
-            this.actionableSimulate = actionableSimulate;
-            this.actionableModulate = actionableModulate;
-            this.actionSourceOfPlayer = actionSourceOfPlayer;
+            this.gridGetCache = gridGetCache;
+            this.storageGridClass = storageGridClass;
+            this.itemChannel = itemChannel;
+            this.storageGridGetInventory = storageGridGetInventory;
+            this.monitorGetStorageList = monitorGetStorageList;
+            this.channelCreateStack = channelCreateStack;
+            this.aeStackCopy = aeStackCopy;
+            this.aeStackGetSize = aeStackGetSize;
+            this.aeStackSetSize = aeStackSetSize;
+            this.aeItemCreateStack = aeItemCreateStack;
+            this.inventoryInject = inventoryInject;
+            this.inventoryExtract = inventoryExtract;
+            this.simulateAction = simulateAction;
+            this.modulateAction = modulateAction;
+            this.playerSourceConstructor = playerSourceConstructor;
         }
 
+        @SuppressWarnings({"unchecked", "rawtypes"})
         private static Ae2Reflection tryLoad() {
-            if (!ModList.get().isLoaded("ae2")) {
+            try {
+                if (!Loader.isModLoaded("appliedenergistics2")) {
+                    return null;
+                }
+            } catch (RuntimeException | LinkageError loaderNotReady) {
                 return null;
             }
-
             try {
-                Class<?> aeCapabilitiesClass = Class.forName("appeng.api.AECapabilities");
-                Field inWorldField = aeCapabilitiesClass.getField("IN_WORLD_GRID_NODE_HOST");
-                BlockCapability<?, ?> inWorldCapability = (BlockCapability<?, ?>) inWorldField.get(null);
+                Class<?> aeApiClass = Class.forName("appeng.api.AEApi");
+                Object api = aeApiClass.getMethod("instance").invoke(null);
+                Class<?> appEngApiClass = Class.forName("appeng.api.IAppEngApi");
+                Object storageHelper = appEngApiClass.getMethod("storage").invoke(api);
+                Class<?> storageHelperClass = Class.forName("appeng.api.storage.IStorageHelper");
+                Class<?> itemChannelClass = Class.forName("appeng.api.storage.channels.IItemStorageChannel");
+                Object itemChannel = storageHelperClass.getMethod("getStorageChannel", Class.class)
+                        .invoke(storageHelper, itemChannelClass);
 
-                Class<?> hostClass = Class.forName("appeng.api.networking.IInWorldGridNodeHost");
-                Method hostGetGridNode = hostClass.getMethod("getGridNode", Direction.class);
-
+                Class<?> gridHostClass = Class.forName("appeng.api.networking.IGridHost");
                 Class<?> gridNodeClass = Class.forName("appeng.api.networking.IGridNode");
-                Method gridNodeGetGrid = gridNodeClass.getMethod("getGrid");
-
                 Class<?> gridClass = Class.forName("appeng.api.networking.IGrid");
-                Class<?> storageServiceClass = Class.forName("appeng.api.networking.storage.IStorageService");
-                Method gridGetService = gridClass.getMethod("getService", Class.class);
-
-                Method storageServiceGetCachedInventory = storageServiceClass.getMethod("getCachedInventory");
-                Method storageServiceGetInventory = storageServiceClass.getMethod("getInventory");
-
-                Class<?> keyCounterClass = Class.forName("appeng.api.stacks.KeyCounter");
-                Constructor<?> keyCounterConstructor = keyCounterClass.getConstructor();
-                Method keyCounterIterator = keyCounterClass.getMethod("iterator");
-
-                Class<?> keyEntryClass = Class.forName("it.unimi.dsi.fastutil.objects.Object2LongMap$Entry");
-                Method keyEntryGetKey = keyEntryClass.getMethod("getKey");
-                Method keyEntryGetLongValue = keyEntryClass.getMethod("getLongValue");
-
-                Class<?> aeItemKeyClass = Class.forName("appeng.api.stacks.AEItemKey");
-                Method aeItemKeyOfStack = aeItemKeyClass.getMethod("of", ItemStack.class);
-                Method aeItemKeyToStack = aeItemKeyClass.getMethod("toStack", int.class);
-
-                Class<?> meStorageClass = Class.forName("appeng.api.storage.MEStorage");
-                Method meStorageGetAvailableStacks = meStorageClass.getMethod("getAvailableStacks", keyCounterClass);
-                Class<?> aeKeyClass = Class.forName("appeng.api.stacks.AEKey");
+                Class<?> storageGridClass = Class.forName("appeng.api.networking.storage.IStorageGrid");
+                Class<?> storageChannelClass = Class.forName("appeng.api.storage.IStorageChannel");
+                Class<?> monitorClass = Class.forName("appeng.api.storage.IMEMonitor");
+                Class<?> inventoryClass = Class.forName("appeng.api.storage.IMEInventory");
+                Class<?> aeStackClass = Class.forName("appeng.api.storage.data.IAEStack");
+                Class<?> aeItemStackClass = Class.forName("appeng.api.storage.data.IAEItemStack");
                 Class<?> actionableClass = Class.forName("appeng.api.config.Actionable");
                 Class<?> actionSourceClass = Class.forName("appeng.api.networking.security.IActionSource");
-                Method meStorageInsert = meStorageClass.getMethod("insert", aeKeyClass, long.class, actionableClass, actionSourceClass);
-                Method meStorageExtract = meStorageClass.getMethod("extract", aeKeyClass, long.class, actionableClass, actionSourceClass);
+                Class<?> actionHostClass = Class.forName("appeng.api.networking.security.IActionHost");
+                Class<?> partLocationClass = Class.forName("appeng.api.util.AEPartLocation");
+                Class<?> partHostClass = Class.forName("appeng.api.parts.IPartHost");
+                Class<?> partClass = Class.forName("appeng.api.parts.IPart");
+                Class<?> playerSourceClass = Class.forName("appeng.me.helpers.PlayerSource");
 
-                Object actionableSimulate = Enum.valueOf((Class<? extends Enum>) actionableClass.asSubclass(Enum.class), "SIMULATE");
-                Object actionableModulate = Enum.valueOf((Class<? extends Enum>) actionableClass.asSubclass(Enum.class), "MODULATE");
-
-                Method actionSourceOfPlayer = actionSourceClass.getMethod(
-                        "ofPlayer",
-                        Class.forName("net.minecraft.world.entity.player.Player"));
+                Object internalLocation = Enum.valueOf((Class<? extends Enum>) partLocationClass.asSubclass(Enum.class), "INTERNAL");
+                Object simulate = Enum.valueOf((Class<? extends Enum>) actionableClass.asSubclass(Enum.class), "SIMULATE");
+                Object modulate = Enum.valueOf((Class<? extends Enum>) actionableClass.asSubclass(Enum.class), "MODULATE");
 
                 return new Ae2Reflection(
-                        inWorldCapability,
-                        hostGetGridNode,
-                        gridNodeGetGrid,
-                        gridGetService,
-                        storageServiceClass,
-                        storageServiceGetCachedInventory,
-                        storageServiceGetInventory,
-                        keyCounterClass,
-                        keyCounterConstructor,
-                        meStorageGetAvailableStacks,
-                        keyCounterIterator,
-                        keyEntryGetKey,
-                        keyEntryGetLongValue,
-                        aeItemKeyClass,
-                        aeItemKeyOfStack,
-                        aeItemKeyToStack,
-                        meStorageInsert,
-                        meStorageExtract,
-                        actionableClass,
-                        actionableSimulate,
-                        actionableModulate,
-                        actionSourceOfPlayer);
-            } catch (ReflectiveOperationException | LinkageError ignored) {
+                        gridHostClass,
+                        gridNodeClass,
+                        partHostClass,
+                        aeStackClass,
+                        internalLocation,
+                        partLocationClass.getMethod("fromFacing", EnumFacing.class),
+                        partHostClass.getMethod("getPart", EnumFacing.class),
+                        partClass.getMethod("getGridNode"),
+                        gridHostClass.getMethod("getGridNode", partLocationClass),
+                        gridNodeClass.getMethod("getGrid"),
+                        gridClass.getMethod("getCache", Class.class),
+                        storageGridClass,
+                        itemChannel,
+                        storageGridClass.getMethod("getInventory", storageChannelClass),
+                        monitorClass.getMethod("getStorageList"),
+                        itemChannelClass.getMethod("createStack", Object.class),
+                        aeStackClass.getMethod("copy"),
+                        aeStackClass.getMethod("getStackSize"),
+                        aeStackClass.getMethod("setStackSize", long.class),
+                        aeItemStackClass.getMethod("createItemStack"),
+                        inventoryClass.getMethod("injectItems", aeStackClass, actionableClass, actionSourceClass),
+                        inventoryClass.getMethod("extractItems", aeStackClass, actionableClass, actionSourceClass),
+                        simulate,
+                        modulate,
+                        playerSourceClass.getConstructor(EntityPlayer.class, actionHostClass));
+            } catch (ReflectiveOperationException | LinkageError failure) {
+                RtsbuildingMod.LOGGER.warn("AE2 rv6 API 探测失败，已禁用 AE2 网络桥", failure);
                 return null;
             }
         }
 
-        private Object findStorageService(ServerLevel level, BlockPos pos) {
-            Object host = level.getCapability((BlockCapability<Object, Void>) this.inWorldGridNodeHostCapability, pos, null);
-            if (host == null) {
+        private Object findNetworkInventory(World world, BlockPos pos) {
+            Object tile = world.getTileEntity(pos);
+            if (tile == null) {
                 return null;
             }
-
-            for (Direction direction : Direction.values()) {
-                Object node = invoke(this.hostGetGridNode, host, direction);
-                Object storageService = resolveStorageService(node);
-                if (storageService != null) {
-                    return storageService;
+            List<Object> nodes = new ArrayList<>();
+            if (this.partHostClass.isInstance(tile)) {
+                for (EnumFacing face : EnumFacing.values()) {
+                    Object part = invoke(this.partHostGetPart, tile, face);
+                    addNode(nodes, invoke(this.partGetGridNode, part));
                 }
             }
-            Object node = invoke(this.hostGetGridNode, host, new Object[]{null});
-            return resolveStorageService(node);
+            if (this.gridHostClass.isInstance(tile)) {
+                for (EnumFacing face : EnumFacing.values()) {
+                    Object location = invoke(this.partLocationFromFacing, null, face);
+                    addNode(nodes, invoke(this.gridHostGetGridNode, tile, location));
+                }
+                addNode(nodes, invoke(this.gridHostGetGridNode, tile, this.internalLocation));
+            }
+            for (Object node : nodes) {
+                Object grid = invoke(this.gridNodeGetGrid, node);
+                Object storageGrid = invoke(this.gridGetCache, grid, this.storageGridClass);
+                if (!this.storageGridClass.isInstance(storageGrid)) {
+                    continue;
+                }
+                Object inventory = invoke(this.storageGridGetInventory, storageGrid, this.itemChannel);
+                if (inventory != null) {
+                    return inventory;
+                }
+            }
+            return null;
         }
 
-        private Object resolveStorageService(Object node) {
-            if (node == null) {
-                return null;
+        private void addNode(List<Object> nodes, Object node) {
+            if (this.gridNodeClass.isInstance(node) && !nodes.contains(node)) {
+                nodes.add(node);
             }
-            Object grid = invoke(this.gridNodeGetGrid, node);
-            if (grid == null) {
-                return null;
-            }
-            Object storageService = invoke(this.gridGetService, grid, this.storageServiceClass);
-            return this.storageServiceClass.isInstance(storageService) ? storageService : null;
         }
 
-        /**
-         * Full live snapshot via {@code MEStorage.getAvailableStacks()}.
-         * <p>
-         * Expensive — triggers a complete AE2 network scan. Only used during
-         * initial construction. Steady-state refresh uses {@link #snapshotCached}
-         * instead.
-         */
-        private List<SlotView> snapshot(Object storageService) {
+        private List<SlotView> snapshot(Object inventory) {
             List<SlotView> out = new ArrayList<>();
-            try {
-                Object meStorage = invoke(this.storageServiceGetInventory, storageService);
-                if (meStorage == null) {
-                    return out;
+            Object list = invoke(this.monitorGetStorageList, inventory);
+            if (!(list instanceof Iterable<?>)) {
+                return out;
+            }
+            Iterator<?> iterator = ((Iterable<?>) list).iterator();
+            while (iterator.hasNext()) {
+                Object entry = iterator.next();
+                if (!this.aeStackClass.isInstance(entry)) {
+                    continue;
                 }
-                Object keyCounter = this.keyCounterConstructor.newInstance();
-                if (keyCounter == null) {
-                    return out;
+                long amount = stackSize(entry);
+                ItemStack display = toItemStack(entry, 1);
+                if (amount > 0L && !display.isEmpty()) {
+                    out.add(new SlotView(copyAeStack(entry), display, amount));
                 }
-                invoke(this.meStorageGetAvailableStacks, meStorage, keyCounter);
-                fillFromKeyCounter(out, keyCounter);
-            } catch (ReflectiveOperationException ignored) {
             }
             return out;
         }
 
-        /**
-         * Lightweight snapshot using AE2's pre-built cached inventory.
-         * <p>
-         * {@code IStorageService.getCachedInventory()} returns a {@code KeyCounter}
-         * that AE2 builds at the end of each server tick. Retrieving it is O(1) —
-         * no network scan. Falls back to {@link #snapshot} if the cache hasn't
-         * been built yet.
-         */
-        private List<SlotView> snapshotCached(Object storageService) {
-            List<SlotView> out = new ArrayList<>();
-            if (storageService == null) return out;
-            Object keyCounter = invoke(this.storageServiceGetCachedInventory, storageService);
-            if (keyCounter == null) {
-                // Cache not yet built — fall back to a live scan once
-                return snapshot(storageService);
-            }
-            fillFromKeyCounter(out, keyCounter);
-            return out;
-        }
-
-        /**
-         * Iterates a {@code KeyCounter} (or any {@code Object2LongMap<AEKey>})
-         * and fills the output list with AEItemKey-based {@link SlotView} entries.
-         */
-        private void fillFromKeyCounter(List<SlotView> out, Object keyCounter) {
-            try {
-                Iterator<?> iterator = (Iterator<?>) invoke(this.keyCounterIterator, keyCounter);
-                if (iterator == null) {
-                    return;
-                }
-                while (iterator.hasNext()) {
-                    Object entry = iterator.next();
-                    Object key = invoke(this.keyEntryGetKey, entry);
-                    if (key == null || !this.aeItemKeyClass.isInstance(key)) {
-                        // Non-item entries (fluid, etc.) are expected in a
-                        // mixed-storage AE2 network — skip them silently.
-                        continue;
-                    }
-                    long amount = asLong(invoke(this.keyEntryGetLongValue, entry));
-                    if (amount <= 0L) {
-                        continue;
-                    }
-                    ItemStack display = toStack(key, 1);
-                    if (display.isEmpty()) {
-                        // The key claims to be AEItemKey but toStack(1)
-                        // returned empty — skip instead of crashing.
-                        continue;
-                    }
-                    display.setCount(1);
-                    out.add(new SlotView(key, display, amount));
-                }
-            } catch (Exception e) {
-                // Log warning in release builds; the storage will be
-                // incomplete on this refresh cycle but will retry on
-                // the next automated refresh.
-                RtsbuildingMod.LOGGER.warn("AE2 KeyCounter iteration failed", e);
-            }
-        }
-
-        private Object toItemKey(ItemStack stack) {
+        private Object toAeStack(ItemStack stack) {
             if (stack == null || stack.isEmpty()) {
                 return null;
             }
-            Object key = invoke(this.aeItemKeyOfStack, null, stack);
-            return this.aeItemKeyClass.isInstance(key) ? key : null;
+            Object aeStack = invoke(this.channelCreateStack, this.itemChannel, stack.copy());
+            return this.aeStackClass.isInstance(aeStack) ? aeStack : null;
         }
 
-        private ItemStack toStack(Object key, int count) {
-            if (key == null || !this.aeItemKeyClass.isInstance(key) || count <= 0) {
+        private ItemStack insert(Object inventory, ItemStack stack, EntityPlayerMP player, boolean simulate) {
+            Object input = toAeStack(stack);
+            if (input == null) {
+                return stack.copy();
+            }
+            Object source = actionSource(player);
+            if (source == null) {
+                return stack.copy();
+            }
+            Object remainder;
+            try {
+                this.aeStackSetSize.invoke(input, (long) stack.getCount());
+                remainder = this.inventoryInject.invoke(inventory, input,
+                        simulate ? this.simulateAction : this.modulateAction, source);
+            } catch (IllegalAccessException | InvocationTargetException | IllegalArgumentException failure) {
+                return stack.copy();
+            }
+            if (remainder == null) {
                 return ItemStack.EMPTY;
             }
-            Object stack = invoke(this.aeItemKeyToStack, key, count);
-            return stack instanceof ItemStack itemStack ? itemStack : ItemStack.EMPTY;
+            long remaining = Math.max(0L, Math.min((long) stack.getCount(), stackSize(remainder)));
+            return remaining <= 0L ? ItemStack.EMPTY : toItemStack(remainder, (int) remaining);
         }
 
-        private long insert(Object storageService, Object key, long amount, ServerPlayer player, boolean simulate) {
-            if (storageService == null || key == null || amount <= 0L) {
-                return 0L;
+        private ItemStack extract(Object inventory, Object key, int amount, EntityPlayerMP player, boolean simulate) {
+            if (key == null || amount <= 0) {
+                return ItemStack.EMPTY;
             }
-            Object meStorage = invoke(this.storageServiceGetInventory, storageService);
-            if (meStorage == null) {
-                return 0L;
+            Object request = copyAeStack(key);
+            if (request == null) {
+                return ItemStack.EMPTY;
             }
-            Object source = invoke(this.actionSourceOfPlayer, null, player);
-            return asLong(invoke(
-                    this.meStorageInsert,
-                    meStorage,
-                    key,
-                    amount,
-                    simulate ? this.actionableSimulate : this.actionableModulate,
-                    source));
-        }
-
-        private long extract(Object storageService, Object key, long amount, ServerPlayer player, boolean simulate) {
-            if (storageService == null || key == null || amount <= 0L) {
-                return 0L;
+            Object source = actionSource(player);
+            if (source == null) {
+                return ItemStack.EMPTY;
             }
-            Object meStorage = invoke(this.storageServiceGetInventory, storageService);
-            if (meStorage == null) {
-                return 0L;
+            Object extracted;
+            try {
+                this.aeStackSetSize.invoke(request, (long) amount);
+                extracted = this.inventoryExtract.invoke(inventory, request,
+                        simulate ? this.simulateAction : this.modulateAction, source);
+            } catch (IllegalAccessException | InvocationTargetException | IllegalArgumentException failure) {
+                return ItemStack.EMPTY;
             }
-            Object source = invoke(this.actionSourceOfPlayer, null, player);
-            return asLong(invoke(
-                    this.meStorageExtract,
-                    meStorage,
-                    key,
-                    amount,
-                    simulate ? this.actionableSimulate : this.actionableModulate,
-                    source));
+            long extractedAmount = stackSize(extracted);
+            return extractedAmount <= 0L ? ItemStack.EMPTY
+                    : toItemStack(extracted, (int) Math.min(Integer.MAX_VALUE, extractedAmount));
         }
 
-        private boolean keysEqual(Object left, Object right) {
-            return left == right || (left != null && left.equals(right));
-        }
-
-        private static long asLong(Object value) {
-            return value instanceof Number number ? number.longValue() : 0L;
-        }
-
-        private static Object invoke(Method method, Object target, Object... args) {
-            if (method == null) {
+        private Object actionSource(EntityPlayerMP player) {
+            try {
+                return this.playerSourceConstructor.newInstance(player, null);
+            } catch (ReflectiveOperationException | IllegalArgumentException ignored) {
                 return null;
             }
-            if (target == null && !Modifier.isStatic(method.getModifiers())) {
+        }
+
+        private Object copyAeStack(Object stack) {
+            Object copy = invoke(this.aeStackCopy, stack);
+            return this.aeStackClass.isInstance(copy) ? copy : null;
+        }
+
+        private long stackSize(Object stack) {
+            Object value = invoke(this.aeStackGetSize, stack);
+            return value instanceof Number ? ((Number) value).longValue() : 0L;
+        }
+
+        private ItemStack toItemStack(Object aeStack, int count) {
+            if (aeStack == null || count <= 0) {
+                return ItemStack.EMPTY;
+            }
+            Object value = invoke(this.aeItemCreateStack, aeStack);
+            ItemStack stack = value instanceof ItemStack ? (ItemStack) value : ItemStack.EMPTY;
+            if (stack.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+            stack.setCount(count);
+            return stack;
+        }
+
+        private static Object invoke(Method method, Object target, Object... arguments) {
+            if (method == null || (target == null && !Modifier.isStatic(method.getModifiers()))) {
                 return null;
             }
             try {
-                return method.invoke(target, args);
+                return method.invoke(target, arguments);
             } catch (IllegalAccessException | InvocationTargetException | IllegalArgumentException ignored) {
                 return null;
             }
