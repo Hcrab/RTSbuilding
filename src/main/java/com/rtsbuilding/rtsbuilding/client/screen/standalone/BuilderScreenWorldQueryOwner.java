@@ -1,93 +1,21 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
-import com.mojang.blaze3d.platform.InputConstants;
-import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
-import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
-import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.*;
-import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
-import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
-import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.RtsUiScaleFrame;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationGesture;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationHandles;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacementStateWheel;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.LeftDockedTooltipRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.PlayerStatusRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.RtsScreenOverlayRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
-import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
-import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
-import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
-import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
-import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
-import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftDockStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
-import com.rtsbuilding.rtsbuilding.uikit.theme.TooltipStyle;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.fml.ModList;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.init.Items;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
-import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
@@ -121,7 +49,7 @@ final class BuilderScreenWorldQueryOwner {
         }
 
     boolean handleRangeCullingSelectionClick(double mouseX, double mouseY, int button) {
-            if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT || !screen.cullingManager.isManagementMode() || !screen.isWorldArea(mouseX, mouseY)) {
+            if (button != 0 || !screen.cullingManager.isManagementMode() || !screen.isWorldArea(mouseX, mouseY)) {
                 return false;
             }
             return screen.handleRangeCullingWorldAction(mouseX, mouseY);
@@ -145,7 +73,6 @@ final class BuilderScreenWorldQueryOwner {
                 blurred = true;
             }
             if (blurred) {
-                screen.setFocused(null);
             }
         }
 
@@ -155,7 +82,6 @@ final class BuilderScreenWorldQueryOwner {
             }
             if (screen.searchBox != null) {
                 screen.searchBox.setFocused(true);
-                screen.setFocused(screen.searchBox);
             }
         }
 
@@ -165,7 +91,6 @@ final class BuilderScreenWorldQueryOwner {
             }
             if (screen.craftSearchBox != null) {
                 screen.craftSearchBox.setFocused(true);
-                screen.setFocused(screen.craftSearchBox);
             }
         }
 
@@ -195,33 +120,34 @@ final class BuilderScreenWorldQueryOwner {
             if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
                 return 0;
             }
-            return Mth.clamp(screen.getMinecraft().player.getInventory().selected, 0, 8);
+            return MathHelper.clamp(screen.getMinecraft().player.inventory.currentItem, 0, 8);
         }
 
     ItemStack getSelectedToolStack() {
             if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
                 return ItemStack.EMPTY;
             }
-            return screen.getMinecraft().player.getInventory().getItem(screen.getSelectedToolSlot());
+            return screen.getMinecraft().player.inventory.getStackInSlot(screen.getSelectedToolSlot());
         }
 
-    String resolveGuiBindingItemId(BlockHitResult hit) {
-            if (hit == null || screen.getMinecraft() == null || screen.getMinecraft().level == null) {
+    String resolveGuiBindingItemId(RayTraceResult hit) {
+            if (hit == null || screen.getMinecraft() == null || screen.getMinecraft().world == null) {
                 return "";
             }
             BlockPos pos = hit.getBlockPos();
-            if (!screen.getMinecraft().level.hasChunkAt(pos)) {
+            if (!screen.getMinecraft().world.isBlockLoaded(pos)) {
                 return "";
             }
-            BlockState state = screen.getMinecraft().level.getBlockState(pos);
-            ItemStack preview = state.getBlock().getCloneItemStack(screen.getMinecraft().level, pos, state);
+            IBlockState state = screen.getMinecraft().world.getBlockState(pos);
+            ItemStack preview = state.getBlock().getPickBlock(
+                    hit, screen.getMinecraft().world, pos, screen.getMinecraft().player);
             if (preview.isEmpty()) {
-                preview = new ItemStack(state.getBlock().asItem());
+                preview = new ItemStack(Item.getItemFromBlock(state.getBlock()));
             }
-            if (preview.isEmpty() || preview.is(Items.AIR)) {
-                return RtsAe2IconResolver.resolveGuiBindingIconItemId(screen.getMinecraft().level, pos, hit.getDirection(), "");
+            if (preview.isEmpty() || preview.getItem() == Items.AIR) {
+                return RtsAe2IconResolver.resolveGuiBindingIconItemId(screen.getMinecraft().world, pos, hit.sideHit, "");
             }
-            var id = BuiltInRegistries.ITEM.getKey(preview.getItem());
+            ResourceLocation id = ForgeRegistries.ITEMS.getKey(preview.getItem());
             return id == null ? "" : id.toString();
         }
 
@@ -230,7 +156,7 @@ final class BuilderScreenWorldQueryOwner {
                 return false;
             }
             ItemStack stack = screen.getSelectedToolStack();
-            return !stack.isEmpty() && stack.getItem() instanceof BlockItem;
+            return !stack.isEmpty() && stack.getItem() instanceof ItemBlock;
         }
 
     boolean tryAssignQuickSlotFromToolSelection(int pinIndex) {
@@ -241,8 +167,8 @@ final class BuilderScreenWorldQueryOwner {
                 return false;
             }
             int slot = screen.bottomPanel.hoveredToolSlot >= 0 ? screen.bottomPanel.hoveredToolSlot : screen.getSelectedToolSlot();
-            slot = Mth.clamp(slot, 0, 8);
-            ItemStack stack = screen.getMinecraft().player.getInventory().getItem(slot);
+            slot = MathHelper.clamp(slot, 0, 8);
+            ItemStack stack = screen.getMinecraft().player.inventory.getStackInSlot(slot);
             if (stack.isEmpty()) {
                 return false;
             }
@@ -254,13 +180,13 @@ final class BuilderScreenWorldQueryOwner {
             if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
                 return;
             }
-            screen.getMinecraft().player.getInventory().selected = Mth.clamp(slot, 0, 8);
+            screen.getMinecraft().player.inventory.currentItem = MathHelper.clamp(slot, 0, 8);
         }
 
     boolean hasMainHandItem() {
             return screen.getMinecraft() != null
                     && screen.getMinecraft().player != null
-                    && !screen.getMinecraft().player.getMainHandItem().isEmpty();
+                    && !screen.getMinecraft().player.getHeldItemMainhand().isEmpty();
         }
 
     boolean isAltDownForInput() {

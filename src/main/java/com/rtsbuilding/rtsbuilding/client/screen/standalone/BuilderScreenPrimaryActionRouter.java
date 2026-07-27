@@ -11,10 +11,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.phys.BlockHitResult;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
 
 /**
  * RTS 主操作（普通点击或主操作键）的优先级路由。
@@ -60,9 +59,9 @@ final class BuilderScreenPrimaryActionRouter {
         }
         if (this.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS
                 && BlueprintPanel.isCaptureModeActive()) {
-            if (mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT
+            if (mouseButton == 0
                     && host.isWorldArea(mouseX, mouseY)) {
-                BlockHitResult hit = this.cursorPicker.pickBlockHit();
+                RayTraceResult hit = this.cursorPicker.pickBlockHit();
                 BlueprintPanel.handleCaptureWorldAction(
                         hit,
                         this.cursorPicker.currentRayOrigin(),
@@ -77,16 +76,16 @@ final class BuilderScreenPrimaryActionRouter {
             return true;
         }
         if (this.cullingManager.isManagementMode()) {
-            return mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0
+            return mouseButton == 0 || mouseButton < 0
                     ? host.handleRangeCullingWorldAction(mouseX, mouseY)
                     : false;
         }
         if (this.controller.getMode() == BuilderMode.LINK_STORAGE) {
             this.shapeController.clearShapeBuildSession();
-            BlockHitResult hit = this.cursorPicker.pickBlockHit();
+            RayTraceResult hit = this.cursorPicker.pickBlockHit();
             if (hit != null) {
                 this.controller.linkStorage(
-                        hit.getBlockPos(), mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT);
+                        hit.getBlockPos(), mouseButton == 0);
             }
             return true;
         }
@@ -98,9 +97,9 @@ final class BuilderScreenPrimaryActionRouter {
             // 旋转箭头只响应左键；主操作中的右键完整保留给相机拖拽。
             return true;
         }
-        boolean forcePlace = Screen.hasShiftDown();
+        boolean forcePlace = GuiScreen.isShiftKeyDown();
         boolean rangeDestroyMode = host.isRangeDestroyMode();
-        if ((mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0)
+        if ((mouseButton == 0 || mouseButton < 0)
                 && !rangeDestroyMode
                 && host.isAdvancedShapeMode()
                 && this.shapeController.clickAdvancedRangeDestroyHandle(
@@ -120,7 +119,7 @@ final class BuilderScreenPrimaryActionRouter {
                 BlueprintPanel.confirmPinnedPreview();
                 return true;
             }
-            BlockHitResult blueprintHit = this.cursorPicker.pickBlueprintPlacementHit();
+            RayTraceResult blueprintHit = this.cursorPicker.pickBlueprintPlacementHit();
             if (blueprintHit != null) {
                 BlockPos anchor = BlueprintPanel.anchorForCursorTarget(
                         this.cursorPicker.resolveBlueprintAnchor(blueprintHit));

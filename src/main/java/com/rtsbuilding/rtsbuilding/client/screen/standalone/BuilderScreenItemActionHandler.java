@@ -44,7 +44,7 @@ final class BuilderScreenItemActionHandler {
                     target.rayDir());
         } else if (target.blockHit() != null) {
             if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode
-                    && this.controller.getPlacementStatePreset().isBlank()
+                    && this.controller.getPlacementStatePreset().trim().isEmpty()
                     && this.controller.getBuildShape() == BuildShape.BLOCK) {
                 this.shapeController.clearShapeBuildSession();
                 this.controller.interactBlockWithPinnedItem(
@@ -106,7 +106,7 @@ final class BuilderScreenItemActionHandler {
             }
         } else if (target.blockHit() != null) {
             if (host.hasMainHandItem()) {
-                if (forcePlace || !this.controller.getPlacementStatePreset().isBlank()) {
+                if (forcePlace || !this.controller.getPlacementStatePreset().trim().isEmpty()) {
                     // R 预选状态只能由放置包携带；普通交互包会重新按命中点计算朝向。
                     this.controller.placeSelected(
                             target.blockHit(), forcePlace,

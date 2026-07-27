@@ -1,91 +1,43 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
-import com.mojang.blaze3d.platform.InputConstants;
-import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
-import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.*;
-import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
-import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
-import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.RtsUiScaleFrame;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationGesture;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationHandles;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacementStateWheel;
 import com.rtsbuilding.rtsbuilding.client.screen.overlay.LeftDockedTooltipRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.overlay.PlayerStatusRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.overlay.RtsScreenOverlayRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
-import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
-import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
-import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftDockStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
-import com.rtsbuilding.rtsbuilding.uikit.theme.TooltipStyle;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.fml.ModList;
-import org.lwjgl.glfw.GLFW;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraftforge.fml.common.Loader;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
 
 import java.util.List;
 
@@ -111,7 +63,7 @@ public final class BuilderScreen extends BuilderScreenComponentState {
     private final BuilderScreenPreviewQueryOwner previewQueryOwner = new BuilderScreenPreviewQueryOwner(this);
 
 public BuilderScreen(ClientRtsController controller) {
-        super(Component.literal("RTS Builder"));
+        super(new TextComponentString("RTS Builder"));
         this.controller = controller;
         BuilderScreenInputHost inputHost =
                 new BuilderScreenInputHost(this);
@@ -130,7 +82,7 @@ public BuilderScreen(ClientRtsController controller) {
                 new LeftDockedTooltipRenderer(this, this.bottomPanel);
         this.uiStateManager = new RtsScreenUiStateManager(this.controller, this.shapeController, this.quickBuildPanel);
         this.guiScaleCoordinator = new RtsGuiScaleCoordinator(
-                () -> this.minecraft,
+                () -> this.mc,
                 () -> this.width,
                 () -> this.height,
                 value -> this.width = value,
@@ -203,8 +155,8 @@ public BuilderScreen(ClientRtsController controller) {
         RtsCullingClientState.requestCurrentWorldState();
     }
 
-public Font font() {
-        return this.font;
+public FontRenderer font() {
+        return this.fontRenderer;
     }
 
 public int topBarBottomY() {
@@ -295,15 +247,15 @@ public boolean canUseQuickBuild() {
     }
 
 public void showQuickBuildLockedMessage() {
-        if (this.minecraft != null && this.minecraft.player != null) {
-            this.minecraft.player.displayClientMessage(
-                    Component.translatable("message.rtsbuilding.quick_build.remote_place_locked"), true);
+        if (this.mc != null && this.mc.player != null) {
+            this.mc.player.sendStatusMessage(
+                    new TextComponentTranslation("message.rtsbuilding.quick_build.remote_place_locked"), true);
         }
     }
 
     public void syncQuickBuildActiveState() { this.lifecycleOwner.syncQuickBuildActiveState(); }
 public net.minecraft.client.Minecraft getMinecraft() {
-        return this.minecraft;
+        return this.mc;
     }
 
 public RtsResumePlacementPanel getResumePlacementPanel() {
@@ -322,33 +274,28 @@ public double getCurrentMouseY() {
         return this.lastMouseY;
     }
 
-public EditBox getSearchBox() {
+public GuiTextField getSearchBox() {
         return this.searchBox;
     }
 
-public EditBox getCraftSearchBox() {
+public GuiTextField getCraftSearchBox() {
         return this.craftSearchBox;
     }
 
     @Override
-    protected void init() { super.init(); this.lifecycleOwner.init(); }
-@Override
-    public boolean isPauseScreen() {
+    public void initGui() { super.initGui(); this.lifecycleOwner.init(); }
+    @Override
+    public boolean doesGuiPauseGame() {
         return false;
     }
-
-@Override
-    public boolean shouldCloseOnEsc() {
-        return true;
+    @Override
+    public void onGuiClosed() {
+        this.lifecycleOwner.onClose();
+        this.lifecycleOwner.removed();
+        super.onGuiClosed();
     }
-
     @Override
-    public void onClose() { this.lifecycleOwner.onClose(); }
-    @Override
-    public void removed() { super.removed(); this.lifecycleOwner.removed(); }
-    @Override
-    public void tick() { super.tick(); this.lifecycleOwner.tick(); }
-@Override
+    public void updateScreen() { super.updateScreen(); this.lifecycleOwner.tick(); }
     /*
       Handles mouse click input with RTS GUI scale remapping. Routes clicks through
       dialogs, blueprint capture, home selection, floating windows, area mine,
@@ -365,13 +312,17 @@ public EditBox getCraftSearchBox() {
         }
         return this.pointerClickRouter.mouseClicked(mouseX, mouseY, button);
     }
+    @Override
+    protected void mouseClicked(int mouseX, int mouseY, int button) {
+        mouseClicked((double) mouseX, (double) mouseY, button);
+    }
 
     void selectPlacementStateFromWheel( PlacementStateWheel.PlacementChoice choice, int button) { this.pointerActionOwner.selectPlacementStateFromWheel(choice, button); }
     void closePlacementStateWheelFromPointer(int button) { this.pointerActionOwner.closePlacementStateWheelFromPointer(button); }
     void selectModeFromWheelPointer(BuilderMode selectedMode, int button) { this.pointerActionOwner.selectModeFromWheelPointer(selectedMode, button); }
     void closeModeWheelFromPointer(int button) { this.pointerActionOwner.closeModeWheelFromPointer(button); }
 boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
-        return super.mouseClicked(mouseX, mouseY, button);
+        return false;
     }
 
     boolean handleBlueprintCaptureClicks(double mouseX, double mouseY, int button) { return this.pointerActionOwner.handleBlueprintCaptureClicks(mouseX, mouseY, button); }
@@ -382,12 +333,15 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
     boolean handleWorldClickActions(double mouseX, double mouseY, int button) { return this.pointerActionOwner.handleWorldClickActions(mouseX, mouseY, button); }
     boolean handleAdvancedShapeHandleClick(double mouseX, double mouseY, int button) { return this.pointerActionOwner.handleAdvancedShapeHandleClick(mouseX, mouseY, button); }
     boolean handleBatchConfirmMouse(double mouseX, double mouseY, int button) { return this.pointerActionOwner.handleBatchConfirmMouse(mouseX, mouseY, button); }
-    @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) { return this.pointerGestureOwner.mouseReleased(mouseX, mouseY, button); }
-    @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) { return this.pointerGestureOwner.mouseDragged(mouseX, mouseY, button, dragX, dragY); }
-    @Override
     public void mouseMoved(double mouseX, double mouseY) { this.pointerGestureOwner.mouseMoved(mouseX, mouseY); }
+    @Override
+    protected void mouseReleased(int mouseX, int mouseY, int button) { mouseReleased((double) mouseX, (double) mouseY, button); }
+    @Override
+    protected void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
+        mouseDragged(mouseX, mouseY, button, 0.0D, 0.0D);
+    }
     public boolean isCameraUpActionHeld() { return this.pointerGestureOwner.isCameraUpActionHeld(); }
     public boolean isCameraDownActionHeld() { return this.pointerGestureOwner.isCameraDownActionHeld(); }
     boolean runPrimaryActionAt(double mouseX, double mouseY) { return this.pointerGestureOwner.runPrimaryActionAt(mouseX, mouseY); }
@@ -398,7 +352,6 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
     void releasePlacementWheelPointer() { this.pointerGestureOwner.releasePlacementWheelPointer(); }
     boolean tryUseMainHandItemInAir() { return this.worldQueryOwner.tryUseMainHandItemInAir(); }
     boolean canUseMainHandItemInAir() { return this.pointerGestureOwner.canUseMainHandItemInAir(); }
-@Override
     /**
      * Handles mouse scroll with RTS GUI scale remapping. Routes scroll to open
      * dialogs, gear menu, wheel panels, guide panel, bottom panel, shape height
@@ -414,8 +367,17 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
         return this.scrollRouter.mouseScrolled(
                 mouseX, mouseY, scrollX, scrollY);
     }
+    @Override
+    public void handleMouseInput() throws java.io.IOException {
+        super.handleMouseInput();
+        int wheel = Mouse.getEventDWheel();
+        if (wheel != 0) {
+            int x = Mouse.getEventX() * this.width / Math.max(1, this.mc.displayWidth);
+            int y = this.height - Mouse.getEventY() * this.height / Math.max(1, this.mc.displayHeight) - 1;
+            mouseScrolled(x, y, 0.0D, wheel > 0 ? 1.0D : -1.0D);
+        }
+    }
 
-@Override
     /**
      * Handles key press events. Dispatches to dialogs, blueprint, overlay, world interaction,
      * search box, tool slot, and sensitivity handlers in priority order.
@@ -423,10 +385,27 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         return this.keyPressRouter.keyPressed(keyCode, scanCode, modifiers);
     }
+    @Override
+    protected void keyTyped(char typedChar, int keyCode) throws java.io.IOException {
+        if (keyPressed(keyCode, 0, 0)) return;
+        if (charTyped(typedChar, 0)) return;
+        super.keyTyped(typedChar, keyCode);
+    }
+    @Override
+    public void handleKeyboardInput() throws java.io.IOException {
+        int keyCode = Keyboard.getEventKey() == Keyboard.KEY_NONE
+                ? Keyboard.getEventCharacter() + 256
+                : Keyboard.getEventKey();
+        if (Keyboard.getEventKeyState()) {
+            super.handleKeyboardInput();
+        } else {
+            keyReleased(keyCode, 0, 0);
+        }
+    }
 
     void closePlacementStateWheelFromKey() { this.keyboardActionOwner.closePlacementStateWheelFromKey(); }
 boolean forwardUnhandledKeyPressed(int keyCode, int scanCode, int modifiers) {
-        return super.keyPressed(keyCode, scanCode, modifiers);
+        return false;
     }
 
     boolean handleBlueprintKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleBlueprintKeys(keyCode, scanCode, modifiers); }
@@ -439,23 +418,24 @@ boolean forwardUnhandledKeyPressed(int keyCode, int scanCode, int modifiers) {
     boolean handleSearchFocusKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleSearchFocusKeys(keyCode, scanCode, modifiers); }
     boolean handleToolSlotKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleToolSlotKeys(keyCode, scanCode, modifiers); }
     boolean handleSensitivityKeys(int keyCode, int scanCode) { return this.keyboardActionOwner.handleSensitivityKeys(keyCode, scanCode); }
-    @Override
     public boolean keyReleased(int keyCode, int scanCode, int modifiers) { return this.keyboardSessionOwner.keyReleased(keyCode, scanCode, modifiers); }
     void handleRtsFlightToggle() { this.keyboardSessionOwner.handleRtsFlightToggle(); }
     boolean handleModeKeyPressed(int keyCode, int scanCode) { return this.keyboardSessionOwner.handleModeKeyPressed(keyCode, scanCode); }
     boolean switchToModeFromKey(BuilderMode mode, boolean funnelEnabled) { return this.keyboardSessionOwner.switchToModeFromKey(mode, funnelEnabled); }
-    @Override
     public boolean charTyped(char codePoint, int modifiers) { return this.keyboardSessionOwner.charTyped(codePoint, modifiers); }
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) { this.renderOwner.render(guiGraphics, mouseX, mouseY, partialTick); }
+    public void drawScreen(int mouseX, int mouseY, float partialTick) {
+        this.renderOwner.render(new LegacyGuiGraphics(this.mc, this.width, this.height), mouseX, mouseY, partialTick);
+    }
+    public void render(LegacyGuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) { this.renderOwner.render(guiGraphics, mouseX, mouseY, partialTick); }
     void resetHoverStates() { this.renderOwner.resetHoverStates(); }
-    void renderHoveredItemTooltips(GuiGraphics g, int mouseX, int mouseY) { this.renderOwner.renderHoveredItemTooltips(g, mouseX, mouseY); }
-    public void renderTopGuideHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) { this.renderOwner.renderTopGuideHint(g, topButtons); }
-    void drawGuiBindCursor(GuiGraphics g, int mouseX, int mouseY) { this.renderOwner.drawGuiBindCursor(g, mouseX, mouseY); }
+    void renderHoveredItemTooltips(LegacyGuiGraphics g, int mouseX, int mouseY) { this.renderOwner.renderHoveredItemTooltips(g, mouseX, mouseY); }
+    public void renderTopGuideHint(LegacyGuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) { this.renderOwner.renderTopGuideHint(g, topButtons); }
+    void drawGuiBindCursor(LegacyGuiGraphics g, int mouseX, int mouseY) { this.renderOwner.drawGuiBindCursor(g, mouseX, mouseY); }
 static boolean hasRecipeViewerLoaded() {
-        return ModList.get().isLoaded("jei")
-                || ModList.get().isLoaded("emi")
-                || ModList.get().isLoaded("roughlyenoughitems");
+        return Loader.isModLoaded("jei")
+                || Loader.isModLoaded("emi")
+                || Loader.isModLoaded("roughlyenoughitems");
     }
 
     public void persistUiState() { this.windowActionOwner.persistUiState(); }
@@ -509,7 +489,7 @@ static boolean hasRecipeViewerLoaded() {
     boolean handleRangeCullingSelectionClick(double mouseX, double mouseY, int button) { return this.worldQueryOwner.handleRangeCullingSelectionClick(mouseX, mouseY, button); }
     boolean handleRangeCullingWorldAction(double mouseX, double mouseY) { return this.worldQueryOwner.handleRangeCullingWorldAction(mouseX, mouseY); }
     boolean handleBoxHandleDrag(int button, double dragX, double dragY) { return this.modeSessionOwner.handleBoxHandleDrag(button, dragX, dragY); }
-    double[] screenAxisForDirection(Direction direction) { return this.modeSessionOwner.screenAxisForDirection(direction); }
+    double[] screenAxisForDirection(EnumFacing direction) { return this.modeSessionOwner.screenAxisForDirection(direction); }
     void updateRangeCullingHover(double mouseX, double mouseY) { this.modeSessionOwner.updateRangeCullingHover(mouseX, mouseY); }
     void updateAdvancedRangeDestroyHover(double mouseX, double mouseY) { this.modeSessionOwner.updateAdvancedRangeDestroyHover(mouseX, mouseY); }
     public boolean isBlueprintPlacementModeLocked() { return this.modeSessionOwner.isBlueprintPlacementModeLocked(); }
@@ -525,7 +505,7 @@ static boolean hasRecipeViewerLoaded() {
     public boolean isSearchFocused() { return this.worldQueryOwner.isSearchFocused(); }
     public int getSelectedToolSlot() { return this.worldQueryOwner.getSelectedToolSlot(); }
     ItemStack getSelectedToolStack() { return this.worldQueryOwner.getSelectedToolStack(); }
-    String resolveGuiBindingItemId(BlockHitResult hit) { return this.worldQueryOwner.resolveGuiBindingItemId(hit); }
+    String resolveGuiBindingItemId(RayTraceResult hit) { return this.worldQueryOwner.resolveGuiBindingItemId(hit); }
     public boolean canUseToolSlotShapeSource() { return this.worldQueryOwner.canUseToolSlotShapeSource(); }
     boolean tryAssignQuickSlotFromToolSelection(int pinIndex) { return this.worldQueryOwner.tryAssignQuickSlotFromToolSelection(pinIndex); }
     public void setSelectedToolSlot(int slot) { this.worldQueryOwner.setSelectedToolSlot(slot); }
@@ -535,18 +515,18 @@ static boolean hasRecipeViewerLoaded() {
     boolean isMovePlayerActionMouse(int button) { return this.previewQueryOwner.isMovePlayerActionMouse(button); }
     boolean isMovePlayerActionKey(int keyCode, int scanCode) { return this.previewQueryOwner.isMovePlayerActionKey(keyCode, scanCode); }
     boolean handleMovePlayerActionAt(double mouseX, double mouseY) { return this.previewQueryOwner.handleMovePlayerActionAt(mouseX, mouseY); }
-    public void enableRtsScissor(GuiGraphics g, int x1, int y1, int x2, int y2) { this.previewQueryOwner.enableRtsScissor(g, x1, y1, x2, y2); }
+    public void enableRtsScissor(LegacyGuiGraphics g, int x1, int y1, int x2, int y2) { this.previewQueryOwner.enableRtsScissor(g, x1, y1, x2, y2); }
     public String trimToWidth(String text, int maxWidth) { return this.previewQueryOwner.trimToWidth(text, maxWidth); }
     public String text(String key, Object... args) { return this.previewQueryOwner.text(key, args); }
     public String selectedItemStatusLabel() { return this.previewQueryOwner.selectedItemStatusLabel(); }
     boolean hasMainHandItem() { return this.worldQueryOwner.hasMainHandItem(); }
     ItemStack resolveCursorPreview() { return this.previewQueryOwner.resolveCursorPreview(); }
     boolean shouldRenderFunnelCursor() { return this.previewQueryOwner.shouldRenderFunnelCursor(); }
-    public Vec3 computeCursorRayDirection() { return this.previewQueryOwner.computeCursorRayDirection(); }
-    public Vec3 currentRayOrigin() { return this.previewQueryOwner.currentRayOrigin(); }
-    public Direction currentCameraHorizontalDirection() { return this.previewQueryOwner.currentCameraHorizontalDirection(); }
+    public Vec3d computeCursorRayDirection() { return this.previewQueryOwner.computeCursorRayDirection(); }
+    public Vec3d currentRayOrigin() { return this.previewQueryOwner.currentRayOrigin(); }
+    public EnumFacing currentCameraHorizontalDirection() { return this.previewQueryOwner.currentCameraHorizontalDirection(); }
     public PlacedBlockRotationHandles getRotationHandles() { return this.previewQueryOwner.getRotationHandles(); }
-    public BlockHitResult pickBlockHit() { return this.previewQueryOwner.pickBlockHit(); }
+    public RayTraceResult pickBlockHit() { return this.previewQueryOwner.pickBlockHit(); }
     public InteractionTypes.InteractionTarget pickInteractionTarget(boolean includeFluidSource) { return this.previewQueryOwner.pickInteractionTarget(includeFluidSource); }
     public ScreenShapeController getShapeController() { return this.previewQueryOwner.getShapeController(); }
     public String fillModeLabel(ShapeFillMode mode) { return this.previewQueryOwner.fillModeLabel(mode); }
@@ -564,9 +544,9 @@ public static String shapeDimensionLabel(BuildShape shape) {
     double currentMouseY() { return this.previewQueryOwner.currentMouseY(); }
     int uiWidth() { return this.width; }
     int uiHeight() { return this.height; }
-    boolean forwardUnhandledMouseReleased(double x, double y, int button) { return super.mouseReleased(x, y, button); }
-    boolean forwardUnhandledMouseDragged(double x, double y, int button, double dx, double dy) { return super.mouseDragged(x, y, button, dx, dy); }
-    void forwardUnhandledMouseMoved(double x, double y) { super.mouseMoved(x, y); }
-    boolean forwardUnhandledKeyReleased(int key, int scan, int modifiers) { return super.keyReleased(key, scan, modifiers); }
-    boolean forwardUnhandledCharTyped(char codePoint, int modifiers) { return super.charTyped(codePoint, modifiers); }
+    boolean forwardUnhandledMouseReleased(double x, double y, int button) { return false; }
+    boolean forwardUnhandledMouseDragged(double x, double y, int button, double dx, double dy) { return false; }
+    void forwardUnhandledMouseMoved(double x, double y) { }
+    boolean forwardUnhandledKeyReleased(int key, int scan, int modifiers) { return false; }
+    boolean forwardUnhandledCharTyped(char codePoint, int modifiers) { return false; }
 }

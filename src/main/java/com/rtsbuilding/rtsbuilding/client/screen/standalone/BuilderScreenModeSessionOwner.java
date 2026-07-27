@@ -1,93 +1,19 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
-import com.mojang.blaze3d.platform.InputConstants;
-import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
-import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
-import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.*;
-import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
-import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.RtsUiScaleFrame;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationGesture;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationHandles;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacementStateWheel;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.LeftDockedTooltipRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.PlayerStatusRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.RtsScreenOverlayRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
-import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
-import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
-import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftDockStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
-import com.rtsbuilding.rtsbuilding.uikit.theme.TooltipStyle;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.fml.ModList;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
-import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
@@ -232,20 +158,20 @@ final class BuilderScreenModeSessionOwner {
         }
 
     boolean handleBoxHandleDrag(int button, double dragX, double dragY) {
-            if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            if (button != 0) {
                 return false;
             }
-            Direction blueprintDirection = BlueprintPanel.getCaptureActiveHandleDirection();
+            EnumFacing blueprintDirection = BlueprintPanel.getCaptureActiveHandleDirection();
             if (BlueprintPanel.isCaptureModeActive() && blueprintDirection != null) {
                 double[] axis = screen.screenAxisForDirection(blueprintDirection);
                 return BlueprintPanel.mouseDraggedCaptureHandle(dragX, dragY, axis[0], axis[1]);
             }
-            Direction cullingDirection = screen.cullingManager.activeHandleDirection();
+            EnumFacing cullingDirection = screen.cullingManager.activeHandleDirection();
             if (screen.cullingManager.isManagementMode() && cullingDirection != null) {
                 double[] axis = screen.screenAxisForDirection(cullingDirection);
                 return screen.cullingManager.handleActiveHandleDrag(dragX, dragY, axis[0], axis[1]);
             }
-            Direction advancedBoxDirection = screen.shapeController.advancedRangeDestroyActiveHandle();
+            EnumFacing advancedBoxDirection = screen.shapeController.advancedRangeDestroyActiveHandle();
             if (advancedBoxDirection != null) {
                 double[] axis = screen.screenAxisForDirection(advancedBoxDirection);
                 return screen.shapeController.dragAdvancedRangeDestroyHandle(dragX, dragY, axis[0], axis[1]);
@@ -253,25 +179,25 @@ final class BuilderScreenModeSessionOwner {
             return false;
         }
 
-    double[] screenAxisForDirection(Direction direction) {
+    double[] screenAxisForDirection(EnumFacing direction) {
             if (direction == null || screen.getMinecraft() == null || screen.getMinecraft().gameRenderer == null) {
                 return new double[] {0.0D, -1.0D};
             }
-            float yawDeg = screen.getMinecraft().gameRenderer.getMainCamera().getYRot();
-            float pitchDeg = screen.getMinecraft().gameRenderer.getMainCamera().getXRot();
+            net.minecraft.entity.Entity camera = screen.getMinecraft().getRenderViewEntity();
+            if (camera == null) return new double[] {0.0D, -1.0D};
+            float yawDeg = camera.rotationYaw;
+            float pitchDeg = camera.rotationPitch;
             double yaw = Math.toRadians(yawDeg);
             double pitch = Math.toRadians(pitchDeg);
-            Vec3 forward = new Vec3(
+            Vec3d forward = new Vec3d(
                     -Math.sin(yaw) * Math.cos(pitch),
                     -Math.sin(pitch),
                     Math.cos(yaw) * Math.cos(pitch)).normalize();
-            Vec3 right = new Vec3(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
-            Vec3 up = forward.cross(right).normalize();
-            Vec3 normal = new Vec3(
-                    direction.getNormal().getX(),
-                    direction.getNormal().getY(),
-                    direction.getNormal().getZ());
-            return new double[] {-normal.dot(right), -normal.dot(up)};
+            Vec3d right = new Vec3d(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
+            Vec3d up = forward.crossProduct(right).normalize();
+            net.minecraft.util.math.Vec3i axis = direction.getDirectionVec();
+            Vec3d normal = new Vec3d(axis.getX(), axis.getY(), axis.getZ());
+            return new double[] {-normal.dotProduct(right), -normal.dotProduct(up)};
         }
 
     void updateRangeCullingHover(double mouseX, double mouseY) {
@@ -322,29 +248,30 @@ final class BuilderScreenModeSessionOwner {
         }
 
     void quickDropSelectedAtCursor() {
-            if (screen.getMinecraft() == null || screen.getMinecraft().getCameraEntity() == null) {
+            if (screen.getMinecraft() == null || screen.getMinecraft().getRenderViewEntity() == null) {
                 return;
             }
             String dropItemId = "";
-            if (screen.controller.hasSelectedItem() && !screen.controller.getSelectedItemId().isBlank()) {
+            if (screen.controller.hasSelectedItem() && !screen.controller.getSelectedItemId().trim().isEmpty()) {
                 dropItemId = screen.controller.getSelectedItemId();
             } else {
                 ItemStack toolStack = screen.getSelectedToolStack();
                 if (toolStack.isEmpty()) {
                     return;
                 }
-                ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+                ResourceLocation id = ForgeRegistries.ITEMS.getKey(toolStack.getItem());
                 if (id == null) {
                     return;
                 }
                 dropItemId = id.toString();
             }
-            Vec3 origin = screen.getMinecraft().gameRenderer.getMainCamera().getPosition();
-            Vec3 dir = screen.cursorPicker.computeCursorRayDirection();
-            Vec3 dropPos = origin.add(dir.scale(3.25D));
-            BlockHitResult hit = screen.cursorPicker.pickBlockHit(true);
+            Vec3d origin = screen.cursorPicker.currentRayOrigin();
+            Vec3d dir = screen.cursorPicker.computeCursorRayDirection();
+            Vec3d dropPos = origin.add(dir.scale(3.25D));
+            RayTraceResult hit = screen.cursorPicker.pickBlockHit(true);
             if (hit != null) {
-                dropPos = Vec3.atCenterOf(hit.getBlockPos()).add(0.0D, 1.05D, 0.0D);
+                BlockPos p = hit.getBlockPos();
+                dropPos = new Vec3d(p.getX() + 0.5D, p.getY() + 1.55D, p.getZ() + 0.5D);
             }
             screen.controller.quickDropSelectedItem(dropItemId, 1, dropPos);
         }

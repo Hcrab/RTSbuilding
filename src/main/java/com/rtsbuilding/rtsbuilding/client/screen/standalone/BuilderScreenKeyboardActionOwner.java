@@ -1,93 +1,21 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 
-import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
-import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
-import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.*;
-import com.rtsbuilding.rtsbuilding.client.screen.craft.RtsCraftQuantityWindowPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
-import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
-import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.RtsUiScaleFrame;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
-import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
-import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationGesture;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationHandles;
-import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacementStateWheel;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.LeftDockedTooltipRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.PlayerStatusRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.overlay.RtsScreenOverlayRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsResumePlacementPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsWorkflowPanel;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
-import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
-import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
-import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
-import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
-import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftDockStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
-import com.rtsbuilding.rtsbuilding.uikit.theme.TooltipStyle;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.fml.ModList;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.util.EnumFacing;
+import org.lwjgl.input.Keyboard;
+import net.minecraft.client.settings.KeyBinding;
 
-import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
@@ -125,7 +53,7 @@ final class BuilderScreenKeyboardActionOwner {
             if (!screen.controller.isHomeSelectionMode()) {
                 return false;
             }
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE) {
                 RtsClientPacketGateway.sendToggleCamera(screen.controller.isStartCameraAtPlayerHead());
             }
             return true;
@@ -146,19 +74,19 @@ final class BuilderScreenKeyboardActionOwner {
             // While area mine selection is active, block all world interaction keys except the break key
             if (!BlueprintPanel.isCaptureModeActive()
                     && screen.controller.getAreaMinePhase() != MiningOperationService.AREA_MINE_PHASE_NONE) {
-                if (!ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)) {
+            if (!matches(ClientKeyMappings.ACTION_BREAK, keyCode)) {
                     return true;
                 }
             }
-            if (screen.pendingGuiBindSlot >= 0 && keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (screen.pendingGuiBindSlot >= 0 && keyCode == Keyboard.KEY_ESCAPE) {
                 screen.pendingGuiBindSlot = -1;
                 return true;
             }
-            if (screen.hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
+        if (GuiScreen.isCtrlKeyDown() && keyCode == Keyboard.KEY_Z) {
                 return screen.shapeController.undoLastPlacementBatch();
             }
             // Alt+Space: toggle creative flight for the player entity in RTS mode
-            if (!screen.isSearchFocused() && (modifiers & GLFW.GLFW_MOD_ALT) != 0 && keyCode == GLFW.GLFW_KEY_SPACE) {
+        if (!screen.isSearchFocused() && screen.isAltDownForInput() && keyCode == Keyboard.KEY_SPACE) {
                 if (screen.rtsFlightToggleCooldownTicks <= 0) {
                     screen.rtsFlightToggleCooldownTicks = 10;
                     screen.handleRtsFlightToggle();
@@ -174,12 +102,12 @@ final class BuilderScreenKeyboardActionOwner {
             if (!screen.isSearchFocused() && screen.handleBatchConfirmKey(keyCode, scanCode)) {
                 return true;
             }
-            if (!screen.isSearchFocused() && ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)) {
+        if (!screen.isSearchFocused() && matches(ClientKeyMappings.ACTION_BREAK, keyCode)) {
                 if (screen.cameraInput.startMiningAt(screen.currentMouseX(), screen.currentMouseY(), -1, true)) {
                     return true;
                 }
             }
-            if (!screen.isSearchFocused() && ClientKeyMappings.PICK_BLOCK.matches(keyCode, scanCode)) {
+        if (!screen.isSearchFocused() && matches(ClientKeyMappings.PICK_BLOCK, keyCode)) {
                 if (screen.isWorldArea(screen.currentMouseX(), screen.currentMouseY())) {
                     screen.cameraInput.tryPickHoveredBlockForPlacement();
                 }
@@ -188,15 +116,15 @@ final class BuilderScreenKeyboardActionOwner {
             if (!screen.isSearchFocused() && screen.isMovePlayerActionKey(keyCode, scanCode)) {
                 return screen.handleMovePlayerActionAt(screen.currentMouseX(), screen.currentMouseY());
             }
-            if (!screen.isSearchFocused() && ClientKeyMappings.ACTION_PRIMARY.matches(keyCode, scanCode)) {
+        if (!screen.isSearchFocused() && matches(ClientKeyMappings.ACTION_PRIMARY, keyCode)) {
                 return screen.runPrimaryActionAt(screen.currentMouseX(), screen.currentMouseY());
             }
             if (!screen.isSearchFocused()
                     && screen.isBlueprintPlacementModeLocked()
-                    && ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode)) {
+                    && matches(ClientKeyMappings.QUICK_FUNNEL, keyCode)) {
                 return true;
             }
-            if (!screen.isSearchFocused() && ClientKeyMappings.QUICK_FUNNEL.matches(keyCode, scanCode)) {
+        if (!screen.isSearchFocused() && matches(ClientKeyMappings.QUICK_FUNNEL, keyCode)) {
                 if (screen.funnelHotkeyHeld) {
                     return true;
                 }
@@ -205,8 +133,8 @@ final class BuilderScreenKeyboardActionOwner {
                 return true;
             }
             if (!screen.isSearchFocused()
-                    && ClientKeyMappings.ROTATE_SHAPE.matches(keyCode, scanCode)
-                    && !screen.hasControlDown()
+                    && matches(ClientKeyMappings.ROTATE_SHAPE, keyCode)
+                && !GuiScreen.isCtrlKeyDown()
                     && screen.controller.getBuildShape() == BuildShape.BLOCK
                     && screen.openPlacementStateWheel(screen.currentMouseX(), screen.currentMouseY())) {
                 return true;
@@ -214,20 +142,20 @@ final class BuilderScreenKeyboardActionOwner {
             if (!screen.isSearchFocused() && screen.handleModeKeyPressed(keyCode, scanCode)) {
                 return true;
             }
-            if (!screen.isSearchFocused() && ClientKeyMappings.QUICK_DROP.matches(keyCode, scanCode)) {
+        if (!screen.isSearchFocused() && matches(ClientKeyMappings.QUICK_DROP, keyCode)) {
                 screen.quickDropSelectedAtCursor();
                 return true;
             }
-            if (!screen.isSearchFocused() && ClientKeyMappings.ROTATE_SHAPE.matches(keyCode, scanCode) && !screen.hasControlDown()) {
+        if (!screen.isSearchFocused() && matches(ClientKeyMappings.ROTATE_SHAPE, keyCode) && !GuiScreen.isCtrlKeyDown()) {
                 if (screen.hasRecipeViewerLoaded()) {
                     return false; // let super handle it for recipe viewer keybinds
                 }
-                screen.shapeController.rotateShapeByStep(screen.hasShiftDown() ? -1 : 1);
+            screen.shapeController.rotateShapeByStep(GuiScreen.isShiftKeyDown() ? -1 : 1);
                 return true;
             }
             if (!screen.isSearchFocused()
-                    && ClientKeyMappings.OPEN_CRAFT_TERMINAL.matches(keyCode, scanCode)
-                    && !screen.hasControlDown()) {
+                    && matches(ClientKeyMappings.OPEN_CRAFT_TERMINAL, keyCode)
+                && !GuiScreen.isCtrlKeyDown()) {
                 screen.persistUiState();
                 screen.controller.openCraftTerminal();
                 return true;
@@ -239,7 +167,7 @@ final class BuilderScreenKeyboardActionOwner {
             if (screen.controller.getMode() != BuilderMode.ROTATE
                     || !screen.rotationHandles.hasTarget()
                     || screen.getMinecraft() == null
-                    || screen.getMinecraft().level == null) {
+                || screen.getMinecraft().world == null) {
                 return false;
             }
             PlacedBlockRotationGesture gesture =
@@ -247,9 +175,9 @@ final class BuilderScreenKeyboardActionOwner {
             if (gesture == null) {
                 return false;
             }
-            Direction cameraForward = screen.currentCameraHorizontalDirection();
+        EnumFacing cameraForward = screen.currentCameraHorizontalDirection();
             boolean supported = screen.rotationHandles.arcs(
-                            screen.getMinecraft().level, cameraForward)
+                screen.getMinecraft().world, cameraForward)
                     .stream()
                     .anyMatch(arc -> arc.gesture() == gesture);
             if (supported && screen.rotationHandles.targetPos() != null) {
@@ -287,29 +215,29 @@ final class BuilderScreenKeyboardActionOwner {
                 return false;
             }
             if (screen.shapeController.isAwaitingBatchDestroyConfirm()
-                    && ClientKeyMappings.CONFIRM_BATCH_DESTROY.matches(keyCode, scanCode)) {
+                    && matches(ClientKeyMappings.CONFIRM_BATCH_DESTROY, keyCode)) {
                 screen.shapeController.tryConfirmPendingRangeDestroy();
                 return true;
             }
             if (screen.shapeController.isAwaitingBatchPlaceConfirm()
-                    && ClientKeyMappings.CONFIRM_BATCH_PLACE.matches(keyCode, scanCode)) {
-                screen.shapeController.tryConfirmPendingShapeBuild(screen.hasShiftDown());
+                    && matches(ClientKeyMappings.CONFIRM_BATCH_PLACE, keyCode)) {
+            screen.shapeController.tryConfirmPendingShapeBuild(GuiScreen.isShiftKeyDown());
                 return true;
             }
             return false;
         }
 
     boolean handleSearchFocusKeys(int keyCode, int scanCode, int modifiers) {
-            if (screen.isSearchFocused() && keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (screen.isSearchFocused() && keyCode == Keyboard.KEY_ESCAPE) {
                 if (screen.searchBox != null && screen.searchBox.isFocused()) {
-                    screen.searchBox.setValue("");
+                screen.searchBox.setText("");
                     screen.bottomPanel.handleStorageSearchChanged("");
                     screen.blurSearchFocus();
                     return true;
                 }
                 if (screen.craftSearchBox != null && screen.craftSearchBox.isFocused()) {
                     screen.bottomPanel.craftSearchDraft = "";
-                    screen.craftSearchBox.setValue("");
+                screen.craftSearchBox.setText("");
                     screen.controller.setCraftablesSearch("");
                     screen.blurSearchFocus();
                     return true;
@@ -317,31 +245,31 @@ final class BuilderScreenKeyboardActionOwner {
                 return true;
             }
             if (screen.searchBox != null && screen.searchBox.isFocused()) {
-                if (screen.searchBox.keyPressed(keyCode, scanCode, modifiers)) {
-                    screen.bottomPanel.handleStorageSearchChanged(screen.searchBox.getValue());
+            if (screen.searchBox.textboxKeyTyped((char) 0, keyCode)) {
+                screen.bottomPanel.handleStorageSearchChanged(screen.searchBox.getText());
                 }
                 return true;
             }
             if (screen.craftSearchBox != null && screen.craftSearchBox.isFocused()) {
-                if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
                     screen.bottomPanel.applyCraftSearchDraft();
                     screen.blurSearchFocus();
                     return true;
                 }
-                screen.craftSearchBox.keyPressed(keyCode, scanCode, modifiers);
+            screen.craftSearchBox.textboxKeyTyped((char) 0, keyCode);
                 return true;
             }
             return false;
         }
 
     boolean handleToolSlotKeys(int keyCode, int scanCode, int modifiers) {
-            if (!screen.isSearchFocused() && keyCode >= GLFW.GLFW_KEY_1 && keyCode <= GLFW.GLFW_KEY_9) {
-                int slot = keyCode - GLFW.GLFW_KEY_1;
+        if (!screen.isSearchFocused() && keyCode >= Keyboard.KEY_1 && keyCode <= Keyboard.KEY_9) {
+            int slot = keyCode - Keyboard.KEY_1;
                 screen.setSelectedToolSlot(slot);
                 screen.controller.clearPlacementSelectionPreserveMode();
                 return true;
             }
-            if (!screen.isSearchFocused() && ClientKeyMappings.PIN_QUICK_SLOT.matches(keyCode, scanCode)) {
+        if (!screen.isSearchFocused() && matches(ClientKeyMappings.PIN_QUICK_SLOT, keyCode)) {
                 if (screen.bottomPanel.hoveredPinPageButton) {
                     return true;
                 }
@@ -359,15 +287,19 @@ final class BuilderScreenKeyboardActionOwner {
         }
 
     boolean handleSensitivityKeys(int keyCode, int scanCode) {
-            if (ClientKeyMappings.DECREASE_SENSITIVITY.matches(keyCode, scanCode)) {
+            if (matches(ClientKeyMappings.DECREASE_SENSITIVITY, keyCode)) {
                 screen.controller.decreaseRotateSensitivity();
                 return true;
             }
-            if (ClientKeyMappings.INCREASE_SENSITIVITY.matches(keyCode, scanCode)) {
+            if (matches(ClientKeyMappings.INCREASE_SENSITIVITY, keyCode)) {
                 screen.controller.increaseRotateSensitivity();
                 return true;
             }
             return false;
-        }
+    }
+
+    private static boolean matches(KeyBinding binding, int keyCode) {
+        return binding != null && binding.getKeyCode() == keyCode;
+    }
 
 }

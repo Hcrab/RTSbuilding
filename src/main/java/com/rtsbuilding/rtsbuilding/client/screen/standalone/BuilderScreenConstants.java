@@ -3,8 +3,9 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftDockLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
 /**
  * Layout constants used by BuilderScreen.
@@ -181,7 +182,7 @@ public final class BuilderScreenConstants {
 
     // ======================== Miscellaneous ========================
     /** Funnel cursor item stack (hopper) */
-    public static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(net.minecraft.world.item.Items.HOPPER);
+    public static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(Blocks.HOPPER);
     /** Storage link detail action button height */
     public static final int STORAGE_LINK_DETAIL_ACTION_H = 16;
     /** "All" category token */
@@ -324,14 +325,12 @@ public final class BuilderScreenConstants {
 
     /** Builds QuickBuild texture paths */
     private static ResourceLocation quickBuildTexture(String key) {
-        ResourceLocation id = ResourceLocation.tryParse("rtsbuilding:textures/gui/quickbuild/" + key + ".png");
-        return id == null ? ResourceLocation.withDefaultNamespace("missingno") : id;
+        return new ResourceLocation("rtsbuilding", "textures/gui/quickbuild/" + key + ".png");
     }
 
     /** Builds top-bar texture paths */
     private static ResourceLocation topbarTexture(String key) {
-        ResourceLocation id = ResourceLocation.tryParse("rtsbuilding:textures/gui/topbar/" + key + ".png");
-        return id == null ? ResourceLocation.withDefaultNamespace("missingno") : id;
+        return new ResourceLocation("rtsbuilding", "textures/gui/topbar/" + key + ".png");
     }
 
     private BuilderScreenConstants() {

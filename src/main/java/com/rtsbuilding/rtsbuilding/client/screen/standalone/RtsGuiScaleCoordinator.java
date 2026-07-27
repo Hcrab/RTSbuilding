@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.client.screen.handler.RtsUiScaleFrame;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import org.lwjgl.opengl.GL11;
 
 import java.util.function.DoubleSupplier;
 import java.util.function.IntConsumer;
@@ -30,6 +31,7 @@ final class RtsGuiScaleCoordinator {
     private boolean renderPass;
     private boolean inputPass;
     private double activeRenderScale = 1.0D;
+    private double activeFramebufferScale = 1.0D;
     private int lastUiWidth;
     private int lastUiHeight;
 
@@ -56,7 +58,7 @@ final class RtsGuiScaleCoordinator {
      * 在非 1:1 缩放时开启虚拟渲染帧，并回调一次已经换算过的鼠标坐标。
      */
     boolean renderScaled(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             int mouseX,
             int mouseY,
             float partialTick,
@@ -68,9 +70,13 @@ final class RtsGuiScaleCoordinator {
         }
         this.renderPass = true;
         double previousScale = this.activeRenderScale;
+        double previousFramebufferScale = this.activeFramebufferScale;
         this.activeRenderScale = frame.scale();
-        graphics.pose().pushPose();
-        graphics.pose().scale((float) frame.scale(), (float) frame.scale(), 1.0F);
+        Minecraft client = this.minecraft.get();
+        this.activeFramebufferScale = client == null ? 1.0D
+                : client.displayWidth / (double) Math.max(1, frame.oldW()) * frame.scale();
+        graphics.pushPose();
+        graphics.scale((float) frame.scale(), (float) frame.scale(), 1.0F);
         try {
             renderer.render(
                     graphics,
@@ -78,8 +84,9 @@ final class RtsGuiScaleCoordinator {
                     (int) Math.round(mouseY / frame.scale()),
                     partialTick);
         } finally {
-            graphics.pose().popPose();
+            graphics.popPose();
             this.activeRenderScale = previousScale;
+            this.activeFramebufferScale = previousFramebufferScale;
             this.renderPass = false;
             frame.close();
         }
@@ -121,28 +128,31 @@ final class RtsGuiScaleCoordinator {
         return this.lastUiHeight > 0 ? this.lastUiHeight : this.height.getAsInt();
     }
 
-    void enableScissor(GuiGraphics graphics, int x1, int y1, int x2, int y2) {
+    void enableScissor(LegacyGuiGraphics graphics, int x1, int y1, int x2, int y2) {
         double scale = this.renderPass ? this.activeRenderScale : 1.0D;
-        if (Double.isFinite(scale) && scale > 0.0D && !isUnitScale(scale)) {
-            graphics.enableScissor(
-                    (int) Math.floor(x1 * scale),
-                    (int) Math.floor(y1 * scale),
-                    (int) Math.ceil(x2 * scale),
-                    (int) Math.ceil(y2 * scale));
-            return;
-        }
-        graphics.enableScissor(x1, y1, x2, y2);
+        Minecraft client = this.minecraft.get();
+        if (client == null || client.displayWidth <= 0 || client.displayHeight <= 0) return;
+        if (!Double.isFinite(scale) || scale <= 0.0D) scale = 1.0D;
+        double factor = this.renderPass ? this.activeFramebufferScale
+                : client.displayWidth / (double) Math.max(1, this.width.getAsInt());
+        int left = (int) Math.floor(x1 * factor);
+        int right = (int) Math.ceil(x2 * factor);
+        int top = (int) Math.floor(y1 * factor);
+        int bottom = (int) Math.ceil(y2 * factor);
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor(left, client.displayHeight - bottom,
+                Math.max(0, right - left), Math.max(0, bottom - top));
     }
 
     private RtsUiScaleFrame enterFrame() {
         Minecraft client = this.minecraft.get();
         int currentWidth = this.width.getAsInt();
         int currentHeight = this.height.getAsInt();
-        if (client == null || client.getWindow() == null
+        if (client == null || client.displayWidth <= 0 || client.displayHeight <= 0
                 || currentWidth <= 0 || currentHeight <= 0) {
             return null;
         }
-        double currentScale = client.getWindow().getScreenWidth()
+        double currentScale = client.displayWidth
                 / (double) Math.max(1, currentWidth);
         if (!Double.isFinite(currentScale) || currentScale <= 0.0D) {
             return null;
@@ -187,7 +197,7 @@ final class RtsGuiScaleCoordinator {
     @FunctionalInterface
     interface RenderPass {
         void render(
-                GuiGraphics graphics,
+                LegacyGuiGraphics graphics,
                 int mouseX,
                 int mouseY,
                 float partialTick);
