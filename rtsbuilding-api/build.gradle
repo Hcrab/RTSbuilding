@@ -1,0 +1,35 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+base {
+    archivesName = "rtsbuilding-api-${minecraft_version}"
+}
+
+neoForge {
+    version = project.neo_version
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+}
+
+dependencies {
+    // @ApiStatus.Internal, @NotNull, @Nullable — provided transitively by NeoForge at runtime
+    compileOnly 'org.jetbrains:annotations:26.0.2'
+}
+
+publishing {
+    publications {
+        register('mavenJava', MavenPublication) {
+            from components.java
+            groupId = project.property('mod_group_id')
+            artifactId = 'rtsbuilding-api'
+            version = project.property('mod_version')
+            pom {
+                description = 'RTS building API — interfaces for addon mods'
+            }
+        }
+    }
+}

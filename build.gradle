@@ -1,261 +1,38 @@
 plugins {
-    id 'java-library'
-    id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.140'
-    id 'idea'
+    id 'net.neoforged.moddev' version '2.0.140' apply false
 }
 
 tasks.named('wrapper', Wrapper).configure {
     distributionType = Wrapper.DistributionType.BIN
 }
 
-version = mod_version
-group = mod_group_id
+subprojects {
+    apply plugin: 'java-library'
+    apply plugin: 'idea'
+    apply plugin: 'maven-publish'
 
-repositories {
-    mavenCentral()
-    maven { url = 'https://maven.blamejared.com' }
-    maven { url = 'https://maven.createmod.net' }
-    maven { url = 'https://maven.ithundxr.dev/snapshots' }
-    maven { url = 'https://api.modrinth.com/maven' }
-    maven { url = 'https://jitpack.io' }
-}
+    group = project.property('mod_group_id')
+    version = project.property('mod_version')
 
-base {
-    archivesName = providers.gradleProperty('mod_archive_name').getOrElse(mod_id)
-}
-
-java.toolchain.languageVersion = JavaLanguageVersion.of(21)
-
-neoForge {
-    version = project.neo_version
-
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
-    }
-
-    runs {
-        client {
-            client()
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        server {
-            server()
-            programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        gameTestServer {
-            type = "gameTestServer"
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        data {
-            data()
-            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
-        }
-
-        configureEach {
-            systemProperty 'forge.logging.markers', 'REGISTRIES'
-            logLevel = org.slf4j.event.Level.DEBUG
-        }
-    }
-
-    mods {
-        "${mod_id}" {
-            sourceSet(sourceSets.main)
-        }
-    }
-}
-
-sourceSets.main.resources { srcDir 'src/generated/resources' }
-
-tasks.register('verifyPinyinDictionary') {
-    group = 'verification'
-    description = 'Verify the bundled pinyin dictionary resource exists before packaging.'
-
-    def dict = file('src/main/resources/assets/rtsbuilding/pinyin/data.txt')
-    inputs.file(dict)
-
-    doLast {
-        if (!dict.isFile()) {
-            throw new GradleException("Missing pinyin dictionary: ${dict}")
-        }
-        if (dict.length() < 250_000L) {
-            throw new GradleException("Pinyin dictionary looks truncated: ${dict.length()} bytes")
-        }
-    }
-}
-
-tasks.named('processResources').configure {
-    dependsOn tasks.named('verifyPinyinDictionary')
-}
-
-// ======================================================================
-// Test configuration
-// ======================================================================
-
-sourceSets {
-    test {
-        java {
-            srcDir 'src/test/java'
-        }
-        compileClasspath += sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.runtimeClasspath
-    }
-}
-
-configurations {
-    runtimeClasspath.extendsFrom localRuntime
-    additionalRuntimeClasspath.extendsFrom localRuntime
-}
-
-dependencies {
-    compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
-    compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
-    runtimeOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge:${jei_version}"
-    
-    compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
-
-    // Sophisticated 系列由本地测试包 run/mods 提供，避免 Gradle localRuntime 再注入一份导致 JPMS 模块冲突。
-    localRuntime "maven.modrinth:pipez:${pipez_version}"
-    compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
-
-    runtimeOnly fileTree(dir: 'libs', include: '*.jar')
-
-    // ── Test dependencies ──
-    testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
-    testImplementation "org.mockito:mockito-core:5.12.0"
-    testImplementation "org.mockito:mockito-junit-jupiter:5.12.0"
-    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
-    testImplementation "net.neoforged:neoforge:${neo_version}"
-
-    // ── JMH for microbenchmarks ──
-    testImplementation 'org.openjdk.jmh:jmh-core:1.37'
-    testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
-
-    // ── SQLite for benchmark data persistence ──
-    testImplementation 'org.xerial:sqlite-jdbc:3.46.0.0'
-}
-
-// ======================================================================
-// Test task
-// ======================================================================
-
-tasks.named('test', Test).configure {
-    useJUnitPlatform()
-    // Keep release/build verification deterministic. These classes are
-    // measurement harnesses, not correctness tests, and can destabilize the
-    // Gradle test worker through heavy Mockito/JVM-agent usage.
-    exclude '**/server/benchmark/**'
-    // These tests currently touch concrete Minecraft/FML runtime classes
-    // (Blocks/ServerPlayer) that are not initialized in the plain unit-test
-    // worker. They need a dedicated bootstrapped game-runtime test task.
-    exclude '**/server/history/**'
-    testLogging {
-        events "passed", "skipped", "failed"
-        showStandardStreams = true
-    }
-}
-
-tasks.register('generateBenchmarkReport') {
-    group = 'benchmark'
-    description = 'Run extreme performance benchmarks and generate benchmark-results.txt'
-    dependsOn 'cleanTest'
-    doLast {
-        println 'Running Benchmark tests...'
-    }
-    finalizedBy 'runBenchmarks'
-}
-
-tasks.register('runBenchmarks', Test) {
-    group = 'benchmark'
-    description = 'Internal task — run benchmark tests'
-    useJUnitPlatform()
-
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-
-    filter {
-        includeTestsMatching '*JmhBenchmarkRunner'
-    }
-    testLogging {
-        events "passed", "skipped", "failed"
-        showStandardStreams = true
-    }
-    outputs.upToDateWhen { false }
-}
-
-tasks.register('startBenchmarkServer', JavaExec) {
-    group = 'benchmark'
-    description = 'Start the Benchmark data HTTP server'
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.rtsbuilding.rtsbuilding.server.benchmark.infrastructure.BenchmarkServer'
-}
-
-tasks.register('resetBenchmarkData', JavaExec) {
-    group = 'benchmark'
-    description = 'Delete ALL benchmark data from the SQLite database'
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.rtsbuilding.rtsbuilding.server.benchmark.infrastructure.BenchmarkDatabase'
-    args 'reset'
-}
-
-tasks.register('generateSkeletonVisualReport', JavaExec) {
-    group = 'verification'
-    description = 'Generate a local HTML report for merged skeleton stress scenes'
-    dependsOn 'testClasses'
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'com.rtsbuilding.rtsbuilding.client.rendering.builder.SkeletonVisualReport'
-}
-
-var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
-    var replaceProperties = [
-            minecraft_version      : minecraft_version,
-            minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
-            loader_version_range   : loader_version_range,
-            mod_id                 : mod_id,
-            mod_name               : mod_name,
-            mod_license            : mod_license,
-            mod_version            : mod_version,
-            mod_authors            : mod_authors,
-            mod_credits            : mod_credits,
-    ]
-    inputs.properties replaceProperties
-    expand replaceProperties
-    from "src/main/templates"
-    into "build/generated/sources/modMetadata"
-}
-sourceSets.main.resources.srcDir generateModMetadata
-neoForge.ideSyncTask generateModMetadata
-
-publishing {
-    publications {
-        register('mavenJava', MavenPublication) {
-            from components.java
-        }
-    }
     repositories {
-        maven {
-            url "file://${project.projectDir}/repo"
-        }
+        mavenCentral()
+        maven { url = 'https://maven.blamejared.com' }
+        maven { url = 'https://maven.createmod.net' }
+        maven { url = 'https://maven.ithundxr.dev/snapshots' }
+        maven { url = 'https://api.modrinth.com/maven' }
+        maven { url = 'https://jitpack.io' }
     }
-}
 
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
-}
+    java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-tasks.named('jar', Jar).configure {
-    archiveFileName = "${mod_archive_name}-${mod_version}.jar"
-}
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+    }
 
-idea {
-    module {
-        downloadSources = true
-        downloadJavadoc = true
+    idea {
+        module {
+            downloadSources = true
+            downloadJavadoc = true
+        }
     }
 }

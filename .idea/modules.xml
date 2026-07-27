@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/common/rtsbuilding.common.main.iml" filepath="$PROJECT_DIR$/.idea/modules/common/rtsbuilding.common.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/neoforge-1.21/rtsbuilding.neoforge-1.21.main.iml" filepath="$PROJECT_DIR$/.idea/modules/neoforge-1.21/rtsbuilding.neoforge-1.21.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/neoforge-1.21/rtsbuilding.neoforge-1.21.test.iml" filepath="$PROJECT_DIR$/.idea/modules/neoforge-1.21/rtsbuilding.neoforge-1.21.test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/rtsbuilding-api/rtsbuilding.rtsbuilding-api.main.iml" filepath="$PROJECT_DIR$/.idea/modules/rtsbuilding-api/rtsbuilding.rtsbuilding-api.main.iml" />
+    </modules>
+  </component>
+</project>
