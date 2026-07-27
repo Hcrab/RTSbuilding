@@ -1,11 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WindowSliderLayout;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.util.Mth;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.function.Consumer;
 
@@ -34,7 +35,7 @@ public class WindowSlider {
         this.height = height;
         this.min = min;
         this.max = Math.max(min, max);
-        this.value = Mth.clamp(value, min, this.max);
+        this.value = MathHelper.clamp(value, min, this.max);
     }
 
     // ======================== Properties ========================
@@ -44,7 +45,7 @@ public class WindowSlider {
     }
 
     public void setValue(int value) {
-        int clamped = Mth.clamp(value, min, max);
+        int clamped = MathHelper.clamp(value, min, max);
         if (this.value != clamped) {
             this.value = clamped;
             if (onChange != null) {
@@ -81,10 +82,10 @@ public class WindowSlider {
 
     // ======================== Rendering ========================
 
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
         WindowSliderChromeRenderer.render(
-                new MinecraftUiCanvas(g, net.minecraft.client.Minecraft.getInstance().font),
+                new MinecraftUiCanvas(g, Minecraft.getMinecraft().fontRenderer),
                 geometry());
     }
 

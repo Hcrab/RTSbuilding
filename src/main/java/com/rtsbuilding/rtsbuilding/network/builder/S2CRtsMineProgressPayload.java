@@ -1,29 +1,26 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record S2CRtsMineProgressPayload(
-        BlockPos pos,
-        byte stage) implements CustomPacketPayload {
-    public static final Type<S2CRtsMineProgressPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_mine_progress"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsMineProgressPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeBlockPos(payload.pos());
-                buf.writeByte(payload.stage());
-            },
-            (buf) -> new S2CRtsMineProgressPayload(
-                    buf.readBlockPos(),
-                    buf.readByte()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+/** 单方块挖掘裂纹阶段。 */
+public final class S2CRtsMineProgressPayload implements IMessage {
+    private BlockPos pos = BlockPos.ORIGIN;
+    private byte stage;
+    public S2CRtsMineProgressPayload() {}
+    public S2CRtsMineProgressPayload(BlockPos pos, byte stage) {
+        this.pos = pos == null ? BlockPos.ORIGIN : pos;
+        this.stage = stage;
+    }
+    public BlockPos pos() { return this.pos; }
+    public byte stage() { return this.stage; }
+    @Override public void fromBytes(ByteBuf buffer) {
+        this.pos = BlockPos.fromLong(buffer.readLong());
+        this.stage = buffer.readByte();
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        buffer.writeLong(this.pos.toLong());
+        buffer.writeByte(this.stage);
     }
 }

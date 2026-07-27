@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.uicore.routing.PointerCapture;
 import com.rtsbuilding.rtsbuilding.uicore.routing.UiEscapeStack;
 import com.rtsbuilding.rtsbuilding.uicore.routing.UiEventRouter;
 import com.rtsbuilding.rtsbuilding.uicore.routing.UiLayerStack;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.input.Keyboard;
 
 import java.util.Comparator;
 import java.util.IdentityHashMap;
@@ -66,7 +66,7 @@ final class RtsFloatingWindowInputRouter {
 
     boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         synchronizeLayers();
-        UiEventReply reply = keyCode == GLFW.GLFW_KEY_ESCAPE
+        UiEventReply reply = keyCode == Keyboard.KEY_ESCAPE
                 ? router.routeEscape()
                 : router.routeKey(new UiKeyEvent(UiKeyEvent.Type.PRESS,
                         keyCode, scanCode, modifiers, '\0'));

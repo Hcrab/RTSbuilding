@@ -1,29 +1,30 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsLinkedPickupPayload(
-        ItemStack prototype,
-        int amount) implements CustomPacketPayload {
-    public static final Type<C2SRtsLinkedPickupPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_linked_pickup"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsLinkedPickupPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                ItemStack.STREAM_CODEC.encode(buf, payload.prototype());
-                buf.writeVarInt(payload.amount());
-            },
-            (buf) -> new C2SRtsLinkedPickupPayload(
-                    ItemStack.STREAM_CODEC.decode(buf),
-                    buf.readVarInt()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+/** 从链接储存提取与完整原型（含 metadata/NBT）匹配的物品到鼠标。 */
+public final class C2SRtsLinkedPickupPayload implements IMessage {
+    private ItemStack prototype = ItemStack.EMPTY;
+    private int amount;
+    public C2SRtsLinkedPickupPayload() {}
+    public C2SRtsLinkedPickupPayload(ItemStack prototype, int amount) {
+        this.prototype = copy(prototype);
+        this.amount = amount;
     }
+    public ItemStack prototype() { return this.prototype; }
+    public int amount() { return this.amount; }
+    public boolean isValid() { return !this.prototype.isEmpty() && this.amount > 0; }
+    @Override public void fromBytes(ByteBuf buffer) {
+        this.prototype = RtsPacketBuffer.readItemStack(buffer);
+        this.amount = RtsPacketBuffer.readBoundedCount(buffer, Integer.MAX_VALUE, "pickup amount");
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        if (!isValid()) throw new IllegalArgumentException("invalid linked pickup request");
+        RtsPacketBuffer.writeItemStack(buffer, this.prototype);
+        RtsPacketBuffer.writeVarInt(buffer, this.amount);
+    }
+    private static ItemStack copy(ItemStack stack) { return stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copy(); }
 }

@@ -16,10 +16,12 @@ import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTab;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiToolSlot;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTransition;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.SLOT;
@@ -43,7 +45,8 @@ final class BottomBarUiAdapter {
         BottomPanelLayoutTypes.BottomPanelTab active = panel.activeBottomPanelTab();
         List<RtsCreativeItemCatalog.CreativeEntry> creative =
                 active == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE
-                        ? panel.creativeEntriesForCurrentFilter() : List.of();
+                        ? panel.creativeEntriesForCurrentFilter()
+                        : Collections.<RtsCreativeItemCatalog.CreativeEntry>emptyList();
         int creativeGridW = Math.max(SLOT, (layout.mainStorageW() - STORAGE_RECENT_GAP) / 2);
         int creativePageSize = Math.max(1, Math.max(1, creativeGridW / SLOT)
                 * Math.max(1, layout.gridH() / SLOT));
@@ -94,72 +97,79 @@ final class BottomBarUiAdapter {
         panel.craftSearchDraft = transition.state.craftSearchDraft;
         if (transition.command == BottomBarUiTransition.Command.APPLY_VIEW_STATE) return;
         switch (action.type) {
-            case REFRESH -> {
+            case REFRESH:
                 if (transition.state.activeTab == BottomBarUiTab.CREATIVE) {
                     RtsCreativeItemCatalog.get().forceRefresh();
                     panel.creativePage = 0;
                 } else if (transition.state.activeTab == BottomBarUiTab.STORAGE) {
                     panel.controller.refreshStoragePage();
                 }
-            }
-            case OPEN_GUIDE -> {
+                break;
+            case OPEN_GUIDE:
                 BottomPanelLayoutTypes.BottomPanelLayout layout = panel.resolveBottomPanelLayout();
                 panel.screen.openBottomGuide(layout.panelX() + layout.panelW() - 14,
                         layout.panelY() + 3);
-            }
-            case OPEN_PLUGINS -> {
+                break;
+            case OPEN_PLUGINS:
                 panel.controller.requestPluginState();
-                Minecraft.getInstance().setScreen(new RtsPluginManagementScreen(panel.screen));
-            }
-            case SET_SEARCH, CLEAR_SEARCH -> panel.applyStorageSearchValue(transition.state.search);
-            case PREVIOUS_PAGE -> {
+                Minecraft.getMinecraft().displayGuiScreen(new RtsPluginManagementScreen(panel.screen));
+                break;
+            case SET_SEARCH:
+            case CLEAR_SEARCH:
+                panel.applyStorageSearchValue(transition.state.search);
+                break;
+            case PREVIOUS_PAGE:
                 if (transition.state.activeTab == BottomBarUiTab.CREATIVE) panel.creativePage = transition.state.page;
                 else panel.controller.prevPage();
-            }
-            case NEXT_PAGE -> {
+                break;
+            case NEXT_PAGE:
                 if (transition.state.activeTab == BottomBarUiTab.CREATIVE) panel.creativePage = transition.state.page;
                 else panel.controller.nextPage();
-            }
-            case CYCLE_SORT -> panel.controller.cycleSort();
-            case TOGGLE_SORT_DIRECTION -> panel.controller.toggleSortDirection();
-            case SELECT_STORAGE -> panel.controller.selectStorageEntry(action.index);
-            case SELECT_RECENT -> panel.controller.selectRecentEntry(action.index);
-            case SELECT_FLUID -> panel.controller.selectFluidEntry(action.index);
-            case SELECT_CREATIVE -> selectCreative(panel, action.index);
-            case SELECT_EMPTY_HAND -> panel.controller.selectEmptyHand();
-            case SELECT_TOOL -> {
+                break;
+            case CYCLE_SORT: panel.controller.cycleSort(); break;
+            case TOGGLE_SORT_DIRECTION: panel.controller.toggleSortDirection(); break;
+            case SELECT_STORAGE: panel.controller.selectStorageEntry(action.index); break;
+            case SELECT_RECENT: panel.controller.selectRecentEntry(action.index); break;
+            case SELECT_FLUID: panel.controller.selectFluidEntry(action.index); break;
+            case SELECT_CREATIVE: selectCreative(panel, action.index); break;
+            case SELECT_EMPTY_HAND: panel.controller.selectEmptyHand(); break;
+            case SELECT_TOOL:
                 panel.setSelectedToolSlot(action.index);
                 panel.controller.clearPlacementSelectionPreserveMode();
-            }
-            case IMPORT_HOTBAR -> panel.controller.storeHotbarSlotToLinked(action.index);
-            case STORE_FLUID_TOOL -> panel.controller.storeFluidFromToolSlot(action.index);
-            case SELECT_PIN -> panel.controller.selectQuickSlot(action.index);
-            case CLEAR_PIN -> panel.controller.clearQuickSlot(action.index);
-            case STORE_FLUID_PIN -> {
+                break;
+            case IMPORT_HOTBAR: panel.controller.storeHotbarSlotToLinked(action.index); break;
+            case STORE_FLUID_TOOL: panel.controller.storeFluidFromToolSlot(action.index); break;
+            case SELECT_PIN: panel.controller.selectQuickSlot(action.index); break;
+            case CLEAR_PIN: panel.controller.clearQuickSlot(action.index); break;
+            case STORE_FLUID_PIN:
                 String id = panel.controller.getQuickSlotItemId(action.index);
-                if (id != null && !id.isBlank()) panel.controller.storeFluidFromPinnedItem(id);
-            }
-            case OPEN_CRAFT_TERMINAL -> {
+                if (!isBlank(id)) panel.controller.storeFluidFromPinnedItem(id);
+                break;
+            case OPEN_CRAFT_TERMINAL:
                 panel.screen.persistUiState();
                 panel.controller.openCraftTerminal();
-            }
-            case OPEN_CRAFT_QUANTITY -> {
+                break;
+            case OPEN_CRAFT_QUANTITY:
                 if (action.index >= 0 && action.index < panel.controller.getCraftableEntries().size()) {
                     panel.openCraftQuantityDialog(panel.controller.getCraftableEntries().get(action.index));
                 }
-            }
-            case SELECT_GUI_BINDING -> selectGuiBinding(panel, action.index);
-            case TOGGLE_GUI_BINDING_PENDING -> panel.screen.setPendingGuiBindSlot(
+                break;
+            case SELECT_GUI_BINDING: selectGuiBinding(panel, action.index); break;
+            case TOGGLE_GUI_BINDING_PENDING:
+                panel.screen.setPendingGuiBindSlot(
                     panel.screen.getPendingGuiBindSlot() == action.index ? -1 : action.index);
-            case CLEAR_GUI_BINDING -> {
+                break;
+            case CLEAR_GUI_BINDING:
                 if (panel.screen.getPendingGuiBindSlot() == action.index) panel.screen.clearPendingGuiBind();
                 panel.controller.clearGuiBinding(action.index);
-            }
-            case SELECT_CATEGORY -> selectCategory(panel, action.index, false);
-            case TOGGLE_CATEGORY -> selectCategory(panel, action.index, true);
-            case APPLY_CRAFT_SEARCH -> panel.controller.setCraftablesSearch(transition.state.craftSearchApplied);
-            case TOGGLE_CRAFT_UNAVAILABLE -> panel.controller.toggleCraftablesShowUnavailable();
-            default -> { }
+                break;
+            case SELECT_CATEGORY: selectCategory(panel, action.index, false); break;
+            case TOGGLE_CATEGORY: selectCategory(panel, action.index, true); break;
+            case APPLY_CRAFT_SEARCH:
+                panel.controller.setCraftablesSearch(transition.state.craftSearchApplied);
+                break;
+            case TOGGLE_CRAFT_UNAVAILABLE: panel.controller.toggleCraftablesShowUnavailable(); break;
+            default: break;
         }
     }
 
@@ -182,7 +192,7 @@ final class BottomBarUiAdapter {
         for (StorageEntry entry : panel.controller.getStorageEntries()) {
             result.add(new BottomBarUiEntry(BottomBarUiEntry.Kind.STORAGE, i++,
                     entry.itemId(), entry.name(), entry.count(), 0,
-                    !selected.isEmpty() && ItemStack.isSameItemSameComponents(entry.stack(), selected), true));
+                    !selected.isEmpty() && sameItemAndTag(entry.stack(), selected), true));
         }
         return result;
     }
@@ -202,7 +212,7 @@ final class BottomBarUiAdapter {
             RtsCreativeItemCatalog.CreativeEntry entry = entries.get(i);
             result.add(new BottomBarUiEntry(BottomBarUiEntry.Kind.CREATIVE, i,
                     entry.itemId(), entry.label(), 0, 0,
-                    !selected.isEmpty() && ItemStack.isSameItemSameComponents(entry.stack(), selected), true));
+                    !selected.isEmpty() && sameItemAndTag(entry.stack(), selected), true));
         }
         return result;
     }
@@ -247,13 +257,13 @@ final class BottomBarUiAdapter {
 
     private static List<BottomBarUiToolSlot> tools(BottomPanel panel) {
         List<BottomBarUiToolSlot> result = new ArrayList<>();
-        Minecraft mc = Minecraft.getInstance();
-        int selectedHotbar = mc != null && mc.player != null ? mc.player.getInventory().selected : -1;
+        Minecraft mc = Minecraft.getMinecraft();
+        int selectedHotbar = mc != null && mc.player != null ? mc.player.inventory.currentItem : -1;
         for (int i = 0; i < 9; i++) {
             ItemStack stack = mc != null && mc.player != null
-                    ? mc.player.getInventory().getItem(i) : ItemStack.EMPTY;
+                    ? mc.player.inventory.getStackInSlot(i) : ItemStack.EMPTY;
             result.add(new BottomBarUiToolSlot(BottomBarUiToolSlot.Kind.HOTBAR, i,
-                    itemId(stack), stack.isEmpty() ? "" : stack.getHoverName().getString(),
+                    itemId(stack), stack.isEmpty() ? "" : stack.getDisplayName(),
                     stack.getCount(), i == selectedHotbar && !panel.controller.hasSelectedItem()
                             && !panel.controller.hasSelectedFluid() && !panel.controller.isEmptyHandSelected(),
                     false, false));
@@ -301,7 +311,7 @@ final class BottomBarUiAdapter {
         } else {
             panel.controller.setStorageCategory(row.token());
         }
-        if (!row.modNamespace().isBlank()) panel.expandedCategoryMods.add(row.modNamespace());
+        if (!isBlank(row.modNamespace())) panel.expandedCategoryMods.add(row.modNamespace());
     }
 
     private static void selectGuiBinding(BottomPanel panel, int index) {
@@ -318,31 +328,43 @@ final class BottomBarUiAdapter {
     }
 
     private static String sortLabel(BottomPanel panel) {
-        return switch (panel.controller.getStorageSort()) {
-            case QUANTITY -> "Qty";
-            case MOD -> "Mod";
-            case NAME -> "Name";
-        };
+        switch (panel.controller.getStorageSort()) {
+            case QUANTITY: return "Qty";
+            case MOD: return "Mod";
+            case NAME: return "Name";
+            default: return "Name";
+        }
     }
 
     private static BottomBarUiTab toCore(BottomPanelLayoutTypes.BottomPanelTab tab) {
-        return switch (tab) {
-            case CREATIVE -> BottomBarUiTab.CREATIVE;
-            case BLUEPRINTS -> BottomBarUiTab.BLUEPRINTS;
-            case STORAGE -> BottomBarUiTab.STORAGE;
-        };
+        switch (tab) {
+            case CREATIVE: return BottomBarUiTab.CREATIVE;
+            case BLUEPRINTS: return BottomBarUiTab.BLUEPRINTS;
+            case STORAGE: return BottomBarUiTab.STORAGE;
+            default: return BottomBarUiTab.STORAGE;
+        }
     }
 
     private static BottomPanelLayoutTypes.BottomPanelTab fromCore(BottomBarUiTab tab) {
-        return switch (tab) {
-            case CREATIVE -> BottomPanelLayoutTypes.BottomPanelTab.CREATIVE;
-            case BLUEPRINTS -> BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS;
-            case STORAGE -> BottomPanelLayoutTypes.BottomPanelTab.STORAGE;
-        };
+        switch (tab) {
+            case CREATIVE: return BottomPanelLayoutTypes.BottomPanelTab.CREATIVE;
+            case BLUEPRINTS: return BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS;
+            case STORAGE: return BottomPanelLayoutTypes.BottomPanelTab.STORAGE;
+            default: return BottomPanelLayoutTypes.BottomPanelTab.STORAGE;
+        }
     }
 
     private static String itemId(ItemStack stack) {
-        return stack == null || stack.isEmpty() ? ""
-                : BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        if (stack == null || stack.isEmpty()) return "";
+        ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+        return id == null ? "" : id.toString();
+    }
+
+    private static boolean sameItemAndTag(ItemStack first, ItemStack second) {
+        return ItemStack.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

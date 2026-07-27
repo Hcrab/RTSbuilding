@@ -1,133 +1,171 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-/**
- * Server-to-client payload for unified workflow progress updates.
- *
- * <p>Each payload carries progress for a single workflow slot, identified
- * by {@code workflowIndex} (0-based slot within the player's workflow list).
- * The {@code workflowCount} field tells the client the total number of
- * active workflow slots so it can size its UI accordingly.</p>
- *
- * <p><b>Wire format:</b>
- * <ul>
- *   <li>{@code byte workflowIndex} — 0-based slot index; -1 = idle/clear-all</li>
- *   <li>{@code byte workflowCount} — total active workflow count</li>
- *   <li>{@code byte workflowType} — workflow type ordinal; -1 = slot idle</li>
- *   <li>{@code byte priority} — priority rank (0-3)</li>
- *   <li>{@code int totalBlocks} — total blocks to process</li>
- *   <li>{@code int completedBlocks} — blocks successfully processed</li>
- *   <li>{@code int failedBlocks} — blocks that failed</li>
- *   <li>{@code int missingItemCount} — number of missing item IDs</li>
- *   <li>{@code String[] missingItems} — UTF-8 encoded item IDs</li>
- *   <li>{@code String detailMessage} — optional human-readable detail</li>
- * </ul>
- *
- * @param workflowIndex  0-based slot index; -1 = clear-all (no active workflows)
- * @param workflowCount  total number of active workflow slots
- * @param workflowType   workflow type ordinal; -1 = this slot idle
- * @param priority       priority rank (0 = LOW, 1 = NORMAL, 2 = HIGH, 3 = CRITICAL)
- * @param totalBlocks    total blocks to process (0 if unknown)
- * @param completedBlocks blocks successfully processed so far
- * @param failedBlocks   blocks that failed to process
- * @param missingItems   item IDs needed but unavailable; empty list if none
- * @param detailMessage  optional human-readable detail
- * @param suspended      1 if this workflow slot is suspended (waiting for items), 0 otherwise
- * @param paused         1 if this workflow slot is paused by the user, 0 otherwise
- * @param workflowEntryId immutable workflow entry ID for linking with pending jobs
- */
-public record S2CRtsWorkflowProgressPayload(
-        byte workflowIndex,
-        byte workflowCount,
-        byte workflowType,
-        byte priority,
-        int totalBlocks,
-        int completedBlocks,
-        int failedBlocks,
-        List<String> missingItems,
-        String detailMessage,
-        byte suspended,
-        byte paused,
-        byte protectedWorkflow,
-        int workflowEntryId) implements CustomPacketPayload {
+/** 单个工作流槽位的服务端权威进度快照。 */
+public final class S2CRtsWorkflowProgressPayload implements IMessage {
+    public static final int MAX_MISSING_ITEMS = 512;
+    public static final int MAX_ITEM_ID_CHARS = 128;
+    public static final int MAX_DETAIL_CHARS = 1024;
+    private static final int MAX_BLOCK_COUNT = 100_000_000;
 
-    public static final Type<S2CRtsWorkflowProgressPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_workflow_progress"));
+    private byte workflowIndex = -1;
+    private byte workflowCount;
+    private byte workflowType = -1;
+    private byte priority = 1;
+    private int totalBlocks;
+    private int completedBlocks;
+    private int failedBlocks;
+    private List<String> missingItems = Collections.emptyList();
+    private String detailMessage = "";
+    private byte suspended;
+    private byte paused;
+    private byte protectedWorkflow;
+    private int workflowEntryId = -1;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsWorkflowProgressPayload> STREAM_CODEC = StreamCodec.of(
-            S2CRtsWorkflowProgressPayload::encode,
-            S2CRtsWorkflowProgressPayload::decode);
+    public S2CRtsWorkflowProgressPayload() {}
 
-    private static void encode(RegistryFriendlyByteBuf buf, S2CRtsWorkflowProgressPayload payload) {
-        buf.writeByte(payload.workflowIndex());
-        buf.writeByte(payload.workflowCount());
-        buf.writeByte(payload.workflowType());
-        buf.writeByte(payload.priority());
-        buf.writeInt(payload.totalBlocks());
-        buf.writeInt(payload.completedBlocks());
-        buf.writeInt(payload.failedBlocks());
-        buf.writeByte(payload.suspended());
-        buf.writeByte(payload.paused());
-        buf.writeByte(payload.protectedWorkflow());
-        buf.writeInt(payload.workflowEntryId());
-        List<String> items = payload.missingItems();
-        buf.writeInt(items.size());
+    public S2CRtsWorkflowProgressPayload(byte workflowIndex, byte workflowCount, byte workflowType,
+                                         byte priority, int totalBlocks, int completedBlocks, int failedBlocks,
+                                         List<String> missingItems, String detailMessage, byte suspended,
+                                         byte paused, byte protectedWorkflow, int workflowEntryId) {
+        this.workflowIndex = boundedIndex(workflowIndex);
+        this.workflowCount = boundedCountByte(workflowCount, "workflow count");
+        this.workflowType = boundedType(workflowType);
+        this.priority = boundedPriority(priority);
+        this.totalBlocks = boundedBlocks(totalBlocks, "total blocks");
+        this.completedBlocks = boundedBlocks(completedBlocks, "completed blocks");
+        this.failedBlocks = boundedBlocks(failedBlocks, "failed blocks");
+        this.missingItems = immutableMissingItems(missingItems);
+        this.detailMessage = boundedText(detailMessage, MAX_DETAIL_CHARS, "workflow detail");
+        this.suspended = boundedFlag(suspended, "suspended");
+        this.paused = boundedFlag(paused, "paused");
+        this.protectedWorkflow = boundedFlag(protectedWorkflow, "protected workflow");
+        this.workflowEntryId = boundedEntryId(workflowIndex, workflowEntryId);
+    }
+
+    public byte workflowIndex() { return this.workflowIndex; }
+    public byte workflowCount() { return this.workflowCount; }
+    public byte workflowType() { return this.workflowType; }
+    public byte priority() { return this.priority; }
+    public int totalBlocks() { return this.totalBlocks; }
+    public int completedBlocks() { return this.completedBlocks; }
+    public int failedBlocks() { return this.failedBlocks; }
+    public List<String> missingItems() { return this.missingItems; }
+    public String detailMessage() { return this.detailMessage; }
+    public byte suspended() { return this.suspended; }
+    public byte paused() { return this.paused; }
+    public byte protectedWorkflow() { return this.protectedWorkflow; }
+    public int workflowEntryId() { return this.workflowEntryId; }
+
+    @Override public void fromBytes(ByteBuf buffer) { readFrom(buffer, this); }
+    @Override public void toBytes(ByteBuf buffer) { writeTo(buffer, this); }
+
+    static void writeTo(ByteBuf buffer, S2CRtsWorkflowProgressPayload payload) {
+        if (payload == null) throw new IllegalArgumentException("workflow payload");
+        buffer.writeByte(boundedIndex(payload.workflowIndex));
+        buffer.writeByte(boundedCountByte(payload.workflowCount, "workflow count"));
+        buffer.writeByte(boundedType(payload.workflowType));
+        buffer.writeByte(boundedPriority(payload.priority));
+        RtsPacketBuffer.writeVarInt(buffer, boundedBlocks(payload.totalBlocks, "total blocks"));
+        RtsPacketBuffer.writeVarInt(buffer, boundedBlocks(payload.completedBlocks, "completed blocks"));
+        RtsPacketBuffer.writeVarInt(buffer, boundedBlocks(payload.failedBlocks, "failed blocks"));
+        buffer.writeByte(boundedFlag(payload.suspended, "suspended"));
+        buffer.writeByte(boundedFlag(payload.paused, "paused"));
+        buffer.writeByte(boundedFlag(payload.protectedWorkflow, "protected workflow"));
+        buffer.writeInt(boundedEntryId(payload.workflowIndex, payload.workflowEntryId));
+        List<String> items = immutableMissingItems(payload.missingItems);
+        RtsPacketBuffer.writeVarInt(buffer, items.size());
         for (String item : items) {
-            buf.writeUtf(item);
+            RtsPacketBuffer.writeString(buffer, item, MAX_ITEM_ID_CHARS, "missing item id");
         }
-        buf.writeUtf(payload.detailMessage() != null ? payload.detailMessage() : "");
+        RtsPacketBuffer.writeString(buffer,
+                boundedText(payload.detailMessage, MAX_DETAIL_CHARS, "workflow detail"),
+                MAX_DETAIL_CHARS, "workflow detail");
     }
 
-    private static S2CRtsWorkflowProgressPayload decode(RegistryFriendlyByteBuf buf) {
-        byte workflowIndex = buf.readByte();
-        byte workflowCount = buf.readByte();
-        byte workflowType = buf.readByte();
-        byte priority = buf.readByte();
-        int totalBlocks = buf.readInt();
-        int completedBlocks = buf.readInt();
-        int failedBlocks = buf.readInt();
-        byte suspended = buf.readByte();
-        byte paused = buf.readByte();
-        byte protectedWorkflow = buf.readByte();
-        int workflowEntryId = buf.readInt();
-        int missingCount = buf.readInt();
-        List<String> missingItems = new ArrayList<>(missingCount);
+    static S2CRtsWorkflowProgressPayload readNew(ByteBuf buffer) {
+        S2CRtsWorkflowProgressPayload payload = new S2CRtsWorkflowProgressPayload();
+        readFrom(buffer, payload);
+        return payload;
+    }
+
+    private static void readFrom(ByteBuf buffer, S2CRtsWorkflowProgressPayload target) {
+        target.workflowIndex = boundedIndex(buffer.readByte());
+        target.workflowCount = boundedCountByte(buffer.readByte(), "workflow count");
+        target.workflowType = boundedType(buffer.readByte());
+        target.priority = boundedPriority(buffer.readByte());
+        target.totalBlocks = RtsPacketBuffer.readBoundedCount(buffer, MAX_BLOCK_COUNT, "total blocks");
+        target.completedBlocks = RtsPacketBuffer.readBoundedCount(buffer, MAX_BLOCK_COUNT, "completed blocks");
+        target.failedBlocks = RtsPacketBuffer.readBoundedCount(buffer, MAX_BLOCK_COUNT, "failed blocks");
+        target.suspended = boundedFlag(buffer.readByte(), "suspended");
+        target.paused = boundedFlag(buffer.readByte(), "paused");
+        target.protectedWorkflow = boundedFlag(buffer.readByte(), "protected workflow");
+        target.workflowEntryId = boundedEntryId(target.workflowIndex, buffer.readInt());
+        int missingCount = RtsPacketBuffer.readBoundedCount(buffer, MAX_MISSING_ITEMS, "missing item count");
+        List<String> items = new ArrayList<String>(missingCount);
         for (int i = 0; i < missingCount; i++) {
-            missingItems.add(buf.readUtf());
+            items.add(RtsPacketBuffer.readString(buffer, MAX_ITEM_ID_CHARS, "missing item id"));
         }
-        String detailMessage = buf.readUtf();
-        return new S2CRtsWorkflowProgressPayload(
-                workflowIndex, workflowCount, workflowType, priority,
-                totalBlocks, completedBlocks, failedBlocks,
-                missingItems, detailMessage, suspended, paused, protectedWorkflow, workflowEntryId);
+        target.missingItems = Collections.unmodifiableList(items);
+        target.detailMessage = RtsPacketBuffer.readString(buffer, MAX_DETAIL_CHARS, "workflow detail");
     }
 
-    /**
-     * Creates a clear-all (no active workflows) payload.
-     */
     public static S2CRtsWorkflowProgressPayload idle() {
-        return new S2CRtsWorkflowProgressPayload(
-                (byte) -1, (byte) 0, (byte) -1, (byte) 1,
-                0, 0, 0, List.of(), "", (byte) 0, (byte) 0, (byte) 0, -1);
+        return new S2CRtsWorkflowProgressPayload((byte) -1, (byte) 0, (byte) -1, (byte) 1,
+                0, 0, 0, Collections.<String>emptyList(), "", (byte) 0, (byte) 0, (byte) 0, -1);
     }
 
-    /**
-     * Returns {@code true} if this payload indicates all workflows cleared.
-     */
-    public boolean isIdle() {
-        return this.workflowIndex < 0;
-    }
+    public boolean isIdle() { return this.workflowIndex < 0; }
 
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    private static byte boundedIndex(byte value) {
+        if (value < -1) throw new IllegalArgumentException("workflow index out of range: " + value);
+        return value;
+    }
+    private static byte boundedCountByte(byte value, String name) {
+        if (value < 0) throw new IllegalArgumentException(name + " out of range: " + value);
+        return value;
+    }
+    private static byte boundedType(byte value) {
+        if (value < -1) throw new IllegalArgumentException("workflow type out of range: " + value);
+        return value;
+    }
+    private static byte boundedPriority(byte value) {
+        if (value < 0 || value > 3) throw new IllegalArgumentException("priority out of range: " + value);
+        return value;
+    }
+    private static byte boundedFlag(byte value, String name) {
+        if (value != 0 && value != 1) throw new IllegalArgumentException(name + " out of range: " + value);
+        return value;
+    }
+    private static int boundedBlocks(int value, String name) {
+        if (value < 0 || value > MAX_BLOCK_COUNT) throw new IllegalArgumentException(name + " out of range: " + value);
+        return value;
+    }
+    private static int boundedEntryId(byte workflowIndex, int value) {
+        if (workflowIndex < 0) {
+            if (value != -1) throw new IllegalArgumentException("idle workflow entry id must be -1");
+        } else if (value < 0) {
+            throw new IllegalArgumentException("workflow entry id out of range: " + value);
+        }
+        return value;
+    }
+    private static String boundedText(String value, int maximum, String name) {
+        String safe = value == null ? "" : value;
+        if (safe.length() > maximum) throw new IllegalArgumentException(name + " is too long");
+        return safe;
+    }
+    private static List<String> immutableMissingItems(List<String> values) {
+        if (values == null || values.isEmpty()) return Collections.emptyList();
+        if (values.size() > MAX_MISSING_ITEMS) throw new IllegalArgumentException("too many missing item ids");
+        List<String> copy = new ArrayList<String>(values.size());
+        for (String value : values) copy.add(boundedText(value, MAX_ITEM_ID_CHARS, "missing item id"));
+        return Collections.unmodifiableList(copy);
     }
 }

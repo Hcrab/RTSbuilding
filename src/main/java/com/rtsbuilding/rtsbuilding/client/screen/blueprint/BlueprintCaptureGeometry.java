@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.text;
 

@@ -1,22 +1,20 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-
-public record C2SRtsImportMenuSlotPayload(int menuSlot) implements CustomPacketPayload {
-    public static final Type<C2SRtsImportMenuSlotPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_import_menu_slot"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsImportMenuSlotPayload> STREAM_CODEC =
-            StreamCodec.of(
-                    (buf, payload) -> buf.writeVarInt(payload.menuSlot()),
-                    (buf) -> new C2SRtsImportMenuSlotPayload(buf.readVarInt()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+/** 导入当前服务端容器中的槽位；handler 会再次按当前 window/menu 校验。 */
+public final class C2SRtsImportMenuSlotPayload implements IMessage {
+    public static final int MAX_MENU_SLOT = 4095;
+    private int menuSlot;
+    public C2SRtsImportMenuSlotPayload() {}
+    public C2SRtsImportMenuSlotPayload(int menuSlot) { this.menuSlot = menuSlot; }
+    public int menuSlot() { return this.menuSlot; }
+    public boolean isValid() { return this.menuSlot >= 0 && this.menuSlot <= MAX_MENU_SLOT; }
+    @Override public void fromBytes(ByteBuf buffer) {
+        this.menuSlot = RtsPacketBuffer.readBoundedCount(buffer, MAX_MENU_SLOT, "menu slot");
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        if (!isValid()) throw new IllegalArgumentException("menu slot out of range: " + this.menuSlot);
+        RtsPacketBuffer.writeVarInt(buffer, this.menuSlot);
     }
 }

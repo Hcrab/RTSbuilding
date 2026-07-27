@@ -3,13 +3,15 @@ package com.rtsbuilding.rtsbuilding.server.culling;
 import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingBoxSnapshot;
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagLong;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -30,83 +32,113 @@ public final class RtsCullingPersistence {
     private RtsCullingPersistence() {
     }
 
-    public static State load(ServerPlayer player) {
+    public static State load(EntityPlayerMP player) {
         if (player == null) {
             return State.EMPTY;
         }
-        CompoundTag root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.CULLING);
+        NBTTagCompound root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.CULLING);
         return decode(root, dimensionKey(player));
     }
 
-    static State decode(CompoundTag root, String dimensionKey) {
-        if (root == null || dimensionKey == null || dimensionKey.isBlank()) {
+    static State decode(NBTTagCompound root, String dimensionKey) {
+        if (root == null || isBlank(dimensionKey)) {
             return State.EMPTY;
         }
-        CompoundTag dimensions = root.getCompound(NBT_DIMENSIONS);
-        CompoundTag dimension = dimensions.getCompound(dimensionKey);
+        NBTTagCompound dimensions = root.getCompoundTag(NBT_DIMENSIONS);
+        NBTTagCompound dimension = dimensions.getCompoundTag(dimensionKey);
 
-        ListTag boxTags = dimension.getList(NBT_BOXES, Tag.TAG_COMPOUND);
-        List<RtsCullingBoxSnapshot> boxes = new ArrayList<>(Math.min(MAX_BOXES, boxTags.size()));
-        for (int index = 0; index < boxTags.size() && boxes.size() < MAX_BOXES; index++) {
-            CompoundTag tag = boxTags.getCompound(index);
+        NBTTagList boxTags = dimension.getTagList(NBT_BOXES, Constants.NBT.TAG_COMPOUND);
+        List<RtsCullingBoxSnapshot> boxes = new ArrayList<RtsCullingBoxSnapshot>(
+                Math.min(MAX_BOXES, boxTags.tagCount()));
+        for (int index = 0; index < boxTags.tagCount() && boxes.size() < MAX_BOXES; index++) {
+            NBTTagCompound tag = boxTags.getCompoundTagAt(index);
             boxes.add(new RtsCullingBoxSnapshot(
-                    BlockPos.of(tag.getLong(NBT_MIN)),
-                    BlockPos.of(tag.getLong(NBT_MAX))));
+                    BlockPos.fromLong(tag.getLong(NBT_MIN)),
+                    BlockPos.fromLong(tag.getLong(NBT_MAX))));
         }
 
-        long[] revealedValues = dimension.getLongArray(NBT_REVEALED);
-        List<BlockPos> revealed = new ArrayList<>(Math.min(MAX_REVEALED_BLOCKS, revealedValues.length));
-        for (int index = 0; index < revealedValues.length && revealed.size() < MAX_REVEALED_BLOCKS; index++) {
-            revealed.add(BlockPos.of(revealedValues[index]));
+        NBTTagList revealedTags = dimension.getTagList(NBT_REVEALED, Constants.NBT.TAG_LONG);
+        List<BlockPos> revealed = new ArrayList<BlockPos>(
+                Math.min(MAX_REVEALED_BLOCKS, revealedTags.tagCount()));
+        for (int index = 0; index < revealedTags.tagCount() && revealed.size() < MAX_REVEALED_BLOCKS; index++) {
+            revealed.add(BlockPos.fromLong(((NBTTagLong) revealedTags.get(index)).getLong()));
         }
-        return new State(List.copyOf(boxes), List.copyOf(revealed));
+        return new State(boxes, revealed);
     }
 
-    public static void save(ServerPlayer player, List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
+    public static void save(EntityPlayerMP player, List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
         if (player == null) {
             return;
         }
-        CompoundTag root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.CULLING).copy();
+        NBTTagCompound root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.CULLING).copy();
         encode(root, dimensionKey(player), boxes, revealed);
         SaveScheduler.INSTANCE.player(player).set(PlayerComponents.CULLING, root);
     }
 
-    static void encode(CompoundTag root, String dimensionKey,
+    static void encode(NBTTagCompound root, String dimensionKey,
             List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
-        if (root == null || dimensionKey == null || dimensionKey.isBlank()) {
+        if (root == null || isBlank(dimensionKey)) {
             return;
         }
-        CompoundTag dimensions = root.getCompound(NBT_DIMENSIONS);
-        CompoundTag dimension = new CompoundTag();
+        NBTTagCompound dimensions = root.getCompoundTag(NBT_DIMENSIONS);
+        NBTTagCompound dimension = new NBTTagCompound();
 
-        ListTag boxTags = new ListTag();
+        NBTTagList boxTags = new NBTTagList();
         if (boxes != null) {
             for (RtsCullingBoxSnapshot box : boxes) {
-                if (box == null || boxTags.size() >= MAX_BOXES) {
+                if (box == null || boxTags.tagCount() >= MAX_BOXES) {
                     continue;
                 }
-                CompoundTag tag = new CompoundTag();
-                tag.putLong(NBT_MIN, box.min().asLong());
-                tag.putLong(NBT_MAX, box.max().asLong());
-                boxTags.add(tag);
+                NBTTagCompound tag = new NBTTagCompound();
+                tag.setLong(NBT_MIN, box.min().toLong());
+                tag.setLong(NBT_MAX, box.max().toLong());
+                boxTags.appendTag(tag);
             }
         }
-        dimension.put(NBT_BOXES, boxTags);
+        dimension.setTag(NBT_BOXES, boxTags);
 
-        long[] revealedValues = revealed == null
-                ? new long[0]
-                : revealed.stream().filter(java.util.Objects::nonNull)
-                        .limit(MAX_REVEALED_BLOCKS).mapToLong(BlockPos::asLong).toArray();
-        dimension.putLongArray(NBT_REVEALED, revealedValues);
-        dimensions.put(dimensionKey, dimension);
-        root.put(NBT_DIMENSIONS, dimensions);
+        int revealedCount = 0;
+        if (revealed != null) {
+            for (BlockPos pos : revealed) {
+                if (pos != null && revealedCount < MAX_REVEALED_BLOCKS) revealedCount++;
+            }
+        }
+        NBTTagList revealedTags = new NBTTagList();
+        if (revealed != null) {
+            for (BlockPos pos : revealed) {
+                if (pos != null && revealedTags.tagCount() < revealedCount) {
+                    revealedTags.appendTag(new NBTTagLong(pos.toLong()));
+                }
+            }
+        }
+        dimension.setTag(NBT_REVEALED, revealedTags);
+        dimensions.setTag(dimensionKey, dimension);
+        root.setTag(NBT_DIMENSIONS, dimensions);
     }
 
-    private static String dimensionKey(ServerPlayer player) {
-        return player.level().dimension().location().toString();
+    private static String dimensionKey(EntityPlayerMP player) {
+        return Integer.toString(player.dimension);
     }
 
-    public record State(List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
-        static final State EMPTY = new State(List.of(), List.of());
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    public static final class State {
+        static final State EMPTY = new State(
+                Collections.<RtsCullingBoxSnapshot>emptyList(), Collections.<BlockPos>emptyList());
+
+        private final List<RtsCullingBoxSnapshot> boxes;
+        private final List<BlockPos> revealed;
+
+        public State(List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
+            this.boxes = boxes == null ? Collections.<RtsCullingBoxSnapshot>emptyList()
+                    : Collections.unmodifiableList(new ArrayList<RtsCullingBoxSnapshot>(boxes));
+            this.revealed = revealed == null ? Collections.<BlockPos>emptyList()
+                    : Collections.unmodifiableList(new ArrayList<BlockPos>(revealed));
+        }
+
+        public List<RtsCullingBoxSnapshot> boxes() { return boxes; }
+        public List<BlockPos> revealed() { return revealed; }
     }
 }

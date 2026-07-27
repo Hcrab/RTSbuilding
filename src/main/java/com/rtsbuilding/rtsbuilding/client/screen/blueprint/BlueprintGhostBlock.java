@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.BlockPos;
+
+import java.util.Objects;
 
 /**
  * 蓝图世界虚影中的单个方块快照。
@@ -10,8 +12,31 @@ import net.minecraft.world.level.block.state.BlockState;
  * 材料判断、范围裁剪或实际渲染。将它从 BlueprintPanel 中移出后，预览生成器与各渲染器
  * 不再为了读取一条数据而依赖整个面板总状态。</p>
  */
-public record BlueprintGhostBlock(
-        BlockPos pos,
-        BlockState state,
-        boolean missing) {
+public final class BlueprintGhostBlock {
+    private final BlockPos pos;
+    private final IBlockState state;
+    private final boolean missing;
+
+    public BlueprintGhostBlock(BlockPos pos, IBlockState state, boolean missing) {
+        this.pos = pos;
+        this.state = state;
+        this.missing = missing;
+    }
+
+    public BlockPos pos() { return pos; }
+    public IBlockState state() { return state; }
+    public boolean missing() { return missing; }
+
+    @Override public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof BlueprintGhostBlock)) return false;
+        BlueprintGhostBlock that = (BlueprintGhostBlock) other;
+        return missing == that.missing && Objects.equals(pos, that.pos) && Objects.equals(state, that.state);
+    }
+
+    @Override public int hashCode() { return Objects.hash(pos, state, Boolean.valueOf(missing)); }
+
+    @Override public String toString() {
+        return "BlueprintGhostBlock[pos=" + pos + ", state=" + state + ", missing=" + missing + "]";
+    }
 }

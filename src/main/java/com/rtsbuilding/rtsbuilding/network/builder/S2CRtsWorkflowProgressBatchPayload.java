@@ -1,93 +1,44 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-/**
- * Server-to-client payload that batches multiple workflow progress updates
- * into a single network packet, avoiding per-entry packet overhead.
- *
- * <p><b>Wire format:</b>
- * <ul>
- *   <li>{@code varInt count} — number of entries in this batch</li>
- *   <li>{@code (entry fields) × count} — each entry encoded exactly as
- *       {@link S2CRtsWorkflowProgressPayload}</li>
- * </ul>
- *
- * @param entries the list of workflow progress payloads to apply at once
- */
-public record S2CRtsWorkflowProgressBatchPayload(
-        List<S2CRtsWorkflowProgressPayload> entries) implements CustomPacketPayload {
-
-    public static final Type<S2CRtsWorkflowProgressBatchPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_workflow_progress_batch"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsWorkflowProgressBatchPayload> STREAM_CODEC =
-            StreamCodec.of(
-                    S2CRtsWorkflowProgressBatchPayload::encode,
-                    S2CRtsWorkflowProgressBatchPayload::decode);
-
-    private static void encode(RegistryFriendlyByteBuf buf, S2CRtsWorkflowProgressBatchPayload payload) {
-        List<S2CRtsWorkflowProgressPayload> entries = payload.entries();
-        buf.writeInt(entries.size());
-        for (S2CRtsWorkflowProgressPayload entry : entries) {
-            buf.writeByte(entry.workflowIndex());
-            buf.writeByte(entry.workflowCount());
-            buf.writeByte(entry.workflowType());
-            buf.writeByte(entry.priority());
-            buf.writeInt(entry.totalBlocks());
-            buf.writeInt(entry.completedBlocks());
-            buf.writeInt(entry.failedBlocks());
-            buf.writeByte(entry.suspended());
-            buf.writeByte(entry.paused());
-            buf.writeByte(entry.protectedWorkflow());
-            buf.writeInt(entry.workflowEntryId());
-            List<String> items = entry.missingItems();
-            buf.writeInt(items.size());
-            for (String item : items) {
-                buf.writeUtf(item);
-            }
-            buf.writeUtf(entry.detailMessage() != null ? entry.detailMessage() : "");
+/** 在单个网络包中批量同步多个工作流槽位。 */
+public final class S2CRtsWorkflowProgressBatchPayload implements IMessage {
+    public static final int MAX_ENTRIES = 127;
+    private List<S2CRtsWorkflowProgressPayload> entries = Collections.emptyList();
+    public S2CRtsWorkflowProgressBatchPayload() {}
+    public S2CRtsWorkflowProgressBatchPayload(List<S2CRtsWorkflowProgressPayload> entries) {
+        this.entries = immutableEntries(entries);
+    }
+    public List<S2CRtsWorkflowProgressPayload> entries() { return this.entries; }
+    @Override public void fromBytes(ByteBuf buffer) {
+        int count = RtsPacketBuffer.readBoundedCount(buffer, MAX_ENTRIES, "workflow batch entries");
+        List<S2CRtsWorkflowProgressPayload> decoded = new ArrayList<S2CRtsWorkflowProgressPayload>(count);
+        for (int i = 0; i < count; i++) decoded.add(S2CRtsWorkflowProgressPayload.readNew(buffer));
+        this.entries = Collections.unmodifiableList(decoded);
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        List<S2CRtsWorkflowProgressPayload> safe = immutableEntries(this.entries);
+        RtsPacketBuffer.writeVarInt(buffer, safe.size());
+        for (S2CRtsWorkflowProgressPayload entry : safe) {
+            S2CRtsWorkflowProgressPayload.writeTo(buffer, entry);
         }
     }
-
-    private static S2CRtsWorkflowProgressBatchPayload decode(RegistryFriendlyByteBuf buf) {
-        int count = buf.readInt();
-        List<S2CRtsWorkflowProgressPayload> entries = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) {
-            byte workflowIndex = buf.readByte();
-            byte workflowCount = buf.readByte();
-            byte workflowType = buf.readByte();
-            byte priority = buf.readByte();
-            int totalBlocks = buf.readInt();
-            int completedBlocks = buf.readInt();
-            int failedBlocks = buf.readInt();
-            byte suspended = buf.readByte();
-            byte paused = buf.readByte();
-            byte protectedWorkflow = buf.readByte();
-            int workflowEntryId = buf.readInt();
-            int missingCount = buf.readInt();
-            List<String> missingItems = new ArrayList<>(missingCount);
-            for (int j = 0; j < missingCount; j++) {
-                missingItems.add(buf.readUtf());
-            }
-            String detailMessage = buf.readUtf();
-            entries.add(new S2CRtsWorkflowProgressPayload(
-                    workflowIndex, workflowCount, workflowType, priority,
-                    totalBlocks, completedBlocks, failedBlocks,
-                    missingItems, detailMessage, suspended, paused, protectedWorkflow, workflowEntryId));
+    private static List<S2CRtsWorkflowProgressPayload> immutableEntries(
+            List<S2CRtsWorkflowProgressPayload> values) {
+        if (values == null || values.isEmpty()) return Collections.emptyList();
+        if (values.size() > MAX_ENTRIES) throw new IllegalArgumentException("too many workflow batch entries");
+        List<S2CRtsWorkflowProgressPayload> copy = new ArrayList<S2CRtsWorkflowProgressPayload>(values.size());
+        for (S2CRtsWorkflowProgressPayload value : values) {
+            if (value == null) throw new IllegalArgumentException("null workflow batch entry");
+            copy.add(value);
         }
-        return new S2CRtsWorkflowProgressBatchPayload(entries);
-    }
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+        return Collections.unmodifiableList(copy);
     }
 }

@@ -1,99 +1,66 @@
 package com.rtsbuilding.rtsbuilding.client.screen.canvas;
 
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiClipStack;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.ScaledResolution;
+import org.lwjgl.opengl.GL11;
 
-/**
- * {@link GuiGraphics} 到纯 2D Kit 画布的生产适配器。
- *
- * <p>它只转发当前 GUI 批次中的矩形、无阴影文本、裁剪与 pose 变换；不调用
- * {@code flush/endBatch}，不接触世界渲染，也不拥有 Minecraft 生命周期。</p>
- */
+/** 将 1.12 立即绘制 GUI 适配为纯 UI Core/Kit 画布。 */
 public final class MinecraftUiCanvas implements UiCanvas2D {
-    private final GuiGraphics graphics;
-    private final Font font;
-    private final BuilderScreen screen;
+    private final LegacyGuiGraphics graphics;
+    private final FontRenderer font;
     private final UiClipStack clips = new UiClipStack();
 
-    public MinecraftUiCanvas(GuiGraphics graphics, Font font) {
+    public MinecraftUiCanvas(LegacyGuiGraphics graphics, FontRenderer font) {
         this(graphics, font, null);
     }
 
-    public MinecraftUiCanvas(GuiGraphics graphics, Font font, BuilderScreen screen) {
-        if (graphics == null || font == null) {
-            throw new IllegalArgumentException("graphics and font must not be null");
-        }
+    public MinecraftUiCanvas(LegacyGuiGraphics graphics, FontRenderer font, BuilderScreen screen) {
+        if (graphics == null || font == null) throw new IllegalArgumentException("graphics and font must not be null");
         this.graphics = graphics;
         this.font = font;
-        this.screen = screen;
     }
 
-    @Override
-    public void fill(UiRect rect, UiColor color) {
+    @Override public void fill(UiRect rect, UiColor color) {
         fill(rect.getX(), rect.getY(), rect.getWidth(), rect.getHeight(), color);
     }
-
-    @Override
-    public void fill(double x, double y, double width, double height, UiColor color) {
+    @Override public void fill(double x, double y, double width, double height, UiColor color) {
         graphics.fill(round(x), round(y), round(x + width), round(y + height), color.toArgb());
     }
-
-    @Override
-    public void text(String text, double x, double topY, UiColor color) {
-        graphics.drawString(font, text == null ? "" : text,
-                round(x), round(topY), color.toArgb(), false);
+    @Override public void text(String text, double x, double topY, UiColor color) {
+        graphics.drawString(font, text == null ? "" : text, round(x), round(topY), color.toArgb(), false);
     }
-
-    @Override
-    public void pushClip(UiRect clip) {
-        applyClip(clips.push(clip));
-    }
-
-    @Override
-    public void popClip() {
+    @Override public void pushClip(UiRect clip) { applyClip(clips.push(clip)); }
+    @Override public void popClip() {
         UiRect parent = clips.pop();
-        graphics.disableScissor();
+        GL11.glDisable(GL11.GL_SCISSOR_TEST);
         if (parent != null) applyClip(parent);
     }
+    @Override public void pushTransform() { graphics.pushPose(); }
+    @Override public void popTransform() { graphics.popPose(); }
+    @Override public void translate(double x, double y) {
+        net.minecraft.client.renderer.GlStateManager.translate(x, y, 0.0D);
+    }
+    @Override public void scale(double x, double y) { graphics.scale((float) x, (float) y, 1.0F); }
 
-    @Override
-    public void pushTransform() {
-        graphics.pose().pushPose();
+    private static void applyClip(UiRect clip) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        ScaledResolution scaled = new ScaledResolution(minecraft);
+        int factor = scaled.getScaleFactor();
+        int x = round(clip.getX());
+        int y = round(clip.getY());
+        int width = Math.max(0, round(clip.getWidth()));
+        int height = Math.max(0, round(clip.getHeight()));
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor(x * factor, minecraft.displayHeight - (y + height) * factor,
+                width * factor, height * factor);
     }
 
-    @Override
-    public void popTransform() {
-        graphics.pose().popPose();
-    }
-
-    @Override
-    public void translate(double x, double y) {
-        graphics.pose().translate((float) x, (float) y, 0.0F);
-    }
-
-    @Override
-    public void scale(double x, double y) {
-        graphics.pose().scale((float) x, (float) y, 1.0F);
-    }
-
-    private void applyClip(UiRect clip) {
-        int x1 = round(clip.getX());
-        int y1 = round(clip.getY());
-        int x2 = round(clip.right());
-        int y2 = round(clip.bottom());
-        if (screen != null) {
-            screen.enableRtsScissor(graphics, x1, y1, x2, y2);
-        } else {
-            graphics.enableScissor(x1, y1, x2, y2);
-        }
-    }
-
-    private static int round(double value) {
-        return (int) Math.round(value);
-    }
+    private static int round(double value) { return (int) Math.round(value); }
 }

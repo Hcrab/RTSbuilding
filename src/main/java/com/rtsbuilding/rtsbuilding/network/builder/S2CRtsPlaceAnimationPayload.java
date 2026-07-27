@@ -1,42 +1,34 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/**
- * Server confirmation that an RTS block placement actually succeeded.
- *
- * <p>The client treats this as a purely visual cue. It must not drive gameplay
- * state, inventory counts, undo history, or placement retries; those stay
- * authoritative on the server-side placement path.
- */
-public record S2CRtsPlaceAnimationPayload(BlockPos pos, BlockState state) implements CustomPacketPayload {
-    public static final Type<S2CRtsPlaceAnimationPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_place_animation"));
-
-    public S2CRtsPlaceAnimationPayload {
-        pos = pos == null ? BlockPos.ZERO : pos;
-        state = state == null ? Blocks.AIR.defaultBlockState() : state;
+/** 服务端确认放置成功后下发的纯视觉提示。 */
+public final class S2CRtsPlaceAnimationPayload implements IMessage {
+    private BlockPos pos = BlockPos.ORIGIN;
+    private IBlockState state = Blocks.AIR.getDefaultState();
+    public S2CRtsPlaceAnimationPayload() {}
+    public S2CRtsPlaceAnimationPayload(BlockPos pos, IBlockState state) {
+        this.pos = pos == null ? BlockPos.ORIGIN : pos;
+        this.state = state == null ? Blocks.AIR.getDefaultState() : state;
     }
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsPlaceAnimationPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeBlockPos(payload.pos());
-                buf.writeVarInt(Block.getId(payload.state()));
-            },
-            (buf) -> new S2CRtsPlaceAnimationPayload(
-                    buf.readBlockPos(),
-                    Block.stateById(buf.readVarInt())));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public BlockPos pos() { return this.pos; }
+    public IBlockState state() { return this.state; }
+    @Override public void fromBytes(ByteBuf buffer) {
+        this.pos = BlockPos.fromLong(buffer.readLong());
+        this.state = stateById(RtsPacketBuffer.readVarInt(buffer));
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        buffer.writeLong(this.pos.toLong());
+        RtsPacketBuffer.writeVarInt(buffer, Block.getStateId(this.state));
+    }
+    private static IBlockState stateById(int id) {
+        IBlockState decoded = Block.getStateById(id);
+        return decoded == null ? Blocks.AIR.getDefaultState() : decoded;
     }
 }

@@ -3,6 +3,15 @@ package com.rtsbuilding.rtsbuilding.network;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBreakAnimationPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHarvestTierSkippedPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
@@ -34,6 +43,8 @@ public final class ClientPayloadDispatcher {
             "com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen";
     private static final String BLOCK_ACTION_SOUND_PLAYER =
             "com.rtsbuilding.rtsbuilding.client.sound.RtsBlockActionSoundPlayer";
+    private static final String CLIENT_NETWORK_HANDLERS =
+            "com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers";
 
     private ClientPayloadDispatcher() {
     }
@@ -136,6 +147,89 @@ public final class ClientPayloadDispatcher {
             });
             return null;
         }
+    }
+
+    public static final class BreakAnimationHandler
+            implements IMessageHandler<S2CRtsBreakAnimationPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsBreakAnimationPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handleBreakAnimation", S2CRtsBreakAnimationPayload.class, message);
+            return null;
+        }
+    }
+
+    public static final class HistorySyncHandler
+            implements IMessageHandler<S2CRtsHistorySyncPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsHistorySyncPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handleHistorySync", S2CRtsHistorySyncPayload.class, message);
+            return null;
+        }
+    }
+
+    public static final class PlaceAnimationHandler
+            implements IMessageHandler<S2CRtsPlaceAnimationPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsPlaceAnimationPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handlePlaceAnimation", S2CRtsPlaceAnimationPayload.class, message);
+            return null;
+        }
+    }
+
+    public static final class MineProgressHandler
+            implements IMessageHandler<S2CRtsMineProgressPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsMineProgressPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handleMineProgress", S2CRtsMineProgressPayload.class, message);
+            return null;
+        }
+    }
+
+    public static final class HarvestTierSkippedHandler
+            implements IMessageHandler<S2CRtsHarvestTierSkippedPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsHarvestTierSkippedPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handleHarvestTierSkipped", S2CRtsHarvestTierSkippedPayload.class, message);
+            return null;
+        }
+    }
+
+    public static final class UltimineProgressHandler
+            implements IMessageHandler<S2CRtsUltimineProgressPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsUltimineProgressPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handleUltimineProgress", S2CRtsUltimineProgressPayload.class, message);
+            return null;
+        }
+    }
+
+    public static final class WorkflowProgressBatchHandler
+            implements IMessageHandler<S2CRtsWorkflowProgressBatchPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsWorkflowProgressBatchPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handleWorkflowProgressBatch",
+                    S2CRtsWorkflowProgressBatchPayload.class, message);
+            return null;
+        }
+    }
+
+    public static final class WorkflowProgressHandler
+            implements IMessageHandler<S2CRtsWorkflowProgressPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsWorkflowProgressPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handleWorkflowProgress", S2CRtsWorkflowProgressPayload.class, message);
+            return null;
+        }
+    }
+
+    public static final class ResumePlacementScanHandler
+            implements IMessageHandler<S2CRtsResumePlacementScanPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsResumePlacementScanPayload message, MessageContext context) {
+            dispatchClientNetwork(context, "handleResumePlacementScan", S2CRtsResumePlacementScanPayload.class,
+                    message);
+            return null;
+        }
+    }
+
+    private static void dispatchClientNetwork(final MessageContext context, final String method,
+                                              final Class<?> payloadType, final Object payload) {
+        schedule(context, new Runnable() {
+            @Override public void run() {
+                invokeStatic(CLIENT_NETWORK_HANDLERS, method, new Class<?>[]{payloadType}, payload);
+            }
+        });
     }
 
     private static void schedule(MessageContext context, Runnable task) {

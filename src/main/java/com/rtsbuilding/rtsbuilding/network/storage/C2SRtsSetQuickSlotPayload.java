@@ -1,36 +1,46 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsSetQuickSlotPayload(
-        byte slot,
-        String itemId,
-        ItemStack previewStack) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetQuickSlotPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_quick_slot"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetQuickSlotPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeByte(payload.slot());
-                buf.writeUtf(payload.itemId() == null ? "" : payload.itemId(), 128);
-                ItemStack preview = payload.previewStack() == null ? ItemStack.EMPTY : payload.previewStack();
-                buf.writeBoolean(!preview.isEmpty());
-                if (!preview.isEmpty()) {
-                    ItemStack.STREAM_CODEC.encode(buf, preview.copyWithCount(1));
-                }
-            },
-            (buf) -> new C2SRtsSetQuickSlotPayload(
-                    buf.readByte(),
-                    buf.readUtf(128),
-                    buf.readBoolean() ? ItemStack.STREAM_CODEC.decode(buf) : ItemStack.EMPTY));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+/** 设置或清空一个快捷物品槽；预览栈完整保留 metadata/NBT，但线格式固定为一个物品。 */
+public final class C2SRtsSetQuickSlotPayload implements IMessage {
+    public static final int SLOT_COUNT = 27;
+    public static final int MAX_ITEM_ID_CHARS = 128;
+    private byte slot;
+    private String itemId = "";
+    private ItemStack previewStack = ItemStack.EMPTY;
+    public C2SRtsSetQuickSlotPayload() {}
+    public C2SRtsSetQuickSlotPayload(byte slot, String itemId, ItemStack previewStack) {
+        this.slot = slot;
+        this.itemId = itemId == null ? "" : itemId;
+        this.previewStack = one(previewStack);
+    }
+    public byte slot() { return this.slot; }
+    public String itemId() { return this.itemId; }
+    public ItemStack previewStack() { return this.previewStack; }
+    public boolean isValid() {
+        return this.slot >= 0 && this.slot < SLOT_COUNT && this.itemId.length() <= MAX_ITEM_ID_CHARS;
+    }
+    @Override public void fromBytes(ByteBuf buffer) {
+        this.slot = buffer.readByte();
+        this.itemId = RtsPacketBuffer.readString(buffer, MAX_ITEM_ID_CHARS, "quick-slot item id");
+        this.previewStack = buffer.readBoolean() ? one(RtsPacketBuffer.readItemStack(buffer)) : ItemStack.EMPTY;
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        if (!isValid()) throw new IllegalArgumentException("invalid quick-slot binding");
+        buffer.writeByte(this.slot);
+        RtsPacketBuffer.writeString(buffer, this.itemId, MAX_ITEM_ID_CHARS, "quick-slot item id");
+        ItemStack preview = one(this.previewStack);
+        buffer.writeBoolean(!preview.isEmpty());
+        if (!preview.isEmpty()) RtsPacketBuffer.writeItemStack(buffer, preview);
+    }
+    private static ItemStack one(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+        ItemStack copy = stack.copy();
+        copy.setCount(1);
+        return copy;
     }
 }

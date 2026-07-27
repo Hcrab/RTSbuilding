@@ -1,22 +1,21 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsLinkedQuickMovePayload(ItemStack prototype) implements CustomPacketPayload {
-    public static final Type<C2SRtsLinkedQuickMovePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_linked_quick_move"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsLinkedQuickMovePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> ItemStack.STREAM_CODEC.encode(buf, payload.prototype()),
-            (buf) -> new C2SRtsLinkedQuickMovePayload(ItemStack.STREAM_CODEC.decode(buf)));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+/** 以完整原型匹配链接储存并快速移动；实际提取栈和余量由服务端服务持有。 */
+public final class C2SRtsLinkedQuickMovePayload implements IMessage {
+    private ItemStack prototype = ItemStack.EMPTY;
+    public C2SRtsLinkedQuickMovePayload() {}
+    public C2SRtsLinkedQuickMovePayload(ItemStack prototype) { this.prototype = copy(prototype); }
+    public ItemStack prototype() { return this.prototype; }
+    public boolean isValid() { return !this.prototype.isEmpty(); }
+    @Override public void fromBytes(ByteBuf buffer) { this.prototype = RtsPacketBuffer.readItemStack(buffer); }
+    @Override public void toBytes(ByteBuf buffer) {
+        if (!isValid()) throw new IllegalArgumentException("invalid linked quick-move prototype");
+        RtsPacketBuffer.writeItemStack(buffer, this.prototype);
     }
+    private static ItemStack copy(ItemStack stack) { return stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copy(); }
 }

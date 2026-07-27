@@ -1,50 +1,42 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/**
- * Server confirmation that an RTS block break actually succeeded.
- *
- * <p>The client treats this as a visual cue plus the server-confirmed post-break
- * block state for local fake-air cleanup. It must not drive tool durability,
- * drops, or retry behaviour; those remain authoritative on the server-side
- * mining path.
- */
-public record S2CRtsBreakAnimationPayload(BlockPos pos, BlockState state, BlockState resultState) implements CustomPacketPayload {
-    public static final Type<S2CRtsBreakAnimationPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_break_animation"));
-
-    public S2CRtsBreakAnimationPayload {
-        pos = pos == null ? BlockPos.ZERO : pos;
-        state = state == null ? Blocks.AIR.defaultBlockState() : state;
-        resultState = resultState == null ? Blocks.AIR.defaultBlockState() : resultState;
+/** 服务端确认破坏成功后下发的视觉状态与最终方块状态。 */
+public final class S2CRtsBreakAnimationPayload implements IMessage {
+    private BlockPos pos = BlockPos.ORIGIN;
+    private IBlockState state = Blocks.AIR.getDefaultState();
+    private IBlockState resultState = Blocks.AIR.getDefaultState();
+    public S2CRtsBreakAnimationPayload() {}
+    public S2CRtsBreakAnimationPayload(BlockPos pos, IBlockState state) {
+        this(pos, state, Blocks.AIR.getDefaultState());
     }
-
-    public S2CRtsBreakAnimationPayload(BlockPos pos, BlockState state) {
-        this(pos, state, Blocks.AIR.defaultBlockState());
+    public S2CRtsBreakAnimationPayload(BlockPos pos, IBlockState state, IBlockState resultState) {
+        this.pos = pos == null ? BlockPos.ORIGIN : pos;
+        this.state = state == null ? Blocks.AIR.getDefaultState() : state;
+        this.resultState = resultState == null ? Blocks.AIR.getDefaultState() : resultState;
     }
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsBreakAnimationPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeBlockPos(payload.pos());
-                buf.writeVarInt(Block.getId(payload.state()));
-                buf.writeVarInt(Block.getId(payload.resultState()));
-            },
-            (buf) -> new S2CRtsBreakAnimationPayload(
-                    buf.readBlockPos(),
-                    Block.stateById(buf.readVarInt()),
-                    Block.stateById(buf.readVarInt())));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public BlockPos pos() { return this.pos; }
+    public IBlockState state() { return this.state; }
+    public IBlockState resultState() { return this.resultState; }
+    @Override public void fromBytes(ByteBuf buffer) {
+        this.pos = BlockPos.fromLong(buffer.readLong());
+        this.state = stateById(RtsPacketBuffer.readVarInt(buffer));
+        this.resultState = stateById(RtsPacketBuffer.readVarInt(buffer));
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        buffer.writeLong(this.pos.toLong());
+        RtsPacketBuffer.writeVarInt(buffer, Block.getStateId(this.state));
+        RtsPacketBuffer.writeVarInt(buffer, Block.getStateId(this.resultState));
+    }
+    private static IBlockState stateById(int id) {
+        IBlockState decoded = Block.getStateById(id);
+        return decoded == null ? Blocks.AIR.getDefaultState() : decoded;
     }
 }

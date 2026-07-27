@@ -1,32 +1,31 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/**
- * 客户端→服务端：重启搁置放置作业，并附带冲突处理策略。
- * <p>
- * 玩家在 {@code RtsResumePlacementPanel} 中点击重启时发送。
- *
- * @param strategy 0=跳过冲突格后重启，1=覆盖放置（破坏冲突方块后放置）
- * @param workflowEntryId 目标工作流条目 ID，用于找到对应的挂起作业
- */
-public record C2SRtsResumePlacementActionPayload(int strategy, int workflowEntryId) implements CustomPacketPayload {
-    public static final Type<C2SRtsResumePlacementActionPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_resume_placement_action"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsResumePlacementActionPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeInt(payload.strategy());
-                buf.writeInt(payload.workflowEntryId());
-            },
-            (buf) -> new C2SRtsResumePlacementActionPayload(buf.readInt(), buf.readInt()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+/** 以跳过冲突（0）或覆盖冲突（1）的策略恢复挂起放置。 */
+public final class C2SRtsResumePlacementActionPayload implements IMessage {
+    public static final int STRATEGY_SKIP = 0;
+    public static final int STRATEGY_OVERWRITE = 1;
+    private int strategy;
+    private int workflowEntryId;
+    public C2SRtsResumePlacementActionPayload() {}
+    public C2SRtsResumePlacementActionPayload(int strategy, int workflowEntryId) {
+        this.strategy = strategy;
+        this.workflowEntryId = workflowEntryId;
+    }
+    public int strategy() { return this.strategy; }
+    public int workflowEntryId() { return this.workflowEntryId; }
+    public boolean isValid() {
+        return (this.strategy == STRATEGY_SKIP || this.strategy == STRATEGY_OVERWRITE)
+                && this.workflowEntryId >= 0;
+    }
+    @Override public void fromBytes(ByteBuf buffer) {
+        this.strategy = buffer.readInt();
+        this.workflowEntryId = buffer.readInt();
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        buffer.writeInt(this.strategy);
+        buffer.writeInt(this.workflowEntryId);
     }
 }

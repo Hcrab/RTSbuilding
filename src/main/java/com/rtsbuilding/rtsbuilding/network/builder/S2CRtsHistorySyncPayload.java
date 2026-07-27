@@ -1,32 +1,24 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/**
- * 服务端→客户端：同步当前撤回状态。
- * <p>
- * 每次撤回操作完成后发送，更新客户端的按钮状态。
- *
- * @param undoSize 当前可撤回的步数
- */
-public record S2CRtsHistorySyncPayload(
-        int undoSize) implements CustomPacketPayload {
-    public static final Type<S2CRtsHistorySyncPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_history_sync"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsHistorySyncPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeVarInt(payload.undoSize());
-            },
-            (buf) -> new S2CRtsHistorySyncPayload(
-                    buf.readVarInt()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+/** 同步当前可撤回步数。 */
+public final class S2CRtsHistorySyncPayload implements IMessage {
+    private static final int MAX_UNDO_SIZE = 1_000_000;
+    private int undoSize;
+    public S2CRtsHistorySyncPayload() {}
+    public S2CRtsHistorySyncPayload(int undoSize) { this.undoSize = bounded(undoSize); }
+    public int undoSize() { return this.undoSize; }
+    @Override public void fromBytes(ByteBuf buffer) {
+        this.undoSize = RtsPacketBuffer.readBoundedCount(buffer, MAX_UNDO_SIZE, "undo size");
+    }
+    @Override public void toBytes(ByteBuf buffer) {
+        RtsPacketBuffer.writeVarInt(buffer, bounded(this.undoSize));
+    }
+    private static int bounded(int value) {
+        if (value < 0 || value > MAX_UNDO_SIZE) throw new IllegalArgumentException("undo size out of range: " + value);
+        return value;
     }
 }

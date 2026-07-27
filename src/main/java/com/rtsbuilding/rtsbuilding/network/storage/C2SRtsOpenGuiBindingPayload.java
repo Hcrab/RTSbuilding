@@ -1,22 +1,14 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-
-public record C2SRtsOpenGuiBindingPayload(
-        byte slot) implements CustomPacketPayload {
-    public static final Type<C2SRtsOpenGuiBindingPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_open_gui_binding"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsOpenGuiBindingPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeByte(payload.slot()),
-            (buf) -> new C2SRtsOpenGuiBindingPayload(buf.readByte()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+/** 打开当前玩家的指定 GUI 绑定槽位。 */
+public final class C2SRtsOpenGuiBindingPayload implements IMessage {
+    public static final int SLOT_COUNT = 8;
+    private byte slot;
+    public C2SRtsOpenGuiBindingPayload() {}
+    public C2SRtsOpenGuiBindingPayload(byte slot) { this.slot = slot; }
+    public byte slot() { return this.slot; }
+    public boolean isValid() { return this.slot >= 0 && this.slot < SLOT_COUNT; }
+    @Override public void fromBytes(ByteBuf buffer) { this.slot = buffer.readByte(); }
+    @Override public void toBytes(ByteBuf buffer) { buffer.writeByte(this.slot); }
 }

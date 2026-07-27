@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
@@ -19,13 +19,18 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.UiFloatAnimation;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.opengl.GL11;
 
 import java.util.List;
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
@@ -48,8 +53,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     private static final int CLOSE_SHEET_W = 450;
     private static final int CLOSE_SHEET_H = 900;
     private static final int CLOSE_STATE_H = 450;
-    private static final ResourceLocation CLOSE_BUTTON_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/general/close_button.png");
+    private static final ResourceLocation CLOSE_BUTTON_TEXTURE = new ResourceLocation(
+            "rtsbuilding", "textures/gui/general/close_button.png");
     private static final int SNAP_THRESHOLD = 6;
 
     protected BuilderScreen screen;
@@ -126,7 +131,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
      * Draws the panel-specific contents inside the window body. The base class
      * has already drawn the frame/title bar and applied the content scissor.
      */
-    protected abstract void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick);
+    protected abstract void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick);
 
     /**
      * Handles a click inside the content area. Returning true consumes the
@@ -135,7 +140,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     protected abstract void handleContentClick(double mouseX, double mouseY, int button);
 
     /** Returns the localized title shown in the window title bar. */
-    protected abstract Component getTitle();
+    protected abstract ITextComponent getTitle();
 
     /** Default size used the first time the window opens or when reset. */
     protected abstract int getDefaultWidth();
@@ -155,7 +160,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
      * <p>默认返回空列表。子类可重写以声明需要持久化的属性。
      */
     public List<PersistableProperty> persistableProperties() {
-        return List.of();
+        return Collections.emptyList();
     }
 
     @Override
@@ -168,7 +173,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (!this.open || !canShowWindow()) {
             this.mouseHovering = false;
             return;
@@ -189,8 +194,6 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             // by the content scissor that follows.
             // Must be flushed separately from content because the window border lies
             // outside the content clipping region.
-            g.flush();
-
             if (shouldClipContent()) {
                 enableContentScissor(g);
             }
@@ -198,18 +201,17 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             // Flush content while scissor is still active, so item icons (renderItem) and
             // text batched vertices are clipped to the content region at rasterisation time,
             // preventing visual bleed-through to adjacent panels.
-            g.flush();
         } finally {
             if (this.skipHoverDetection) {
                 WindowButton.setGlobalSkipHover(false);
             }
             if (shouldClipContent()) {
-                g.disableScissor();
+                GL11.glDisable(GL11.GL_SCISSOR_TEST);
             }
         }
     }
 
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
+    public void render(LegacyGuiGraphics g, int mouseX, int mouseY) {
         render(g, mouseX, mouseY, 0.0F);
     }
 
@@ -365,13 +367,13 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         }
         initializePosition();
         ResizeEdge edge = this.resizing ? this.resizeEdge : getResizeEdgeAt((int) mouseX, (int) mouseY);
-        return switch (edge) {
-            case LEFT, RIGHT -> ResizeCursor.RESIZE_EW;
-            case TOP, BOTTOM -> ResizeCursor.RESIZE_NS;
-            case TOP_LEFT, BOTTOM_RIGHT -> ResizeCursor.RESIZE_NWSE;
-            case TOP_RIGHT, BOTTOM_LEFT -> ResizeCursor.RESIZE_NESW;
-            case NONE -> ResizeCursor.DEFAULT;
-        };
+        switch (edge) {
+            case LEFT: case RIGHT: return ResizeCursor.RESIZE_EW;
+            case TOP: case BOTTOM: return ResizeCursor.RESIZE_NS;
+            case TOP_LEFT: case BOTTOM_RIGHT: return ResizeCursor.RESIZE_NWSE;
+            case TOP_RIGHT: case BOTTOM_LEFT: return ResizeCursor.RESIZE_NESW;
+            case NONE: default: return ResizeCursor.DEFAULT;
+        }
     }
 
     @Override
@@ -384,7 +386,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             return false;
         }
         initializePosition();
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button == 0) {
             if (this.closable && this.closeButton != null && this.closeButton.mouseClicked(mouseX, mouseY, button)) {
                 setOpen(false);
                 return true;
@@ -413,7 +415,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (!this.open || button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (!this.open || button != 0) {
             return false;
         }
         if (this.resizing) {
@@ -455,7 +457,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             this.resizeEdge = ResizeEdge.NONE;
             return false;
         }
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button == 0) {
             boolean boundsChanged = this.dragging || this.resizing;
             this.dragging = false;
             this.snapEngaged = false;
@@ -486,7 +488,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         if (!this.open) {
             return false;
         }
-        if (this.closable && keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (this.closable && keyCode == Keyboard.KEY_ESCAPE) {
             setOpen(false);
             return true;
         }
@@ -500,15 +502,16 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     @Override
     public UiEventReply handlePointer(UiPointerEvent event) {
-        boolean handled = switch (event.getType()) {
-            case PRESS -> mouseClicked(event.getX(), event.getY(), event.getButton());
-            case DRAG -> mouseDragged(event.getX(), event.getY(), event.getButton(),
-                    event.getDeltaX(), event.getDeltaY());
-            case RELEASE -> mouseReleased(event.getX(), event.getY(), event.getButton());
-            case SCROLL -> mouseScrolled(event.getX(), event.getY(),
-                    event.getDeltaX(), event.getDeltaY());
-            case MOVE -> false;
-        };
+        boolean handled;
+        switch (event.getType()) {
+            case PRESS: handled = mouseClicked(event.getX(), event.getY(), event.getButton()); break;
+            case DRAG: handled = mouseDragged(event.getX(), event.getY(), event.getButton(),
+                    event.getDeltaX(), event.getDeltaY()); break;
+            case RELEASE: handled = mouseReleased(event.getX(), event.getY(), event.getButton()); break;
+            case SCROLL: handled = mouseScrolled(event.getX(), event.getY(),
+                    event.getDeltaX(), event.getDeltaY()); break;
+            case MOVE: default: handled = false; break;
+        }
         if (!handled) {
             return UiEventReply.PASS;
         }
@@ -521,11 +524,12 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     @Override
     public UiEventReply handleKey(UiKeyEvent event) {
-        boolean handled = switch (event.getType()) {
-            case PRESS -> keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers());
-            case CHAR_TYPED -> charTyped(event.getCharacter(), event.getModifiers());
-            case RELEASE -> false;
-        };
+        boolean handled;
+        switch (event.getType()) {
+            case PRESS: handled = keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers()); break;
+            case CHAR_TYPED: handled = charTyped(event.getCharacter(), event.getModifiers()); break;
+            case RELEASE: default: handled = false; break;
+        }
         return handled ? UiEventReply.BLOCK_WORLD : UiEventReply.PASS;
     }
 
@@ -642,7 +646,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     private WindowButton createCloseButton() {
         return new WindowButton(0, 0, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE,
-                Component.empty(), CLOSE_BUTTON_TEXTURE,
+                new TextComponentString(""), CLOSE_BUTTON_TEXTURE,
                 0, 0,
                 CLOSE_SHEET_W, CLOSE_STATE_H,
                 CLOSE_STATE_H, CLOSE_STATE_H,
@@ -676,7 +680,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         clampWindowToScreen();
     }
 
-    private void renderWindowFrame(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderWindowFrame(LegacyGuiGraphics g, int mouseX, int mouseY) {
         double hoverProgress = Config.isUiAnimationsEnabled()
                 ? this.hoverBorderAnimation.value()
                 : (this.mouseHovering ? 1.0D : 0.0D);
@@ -684,17 +688,18 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
                 new UiColor(getHoverBorderLightColor()), hoverProgress).toArgb();
         int dark = UiColor.interpolate(new UiColor(getBorderDarkColor()),
                 new UiColor(getHoverBorderDarkColor()), hoverProgress).toArgb();
-        UiChromeRenderer.frame(new MinecraftUiCanvas(g, this.screen.font(), this.screen),
+        FontRenderer font = Minecraft.getMinecraft().fontRenderer;
+        UiChromeRenderer.frame(new MinecraftUiCanvas(g, font, this.screen),
                 new UiRect(this.windowX, this.windowY, this.windowWidth, this.windowHeight), 1.0D,
                 new UiColor(getBackgroundColor()), new UiColor(light), new UiColor(dark));
         int titleH = getTitleBarHeight();
         if (titleH > 0) {
             g.fill(this.windowX + 1, this.windowY + 1, this.windowX + this.windowWidth - 1,
                     this.windowY + titleH, getTitleBarColor());
-            String title = RtsClientUiUtil.trimToWidth(this.screen.font(), getTitle().getString(),
+            String title = font.trimStringToWidth(getTitle().getUnformattedText(),
                     Math.max(8, this.windowWidth - 36));
-            g.drawString(this.screen.font(), title, this.windowX + 8,
-                    this.windowY + Math.max(1, (titleH - this.screen.font().lineHeight) / 2),
+            g.drawString(font, title, this.windowX + 8,
+                    this.windowY + Math.max(1, (titleH - font.FONT_HEIGHT) / 2),
                     getTitleTextColor(), false);
         }
         if (this.closable && this.closeButton != null) {
@@ -714,16 +719,16 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
                 90L, UiEasing.EASE_OUT_CUBIC);
     }
 
-    private void enableContentScissor(GuiGraphics g) {
+    private void enableContentScissor(LegacyGuiGraphics g) {
         int x1 = contentX();
         int y1 = contentY();
         int x2 = x1 + contentWidth();
         int y2 = y1 + contentHeight();
-        if (this.screen != null) {
-            this.screen.enableRtsScissor(g, x1, y1, x2, y2);
-        } else {
-            g.enableScissor(x1, y1, x2, y2);
-        }
+        Minecraft minecraft = Minecraft.getMinecraft();
+        int factor = new ScaledResolution(minecraft).getScaleFactor();
+        GL11.glEnable(GL11.GL_SCISSOR_TEST);
+        GL11.glScissor(x1 * factor, minecraft.displayHeight - y2 * factor,
+                Math.max(0, x2 - x1) * factor, Math.max(0, y2 - y1) * factor);
     }
 
     private boolean isInsideTitleBar(double mouseX, double mouseY) {
@@ -781,28 +786,27 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         int dx = mouseX - this.resizeStartMouseX;
         int dy = mouseY - this.resizeStartMouseY;
         switch (this.resizeEdge) {
-            case RIGHT -> this.windowWidth = this.resizeStartWidth + dx;
-            case BOTTOM -> this.windowHeight = this.resizeStartHeight + dy;
-            case LEFT -> adjustLeftEdge(dx);
-            case TOP -> adjustTopEdge(dy);
-            case TOP_LEFT -> {
+            case RIGHT: this.windowWidth = this.resizeStartWidth + dx; break;
+            case BOTTOM: this.windowHeight = this.resizeStartHeight + dy; break;
+            case LEFT: adjustLeftEdge(dx); break;
+            case TOP: adjustTopEdge(dy); break;
+            case TOP_LEFT:
                 adjustLeftEdge(dx);
                 adjustTopEdge(dy);
-            }
-            case TOP_RIGHT -> {
+                break;
+            case TOP_RIGHT:
                 this.windowWidth = this.resizeStartWidth + dx;
                 adjustTopEdge(dy);
-            }
-            case BOTTOM_LEFT -> {
+                break;
+            case BOTTOM_LEFT:
                 adjustLeftEdge(dx);
                 this.windowHeight = this.resizeStartHeight + dy;
-            }
-            case BOTTOM_RIGHT -> {
+                break;
+            case BOTTOM_RIGHT:
                 this.windowWidth = this.resizeStartWidth + dx;
                 this.windowHeight = this.resizeStartHeight + dy;
-            }
-            case NONE -> {
-            }
+                break;
+            case NONE: default: break;
         }
         clampWindowSize();
         clampWindowToScreen();
@@ -849,8 +853,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     }
 
     private void clampWindowSize() {
-        this.windowWidth = Mth.clamp(this.windowWidth, getMinWindowWidth(), getMaxWindowWidth());
-        this.windowHeight = Mth.clamp(this.windowHeight, getMinWindowHeight(), getMaxWindowHeight());
+        this.windowWidth = MathHelper.clamp(this.windowWidth, getMinWindowWidth(), getMaxWindowWidth());
+        this.windowHeight = MathHelper.clamp(this.windowHeight, getMinWindowHeight(), getMaxWindowHeight());
     }
 
     private void clampWindowToScreen() {
@@ -859,8 +863,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         }
         int maxX = Math.max(SCREEN_MARGIN, this.screen.width - this.windowWidth - SCREEN_MARGIN);
         int maxY = Math.max(SCREEN_MARGIN, this.screen.height - getTitleBarHeight() - SCREEN_MARGIN);
-        this.windowX = Mth.clamp(this.windowX, SCREEN_MARGIN, maxX);
-        this.windowY = Mth.clamp(this.windowY, SCREEN_MARGIN, maxY);
+        this.windowX = MathHelper.clamp(this.windowX, SCREEN_MARGIN, maxX);
+        this.windowY = MathHelper.clamp(this.windowY, SCREEN_MARGIN, maxY);
     }
 
     /**

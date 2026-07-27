@@ -1,22 +1,12 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-
-public record C2SRtsSetBdNetworkPayload(
-        boolean enabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetBdNetworkPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_bd_network"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetBdNetworkPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeBoolean(payload.enabled()),
-            (buf) -> new C2SRtsSetBdNetworkPayload(buf.readBoolean()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+/** 切换当前玩家会话的 BD 网络来源。 */
+public final class C2SRtsSetBdNetworkPayload implements IMessage {
+    private boolean enabled;
+    public C2SRtsSetBdNetworkPayload() {}
+    public C2SRtsSetBdNetworkPayload(boolean enabled) { this.enabled = enabled; }
+    public boolean enabled() { return this.enabled; }
+    @Override public void fromBytes(ByteBuf buffer) { this.enabled = buffer.readBoolean(); }
+    @Override public void toBytes(ByteBuf buffer) { buffer.writeBoolean(this.enabled); }
 }

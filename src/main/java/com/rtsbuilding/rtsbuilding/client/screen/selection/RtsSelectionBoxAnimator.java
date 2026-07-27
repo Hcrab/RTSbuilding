@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.selection;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.AABB;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.MathHelper;
 
 import java.util.function.LongSupplier;
 
@@ -18,8 +18,8 @@ public final class RtsSelectionBoxAnimator {
     private final long durationMs;
     private final LongSupplier clock;
     private int animatedBoxId = -1;
-    private AABB animatedStartAabb;
-    private AABB animatedEndAabb;
+    private AxisAlignedBB animatedStartAabb;
+    private AxisAlignedBB animatedEndAabb;
     private long animatedStartMillis;
 
     public RtsSelectionBoxAnimator() {
@@ -35,12 +35,12 @@ public final class RtsSelectionBoxAnimator {
         this.clock = clock == null ? System::currentTimeMillis : clock;
     }
 
-    public AABB renderAabb(RtsCullingBox box) {
+    public AxisAlignedBB renderAabb(RtsCullingBox box) {
         if (box == null) {
             return null;
         }
         long now = this.clock.getAsLong();
-        AABB target = box.asAabb();
+        AxisAlignedBB target = box.asAabb();
         if (box.id() != animatedBoxId || animatedStartAabb == null || animatedEndAabb == null) {
             animatedBoxId = box.id();
             animatedStartAabb = target;
@@ -53,7 +53,7 @@ public final class RtsSelectionBoxAnimator {
             animatedEndAabb = target;
             animatedStartMillis = now;
         }
-        double raw = Mth.clamp((double) (now - animatedStartMillis) / (double) durationMs, 0.0D, 1.0D);
+        double raw = MathHelper.clamp((double) (now - animatedStartMillis) / (double) durationMs, 0.0D, 1.0D);
         if (raw >= 1.0D) {
             animatedStartAabb = target;
             animatedEndAabb = target;
@@ -68,7 +68,7 @@ public final class RtsSelectionBoxAnimator {
             return;
         }
         long now = this.clock.getAsLong();
-        AABB visualStart = from.id() == animatedBoxId && animatedStartAabb != null && animatedEndAabb != null
+        AxisAlignedBB visualStart = from.id() == animatedBoxId && animatedStartAabb != null && animatedEndAabb != null
                 ? currentAnimatedAabb(now)
                 : from.asAabb();
         animatedBoxId = to.id();
@@ -90,8 +90,8 @@ public final class RtsSelectionBoxAnimator {
         animatedStartMillis = 0L;
     }
 
-    private AABB currentAnimatedAabb(long now) {
-        double raw = Mth.clamp((double) (now - animatedStartMillis) / (double) durationMs, 0.0D, 1.0D);
+    private AxisAlignedBB currentAnimatedAabb(long now) {
+        double raw = MathHelper.clamp((double) (now - animatedStartMillis) / (double) durationMs, 0.0D, 1.0D);
         return lerpAabb(animatedStartAabb, animatedEndAabb, easeOutCubic(raw));
     }
 
@@ -99,13 +99,17 @@ public final class RtsSelectionBoxAnimator {
         return 1.0D - Math.pow(1.0D - amount, 3.0D);
     }
 
-    private static AABB lerpAabb(AABB from, AABB to, double amount) {
-        return new AABB(
-                Mth.lerp(amount, from.minX, to.minX),
-                Mth.lerp(amount, from.minY, to.minY),
-                Mth.lerp(amount, from.minZ, to.minZ),
-                Mth.lerp(amount, from.maxX, to.maxX),
-                Mth.lerp(amount, from.maxY, to.maxY),
-                Mth.lerp(amount, from.maxZ, to.maxZ));
+    private static AxisAlignedBB lerpAabb(AxisAlignedBB from, AxisAlignedBB to, double amount) {
+        return new AxisAlignedBB(
+                lerp(from.minX, to.minX, amount),
+                lerp(from.minY, to.minY, amount),
+                lerp(from.minZ, to.minZ, amount),
+                lerp(from.maxX, to.maxX, amount),
+                lerp(from.maxY, to.maxY, amount),
+                lerp(from.maxZ, to.maxZ, amount));
+    }
+
+    private static double lerp(double from, double to, double amount) {
+        return from + (to - from) * amount;
     }
 }

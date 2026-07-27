@@ -5,12 +5,18 @@ import com.rtsbuilding.rtsbuilding.network.builder.RtsWorkflowControlPackets;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsPlacementControlPackets;
 import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
-import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageBindingPackets;
-import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePagePackets1122;
+import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsActionControlPackets;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsMiningPackets1122;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsPlacementActionPackets1122;
+import com.rtsbuilding.rtsbuilding.network.builder.RtsBlockActionSoundPackets1122;
+import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderSyncPackets1122;
 import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
+import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
+import com.rtsbuilding.rtsbuilding.network.craft.RtsCraftPackets;
+import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingPackets;
+import com.rtsbuilding.rtsbuilding.network.feedback.RtsFeedbackPackets;
+import com.rtsbuilding.rtsbuilding.network.progression.RtsProgressionPackets;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -43,15 +49,21 @@ public final class RtsPayloadRegistrar {
             return;
         }
         RtsCameraPackets.register();
+        RtsFeedbackPackets.register();
+        RtsProgressionPackets.register();
+        RtsBuilderSyncPackets1122.register();
+        RtsCullingPackets.register();
         RtsWorkflowControlPackets.register();
         RtsPlacementControlPackets.register();
         BlueprintPayloadRegistrar.register();
-        RtsStorageBindingPackets.register();
-        RtsStoragePagePackets1122.register();
+        RtsStoragePackets.register();
         RtsActionControlPackets.register();
         RtsPathfindingPackets.register();
         RtsMiningPackets1122.register();
         RtsPlacementActionPackets1122.register();
+        RtsBlockActionSoundPackets1122.register();
+        RtsPluginPackets.register();
+        RtsCraftPackets.register();
         initialized = true;
     }
 
