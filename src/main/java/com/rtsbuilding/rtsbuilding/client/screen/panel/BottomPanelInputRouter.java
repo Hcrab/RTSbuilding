@@ -13,7 +13,8 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCategoryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftDockLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelHeaderLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelSortLayout;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.GuiTextField;
+import org.lwjgl.input.Keyboard;
 
 /**
  * 底栏生产输入的窄适配器与唯一优先级路由。
@@ -54,11 +55,14 @@ final class BottomPanelInputRouter {
         if (!layout.contains(event.getX(), event.getY())) {
             return false;
         }
-        return switch (event.getType()) {
-            case PRESS -> routePress(event, layout);
-            case SCROLL -> routeScroll(event, layout);
-            default -> false;
-        };
+        switch (event.getType()) {
+            case PRESS:
+                return routePress(event, layout);
+            case SCROLL:
+                return routeScroll(event, layout);
+            default:
+                return false;
+        }
     }
 
     private boolean routePress(
@@ -112,8 +116,9 @@ final class BottomPanelInputRouter {
             return true;
         }
 
-        var searchBox = panel.screen.getSearchBox();
-        if (searchBox != null && searchBox.mouseClicked(mouseX, mouseY, 0)) {
+        GuiTextField searchBox = panel.screen.getSearchBox();
+        if (searchBox != null && contains(searchBox, mouseX, mouseY)) {
+            searchBox.mouseClicked((int) mouseX, (int) mouseY, 0);
             panel.screen.focusStorageSearchBox();
             return true;
         }
@@ -240,7 +245,7 @@ final class BottomPanelInputRouter {
             BottomPanelHeaderLayout.Control control,
             BottomPanelLayoutTypes.BottomPanelTab activeTab) {
         switch (control) {
-            case REFRESH -> {
+            case REFRESH:
                 if (activeTab
                         == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS) {
                     BlueprintPanel.reload();
@@ -248,23 +253,38 @@ final class BottomPanelInputRouter {
                     panel.dispatchCore(BottomBarUiAction.simple(
                             BottomBarUiAction.Type.REFRESH));
                 }
-            }
-            case OPEN_GUIDE -> panel.dispatchCore(BottomBarUiAction.simple(
-                    BottomBarUiAction.Type.OPEN_GUIDE));
-            case OPEN_PLUGINS -> panel.dispatchCore(BottomBarUiAction.simple(
-                    BottomBarUiAction.Type.OPEN_PLUGINS));
+                break;
+            case OPEN_GUIDE:
+                panel.dispatchCore(BottomBarUiAction.simple(
+                        BottomBarUiAction.Type.OPEN_GUIDE));
+                break;
+            case OPEN_PLUGINS:
+                panel.dispatchCore(BottomBarUiAction.simple(
+                        BottomBarUiAction.Type.OPEN_PLUGINS));
+                break;
+            default:
+                break;
         }
     }
 
     private void handleSortControl(BottomPanelSortLayout.Control control) {
         switch (control) {
-            case CYCLE_SORT -> panel.dispatchCore(BottomBarUiAction.simple(
-                    BottomBarUiAction.Type.CYCLE_SORT));
-            case TOGGLE_DIRECTION -> panel.dispatchCore(
-                    BottomBarUiAction.simple(
-                            BottomBarUiAction.Type.TOGGLE_SORT_DIRECTION));
-            case INCREASE_HEIGHT -> panel.adjustBottomPanelSize(1);
-            case DECREASE_HEIGHT -> panel.adjustBottomPanelSize(-1);
+            case CYCLE_SORT:
+                panel.dispatchCore(BottomBarUiAction.simple(
+                        BottomBarUiAction.Type.CYCLE_SORT));
+                break;
+            case TOGGLE_DIRECTION:
+                panel.dispatchCore(BottomBarUiAction.simple(
+                        BottomBarUiAction.Type.TOGGLE_SORT_DIRECTION));
+                break;
+            case INCREASE_HEIGHT:
+                panel.adjustBottomPanelSize(1);
+                break;
+            case DECREASE_HEIGHT:
+                panel.adjustBottomPanelSize(-1);
+                break;
+            default:
+                break;
         }
     }
 
@@ -272,12 +292,12 @@ final class BottomPanelInputRouter {
             double mouseX,
             double mouseY,
             BottomPanelBrowseLayout browseLayout) {
-        var searchBox = panel.screen.getSearchBox();
+        GuiTextField searchBox = panel.screen.getSearchBox();
         if (searchBox == null
                 || !browseLayout.clearSearch.contains(mouseX, mouseY)) {
             return false;
         }
-        searchBox.setValue("");
+        searchBox.setText("");
         panel.dispatchCore(BottomBarUiAction.simple(
                 BottomBarUiAction.Type.CLEAR_SEARCH));
         panel.screen.blurSearchFocus();
@@ -301,7 +321,7 @@ final class BottomPanelInputRouter {
         if (button == 0) {
             panel.dispatchCore(BottomBarUiAction.index(
                     BottomBarUiAction.Type.SELECT_GUI_BINDING, slot));
-        } else if (button == 1 && Screen.hasShiftDown()) {
+        } else if (button == 1 && isShiftDown()) {
             panel.dispatchCore(BottomBarUiAction.index(
                     BottomBarUiAction.Type.CLEAR_GUI_BINDING, slot));
         } else if (button == 1) {
@@ -374,5 +394,15 @@ final class BottomPanelInputRouter {
                 layout.storageX(), layout.storageY(),
                 layout.mainStorageW(),
                 layout.gridY() + layout.gridH() - layout.storageY());
+    }
+
+    private static boolean contains(GuiTextField field, double mouseX, double mouseY) {
+        return mouseX >= field.x && mouseX < field.x + field.width
+                && mouseY >= field.y && mouseY < field.y + field.height;
+    }
+
+    private static boolean isShiftDown() {
+        return Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)
+                || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
     }
 }

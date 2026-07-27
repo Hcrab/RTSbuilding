@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiAction;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftLayout;
+import net.minecraft.client.gui.GuiTextField;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.CRAFT_PANEL_W;
 
@@ -29,13 +30,13 @@ final class BottomPanelCraftInput {
         if (!craft.panel.contains(mouseX, mouseY)) {
             return false;
         }
-        var searchBox = panel.screen.getSearchBox();
+        GuiTextField searchBox = panel.screen.getSearchBox();
         if (searchBox != null && searchBox.isFocused()) {
             searchBox.setFocused(false);
         }
-        var craftSearchBox = panel.screen.getCraftSearchBox();
-        if (craftSearchBox != null
-                && craftSearchBox.mouseClicked(mouseX, mouseY, 0)) {
+        GuiTextField craftSearchBox = panel.screen.getCraftSearchBox();
+        if (craftSearchBox != null && contains(craftSearchBox, mouseX, mouseY)) {
+            craftSearchBox.mouseClicked((int) mouseX, (int) mouseY, 0);
             panel.screen.focusCraftSearchBox();
             return true;
         }
@@ -97,5 +98,10 @@ final class BottomPanelCraftInput {
                 CRAFT_PANEL_W, layout.craftPanelH(),
                 panel.controller.getCraftableEntries().size(),
                 panel.craftScroll);
+    }
+
+    private static boolean contains(GuiTextField field, double mouseX, double mouseY) {
+        return mouseX >= field.x && mouseX < field.x + field.width
+                && mouseY >= field.y && mouseY < field.y + field.height;
     }
 }

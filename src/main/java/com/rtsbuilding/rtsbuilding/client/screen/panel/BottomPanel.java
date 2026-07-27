@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftFeedbackPopup;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
@@ -30,9 +31,9 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
+import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.TextComponentTranslation;
 
 import java.util.*;
 
@@ -85,7 +86,7 @@ public final class BottomPanel {
 
     // ── Rendering ──
 
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         String selectedStatus = selectedPlacementStatusText();
         BottomPanelHeaderLayout header =
@@ -96,14 +97,10 @@ public final class BottomPanel {
         BottomPanelHeaderRenderer.render(
                 g, screen.font(), header, core, tabAnimations,
                 Config.isUiAnimationsEnabled(),
-                Component.translatable(
-                        "screen.rtsbuilding.creative.tab").getString(),
-                Component.translatable(
-                        "screen.rtsbuilding.storage.tab").getString(),
-                Component.translatable(
-                        "screen.rtsbuilding.blueprints.tab").getString(),
-                Component.translatable(
-                        "screen.rtsbuilding.plugins.short").getString(),
+                translated("screen.rtsbuilding.creative.tab"),
+                translated("screen.rtsbuilding.storage.tab"),
+                translated("screen.rtsbuilding.blueprints.tab"),
+                translated("screen.rtsbuilding.plugins.short"),
                 mouseX, mouseY);
 
         if (activeTab == BottomBarUiTab.BLUEPRINTS) {
@@ -131,7 +128,7 @@ public final class BottomPanel {
         this.categoryScroll = categoryLayout.scroll;
         BottomPanelCategoryRenderer.render(
                 g, screen.font(),
-                Component.translatable("screen.rtsbuilding.storage.category"),
+                translated("screen.rtsbuilding.storage.category"),
                 core.categories, categoryLayout);
 
         int storageX = layout.storageX();
@@ -145,12 +142,12 @@ public final class BottomPanel {
             if (!screen.getSearchBox().isFocused()) {
                 syncSearchBoxForActiveTab();
             }
-            var sb = screen.getSearchBox();
-            sb.setX(browseLayout.searchField.x);
-            sb.setY(browseLayout.searchField.y);
-            sb.setWidth(browseLayout.searchField.width);
-            sb.setHeight(browseLayout.searchField.height);
-            sb.render(g, mouseX, mouseY, partialTick);
+            GuiTextField sb = screen.getSearchBox();
+            sb.x = browseLayout.searchField.x;
+            sb.y = browseLayout.searchField.y;
+            sb.width = browseLayout.searchField.width;
+            sb.height = browseLayout.searchField.height;
+            sb.drawTextBox();
         }
 
         BottomPanelBrowseRenderer.renderControls(
@@ -199,7 +196,7 @@ public final class BottomPanel {
         renderCraftablesPanel(g, core, mouseX, mouseY, craftPanelX, craftPanelY, CRAFT_PANEL_W, craftPanelH, partialTick);
     }
 
-    public void renderCraftFeedback(GuiGraphics g) {
+    public void renderCraftFeedback(LegacyGuiGraphics g) {
         RtsCraftFeedbackPopup.render(g, screen.font(), screen.width,
                 RtsMainlineLayout.TOP_H + 6, this.controller);
     }
@@ -239,15 +236,15 @@ public final class BottomPanel {
     }
 
     boolean isCreativePlayer() {
-        Minecraft mc = Minecraft.getInstance();
-        return mc != null && mc.player != null && mc.player.isCreative();
+        Minecraft mc = Minecraft.getMinecraft();
+        return mc != null && mc.player != null && mc.player.capabilities.isCreativeMode;
     }
 
     // ── Toolbar ── hotbar / pinned slots ──
 
-    private void renderToolArea(GuiGraphics g, BottomBarUiState core,
+    private void renderToolArea(LegacyGuiGraphics g, BottomBarUiState core,
             int mouseX, int mouseY, int storageX, int rowY, int storageW) {
-        if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
+        if (Minecraft.getMinecraft() == null || Minecraft.getMinecraft().player == null) {
             return;
         }
 
@@ -257,7 +254,7 @@ public final class BottomPanel {
         this.pinPage = tools.pinPage();
         BottomPanelToolRenderer.HoverResult hover = BottomPanelToolRenderer.render(
                 g, screen.font(), core,
-                Minecraft.getInstance().player.getInventory(),
+                Minecraft.getMinecraft().player.inventory,
                 this.controller, tools, mouseX, mouseY);
         this.hoveredToolSlot = hover.hotbarIndex;
         this.hoveredEmptyHandSlot = hover.emptyHand;
@@ -274,7 +271,7 @@ public final class BottomPanel {
 
     // ── Crafting panel ──
 
-    private void renderCraftablesPanel(GuiGraphics g, BottomBarUiState core,
+    private void renderCraftablesPanel(LegacyGuiGraphics g, BottomBarUiState core,
             int mouseX, int mouseY, int x, int y, int width, int height, float partialTick) {
         syncCraftSearchValueFromController();
         List<CraftableEntry> sourceEntries = this.controller.getCraftableEntries();
@@ -287,13 +284,13 @@ public final class BottomPanel {
     }
 
     private void syncCraftSearchValueFromController() {
-        var csb = screen.getCraftSearchBox();
+        GuiTextField csb = screen.getCraftSearchBox();
         if (csb == null || csb.isFocused()) {
             return;
         }
         String expected = this.craftSearchDraft == null ? "" : this.craftSearchDraft;
-        if (!expected.equals(csb.getValue())) {
-            csb.setValue(expected);
+        if (!expected.equals(csb.getText())) {
+            csb.setText(expected);
         }
     }
 
@@ -347,7 +344,7 @@ public final class BottomPanel {
                 layout.panelX(), layout.panelY(),
                 layout.panelW(), layout.panelH(),
                 isCreativePlayer(), hasBlueprintAccess(),
-                screen.font().width(selectedStatus), true);
+                screen.font().getStringWidth(selectedStatus), true);
     }
 
     BottomBarUiState snapshotCore(
@@ -379,24 +376,24 @@ public final class BottomPanel {
     }
 
     void syncSearchBoxForActiveTab() {
-        var sb = screen.getSearchBox();
+        GuiTextField sb = screen.getSearchBox();
         if (sb == null) {
             return;
         }
         String expected = activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE
                 ? this.creativeSearch
                 : this.controller.getStorageSearch();
-        if (!expected.equals(sb.getValue())) {
-            sb.setValue(expected);
+        if (!expected.equals(sb.getText())) {
+            sb.setText(expected);
         }
     }
 
     public void applyCraftSearchDraft() {
-        var csb = screen.getCraftSearchBox();
-        String next = normalizeCraftSearchDraft(csb == null ? this.craftSearchDraft : csb.getValue());
+        GuiTextField csb = screen.getCraftSearchBox();
+        String next = normalizeCraftSearchDraft(csb == null ? this.craftSearchDraft : csb.getText());
         this.craftSearchDraft = next;
-        if (csb != null && !next.equals(csb.getValue())) {
-            csb.setValue(next);
+        if (csb != null && !next.equals(csb.getText())) {
+            csb.setText(next);
         }
         dispatchCore(BottomBarUiAction.value(BottomBarUiAction.Type.SET_CRAFT_SEARCH, next));
         dispatchCore(BottomBarUiAction.simple(BottomBarUiAction.Type.APPLY_CRAFT_SEARCH));
@@ -440,7 +437,7 @@ public final class BottomPanel {
     void adjustBottomPanelSize(int direction) {
         int dynamicMaxH = Math.max(MIN_BOTTOM_H, Math.min(MAX_BOTTOM_H, screen.height - TOP_H - 16));
         int minH = Math.min(dynamicMaxH, Math.max(MIN_BOTTOM_H, minimumBottomHeightForGridRows(MIN_STORAGE_GRID_ROWS)));
-        this.panelHeight = Mth.clamp(this.panelHeight + (direction * SLOT), minH, dynamicMaxH);
+        this.panelHeight = MathHelper.clamp(this.panelHeight + (direction * SLOT), minH, dynamicMaxH);
     }
 
     private int minimumBottomHeightForGridRows(int rows) {
@@ -482,7 +479,7 @@ public final class BottomPanel {
     // ── Category building ──
 
     List<CategoryTypes.CategoryRow> buildCategoryRows() {
-        String allLabel = Component.translatable("screen.rtsbuilding.creative.all").getString();
+        String allLabel = translated("screen.rtsbuilding.creative.all");
         if (activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.CREATIVE) {
             return BottomPanelCategoryBuilder.creativeRows(
                     this.creativeCategory,
@@ -520,7 +517,7 @@ public final class BottomPanel {
     }
 
     void toggleCategoryExpansion(String modNamespace) {
-        if (modNamespace == null || modNamespace.isBlank()) {
+        if (isBlank(modNamespace)) {
             return;
         }
         if (this.expandedCategoryMods.contains(modNamespace)) {
@@ -533,10 +530,10 @@ public final class BottomPanel {
     // ── Pin / toolbar helpers ──
 
     void setSelectedToolSlot(int slot) {
-        if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
+        if (Minecraft.getMinecraft() == null || Minecraft.getMinecraft().player == null) {
             return;
         }
-        Minecraft.getInstance().player.getInventory().selected = Mth.clamp(slot, 0, 8);
+        Minecraft.getMinecraft().player.inventory.currentItem = MathHelper.clamp(slot, 0, 8);
     }
 
     int getFluidStripWidth(int storageWidth) {
@@ -557,5 +554,13 @@ public final class BottomPanel {
             this.controller.requestCraftables();
         }
         syncCraftSearchValueFromController();
+    }
+
+    private static String translated(String key) {
+        return new TextComponentTranslation(key).getFormattedText();
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

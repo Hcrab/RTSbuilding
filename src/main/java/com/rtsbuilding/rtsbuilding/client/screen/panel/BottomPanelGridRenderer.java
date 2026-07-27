@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.record.RecentEntry;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiEntry;
@@ -13,9 +14,8 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelGridLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelGridStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.util.text.TextComponentTranslation;
 
 import java.util.List;
 
@@ -29,7 +29,7 @@ public final class BottomPanelGridRenderer {
     private BottomPanelGridRenderer() {
     }
 
-    public static int renderStorage(GuiGraphics graphics, Font font,
+    public static int renderStorage(LegacyGuiGraphics graphics, FontRenderer font,
                                     List<BottomBarUiEntry> entries,
                                     List<StorageEntry> sourceEntries,
                                     BottomPanelGridLayout.GridView view,
@@ -66,7 +66,7 @@ public final class BottomPanelGridRenderer {
         return hovered;
     }
 
-    public static int renderCreative(GuiGraphics graphics, Font font,
+    public static int renderCreative(LegacyGuiGraphics graphics, FontRenderer font,
                                      List<BottomBarUiEntry> entries,
                                      List<RtsCreativeItemCatalog.CreativeEntry> sourceEntries,
                                      BottomPanelGridLayout.GridView view,
@@ -100,7 +100,7 @@ public final class BottomPanelGridRenderer {
         return entry == null ? -1 : entry.sourceIndex;
     }
 
-    public static int renderRecent(GuiGraphics graphics, Font font,
+    public static int renderRecent(LegacyGuiGraphics graphics, FontRenderer font,
                                    List<BottomBarUiEntry> entries,
                                    List<RecentEntry> sourceEntries,
                                    BottomPanelGridLayout.GridView view,
@@ -134,7 +134,7 @@ public final class BottomPanelGridRenderer {
         return hovered;
     }
 
-    public static int renderFluid(GuiGraphics graphics, Font font,
+    public static int renderFluid(LegacyGuiGraphics graphics, FontRenderer font,
                                   List<BottomBarUiEntry> entries,
                                   List<FluidEntry> sourceEntries,
                                   BottomPanelGridLayout.GridView view,
@@ -167,16 +167,16 @@ public final class BottomPanelGridRenderer {
         return hovered;
     }
 
-    private static void renderEmptyState(GuiGraphics graphics, Font font,
+    private static void renderEmptyState(LegacyGuiGraphics graphics, FontRenderer font,
                                          BottomPanelGridLayout.GridArea area,
                                          String translationKey) {
         int messageWidth = Math.max(24,
                 area.width - BottomPanelGridLayout.EMPTY_TEXT_HORIZONTAL_INSET * 2);
         int centerY = area.y + Math.max(8, area.height / 2 - 10);
         String title = RtsClientUiUtil.trimToWidth(font,
-                Component.translatable(translationKey).getString(), messageWidth);
+                translated(translationKey), messageWidth);
         String detail = RtsClientUiUtil.trimToWidth(font,
-                Component.translatable(translationKey + ".detail").getString(), messageWidth);
+                translated(translationKey + ".detail"), messageWidth);
         RtsClientUiUtil.drawCenteredStringNoShadow(graphics, font, title,
                 area.x + area.width / 2, centerY,
                 argb(BottomPanelGridStyle.EMPTY_TITLE));
@@ -195,7 +195,7 @@ public final class BottomPanelGridRenderer {
                 style.background, style.borderLight, style.borderDark);
     }
 
-    private static void drawSelection(GuiGraphics graphics,
+    private static void drawSelection(LegacyGuiGraphics graphics,
                                       BottomPanelGridLayout.GridView view,
                                       int slotX, int slotY, boolean selected,
                                       BottomPanelGridStyle.Visual style) {
@@ -204,7 +204,7 @@ public final class BottomPanelGridRenderer {
         }
     }
 
-    private static void drawHover(GuiGraphics graphics,
+    private static void drawHover(LegacyGuiGraphics graphics,
                                   BottomPanelGridLayout.GridView view,
                                   int slotX, int slotY,
                                   boolean hovered, boolean selected) {
@@ -215,7 +215,7 @@ public final class BottomPanelGridRenderer {
         }
     }
 
-    private static void fillInside(GuiGraphics graphics,
+    private static void fillInside(LegacyGuiGraphics graphics,
                                    BottomPanelGridLayout.GridView view,
                                    int slotX, int slotY, int color) {
         graphics.fill(slotX + 1, slotY + 1,
@@ -223,7 +223,7 @@ public final class BottomPanelGridRenderer {
                 slotY + view.slotExtent - 1, color);
     }
 
-    private static void drawCount(GuiGraphics graphics, Font font,
+    private static void drawCount(LegacyGuiGraphics graphics, FontRenderer font,
                                   BottomPanelGridLayout.GridView view,
                                   int slotX, int slotY, String text, UiColor color) {
         RtsClientUiUtil.drawSlotCountOverlay(graphics, font, slotX, slotY,
@@ -236,5 +236,9 @@ public final class BottomPanelGridRenderer {
 
     private static int argb(UiColor color) {
         return color.toArgb();
+    }
+
+    private static String translated(String key) {
+        return new TextComponentTranslation(key).getFormattedText();
     }
 }

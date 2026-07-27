@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
@@ -14,11 +15,12 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.resources.I18n;
+import net.minecraftforge.fml.client.config.GuiUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -35,7 +37,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * <b>Key responsibilities:</b>
  * <ul>
  *   <li>Layout construction ({@link #buildTopBarButtonLayouts()})</li>
- *   <li>Button rendering ({@link #render(GuiGraphics, int, int)})</li>
+ *   <li>Button rendering ({@link #render(LegacyGuiGraphics, int, int)})</li>
  *   <li>Click dispatch ({@link #handleClick(double, double)})</li>
  *   <li>Status bar text composition</li>
  * </ul>
@@ -89,7 +91,7 @@ public final class TopBarPanel {
      * status bar showing the current mode, storage link status, and
      * shape-editing state.
      */
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
+    public void render(LegacyGuiGraphics g, int mouseX, int mouseY) {
         screen.ensureFillModeForShape(this.controller.getBuildShape());
         TopBarUiState state = TopBarUiAdapter.snapshot(screen, controller);
         List<TopBarTypes.TopBarButtonLayout> topButtons = buildTopBarButtonLayouts(state);
@@ -113,7 +115,7 @@ public final class TopBarPanel {
                 : "    " + screen.text("screen.rtsbuilding.status.auto_store_off"))
                 + "    " + screen.text("screen.rtsbuilding.status.funnel",
                         screen.text(state.funnelEnabled ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"))
-                + (state.shapeStatus.isBlank() ? "" : "    " + state.shapeStatus)
+                + (state.shapeStatus.isEmpty() ? "" : "    " + state.shapeStatus)
                 + (state.pendingGuiBindSlot >= 0 ? "    " + screen.text(
                         "screen.rtsbuilding.status.gui_bind_armed", state.pendingGuiBindSlot + 1) : "");
 
@@ -132,17 +134,17 @@ public final class TopBarPanel {
      * 在第二行右侧空白处绘制当前模式的操作提示。空间不足时整段隐藏，
      * 避免提示与储存状态在高 UI 缩放或较长翻译下互相覆盖。
      */
-    private void renderContextualModeTip(GuiGraphics g, TopBarLayout.Status status,
+    private void renderContextualModeTip(LegacyGuiGraphics g, TopBarLayout.Status status,
                                          String visibleRow2, TopBarUiState.Mode mode) {
         String key = modeTipKey(mode);
-        if (key.isBlank()) {
+        if (key.isEmpty()) {
             return;
         }
         String tip = screen.text(key);
         int tipX = TopBarLayout.contextualHintX(
                 status,
-                screen.font().width(visibleRow2),
-                screen.font().width(tip),
+                screen.font().getStringWidth(visibleRow2),
+                screen.font().getStringWidth(tip),
                 12);
         if (tipX >= 0) {
             g.drawString(screen.font(), tip, tipX, status.row2Y(),
@@ -192,6 +194,19 @@ public final class TopBarPanel {
             return handled;
         }
         return false;
+    }
+
+    /**
+     * 顶栏占用的屏幕区域始终拦截指针输入，避免滚轮、拖动或未命中图标的点击继续传给世界相机。
+     */
+    public boolean capturesPointer(double mouseX, double mouseY) {
+        return mouseX >= 0.0D && mouseX < screen.width
+                && mouseY >= 0.0D && mouseY < TOP_H;
+    }
+
+    /** 顶栏没有滚动行为，但位于顶栏上的滚轮事件必须被消费。 */
+    public boolean handleScroll(double mouseX, double mouseY) {
+        return capturesPointer(mouseX, mouseY);
     }
 
     // ======================== Layout Builder ========================
@@ -249,7 +264,7 @@ public final class TopBarPanel {
      * Routes the rendering of a single top bar button to the appropriate
      * method based on whether it is icon-only or text-based.
      */
-    private void drawTopButton(GuiGraphics g, int mouseX, int mouseY,
+    private void drawTopButton(LegacyGuiGraphics g, int mouseX, int mouseY,
                                TopBarTypes.TopBarButtonLayout button) {
         drawTopIconButton(g, mouseX, mouseY, button);
     }
@@ -262,7 +277,7 @@ public final class TopBarPanel {
      * <p>
      * The button background colour changes based on active, pressed, and hovered states.
      */
-    private void drawTopIconButton(GuiGraphics g, int mouseX, int mouseY,
+    private void drawTopIconButton(LegacyGuiGraphics g, int mouseX, int mouseY,
                                    TopBarTypes.TopBarButtonLayout button) {
         int x = button.x();
         int y = TopBarLayout.BUTTON_Y;
@@ -278,14 +293,14 @@ public final class TopBarPanel {
     }
 
     /** 顶栏正式按钮统一从四语言键显示 Tooltip，避免图标含义依赖猜测。 */
-    private void renderHoveredTooltip(GuiGraphics g, int mouseX, int mouseY,
+    private void renderHoveredTooltip(LegacyGuiGraphics g, int mouseX, int mouseY,
                                       List<TopBarTypes.TopBarButtonLayout> buttons) {
         for (TopBarTypes.TopBarButtonLayout button : buttons) {
             if (UiRect.contains(button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H,
                     mouseX, mouseY)) {
-                g.renderTooltip(screen.font(),
-                        Component.translatable(TopBarIconRenderer.tooltipKey(button.id())),
-                        mouseX, mouseY);
+                String tooltip = I18n.format(TopBarIconRenderer.tooltipKey(button.id()));
+                GuiUtils.drawHoveringText(Collections.singletonList(tooltip), mouseX, mouseY,
+                        screen.width, screen.height, 300, screen.font());
                 return;
             }
         }
@@ -294,7 +309,8 @@ public final class TopBarPanel {
     /**
      * Delegates guide hint rendering below the top bar to {@link BuilderScreen}.
      */
-    private void renderTopGuideHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+    private void renderTopGuideHint(LegacyGuiGraphics g,
+                                    List<TopBarTypes.TopBarButtonLayout> topButtons) {
         screen.renderTopGuideHint(g, topButtons);
     }
 
@@ -310,13 +326,13 @@ public final class TopBarPanel {
         if (screen.isBlueprintPlacementModeLocked()) {
             return TopAction.INTERACT;
         }
-        return switch (this.controller.getMode()) {
-            case INTERACT -> TopAction.INTERACT;
-            case LINK_STORAGE -> TopAction.LINK;
-            case FUNNEL -> TopAction.FUNNEL;
-            case ROTATE -> TopAction.ROTATE;
-            default -> TopAction.INTERACT;
-        };
+        switch (this.controller.getMode()) {
+            case INTERACT: return TopAction.INTERACT;
+            case LINK_STORAGE: return TopAction.LINK;
+            case FUNNEL: return TopAction.FUNNEL;
+            case ROTATE: return TopAction.ROTATE;
+            default: return TopAction.INTERACT;
+        }
     }
 
     private static boolean visible(TopBarUiState state, TopBarUiButtonId id) {
@@ -333,14 +349,15 @@ public final class TopBarPanel {
     }
 
     private static String modeTranslationKey(TopBarUiState.Mode mode) {
-        return switch (mode) {
-            case INTERACT -> "screen.rtsbuilding.mode.interact";
-            case LINK_STORAGE -> "screen.rtsbuilding.mode.link_storage";
-            case FUNNEL -> "screen.rtsbuilding.mode.funnel";
-            case CAMERA -> "screen.rtsbuilding.mode.camera";
-            case ROTATE -> "screen.rtsbuilding.mode.rotate";
-            case IDLE -> "screen.rtsbuilding.mode.idle";
-        };
+        switch (mode) {
+            case INTERACT: return "screen.rtsbuilding.mode.interact";
+            case LINK_STORAGE: return "screen.rtsbuilding.mode.link_storage";
+            case FUNNEL: return "screen.rtsbuilding.mode.funnel";
+            case CAMERA: return "screen.rtsbuilding.mode.camera";
+            case ROTATE: return "screen.rtsbuilding.mode.rotate";
+            case IDLE: return "screen.rtsbuilding.mode.idle";
+            default: return "screen.rtsbuilding.mode.idle";
+        }
     }
 
 }

@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 
 import java.util.EnumMap;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -41,7 +42,8 @@ public final class TopBarLayout {
                 positions.put(id, shared.x(index));
             }
         }
-        return new Buttons(Map.copyOf(positions));
+        return new Buttons(Collections.unmodifiableMap(
+                new EnumMap<TopBarTypes.TopBarButtonId, Integer>(positions)));
     }
 
     public static Status status(int screenWidth) {
@@ -59,23 +61,29 @@ public final class TopBarLayout {
     }
 
     private static int layoutIndex(TopBarTypes.TopBarButtonId id) {
-        return switch (id) {
-            case INTERACT -> 0;
-            case LINK -> 1;
-            case FUNNEL -> 2;
-            case ROTATE -> 3;
-            case QUICK_BUILD -> 4;
-            case QUEST_DETECT -> 5;
-            case CHUNK_VIEW -> 6;
-            case RANGE_CULLING -> 7;
-            case GUIDE -> 8;
-            case DEVELOPER -> 9;
-            case GEAR -> 10;
-            default -> -1;
-        };
+        switch (id) {
+            case INTERACT: return 0;
+            case LINK: return 1;
+            case FUNNEL: return 2;
+            case ROTATE: return 3;
+            case QUICK_BUILD: return 4;
+            case QUEST_DETECT: return 5;
+            case CHUNK_VIEW: return 6;
+            case RANGE_CULLING: return 7;
+            case GUIDE: return 8;
+            case DEVELOPER: return 9;
+            case GEAR: return 10;
+            default: return -1;
+        }
     }
 
-    public record Buttons(Map<TopBarTypes.TopBarButtonId, Integer> xById) {
+    public static final class Buttons {
+        private final Map<TopBarTypes.TopBarButtonId, Integer> xById;
+
+        private Buttons(Map<TopBarTypes.TopBarButtonId, Integer> xById) {
+            this.xById = xById;
+        }
+
         public int x(TopBarTypes.TopBarButtonId id) {
             Integer x = xById.get(id);
             if (x == null) throw new IllegalArgumentException("Button is not present in this layout: " + id);
@@ -83,6 +91,22 @@ public final class TopBarLayout {
         }
     }
 
-    public record Status(int x, int width, int row1Y, int row2Y) {
+    public static final class Status {
+        private final int x;
+        private final int width;
+        private final int row1Y;
+        private final int row2Y;
+
+        private Status(int x, int width, int row1Y, int row2Y) {
+            this.x = x;
+            this.width = width;
+            this.row1Y = row1Y;
+            this.row2Y = row2Y;
+        }
+
+        public int x() { return x; }
+        public int width() { return width; }
+        public int row1Y() { return row1Y; }
+        public int row2Y() { return row2Y; }
     }
 }

@@ -13,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiTransition;
 import net.minecraft.client.Minecraft;
-import net.neoforged.fml.ModList;
+import net.minecraftforge.fml.common.Loader;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -80,7 +80,7 @@ final class TopBarUiAdapter {
                 screen.toggleTopGuide(buttonCenterX, buttonBottomY);
                 return true;
             case DEVELOPER:
-                Minecraft.getInstance().setScreen(new RtsDeveloperTaskScreen(screen));
+                Minecraft.getMinecraft().displayGuiScreen(new RtsDeveloperTaskScreen(screen));
                 return true;
             case GEAR:
                 screen.toggleGearMenu();
@@ -103,13 +103,13 @@ final class TopBarUiAdapter {
     }
 
     private static boolean visible(TopBarUiButtonId id, BuilderScreen screen) {
-        return switch (id) {
-            case QUICK_BUILD -> canShowQuickBuildButton(id, screen);
-            case QUEST_DETECT -> isFtbQuestIntegrationLoaded();
-            case RANGE_CULLING -> screen.canUseRangeCulling();
-            case DEVELOPER -> Config.isDeveloperModeEnabled();
-            default -> true;
-        };
+        switch (id) {
+            case QUICK_BUILD: return canShowQuickBuildButton(id, screen);
+            case QUEST_DETECT: return isFtbQuestIntegrationLoaded();
+            case RANGE_CULLING: return screen.canUseRangeCulling();
+            case DEVELOPER: return Config.isDeveloperModeEnabled();
+            default: return true;
+        }
     }
 
     private static boolean canShowQuickBuildButton(TopBarUiButtonId id, BuilderScreen screen) {
@@ -119,35 +119,36 @@ final class TopBarUiAdapter {
 
     private static boolean active(TopBarUiButtonId id, TopBarUiState.Mode mode,
                                   BuilderScreen screen, ClientRtsController controller) {
-        return switch (id) {
-            case INTERACT -> mode == TopBarUiState.Mode.INTERACT;
-            case LINK -> mode == TopBarUiState.Mode.LINK_STORAGE;
-            case FUNNEL -> mode == TopBarUiState.Mode.FUNNEL;
-            case ROTATE -> mode == TopBarUiState.Mode.ROTATE;
-            case QUICK_BUILD -> screen.isQuickBuildOpen();
-            case QUEST_DETECT -> controller.isQuestDetectPopupVisible();
-            case CHUNK_VIEW -> controller.isChunkCurtainVisible();
-            case RANGE_CULLING -> screen.isRangeCullingManagementActive();
-            case GUIDE -> screen.isGuideOpen();
-            case GEAR -> screen.isGearMenuOpen();
-            case DEVELOPER -> false;
-        };
+        switch (id) {
+            case INTERACT: return mode == TopBarUiState.Mode.INTERACT;
+            case LINK: return mode == TopBarUiState.Mode.LINK_STORAGE;
+            case FUNNEL: return mode == TopBarUiState.Mode.FUNNEL;
+            case ROTATE: return mode == TopBarUiState.Mode.ROTATE;
+            case QUICK_BUILD: return screen.isQuickBuildOpen();
+            case QUEST_DETECT: return controller.isQuestDetectPopupVisible();
+            case CHUNK_VIEW: return controller.isChunkCurtainVisible();
+            case RANGE_CULLING: return screen.isRangeCullingManagementActive();
+            case GUIDE: return screen.isGuideOpen();
+            case GEAR: return screen.isGearMenuOpen();
+            case DEVELOPER: return false;
+            default: return false;
+        }
     }
 
     private static TopBarUiState.Mode mode(BuilderMode mode) {
-        return switch (mode) {
-            case INTERACT -> TopBarUiState.Mode.INTERACT;
-            case LINK_STORAGE -> TopBarUiState.Mode.LINK_STORAGE;
-            case FUNNEL -> TopBarUiState.Mode.FUNNEL;
-            case SELECT_PAN -> TopBarUiState.Mode.CAMERA;
-            case ROTATE -> TopBarUiState.Mode.ROTATE;
-            default -> TopBarUiState.Mode.IDLE;
-        };
+        switch (mode) {
+            case INTERACT: return TopBarUiState.Mode.INTERACT;
+            case LINK_STORAGE: return TopBarUiState.Mode.LINK_STORAGE;
+            case FUNNEL: return TopBarUiState.Mode.FUNNEL;
+            case SELECT_PAN: return TopBarUiState.Mode.CAMERA;
+            case ROTATE: return TopBarUiState.Mode.ROTATE;
+            default: return TopBarUiState.Mode.IDLE;
+        }
     }
 
     private static boolean isFtbQuestIntegrationLoaded() {
-        return ModList.get().isLoaded("ftbquests")
-                || ModList.get().isLoaded("ftb_quests")
-                || ModList.get().isLoaded("ftblibrary");
+        return Loader.isModLoaded("ftbquests")
+                || Loader.isModLoaded("ftb_quests")
+                || Loader.isModLoaded("ftblibrary");
     }
 }

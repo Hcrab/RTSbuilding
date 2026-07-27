@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
@@ -12,16 +13,15 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.GuiTextField;
 
 import java.util.List;
 
 /**
  * 底栏合成区的 Minecraft 绘制适配器。
  *
- * <p>本类只把 Core 快照、正式物品栈与 Kit 布局画到 {@link GuiGraphics}。它不维护滚动或搜索状态，
+ * <p>本类只把 Core 快照、正式物品栈与 Kit 布局画到 {@link LegacyGuiGraphics}。它不维护滚动或搜索状态，
  * 不读取控制器，也不发送合成请求；这些生命周期和副作用继续由 {@link BottomPanel} 编排。</p>
  */
 public final class BottomPanelCraftRenderer {
@@ -31,7 +31,7 @@ public final class BottomPanelCraftRenderer {
     /**
      * 绘制合成区并返回当前悬停的 Core 条目索引；没有真实条目时返回 -1。
      */
-    public static int render(GuiGraphics graphics, Font font, EditBox searchBox,
+    public static int render(LegacyGuiGraphics graphics, FontRenderer font, GuiTextField searchBox,
                              BottomBarUiState state, List<CraftableEntry> sourceEntries,
                              BottomPanelCraftLayout layout,
                              int mouseX, int mouseY, float partialTick) {
@@ -56,13 +56,13 @@ public final class BottomPanelCraftRenderer {
                 BottomPanelCraftStyle.SEARCH_BORDER_LIGHT,
                 BottomPanelCraftStyle.SEARCH_BORDER_DARK);
         if (searchBox != null) {
-            searchBox.setX(layout.search.x + BottomPanelCraftLayout.SEARCH_CONTENT_INSET);
-            searchBox.setY(layout.search.y + BottomPanelCraftLayout.SEARCH_CONTENT_INSET);
-            searchBox.setWidth(Math.max(
+            searchBox.x = layout.search.x + BottomPanelCraftLayout.SEARCH_CONTENT_INSET;
+            searchBox.y = layout.search.y + BottomPanelCraftLayout.SEARCH_CONTENT_INSET;
+            searchBox.width = Math.max(
                     BottomPanelCraftLayout.SEARCH_MIN_CONTENT_W,
-                    layout.search.width - BottomPanelCraftLayout.SEARCH_CONTENT_INSET * 2));
-            searchBox.setHeight(8);
-            searchBox.render(graphics, mouseX, mouseY, partialTick);
+                    layout.search.width - BottomPanelCraftLayout.SEARCH_CONTENT_INSET * 2);
+            searchBox.height = 8;
+            searchBox.drawTextBox();
         }
 
         boolean searchDirty = state.craftSearchDirty();
@@ -128,13 +128,13 @@ public final class BottomPanelCraftRenderer {
     }
 
     private static void drawButton(
-                                   GuiGraphics graphics, UiCanvas2D canvas, Font font,
+                                   LegacyGuiGraphics graphics, UiCanvas2D canvas, FontRenderer font,
                                    BottomPanelCraftLayout.Area area, String label,
                                    UiColor background, UiColor lightBorder, int textColor) {
         UiCompactFrameRenderer.frame(
                 canvas, new UiRect(area.x, area.y, area.width, area.height),
                 background, lightBorder, BottomPanelCraftStyle.BUTTON_BORDER_DARK);
-        int textX = area.x + (area.width - font.width(label)) / 2;
+        int textX = area.x + (area.width - font.getStringWidth(label)) / 2;
         graphics.drawString(font, label, textX,
                 area.y + BottomPanelCraftLayout.BUTTON_TEXT_TOP,
                 textColor, false);

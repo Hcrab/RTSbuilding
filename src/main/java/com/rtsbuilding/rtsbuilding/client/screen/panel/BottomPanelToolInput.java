@@ -5,7 +5,8 @@ import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiAction;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelToolLayout;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.item.ItemStack;
+import org.lwjgl.input.Keyboard;
 
 /**
  * 工具行槽位命中到 Core 动作的生产适配器。
@@ -25,7 +26,7 @@ final class BottomPanelToolInput {
             double mouseY,
             int button,
             BottomPanelLayoutTypes.BottomPanelLayout layout) {
-        Minecraft minecraft = Minecraft.getInstance();
+        Minecraft minecraft = Minecraft.getMinecraft();
         if (minecraft == null || minecraft.player == null) {
             return false;
         }
@@ -71,8 +72,8 @@ final class BottomPanelToolInput {
                     BottomBarUiAction.Type.STORE_FLUID_TOOL, hotbarIndex));
             return;
         }
-        var stack = minecraft.player.getInventory().getItem(hotbarIndex);
-        if (Screen.hasShiftDown()
+        ItemStack stack = minecraft.player.inventory.getStackInSlot(hotbarIndex);
+        if (isShiftDown()
                 && RtsClientUiStateStore.isOverlayShiftImportEnabled()
                 && !stack.isEmpty()) {
             panel.dispatchCore(BottomBarUiAction.index(
@@ -87,12 +88,17 @@ final class BottomPanelToolInput {
         if (button == 1) {
             panel.dispatchCore(BottomBarUiAction.index(
                     BottomBarUiAction.Type.STORE_FLUID_PIN, pinIndex));
-        } else if (Screen.hasShiftDown()) {
+        } else if (isShiftDown()) {
             panel.dispatchCore(BottomBarUiAction.index(
                     BottomBarUiAction.Type.CLEAR_PIN, pinIndex));
         } else {
             panel.dispatchCore(BottomBarUiAction.index(
                     BottomBarUiAction.Type.SELECT_PIN, pinIndex));
         }
+    }
+
+    private static boolean isShiftDown() {
+        return Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)
+                || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
     }
 }

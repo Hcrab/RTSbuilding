@@ -1,18 +1,17 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiCategory;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCategoryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCategoryStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.FontRenderer;
 
 import java.util.List;
 
 /**
  * 底栏分类树的 Minecraft 绘制适配器。
  *
- * <p>本类只把 Core 分类行、Kit 几何和共享主题翻译为 GuiGraphics 调用；分类注册表查询、
+ * <p>本类只把 Core 分类行、Kit 几何和共享主题翻译为 1.12 立即绘制调用；分类注册表查询、
  * 滚动状态、选择/展开动作与网络副作用仍由 BottomPanel 和其 adapter 编排。所有文字均
  * 关闭阴影，避免分类栏被后绘制的半透明窗口覆盖时发生文字穿透。</p>
  */
@@ -21,14 +20,14 @@ public final class BottomPanelCategoryRenderer {
     }
 
     public static void render(
-            GuiGraphics graphics,
-            Font font,
-            Component title,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
+            String title,
             List<BottomBarUiCategory> categories,
             BottomPanelCategoryLayout layout) {
         fill(graphics, layout.panel, BottomPanelCategoryStyle.PANEL_BACKGROUND.toArgb());
         int titleX = layout.panel.x
-                + (layout.panel.width - font.width(title)) / 2;
+                + (layout.panel.width - font.getStringWidth(title)) / 2;
         graphics.drawString(
                 font, title,
                 titleX, layout.panel.y + BottomPanelCategoryLayout.TITLE_TOP,
@@ -73,8 +72,8 @@ public final class BottomPanelCategoryRenderer {
     }
 
     private static void drawScaledLabel(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             String text,
             int left,
             int right,
@@ -83,31 +82,31 @@ public final class BottomPanelCategoryRenderer {
         int availableWidth = Math.max(8, right - left);
         int unscaledWidth = Math.max(8, (int) Math.floor(
                 availableWidth / BottomPanelCategoryLayout.TEXT_SCALE));
-        String label = font.plainSubstrByWidth(text == null ? "" : text, unscaledWidth);
+        String label = font.trimStringToWidth(text == null ? "" : text, unscaledWidth);
         int scaledTextWidth = (int) Math.ceil(
-                font.width(label) * BottomPanelCategoryLayout.TEXT_SCALE);
+                font.getStringWidth(label) * BottomPanelCategoryLayout.TEXT_SCALE);
         int x = left + Math.max(0, (availableWidth - scaledTextWidth) / 2);
         int scaledTextHeight = Math.max(1, (int) Math.ceil(
-                font.lineHeight * BottomPanelCategoryLayout.TEXT_SCALE));
+                font.FONT_HEIGHT * BottomPanelCategoryLayout.TEXT_SCALE));
         int y = row.y + Math.max(0, (row.height - scaledTextHeight) / 2);
 
-        graphics.pose().pushPose();
-        graphics.pose().translate(x, y, 0.0F);
-        graphics.pose().scale(
+        graphics.pushPose();
+        net.minecraft.client.renderer.GlStateManager.translate(x, y, 0.0F);
+        graphics.scale(
                 BottomPanelCategoryLayout.TEXT_SCALE,
                 BottomPanelCategoryLayout.TEXT_SCALE,
                 1.0F);
         graphics.drawString(font, label, 0, 0, color, false);
-        graphics.pose().popPose();
+        graphics.popPose();
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             String text,
             BottomPanelCategoryLayout.Area area) {
-        int x = area.x + (area.width - font.width(text)) / 2;
-        int y = area.y + Math.max(0, (area.height - font.lineHeight) / 2);
+        int x = area.x + (area.width - font.getStringWidth(text)) / 2;
+        int y = area.y + Math.max(0, (area.height - font.FONT_HEIGHT) / 2);
         graphics.drawString(
                 font, text, x, y,
                 BottomPanelCategoryStyle.TITLE_TEXT.toArgb(),
@@ -115,7 +114,7 @@ public final class BottomPanelCategoryRenderer {
     }
 
     private static void fill(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BottomPanelCategoryLayout.Area area,
             int color) {
         graphics.fill(

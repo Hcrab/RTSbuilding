@@ -2,10 +2,11 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.screen.layout.CategoryTypes;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.CreativeModeTab;
-import net.neoforged.fml.ModList;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -100,7 +101,7 @@ final class BottomPanelCategoryBuilder {
     }
 
     static String humanizeToken(String token) {
-        if (token == null || token.isBlank()) {
+        if (isBlank(token)) {
             return "";
         }
         String normalized = token.replace('_', ' ').replace('-', ' ').trim();
@@ -134,7 +135,7 @@ final class BottomPanelCategoryBuilder {
         }
         if (category.startsWith(CATEGORY_MOD_PREFIX)) {
             String mod = category.substring(CATEGORY_MOD_PREFIX.length());
-            if (!mod.isBlank()) {
+            if (!isBlank(mod)) {
                 mods.add(mod);
                 modToTabs.computeIfAbsent(mod, ignored -> new HashSet<>());
             }
@@ -148,7 +149,7 @@ final class BottomPanelCategoryBuilder {
             }
             String mod = payload.substring(0, split);
             String tab = payload.substring(split + 1);
-            if (mod.isBlank() || tab.isBlank()) {
+            if (isBlank(mod) || isBlank(tab)) {
                 return;
             }
             mods.add(mod);
@@ -198,31 +199,43 @@ final class BottomPanelCategoryBuilder {
 
     private static String formatModLabel(String modNamespace) {
         try {
-            return ModList.get().getModContainerById(modNamespace)
-                    .map(container -> container.getModInfo().getDisplayName())
-                    .filter(label -> label != null && !label.isBlank())
-                    .orElseGet(() -> humanizeToken(modNamespace));
+            ModContainer container = Loader.instance().getIndexedModList().get(modNamespace);
+            String label = container == null ? null : container.getName();
+            return isBlank(label) ? humanizeToken(modNamespace) : label;
         } catch (RuntimeException | LinkageError ignored) {
             return humanizeToken(modNamespace);
         }
     }
 
     private static String formatTabLabel(String tabKey) {
-        ResourceLocation key = ResourceLocation.tryParse(tabKey);
-        if (key != null) {
-            try {
-                CreativeModeTab tab = BuiltInRegistries.CREATIVE_MODE_TAB.get(key);
-                if (tab != null) {
-                    String label = tab.getDisplayName().getString();
-                    if (label != null && !label.isBlank()) {
+        ResourceLocation key = parseResourceLocation(tabKey);
+        String path = key == null ? tabKey : key.getPath();
+        try {
+            for (CreativeTabs tab : CreativeTabs.CREATIVE_TAB_ARRAY) {
+                if (tab != null && path.equals(tab.getTabLabel())) {
+                    String label = new TextComponentTranslation(
+                            "itemGroup." + tab.getTabLabel()).getFormattedText();
+                    if (!isBlank(label)) {
                         return label;
                     }
                 }
-            } catch (RuntimeException | LinkageError ignored) {
-                // 模组创造标签读取失败时回退到稳定、可读的 token。
             }
+        } catch (RuntimeException | LinkageError ignored) {
+                // 模组创造标签读取失败时回退到稳定、可读的 token。
         }
-        return humanizeToken(key == null ? tabKey : key.getPath());
+        return humanizeToken(path);
+    }
+
+    private static ResourceLocation parseResourceLocation(String value) {
+        try {
+            return isBlank(value) ? null : new ResourceLocation(value);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     private BottomPanelCategoryBuilder() {

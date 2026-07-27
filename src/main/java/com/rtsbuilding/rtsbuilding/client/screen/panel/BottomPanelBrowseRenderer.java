@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelBrowseLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelBrowseStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.FontRenderer;
 
 /**
  * 底栏搜索清除键与分页键的 Minecraft 绘制适配器。
@@ -20,8 +20,8 @@ public final class BottomPanelBrowseRenderer {
     }
 
     public static void renderControls(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BottomPanelBrowseLayout layout,
             boolean searchFocused,
             boolean hasSearchValue,
@@ -71,18 +71,18 @@ public final class BottomPanelBrowseRenderer {
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             String text,
             BottomPanelBrowseLayout.Area area,
             int color) {
-        int x = area.x + (area.width - font.width(text)) / 2;
-        int y = area.y + Math.max(0, (area.height - font.lineHeight) / 2);
+        int x = area.x + (area.width - font.getStringWidth(text)) / 2;
+        int y = area.y + Math.max(0, (area.height - font.FONT_HEIGHT) / 2);
         graphics.drawString(font, text, x, y, color, false);
     }
 
     private static void fill(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BottomPanelBrowseLayout.Area area,
             int color) {
         graphics.fill(

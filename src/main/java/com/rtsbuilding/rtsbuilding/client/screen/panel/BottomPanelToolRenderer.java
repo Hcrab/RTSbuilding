@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
@@ -11,16 +12,15 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelToolLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelToolStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.item.ItemStack;
 
 /**
  * 底栏工具行的 Minecraft 绘制适配器。
  *
  * <p>本类把 Core 槽位状态、玩家真实热栏、控制器固定槽预览、Kit 几何和共享主题绘制到
- * {@link GuiGraphics}。它只返回悬停结果，不执行选择、导入、清除、翻页或存流体动作；
+ * {@link LegacyGuiGraphics}。它只返回悬停结果，不执行选择、导入、清除、翻页或存流体动作；
  * 所有副作用仍由 {@link BottomPanel} 经 Core action 编排。</p>
  */
 public final class BottomPanelToolRenderer {
@@ -31,10 +31,10 @@ public final class BottomPanelToolRenderer {
     }
 
     public static HoverResult render(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BottomBarUiState state,
-            Inventory inventory,
+            InventoryPlayer inventory,
             ClientRtsController controller,
             BottomPanelToolLayout layout,
             int mouseX,
@@ -63,11 +63,9 @@ public final class BottomPanelToolRenderer {
             if (emptyHand) {
                 drawEmptyHandMark(graphics, cellX, rowY, slotSize);
             } else {
-                ItemStack stack = inventory.getItem(cell);
+                ItemStack stack = inventory.getStackInSlot(cell);
                 if (!stack.isEmpty()) {
                     graphics.renderItem(stack, cellX + CONTENT_INSET, rowY + CONTENT_INSET);
-                    graphics.renderItemDecorations(
-                            font, stack, cellX + CONTENT_INSET, rowY + CONTENT_INSET);
                 }
             }
             if (hoveredHotbarCell == cell) {
@@ -169,7 +167,7 @@ public final class BottomPanelToolRenderer {
     }
 
     private static void drawEmptyHandMark(
-            GuiGraphics graphics, int x, int y, int slotSize) {
+            LegacyGuiGraphics graphics, int x, int y, int slotSize) {
         int left = x + (slotSize - EMPTY_HAND_MARK_SIZE) / 2;
         int top = y + (slotSize - EMPTY_HAND_MARK_SIZE) / 2;
         graphics.fill(
@@ -180,7 +178,7 @@ public final class BottomPanelToolRenderer {
     }
 
     private static void fillInside(
-            GuiGraphics graphics, int x, int y, int size, UiColor color) {
+            LegacyGuiGraphics graphics, int x, int y, int size, UiColor color) {
         graphics.fill(
                 x + CONTENT_INSET,
                 y + CONTENT_INSET,
@@ -190,15 +188,15 @@ public final class BottomPanelToolRenderer {
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             String text,
             int x,
             int y,
             int size,
             UiColor color) {
-        int textX = x + (size - font.width(text)) / 2;
-        int textY = y + Math.max(0, (size - font.lineHeight) / 2);
+        int textX = x + (size - font.getStringWidth(text)) / 2;
+        int textY = y + Math.max(0, (size - font.FONT_HEIGHT) / 2);
         graphics.drawString(font, text, textX, textY, argb(color), false);
     }
 

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTab;
@@ -11,8 +12,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelHeaderLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelHeaderStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.FontRenderer;
 
 /**
  * 底栏框体与头部控件的 Minecraft 绘制适配器。
@@ -25,8 +25,8 @@ public final class BottomPanelHeaderRenderer {
     }
 
     public static void render(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BottomPanelHeaderLayout layout,
             BottomBarUiState state,
             UiSelectionAnimationSet<BottomBarUiTab> animations,
@@ -153,7 +153,7 @@ public final class BottomPanelHeaderRenderer {
                 : storageLabel;
     }
 
-    private static String trim(Font font, String text, int width) {
+    private static String trim(FontRenderer font, String text, int width) {
         return RtsClientUiUtil.trimToWidth(
                 font, text == null ? "" : text, Math.max(0, width));
     }
@@ -170,18 +170,18 @@ public final class BottomPanelHeaderRenderer {
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             String text,
             BottomPanelHeaderLayout.Area area,
             UiColor color) {
-        int textX = area.x + (area.width - font.width(text)) / 2;
-        int textY = area.y + Math.max(0, (area.height - font.lineHeight) / 2);
+        int textX = area.x + (area.width - font.getStringWidth(text)) / 2;
+        int textY = area.y + Math.max(0, (area.height - font.FONT_HEIGHT) / 2);
         graphics.drawString(font, text, textX, textY, argb(color), false);
     }
 
     private static void fillInside(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BottomPanelHeaderLayout.Area area,
             UiColor color) {
         int inset = BottomPanelHeaderLayout.TAB_ANIMATION_INSET;
@@ -194,7 +194,7 @@ public final class BottomPanelHeaderRenderer {
     }
 
     private static void fill(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BottomPanelHeaderLayout.Area area,
             UiColor color) {
         graphics.fill(

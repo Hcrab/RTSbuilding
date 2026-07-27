@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelSortLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelSortStyle;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.FontRenderer;
 
 /**
  * 底栏排序与高度按钮的 Minecraft 绘制适配器。
@@ -19,8 +19,8 @@ public final class BottomPanelSortRenderer {
     }
 
     public static void render(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BottomPanelSortLayout layout,
             String sortLabel,
             boolean ascending) {
@@ -36,8 +36,8 @@ public final class BottomPanelSortRenderer {
     }
 
     private static void drawButton(
-            GuiGraphics graphics,
-            Font font,
+            LegacyGuiGraphics graphics,
+            FontRenderer font,
             BottomPanelSortLayout.Area area,
             String label) {
         UiCompactFrameRenderer.frame(
@@ -46,8 +46,8 @@ public final class BottomPanelSortRenderer {
                 BottomPanelSortStyle.BUTTON_BACKGROUND,
                 BottomPanelSortStyle.BUTTON_BORDER_LIGHT,
                 BottomPanelSortStyle.BUTTON_BORDER_DARK);
-        int textX = area.x + (area.width - font.width(label)) / 2;
-        int textY = area.y + Math.max(0, (area.height - font.lineHeight) / 2);
+        int textX = area.x + (area.width - font.getStringWidth(label)) / 2;
+        int textY = area.y + Math.max(0, (area.height - font.FONT_HEIGHT) / 2);
         graphics.drawString(
                 font, label, textX, textY,
                 BottomPanelSortStyle.BUTTON_TEXT.toArgb(),

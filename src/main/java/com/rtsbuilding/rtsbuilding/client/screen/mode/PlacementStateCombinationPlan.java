@@ -1,27 +1,31 @@
 package com.rtsbuilding.rtsbuilding.client.screen.mode;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
  * R 放置轮盘的纯组合与分页规划。
  *
- * <p>本类只处理每个属性有多少候选，不认识 Minecraft 方块、渲染或输入。
- * 各属性的第 0 项约定为当前幽灵值，因此生成结果的第 0 项也是当前完整状态。
- * 独立后可以在不启动 Minecraft registry 的普通单元测试中锁定分页行为。</p>
+ * <p>每个属性的第零项始终代表当前幽灵状态，所以输出的第零项也是原完整状态。
+ * 这里故意不认识 Minecraft 类型，组合边界可以在不启动游戏注册表时验证。</p>
  */
 final class PlacementStateCombinationPlan {
     private PlacementStateCombinationPlan() {
     }
 
     static List<int[]> combinations(List<Integer> optionCounts, int limit) {
-        if (optionCounts == null || optionCounts.isEmpty() || limit <= 0
-                || optionCounts.stream().anyMatch(count -> count == null || count <= 0)) {
-            return List.of();
+        if (optionCounts == null || optionCounts.isEmpty() || limit <= 0) {
+            return Collections.emptyList();
         }
-        List<int[]> result = new ArrayList<>();
+        for (Integer count : optionCounts) {
+            if (count == null || count.intValue() <= 0) {
+                return Collections.emptyList();
+            }
+        }
+        List<int[]> result = new ArrayList<int[]>();
         append(optionCounts, 0, new int[optionCounts.size()], limit, result);
-        return List.copyOf(result);
+        return Collections.unmodifiableList(result);
     }
 
     static int pageCount(int choiceCount, int pageSize) {
@@ -31,12 +35,8 @@ final class PlacementStateCombinationPlan {
         return (choiceCount + pageSize - 1) / pageSize;
     }
 
-    private static void append(
-            List<Integer> optionCounts,
-            int propertyIndex,
-            int[] current,
-            int limit,
-            List<int[]> output) {
+    private static void append(List<Integer> optionCounts, int propertyIndex,
+            int[] current, int limit, List<int[]> output) {
         if (output.size() >= limit) {
             return;
         }
@@ -44,7 +44,8 @@ final class PlacementStateCombinationPlan {
             output.add(current.clone());
             return;
         }
-        for (int optionIndex = 0; optionIndex < optionCounts.get(propertyIndex); optionIndex++) {
+        int count = optionCounts.get(propertyIndex).intValue();
+        for (int optionIndex = 0; optionIndex < count; optionIndex++) {
             current[propertyIndex] = optionIndex;
             append(optionCounts, propertyIndex + 1, current, limit, output);
             if (output.size() >= limit) {
