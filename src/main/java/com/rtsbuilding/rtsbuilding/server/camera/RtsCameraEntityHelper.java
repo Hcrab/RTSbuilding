@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.server.camera;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.Entity;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.world.WorldServer;
 
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -34,8 +34,8 @@ final class RtsCameraEntityHelper {
         if (server == null || cameraUuid == null) {
             return null;
         }
-        for (ServerLevel level : server.getAllLevels()) {
-            Entity entity = level.getEntity(cameraUuid);
+        for (WorldServer level : server.worlds) {
+            Entity entity = level.getEntityFromUuid(cameraUuid);
             if (entity != null) {
                 return entity;
             }
@@ -52,16 +52,18 @@ final class RtsCameraEntityHelper {
      *
      * @param player   目标玩家
      */
-    static void discardOwnedCameras(ServerPlayer player) {
+    static void discardOwnedCameras(EntityPlayerMP player) {
         if (player == null || player.getServer() == null) {
             return;
         }
-        UUID ownerUuid = player.getUUID();
-        for (ServerLevel level : player.getServer().getAllLevels()) {
-            for (Entity entity : level.getAllEntities()) {
-                if (entity instanceof RtsCameraEntity camera
-                        && ownerUuid.equals(camera.getOwnerUuid())) {
-                    camera.discard();
+        UUID ownerUuid = player.getUniqueID();
+        for (WorldServer level : player.getServer().worlds) {
+            for (Entity entity : level.loadedEntityList) {
+                if (entity instanceof RtsCameraEntity) {
+                    RtsCameraEntity camera = (RtsCameraEntity) entity;
+                    if (ownerUuid.equals(camera.getOwnerUuid())) {
+                        camera.setDead();
+                    }
                 }
             }
         }
@@ -83,12 +85,12 @@ final class RtsCameraEntityHelper {
      * @param pitch     俯仰角
      * @return 创建的相机实体
      */
-    static RtsCameraEntity createAndSpawnCamera(ServerLevel level, UUID ownerUuid,
+    static RtsCameraEntity createAndSpawnCamera(WorldServer level, UUID ownerUuid,
             double x, double y, double z, float yaw, float pitch) {
         RtsCameraEntity camera = new RtsCameraEntity(RtsEntities.RTS_CAMERA_ENTITY.get(), level);
         camera.setOwnerUuid(ownerUuid);
         camera.snapTo(x, y, z, yaw, pitch);
-        level.addFreshEntity(camera);
+        level.spawnEntity(camera);
         return camera;
     }
 
@@ -107,10 +109,13 @@ final class RtsCameraEntityHelper {
         if (server == null) {
             return;
         }
-        for (ServerLevel level : server.getAllLevels()) {
-            for (Entity entity : level.getAllEntities()) {
-                if (entity instanceof RtsCameraEntity camera && !isActiveCamera.test(camera.getUUID())) {
-                    camera.discard();
+        for (WorldServer level : server.worlds) {
+            for (Entity entity : level.loadedEntityList) {
+                if (entity instanceof RtsCameraEntity) {
+                    RtsCameraEntity camera = (RtsCameraEntity) entity;
+                    if (!isActiveCamera.test(camera.getUniqueID())) {
+                        camera.setDead();
+                    }
                 }
             }
         }

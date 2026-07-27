@@ -6,11 +6,10 @@ import com.rtsbuilding.rtsbuilding.compat.openpac.RtsOpenPacCompat;
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.scores.PlayerTeam;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.scoreboard.Team;
+import net.minecraft.world.WorldServer;
 
 final class RtsProgressionPersistence {
     static final String NBT_VERSION = "version";
@@ -21,57 +20,67 @@ final class RtsProgressionPersistence {
     private RtsProgressionPersistence() {
     }
 
-    static CompoundTag root(ServerPlayer player) {
-        CompoundTag root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
-        if (root.isEmpty()) {
-            root.putInt(NBT_VERSION, 1);
+    static NBTTagCompound root(EntityPlayerMP player) {
+        NBTTagCompound root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
+        if (root.getKeySet().isEmpty()) {
+            root.setInteger(NBT_VERSION, 1);
             SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PROGRESSION, root);
         }
         return root;
     }
 
-    static void save(ServerPlayer player, CompoundTag root) {
+    static void save(EntityPlayerMP player, NBTTagCompound root) {
         SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PROGRESSION, root);
     }
 
-    static String sharedProgressionKey(ServerPlayer player) {
+    static String sharedProgressionKey(EntityPlayerMP player) {
         return sharedProgressionContext(player).key();
     }
 
-    static String sharedProgressionLabel(ServerPlayer player) {
+    static String sharedProgressionLabel(EntityPlayerMP player) {
         return sharedProgressionContext(player).label();
     }
 
-    static TeamProgressionContext sharedProgressionContext(ServerPlayer player) {
+    static TeamProgressionContext sharedProgressionContext(EntityPlayerMP player) {
         if (!RtsProgressionManager.isEnabled() || player == null
                 || !Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.getAsBoolean()) {
             return TeamProgressionContext.NONE;
         }
         String ftbTeamKey = RtsFtbCompat.progressionTeamKey(player);
-        if (ftbTeamKey != null && !ftbTeamKey.isBlank()) {
+        if (!isBlank(ftbTeamKey)) {
             return new TeamProgressionContext(ftbTeamKey, RtsFtbCompat.progressionTeamLabel(player));
         }
         String openPacTeamKey = RtsOpenPacCompat.progressionTeamKey(player);
-        if (openPacTeamKey != null && !openPacTeamKey.isBlank()) {
+        if (!isBlank(openPacTeamKey)) {
             return new TeamProgressionContext(openPacTeamKey, RtsOpenPacCompat.progressionTeamLabel(player));
         }
-        PlayerTeam vanillaTeam = player.getTeam();
+        Team vanillaTeam = player.getTeam();
         return vanillaTeam == null
                 ? TeamProgressionContext.NONE
                 : new TeamProgressionContext("scoreboard:" + vanillaTeam.getName(), vanillaTeam.getName());
     }
 
-    static RtsSharedProgressionData sharedProgressionData(ServerPlayer player) {
-        ServerLevel overworld = player.getServer().getLevel(Level.OVERWORLD);
-        return RtsSharedProgressionData.get(overworld == null ? player.serverLevel() : overworld);
+    static RtsSharedProgressionData sharedProgressionData(EntityPlayerMP player) {
+        WorldServer overworld = player.getServer().getWorld(0);
+        return RtsSharedProgressionData.get(overworld == null ? player.getServerWorld() : overworld);
     }
 
-    record TeamProgressionContext(String key, String label) {
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    static final class TeamProgressionContext {
         static final TeamProgressionContext NONE = new TeamProgressionContext("", "");
 
-        TeamProgressionContext {
-            key = key == null ? "" : key;
-            label = label == null ? "" : label;
+        private final String key;
+        private final String label;
+
+        TeamProgressionContext(String key, String label) {
+            this.key = key == null ? "" : key;
+            this.label = label == null ? "" : label;
         }
+
+        String key() { return key; }
+        String label() { return label; }
     }
 }

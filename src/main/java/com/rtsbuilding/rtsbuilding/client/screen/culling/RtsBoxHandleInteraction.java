@@ -1,35 +1,25 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.Vec3d;
 
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-/**
- * 六向盒子手柄的共享交互状态。
- *
- * <p>这个类只负责箭头悬停、锁定、二次点击释放，以及把滚轮/拖拽转换成 resize delta。
- * 它不拥有蓝图保存、范围剔除持久化、方块排除列表或世界刷新逻辑。蓝图框选和范围剔除都
- * 调用这一层，避免两个极其相似的箭头交互以后再次写出两套手感。</p>
- */
+/** 共享的六向手柄悬停、锁定、滚轮与拖拽状态；不拥有面板或世界状态。 */
 public final class RtsBoxHandleInteraction {
     private static final double HANDLE_RAY_DISTANCE = 128.0D;
     private static final int FAST_SCROLL_STEP = 4;
     private static final double DRAG_PIXELS_PER_BLOCK = 18.0D;
 
-    private Direction hoveredDirection;
-    private Direction activeDirection;
+    private EnumFacing hoveredDirection;
+    private EnumFacing activeDirection;
     private double dragPixels;
     private boolean draggedActiveHandle;
 
-    public Direction hoveredDirection() {
-        return hoveredDirection;
-    }
-
-    public Direction activeDirection() {
-        return activeDirection;
-    }
+    public EnumFacing hoveredDirection() { return hoveredDirection; }
+    public EnumFacing activeDirection() { return activeDirection; }
 
     public void clear() {
         hoveredDirection = null;
@@ -39,9 +29,7 @@ public final class RtsBoxHandleInteraction {
     }
 
     public boolean releaseActiveHandle() {
-        if (activeDirection == null) {
-            return false;
-        }
+        if (activeDirection == null) return false;
         activeDirection = null;
         dragPixels = 0.0D;
         draggedActiveHandle = false;
@@ -52,30 +40,26 @@ public final class RtsBoxHandleInteraction {
         return draggedActiveHandle && releaseActiveHandle();
     }
 
-    public void updateHover(RtsCullingBox box, Vec3 origin, Vec3 rayDirection, boolean enabled) {
+    public void updateHover(RtsCullingBox box, Vec3d origin, Vec3d rayDirection, boolean enabled) {
         updateHover(box, origin, rayDirection, enabled, null);
     }
 
-    public void updateHover(RtsCullingBox box, Vec3 origin, Vec3 rayDirection, boolean enabled,
-            Set<Direction> allowedDirections) {
+    public void updateHover(RtsCullingBox box, Vec3d origin, Vec3d rayDirection, boolean enabled,
+            Set<EnumFacing> allowedDirections) {
         hoveredDirection = null;
-        if (!enabled || activeDirection != null) {
-            return;
-        }
+        if (!enabled || activeDirection != null) return;
         hoveredDirection = nearestHandle(box, origin, rayDirection, allowedDirections).orElse(null);
     }
 
-    public ClickResult clickHandle(RtsCullingBox box, Vec3 origin, Vec3 rayDirection) {
+    public ClickResult clickHandle(RtsCullingBox box, Vec3d origin, Vec3d rayDirection) {
         return clickHandle(box, origin, rayDirection, null);
     }
 
-    public ClickResult clickHandle(RtsCullingBox box, Vec3 origin, Vec3 rayDirection,
-            Set<Direction> allowedDirections) {
-        Optional<Direction> hit = nearestHandle(box, origin, rayDirection, allowedDirections);
-        if (hit.isEmpty()) {
-            return ClickResult.none();
-        }
-        Direction clicked = hit.get();
+    public ClickResult clickHandle(RtsCullingBox box, Vec3d origin, Vec3d rayDirection,
+            Set<EnumFacing> allowedDirections) {
+        Optional<EnumFacing> hit = nearestHandle(box, origin, rayDirection, allowedDirections);
+        if (!hit.isPresent()) return ClickResult.none();
+        EnumFacing clicked = hit.get();
         hoveredDirection = clicked;
         dragPixels = 0.0D;
         draggedActiveHandle = false;
@@ -88,63 +72,55 @@ public final class RtsBoxHandleInteraction {
     }
 
     public boolean handleScroll(double scrollY, boolean fast, ResizeSink sink) {
-        if (activeDirection == null || sink == null) {
-            return false;
-        }
+        if (activeDirection == null || sink == null) return false;
         int delta = scrollY > 0.0D ? 1 : -1;
-        if (fast) {
-            delta *= FAST_SCROLL_STEP;
-        }
+        if (fast) delta *= FAST_SCROLL_STEP;
         return sink.resize(activeDirection, delta);
     }
 
     public boolean handleDrag(double dragX, double dragY, double axisX, double axisY, ResizeSink sink) {
-        if (activeDirection == null || sink == null) {
-            return false;
-        }
-        if (Math.abs(dragX) + Math.abs(dragY) > 1.0E-4D) {
-            draggedActiveHandle = true;
-        }
+        if (activeDirection == null || sink == null) return false;
+        if (Math.abs(dragX) + Math.abs(dragY) > 1.0E-4D) draggedActiveHandle = true;
         double axisLength = Math.sqrt(axisX * axisX + axisY * axisY);
         if (axisLength < 1.0E-5D) {
             axisX = 0.0D;
             axisY = -1.0D;
             axisLength = 1.0D;
         }
-        double projectedPixels = dragX * (axisX / axisLength) + dragY * (axisY / axisLength);
-        dragPixels += projectedPixels;
+        dragPixels += dragX * (axisX / axisLength) + dragY * (axisY / axisLength);
         int steps = (int) (dragPixels / DRAG_PIXELS_PER_BLOCK);
-        if (steps == 0) {
-            return true;
-        }
+        if (steps == 0) return true;
         dragPixels -= steps * DRAG_PIXELS_PER_BLOCK;
         return sink.resize(activeDirection, steps);
     }
 
-    private static Optional<Direction> nearestHandle(RtsCullingBox box, Vec3 origin, Vec3 rayDirection,
-            Set<Direction> allowedDirections) {
-        return RtsCullingAxisHandle.nearestHit(box, origin, rayDirection, HANDLE_RAY_DISTANCE, allowedDirections)
-                .map(RtsCullingAxisHandle.HandleHit::direction);
+    private static Optional<EnumFacing> nearestHandle(RtsCullingBox box, Vec3d origin,
+            Vec3d rayDirection, Set<EnumFacing> allowedDirections) {
+        Optional<RtsCullingAxisHandle.HandleHit> hit = RtsCullingAxisHandle.nearestHit(
+                box, origin, rayDirection, HANDLE_RAY_DISTANCE, allowedDirections);
+        return hit.isPresent() ? Optional.of(hit.get().direction()) : Optional.<EnumFacing>empty();
     }
 
     @FunctionalInterface
-    public interface ResizeSink {
-        boolean resize(Direction direction, int delta);
-    }
+    public interface ResizeSink { boolean resize(EnumFacing direction, int delta); }
 
-    public enum ClickKind {
-        NONE,
-        SELECTED,
-        RELEASED
-    }
+    public enum ClickKind { NONE, SELECTED, RELEASED }
 
-    public record ClickResult(ClickKind kind, Direction direction) {
-        static ClickResult none() {
-            return new ClickResult(ClickKind.NONE, null);
+    public static final class ClickResult {
+        private final ClickKind kind;
+        private final EnumFacing direction;
+        public ClickResult(ClickKind kind, EnumFacing direction) { this.kind = kind; this.direction = direction; }
+        static ClickResult none() { return new ClickResult(ClickKind.NONE, null); }
+        public ClickKind kind() { return kind; }
+        public EnumFacing direction() { return direction; }
+        public boolean handled() { return kind != ClickKind.NONE; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof ClickResult)) return false;
+            ClickResult that = (ClickResult) other;
+            return kind == that.kind && direction == that.direction;
         }
-
-        public boolean handled() {
-            return kind != ClickKind.NONE;
-        }
+        @Override public int hashCode() { return Objects.hash(kind, direction); }
+        @Override public String toString() { return "ClickResult[kind=" + kind + ", direction=" + direction + "]"; }
     }
 }

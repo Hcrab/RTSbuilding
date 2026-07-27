@@ -1,21 +1,21 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsSetSurvivalProgressionPayload(boolean enabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetSurvivalProgressionPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_survival_progression"));
+/** 管理员切换生存进度规则。权限仍由服务端 handler 校验。 */
+public final class C2SRtsSetSurvivalProgressionPayload implements IMessage {
+    private boolean enabled;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetSurvivalProgressionPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeBoolean(payload.enabled()),
-            buf -> new C2SRtsSetSurvivalProgressionPayload(buf.readBoolean()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsSetSurvivalProgressionPayload() {
     }
+
+    public C2SRtsSetSurvivalProgressionPayload(boolean enabled) {
+        this.enabled = enabled;
+    }
+
+    public boolean enabled() { return this.enabled; }
+
+    @Override public void fromBytes(ByteBuf buffer) { this.enabled = buffer.readBoolean(); }
+    @Override public void toBytes(ByteBuf buffer) { buffer.writeBoolean(this.enabled); }
 }

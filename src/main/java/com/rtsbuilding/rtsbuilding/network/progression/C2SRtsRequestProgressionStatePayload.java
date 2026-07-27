@@ -1,20 +1,13 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsRequestProgressionStatePayload() implements CustomPacketPayload {
-    public static final Type<C2SRtsRequestProgressionStatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_request_progression_state"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsRequestProgressionStatePayload> STREAM_CODEC =
-            StreamCodec.unit(new C2SRtsRequestProgressionStatePayload());
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+/** 请求服务端重新同步当前玩家的生存进度状态。 */
+public final class C2SRtsRequestProgressionStatePayload implements IMessage {
+    public C2SRtsRequestProgressionStatePayload() {
     }
+
+    @Override public void fromBytes(ByteBuf buffer) { }
+    @Override public void toBytes(ByteBuf buffer) { }
 }

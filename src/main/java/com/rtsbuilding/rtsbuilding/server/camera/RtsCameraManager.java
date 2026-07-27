@@ -7,13 +7,15 @@ import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
-import net.minecraft.core.BlockPos;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.WorldServer;
 
 import java.util.Map;
 import java.util.UUID;
@@ -56,8 +58,8 @@ public final class RtsCameraManager {
      * @param player           目标玩家
      * @param startAtPlayerHead 是否从玩家头部高度开始
      */
-    public static void toggle(ServerPlayer player, boolean startAtPlayerHead) {
-        if (SESSIONS.containsKey(player.getUUID())) {
+    public static void toggle(EntityPlayerMP player, boolean startAtPlayerHead) {
+        if (SESSIONS.containsKey(player.getUniqueID())) {
             stop(player);
         } else {
             start(player, startAtPlayerHead);
@@ -69,7 +71,7 @@ public final class RtsCameraManager {
      *
      * @param player 目标玩家
      */
-    public static void start(ServerPlayer player) {
+    public static void start(EntityPlayerMP player) {
         start(player, false);
     }
 
@@ -79,11 +81,11 @@ public final class RtsCameraManager {
      * @param player           目标玩家
      * @param startAtPlayerHead 是否从玩家头部高度开始
      */
-    public static void start(ServerPlayer player, boolean startAtPlayerHead) {
+    public static void start(EntityPlayerMP player, boolean startAtPlayerHead) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+            player.sendStatusMessage(new TextComponentTranslation(
                     "message.rtsbuilding.camera_locked",
-                    net.minecraft.network.chat.Component.translatable("item.rtsbuilding.rts_control_core")), true);
+                    new TextComponentTranslation("item.rtsbuilding.rts_control_core")), true);
             return;
         }
         if (RtsProgressionManager.shouldStartHomeSelection(player)) {
@@ -91,15 +93,14 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canStartNormalRts(player)) {
-            net.minecraft.network.chat.MutableComponent message =
-                    net.minecraft.network.chat.Component.translatable(
+            TextComponentTranslation message = new TextComponentTranslation(
                             RtsProgressionManager.hasHome(player)
                                     ? "message.rtsbuilding.home.too_far"
                                     : "message.rtsbuilding.home.required");
             if (RtsProgressionManager.hasHome(player)) {
-                message.withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD);
+                message.getStyle().setColor(TextFormatting.RED).setBold(Boolean.TRUE);
             }
-            player.displayClientMessage(message, true);
+            player.sendStatusMessage(message, true);
             return;
         }
         startNormal(player, startAtPlayerHead);
@@ -109,34 +110,35 @@ public final class RtsCameraManager {
      * 启动正常 RTS 模式（非家选择）。
      * <p>将锚点对齐到玩家脚下方块中心，并根据半径限制创建相机实体。</p>
      */
-    private static void startNormal(ServerPlayer player, boolean startAtPlayerHead) {
+    private static void startNormal(EntityPlayerMP player, boolean startAtPlayerHead) {
         cleanupOrphanCameras(player.getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
-        ServerLevel level = player.serverLevel();
-        Vec3 playerPos = player.position();
+        WorldServer level = player.getServerWorld();
+        Vec3d playerPos = player.getPositionVector();
         // 将锚点对齐到方块中心，使相机边界与放置边界匹配
-        Vec3 anchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
+        Vec3d anchor = new Vec3d(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
         double maxRadius = RtsProgressionManager.getActionRadius(player);
 
         // 偏航角吸附到 90° 倍数，俯仰角固定 70°
-        float yaw = snapQuarter(player.getYRot());
+        float yaw = snapQuarter(player.rotationYaw);
         float pitch = 70.0F;
         // 相机 Y 坐标：从玩家眼部或锚点上方 18 格
-        double cameraY = startAtPlayerHead ? player.getEyeY() : anchor.y + 18.0D;
+        double cameraY = startAtPlayerHead ? player.posY + player.getEyeHeight() : anchor.y + 18.0D;
 
-        RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUUID(),
+        RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUniqueID(),
                 anchor.x, cameraY, anchor.z, yaw, pitch);
 
         // 记录会话
-        Session session = new Session(camera.getUUID(), anchor, camera.position(), yaw, pitch,
-                camera.getY() - anchor.y, false, maxRadius, startAtPlayerHead);
-        SESSIONS.put(player.getUUID(), session);
+        Session session = new Session(camera.getUniqueID(), anchor,
+                new Vec3d(camera.posX, camera.posY, camera.posZ), yaw, pitch,
+                camera.posY - anchor.y, false, maxRadius, startAtPlayerHead);
+        SESSIONS.put(player.getUniqueID(), session);
         ServiceRegistry.getInstance().session().onRtsEnabled(player);
 
         // 向客户端发送相机状态同步包
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(
                 true,
-                camera.getId(),
+                camera.getEntityId(),
                 anchor.x,
                 anchor.y,
                 anchor.z,
@@ -152,18 +154,18 @@ public final class RtsCameraManager {
      * 从操作面板启动家选择模式。
      * <p>会检查冷却时间等前置条件。</p>
      */
-    public static void startHomeSelectionFromPanel(ServerPlayer player) {
+    public static void startHomeSelectionFromPanel(EntityPlayerMP player) {
         if (!RtsProgressionManager.isEnabled()) {
             return;
         }
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+            player.sendStatusMessage(new TextComponentTranslation(
                     "message.rtsbuilding.camera_locked",
-                    net.minecraft.network.chat.Component.translatable("item.rtsbuilding.rts_control_core")), true);
+                    new TextComponentTranslation("item.rtsbuilding.rts_control_core")), true);
             return;
         }
         if (!RtsProgressionManager.canChangeHome(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+            player.sendStatusMessage(new TextComponentTranslation(
                     "message.rtsbuilding.home.cooldown",
                     RtsProgressionManager.remainingHomeCooldownDays(player)), true);
             return;
@@ -176,34 +178,35 @@ public final class RtsCameraManager {
      * 启动家的选择流程。
      * <p>将锚点对齐到玩家所在区块中心（8, Y, 8），进入家选择会话。</p>
      */
-    private static void startHomeSelection(ServerPlayer player, boolean startAtPlayerHead) {
+    private static void startHomeSelection(EntityPlayerMP player, boolean startAtPlayerHead) {
         cleanupOrphanCameras(player.getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
-        ServerLevel level = player.serverLevel();
-        BlockPos playerPos = player.blockPosition();
+        WorldServer level = player.getServerWorld();
+        BlockPos playerPos = player.getPosition();
         // 计算玩家所在区块的中心坐标
         int centerChunkX = playerPos.getX() >> 4;
         int centerChunkZ = playerPos.getZ() >> 4;
-        Vec3 anchor = new Vec3((centerChunkX << 4) + 8.0D, player.getY(), (centerChunkZ << 4) + 8.0D);
+        Vec3d anchor = new Vec3d((centerChunkX << 4) + 8.0D, player.posY, (centerChunkZ << 4) + 8.0D);
         double maxRadius = RtsProgressionManager.HOME_SELECTION_RADIUS_BLOCKS;
 
-        float yaw = snapQuarter(player.getYRot());
+        float yaw = snapQuarter(player.rotationYaw);
         float pitch = 70.0F;
         double cameraX = anchor.x;
-        double cameraY = startAtPlayerHead ? player.getEyeY() : anchor.y + 18.0D;
+        double cameraY = startAtPlayerHead ? player.posY + player.getEyeHeight() : anchor.y + 18.0D;
         double cameraZ = anchor.z;
 
-        RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUUID(),
+        RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUniqueID(),
                 cameraX, cameraY, cameraZ, yaw, pitch);
 
         RtsProgressionManager.beginHomeSelection(player);
-        Session session = new Session(camera.getUUID(), anchor, camera.position(), yaw, pitch,
-                camera.getY() - anchor.y, true, maxRadius, startAtPlayerHead);
-        SESSIONS.put(player.getUUID(), session);
+        Session session = new Session(camera.getUniqueID(), anchor,
+                new Vec3d(camera.posX, camera.posY, camera.posZ), yaw, pitch,
+                camera.posY - anchor.y, true, maxRadius, startAtPlayerHead);
+        SESSIONS.put(player.getUniqueID(), session);
 
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(
                 true,
-                camera.getId(),
+                camera.getEntityId(),
                 anchor.x,
                 anchor.y,
                 anchor.z,
@@ -218,12 +221,12 @@ public final class RtsCameraManager {
     /**
      * 停止 RTS 相机。<p>移除会话、丢弃相机实体，并向客户端发送关闭状态包。</p>
      */
-    public static void stop(ServerPlayer player) {
-        Session session = SESSIONS.remove(player.getUUID());
+    public static void stop(EntityPlayerMP player) {
+        Session session = SESSIONS.remove(player.getUniqueID());
         if (session != null) {
             Entity entity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
             if (entity != null) {
-                entity.discard();
+                entity.setDead();
             }
             // 如果当前是家选择模式，结束家选择流程
             if (session.homeSelection()) {
@@ -241,24 +244,24 @@ public final class RtsCameraManager {
      * 从家选择模式结束后直接启动正常 RTS 模式。
      * <p>丢弃旧的家选择相机，创建新的正常模式相机。</p>
      */
-    public static void restartNormalFromHomeSelection(ServerPlayer player) {
-        Session session = SESSIONS.get(player.getUUID());
+    public static void restartNormalFromHomeSelection(EntityPlayerMP player) {
+        Session session = SESSIONS.get(player.getUniqueID());
         if (session == null || !session.homeSelection()) {
             return;
         }
         Entity entity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
         if (entity != null) {
-            entity.discard();
+            entity.setDead();
         }
-        SESSIONS.remove(player.getUUID());
+        SESSIONS.remove(player.getUniqueID());
         startNormal(player, session.closeRangeAllowed());
     }
 
     /**
      * 如果玩家有活跃相机，则停止它。
      */
-    public static void stopIfActive(ServerPlayer player) {
-        if (SESSIONS.containsKey(player.getUUID())) {
+    public static void stopIfActive(EntityPlayerMP player) {
+        if (SESSIONS.containsKey(player.getUniqueID())) {
             stop(player);
         }
     }
@@ -266,8 +269,8 @@ public final class RtsCameraManager {
     /**
      * 判断玩家是否拥有活跃的 RTS 相机。
      */
-    public static boolean isActive(ServerPlayer player) {
-        return SESSIONS.containsKey(player.getUUID());
+    public static boolean isActive(EntityPlayerMP player) {
+        return SESSIONS.containsKey(player.getUniqueID());
     }
 
     /**
@@ -275,8 +278,8 @@ public final class RtsCameraManager {
      *
      * @return 相机位置，若相机未激活则返回 {@code null}
      */
-    public static Vec3 getCameraPosition(ServerPlayer player) {
-        Session session = SESSIONS.get(player.getUUID());
+    public static Vec3d getCameraPosition(EntityPlayerMP player) {
+        Session session = SESSIONS.get(player.getUniqueID());
         return session != null ? session.cameraPos() : null;
     }
 
@@ -288,8 +291,8 @@ public final class RtsCameraManager {
      * @param pos    待检测的方块位置
      * @return 是否在动作范围内
      */
-    public static boolean isWithinActionRange(ServerPlayer player, BlockPos pos) {
-        Session session = SESSIONS.get(player.getUUID());
+    public static boolean isWithinActionRange(EntityPlayerMP player, BlockPos pos) {
+        Session session = SESSIONS.get(player.getUniqueID());
         if (session == null || pos == null || session.homeSelection()) {
             return false;
         }
@@ -315,28 +318,28 @@ public final class RtsCameraManager {
      * @param rotateSteps 旋转步数（90° 倍数吸附）
      * @param fast       是否启用快速移动
      */
-    public static void move(ServerPlayer player, float forward, float strafe, float vertical, float panX, float panY, float rotateX,
+    public static void move(EntityPlayerMP player, float forward, float strafe, float vertical, float panX, float panY, float rotateX,
             float rotateY, float scroll, int rotateSteps, boolean fast) {
-        Session session = SESSIONS.get(player.getUUID());
+        Session session = SESSIONS.get(player.getUniqueID());
         if (session == null) {
             return;
         }
 
         // 更新锚点以跟随玩家实体的当前位置
-        Vec3 playerPos = player.position();
-        Vec3 newAnchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
+        Vec3d playerPos = player.getPositionVector();
+        Vec3d newAnchor = new Vec3d(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
 
         RtsCameraEntity camera = getOrRestoreCamera(player, session);
 
-        float safeRotateX = Mth.clamp(rotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
-        float safeRotateY = Mth.clamp(rotateY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float safeRotateX = MathHelper.clamp(rotateX, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
+        float safeRotateY = MathHelper.clamp(rotateY, -ROT_INPUT_CLAMP, ROT_INPUT_CLAMP);
 
         float yaw = session.yawDeg() + (safeRotateX * ROTATE_GAIN_X);
         if (rotateSteps != 0) {
             yaw = snapQuarter(yaw + (90.0F * rotateSteps));
         }
 
-        float pitch = Mth.clamp(session.pitchDeg() + (safeRotateY * ROTATE_GAIN_Y), MIN_PITCH, MAX_PITCH);
+        float pitch = MathHelper.clamp(session.pitchDeg() + (safeRotateY * ROTATE_GAIN_Y), MIN_PITCH, MAX_PITCH);
 
         double speed = fast ? 0.80D : 0.45D;
 
@@ -344,11 +347,11 @@ public final class RtsCameraManager {
         double sin = Math.sin(yawRad);
         double cos = Math.cos(yawRad);
 
-        double targetX = camera.getX();
-        double targetY = camera.getY();
-        double targetZ = camera.getZ();
+        double targetX = camera.posX;
+        double targetY = camera.posY;
+        double targetZ = camera.posZ;
 
-        float safeVertical = Mth.clamp(vertical, -1.0F, 1.0F);
+        float safeVertical = MathHelper.clamp(vertical, -1.0F, 1.0F);
         double dx = (-sin * forward + cos * strafe) * speed;
         double dz = (cos * forward + sin * strafe) * speed;
 
@@ -383,17 +386,17 @@ public final class RtsCameraManager {
 
         // 将相机移动限制在更新后的玩家跟随锚点范围内
         double halfExtent = actionHalfExtent(player, session);
-        targetX = Mth.clamp(targetX, newAnchor.x - halfExtent, newAnchor.x + halfExtent);
-        targetZ = Mth.clamp(targetZ, newAnchor.z - halfExtent, newAnchor.z + halfExtent);
+        targetX = MathHelper.clamp(targetX, newAnchor.x - halfExtent, newAnchor.x + halfExtent);
+        targetZ = MathHelper.clamp(targetZ, newAnchor.z - halfExtent, newAnchor.z + halfExtent);
 
-        targetY = Mth.clamp(targetY, newAnchor.y + MIN_HEIGHT, newAnchor.y + MAX_HEIGHT);
+        targetY = MathHelper.clamp(targetY, newAnchor.y + MIN_HEIGHT, newAnchor.y + MAX_HEIGHT);
 
         // 保持移动边界为正方形，与可见的建筑边界一致
 
         camera.snapTo(targetX, targetY, targetZ, yaw, pitch);
 
         double heightOffset = targetY - newAnchor.y;
-        SESSIONS.put(player.getUUID(), new Session(camera.getUUID(), newAnchor, new Vec3(targetX, targetY, targetZ),
+        SESSIONS.put(player.getUniqueID(), new Session(camera.getUniqueID(), newAnchor, new Vec3d(targetX, targetY, targetZ),
                 yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed()));
 
         // 通知客户端更新后的锚点位置，使可视边界保持同步
@@ -405,29 +408,30 @@ public final class RtsCameraManager {
      * 获取或恢复相机实体。<p>如果相机丢失（因维度切换等），则按上次记录的会话状态重新创建。</p>
      */
     @SuppressWarnings("resource")
-    private static RtsCameraEntity getOrRestoreCamera(ServerPlayer player, Session session) {
+    private static RtsCameraEntity getOrRestoreCamera(EntityPlayerMP player, Session session) {
         Entity baseEntity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
-        if (baseEntity instanceof RtsCameraEntity camera && baseEntity.level() == player.serverLevel()) {
+        if (baseEntity instanceof RtsCameraEntity && baseEntity.world == player.getServerWorld()) {
+            RtsCameraEntity camera = (RtsCameraEntity) baseEntity;
             if (camera.getOwnerUuid() == null) {
-                camera.setOwnerUuid(player.getUUID());
+                camera.setOwnerUuid(player.getUniqueID());
             }
-            if (!player.getUUID().equals(camera.getOwnerUuid())) {
-                camera.discard();
+            if (!player.getUniqueID().equals(camera.getOwnerUuid())) {
+                camera.setDead();
             } else {
                 return camera;
             }
         }
 
         if (baseEntity != null) {
-            baseEntity.discard();
+            baseEntity.setDead();
         }
 
-        Vec3 cameraPos = session.cameraPos();
-        RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.serverLevel(), player.getUUID(),
+        Vec3d cameraPos = session.cameraPos();
+        RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.getServerWorld(), player.getUniqueID(),
                 cameraPos.x, cameraPos.y, cameraPos.z, session.yawDeg(), session.pitchDeg());
 
-        SESSIONS.put(player.getUUID(), new Session(
-                restored.getUUID(),
+        SESSIONS.put(player.getUniqueID(), new Session(
+                restored.getUniqueID(),
                 session.anchor(),
                 cameraPos,
                 session.yawDeg(),
@@ -439,7 +443,7 @@ public final class RtsCameraManager {
 
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsCameraStatePayload(
                 true,
-                restored.getId(),
+                restored.getEntityId(),
                 session.anchor().x,
                 session.anchor().y,
                 session.anchor().z,
@@ -472,7 +476,7 @@ public final class RtsCameraManager {
     /**
      * 计算最大动作半径。<p>家选择模式下使用固定半径，否则从进度管理器获取。</p>
      */
-    private static double maxRadius(ServerPlayer player, Session session) {
+    private static double maxRadius(EntityPlayerMP player, Session session) {
         if (session.homeSelection()) {
             return session.maxRadius();
         }
@@ -482,7 +486,7 @@ public final class RtsCameraManager {
     /**
      * 以锚点为中心的 AABB 半边长。<p>当前实现直接返回 maxRadius（正方形边界）。</p>
      */
-    private static double actionHalfExtent(ServerPlayer player, Session session) {
+    private static double actionHalfExtent(EntityPlayerMP player, Session session) {
         return maxRadius(player, session);
     }
 
@@ -507,7 +511,38 @@ public final class RtsCameraManager {
      * @param maxRadius        最大动作半径
      * @param closeRangeAllowed 是否允许近距开始
      */
-    private record Session(UUID cameraUuid, Vec3 anchor, Vec3 cameraPos, float yawDeg, float pitchDeg,
-                           double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed) {
+    private static final class Session {
+        private final UUID cameraUuid;
+        private final Vec3d anchor;
+        private final Vec3d cameraPos;
+        private final float yawDeg;
+        private final float pitchDeg;
+        private final double heightOffset;
+        private final boolean homeSelection;
+        private final double maxRadius;
+        private final boolean closeRangeAllowed;
+
+        private Session(UUID cameraUuid, Vec3d anchor, Vec3d cameraPos, float yawDeg, float pitchDeg,
+                double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed) {
+            this.cameraUuid = cameraUuid;
+            this.anchor = anchor;
+            this.cameraPos = cameraPos;
+            this.yawDeg = yawDeg;
+            this.pitchDeg = pitchDeg;
+            this.heightOffset = heightOffset;
+            this.homeSelection = homeSelection;
+            this.maxRadius = maxRadius;
+            this.closeRangeAllowed = closeRangeAllowed;
+        }
+
+        UUID cameraUuid() { return cameraUuid; }
+        Vec3d anchor() { return anchor; }
+        Vec3d cameraPos() { return cameraPos; }
+        float yawDeg() { return yawDeg; }
+        float pitchDeg() { return pitchDeg; }
+        double heightOffset() { return heightOffset; }
+        boolean homeSelection() { return homeSelection; }
+        double maxRadius() { return maxRadius; }
+        boolean closeRangeAllowed() { return closeRangeAllowed; }
     }
 }

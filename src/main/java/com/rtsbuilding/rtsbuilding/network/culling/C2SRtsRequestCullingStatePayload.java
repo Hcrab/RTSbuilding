@@ -1,19 +1,11 @@
 package com.rtsbuilding.rtsbuilding.network.culling;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsRequestCullingStatePayload() implements CustomPacketPayload {
-    public static final Type<C2SRtsRequestCullingStatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_request_culling_state"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsRequestCullingStatePayload> STREAM_CODEC =
-            StreamCodec.unit(new C2SRtsRequestCullingStatePayload());
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+/** 请求当前玩家、当前维度的剔除状态。 */
+public final class C2SRtsRequestCullingStatePayload implements IMessage {
+    public C2SRtsRequestCullingStatePayload() { }
+    @Override public void fromBytes(ByteBuf buf) { }
+    @Override public void toBytes(ByteBuf buf) { }
 }

@@ -1,16 +1,16 @@
 package com.rtsbuilding.rtsbuilding.server.network;
 
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 /**
  * 服务端到客户端 RTS 自定义包的统一出口。
  *
- * <p>正常游戏中直接委托给 NeoForge 的 {@link PacketDistributor}。GameTest server 使用
- * embedded mock player，它没有真实客户端握手，向它发送自定义 S2C payload 会让测试因为
- * 网络层限制而失败。这里跳过 GameTest 假客户端同步，让 server smoke test 专注验证服务端链路状态。</p>
+ * <p>正常游戏中委托给 1.12.2 的统一 SimpleNetworkWrapper 出口。自动化测试若使用没有
+ * 客户端握手的假玩家，则继续按服务器实现类名跳过发送，让服务端行为测试专注于业务链路；
+ * 普通专用服务器玩家不会进入这条跳过路径。</p>
  */
 public final class RtsClientboundPackets {
     private static final String GAMETEST_SERVER_CLASS = "net.minecraft.gametest.framework.GameTestServer";
@@ -18,14 +18,14 @@ public final class RtsClientboundPackets {
     private RtsClientboundPackets() {
     }
 
-    public static void sendToPlayer(ServerPlayer player, CustomPacketPayload payload) {
+    public static void sendToPlayer(EntityPlayerMP player, IMessage payload) {
         if (player == null || payload == null || isGameTestServerPlayer(player)) {
             return;
         }
-        PacketDistributor.sendToPlayer(player, payload);
+        RtsPayloadRegistrar.sendToPlayer(player, payload);
     }
 
-    public static boolean isGameTestServerPlayer(ServerPlayer player) {
+    public static boolean isGameTestServerPlayer(EntityPlayerMP player) {
         MinecraftServer server = player == null ? null : player.getServer();
         return server != null && GAMETEST_SERVER_CLASS.equals(server.getClass().getName());
     }

@@ -1,59 +1,58 @@
 package com.rtsbuilding.rtsbuilding.network.culling;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-/** 范围剔除状态包的有界编解码工具，避免客户端提交无上限坐标列表。 */
+/** 1.12 ByteBuf 的有界剔除状态 codec。 */
 final class RtsCullingPayloadCodec {
     static final int MAX_BOXES = 128;
     static final int MAX_REVEALED_BLOCKS = 4096;
+    private RtsCullingPayloadCodec() { }
 
-    private RtsCullingPayloadCodec() {
-    }
-
-    static void write(RegistryFriendlyByteBuf buf, List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
-        List<RtsCullingBoxSnapshot> safeBoxes = boxes == null ? List.of() : boxes;
+    static void write(ByteBuf buf, List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
+        List<RtsCullingBoxSnapshot> safeBoxes = boxes == null
+                ? Collections.<RtsCullingBoxSnapshot>emptyList() : boxes;
         int boxCount = Math.min(MAX_BOXES, safeBoxes.size());
-        buf.writeVarInt(boxCount);
-        for (int index = 0; index < boxCount; index++) {
-            RtsCullingBoxSnapshot box = safeBoxes.get(index);
-            buf.writeBlockPos(box.min());
-            buf.writeBlockPos(box.max());
+        RtsPacketBuffer.writeVarInt(buf, boxCount);
+        for (int i = 0; i < boxCount; i++) {
+            writePos(buf, safeBoxes.get(i).min());
+            writePos(buf, safeBoxes.get(i).max());
         }
-
-        List<BlockPos> safeRevealed = revealed == null ? List.of() : revealed;
+        List<BlockPos> safeRevealed = revealed == null ? Collections.<BlockPos>emptyList() : revealed;
         int revealedCount = Math.min(MAX_REVEALED_BLOCKS, safeRevealed.size());
-        buf.writeVarInt(revealedCount);
-        for (int index = 0; index < revealedCount; index++) {
-            buf.writeBlockPos(safeRevealed.get(index));
-        }
+        RtsPacketBuffer.writeVarInt(buf, revealedCount);
+        for (int i = 0; i < revealedCount; i++) writePos(buf, safeRevealed.get(i));
     }
 
-    static Decoded read(RegistryFriendlyByteBuf buf) {
-        int boxCount = readBoundedCount(buf, MAX_BOXES, "range-culling boxes");
-        List<RtsCullingBoxSnapshot> boxes = new ArrayList<>(boxCount);
-        for (int index = 0; index < boxCount; index++) {
-            boxes.add(new RtsCullingBoxSnapshot(buf.readBlockPos(), buf.readBlockPos()));
-        }
-        int revealedCount = readBoundedCount(buf, MAX_REVEALED_BLOCKS, "range-culling revealed blocks");
-        List<BlockPos> revealed = new ArrayList<>(revealedCount);
-        for (int index = 0; index < revealedCount; index++) {
-            revealed.add(buf.readBlockPos());
-        }
-        return new Decoded(List.copyOf(boxes), List.copyOf(revealed));
+    static Decoded read(ByteBuf buf) {
+        int boxCount = RtsPacketBuffer.readBoundedCount(buf, MAX_BOXES, "culling boxes");
+        List<RtsCullingBoxSnapshot> boxes = new ArrayList<RtsCullingBoxSnapshot>(boxCount);
+        for (int i = 0; i < boxCount; i++) boxes.add(new RtsCullingBoxSnapshot(readPos(buf), readPos(buf)));
+        int revealedCount = RtsPacketBuffer.readBoundedCount(buf, MAX_REVEALED_BLOCKS, "revealed blocks");
+        List<BlockPos> revealed = new ArrayList<BlockPos>(revealedCount);
+        for (int i = 0; i < revealedCount; i++) revealed.add(readPos(buf));
+        return new Decoded(boxes, revealed);
     }
 
-    private static int readBoundedCount(RegistryFriendlyByteBuf buf, int maximum, String label) {
-        int count = buf.readVarInt();
-        if (count < 0 || count > maximum) {
-            throw new IllegalArgumentException(label + " count out of bounds: " + count);
-        }
-        return count;
+    private static void writePos(ByteBuf buf, BlockPos pos) {
+        BlockPos safe = pos == null ? BlockPos.ORIGIN : pos;
+        buf.writeLong(safe.toLong());
     }
+    private static BlockPos readPos(ByteBuf buf) { return BlockPos.fromLong(buf.readLong()); }
 
-    record Decoded(List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
+    static final class Decoded {
+        private final List<RtsCullingBoxSnapshot> boxes;
+        private final List<BlockPos> revealed;
+        Decoded(List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
+            this.boxes = Collections.unmodifiableList(new ArrayList<RtsCullingBoxSnapshot>(boxes));
+            this.revealed = Collections.unmodifiableList(new ArrayList<BlockPos>(revealed));
+        }
+        List<RtsCullingBoxSnapshot> boxes() { return boxes; }
+        List<BlockPos> revealed() { return revealed; }
     }
 }

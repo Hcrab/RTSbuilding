@@ -2,16 +2,17 @@ package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderInvalidator;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import org.lwjgl.input.Keyboard;
 
 import java.util.Comparator;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -31,6 +32,9 @@ public final class RtsCullingManager {
     private static final int DEFAULT_HEIGHT = 0;
     private static final int FAST_SCROLL_STEP = 4;
     private static final int MAX_HEIGHT_OFFSET = 255;
+    private static final Runnable NO_OP = new Runnable() {
+        @Override public void run() { }
+    };
 
     private final RtsBoxHandleInteraction handleInteraction = new RtsBoxHandleInteraction();
     private final RtsSelectionBoxAnimator boxAnimator = new RtsSelectionBoxAnimator();
@@ -44,7 +48,7 @@ public final class RtsCullingManager {
     private BlockPos secondCorner;
     private int previewHeight = DEFAULT_HEIGHT;
     private Phase phase = Phase.IDLE;
-    private Runnable stateChangeListener = () -> { };
+    private Runnable stateChangeListener = NO_OP;
 
     public boolean isManagementMode() {
         return managementMode;
@@ -55,16 +59,16 @@ public final class RtsCullingManager {
     }
 
     public List<RtsCullingBox> boxes() {
-        return List.copyOf(boxes);
+        return Collections.unmodifiableList(new ArrayList<RtsCullingBox>(boxes));
     }
 
     public List<BlockPos> revealedBlocks() {
-        return List.copyOf(revealedBlocks);
+        return Collections.unmodifiableList(new ArrayList<BlockPos>(revealedBlocks));
     }
 
     /** 设置正式剔除状态变化后的持久化回调；草稿移动不会触发保存。 */
     public void setStateChangeListener(Runnable listener) {
-        this.stateChangeListener = listener == null ? () -> { } : listener;
+        this.stateChangeListener = listener == null ? NO_OP : listener;
     }
 
     public Optional<RtsCullingBox> selectedBox() {
@@ -79,11 +83,11 @@ public final class RtsCullingManager {
         return hoveredId;
     }
 
-    public Direction hoveredHandleDirection() {
+    public EnumFacing hoveredHandleDirection() {
         return handleInteraction.hoveredDirection();
     }
 
-    public Direction activeHandleDirection() {
+    public EnumFacing activeHandleDirection() {
         return handleInteraction.activeDirection();
     }
 
@@ -103,7 +107,7 @@ public final class RtsCullingManager {
         return RtsCullingBox.fromDiagonal(0, firstCorner, second, previewHeight);
     }
 
-    public AABB renderAabb(RtsCullingBox box) {
+    public AxisAlignedBB renderAabb(RtsCullingBox box) {
         return boxAnimator.renderAabb(box);
     }
 
@@ -144,7 +148,7 @@ public final class RtsCullingManager {
         markAllBoxesDirty();
     }
 
-    public void updateHover(Vec3 origin, Vec3 direction) {
+    public void updateHover(Vec3d origin, Vec3d direction) {
         if (!managementMode) {
             this.hoveredId = -1;
             this.handleInteraction.clear();
@@ -163,7 +167,7 @@ public final class RtsCullingManager {
                 .orElse(-1);
     }
 
-    public boolean handleWorldAction(BlockHitResult hit, Vec3 origin, Vec3 direction) {
+    public boolean handleWorldAction(RayTraceResult hit, Vec3d origin, Vec3d direction) {
         if (!managementMode) {
             return false;
         }
@@ -187,31 +191,32 @@ public final class RtsCullingManager {
         if (phase == Phase.IDLE && selectHoveredBoxIfPresent()) {
             return true;
         }
-        if (hit == null || hit.getType() != HitResult.Type.BLOCK) {
+        if (hit == null || hit.typeOfHit != RayTraceResult.Type.BLOCK) {
             return true;
         }
         RtsCullingBox oldPreview = previewBox();
         BlockPos pos = hit.getBlockPos();
         switch (phase) {
-            case IDLE -> {
+            case IDLE:
                 this.firstCorner = pos;
                 this.secondCorner = null;
                 this.previewHeight = DEFAULT_HEIGHT;
                 this.selectedId = -1;
                 this.handleInteraction.clear();
                 this.phase = Phase.NEED_SECOND;
-            }
-            case NEED_SECOND -> {
+                break;
+            case NEED_SECOND:
                 this.secondCorner = new BlockPos(pos.getX(), firstCorner.getY(), pos.getZ());
                 this.phase = Phase.NEED_HEIGHT;
                 markBoxDirty(oldPreview);
                 markBoxDirty(previewBox());
-            }
-            case NEED_HEIGHT -> {
+                break;
+            case NEED_HEIGHT:
                 this.secondCorner = new BlockPos(pos.getX(), firstCorner.getY(), pos.getZ());
                 markBoxDirty(oldPreview);
                 markBoxDirty(previewBox());
-            }
+                break;
+            default: throw new AssertionError(phase);
         }
         return true;
     }
@@ -228,7 +233,7 @@ public final class RtsCullingManager {
             delta *= FAST_SCROLL_STEP;
         }
         RtsCullingBox oldPreview = previewBox();
-        this.previewHeight = Mth.clamp(this.previewHeight + delta, -MAX_HEIGHT_OFFSET, MAX_HEIGHT_OFFSET);
+        this.previewHeight = MathHelper.clamp(this.previewHeight + delta, -MAX_HEIGHT_OFFSET, MAX_HEIGHT_OFFSET);
         markBoxDirty(oldPreview);
         markBoxDirty(previewBox());
         return true;
@@ -261,13 +266,13 @@ public final class RtsCullingManager {
         if (!managementMode) {
             return false;
         }
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             return confirmDraft();
         }
-        if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+        if (keyCode == Keyboard.KEY_DELETE || keyCode == Keyboard.KEY_BACK) {
             return deleteSelected();
         }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE) {
             if (this.handleInteraction.releaseActiveHandle()) {
                 return true;
             } else if (phase != Phase.IDLE) {
@@ -310,7 +315,7 @@ public final class RtsCullingManager {
         return true;
     }
 
-    public void adjustSelectedDimension(Direction.Axis axis, int delta) {
+    public void adjustSelectedDimension(EnumFacing.Axis axis, int delta) {
         if (selectedId < 0 || delta == 0) {
             return;
         }
@@ -329,7 +334,7 @@ public final class RtsCullingManager {
         }
     }
 
-    public boolean adjustSelectedFromHandle(Direction direction, int delta) {
+    public boolean adjustSelectedFromHandle(EnumFacing direction, int delta) {
         if (selectedId < 0 || direction == null || delta == 0) {
             return false;
         }
@@ -360,8 +365,8 @@ public final class RtsCullingManager {
             }
             RtsCullingBox moved = new RtsCullingBox(
                     box.id(),
-                    box.min().offset(dx, dy, dz),
-                    box.max().offset(dx, dy, dz));
+                    box.min().add(dx, dy, dz),
+                    box.max().add(dx, dy, dz));
             boxAnimator.animate(box, moved);
             boxes.set(i, moved);
             markBoxDirty(box);
@@ -377,7 +382,7 @@ public final class RtsCullingManager {
         if ((!hasWorldCullBoxes() && preview == null) || pos == null) {
             return false;
         }
-        BlockPos immutable = pos.immutable();
+        BlockPos immutable = pos.toImmutable();
         if (revealedBlocks.contains(immutable)) {
             return false;
         }
@@ -387,7 +392,7 @@ public final class RtsCullingManager {
         return preview != null && preview.contains(immutable);
     }
 
-    public double distanceAfterCulledBlock(Vec3 origin, Vec3 direction, BlockPos pos, double maxDistance) {
+    public double distanceAfterCulledBlock(Vec3d origin, Vec3d direction, BlockPos pos, double maxDistance) {
         RtsCullingBox preview = activePreviewBox();
         if ((!hasWorldCullBoxes() && preview == null) || origin == null || direction == null || pos == null) {
             return -1.0D;
@@ -396,7 +401,7 @@ public final class RtsCullingManager {
         if (preview != null && preview.contains(pos)) {
             RtsCullingBox.RayHit previewHit = preview.rayHit(origin, direction, maxDistance);
             if (previewHit != null) {
-                double previewDistance = Mth.clamp(previewHit.exitDistance() + RAY_SKIP_EPSILON, 0.0D, maxDistance);
+                double previewDistance = MathHelper.clamp(previewHit.exitDistance() + RAY_SKIP_EPSILON, 0.0D, maxDistance);
                 best = best < 0.0D ? previewDistance : Math.min(best, previewDistance);
             }
         }
@@ -407,7 +412,7 @@ public final class RtsCullingManager {
         if (pos == null) {
             return;
         }
-        BlockPos immutable = pos.immutable();
+        BlockPos immutable = pos.toImmutable();
         if (!isInsideAnyCullVolume(immutable)) {
             return;
         }
@@ -456,7 +461,7 @@ public final class RtsCullingManager {
         if (restoredRevealedBlocks != null) {
             restoredRevealedBlocks.stream()
                     .filter(java.util.Objects::nonNull)
-                    .map(BlockPos::immutable)
+                    .map(BlockPos::toImmutable)
                     .forEach(this.revealedBlocks::add);
         }
         refreshWorldCullRendering();
@@ -466,13 +471,13 @@ public final class RtsCullingManager {
         stateChangeListener.run();
     }
 
-    private double distanceAfterCulledBlockIn(List<RtsCullingBox> candidates, Vec3 origin, Vec3 direction,
+    private double distanceAfterCulledBlockIn(List<RtsCullingBox> candidates, Vec3d origin, Vec3d direction,
             BlockPos pos, double maxDistance) {
         return candidates.stream()
                 .filter(box -> box.contains(pos))
                 .map(box -> box.rayHit(origin, direction, maxDistance))
                 .filter(hit -> hit != null)
-                .map(hit -> Mth.clamp(hit.exitDistance() + RAY_SKIP_EPSILON, 0.0D, maxDistance))
+                .map(hit -> MathHelper.clamp(hit.exitDistance() + RAY_SKIP_EPSILON, 0.0D, maxDistance))
                 .min(Double::compareTo)
                 .orElse(-1.0D);
     }
@@ -496,7 +501,7 @@ public final class RtsCullingManager {
         return boxes.stream().filter(box -> box.id() == id).findFirst();
     }
 
-    private Optional<RtsCullingBox.RayHit> nearestHit(Vec3 origin, Vec3 direction) {
+    private Optional<RtsCullingBox.RayHit> nearestHit(Vec3d origin, Vec3d direction) {
         if (origin == null || direction == null) {
             return Optional.empty();
         }
@@ -511,7 +516,7 @@ public final class RtsCullingManager {
             return false;
         }
         Optional<RtsCullingBox> hovered = boxById(hoveredId);
-        if (hovered.isEmpty()) {
+        if (!hovered.isPresent()) {
             hoveredId = -1;
             return false;
         }

@@ -1,24 +1,24 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsQuestDetectPayload(byte mode) implements CustomPacketPayload {
+/** 请求服务端执行一次任务检测。 */
+public final class C2SRtsQuestDetectPayload implements IMessage {
     public static final byte MODE_MANUAL = 0;
 
-    public static final Type<C2SRtsQuestDetectPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_quest_detect"));
+    private byte mode;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsQuestDetectPayload> STREAM_CODEC =
-            StreamCodec.of(
-                    (buf, payload) -> buf.writeByte(payload.mode()),
-                    (buf) -> new C2SRtsQuestDetectPayload(buf.readByte()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsQuestDetectPayload() {
     }
+
+    public C2SRtsQuestDetectPayload(byte mode) {
+        this.mode = mode;
+    }
+
+    public byte mode() { return this.mode; }
+    public boolean isValid() { return this.mode == MODE_MANUAL; }
+
+    @Override public void fromBytes(ByteBuf buffer) { this.mode = buffer.readByte(); }
+    @Override public void toBytes(ByteBuf buffer) { buffer.writeByte(this.mode); }
 }

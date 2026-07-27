@@ -1,39 +1,40 @@
 package com.rtsbuilding.rtsbuilding.network.culling;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-public record S2CRtsCullingStatePayload(
-        String dimension,
-        List<RtsCullingBoxSnapshot> boxes,
-        List<BlockPos> revealed) implements CustomPacketPayload {
-    public static final Type<S2CRtsCullingStatePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_culling_state"));
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsCullingStatePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeUtf(payload.dimension(), 128);
-                RtsCullingPayloadCodec.write(buf, payload.boxes(), payload.revealed());
-            },
-            buf -> {
-                String dimension = buf.readUtf(128);
-                RtsCullingPayloadCodec.Decoded decoded = RtsCullingPayloadCodec.read(buf);
-                return new S2CRtsCullingStatePayload(dimension, decoded.boxes(), decoded.revealed());
-            });
+/** 服务端返回当前玩家、当前维度的剔除状态。 */
+public final class S2CRtsCullingStatePayload implements IMessage {
+    private static final int MAX_DIMENSION_CHARS = 128;
+    private String dimension = "";
+    private List<RtsCullingBoxSnapshot> boxes = Collections.emptyList();
+    private List<BlockPos> revealed = Collections.emptyList();
 
-    public S2CRtsCullingStatePayload {
-        dimension = dimension == null ? "" : dimension;
-        boxes = boxes == null ? List.of() : List.copyOf(boxes);
-        revealed = revealed == null ? List.of() : List.copyOf(revealed);
+    public S2CRtsCullingStatePayload() { }
+    public S2CRtsCullingStatePayload(String dimension, List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {
+        this.dimension = dimension == null ? "" : dimension;
+        this.boxes = boxes == null ? Collections.<RtsCullingBoxSnapshot>emptyList()
+                : Collections.unmodifiableList(new ArrayList<RtsCullingBoxSnapshot>(boxes));
+        this.revealed = revealed == null ? Collections.<BlockPos>emptyList()
+                : Collections.unmodifiableList(new ArrayList<BlockPos>(revealed));
     }
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public String dimension() { return dimension; }
+    public List<RtsCullingBoxSnapshot> boxes() { return boxes; }
+    public List<BlockPos> revealed() { return revealed; }
+    @Override public void fromBytes(ByteBuf buf) {
+        dimension = RtsPacketBuffer.readString(buf, MAX_DIMENSION_CHARS, "dimension");
+        RtsCullingPayloadCodec.Decoded decoded = RtsCullingPayloadCodec.read(buf);
+        boxes = decoded.boxes();
+        revealed = decoded.revealed();
+    }
+    @Override public void toBytes(ByteBuf buf) {
+        RtsPacketBuffer.writeString(buf, dimension, MAX_DIMENSION_CHARS, "dimension");
+        RtsCullingPayloadCodec.write(buf, boxes, revealed);
     }
 }

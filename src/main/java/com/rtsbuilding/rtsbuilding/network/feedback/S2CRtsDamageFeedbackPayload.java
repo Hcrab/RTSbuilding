@@ -1,25 +1,37 @@
 package com.rtsbuilding.rtsbuilding.network.feedback;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record S2CRtsDamageFeedbackPayload(float amount, boolean lowHealth) implements CustomPacketPayload {
-    public static final Type<S2CRtsDamageFeedbackPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_damage_feedback"));
+/** 服务端下发的受伤反馈；数值只用于客户端视觉和声音强度。 */
+public final class S2CRtsDamageFeedbackPayload implements IMessage {
+    private float amount;
+    private boolean lowHealth;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsDamageFeedbackPayload> STREAM_CODEC =
-            StreamCodec.of(
-                    (buf, payload) -> {
-                        buf.writeFloat(Math.max(0.0F, payload.amount()));
-                        buf.writeBoolean(payload.lowHealth());
-                    },
-                    (buf) -> new S2CRtsDamageFeedbackPayload(buf.readFloat(), buf.readBoolean()));
+    public S2CRtsDamageFeedbackPayload() {
+    }
+
+    public S2CRtsDamageFeedbackPayload(float amount, boolean lowHealth) {
+        this.amount = sanitizeAmount(amount);
+        this.lowHealth = lowHealth;
+    }
+
+    public float amount() { return this.amount; }
+    public boolean lowHealth() { return this.lowHealth; }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public void fromBytes(ByteBuf buffer) {
+        this.amount = sanitizeAmount(buffer.readFloat());
+        this.lowHealth = buffer.readBoolean();
+    }
+
+    @Override
+    public void toBytes(ByteBuf buffer) {
+        buffer.writeFloat(sanitizeAmount(this.amount));
+        buffer.writeBoolean(this.lowHealth);
+    }
+
+    private static float sanitizeAmount(float value) {
+        return Float.isNaN(value) || Float.isInfinite(value) || value < 0.0F ? 0.0F : value;
     }
 }

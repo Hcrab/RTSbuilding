@@ -2,13 +2,9 @@ package com.rtsbuilding.rtsbuilding.server.progression;
 
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager.HomeAnchor;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,28 +16,28 @@ final class RtsHomeManager {
     private RtsHomeManager() {
     }
 
-    static void beginHomeSelection(ServerPlayer player) {
+    static void beginHomeSelection(EntityPlayerMP player) {
         if (player == null) {
             return;
         }
-        int chunkX = player.blockPosition().getX() >> 4;
-        int chunkZ = player.blockPosition().getZ() >> 4;
-        HOME_SELECTIONS.put(player.getUUID(), new HomeSelection(player.serverLevel().dimension(), chunkX, chunkZ));
+        int chunkX = player.getPosition().getX() >> 4;
+        int chunkZ = player.getPosition().getZ() >> 4;
+        HOME_SELECTIONS.put(player.getUniqueID(), new HomeSelection(player.dimension, chunkX, chunkZ));
     }
 
-    static void endHomeSelection(ServerPlayer player) {
+    static void endHomeSelection(EntityPlayerMP player) {
         if (player != null) {
-            HOME_SELECTIONS.remove(player.getUUID());
+            HOME_SELECTIONS.remove(player.getUniqueID());
         }
     }
 
-    static boolean isHomeSelectionActive(ServerPlayer player) {
-        return player != null && HOME_SELECTIONS.containsKey(player.getUUID());
+    static boolean isHomeSelectionActive(EntityPlayerMP player) {
+        return player != null && HOME_SELECTIONS.containsKey(player.getUniqueID());
     }
 
-    static boolean canSelectHome(ServerPlayer player, BlockPos pos) {
-        HomeSelection selection = player == null ? null : HOME_SELECTIONS.get(player.getUUID());
-        if (selection == null || pos == null || !selection.dimension().equals(player.serverLevel().dimension())) {
+    static boolean canSelectHome(EntityPlayerMP player, BlockPos pos) {
+        HomeSelection selection = player == null ? null : HOME_SELECTIONS.get(player.getUniqueID());
+        if (selection == null || pos == null || selection.dimension() != player.dimension) {
             return false;
         }
         int chunkX = pos.getX() >> 4;
@@ -50,33 +46,31 @@ final class RtsHomeManager {
                 && Math.abs(chunkZ - selection.centerChunkZ()) <= 1;
     }
 
-    static HomeAnchor personalHome(ServerPlayer player) {
+    static HomeAnchor personalHome(EntityPlayerMP player) {
         if (player == null) {
             return null;
         }
-        CompoundTag root = RtsProgressionPersistence.root(player);
-        if (!root.contains(RtsProgressionPersistence.NBT_HOME_POS)
-                || !root.contains(RtsProgressionPersistence.NBT_HOME_DIMENSION)) {
+        NBTTagCompound root = RtsProgressionPersistence.root(player);
+        if (!root.hasKey(RtsProgressionPersistence.NBT_HOME_POS)
+                || !root.hasKey(RtsProgressionPersistence.NBT_HOME_DIMENSION)) {
             return null;
         }
-        ResourceLocation dimensionId = ResourceLocation.tryParse(
-                root.getString(RtsProgressionPersistence.NBT_HOME_DIMENSION));
-        if (dimensionId == null) {
+        Integer dimension = parseDimension(root.getString(RtsProgressionPersistence.NBT_HOME_DIMENSION));
+        if (dimension == null) {
             return null;
         }
-        ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
         return new HomeAnchor(
-                BlockPos.of(root.getLong(RtsProgressionPersistence.NBT_HOME_POS)).immutable(),
+                BlockPos.fromLong(root.getLong(RtsProgressionPersistence.NBT_HOME_POS)).toImmutable(),
                 dimension,
                 root.getLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME));
     }
 
-    static HomeAnchor getHome(ServerPlayer player) {
+    static HomeAnchor getHome(EntityPlayerMP player) {
         if (player == null) {
             return null;
         }
         String sharedKey = RtsProgressionPersistence.sharedProgressionKey(player);
-        if (!sharedKey.isBlank()) {
+        if (!isBlank(sharedKey)) {
             RtsSharedProgressionData.SharedHome sharedHome =
                     RtsProgressionPersistence.sharedProgressionData(player).home(sharedKey);
             if (sharedHome != null) {
@@ -86,7 +80,7 @@ final class RtsHomeManager {
         return personalHome(player);
     }
 
-    static boolean hasHome(ServerPlayer player) {
+    static boolean hasHome(EntityPlayerMP player) {
         return getHome(player) != null;
     }
 
@@ -96,7 +90,7 @@ final class RtsHomeManager {
      * <p>这个限制只决定玩家能否开启一次普通 RTS 会话。会话开启后，
      * 世界操作范围由相机锚点和插件提供的操作半径决定，不再与家园位置取交集。</p>
      */
-    static boolean canOpenRtsNearHome(ServerPlayer player) {
+    static boolean canOpenRtsNearHome(EntityPlayerMP player) {
         if (!RtsProgressionManager.isEnabled() || RtsProgressionManager.canBypassHomeRadius(player)) {
             return true;
         }
@@ -104,10 +98,10 @@ final class RtsHomeManager {
             return false;
         }
         HomeAnchor home = getHome(player);
-        if (home == null || !home.dimension().equals(player.serverLevel().dimension())) {
+        if (home == null || home.dimension() != player.dimension) {
             return false;
         }
-        return isWithinHomeOpeningChunks(home.pos(), player.blockPosition());
+        return isWithinHomeOpeningChunks(home.pos(), player.getPosition());
     }
 
     static boolean isWithinHomeOpeningChunks(BlockPos homePos, BlockPos playerPos) {
@@ -122,7 +116,7 @@ final class RtsHomeManager {
                 && Math.abs(playerChunkZ - homeChunkZ) <= 1;
     }
 
-    static boolean canChangeHome(ServerPlayer player) {
+    static boolean canChangeHome(EntityPlayerMP player) {
         if (!RtsProgressionManager.isEnabled()) {
             return true;
         }
@@ -130,7 +124,7 @@ final class RtsHomeManager {
         return home == null || remainingHomeCooldownTicks(player) <= 0L;
     }
 
-    static long remainingHomeCooldownTicks(ServerPlayer player) {
+    static long remainingHomeCooldownTicks(EntityPlayerMP player) {
         if (!RtsProgressionManager.isEnabled() || player == null) {
             return 0L;
         }
@@ -138,16 +132,16 @@ final class RtsHomeManager {
         if (home == null) {
             return 0L;
         }
-        long elapsed = Math.max(0L, player.serverLevel().getGameTime() - home.setGameTime());
+        long elapsed = Math.max(0L, player.getServerWorld().getTotalWorldTime() - home.setGameTime());
         return Math.max(0L, RtsProgressionManager.HOME_RELOCATION_COOLDOWN_TICKS - elapsed);
     }
 
-    static long remainingHomeCooldownDays(ServerPlayer player) {
+    static long remainingHomeCooldownDays(EntityPlayerMP player) {
         long ticks = remainingHomeCooldownTicks(player);
         return ticks <= 0L ? 0L : (ticks + RtsProgressionManager.TICKS_PER_GAME_DAY - 1L) / RtsProgressionManager.TICKS_PER_GAME_DAY;
     }
 
-    static boolean commitHome(ServerPlayer player, BlockPos pos) {
+    static boolean commitHome(EntityPlayerMP player, BlockPos pos) {
         if (!RtsProgressionManager.isEnabled()) {
             return false;
         }
@@ -158,22 +152,56 @@ final class RtsHomeManager {
             return false;
         }
         String sharedKey = RtsProgressionPersistence.sharedProgressionKey(player);
-        if (sharedKey.isBlank()) {
-            CompoundTag root = RtsProgressionPersistence.root(player);
-            root.putInt(RtsProgressionPersistence.NBT_VERSION, 1);
-            root.putLong(RtsProgressionPersistence.NBT_HOME_POS, pos.immutable().asLong());
-            root.putString(RtsProgressionPersistence.NBT_HOME_DIMENSION,
-                    player.serverLevel().dimension().location().toString());
-            root.putLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME, player.serverLevel().getGameTime());
+        if (isBlank(sharedKey)) {
+            NBTTagCompound root = RtsProgressionPersistence.root(player);
+            root.setInteger(RtsProgressionPersistence.NBT_VERSION, 1);
+            root.setLong(RtsProgressionPersistence.NBT_HOME_POS, pos.toImmutable().toLong());
+            root.setString(RtsProgressionPersistence.NBT_HOME_DIMENSION, dimensionName(player.dimension));
+            root.setLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME, player.getServerWorld().getTotalWorldTime());
             RtsProgressionPersistence.save(player, root);
         } else {
             RtsProgressionPersistence.sharedProgressionData(player).setHome(
-                    sharedKey, pos, player.serverLevel().dimension(), player.serverLevel().getGameTime());
+                    sharedKey, pos, player.dimension, player.getServerWorld().getTotalWorldTime());
         }
         endHomeSelection(player);
         return true;
     }
 
-    private record HomeSelection(ResourceKey<Level> dimension, int centerChunkX, int centerChunkZ) {
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private static Integer parseDimension(String value) {
+        if ("minecraft:overworld".equals(value)) return Integer.valueOf(0);
+        if ("minecraft:the_nether".equals(value)) return Integer.valueOf(-1);
+        if ("minecraft:the_end".equals(value)) return Integer.valueOf(1);
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static String dimensionName(int dimension) {
+        if (dimension == 0) return "minecraft:overworld";
+        if (dimension == -1) return "minecraft:the_nether";
+        if (dimension == 1) return "minecraft:the_end";
+        return Integer.toString(dimension);
+    }
+
+    private static final class HomeSelection {
+        private final int dimension;
+        private final int centerChunkX;
+        private final int centerChunkZ;
+
+        private HomeSelection(int dimension, int centerChunkX, int centerChunkZ) {
+            this.dimension = dimension;
+            this.centerChunkX = centerChunkX;
+            this.centerChunkZ = centerChunkZ;
+        }
+
+        int dimension() { return dimension; }
+        int centerChunkX() { return centerChunkX; }
+        int centerChunkZ() { return centerChunkZ; }
     }
 }

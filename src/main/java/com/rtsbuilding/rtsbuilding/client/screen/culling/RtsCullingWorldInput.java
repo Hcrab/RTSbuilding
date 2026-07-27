@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 
 /**
  * 范围剔除管理页的世界点击入口。
@@ -17,17 +17,17 @@ public final class RtsCullingWorldInput {
         if (manager == null || cursor == null || !manager.isManagementMode()) {
             return false;
         }
-        Vec3 origin = cursor.currentRayOrigin();
-        Vec3 direction = cursor.computeCursorRayDirection();
-        BlockHitResult hit = cursor.pickCullingAwareBlockHit();
+        Vec3d origin = cursor.currentRayOrigin();
+        Vec3d direction = cursor.computeCursorRayDirection();
+        RayTraceResult hit = cursor.pickCullingAwareBlockHit();
         return CullingUiAdapter.worldPrimary(manager, hit, origin, direction);
     }
 
     public interface Cursor {
-        Vec3 currentRayOrigin();
+        Vec3d currentRayOrigin();
 
-        Vec3 computeCursorRayDirection();
+        Vec3d computeCursorRayDirection();
 
-        BlockHitResult pickCullingAwareBlockHit();
+        RayTraceResult pickCullingAwareBlockHit();
     }
 }

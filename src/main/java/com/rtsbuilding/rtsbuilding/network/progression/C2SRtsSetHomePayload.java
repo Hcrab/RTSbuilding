@@ -1,22 +1,23 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsSetHomePayload(BlockPos pos) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetHomePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_home"));
+/** 提交家园坐标；合法性和可提交条件由服务端进度管理器决定。 */
+public final class C2SRtsSetHomePayload implements IMessage {
+    private BlockPos pos = BlockPos.ORIGIN;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetHomePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeBlockPos(payload.pos()),
-            (buf) -> new C2SRtsSetHomePayload(buf.readBlockPos()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsSetHomePayload() {
     }
+
+    public C2SRtsSetHomePayload(BlockPos pos) {
+        if (pos == null) throw new IllegalArgumentException("pos");
+        this.pos = pos;
+    }
+
+    public BlockPos pos() { return this.pos; }
+
+    @Override public void fromBytes(ByteBuf buffer) { this.pos = BlockPos.fromLong(buffer.readLong()); }
+    @Override public void toBytes(ByteBuf buffer) { buffer.writeLong(this.pos.toLong()); }
 }

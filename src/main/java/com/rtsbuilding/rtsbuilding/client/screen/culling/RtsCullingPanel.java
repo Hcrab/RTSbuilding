@@ -1,8 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
-import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
@@ -10,8 +9,15 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.CullingWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CullingWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CullingWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.client.resources.I18n;
+import org.lwjgl.opengl.GL11;
 
 /**
  * 范围剔除的紧凑状态窗口。
@@ -33,7 +39,7 @@ public final class RtsCullingPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         CullingUiState state = CullingUiAdapter.snapshot(manager);
         int x = CullingWindowLayout.contentLeft(contentX());
         int w = CullingWindowLayout.contentInnerWidth(contentWidth());
@@ -64,15 +70,16 @@ public final class RtsCullingPanel extends RtsWindowPanel {
                 x, CullingWindowLayout.hintRowY(contentY()), CullingWindowStyle.MUTED_TEXT, w);
     }
 
-    private void drawWideButton(GuiGraphics g, int x, int y, String label, boolean hovered) {
+    private void drawWideButton(LegacyGuiGraphics g, int x, int y, String label, boolean hovered) {
+        FontRenderer font = Minecraft.getMinecraft().fontRenderer;
         CullingWindowChromeRenderer.renderDeleteButton(
-                new MinecraftUiCanvas(g, screen.font(), screen),
+                new LegacyCanvas(g, font),
                 new UiRect(x, CullingWindowLayout.buttonTop(y),
                         CullingWindowLayout.DELETE_BUTTON_WIDTH,
                         CullingWindowLayout.buttonHeight()),
                 hovered);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
-                screen.trimToWidth(label, CullingWindowLayout.deleteButtonTextWidth()),
+        g.drawCenteredString(font,
+                font.trimStringToWidth(label, CullingWindowLayout.deleteButtonTextWidth()),
                 x + CullingWindowLayout.DELETE_BUTTON_WIDTH / 2,
                 CullingWindowLayout.buttonTextY(y), CullingWindowStyle.PRIMARY_TEXT.toArgb());
     }
@@ -118,8 +125,8 @@ public final class RtsCullingPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.translatable("screen.rtsbuilding.culling.title");
+    protected ITextComponent getTitle() {
+        return new TextComponentTranslation("screen.rtsbuilding.culling.title");
     }
 
     @Override
@@ -154,19 +161,53 @@ public final class RtsCullingPanel extends RtsWindowPanel {
                 CullingWindowLayout.deleteButtonRowY(contentY()));
     }
 
-    private void drawLine(GuiGraphics g, String label, int x, int y, UiColor color, int width) {
-        g.drawString(screen.font(), screen.trimToWidth(label, width), x, y, color.toArgb(), false);
+    private void drawLine(LegacyGuiGraphics g, String label, int x, int y, UiColor color, int width) {
+        FontRenderer font = Minecraft.getMinecraft().fontRenderer;
+        g.drawString(font, font.trimStringToWidth(label, width), x, y, color.toArgb(), false);
     }
 
     private String phaseText(CullingUiState state) {
-        return switch (state.phase) {
-            case IDLE -> text("screen.rtsbuilding.culling.phase.idle");
-            case NEED_SECOND -> text("screen.rtsbuilding.culling.phase.second");
-            case NEED_HEIGHT -> text("screen.rtsbuilding.culling.phase.height", state.previewHeight);
-        };
+        switch (state.phase) {
+            case IDLE: return text("screen.rtsbuilding.culling.phase.idle");
+            case NEED_SECOND: return text("screen.rtsbuilding.culling.phase.second");
+            case NEED_HEIGHT: return text("screen.rtsbuilding.culling.phase.height", state.previewHeight);
+            default: throw new AssertionError(state.phase);
+        }
     }
 
     private String text(String key, Object... args) {
-        return Component.translatable(key, args).getString();
+        return I18n.format(key, args);
+    }
+
+    /** 只供纯 UI Kit chrome 使用的 1.12 立即绘制画布。 */
+    private static final class LegacyCanvas implements UiCanvas2D {
+        private final LegacyGuiGraphics graphics;
+        private final FontRenderer font;
+        private LegacyCanvas(LegacyGuiGraphics graphics, FontRenderer font) {
+            this.graphics = graphics;
+            this.font = font;
+        }
+        @Override public void fill(UiRect rect, UiColor color) {
+            graphics.fill(round(rect.getX()), round(rect.getY()), round(rect.right()), round(rect.bottom()), color.toArgb());
+        }
+        @Override public void text(String text, double x, double y, UiColor color) {
+            graphics.drawString(font, text, round(x), round(y), color.toArgb(), false);
+        }
+        @Override public void pushClip(UiRect clip) {
+            Minecraft mc = Minecraft.getMinecraft();
+            ScaledResolution scaled = new ScaledResolution(mc);
+            int factor = scaled.getScaleFactor();
+            GL11.glEnable(GL11.GL_SCISSOR_TEST);
+            GL11.glScissor(round(clip.getX()) * factor,
+                    mc.displayHeight - round(clip.bottom()) * factor,
+                    Math.max(0, round(clip.getWidth()) * factor),
+                    Math.max(0, round(clip.getHeight()) * factor));
+        }
+        @Override public void popClip() { GL11.glDisable(GL11.GL_SCISSOR_TEST); }
+        @Override public void pushTransform() { GlStateManager.pushMatrix(); }
+        @Override public void popTransform() { GlStateManager.popMatrix(); }
+        @Override public void translate(double x, double y) { GlStateManager.translate(x, y, 0.0D); }
+        @Override public void scale(double x, double y) { GlStateManager.scale(x, y, 1.0D); }
+        private static int round(double value) { return (int) Math.round(value); }
     }
 }

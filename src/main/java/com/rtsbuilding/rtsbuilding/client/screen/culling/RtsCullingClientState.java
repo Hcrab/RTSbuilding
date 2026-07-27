@@ -4,11 +4,11 @@ import com.rtsbuilding.rtsbuilding.network.culling.C2SRtsRequestCullingStatePayl
 import com.rtsbuilding.rtsbuilding.network.culling.C2SRtsSaveCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingBoxSnapshot;
 import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,7 +65,7 @@ public final class RtsCullingClientState {
     /** 打开 RTS 界面时请求当前存档、当前维度自己的剔除记录。 */
     public static void requestCurrentWorldState() {
         PERSISTENT_MANAGER.clearWorldState();
-        PacketDistributor.sendToServer(new C2SRtsRequestCullingStatePayload());
+        RtsPayloadRegistrar.sendToServer(new C2SRtsRequestCullingStatePayload());
     }
 
     /** 应用服务端按玩家与维度返回的剔除记录。 */
@@ -74,14 +74,14 @@ public final class RtsCullingClientState {
             PERSISTENT_MANAGER.clearWorldState();
             return;
         }
-        Minecraft minecraft = Minecraft.getInstance();
-        String currentDimension = minecraft.level == null
+        Minecraft minecraft = Minecraft.getMinecraft();
+        String currentDimension = minecraft.world == null
                 ? ""
-                : minecraft.level.dimension().location().toString();
+                : Integer.toString(minecraft.world.provider.getDimension());
         if (!currentDimension.equals(payload.dimension())) {
             return;
         }
-        List<RtsCullingBox> boxes = new ArrayList<>(payload.boxes().size());
+        List<RtsCullingBox> boxes = new ArrayList<RtsCullingBox>(payload.boxes().size());
         int id = 1;
         for (RtsCullingBoxSnapshot box : payload.boxes()) {
             boxes.add(new RtsCullingBox(id++, box.min(), box.max()));
@@ -90,15 +90,16 @@ public final class RtsCullingClientState {
     }
 
     private static void saveCurrentWorldState() {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.level == null || minecraft.getConnection() == null) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.world == null || minecraft.getConnection() == null) {
             return;
         }
-        List<RtsCullingBoxSnapshot> boxes = PERSISTENT_MANAGER.boxes().stream()
-                .map(box -> new RtsCullingBoxSnapshot(box.min(), box.max()))
-                .toList();
-        PacketDistributor.sendToServer(new C2SRtsSaveCullingStatePayload(
-                minecraft.level.dimension().location().toString(),
+        List<RtsCullingBoxSnapshot> boxes = new ArrayList<RtsCullingBoxSnapshot>();
+        for (RtsCullingBox box : PERSISTENT_MANAGER.boxes()) {
+            boxes.add(new RtsCullingBoxSnapshot(box.min(), box.max()));
+        }
+        RtsPayloadRegistrar.sendToServer(new C2SRtsSaveCullingStatePayload(
+                Integer.toString(minecraft.world.provider.getDimension()),
                 boxes, PERSISTENT_MANAGER.revealedBlocks()));
     }
 
@@ -106,17 +107,17 @@ public final class RtsCullingClientState {
         return activeManager != null && activeManager.shouldCullWorldBlock(pos);
     }
 
-    public static void revealLikelyPlacement(BlockPos clickedPos, Direction face) {
+    public static void revealLikelyPlacement(BlockPos clickedPos, EnumFacing face) {
         if (activeManager == null) {
             return;
         }
         activeManager.revealWorldBlock(clickedPos);
         if (clickedPos != null && face != null) {
-            activeManager.revealWorldBlock(clickedPos.relative(face));
+            activeManager.revealWorldBlock(clickedPos.offset(face));
         }
     }
 
-    public static double distanceAfterCulledBlock(Vec3 origin, Vec3 direction, BlockPos pos, double maxDistance) {
+    public static double distanceAfterCulledBlock(Vec3d origin, Vec3d direction, BlockPos pos, double maxDistance) {
         if (activeManager == null) {
             return -1.0D;
         }

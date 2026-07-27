@@ -6,10 +6,10 @@ import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiPhase;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiState;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiTransition;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import org.lwjgl.input.Keyboard;
 
 /**
  * 1.21.1 范围剔除平台适配器。
@@ -33,21 +33,23 @@ public final class CullingUiAdapter {
     static CullingUiTransition dispatch(RtsCullingManager manager, CullingUiAction action) {
         CullingUiTransition transition = CullingUiReducer.apply(snapshot(manager), action);
         switch (transition.command) {
-            case DELETE_SELECTED -> manager.deleteSelected();
-            case CONFIRM_DRAFT -> manager.confirmDraft();
-            case CANCEL_DRAFT -> manager.cancelDraftIfActive();
-            case CLOSE -> manager.closeManagementMode();
-            case ADJUST_HEIGHT -> manager.handleScroll(action.value > 0 ? 1.0D : -1.0D,
-                    Math.abs(action.value) > 1);
-            case RESIZE_HANDLE -> manager.adjustSelectedFromHandle(
-                    Direction.valueOf(action.direction.name()), action.value);
-            default -> { }
+            case DELETE_SELECTED: manager.deleteSelected(); break;
+            case CONFIRM_DRAFT: manager.confirmDraft(); break;
+            case CANCEL_DRAFT: manager.cancelDraftIfActive(); break;
+            case CLOSE: manager.closeManagementMode(); break;
+            case ADJUST_HEIGHT:
+                manager.handleScroll(action.value > 0 ? 1.0D : -1.0D, Math.abs(action.value) > 1);
+                break;
+            case RESIZE_HANDLE:
+                manager.adjustSelectedFromHandle(EnumFacing.valueOf(action.direction.name()), action.value);
+                break;
+            default: break;
         }
         return transition;
     }
 
-    static boolean worldPrimary(RtsCullingManager manager, BlockHitResult hit,
-            Vec3 origin, Vec3 direction) {
+    static boolean worldPrimary(RtsCullingManager manager, RayTraceResult hit,
+            Vec3d origin, Vec3d direction) {
         CullingUiTransition transition = CullingUiReducer.apply(snapshot(manager),
                 CullingUiAction.simple(CullingUiAction.Type.WORLD_PRIMARY));
         return transition.command == CullingUiTransition.Command.WORLD_PRIMARY
@@ -57,15 +59,15 @@ public final class CullingUiAdapter {
     static boolean handleKey(RtsCullingManager manager, int keyCode) {
         CullingUiState state = snapshot(manager);
         if (!state.open) return false;
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             dispatch(manager, CullingUiAction.simple(CullingUiAction.Type.CONFIRM_DRAFT));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+        if (keyCode == Keyboard.KEY_DELETE || keyCode == Keyboard.KEY_BACK) {
             dispatch(manager, CullingUiAction.simple(CullingUiAction.Type.DELETE_SELECTED));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE) {
             if (state.activeHandle != null) return manager.handleKey(keyCode, 0, 0);
             dispatch(manager, CullingUiAction.simple(state.phase == CullingUiPhase.IDLE
                     ? CullingUiAction.Type.CLOSE : CullingUiAction.Type.CANCEL_DRAFT));
@@ -91,7 +93,7 @@ public final class CullingUiAdapter {
                 == CullingUiTransition.Command.RESIZE_HANDLE;
     }
 
-    private static CullingUiDirection direction(Direction direction) {
+    private static CullingUiDirection direction(EnumFacing direction) {
         return direction == null ? null : CullingUiDirection.valueOf(direction.name());
     }
 }
