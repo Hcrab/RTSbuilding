@@ -110,9 +110,16 @@ repositories {
         name 'CleanroomMC Maven'
         url 'https://maven.cleanroommc.com'
     }
+    maven {
+        name 'ModMaven'
+        url 'https://modmaven.dev'
+    }
 }
 
 dependencies {
+    // JEI 在运行时保持可选；这里只引入官方 1.12.2 API 供兼容入口编译。
+    compileOnly 'mezz.jei:jei_1.12.2:4.16.1.1013:api'
+
     if (propertyBool('use_modern_java_syntax')) {
         annotationProcessor 'com.github.bsideup.jabel:jabel-javac-plugin:1.0.0'
         // Workaround for https://github.com/bsideup/jabel/issues/174
