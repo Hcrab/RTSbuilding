@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowSlider;
@@ -11,9 +12,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -63,7 +62,7 @@ final class QuickBuildControlSurface {
                     0, 0,
                     QuickBuildWindowLayout.SHAPE_SLOT,
                     QuickBuildWindowLayout.SHAPE_SLOT,
-                    Component.empty(),
+                    new TextComponentString(""),
                     QuickBuildIconCatalog.shapeTexture(option.shape),
                     0, normalV,
                     QuickBuildIconCatalog.SHAPE_SHEET_W,
@@ -74,7 +73,7 @@ final class QuickBuildControlSurface {
                     QuickBuildIconCatalog.SHAPE_SHEET_H,
                     ignored -> this.dispatch.accept(
                             QuickBuildUiAction.shape(option.shape)));
-            button.active = option.enabled;
+            button.enabled = option.enabled;
             button.setVisualRole(UiControlRole.CHOICE);
             button.setSelectedVisual(option.selected);
             this.shapeButtons[i] = button;
@@ -90,10 +89,10 @@ final class QuickBuildControlSurface {
                     0, 0,
                     QuickBuildWindowLayout.CONTROL_W,
                     QuickBuildWindowLayout.CONTROL_H,
-                    Component.literal(control.label),
+                    new TextComponentString(control.label),
                     ignored -> this.dispatch.accept(
                             QuickBuildUiAction.control(control.id)));
-            button.active = control.enabled;
+            button.enabled = control.enabled;
             button.setVisualRole(UiControlRole.TOGGLE);
             button.setSelectedVisual(control.selected);
             if (control.id == QuickBuildUiControl.Id.CONNECT) {
@@ -118,7 +117,7 @@ final class QuickBuildControlSurface {
     }
 
     void render(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -134,7 +133,7 @@ final class QuickBuildControlSurface {
     }
 
     void renderTooltip(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
@@ -152,7 +151,7 @@ final class QuickBuildControlSurface {
             double mouseX,
             double mouseY,
             int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button != 0) {
             return false;
         }
         prepare(state, layout, windowWidth);
@@ -241,7 +240,7 @@ final class QuickBuildControlSurface {
             this.shapeButtons[i].setX(layout.shapeX(i));
             this.shapeButtons[i].setY(layout.shapeY(i));
             if (i < state.shapes.size()) {
-                this.shapeButtons[i].active = state.shapes.get(i).enabled;
+                this.shapeButtons[i].enabled = state.shapes.get(i).enabled;
                 this.shapeButtons[i].setSelectedVisual(
                         state.shapes.get(i).selected);
             }

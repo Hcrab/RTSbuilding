@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -15,7 +16,7 @@ final class QuickBuildPersistenceBindings {
     static List<PersistableProperty> create(
             QuickBuildPanel panel,
             QuickBuildPreferenceState preferences) {
-        return List.of(
+        return Arrays.asList(
                 PersistableProperty.boolField(
                         "quick_build_open",
                         state -> state.quickBuild.quickBuildOpen,

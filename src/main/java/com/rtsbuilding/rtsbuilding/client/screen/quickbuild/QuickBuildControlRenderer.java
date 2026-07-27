@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsTextureRenderer;
@@ -17,8 +18,9 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.resources.I18n;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,7 +40,7 @@ final class QuickBuildControlRenderer {
 
     void render(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -49,13 +51,13 @@ final class QuickBuildControlRenderer {
         renderModeToggles(graphics, canvas, screen, state, layout, mouseX, mouseY);
 
         graphics.drawString(screen.font(),
-                Component.translatable("screen.rtsbuilding.quick_build.shape"),
+                I18n.format("screen.rtsbuilding.quick_build.shape"),
                 layout.sectionLabelX, layout.sectionTitleY,
                 QuickBuildStyle.SECTION_TEXT.toArgb(), false);
         renderShapes(controls, graphics, state, layout, mouseX, mouseY, partialTick);
 
         graphics.drawString(screen.font(),
-                Component.translatable("screen.rtsbuilding.quick_build.fill"),
+                I18n.format("screen.rtsbuilding.quick_build.fill"),
                 layout.rightX, layout.sectionTitleY,
                 QuickBuildStyle.SECTION_TEXT.toArgb(), false);
         if (state.chainMode()) {
@@ -69,26 +71,38 @@ final class QuickBuildControlRenderer {
 
     void renderTooltip(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             int mouseX,
             int mouseY) {
         for (int i = 0; i < controls.shapeButtonCount() && i < state.shapes.size(); i++) {
             WindowButton button = controls.shapeButton(i);
-            if (mouseX >= button.getX() && mouseX < button.getX() + button.getWidth()
-                    && mouseY >= button.getY() && mouseY < button.getY() + button.getHeight()) {
-                graphics.renderTooltip(screen.font(),
-                        Component.translatable(QuickBuildIconCatalog.tooltipKey(
-                                state.shapes.get(i).shape)),
-                        mouseX, mouseY);
+            if (contains(button, QuickBuildWindowLayout.SHAPE_SLOT,
+                    QuickBuildWindowLayout.SHAPE_SLOT, mouseX, mouseY)) {
+                Minecraft minecraft = Minecraft.getMinecraft();
+                ScaledResolution scaled = new ScaledResolution(minecraft);
+                String label = I18n.format(
+                        QuickBuildIconCatalog.tooltipKey(state.shapes.get(i).shape));
+                int tooltipWidth = screen.font().getStringWidth(label) + 8;
+                int tooltipHeight = screen.font().FONT_HEIGHT + 6;
+                int tooltipX = Math.min(mouseX + 12,
+                        Math.max(0, scaled.getScaledWidth() - tooltipWidth - 2));
+                int tooltipY = Math.min(mouseY - 12,
+                        Math.max(0, scaled.getScaledHeight() - tooltipHeight - 2));
+                graphics.fill(tooltipX, tooltipY,
+                        tooltipX + tooltipWidth, tooltipY + tooltipHeight, 0xF0100010);
+                graphics.fill(tooltipX, tooltipY,
+                        tooltipX + tooltipWidth, tooltipY + 1, 0xFF5050A0);
+                graphics.drawString(screen.font(), label,
+                        tooltipX + 4, tooltipY + 3, 0xFFFFFFFF, false);
                 return;
             }
         }
     }
 
     private void renderModeToggles(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -97,22 +111,22 @@ final class QuickBuildControlRenderer {
             int mouseY) {
         renderModeToggle(graphics, canvas, screen, state,
                 layout.buildMode, QuickBuildUiMode.BUILD,
-                Component.translatable("screen.rtsbuilding.quick_build.mode_build"),
+                I18n.format("screen.rtsbuilding.quick_build.mode_build"),
                 mouseX, mouseY);
         renderModeToggle(graphics, canvas, screen, state,
                 layout.destroyMode, QuickBuildUiMode.DESTROY,
-                Component.translatable("screen.rtsbuilding.quick_build.mode_destroy"),
+                I18n.format("screen.rtsbuilding.quick_build.mode_destroy"),
                 mouseX, mouseY);
     }
 
     private void renderModeToggle(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
             UiRect area,
             QuickBuildUiMode mode,
-            Component label,
+            String label,
             int mouseX,
             int mouseY) {
         boolean enabled = mode != QuickBuildUiMode.DESTROY || state.destroyEnabled;
@@ -129,15 +143,15 @@ final class QuickBuildControlRenderer {
         int height = (int) area.getHeight();
         int labelX = x + Math.max(
                 QuickBuildWindowLayout.MODE_LABEL_MIN_INSET,
-                (width - screen.font().width(label)) / 2);
-        int labelY = y + (height - screen.font().lineHeight) / 2;
+                (width - screen.font().getStringWidth(label)) / 2);
+        int labelY = y + (height - screen.font().FONT_HEIGHT) / 2;
         graphics.drawString(screen.font(), label, labelX, labelY,
                 visual.text.toArgb(), false);
     }
 
     private static void renderShapes(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
             int mouseX,
@@ -168,7 +182,7 @@ final class QuickBuildControlRenderer {
 
     private static void renderChainLimit(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
@@ -176,7 +190,7 @@ final class QuickBuildControlRenderer {
             int mouseY,
             float partialTick) {
         graphics.drawString(screen.font(),
-                Component.translatable("screen.rtsbuilding.quick_build.chain_limit_label"),
+                I18n.format("screen.rtsbuilding.quick_build.chain_limit_label"),
                 layout.rightX, layout.chainLabelY,
                 QuickBuildStyle.SECTION_TEXT.toArgb(), false);
         controls.chainLimitSlider().render(graphics, mouseX, mouseY, partialTick);
@@ -188,7 +202,7 @@ final class QuickBuildControlRenderer {
 
     private static void renderControls(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
             int mouseX,
@@ -198,10 +212,11 @@ final class QuickBuildControlRenderer {
         for (int i = 0; i < controls.controlButtonCount(); i++) {
             WindowButton button = controls.controlButton(i);
             QuickBuildUiControl control = regular.get(i);
-            button.active = control.enabled;
+            button.enabled = control.enabled;
             button.render(graphics, mouseX, mouseY, partialTick);
             renderControlIndicator(graphics, layout.rightX, layout.controlY(i),
-                    control.selected, button.isHoveredOrFocused());
+                    control.selected, contains(button, QuickBuildWindowLayout.CONTROL_W,
+                            QuickBuildWindowLayout.CONTROL_H, mouseX, mouseY));
         }
         WindowButton connectButton = controls.connectToggle();
         if (connectButton == null) {
@@ -210,15 +225,16 @@ final class QuickBuildControlRenderer {
         QuickBuildUiControl connect = state.control(QuickBuildUiControl.Id.CONNECT);
         boolean selected = connect != null && connect.selected;
         boolean enabled = connect != null && connect.enabled;
-        connectButton.active = enabled;
+        connectButton.enabled = enabled;
         connectButton.render(graphics, mouseX, mouseY, partialTick);
         renderControlIndicator(
                 graphics, layout.rightX, layout.controlY(controls.controlButtonCount()),
-                selected, connectButton.isHoveredOrFocused());
+                selected, contains(connectButton, QuickBuildWindowLayout.CONTROL_W,
+                        QuickBuildWindowLayout.CONTROL_H, mouseX, mouseY));
     }
 
     private static void renderControlIndicator(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             int rowX,
             int rowY,
             boolean selected,
@@ -238,6 +254,12 @@ final class QuickBuildControlRenderer {
                 QuickBuildIconCatalog.MODE_SHEET_W,
                 QuickBuildIconCatalog.MODE_SHEET_H,
                 0, QuickBuildStyle.ICON_TINT.toArgb());
+    }
+
+    private static boolean contains(
+            WindowButton button, int width, int height, int mouseX, int mouseY) {
+        return mouseX >= button.getX() && mouseX < button.getX() + width
+                && mouseY >= button.getY() && mouseY < button.getY() + height;
     }
 
     private static List<QuickBuildUiControl> controlsWithoutConnect(

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
@@ -7,15 +8,13 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.item.ItemStack;
 
 import java.util.List;
 
 /**
- * Quick Build 底部状态区的 1.21.1 生产绘制适配器。
+ * Quick Build 底部状态区的 Forge 1.12.2 生产绘制适配器。
  *
  * <p>本类只把 Core 快照、Kit 几何和真实 Minecraft 字体/物品绘制组合起来，不拥有
  * Quick Build 模式、形状选择、插件权限或世界执行副作用。状态区的进度、成本、缺料、
@@ -26,7 +25,7 @@ final class QuickBuildStatusRenderer {
     private QuickBuildStatusRenderer() {}
 
     static void render(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -44,7 +43,7 @@ final class QuickBuildStatusRenderer {
         }
 
         String costText = "x " + state.costText;
-        int textWidth = screen.font().width(costText);
+        int textWidth = screen.font().getStringWidth(costText);
         graphics.drawString(screen.font(), costText, layout.contentX, textY,
                 QuickBuildStyle.SUCCESS_TEXT.toArgb(), false);
 
@@ -52,12 +51,12 @@ final class QuickBuildStatusRenderer {
         if (!preview.isEmpty()) {
             int itemX = layout.contentX + textWidth + QuickBuildWindowLayout.ITEM_GAP;
             graphics.renderItem(preview, itemX, itemY);
-            // 物品批次必须在窗口 scissor 仍有效时提交。
-            graphics.flush();
+            // 1.12 的 RenderItem 是立即绘制；调用返回时图标已在当前 scissor 内提交。
             rightEdge = itemX + QuickBuildWindowLayout.ITEM_SIZE;
         }
 
-        if (!creative && !state.selectedItemId.isBlank() && state.missingBlocks > 0) {
+        if (!creative && state.selectedItemId != null
+                && !state.selectedItemId.isEmpty() && state.missingBlocks > 0) {
             String missingText = screen.text(
                     "screen.rtsbuilding.quick_build.missing_blocks", state.missingBlocks);
             int missingTextX = layout.missingTextX(rightEdge);
@@ -65,18 +64,17 @@ final class QuickBuildStatusRenderer {
                     QuickBuildStyle.ERROR_TEXT.toArgb(), false);
             if (!preview.isEmpty()) {
                 int missingIconX = layout.missingIconX(
-                        missingTextX, screen.font().width(missingText));
+                        missingTextX, screen.font().getStringWidth(missingText));
                 graphics.renderItem(preview, missingIconX, itemY);
-                graphics.flush();
             }
         }
 
         int nextY = renderWrappedText(
                 graphics,
                 screen,
-                Component.translatable(state.hintKey, state.confirmKeyLabel),
+                I18n.format(state.hintKey, state.confirmKeyLabel),
                 layout.contentX,
-                textY + screen.font().lineHeight + QuickBuildWindowLayout.INFO_FOLLOWUP_GAP,
+                textY + screen.font().FONT_HEIGHT + QuickBuildWindowLayout.INFO_FOLLOWUP_GAP,
                 layout.contentW,
                 QuickBuildStyle.HINT_TEXT.toArgb());
         renderDimensionInfo(graphics, screen, state, layout.contentX,
@@ -84,7 +82,7 @@ final class QuickBuildStatusRenderer {
     }
 
     private static void renderDestroyStatus(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
@@ -101,7 +99,7 @@ final class QuickBuildStatusRenderer {
                     screen,
                     state,
                     layout.contentX,
-                    textY + screen.font().lineHeight + QuickBuildWindowLayout.INFO_LINE_GAP,
+                    textY + screen.font().FONT_HEIGHT + QuickBuildWindowLayout.INFO_LINE_GAP,
                     layout.contentW);
             return;
         }
@@ -109,7 +107,7 @@ final class QuickBuildStatusRenderer {
         int nextY = renderWrappedText(
                 graphics,
                 screen,
-                Component.translatable(state.hintKey, state.confirmKeyLabel),
+                I18n.format(state.hintKey, state.confirmKeyLabel),
                 layout.contentX,
                 textY,
                 layout.contentW,
@@ -124,39 +122,38 @@ final class QuickBuildStatusRenderer {
     }
 
     private static int renderWrappedText(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BuilderScreen screen,
-            Component text,
+            String text,
             int x,
             int y,
             int maxWidth,
             int color) {
-        List<FormattedCharSequence> lines =
-                screen.font().split(text, Math.max(1, maxWidth));
+        List<String> lines = screen.font().listFormattedStringToWidth(
+                text == null ? "" : text, Math.max(1, maxWidth));
         int lineCount = Math.min(QuickBuildWindowLayout.STATUS_TEXT_MAX_LINES, lines.size());
         for (int i = 0; i < lineCount; i++) {
             graphics.drawString(
                     screen.font(),
                     lines.get(i),
                     x,
-                    y + i * screen.font().lineHeight,
+                    y + i * screen.font().FONT_HEIGHT,
                     color,
                     false);
         }
-        return y + lineCount * screen.font().lineHeight;
+        return y + lineCount * screen.font().FONT_HEIGHT;
     }
 
     private static void renderDimensionInfo(
-            GuiGraphics graphics,
+            LegacyGuiGraphics graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             int x,
             int y,
             int maxWidth) {
-        Component text = Component.translatable(
+        String text = I18n.format(
                 "screen.rtsbuilding.quick_build.dimensions", state.dimensions);
-        String trimmed = screen.font().plainSubstrByWidth(
-                text.getString(), Math.max(1, maxWidth));
+        String trimmed = screen.font().trimStringToWidth(text, Math.max(1, maxWidth));
         graphics.drawString(screen.font(), trimmed, x, y,
                 QuickBuildStyle.DIMENSION_TEXT.toArgb(), false);
     }

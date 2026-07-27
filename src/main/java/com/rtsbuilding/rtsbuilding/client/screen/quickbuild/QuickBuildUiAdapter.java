@@ -20,7 +20,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.ULTIMINE_MIN_LIMIT;
 
 /**
- * 1.21.1 Quick Build 平台适配器。
+ * Forge 1.12.2 Quick Build 平台适配器。
  *
  * <p>负责把真实形状控制器、插件权限、工作流、按键文本和储存数量投影成 Core；
  * 也负责执行 reducer 命令。它不拥有布局或绘制，且必须保持 BUILD/DESTROY 两套
@@ -95,7 +95,7 @@ final class QuickBuildUiAdapter {
         String cost = panel.uiScreen().currentShapeCostText();
         String selectedId = panel.uiController().getSelectedItemId();
         long missing = 0L;
-        if (mode == QuickBuildUiMode.BUILD && !selectedId.isBlank()) {
+        if (mode == QuickBuildUiMode.BUILD && selectedId != null && !selectedId.isEmpty()) {
             try {
                 missing = Math.max(0L, Long.parseLong(cost)
                         - panel.uiController().getStorageTotalCount(selectedId));
@@ -128,19 +128,29 @@ final class QuickBuildUiAdapter {
         if (transition == null || transition.command == QuickBuildUiTransition.Command.NONE) return;
         QuickBuildUiAction action = transition.action;
         switch (transition.command) {
-            case SELECT_MODE -> panel.setMode(action.mode == QuickBuildUiMode.DESTROY
-                    ? QuickBuildMode.DESTROY : QuickBuildMode.BUILD);
-            case SELECT_SHAPE -> {
+            case SELECT_MODE:
+                panel.setMode(action.mode == QuickBuildUiMode.DESTROY
+                        ? QuickBuildMode.DESTROY : QuickBuildMode.BUILD);
+                break;
+            case SELECT_SHAPE:
                 if (transition.state.mode == QuickBuildUiMode.DESTROY) {
                     panel.setRangeDestroyShape(toArea(action.shape));
                 } else {
                     panel.setBuildModeShape(toBuild(action.shape));
                 }
-            }
-            case ACTIVATE_CONTROL -> activateControl(panel, action.control, transition.state.mode);
-            case SET_CHAIN_LIMIT -> panel.setChainDestroyLimit(transition.state.chainLimit);
-            case CLOSE -> panel.setOpen(false);
-            default -> { }
+                break;
+            case ACTIVATE_CONTROL:
+                activateControl(panel, action.control, transition.state.mode);
+                break;
+            case SET_CHAIN_LIMIT:
+                panel.setChainDestroyLimit(transition.state.chainLimit);
+                break;
+            case CLOSE:
+                panel.setOpen(false);
+                break;
+            case NONE:
+            default:
+                break;
         }
     }
 
