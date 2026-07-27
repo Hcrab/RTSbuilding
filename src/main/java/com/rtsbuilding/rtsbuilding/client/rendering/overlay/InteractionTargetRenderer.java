@@ -1,596 +1,411 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.*;
+import com.google.common.base.Predicate;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
-import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingRayClipper;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockBed;
+import net.minecraft.block.BlockDoublePlant;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BedPart;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
-import net.minecraft.world.phys.*;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.entity.Entity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import org.lwjgl.input.Mouse;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 
+import java.lang.reflect.Method;
 import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Queue;
 import java.util.Set;
 
 /**
- * Renders 3D corner-bracket highlights around the block or entity the player is currently
- * hovering over. The highlight uses thickened quad-based brackets (rather than thin GL_LINES)
- * so it remains visible at a distance and avoids z-fighting with world geometry.
+ * 1.12 鼠标世界目标高亮。
  *
- * <p><b>Rendering pipeline</b>
- * <ol>
- *   <li>Early-exit checks: rotation-capture, null world/camera, UI occlusion</li>
- *   <li>Ray-cast both blocks and entities, pick the nearest hit</li>
- *   <li>Compute the world-space bounding box (respecting multi-block structures)</li>
- *   <li>Draw thickened corner brackets with a breathing colour animation</li>
- *   <li>Render a translucent coloured fog layer on the selected block face</li>
- * </ol>
- *
- * <p>All methods are static; this class is never instantiated.
+ * <p>深度与穿透几何分别写入本类私有缓冲；所有兼容入口中的调用方缓冲都不会
+ * 被结束或上传。方块/实体择近、范围限制、近黄远橙、命中面雾层和多方块合并
+ * 与主线语义保持一致。</p>
  */
 public final class InteractionTargetRenderer {
-
-    // ──────────────────────────────────────────────
-    //  Constants – Geometry
-    // ──────────────────────────────────────────────
-
-    /** Extra inflation applied to entity bounding boxes so the brackets sit outside the model. */
     private static final double INFLATE = 0.03D;
-
-    /** Small outward offset applied to block brackets to prevent z-fighting. */
     private static final double LINE_OFFSET = 0.01D;
-
-    /** Distance at which a targeted block should read fully as the old bright skeleton. */
-    private static final double NEAR_SKELETON_DISTANCE = 10.0D;
-
-    /** Distance at which a targeted block should keep the current face-cover clarity. */
-    private static final double FAR_COVER_DISTANCE = 20.0D;
-
-    /** Alpha (opacity) of the hit-face fog layer when the camera is close to the target. */
-    private static final float FACE_FOG_ALPHA_NEAR = 0.045F;
-
-    /** Alpha (opacity) of the hit-face fog layer when the camera is far from the target. */
-    private static final float FACE_FOG_ALPHA_FAR = 0.5F;
-
-    /** Small outward offset applied to the hit-face quad to prevent z-fighting. */
-    private static final double FACE_FOG_OFFSET = 0.005D;
-
-    private static final float NO_DEPTH_BRACKET_ALPHA = 0.32F;
-    private static final float NO_DEPTH_FACE_FOG_ALPHA_NEAR = 0.025F;
-    private static final float NO_DEPTH_FACE_FOG_ALPHA_FAR = 0.18F;
-
-    // ──────────────────────────────────────────────
-    //  Constants – Animation
-    // ──────────────────────────────────────────────
-
-    /** Frequency of the breathing colour oscillation, in cycles per second. */
-    private static final float BREATH_SPEED = 0.2F;
-
-    /** Minimum multiplier applied to each colour channel during the breathing cycle (0…1). */
-    private static final float BREATH_MIN_FACTOR = 0.7F;
-
-    // ──────────────────────────────────────────────
-    //  Constants – Colours (RGB, no alpha)
-    // ──────────────────────────────────────────────
-
-    /** Colour used for entity corner brackets, modulated by the breath factor. */
-    private static final float ENTITY_COLOR_R = 0.50F;
-    private static final float ENTITY_COLOR_G = 0.80F;
-    private static final float ENTITY_COLOR_B = 1.00F;
-
-    /** Colour used for block corner brackets (orange-gold), modulated by the breath factor. */
-    private static final float BLOCK_COLOR_R = 0.965F;
-    private static final float BLOCK_COLOR_G = 0.608F;
-    private static final float BLOCK_COLOR_B = 0.192F;
-
-    /** Close-range block highlight colour: brighter yellow, matching the older skeleton read. */
-    private static final float NEAR_BLOCK_COLOR_R = 1.000F;
-    private static final float NEAR_BLOCK_COLOR_G = 0.900F;
-    private static final float NEAR_BLOCK_COLOR_B = 0.130F;
-
-    /** Maximum ray-cast range for cursor-based hit-testing. */
     private static final double MAX_REACH = 128.0D;
+    private static final double NEAR_DISTANCE = 10.0D;
+    private static final double FAR_DISTANCE = 20.0D;
+    private static final double FOG_OFFSET = 0.005D;
+    private static final float FOG_NEAR = 0.045F;
+    private static final float FOG_FAR = 0.50F;
+    private static final float NO_DEPTH_ALPHA = 0.32F;
+    private static final float NO_DEPTH_FOG_NEAR = 0.025F;
+    private static final float NO_DEPTH_FOG_FAR = 0.18F;
+    private static final float BREATH_SPEED = 0.2F;
+    private static final float BREATH_MIN = 0.7F;
+    private static final BufferBuilder DEPTH_BUFFER = new BufferBuilder(512 * 1024);
+    private static final BufferBuilder NO_DEPTH_BUFFER = new BufferBuilder(512 * 1024);
+    private static final WorldVertexBufferUploader UPLOADER = new WorldVertexBufferUploader();
 
-    // ── Custom no-depth bracket render type ──
-
-    private static final RenderType BRACKET_NO_DEPTH = RenderType.create(
-            "rtsbuilding_target_brackets_no_depth",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final ByteBufferBuilder BRACKET_NO_DEPTH_BACKING = new ByteBufferBuilder(BRACKET_NO_DEPTH.bufferSize());
-
-    // ── Custom no-depth face-fog render type ──
-
-    private static final RenderType FACE_FOG_NO_DEPTH = RenderType.create(
-            "rtsbuilding_face_fog_no_depth",
-            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 256, false, false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RenderStateShard.POSITION_COLOR_SHADER)
-                    .setTransparencyState(RenderStateShard.TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(RenderStateShard.NO_DEPTH_TEST)
-                    .setOutputState(RenderStateShard.MAIN_TARGET)
-                    .setWriteMaskState(RenderStateShard.COLOR_WRITE)
-                    .setCullState(RenderStateShard.NO_CULL)
-                    .createCompositeState(false));
-
-    private static final ByteBufferBuilder FACE_FOG_NO_DEPTH_BACKING = new ByteBufferBuilder(FACE_FOG_NO_DEPTH.bufferSize());
-
-    // ──────────────────────────────────────────────
-    //  Internal helpers
-    // ──────────────────────────────────────────────
-
-    /** Utility constructor; class is never instantiated. */
     private InteractionTargetRenderer() {
     }
 
-    // ══════════════════════════════════════════════
-    //  Public API
-    // ══════════════════════════════════════════════
+    public static void renderHoveredInteractionTarget(Minecraft minecraft, ClientRtsController controller) {
+        if (minecraft == null || controller == null || minecraft.world == null
+                || minecraft.getRenderViewEntity() == null || isRotateCaptured(controller)
+                || isInteractionBlockedByUi(minecraft)) return;
 
-    /**
-     * Entry-point called every frame by {@code RtsVisualOverlayRenderer}.
-     * Performs all early-exit checks, ray-casts against blocks and entities, and
-     * draws corner-bracket highlights for the nearest target.
-     *
-     * @param minecraft   the Minecraft client instance
-     * @param controller  the client-side RTS controller (used for rotation-capture check)
-     * @param poseStack   current transformation stack (already translated to camera space)
-     * @param lineBuffer  {@link VertexConsumer} for normal depth-tested target geometry
-     * @param noDepthBuffer {@link VertexConsumer} for the final no-depth visibility backstop
-     */
+        Entity camera = minecraft.getRenderViewEntity();
+        float partialTicks = minecraft.getRenderPartialTicks();
+        Vec3d origin = camera.getPositionEyes(partialTicks);
+        Vec3d direction = computeCursorDirection(minecraft, camera, partialTicks);
+        Vec3d end = origin.add(direction.scale(MAX_REACH));
+        RayTraceResult blockHit = RtsCullingRayClipper.clip(origin, direction, MAX_REACH,
+                new RtsCullingRayClipper.BlockClip() {
+                    @Override public RayTraceResult clip(Vec3d start, Vec3d finish) {
+                        return minecraft.world.rayTraceBlocks(start, finish, false, false, false);
+                    }
+                }, new RtsCullingRayClipper.CullingQuery() {
+                    @Override public boolean shouldCull(BlockPos pos) {
+                        return RtsCullingClientState.shouldCull(pos);
+                    }
+                    @Override public double distanceAfterCulledBlock(Vec3d rayOrigin, Vec3d rayDirection,
+                            BlockPos pos, double maxDistance) {
+                        return RtsCullingClientState.distanceAfterCulledBlock(
+                                rayOrigin, rayDirection, pos, maxDistance);
+                    }
+                });
+        EntityHit entityHit = raycastEntity(minecraft.world, camera, origin, end, direction);
+        double blockDistanceSq = blockHit == null || blockHit.hitVec == null
+                ? Double.MAX_VALUE : origin.squareDistanceTo(blockHit.hitVec);
+        double entityDistanceSq = entityHit == null
+                ? Double.MAX_VALUE : origin.squareDistanceTo(entityHit.hit);
+
+        RenderManager manager = minecraft.getRenderManager();
+        beginBuffers(-manager.viewerPosX, -manager.viewerPosY, -manager.viewerPosZ);
+        try {
+            float breath = breathFactor();
+            if (entityHit != null && InteractionTargetSelection.shouldRenderEntityInsteadOfBlock(
+                    entityDistanceSq, blockDistanceSq,
+                    isWithinBounds(controller, new BlockPos(entityHit.entity)))) {
+                appendEntity(entityHit.entity, Math.sqrt(entityDistanceSq), breath);
+            } else if (blockHit != null && blockHit.typeOfHit == RayTraceResult.Type.BLOCK
+                    && blockHit.getBlockPos() != null && isWithinBounds(controller, blockHit.getBlockPos())) {
+                appendBlock(minecraft.world, blockHit.getBlockPos(), blockHit.sideHit,
+                        Math.sqrt(blockDistanceSq), breath);
+            }
+            drawOwnedBuffers();
+        } catch (RuntimeException exception) {
+            discardOwnedBuffers();
+            throw exception;
+        } finally {
+            resetTranslations();
+        }
+    }
+
+    /** 迁移期兼容入口：调用方缓冲的生命周期完全归调用方。 */
     public static void renderHoveredInteractionTarget(Minecraft minecraft, ClientRtsController controller,
-            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer noDepthBuffer) {
-        // ── Fast early-exit checks ──
-        if (controller.isRotateCaptured() || minecraft.level == null || minecraft.getCameraEntity() == null) {
-            return;
-        }
-
-        // ── Skip rendering when the cursor is over BuilderScreen UI elements ──
-        if (isInteractionBlockedByUI(minecraft)) {
-            return;
-        }
-
-        // ── Compute breathing colour factor ──
-        float breathFactor = RenderingUtil.getBreathFactor(BREATH_SPEED, BREATH_MIN_FACTOR);
-
-        // ── Build ray-cast vectors ──
-        Vec3 camPos = minecraft.gameRenderer.getMainCamera().getPosition();
-        Vec3 viewDir = RaycastHelper.computeCursorRayDirection(minecraft);
-        Vec3 rayEnd = camPos.add(viewDir.scale(MAX_REACH));
-
-        // ── Ray-cast blocks and entities ──
-        BlockHitResult blockHit = RaycastHelper.raycastBlockFromCursorThroughCulling(
-                minecraft, camPos, viewDir, MAX_REACH, false);
-        EntityHitResult entityHit = RaycastHelper.raycastEntityFromCursor(minecraft, camPos, rayEnd, viewDir, MAX_REACH);
-
-        // ── Pick the nearest hit ──
-        double blockDistSq = blockHit != null ? camPos.distanceToSqr(blockHit.getLocation()) : Double.MAX_VALUE;
-        double entityDistSq = entityHit != null ? camPos.distanceToSqr(entityHit.getLocation()) : Double.MAX_VALUE;
-
-        if (entityHit != null && entityDistSq <= blockDistSq) {
-            // Entity is closer (or equal) – render entity highlight
-            Entity entity = entityHit.getEntity();
-            // Skip entity outside RTS build boundary
-            if (InteractionTargetSelection.shouldRenderEntityInsteadOfBlock(
-                    entityDistSq, blockDistSq, isWithinBounds(controller, entity.blockPosition()))) {
-                double distance = camPos.distanceTo(entity.getBoundingBox().getCenter());
-                renderEntityCornerHighlight(poseStack, lineBuffer, noDepthBuffer, entity, distance, breathFactor);
-                return;
-            }
-        }
-
-        if (blockHit == null || blockHit.getType() != HitResult.Type.BLOCK) {
-            return;
-        }
-
-        // Block is the nearest target – render block highlight
-        BlockPos pos = blockHit.getBlockPos();
-        // Skip block outside RTS build boundary
-        if (!isWithinBounds(controller, pos)) {
-            return;
-        }
-        double distance = camPos.distanceTo(Vec3.atCenterOf(pos));
-        renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, noDepthBuffer, pos, blockHit.getDirection(), distance, breathFactor);
+            BufferBuilder callerDepthBuffer, BufferBuilder callerNoDepthBuffer) {
+        renderHoveredInteractionTarget(minecraft, controller);
     }
 
-    // ══════════════════════════════════════════════
-    //  GUI Interaction Check
-    // ══════════════════════════════════════════════
-
-    /**
-     * Returns {@code true} when the cursor is over a BuilderScreen UI element that should
-     * prevent world-target highlighting (e.g. floating windows, shape-build confirmation,
-     * chain-ultimine mode).
-     *
-     * @param minecraft  the Minecraft client instance
-     * @return {@code true} if world highlighting should be suppressed
-     */
-    private static boolean isInteractionBlockedByUI(Minecraft minecraft) {
-        if (!(minecraft.screen instanceof BuilderScreen builderScreen)) {
-            return false;
-        }
-
-        // BuilderScreen 在固定 RTS UI Scale 的 render pass 中已经把鼠标换算到自己的坐标系。
-        // 这里若再次按 Minecraft GUI Scale 换算，屏幕下半部会被误判为底部面板，目标框便会提前消失。
-        double mouseX = builderScreen.getCurrentMouseX();
-        double mouseY = builderScreen.getCurrentMouseY();
-
-        // Blocked when cursor is outside the world-view area
-        if (!builderScreen.isWorldArea(mouseX, mouseY)) {
-            return true;
-        }
-
-        // Blocked when cursor is over an open floating window
-        for (var window : builderScreen.getFloatingWindowLayer().frontToBackWindows()) {
-            if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {
-                return true;
-            }
-        }
-
-        // Blocked during shape-build confirmation phase
-        var shapeSession = builderScreen.getShapeController().getShapeBuildSession();
-        if (shapeSession != null && shapeSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM) {
-            return true;
-        }
-
-        // Blocked when Quick Build panel has an active box selection in progress
-        var qbSession = builderScreen.getShapeController().getShapeBuildSession();
-        if (builderScreen.isQuickBuildOpen() && qbSession != null
-                && (qbSession.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT
-                || qbSession.phase() == ShapeBuildTypes.Phase.NEED_THIRD_POINT)) {
-            return true;
-        }
-
-        return false;
+    private static void appendEntity(Entity entity, double distance, float breath) {
+        AxisAlignedBB box = entity.getEntityBoundingBox().grow(INFLATE);
+        float r = 0.50F * breath, g = 0.80F * breath, b = 1.00F * breath;
+        appendCornerBrackets(DEPTH_BUFFER, box, r, g, b, 1.0F, distance, 1.0D);
+        appendCornerBrackets(NO_DEPTH_BUFFER, box, r, g, b, NO_DEPTH_ALPHA, distance, 1.0D);
     }
 
-    // ══════════════════════════════════════════════
-    //  Highlight Rendering – Entity & Block
-    // ══════════════════════════════════════════════
-
-    /**
-     * Renders corner-bracket highlights around an entity's bounding box.
-     *
-     * @param poseStack    current transformation stack
-     * @param lineBuffer   vertex consumer for bracket quads
-     * @param entity       the target entity
-     * @param distance     distance from the camera to the entity centre (used for thickness scaling)
-     * @param breathFactor current breathing animation multiplier
-     */
-    private static void renderEntityCornerHighlight(PoseStack poseStack, VertexConsumer lineBuffer,
-            VertexConsumer noDepthBuffer, Entity entity, double distance, float breathFactor) {
-        AABB bounds = entity.getBoundingBox().inflate(INFLATE);
-        float r = ENTITY_COLOR_R * breathFactor;
-        float g = ENTITY_COLOR_G * breathFactor;
-        float b = ENTITY_COLOR_B * breathFactor;
-
-        CornerBracketRenderer.renderCornerBrackets(
-                poseStack, lineBuffer,
-                bounds.minX, bounds.minY, bounds.minZ,
-                bounds.maxX, bounds.maxY, bounds.maxZ,
-                r, g, b, distance);
-
-        // ── Transparent no-depth brackets (visible through terrain) ──
-        renderCornerBracketsNoDepth(poseStack, noDepthBuffer,
-                bounds.minX, bounds.minY, bounds.minZ,
-                bounds.maxX, bounds.maxY, bounds.maxZ,
-                r, g, b, distance);
+    private static void appendBlock(World world, BlockPos pos, EnumFacing face,
+            double distance, float breath) {
+        AxisAlignedBB bounds = computeWorldBounds(world, pos);
+        if (bounds == null) return;
+        float near = 1.0F - smoothstep(NEAR_DISTANCE, FAR_DISTANCE, distance);
+        float far = 1.0F - near;
+        float r = (1.000F * near + 0.965F * far) * breath;
+        float g = (0.900F * near + 0.608F * far) * breath;
+        float b = (0.130F * near + 0.192F * far) * breath;
+        AxisAlignedBB expanded = bounds.grow(LINE_OFFSET);
+        appendCornerBrackets(DEPTH_BUFFER, expanded, r, g, b, 1.0F, distance, 1.0D);
+        appendCornerBrackets(NO_DEPTH_BUFFER, expanded, r, g, b, NO_DEPTH_ALPHA, distance, 1.0D);
+        appendFace(DEPTH_BUFFER, bounds, face, r, g, b, FOG_NEAR * near + FOG_FAR * far);
+        appendFace(NO_DEPTH_BUFFER, bounds, face, r, g, b,
+                NO_DEPTH_FOG_NEAR * near + NO_DEPTH_FOG_FAR * far);
     }
 
-    /**
-     * Renders corner-bracket highlights around a block's world-space bounding box.
-     * Multi-block structures (double-plants, beds) are merged into a single bounding box.
-     *
-     * @param minecraft    the Minecraft client instance
-     * @param poseStack    current transformation stack
-     * @param lineBuffer   vertex consumer for bracket quads
-     * @param pos          block position of the targeted block
-     * @param distance     distance from the camera to the block centre
-     * @param breathFactor current breathing animation multiplier
-     */
-    private static void renderBlockCornerHighlight(Minecraft minecraft, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer noDepthBuffer,
-            BlockPos pos, Direction hitFace, double distance, float breathFactor) {
-        if (minecraft.level == null) {
-            return;
+    static void appendCornerBrackets(BufferBuilder buffer, AxisAlignedBB box,
+            float r, float g, float b, float alpha, double distance, double thicknessMultiplier) {
+        double t = 0.04D * Math.max(0.25D, thicknessMultiplier)
+                * Math.max(1.0D, distance / 16.0D) * 0.5D;
+        appendHorizontalRing(buffer, box.minX, box.minZ, box.maxX, box.maxZ,
+                box.minY, r, g, b, alpha, t);
+        appendHorizontalRing(buffer, box.minX, box.minZ, box.maxX, box.maxZ,
+                box.maxY, r, g, b, alpha, t);
+        appendSegment(buffer, box.minX, box.minY, box.minZ, box.minX, box.maxY, box.minZ,
+                r, g, b, alpha, 1, t);
+        appendSegment(buffer, box.maxX, box.minY, box.minZ, box.maxX, box.maxY, box.minZ,
+                r, g, b, alpha, 1, t);
+        appendSegment(buffer, box.maxX, box.minY, box.maxZ, box.maxX, box.maxY, box.maxZ,
+                r, g, b, alpha, 1, t);
+        appendSegment(buffer, box.minX, box.minY, box.maxZ, box.minX, box.maxY, box.maxZ,
+                r, g, b, alpha, 1, t);
+    }
+
+    private static void appendHorizontalRing(BufferBuilder buffer, double minX, double minZ,
+            double maxX, double maxZ, double y, float r, float g, float b, float a, double t) {
+        appendSegment(buffer, minX, y, minZ, maxX, y, minZ, r, g, b, a, 0, t);
+        appendSegment(buffer, maxX, y, minZ, maxX, y, maxZ, r, g, b, a, 2, t);
+        appendSegment(buffer, maxX, y, maxZ, minX, y, maxZ, r, g, b, a, 0, t);
+        appendSegment(buffer, minX, y, maxZ, minX, y, minZ, r, g, b, a, 2, t);
+    }
+
+    private static void appendSegment(BufferBuilder buffer,
+            double x1, double y1, double z1, double x2, double y2, double z2,
+            float r, float g, float b, float a, int axis, double t) {
+        if (axis == 0) {
+            quad(buffer, x1,y1-t,z1, x1,y1+t,z1, x2,y2+t,z2, x2,y2-t,z2, r,g,b,a);
+            quad(buffer, x1,y1,z1-t, x1,y1,z1+t, x2,y2,z2+t, x2,y2,z2-t, r,g,b,a);
+        } else if (axis == 1) {
+            quad(buffer, x1,y1,z1-t, x1,y1,z1+t, x2,y2,z2+t, x2,y2,z2-t, r,g,b,a);
+            quad(buffer, x1-t,y1,z1, x1+t,y1,z1, x2+t,y2,z2, x2-t,y2,z2, r,g,b,a);
+        } else {
+            quad(buffer, x1-t,y1,z1, x1+t,y1,z1, x2+t,y2,z2, x2-t,y2,z2, r,g,b,a);
+            quad(buffer, x1,y1-t,z1, x1,y1+t,z1, x2,y2+t,z2, x2,y2-t,z2, r,g,b,a);
         }
-
-        AABB bounds = computeWorldBounds(minecraft.level, pos);
-        if (bounds == null) {
-            return;
-        }
-
-        double off = LINE_OFFSET;
-        BlockHighlightVisual visual = blockHighlightVisual(distance, breathFactor);
-
-        CornerBracketRenderer.renderCornerBrackets(
-                poseStack, lineBuffer,
-                bounds.minX - off, bounds.minY - off, bounds.minZ - off,
-                bounds.maxX + off, bounds.maxY + off, bounds.maxZ + off,
-                visual.r(), visual.g(), visual.b(), distance);
-
-        // ── Transparent no-depth brackets (visible through terrain) ──
-        renderCornerBracketsNoDepth(poseStack, noDepthBuffer,
-                bounds.minX - off, bounds.minY - off, bounds.minZ - off,
-                bounds.maxX + off, bounds.maxY + off, bounds.maxZ + off,
-                visual.r(), visual.g(), visual.b(), distance);
-
-        // Close targets already occupy a large portion of the screen, so the
-        // face cover fades out and leaves the old bright skeleton as the read.
-        renderHitFaceFog(lineBuffer, poseStack, bounds, hitFace, visual.r(), visual.g(), visual.b(), visual.faceAlpha());
-        renderHitFaceFog(noDepthBuffer, poseStack, bounds, hitFace,
-                visual.r(), visual.g(), visual.b(), visual.noDepthFaceAlpha());
     }
 
-    /**
-     * Blends block target feedback by camera distance: far targets keep the
-     * current orange face cover, while close targets become bright yellow
-     * skeletons so the selected face does not flood the player's view.
-     */
-    private static BlockHighlightVisual blockHighlightVisual(double distance, float breathFactor) {
-        float nearWeight = 1.0F - smoothstep(NEAR_SKELETON_DISTANCE, FAR_COVER_DISTANCE, distance);
-        float farWeight = 1.0F - nearWeight;
-        float r = (NEAR_BLOCK_COLOR_R * nearWeight + BLOCK_COLOR_R * farWeight) * breathFactor;
-        float g = (NEAR_BLOCK_COLOR_G * nearWeight + BLOCK_COLOR_G * farWeight) * breathFactor;
-        float b = (NEAR_BLOCK_COLOR_B * nearWeight + BLOCK_COLOR_B * farWeight) * breathFactor;
-        float faceAlpha = FACE_FOG_ALPHA_NEAR * nearWeight + FACE_FOG_ALPHA_FAR * farWeight;
-        float noDepthFaceAlpha = NO_DEPTH_FACE_FOG_ALPHA_NEAR * nearWeight + NO_DEPTH_FACE_FOG_ALPHA_FAR * farWeight;
-        return new BlockHighlightVisual(r, g, b, faceAlpha, noDepthFaceAlpha);
+    static void quad(BufferBuilder buffer,
+            double x1,double y1,double z1,double x2,double y2,double z2,
+            double x3,double y3,double z3,double x4,double y4,double z4,
+            float r,float g,float b,float a) {
+        vertex(buffer,x1,y1,z1,r,g,b,a); vertex(buffer,x2,y2,z2,r,g,b,a);
+        vertex(buffer,x3,y3,z3,r,g,b,a); vertex(buffer,x4,y4,z4,r,g,b,a);
     }
 
-    private static float smoothstep(double edge0, double edge1, double value) {
-        double t = Math.max(0.0D, Math.min(1.0D, (value - edge0) / (edge1 - edge0)));
-        return (float) (t * t * (3.0D - 2.0D * t));
+    private static void vertex(BufferBuilder buffer, double x, double y, double z,
+            float r, float g, float b, float a) {
+        buffer.pos(x, y, z).color(r, g, b, a).endVertex();
     }
 
-    private record BlockHighlightVisual(float r, float g, float b, float faceAlpha, float noDepthFaceAlpha) {
-    }
-
-    // ══════════════════════════════════════════════
-    //  No-depth Bracket Rendering
-    // ══════════════════════════════════════════════
-
-    /** Adds transparent no-depth corner brackets to the renderer-level backstop buffer. */
-    private static void renderCornerBracketsNoDepth(PoseStack poseStack, VertexConsumer noDepthBuffer,
-            double minX, double minY, double minZ,
-            double maxX, double maxY, double maxZ,
-            float r, float g, float b, double distance) {
-        if (noDepthBuffer == null) {
-            return;
-        }
-        CornerBracketRenderer.renderCornerBrackets(
-                poseStack, noDepthBuffer,
-                minX, minY, minZ, maxX, maxY, maxZ,
-                r, g, b, NO_DEPTH_BRACKET_ALPHA, distance);
-    }
-
-    // ══════════════════════════════════════════════
-    //  Hit-Face Fog Rendering
-    // ══════════════════════════════════════════════
-
-    /**
-     * Renders a translucent coloured fog quad on the single face of the bounding box
-     * that the player's crosshair is currently targeting. Rendered without depth test
-     * so it remains visible even when occluded by terrain.
-     *
-     * @param consumer  vertex consumer
-     * @param poseStack current transformation stack
-     * @param bounds    the world-space bounding box of the target block/structure
-     * @param face      the direction of the hit face
-     * @param r         red   colour component [0, 1] (already modulated by breath factor)
-     * @param g         green colour component [0, 1]
-     * @param b         blue  colour component [0, 1]
-     */
-    private static void renderHitFaceFog(VertexConsumer consumer, PoseStack poseStack,
-            AABB bounds, Direction face, float r, float g, float b, float alpha) {
-        if (consumer == null) {
-            return;
-        }
-        double off = FACE_FOG_OFFSET;
-
-        double x1 = bounds.minX, x2 = bounds.maxX;
-        double y1 = bounds.minY, y2 = bounds.maxY;
-        double z1 = bounds.minZ, z2 = bounds.maxZ;
-
-        BufferBuilder fogBuffer = new BufferBuilder(FACE_FOG_NO_DEPTH_BACKING, VertexFormat.Mode.QUADS,
-                DefaultVertexFormat.POSITION_COLOR);
-
+    private static void appendFace(BufferBuilder buffer, AxisAlignedBB box, EnumFacing face,
+            float r, float g, float b, float a) {
+        if (face == null) return;
+        double x1=box.minX,x2=box.maxX,y1=box.minY,y2=box.maxY,z1=box.minZ,z2=box.maxZ,o=FOG_OFFSET;
         switch (face) {
-            case DOWN -> RenderingUtil.quad(consumer, poseStack,
-                    x1, y1 - off, z1, x2, y1 - off, z1, x2, y1 - off, z2, x1, y1 - off, z2, r, g, b, alpha);
-            case UP -> RenderingUtil.quad(consumer, poseStack,
-                    x1, y2 + off, z1, x1, y2 + off, z2, x2, y2 + off, z2, x2, y2 + off, z1, r, g, b, alpha);
-            case NORTH -> RenderingUtil.quad(consumer, poseStack,
-                    x1, y1, z1 - off, x2, y1, z1 - off, x2, y2, z1 - off, x1, y2, z1 - off, r, g, b, alpha);
-            case SOUTH -> RenderingUtil.quad(consumer, poseStack,
-                    x1, y1, z2 + off, x1, y2, z2 + off, x2, y2, z2 + off, x2, y1, z2 + off, r, g, b, alpha);
-            case WEST -> RenderingUtil.quad(consumer, poseStack,
-                    x1 - off, y1, z1, x1 - off, y2, z1, x1 - off, y2, z2, x1 - off, y1, z2, r, g, b, alpha);
-            case EAST -> RenderingUtil.quad(consumer, poseStack,
-                    x2 + off, y1, z1, x2 + off, y1, z2, x2 + off, y2, z2, x2 + off, y2, z1, r, g, b, alpha);
-        }
-
-        var meshData = fogBuffer.build();
-        if (meshData != null) {
-            RenderSystem.disableDepthTest();
-            RenderSystem.depthMask(false);
-            FACE_FOG_NO_DEPTH.draw(meshData);
-            RenderSystem.depthMask(true);
-            RenderSystem.enableDepthTest();
+            case DOWN: quad(buffer,x1,y1-o,z1,x2,y1-o,z1,x2,y1-o,z2,x1,y1-o,z2,r,g,b,a); break;
+            case UP: quad(buffer,x1,y2+o,z1,x1,y2+o,z2,x2,y2+o,z2,x2,y2+o,z1,r,g,b,a); break;
+            case NORTH: quad(buffer,x1,y1,z1-o,x2,y1,z1-o,x2,y2,z1-o,x1,y2,z1-o,r,g,b,a); break;
+            case SOUTH: quad(buffer,x1,y1,z2+o,x1,y2,z2+o,x2,y2,z2+o,x2,y1,z2+o,r,g,b,a); break;
+            case WEST: quad(buffer,x1-o,y1,z1,x1-o,y2,z1,x1-o,y2,z2,x1-o,y1,z2,r,g,b,a); break;
+            case EAST: quad(buffer,x2+o,y1,z1,x2+o,y1,z2,x2+o,y2,z2,x2+o,y2,z1,r,g,b,a); break;
         }
     }
 
-    // ══════════════════════════════════════════════
-    //  Bounds Computation
-    // ══════════════════════════════════════════════
+    private static AxisAlignedBB computeWorldBounds(World world, BlockPos start) {
+        IBlockState initial = world.getBlockState(start);
+        Block block = initial.getBlock();
+        if (!(block instanceof BlockBed) && !(block instanceof BlockDoublePlant)) {
+            return selectedBounds(world, start);
+        }
+        Queue<BlockPos> queue = new ArrayDeque<BlockPos>();
+        Set<BlockPos> visited = new HashSet<BlockPos>();
+        queue.add(start); visited.add(start);
+        AxisAlignedBB merged = null;
+        while (!queue.isEmpty()) {
+            BlockPos current = queue.remove();
+            IBlockState state = world.getBlockState(current);
+            AxisAlignedBB one = selectedBounds(world, current);
+            if (one != null) merged = merged == null ? one : merged.union(one);
+            EnumFacing direction = connectedDirection(state);
+            if (direction != null) {
+                BlockPos next = current.offset(direction);
+                if (visited.add(next) && world.getBlockState(next).getBlock() == block) queue.add(next);
+            }
+        }
+        return merged;
+    }
 
-    /**
-     * Checks whether the given block position is within the RTS build boundary.
-     * If no boundary is active ({@code controller.hasBounds() == false}), always returns {@code true}.
-     *
-     * @param controller the client RTS controller (provides anchor and radius)
-     * @param pos        the block position to test
-     * @return {@code true} if the position is within the build boundary, or if no boundary is set
-     */
+    private static EnumFacing connectedDirection(IBlockState state) {
+        if (state.getBlock() instanceof BlockDoublePlant) {
+            return state.getValue(BlockDoublePlant.HALF) == BlockDoublePlant.EnumBlockHalf.LOWER
+                    ? EnumFacing.UP : EnumFacing.DOWN;
+        }
+        if (state.getBlock() instanceof BlockBed) {
+            EnumFacing facing = state.getValue(BlockBed.FACING);
+            return state.getValue(BlockBed.PART) == BlockBed.EnumPartType.HEAD
+                    ? facing.getOpposite() : facing;
+        }
+        return null;
+    }
+
+    private static AxisAlignedBB selectedBounds(World world, BlockPos pos) {
+        IBlockState state = world.getBlockState(pos);
+        if (state.getMaterial().isReplaceable() && state.getBlock() == net.minecraft.init.Blocks.AIR) return null;
+        AxisAlignedBB local = state.getBoundingBox(world, pos);
+        return local == Block.NULL_AABB ? null : local.offset(pos);
+    }
+
+    private static EntityHit raycastEntity(final World world, final Entity camera,
+            Vec3d origin, Vec3d end, Vec3d direction) {
+        AxisAlignedBB search = camera.getEntityBoundingBox().expand(
+                direction.x * MAX_REACH, direction.y * MAX_REACH, direction.z * MAX_REACH).grow(1.0D);
+        List<Entity> entities = world.getEntitiesInAABBexcluding(camera, search, new Predicate<Entity>() {
+            @Override public boolean apply(Entity entity) {
+                return entity != null && !entity.isDead && entity.canBeCollidedWith()
+                        && entity != Minecraft.getMinecraft().player;
+            }
+        });
+        EntityHit best = null;
+        double bestDistance = MAX_REACH * MAX_REACH;
+        for (Entity entity : entities) {
+            AxisAlignedBB bounds = entity.getEntityBoundingBox().grow(entity.getCollisionBorderSize());
+            RayTraceResult hit = bounds.calculateIntercept(origin, end);
+            if (bounds.contains(origin)) {
+                if (bestDistance >= 0.0D) { best = new EntityHit(entity, origin); bestDistance = 0.0D; }
+            } else if (hit != null && hit.hitVec != null) {
+                double distance = origin.squareDistanceTo(hit.hitVec);
+                if (distance < bestDistance) { best = new EntityHit(entity, hit.hitVec); bestDistance = distance; }
+            }
+        }
+        return best;
+    }
+
+    private static Vec3d computeCursorDirection(Minecraft minecraft, Entity camera, float partialTicks) {
+        double width = Math.max(1.0D, minecraft.displayWidth);
+        double height = Math.max(1.0D, minecraft.displayHeight);
+        double nx = Mouse.isCreated() ? Mouse.getX() / width * 2.0D - 1.0D : 0.0D;
+        double ny = Mouse.isCreated() ? Mouse.getY() / height * 2.0D - 1.0D : 0.0D;
+        Vec3d forward = camera.getLook(partialTicks).normalize();
+        Vec3d worldUp = Math.abs(forward.y) > 0.999D ? new Vec3d(0, 0, 1) : new Vec3d(0, 1, 0);
+        Vec3d right = forward.crossProduct(worldUp).normalize();
+        Vec3d up = right.crossProduct(forward).normalize();
+        double tanY = Math.tan(Math.toRadians(minecraft.gameSettings.fovSetting) * 0.5D);
+        double tanX = tanY * width / height;
+        return forward.add(right.scale(nx * tanX)).add(up.scale(ny * tanY)).normalize();
+    }
+
     private static boolean isWithinBounds(ClientRtsController controller, BlockPos pos) {
         if (!controller.hasBounds()) return true;
-        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        int minX=(int)Math.floor(controller.getAnchorX()-controller.getMaxRadius());
+        int maxX=(int)Math.ceil(controller.getAnchorX()+controller.getMaxRadius())-1;
+        int minZ=(int)Math.floor(controller.getAnchorZ()-controller.getMaxRadius());
+        int maxZ=(int)Math.ceil(controller.getAnchorZ()+controller.getMaxRadius())-1;
+        return pos.getX()>=minX && pos.getX()<=maxX && pos.getZ()>=minZ && pos.getZ()<=maxZ;
     }
 
-    /**
-     * Computes the world-space axis-aligned bounding box for the block at {@code pos}.
-     * If the block is part of a multi-block structure (double-plant, bed, etc.) the
-     * bounding box encompasses all connected blocks.
-     *
-     * @param level the world
-     * @param pos   the targeted block position
-     * @return the merged world-space AABB, or {@code null} if the block has no shape
-     */
-    private static AABB computeWorldBounds(Level level, BlockPos pos) {
-        BlockState state = level.getBlockState(pos);
-
-        if (isMultiBlockStructure(state)) {
-            return computeMultiBlockBoundsBfs(level, pos);
-        }
-
-        return computeSingleBlockAABB(level, pos);
+    private static boolean isRotateCaptured(ClientRtsController controller) {
+        try {
+            Method method = controller.getClass().getMethod("isRotateCaptured");
+            return Boolean.TRUE.equals(method.invoke(controller));
+        } catch (ReflectiveOperationException ignored) { return false; }
     }
 
-    /**
-     * Returns {@code true} if the given block state is part of a multi-block structure
-     * (e.g. double-tall plants or beds) that requires BFS-based bounds merging.
-     *
-     * @param state the block state to test
-     * @return {@code true} if the state has a multi-block property
-     */
-    private static boolean isMultiBlockStructure(BlockState state) {
-        return state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)
-            || state.hasProperty(BlockStateProperties.BED_PART);
-    }
+    private static boolean isInteractionBlockedByUi(Minecraft minecraft) {
+        Object screen = minecraft.currentScreen;
+        if (screen == null || !screen.getClass().getName().endsWith("BuilderScreen")) return false;
+        try {
+            Method mouseXMethod=screen.getClass().getMethod("getCurrentMouseX");
+            Method mouseYMethod=screen.getClass().getMethod("getCurrentMouseY");
+            double x=((Number)mouseXMethod.invoke(screen)).doubleValue();
+            double y=((Number)mouseYMethod.invoke(screen)).doubleValue();
+            Method worldArea=screen.getClass().getMethod("isWorldArea",double.class,double.class);
+            if (!Boolean.TRUE.equals(worldArea.invoke(screen,x,y))) return true;
 
-    /**
-     * Performs a BFS from the starting {@code pos} to discover all connected blocks that
-     * belong to the same multi-block structure, then returns the merged world-space AABB.
-     * <p>
-     * Connection directions are determined by {@link #getConnectionDirections} and depend
-     * on the block type (vertical for double-plants, horizontal for beds).
-     *
-     * @param level the world
-     * @param pos   the starting block position
-     * @return the merged world-space AABB of the entire structure
-     */
-    private static AABB computeMultiBlockBoundsBfs(Level level, BlockPos pos) {
-        Set<BlockPos> visited = new HashSet<>();
-        Queue<BlockPos> queue = new ArrayDeque<>();
-        queue.add(pos);
-        visited.add(pos);
-
-        double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, minZ = Double.MAX_VALUE;
-        double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE, maxZ = -Double.MAX_VALUE;
-
-        while (!queue.isEmpty()) {
-            BlockPos current = queue.poll();
-            BlockState currentState = level.getBlockState(current);
-
-            AABB aabb = computeSingleBlockAABB(level, current);
-            if (aabb != null) {
-                minX = Math.min(minX, aabb.minX);
-                minY = Math.min(minY, aabb.minY);
-                minZ = Math.min(minZ, aabb.minZ);
-                maxX = Math.max(maxX, aabb.maxX);
-                maxY = Math.max(maxY, aabb.maxY);
-                maxZ = Math.max(maxZ, aabb.maxZ);
-            }
-
-            for (Direction dir : getConnectionDirections(currentState)) {
-                BlockPos neighbor = current.relative(dir);
-                if (!visited.add(neighbor)) {
-                    continue;
-                }
-
-                BlockState neighborState = level.getBlockState(neighbor);
-                if (neighborState.is(currentState.getBlock()) && isMultiBlockStructure(neighborState)) {
-                    queue.add(neighbor);
+            Object layer=screen.getClass().getMethod("getFloatingWindowLayer").invoke(screen);
+            Object windows=layer.getClass().getMethod("frontToBackWindows").invoke(layer);
+            if(windows instanceof Iterable){
+                for(Object window:(Iterable<?>)windows){
+                    boolean visible=Boolean.TRUE.equals(window.getClass().getMethod("isVisibleWindow").invoke(window));
+                    boolean inside=Boolean.TRUE.equals(window.getClass().getMethod(
+                            "isInsideWindow",double.class,double.class).invoke(window,x,y));
+                    if(visible&&inside)return true;
                 }
             }
-        }
 
-        return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
+            Object shapeController=screen.getClass().getMethod("getShapeController").invoke(screen);
+            Object session=shapeController.getClass().getMethod("getShapeBuildSession").invoke(shapeController);
+            if(session!=null){
+                String phase=String.valueOf(session.getClass().getMethod("phase").invoke(session));
+                if("READY_CONFIRM".equals(phase))return true;
+                boolean quickBuild=Boolean.TRUE.equals(screen.getClass().getMethod("isQuickBuildOpen").invoke(screen));
+                if(quickBuild&&("NEED_SECOND_POINT".equals(phase)||"NEED_THIRD_POINT".equals(phase)))return true;
+            }
+            return false;
+        } catch (ReflectiveOperationException ignored) {
+            // 独立界面尚未完成迁移时保守阻断，避免点击 GUI 却高亮世界。
+            return true;
+        }
     }
 
-    /**
-     * Returns the connection direction(s) for a multi-block structure.
-     * <ul>
-     *   <li><b>Double-block-half</b> (double-plants): connects vertically (UP from LOWER, DOWN from UPPER)</li>
-     *   <li><b>Bed</b>: connects horizontally based on the HEAD/FOOT orientation and facing</li>
-     * </ul>
-     *
-     * @param state the block state
-     * @return an array of neighbour directions to traverse during BFS
-     */
-    private static Direction[] getConnectionDirections(BlockState state) {
-        if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
-            DoubleBlockHalf half = state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF);
-            return new Direction[]{half == DoubleBlockHalf.LOWER ? Direction.UP : Direction.DOWN};
-        }
-        if (state.hasProperty(BlockStateProperties.BED_PART)) {
-            BedPart part = state.getValue(BlockStateProperties.BED_PART);
-            Direction facing = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
-            // HEAD connects towards the foot (opposite of facing), FOOT connects towards the head
-            return new Direction[]{part == BedPart.HEAD ? facing.getOpposite() : facing};
-        }
-        return new Direction[0];
+    private static float breathFactor() {
+        double phase=System.currentTimeMillis()/1000.0D*BREATH_SPEED*2.0D*Math.PI;
+        return (float)((Math.sin(phase)+1.0D)*0.5D*(1.0F-BREATH_MIN)+BREATH_MIN);
     }
 
-    /**
-     * Computes the world-space AABB for a single block by merging all sub-boxes of its
-     * {@link VoxelShape}. If the shape is empty (e.g. air or structure-void), returns {@code null}.
-     *
-     * @param level the world
-     * @param pos   the block position
-     * @return the merged world-space AABB, or {@code null} if the block has no shape
-     */
-    private static AABB computeSingleBlockAABB(Level level, BlockPos pos) {
-        VoxelShape shape = level.getBlockState(pos).getShape(level, pos);
-        if (shape.isEmpty()) {
-            return null;
-        }
+    static float smoothstep(double edge0, double edge1, double value) {
+        double t=Math.max(0.0D,Math.min(1.0D,(value-edge0)/(edge1-edge0)));
+        return (float)(t*t*(3.0D-2.0D*t));
+    }
 
-        double minX = Double.MAX_VALUE, minY = Double.MAX_VALUE, minZ = Double.MAX_VALUE;
-        double maxX = -Double.MAX_VALUE, maxY = -Double.MAX_VALUE, maxZ = -Double.MAX_VALUE;
+    private static void beginBuffers(double x, double y, double z) {
+        DEPTH_BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+        DEPTH_BUFFER.setTranslation(x,y,z);
+        try { NO_DEPTH_BUFFER.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_COLOR); NO_DEPTH_BUFFER.setTranslation(x,y,z); }
+        catch (RuntimeException exception) { discard(DEPTH_BUFFER); throw exception; }
+    }
 
-        for (AABB box : shape.toAabbs()) {
-            minX = Math.min(minX, pos.getX() + box.minX);
-            minY = Math.min(minY, pos.getY() + box.minY);
-            minZ = Math.min(minZ, pos.getZ() + box.minZ);
-            maxX = Math.max(maxX, pos.getX() + box.maxX);
-            maxY = Math.max(maxY, pos.getY() + box.maxY);
-            maxZ = Math.max(maxZ, pos.getZ() + box.maxZ);
-        }
+    private static void drawOwnedBuffers() {
+        GlSnapshot state=GlSnapshot.capture();
+        try {
+            setupCommon(); GlStateManager.enableDepth(); GlStateManager.depthMask(false);
+            GlStateManager.enablePolygonOffset(); GlStateManager.doPolygonOffset(-1.0F,-1.0F);
+            uploadOrReset(DEPTH_BUFFER);
+            GlStateManager.disablePolygonOffset(); GlStateManager.disableDepth();
+            uploadOrReset(NO_DEPTH_BUFFER);
+        } finally { resetTranslations(); state.restore(); }
+    }
 
-        return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
+    private static void setupCommon() {
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
+                GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                GlStateManager.SourceFactor.ONE,GlStateManager.DestFactor.ZERO);
+        GlStateManager.disableTexture2D(); GlStateManager.disableCull();
+    }
+
+    private static void uploadOrReset(BufferBuilder buffer) {
+        if(buffer.getVertexCount()>0) UPLOADER.draw(buffer); else discard(buffer);
+    }
+    private static void discardOwnedBuffers(){discard(DEPTH_BUFFER);discard(NO_DEPTH_BUFFER);resetTranslations();}
+    private static void discard(BufferBuilder buffer){try{buffer.finishDrawing();}catch(IllegalStateException ignored){}buffer.reset();}
+    private static void resetTranslations(){DEPTH_BUFFER.setTranslation(0,0,0);NO_DEPTH_BUFFER.setTranslation(0,0,0);}
+
+    private static final class EntityHit { final Entity entity; final Vec3d hit; EntityHit(Entity e,Vec3d h){entity=e;hit=h;} }
+
+    private static final class GlSnapshot {
+        final boolean blend=GL11.glIsEnabled(GL11.GL_BLEND),texture=GL11.glIsEnabled(GL11.GL_TEXTURE_2D),
+                cull=GL11.glIsEnabled(GL11.GL_CULL_FACE),depth=GL11.glIsEnabled(GL11.GL_DEPTH_TEST),
+                polygon=GL11.glIsEnabled(GL11.GL_POLYGON_OFFSET_FILL);
+        final boolean depthMask=GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        final float lineWidth=GL11.glGetFloat(GL11.GL_LINE_WIDTH);
+        final float polygonFactor=GL11.glGetFloat(GL11.GL_POLYGON_OFFSET_FACTOR),polygonUnits=GL11.glGetFloat(GL11.GL_POLYGON_OFFSET_UNITS);
+        final int sr=GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB),dr=GL11.glGetInteger(GL14.GL_BLEND_DST_RGB),
+                sa=GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA),da=GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+        static GlSnapshot capture(){return new GlSnapshot();}
+        void restore(){GlStateManager.tryBlendFuncSeparate(sr,dr,sa,da);set(GL11.GL_BLEND,blend);set(GL11.GL_TEXTURE_2D,texture);
+            set(GL11.GL_CULL_FACE,cull);set(GL11.GL_DEPTH_TEST,depth);set(GL11.GL_POLYGON_OFFSET_FILL,polygon);
+            GlStateManager.doPolygonOffset(polygonFactor,polygonUnits);GlStateManager.depthMask(depthMask);
+            GlStateManager.glLineWidth(lineWidth);GlStateManager.resetColor();}
+        static void set(int cap,boolean on){if(on)GL11.glEnable(cap);else GL11.glDisable(cap);}
     }
 }

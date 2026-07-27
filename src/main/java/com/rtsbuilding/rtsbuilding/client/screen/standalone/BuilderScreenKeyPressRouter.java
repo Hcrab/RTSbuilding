@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacementStateWheel;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.input.Keyboard;
 
 /**
  * BuilderScreen 的按键按下层级路由。
@@ -12,6 +12,12 @@ import org.lwjgl.glfw.GLFW;
  * 的优先关系不再散落在 Screen 生命周期方法里。</p>
  */
 final class BuilderScreenKeyPressRouter {
+    /**
+     * 保留 GLFW 修饰键掩码的数值约定，方便屏幕入口在 1.12 没有 modifiers 参数时仍沿用现有路由签名。
+     * 上层应传入按键事件发生时计算出的掩码；若暂时传 0，本类也会直接查询 LWJGL2 的 Alt 状态兜底。
+     */
+    private static final int MODIFIER_ALT = 0x0004;
+
     private final BuilderScreenInputHost host;
     private final PlacementStateWheel placementStateWheel;
     private final BuilderModeWheel modeWheel;
@@ -64,13 +70,13 @@ final class BuilderScreenKeyPressRouter {
         if (!this.placementStateWheel.isOpen()) {
             return false;
         }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE) {
             host.closePlacementStateWheelFromKey();
-        } else if (keyCode == GLFW.GLFW_KEY_LEFT
-                || keyCode == GLFW.GLFW_KEY_KP_4) {
+        } else if (keyCode == Keyboard.KEY_LEFT
+                || keyCode == Keyboard.KEY_NUMPAD4) {
             this.placementStateWheel.cyclePlacementPage(-1);
-        } else if (keyCode == GLFW.GLFW_KEY_RIGHT
-                || keyCode == GLFW.GLFW_KEY_KP_6) {
+        } else if (keyCode == Keyboard.KEY_RIGHT
+                || keyCode == Keyboard.KEY_NUMPAD6) {
             this.placementStateWheel.cyclePlacementPage(1);
         }
         return true;
@@ -80,15 +86,20 @@ final class BuilderScreenKeyPressRouter {
         if (!this.modeWheel.isOpen()) {
             return false;
         }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        if (keyCode == Keyboard.KEY_ESCAPE) {
             this.modeWheel.close();
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_SPACE
-                && (modifiers & GLFW.GLFW_MOD_ALT) != 0) {
+        if (keyCode == Keyboard.KEY_SPACE && isAltDown(modifiers)) {
             this.modeWheel.close();
             return false;
         }
         return true;
+    }
+
+    private static boolean isAltDown(int modifiers) {
+        return (modifiers & MODIFIER_ALT) != 0
+                || Keyboard.isKeyDown(Keyboard.KEY_LMENU)
+                || Keyboard.isKeyDown(Keyboard.KEY_RMENU);
     }
 }

@@ -1,111 +1,82 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.EnumBlockRenderType;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Brief grow-in overlay shown after the server confirms a remote placement.
- * This is visual feedback only; the real block is already server-authoritative.
- */
+/** 服务端确认放置后短暂显示的放大进入动画。 */
 final class ConfirmedPlacementRenderer {
-    private static final long PLACE_DURATION_MS = 220L;
+    static final long PLACE_DURATION_MS = 220L;
     private static final float MODEL_ALPHA = 0.58F;
-
-    private static final Map<Long, PlacementEntry> PLACEMENTS = new LinkedHashMap<>();
+    private static final Map<Long, PlacementEntry> PLACEMENTS =
+            new LinkedHashMap<Long, PlacementEntry>();
 
     private ConfirmedPlacementRenderer() {
     }
 
-    static void add(BlockPos pos, BlockState state) {
-        if (pos == null || state == null || state.isAir()) {
-            return;
-        }
-        PLACEMENTS.put(pos.asLong(), new PlacementEntry(pos.immutable(), state, System.currentTimeMillis()));
+    static void add(BlockPos pos, IBlockState state) {
+        addAt(pos, state, System.currentTimeMillis());
     }
 
-    static void renderModels(Minecraft minecraft, PoseStack poseStack, VertexConsumer fillBuffer) {
-        if (minecraft == null || minecraft.level == null || PLACEMENTS.isEmpty()) {
-            return;
-        }
-        long now = System.currentTimeMillis();
-        MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-        Iterator<Map.Entry<Long, PlacementEntry>> iterator = PLACEMENTS.entrySet().iterator();
+    static void addAt(BlockPos pos, IBlockState state, long addedAtMs) {
+        if (pos == null || state == null || state.getBlock() == Blocks.AIR) return;
+        PLACEMENTS.put(pos.toLong(), new PlacementEntry(pos.toImmutable(), state, addedAtMs));
+    }
 
-        while (iterator.hasNext()) {
-            PlacementEntry entry = iterator.next().getValue();
-            long elapsed = now - entry.addedAtMs;
-            if (elapsed > PLACE_DURATION_MS) {
-                iterator.remove();
-                continue;
-            }
-            if (!isWithinBounds(entry.pos)) {
-                continue;
-            }
-            float scale = computeGrowScale(elapsed);
-            if (entry.state.getRenderShape() == RenderShape.MODEL) {
-                GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                        entry.state, entry.pos, MODEL_ALPHA, scale);
+    static int placementCount() {
+        return PLACEMENTS.size();
+    }
+
+    static void clearAll() {
+        PLACEMENTS.clear();
+    }
+
+    static void renderModels(Minecraft minecraft, BufferBuilder fillBuffer,
+            double cameraX, double cameraY, double cameraZ, long now) {
+        pruneExpired(now);
+        if (minecraft == null || minecraft.world == null || PLACEMENTS.isEmpty()) return;
+        for (PlacementEntry entry : PLACEMENTS.values()) {
+            if (!isWithinBounds(entry.pos)) continue;
+            float scale = computeGrowScale(now - entry.addedAtMs);
+            if (entry.state.getRenderType() == EnumBlockRenderType.MODEL) {
+                PlacementAnimationRenderer.renderBlockModel(minecraft, entry.state, entry.pos,
+                        MODEL_ALPHA, scale, cameraX, cameraY, cameraZ);
             } else {
-                renderFilledBox(poseStack, fillBuffer, entry.pos, scale);
+                double inset = 0.5D - scale * 0.46D;
+                PlacementAnimationRenderer.renderFilledBox(fillBuffer,
+                        entry.pos.getX() + inset, entry.pos.getY() + inset, entry.pos.getZ() + inset,
+                        entry.pos.getX() + 1.0D - inset, entry.pos.getY() + 1.0D - inset,
+                        entry.pos.getZ() + 1.0D - inset, 0.40F, 0.85F, 0.90F, 0.16F);
             }
         }
-        blockBuffer.endBatch();
     }
 
-    static void renderWireframes(PoseStack poseStack, VertexConsumer lineBuffer) {
-        if (PLACEMENTS.isEmpty()) {
-            return;
+    static void renderWireframes(BufferBuilder lineBuffer, long now) {
+        pruneExpired(now);
+        for (PlacementEntry entry : PLACEMENTS.values()) {
+            if (!isWithinBounds(entry.pos)) continue;
+            PlacementAnimationRenderer.renderLineBox(lineBuffer, entry.pos,
+                    computeGrowScale(now - entry.addedAtMs), 0.30F, 0.85F, 1.00F, 0.82F);
         }
-        long now = System.currentTimeMillis();
+    }
+
+    static void pruneExpired(long now) {
         Iterator<Map.Entry<Long, PlacementEntry>> iterator = PLACEMENTS.entrySet().iterator();
         while (iterator.hasNext()) {
-            PlacementEntry entry = iterator.next().getValue();
-            long elapsed = now - entry.addedAtMs;
-            if (elapsed > PLACE_DURATION_MS) {
-                iterator.remove();
-                continue;
-            }
-            if (!isWithinBounds(entry.pos)) {
-                continue;
-            }
-            renderLineBox(poseStack, lineBuffer, entry.pos, computeGrowScale(elapsed),
-                    0.30F, 0.85F, 1.00F, 0.82F);
+            if (now - iterator.next().getValue().addedAtMs > PLACE_DURATION_MS) iterator.remove();
         }
     }
 
-    private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
-        double inset = 0.5D - scale * 0.46D;
-        LevelRenderer.addChainedFilledBoxVertices(
-                poseStack, fillBuffer,
-                pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
-                pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
-                0.40F, 0.85F, 0.90F, 0.16F);
-    }
-
-    private static void renderLineBox(PoseStack poseStack, VertexConsumer lineBuffer, BlockPos pos, float scale,
-            float r, float g, float b, float alpha) {
-        double inset = 0.5D - scale * 0.46D;
-        LevelRenderer.renderLineBox(
-                poseStack, lineBuffer,
-                pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
-                pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
-                r, g, b, alpha);
-    }
-
-    private static float computeGrowScale(long elapsedMs) {
+    static float computeGrowScale(long elapsedMs) {
         float progress = Math.min(1.0F, Math.max(0.0F, elapsedMs / (float) PLACE_DURATION_MS));
         float eased = 1.0F - (1.0F - progress) * (1.0F - progress);
         return 0.12F + eased * 0.86F;
@@ -113,10 +84,16 @@ final class ConfirmedPlacementRenderer {
 
     private static boolean isWithinBounds(BlockPos pos) {
         ClientRtsController controller = ClientRtsController.get();
-        if (!controller.hasBounds()) return true;
-        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        return !controller.hasBounds() || RenderingUtil.isWithinBounds(pos,
+                controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 
-    private record PlacementEntry(BlockPos pos, BlockState state, long addedAtMs) {
+    private static final class PlacementEntry {
+        private final BlockPos pos;
+        private final IBlockState state;
+        private final long addedAtMs;
+        private PlacementEntry(BlockPos pos, IBlockState state, long addedAtMs) {
+            this.pos = pos; this.state = state; this.addedAtMs = addedAtMs;
+        }
     }
 }

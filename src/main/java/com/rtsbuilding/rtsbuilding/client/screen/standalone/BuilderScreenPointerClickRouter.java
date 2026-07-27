@@ -3,7 +3,6 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacementStateWheel;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import org.lwjgl.glfw.GLFW;
 
 /**
  * BuilderScreen 的鼠标按下路由器。
@@ -16,6 +15,10 @@ import org.lwjgl.glfw.GLFW;
  * 意外穿透到被覆盖的面板。坐标缩放仍由主屏幕入口处理，保证这里始终接收 RTS 虚拟视口坐标。</p>
  */
 final class BuilderScreenPointerClickRouter {
+    // LWJGL2 的鼠标事件使用从 0 开始的按钮编号；GuiScreen 会原样把该编号传到这里。
+    private static final int MOUSE_BUTTON_LEFT = 0;
+    private static final int MOUSE_BUTTON_RIGHT = 1;
+
     private final BuilderScreenInputHost host;
     private final PlacementStateWheel placementStateWheel;
     private final BuilderModeWheel modeWheel;
@@ -65,7 +68,7 @@ final class BuilderScreenPointerClickRouter {
         if (!this.placementStateWheel.isOpen()) {
             return false;
         }
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button == MOUSE_BUTTON_LEFT) {
             if (this.placementStateWheel.handlePlacementPageClick(mouseX, mouseY)) {
                 return true;
             }
@@ -74,7 +77,7 @@ final class BuilderScreenPointerClickRouter {
             if (choice != null) {
                 host.selectPlacementStateFromWheel(choice, button);
             }
-        } else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+        } else if (button == MOUSE_BUTTON_RIGHT) {
             host.closePlacementStateWheelFromPointer(button);
         }
         return true;
@@ -84,12 +87,12 @@ final class BuilderScreenPointerClickRouter {
         if (!this.modeWheel.isOpen()) {
             return false;
         }
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button == MOUSE_BUTTON_LEFT) {
             BuilderMode selectedMode = this.modeWheel.hoveredMode(mouseX, mouseY);
             if (selectedMode != null) {
                 host.selectModeFromWheelPointer(selectedMode, button);
             }
-        } else if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+        } else if (button == MOUSE_BUTTON_RIGHT) {
             host.closeModeWheelFromPointer(button);
         }
         return true;

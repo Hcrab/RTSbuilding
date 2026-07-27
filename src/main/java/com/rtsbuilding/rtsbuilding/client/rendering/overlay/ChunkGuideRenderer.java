@@ -1,181 +1,172 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderGlobal;
+import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 
-/**
- * Chunk guide line renderer.
- * Renders a 3×3 chunk grid centred on the player for visual reference in RTS mode.
- */
+/** 以穿透填充和线框显示镜头周围 3x3 区块边缘。 */
 public final class ChunkGuideRenderer {
-    // Chunk guide range radius (in chunks); 1 renders a 3×3 area around the centre chunk
-    private static final int CHUNK_GUIDE_RADIUS_CHUNKS = 1;
+    private static final int RADIUS = 1;
+    private static final BufferBuilder FILL_BUFFER = new BufferBuilder(2 * 1024 * 1024);
+    private static final BufferBuilder LINE_BUFFER = new BufferBuilder(512 * 1024);
+    private static final WorldVertexBufferUploader UPLOADER = new WorldVertexBufferUploader();
 
-    /**
-     * Private constructor to prevent instantiation.
-     */
     private ChunkGuideRenderer() {
     }
 
-    /**
-     * Renders the chunk guide grid.
-     *
-     * @param minecraft      the Minecraft client instance
-     * @param cameraPosition camera position
-     * @param poseStack      pose stack for coordinate transforms
-     * @param fillBuffer     fill buffer for translucent block rendering
-     * @param lineBuffer     line buffer for wireframe rendering
-     */
-    public static void renderChunkGuides(
-            Minecraft minecraft,
-            Vec3 cameraPosition,
-            PoseStack poseStack,
-            VertexConsumer fillBuffer,
-            VertexConsumer lineBuffer) {
-        if (minecraft.level == null) {
-            return;
-        }
+    public static void renderChunkGuides(Minecraft minecraft, Vec3d cameraPosition) {
+        if (minecraft == null || minecraft.world == null || cameraPosition == null) return;
+        int centerChunkX = MathHelper.floor(cameraPosition.x) >> 4;
+        int centerChunkZ = MathHelper.floor(cameraPosition.z) >> 4;
+        int sourceY = minecraft.player == null
+                ? MathHelper.floor(cameraPosition.y) : MathHelper.floor(minecraft.player.posY);
+        int guideY = MathHelper.clamp(sourceY, 0, minecraft.world.getActualHeight() - 1);
+        RenderManager manager = minecraft.getRenderManager();
 
-        // Compute the chunk coordinates of the camera position
-        BlockPos cameraBlockPos = BlockPos.containing(cameraPosition);
-        int centerChunkX = SectionPos.blockToSectionCoord(cameraBlockPos.getX());
-        int centerChunkZ = SectionPos.blockToSectionCoord(cameraBlockPos.getZ());
-
-        // Compute the rendering range boundaries
-        int minChunkX = centerChunkX - CHUNK_GUIDE_RADIUS_CHUNKS;
-        int maxChunkX = centerChunkX + CHUNK_GUIDE_RADIUS_CHUNKS;
-        int minChunkZ = centerChunkZ - CHUNK_GUIDE_RADIUS_CHUNKS;
-        int maxChunkZ = centerChunkZ + CHUNK_GUIDE_RADIUS_CHUNKS;
-
-        // Determine the guide line Y-height: prefer player position, fall back to camera position
-        int guideYSource = minecraft.player == null ? cameraBlockPos.getY() : minecraft.player.blockPosition().getY();
-        int guideY = Mth.clamp(guideYSource, minecraft.level.getMinBuildHeight(), minecraft.level.getMaxBuildHeight() - 1);
-
-        // Iterate over all chunks in the range, rendering edge highlights
-        for (int cx = minChunkX; cx <= maxChunkX; cx++) {
-            for (int cz = minChunkZ; cz <= maxChunkZ; cz++) {
-                renderChunkEdgeHighlights(minecraft, poseStack, fillBuffer, lineBuffer, cx, cz, guideY);
+        beginBuffers(-manager.viewerPosX, -manager.viewerPosY, -manager.viewerPosZ);
+        try {
+            for (int cx = centerChunkX - RADIUS; cx <= centerChunkX + RADIUS; cx++) {
+                for (int cz = centerChunkZ - RADIUS; cz <= centerChunkZ + RADIUS; cz++) {
+                    appendChunk(minecraft, cx, cz, guideY);
+                }
             }
+            drawOwnedBuffers();
+        } catch (RuntimeException exception) {
+            discardOwnedBuffers();
+            throw exception;
+        } finally {
+            resetTranslations();
         }
     }
 
-    /**
-     * Renders edge highlights for a single chunk.
-     *
-     * @param minecraft the Minecraft client instance
-     * @param poseStack pose stack
-     * @param fillBuffer fill buffer
-     * @param lineBuffer line buffer
-     * @param chunkX    chunk X coordinate
-     * @param chunkZ    chunk Z coordinate
-     * @param guideY    guide line Y height
-     */
-    private static void renderChunkEdgeHighlights(
-            Minecraft minecraft,
-            PoseStack poseStack,
-            VertexConsumer fillBuffer,
-            VertexConsumer lineBuffer,
-            int chunkX,
-            int chunkZ,
-            int guideY) {
-        // Convert chunk coordinates to world coordinates (each chunk is 16×16)
-        int startX = chunkX << 4;  // equivalent to chunkX * 16
-        int startZ = chunkZ << 4;
-        int endX = startX + 15;
-        int endZ = startZ + 15;
+    /** 迁移期兼容入口：两个调用方缓冲不会被触碰。 */
+    public static void renderChunkGuides(Minecraft minecraft, Vec3d cameraPosition,
+            BufferBuilder callerFillBuffer, BufferBuilder callerLineBuffer) {
+        renderChunkGuides(minecraft, cameraPosition);
+    }
 
-        // Optimisation: check chunk loading state at chunk level to avoid per-cell rechecks
-        if (!minecraft.level.hasChunkAt(new BlockPos(startX, guideY, startZ))) {
-            return;
-        }
-
-        // Choose colour based on chunk coordinate parity (checkerboard pattern)
-        ChunkGuideColor color = chunkGuideColor(chunkX, chunkZ);
-
-        // Render all block cells on the four edges of the chunk
-        // Top and bottom edges (full rows)
+    private static void appendChunk(Minecraft minecraft, int chunkX, int chunkZ, int guideY) {
+        int startX = chunkX << 4, startZ = chunkZ << 4;
+        int endX = startX + 15, endZ = startZ + 15;
+        if (!minecraft.world.isBlockLoaded(new BlockPos(startX, guideY, startZ), false)) return;
+        Color color = colorFor(chunkX, chunkZ);
         for (int x = startX; x <= endX; x++) {
-            renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, x, startZ, guideY, color);
-            renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, x, endZ, guideY, color);
+            appendCell(x, startZ, guideY, color);
+            appendCell(x, endZ, guideY, color);
         }
-        // Left and right edges (excluding corner cells to avoid double rendering)
         for (int z = startZ + 1; z < endZ; z++) {
-            renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, startX, z, guideY, color);
-            renderChunkGuideCell(poseStack, fillBuffer, lineBuffer, endX, z, guideY, color);
+            appendCell(startX, z, guideY, color);
+            appendCell(endX, z, guideY, color);
         }
     }
 
-    /**
-     * Renders guide highlight for a single cell (fill + wireframe).
-     *
-     * @param poseStack  pose stack
-     * @param fillBuffer fill buffer
-     * @param lineBuffer line buffer
-     * @param x          world X coordinate
-     * @param z          world Z coordinate
-     * @param guideY     Y height
-     * @param color      colour configuration
-     */
-    private static void renderChunkGuideCell(
-            PoseStack poseStack,
-            VertexConsumer fillBuffer,
-            VertexConsumer lineBuffer,
-            int x,
-            int z,
-            int guideY,
-            ChunkGuideColor color) {
-        // Inset by 0.04 units to create a gap between adjacent cells
+    private static void appendCell(int x, int z, int y, Color color) {
         double inset = 0.04D;
-        double minX = x + inset;
-        double minY = guideY + inset;
-        double minZ = z + inset;
-        double maxX = x + 1.0D - inset;
-        double maxY = guideY + 1.0D - inset;
-        double maxZ = z + 1.0D - inset;
-
-        // Draw translucent fill
-        LevelRenderer.addChainedFilledBoxVertices(
-                poseStack,
-                fillBuffer,
-                minX, minY, minZ,
-                maxX, maxY, maxZ,
-                color.r(), color.g(), color.b(), color.a());
-
-        // Draw wireframe (slightly brighter than the fill colour)
-        LevelRenderer.renderLineBox(
-                poseStack,
-                lineBuffer,
-                minX, minY, minZ,
-                maxX, maxY, maxZ,
-                Math.min(1.0F, color.r() + 0.18F),
-                Math.min(1.0F, color.g() + 0.18F),
-                Math.min(1.0F, color.b() + 0.18F),
-                0.92F);
+        double x1 = x + inset, y1 = y + inset, z1 = z + inset;
+        double x2 = x + 1.0D - inset, y2 = y + 1.0D - inset, z2 = z + 1.0D - inset;
+        RenderGlobal.addChainedFilledBoxVertices(FILL_BUFFER,
+                x1, y1, z1, x2, y2, z2, color.r, color.g, color.b, color.a);
+        RenderGlobal.drawBoundingBox(LINE_BUFFER,
+                x1, y1, z1, x2, y2, z2,
+                Math.min(1.0F, color.r + 0.18F), Math.min(1.0F, color.g + 0.18F),
+                Math.min(1.0F, color.b + 0.18F), 0.92F);
     }
 
-    /**
-     * Generates a checkerboard colour based on chunk coordinates.
-     * Even chunks use cyan-blue, odd chunks use golden-yellow.
-     *
-     * @param chunkX chunk X coordinate
-     * @param chunkZ chunk Z coordinate
-     * @return colour configuration
-     */
-    private static ChunkGuideColor chunkGuideColor(int chunkX, int chunkZ) {
+    private static Color colorFor(int chunkX, int chunkZ) {
         return ((chunkX ^ chunkZ) & 1) == 0
-                ? new ChunkGuideColor(0.16F, 0.78F, 1.0F, 0.24F)   // Cyan-blue
-                : new ChunkGuideColor(1.0F, 0.88F, 0.16F, 0.22F);  // Golden-yellow
+                ? new Color(0.16F, 0.78F, 1.0F, 0.24F)
+                : new Color(1.0F, 0.88F, 0.16F, 0.22F);
     }
 
-    /**
-     * Colour record holding RGBA values.
-     */
-    private record ChunkGuideColor(float r, float g, float b, float a) {
+    private static void drawOwnedBuffers() {
+        GlSnapshot state = GlSnapshot.capture();
+        try {
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
+                    GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                    GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
+            GlStateManager.disableTexture2D();
+            GlStateManager.disableCull();
+            GlStateManager.disableDepth();
+            GlStateManager.depthMask(false);
+            uploadOrReset(FILL_BUFFER);
+            GlStateManager.glLineWidth(1.5F);
+            uploadOrReset(LINE_BUFFER);
+        } finally {
+            resetTranslations();
+            state.restore();
+        }
+    }
+
+    private static void beginBuffers(double x, double y, double z) {
+        FILL_BUFFER.begin(GL11.GL_QUAD_STRIP, DefaultVertexFormats.POSITION_COLOR);
+        FILL_BUFFER.setTranslation(x, y, z);
+        try {
+            LINE_BUFFER.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+            LINE_BUFFER.setTranslation(x, y, z);
+        } catch (RuntimeException exception) {
+            discard(FILL_BUFFER);
+            throw exception;
+        }
+    }
+
+    private static void uploadOrReset(BufferBuilder buffer) {
+        if (buffer.getVertexCount() > 0) UPLOADER.draw(buffer); else discard(buffer);
+    }
+
+    private static void discardOwnedBuffers() {
+        discard(FILL_BUFFER);
+        discard(LINE_BUFFER);
+        resetTranslations();
+    }
+
+    private static void discard(BufferBuilder buffer) {
+        try { buffer.finishDrawing(); } catch (IllegalStateException ignored) { }
+        buffer.reset();
+    }
+
+    private static void resetTranslations() {
+        FILL_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
+        LINE_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
+    }
+
+    private static final class Color {
+        final float r, g, b, a;
+        Color(float r, float g, float b, float a) {
+            this.r = r; this.g = g; this.b = b; this.a = a;
+        }
+    }
+
+    private static final class GlSnapshot {
+        private final boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
+        private final boolean texture = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+        private final boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        private final boolean depth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        private final boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        private final float lineWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
+        private final int srcRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+        private final int dstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+        private final int srcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+        private final int dstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+        static GlSnapshot capture() { return new GlSnapshot(); }
+        void restore() {
+            GlStateManager.tryBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+            set(GL11.GL_BLEND, blend); set(GL11.GL_TEXTURE_2D, texture);
+            set(GL11.GL_CULL_FACE, cull); set(GL11.GL_DEPTH_TEST, depth);
+            GlStateManager.depthMask(depthMask); GlStateManager.glLineWidth(lineWidth);
+            GlStateManager.resetColor();
+        }
+        private static void set(int cap, boolean enabled) {
+            if (enabled) GL11.glEnable(cap); else GL11.glDisable(cap);
+        }
     }
 }

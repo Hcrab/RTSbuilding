@@ -1,167 +1,155 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.levelgen.Heightmap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import org.lwjgl.opengl.GL11;
+import org.lwjgl.opengl.GL14;
 
 /**
- * Renders the RTS build boundary as vertical barrier walls using a custom
- * stripped texture, producing the same red diagonal stripe effect as the
- * vanilla world border barrier. The walls extend from 5 blocks above the
- * highest surface block on the boundary line down to bedrock.
+ * 1.12 的 RTS 边界力场渲染器。
+ *
+ * <p>本类完整拥有自己的缓冲区；兼容重载中的调用方缓冲仅用于维持迁移期签名，
+ * 不会被 begin、finish、reset 或上传。</p>
  */
 public final class BoundaryLineRenderer {
-
-    /** Texture tile size in blocks — controls repeat frequency of the stripe pattern */
     private static final float TILE_SIZE = 2.0F;
-    /** Pure white vertex color multiplier — the texture provides the actual color */
-    private static final float WHITE = 1.0F;
-    private static final float BARRIER_A = 0.80F;
-    /** Full brightness lightmap values (block=15, sky=15, each shifted left by 4) */
-    private static final int FULL_BRIGHT = 0xF0;
+    private static final float ALPHA = 0.80F;
+    private static final BufferBuilder BUFFER = new BufferBuilder(256 * 1024);
+    private static final WorldVertexBufferUploader UPLOADER = new WorldVertexBufferUploader();
+    private static final ResourceLocation FORCEFIELD =
+            new ResourceLocation("minecraft", "textures/misc/forcefield.png");
 
     private BoundaryLineRenderer() {
     }
 
-    /**
-     * Renders 4 vertical barrier walls at the boundary edges.
-     * The walls extend from 5 blocks above the highest surface block
-     * along the boundary perimeter down to bedrock.
-     *
-     * @param poseStack     current pose stack
-     * @param barrierBuffer vertex consumer for the barrier render type
-     * @param minX          boundary min X
-     * @param minZ          boundary min Z
-     * @param maxX          boundary max X
-     * @param maxZ          boundary max Z
-     * @param defaultY      fallback Y if no blocks found on the boundary
-     * @param level         world level, used to query surface heights
-     */
-    public static void renderBarrierBoundary(PoseStack poseStack, VertexConsumer barrierBuffer,
-            double minX, double minZ, double maxX, double maxZ, double defaultY, Level level) {
-        int highestBlock = findHighestBoundaryBlock(level, minX, minZ, maxX, maxZ);
-        float yMax = (highestBlock > Integer.MIN_VALUE)
-                ? highestBlock + 5.0F
-                : (float) defaultY + 3.0F;
-        float yMin = (float) level.getMinBuildHeight();
-        float wallHeight = yMax - yMin;
+    public static void renderBarrierBoundary(double minX, double minZ, double maxX, double maxZ,
+            double defaultY, World world) {
+        if (world == null) return;
+        int highest = findHighestBoundaryBlock(world, minX, minZ, maxX, maxZ);
+        double yMax = highest == Integer.MIN_VALUE ? defaultY + 3.0D : highest + 5.0D;
+        double yMin = 0.0D;
+        float scroll = (float) (System.nanoTime() / 1.0e9D * 0.5D);
+        double cameraX = Minecraft.getMinecraft().getRenderManager().viewerPosX;
+        double cameraY = Minecraft.getMinecraft().getRenderManager().viewerPosY;
+        double cameraZ = Minecraft.getMinecraft().getRenderManager().viewerPosZ;
 
-        var pose = poseStack.last();
-
-        float wallWidthX = (float)(maxX - minX);
-        float wallWidthZ = (float)(maxZ - minZ);
-
-        /** Animation scroll offset — smooth diagonal stripe movement matching vanilla world border */
-        float scroll = (float)(System.nanoTime() / 1.0e9 * 0.5F);
-
-        // North wall (z = minZ) — faces positive Z
-        addTexturedQuad(pose, barrierBuffer,
-                (float) minX, yMin, (float) minZ,
-                (float) maxX, yMax, (float) minZ,
-                wallWidthX / TILE_SIZE, wallHeight / TILE_SIZE,
-                0.0F, 0.0F, 1.0F, scroll);
-
-        // South wall (z = maxZ) — faces negative Z
-        addTexturedQuad(pose, barrierBuffer,
-                (float) maxX, yMin, (float) maxZ,
-                (float) minX, yMax, (float) maxZ,
-                wallWidthX / TILE_SIZE, wallHeight / TILE_SIZE,
-                0.0F, 0.0F, -1.0F, scroll);
-
-        // West wall (x = minX) — faces positive X
-        addTexturedQuad(pose, barrierBuffer,
-                (float) minX, yMin, (float) minZ,
-                (float) minX, yMax, (float) maxZ,
-                wallWidthZ / TILE_SIZE, wallHeight / TILE_SIZE,
-                1.0F, 0.0F, 0.0F, scroll);
-
-        // East wall (x = maxX) — faces negative X
-        addTexturedQuad(pose, barrierBuffer,
-                (float) maxX, yMin, (float) maxZ,
-                (float) maxX, yMax, (float) minZ,
-                wallWidthZ / TILE_SIZE, wallHeight / TILE_SIZE,
-                -1.0F, 0.0F, 0.0F, scroll);
+        BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+        BUFFER.setTranslation(-cameraX, -cameraY, -cameraZ);
+        try {
+            double heightTiles = (yMax - yMin) / TILE_SIZE;
+            addWall(minX, yMin, minZ, maxX, yMax, minZ,
+                    (maxX - minX) / TILE_SIZE, heightTiles, scroll);
+            addWall(maxX, yMin, maxZ, minX, yMax, maxZ,
+                    (maxX - minX) / TILE_SIZE, heightTiles, scroll);
+            addWall(minX, yMin, minZ, minX, yMax, maxZ,
+                    (maxZ - minZ) / TILE_SIZE, heightTiles, scroll);
+            addWall(maxX, yMin, maxZ, maxX, yMax, minZ,
+                    (maxZ - minZ) / TILE_SIZE, heightTiles, scroll);
+            drawOwnedBuffer();
+        } catch (RuntimeException exception) {
+            discard();
+            throw exception;
+        } finally {
+            BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
+        }
     }
 
-    /**
-     * Scans the 4 boundary edges to find the highest surface block.
-     * Uses the world heightmap for efficient per-block lookups.
-     *
-     * @return the highest surface Y found, or Integer.MIN_VALUE if unloaded area
-     */
-    private static int findHighestBoundaryBlock(Level level, double minX, double minZ, double maxX, double maxZ) {
+    /** 迁移期兼容入口：调用方缓冲绝不会被触碰。 */
+    public static void renderBarrierBoundary(BufferBuilder callerBuffer,
+            double minX, double minZ, double maxX, double maxZ, double defaultY, World world) {
+        renderBarrierBoundary(minX, minZ, maxX, maxZ, defaultY, world);
+    }
+
+    private static int findHighestBoundaryBlock(World world,
+            double minX, double minZ, double maxX, double maxZ) {
         int highest = Integer.MIN_VALUE;
-        int x1 = (int) Math.floor(minX);
-        int x2 = (int) Math.floor(maxX);
-        int z1 = (int) Math.floor(minZ);
-        int z2 = (int) Math.floor(maxZ);
-
-        // North edge (z = z1)
+        int x1 = (int) Math.floor(minX), x2 = (int) Math.floor(maxX);
+        int z1 = (int) Math.floor(minZ), z2 = (int) Math.floor(maxZ);
         for (int x = x1; x <= x2; x++) {
-            int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z1);
-            if (h > highest) highest = h;
+            highest = heightIfLoaded(world, x, z1, highest);
+            highest = heightIfLoaded(world, x, z2, highest);
         }
-        // South edge (z = z2)
-        for (int x = x1; x <= x2; x++) {
-            int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z2);
-            if (h > highest) highest = h;
-        }
-        // West edge (x = x1, skip corners already scanned)
         for (int z = z1 + 1; z < z2; z++) {
-            int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x1, z);
-            if (h > highest) highest = h;
+            highest = heightIfLoaded(world, x1, z, highest);
+            highest = heightIfLoaded(world, x2, z, highest);
         }
-        // East edge (x = x2, skip corners already scanned)
-        for (int z = z1 + 1; z < z2; z++) {
-            int h = level.getHeight(Heightmap.Types.MOTION_BLOCKING, x2, z);
-            if (h > highest) highest = h;
-        }
-
         return highest;
     }
 
-    /**
-     * Adds a single textured quad to the barrier buffer.
-     * <p>
-     * The quad spans from {@code (x1, yMin, z1)} to {@code (x2, yMax, z2)}
-     * using the entity translucent (NEW_ENTITY) vertex format with the
-     * barrier texture tiled by {@code tileU × tileV} repetitions.
-     * A time-based {@code scroll} offset is added to both U and V to create
-     * a continuous diagonal stripe animation matching the vanilla world border.
-     *
-     * @param nx, ny, nz  face normal direction
-     * @param scroll      animation scroll offset for diagonal stripe movement
-     */
-    private static void addTexturedQuad(PoseStack.Pose pose, VertexConsumer buffer,
-            float x1, float yMin, float z1,
-            float x2, float yMax, float z2,
-            float tileU, float tileV,
-            float nx, float ny, float nz,
-            float scroll) {
-        // bottom-left
-        buffer.addVertex(pose, x1, yMin, z1).setUv(scroll, scroll)
-                .setUv1(0, 10)
-                .setUv2(FULL_BRIGHT, FULL_BRIGHT)
-                .setColor(WHITE, WHITE, WHITE, BARRIER_A)
-                .setNormal(nx, ny, nz);
-        // bottom-right
-        buffer.addVertex(pose, x2, yMin, z2).setUv(tileU + scroll, scroll)
-                .setUv1(0, 10)
-                .setUv2(FULL_BRIGHT, FULL_BRIGHT)
-                .setColor(WHITE, WHITE, WHITE, BARRIER_A)
-                .setNormal(nx, ny, nz);
-        // top-right
-        buffer.addVertex(pose, x2, yMax, z2).setUv(tileU + scroll, tileV + scroll)
-                .setUv1(0, 10)
-                .setUv2(FULL_BRIGHT, FULL_BRIGHT)
-                .setColor(WHITE, WHITE, WHITE, BARRIER_A)
-                .setNormal(nx, ny, nz);
-        // top-left
-        buffer.addVertex(pose, x1, yMax, z1).setUv(scroll, tileV + scroll)
-                .setUv1(0, 10)
-                .setUv2(FULL_BRIGHT, FULL_BRIGHT)
-                .setColor(WHITE, WHITE, WHITE, BARRIER_A)
-                .setNormal(nx, ny, nz);
+    private static int heightIfLoaded(World world, int x, int z, int current) {
+        BlockPos probe = new BlockPos(x, 64, z);
+        return world.isBlockLoaded(probe, false) ? Math.max(current, world.getHeight(x, z)) : current;
+    }
+
+    private static void addWall(double x1, double y1, double z1,
+            double x2, double y2, double z2, double tileU, double tileV, float scroll) {
+        vertex(x1, y1, z1, scroll, scroll);
+        vertex(x2, y1, z2, tileU + scroll, scroll);
+        vertex(x2, y2, z2, tileU + scroll, tileV + scroll);
+        vertex(x1, y2, z1, scroll, tileV + scroll);
+    }
+
+    private static void vertex(double x, double y, double z, double u, double v) {
+        BUFFER.pos(x, y, z).tex(u, v).color(1.0F, 1.0F, 1.0F, ALPHA).endVertex();
+    }
+
+    private static void drawOwnedBuffer() {
+        GlSnapshot state = GlSnapshot.capture();
+        try {
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
+                    GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
+                    GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
+            GlStateManager.enableTexture2D();
+            GlStateManager.disableCull();
+            GlStateManager.depthMask(false);
+            Minecraft.getMinecraft().getTextureManager().bindTexture(FORCEFIELD);
+            UPLOADER.draw(BUFFER);
+        } finally {
+            state.restore();
+        }
+    }
+
+    private static void discard() {
+        try { BUFFER.finishDrawing(); } catch (IllegalStateException ignored) { }
+        BUFFER.reset();
+    }
+
+    private static final class GlSnapshot {
+        private final boolean blend = GL11.glIsEnabled(GL11.GL_BLEND);
+        private final boolean texture = GL11.glIsEnabled(GL11.GL_TEXTURE_2D);
+        private final boolean cull = GL11.glIsEnabled(GL11.GL_CULL_FACE);
+        private final boolean depth = GL11.glIsEnabled(GL11.GL_DEPTH_TEST);
+        private final boolean depthMask = GL11.glGetBoolean(GL11.GL_DEPTH_WRITEMASK);
+        private final float lineWidth = GL11.glGetFloat(GL11.GL_LINE_WIDTH);
+        private final int textureBinding = GL11.glGetInteger(GL11.GL_TEXTURE_BINDING_2D);
+        private final int srcRgb = GL11.glGetInteger(GL14.GL_BLEND_SRC_RGB);
+        private final int dstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
+        private final int srcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
+        private final int dstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
+
+        static GlSnapshot capture() { return new GlSnapshot(); }
+
+        void restore() {
+            GlStateManager.tryBlendFuncSeparate(srcRgb, dstRgb, srcAlpha, dstAlpha);
+            set(GL11.GL_BLEND, blend);
+            set(GL11.GL_TEXTURE_2D, texture);
+            set(GL11.GL_CULL_FACE, cull);
+            set(GL11.GL_DEPTH_TEST, depth);
+            GlStateManager.depthMask(depthMask);
+            GlStateManager.glLineWidth(lineWidth);
+            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureBinding);
+            GlStateManager.resetColor();
+        }
+
+        private static void set(int capability, boolean enabled) {
+            if (enabled) GL11.glEnable(capability); else GL11.glDisable(capability);
+        }
     }
 }
