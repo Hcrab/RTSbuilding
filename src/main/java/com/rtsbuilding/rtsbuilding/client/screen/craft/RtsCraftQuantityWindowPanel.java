@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.craft;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
@@ -21,14 +22,19 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftQuantityStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import org.lwjgl.input.Keyboard;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Window-layer version of the RTS craft quantity picker.
@@ -55,13 +61,18 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
             return;
         }
         this.preview = entry.stack().copy();
-        List<CraftQuantityOption> options = entry.recipeOptions().stream()
-                .map(option -> new CraftQuantityOption(option.recipeId(), option.summary(),
-                        option.missingSummary(), option.resultCount(), option.craftable()))
-                .toList();
+        List<CraftQuantityOption> options = new ArrayList<CraftQuantityOption>();
+        if (entry.recipeOptions() != null) {
+            for (com.rtsbuilding.rtsbuilding.client.record.CraftRecipeOption option : entry.recipeOptions()) {
+                if (option != null) {
+                    options.add(new CraftQuantityOption(option.recipeId(), option.summary(),
+                            option.missingSummary(), option.resultCount(), option.craftable()));
+                }
+            }
+        }
         CraftQuantityWindowLayout.Layout layout = resolveLayout();
         int selected = findDefaultRecipeIndex(options);
-        this.state = new CraftQuantityState(true, entry.stack().getHoverName().getString(),
+        this.state = new CraftQuantityState(true, entry.stack().getDisplayName(),
                 entry.itemId(), options, selected, 0,
                 CraftQuantityWindowLayout.visibleOptionRows(layout), 1, true);
         this.pendingRequest = null;
@@ -76,29 +87,33 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
         CraftQuantityWindowLayout.Layout layout = resolveLayout();
-        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
+        FontRenderer font = screen.font();
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font, screen);
         int visibleRows = CraftQuantityWindowLayout.visibleOptionRows(layout);
         CraftQuantityOption selected = this.state.selected();
 
         if (!this.preview.isEmpty()) {
             g.renderItem(this.preview, layout.x, layout.y);
+            // Legacy RenderItem 会开启深度测试；窗口余下内容仍是二维 UI，立即恢复其预期状态。
+            GlStateManager.disableDepth();
         }
-        String label = screen.font().plainSubstrByWidth(
+        String label = font.trimStringToWidth(
                 this.state.itemLabel,
                 Math.max(24, layout.w - CraftQuantityWindowLayout.ITEM_TEXT_RIGHT_RESERVE));
-        g.drawString(screen.font(), label,
+        g.drawString(font, label,
                 layout.x + CraftQuantityWindowLayout.ITEM_TEXT_X,
                 layout.y + CraftQuantityWindowLayout.ITEM_LABEL_TOP,
                 CraftQuantityStyle.ITEM_LABEL.toArgb(), false);
         int selectedCount = selected == null ? 1 : selected.resultCount;
-        g.drawString(screen.font(), "Each craft: x" + selectedCount,
+        g.drawString(font, tr("screen.rtsbuilding.craft_quantity.each", "Each craft: x%s", selectedCount),
                 layout.x + CraftQuantityWindowLayout.ITEM_TEXT_X,
                 layout.y + CraftQuantityWindowLayout.ITEM_DETAIL_TOP,
                 CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
 
-        g.drawString(screen.font(), "Recipes", layout.x, layout.optionsY - 10,
+        g.drawString(font, tr("screen.rtsbuilding.craft_quantity.recipes", "Recipes"),
+                layout.x, layout.optionsY - 10,
                 CraftQuantityStyle.SECTION_LABEL.toArgb(), false);
         UiChromeRenderer.frame(canvas, rect(layout.x, layout.optionsY, layout.optionsW, layout.optionsH), 1.0D,
                 CraftQuantityStyle.OPTIONS_BACKGROUND, CraftQuantityStyle.OPTIONS_BORDER_LIGHT,
@@ -118,29 +133,31 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
                             - CraftQuantityWindowLayout.OPTION_ROW_HORIZONTAL_INSET,
                     rowY + CraftQuantityWindowLayout.OPTION_ROW_H - 1, fill.toArgb());
             String summary = "x" + option.resultCount + " " + normalizeOptionSummary(option.summary);
-            g.drawString(screen.font(), screen.font().plainSubstrByWidth(summary, layout.optionsW - 56),
+            g.drawString(font, font.trimStringToWidth(summary, layout.optionsW - 56),
                     layout.x + CraftQuantityWindowLayout.OPTION_ROW_TEXT_X,
                     rowY + CraftQuantityWindowLayout.OPTION_ROW_TEXT_TOP,
                     CraftQuantityStyle.ROW_TEXT.toArgb(), false);
-            g.drawString(screen.font(), option.craftable ? "MAKE" : "MISS",
+            g.drawString(font, option.craftable
+                            ? tr("screen.rtsbuilding.craft_quantity.make", "MAKE")
+                            : tr("screen.rtsbuilding.craft_quantity.miss", "MISS"),
                     layout.x + layout.optionsW - 30, rowY + 4,
                     CraftQuantityStyle.badge(option.craftable).toArgb(), false);
         }
         if (this.state.options.size() > visibleRows) {
             String pageText = (this.state.selectedIndex + 1) + "/" + this.state.options.size();
-            g.drawString(screen.font(), pageText,
-                    layout.x + layout.optionsW - screen.font().width(pageText) - 4,
+            g.drawString(font, pageText,
+                    layout.x + layout.optionsW - font.getStringWidth(pageText) - 4,
                     layout.optionsY - 10, CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
         }
 
         String detail = selected == null
-                ? "No recipe"
+                ? tr("screen.rtsbuilding.craft_quantity.no_recipe", "No recipe")
                 : selected.craftable
                         ? normalizeOptionSummary(selected.summary)
                         : normalizeOptionMissingSummary(selected.missingSummary);
         UiColor detailColor = CraftQuantityStyle.detail(
                 selected != null && !selected.craftable);
-        g.drawString(screen.font(), screen.font().plainSubstrByWidth(detail, layout.w),
+        g.drawString(font, font.trimStringToWidth(detail, layout.w),
                 layout.x, layout.detailY, detailColor.toArgb(), false);
 
         drawSmallButton(g, canvas, layout.minusTenX, layout.inputY,
@@ -153,7 +170,7 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
                         CraftQuantityWindowLayout.INPUT_W, CraftQuantityWindowLayout.INPUT_H), 1.0D,
                 RtsMainlineTheme.INPUT_BACKGROUND, RtsMainlineTheme.INPUT_BORDER_LIGHT,
                 RtsMainlineTheme.INPUT_BORDER_DARK);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), Integer.toString(this.state.quantity),
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, Integer.toString(this.state.quantity),
                 layout.inputX + CraftQuantityWindowLayout.INPUT_W / 2, layout.inputY + 3,
                 RtsMainlineTheme.BUTTON_TEXT.toArgb());
         drawSmallButton(g, canvas, layout.plusOneX, layout.inputY,
@@ -163,19 +180,20 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
                 CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
                 "+10", UiControlRole.HOLD_REPEAT);
 
-        g.drawString(screen.font(), screen.font().plainSubstrByWidth("Enter confirm, Esc cancel", layout.w),
+        g.drawString(font, font.trimStringToWidth(
+                        tr("screen.rtsbuilding.craft_quantity.help", "Enter confirm, Esc cancel"), layout.w),
                 layout.x, layout.helpY, CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
         drawSmallButton(g, canvas, layout.cancelX, layout.actionY,
                 CraftQuantityWindowLayout.ACTION_W, CraftQuantityWindowLayout.ACTION_H,
-                "Cancel", UiControlRole.DESTRUCTIVE_CONFIRM);
+                tr("gui.cancel", "Cancel"), UiControlRole.DESTRUCTIVE_CONFIRM);
         drawSmallButton(g, canvas, layout.confirmX, layout.actionY,
                 CraftQuantityWindowLayout.ACTION_W, CraftQuantityWindowLayout.ACTION_H,
-                "Craft", UiControlRole.PRIMARY_ACTION);
+                tr("screen.rtsbuilding.craft_quantity.confirm", "Craft"), UiControlRole.PRIMARY_ACTION);
     }
 
     @Override
     protected void handleContentClick(double mouseX, double mouseY, int button) {
-        if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+        if (button != 0) {
             return;
         }
         CraftQuantityWindowLayout.Layout layout = resolveLayout();
@@ -217,45 +235,43 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
-        boolean ctrl = (modifiers & GLFW.GLFW_MOD_CONTROL) != 0;
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+        boolean ctrl = Keyboard.isKeyDown(Keyboard.KEY_LCONTROL)
+                || Keyboard.isKeyDown(Keyboard.KEY_RCONTROL);
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
             dispatch(CraftQuantityAction.simple(CraftQuantityAction.Type.CONFIRM));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_TAB) {
+        if (keyCode == Keyboard.KEY_TAB) {
             dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.MOVE,
-                    (modifiers & GLFW.GLFW_MOD_SHIFT) != 0 ? -1 : 1));
+                    isShiftDown() ? -1 : 1));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_PAGE_UP) {
+        if (keyCode == Keyboard.KEY_PRIOR) {
             dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.MOVE, -1));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_PAGE_DOWN) {
+        if (keyCode == Keyboard.KEY_NEXT) {
             dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.MOVE, 1));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+        if (keyCode == Keyboard.KEY_BACK) {
             dispatch(CraftQuantityAction.simple(CraftQuantityAction.Type.BACKSPACE));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_DELETE) {
+        if (keyCode == Keyboard.KEY_DELETE) {
             dispatch(CraftQuantityAction.simple(CraftQuantityAction.Type.CLEAR));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_RIGHT) {
+        if (keyCode == Keyboard.KEY_UP || keyCode == Keyboard.KEY_RIGHT) {
             dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.ADJUST, ctrl ? 10 : 1));
             return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_LEFT) {
+        if (keyCode == Keyboard.KEY_DOWN || keyCode == Keyboard.KEY_LEFT) {
             dispatch(CraftQuantityAction.value(CraftQuantityAction.Type.ADJUST, ctrl ? -10 : -1));
             return true;
         }
-        if (ctrl && keyCode == GLFW.GLFW_KEY_V) {
-            Minecraft minecraft = Minecraft.getInstance();
-            if (minecraft != null) {
-                dispatch(CraftQuantityAction.text(minecraft.keyboardHandler.getClipboard()));
-            }
+        if (ctrl && keyCode == Keyboard.KEY_V) {
+            dispatch(CraftQuantityAction.text(GuiScreen.getClipboardString()));
             return true;
         }
         return true;
@@ -277,8 +293,9 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected Component getTitle() {
-        return Component.literal("Craft Recipe");
+    protected ITextComponent getTitle() {
+        return new TextComponentString(tr(
+                "screen.rtsbuilding.craft_quantity.title", "Craft Recipe"));
     }
 
     @Override
@@ -350,19 +367,21 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
     }
 
     private static String normalizeOptionSummary(String summary) {
-        return summary == null || summary.isBlank() ? "Recipe" : summary;
+        return summary == null || summary.trim().isEmpty()
+                ? tr("screen.rtsbuilding.craft_quantity.recipe", "Recipe") : summary;
     }
 
     private static String normalizeOptionMissingSummary(String summary) {
-        return summary == null || summary.isBlank() ? "Missing ingredients." : summary;
+        return summary == null || summary.trim().isEmpty()
+                ? tr("screen.rtsbuilding.craft_quantity.missing", "Missing ingredients.") : summary;
     }
 
-    private void drawSmallButton(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawSmallButton(LegacyGuiGraphics g, MinecraftUiCanvas canvas,
                                  int x, int y, int w, int h, String label,
                                  UiControlRole role) {
         UiControlChromeRenderer.compactFrame(canvas, rect(x, y, w, h), role, ENABLED_CONTROL);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
-                x + (w / 2), y + Math.max(2, (h - screen.font().lineHeight) / 2),
+                x + (w / 2), y + Math.max(2, (h - screen.font().FONT_HEIGHT) / 2),
                 RtsMainlineTheme.BUTTON_TEXT.toArgb());
     }
 
@@ -370,15 +389,57 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
         return new UiRect(x, y, w, h);
     }
 
-    public record Request(String recipeId, int craftCount) {
+    /** Java 8 可加载的不可变确认请求；网络发送仍由 BuilderScreen 所有者执行。 */
+    public static final class Request {
+        private final String recipeId;
+        private final int craftCount;
+
+        public Request(String recipeId, int craftCount) {
+            this.recipeId = recipeId == null ? "" : recipeId;
+            this.craftCount = craftCount;
+        }
+
+        public String recipeId() {
+            return recipeId;
+        }
+
+        public int craftCount() {
+            return craftCount;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Request)) return false;
+            Request request = (Request) other;
+            return craftCount == request.craftCount && Objects.equals(recipeId, request.recipeId);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(recipeId, craftCount);
+        }
     }
 
-    private final List<PersistableProperty> properties = List.of(
+    private final List<PersistableProperty> properties = Collections.singletonList(
             PersistableProperty.bounds("craft_quantity", this)
     );
 
     @Override
     public List<PersistableProperty> persistableProperties() {
         return properties;
+    }
+
+    private static boolean isShiftDown() {
+        return Keyboard.isKeyDown(Keyboard.KEY_LSHIFT)
+                || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
+    }
+
+    /**
+     * 1.12 使用客户端 I18n；旧资源包缺少新键时保留 main 的英文文案，避免界面直接显示键名。
+     */
+    private static String tr(String key, String fallback, Object... arguments) {
+        return I18n.hasKey(key) ? I18n.format(key, arguments)
+                : String.format(java.util.Locale.ROOT, fallback, arguments);
     }
 }

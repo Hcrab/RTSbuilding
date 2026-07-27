@@ -4,10 +4,10 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.service.bindings.RtsLinkedStorageBindingService;
 import com.rtsbuilding.rtsbuilding.server.service.bindings.RtsQuickSlotBindingService;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * 拥有玩家 RTS 存储会话的绑定边缘。
@@ -54,7 +54,7 @@ public final class RtsStorageBindings {
      * 切换或重新定位链接存储引用，同时保留现有的仅提取模式行为。
      * 没有物品或流体端点的目标仍会要求 UI 返回第零页而不保存会话数据。
      */
-    public static UpdateResult linkStorage(ServerPlayer player, RtsStorageSession session, BlockPos pos, byte linkMode) {
+    public static UpdateResult linkStorage(EntityPlayerMP player, RtsStorageSession session, BlockPos pos, byte linkMode) {
         return RtsLinkedStorageBindingService.linkStorage(player, session, pos, linkMode);
     }
 
@@ -63,7 +63,7 @@ public final class RtsStorageBindings {
      * 详情面板可以编辑模式和 AE 风格优先级，
      * 但服务器仍要求引用已属于玩家的会话。
      */
-    public static UpdateResult updateLinkedStorageSettings(ServerPlayer player, RtsStorageSession session,
+    public static UpdateResult updateLinkedStorageSettings(EntityPlayerMP player, RtsStorageSession session,
             BlockPos pos, byte linkMode, int priority) {
         return RtsLinkedStorageBindingService.updateSettings(player, session, pos, linkMode, priority);
     }
@@ -91,22 +91,22 @@ public final class RtsStorageBindings {
     /**
      * 绑定或清除一个外部 GUI 槽位。
      */
-    public static UpdateResult setGuiBinding(ServerPlayer player, RtsStorageSession session, byte slotId, boolean clear,
-            BlockPos pos, Direction face, String itemIdHint) {
+    public static UpdateResult setGuiBinding(EntityPlayerMP player, RtsStorageSession session, byte slotId, boolean clear,
+            BlockPos pos, EnumFacing face, String itemIdHint) {
         return RtsGuiBindingHelper.setGuiBinding(player, session, slotId, clear, pos, face, itemIdHint);
     }
 
     /**
      * 从 RTS 相机模式重新打开已保存的 GUI 绑定。
      */
-    public static UpdateResult openGuiBinding(ServerPlayer player, RtsStorageSession session, byte slotId, double remotePovBlockReach) {
+    public static UpdateResult openGuiBinding(EntityPlayerMP player, RtsStorageSession session, byte slotId, double remotePovBlockReach) {
         return RtsGuiBindingHelper.openGuiBinding(player, session, slotId, remotePovBlockReach);
     }
 
     /**
      * 回填早于物品 ID 图标的旧 GUI 绑定。
      */
-    public static boolean refreshMissingGuiBindingIcons(ServerPlayer player, RtsStorageSession session) {
+    public static boolean refreshMissingGuiBindingIcons(EntityPlayerMP player, RtsStorageSession session) {
         return RtsGuiBindingHelper.refreshMissingGuiBindingIcons(player, session);
     }
 
@@ -114,8 +114,21 @@ public final class RtsStorageBindings {
     //  记录类型
     // ======================================================================
 
-    public record UpdateResult(boolean saveSession, boolean refreshPage, int page) {
+    public static final class UpdateResult {
         private static final UpdateResult NONE = new UpdateResult(false, false, 0);
+        private final boolean saveSession;
+        private final boolean refreshPage;
+        private final int page;
+
+        public UpdateResult(boolean saveSession, boolean refreshPage, int page) {
+            this.saveSession = saveSession;
+            this.refreshPage = refreshPage;
+            this.page = page;
+        }
+
+        public boolean saveSession() { return saveSession; }
+        public boolean refreshPage() { return refreshPage; }
+        public int page() { return page; }
 
         public static UpdateResult none() {
             return NONE;
@@ -127,6 +140,19 @@ public final class RtsStorageBindings {
 
         public static UpdateResult refreshCurrent(RtsStorageSession session, boolean saveSession) {
             return new UpdateResult(saveSession, true, session == null ? 0 : session.browser.page);
+        }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof UpdateResult)) return false;
+            UpdateResult that = (UpdateResult) other;
+            return saveSession == that.saveSession && refreshPage == that.refreshPage && page == that.page;
+        }
+        @Override public int hashCode() {
+            return (saveSession ? 1 : 0) * 31 * 31 + (refreshPage ? 1 : 0) * 31 + page;
+        }
+        @Override public String toString() {
+            return "UpdateResult[saveSession=" + saveSession + ", refreshPage=" + refreshPage + ", page=" + page + "]";
         }
     }
 }

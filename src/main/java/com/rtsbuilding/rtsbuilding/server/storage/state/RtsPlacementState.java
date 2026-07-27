@@ -1,9 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -39,21 +37,21 @@ public class RtsPlacementState {
      */
     public static final class PlacedRecoveryJob {
         private final UUID operationId;
-        private final ResourceKey<Level> dimension;
+        private final int dimension;
         private final BlockPos targetPos;
         private final Deque<PlacedRecoveryClaim> claims;
         private long requiredPersistedRevision;
 
-        public PlacedRecoveryJob(UUID operationId, ResourceKey<Level> dimension,
+        public PlacedRecoveryJob(UUID operationId, int dimension,
                 BlockPos targetPos, Deque<PlacedRecoveryClaim> claims) {
             this.operationId = java.util.Objects.requireNonNull(operationId, "operationId");
-            this.dimension = java.util.Objects.requireNonNull(dimension, "dimension");
-            this.targetPos = java.util.Objects.requireNonNull(targetPos, "targetPos").immutable();
+            this.dimension = dimension;
+            this.targetPos = java.util.Objects.requireNonNull(targetPos, "targetPos").toImmutable();
             this.claims = java.util.Objects.requireNonNull(claims, "claims");
         }
 
         public UUID operationId() { return operationId; }
-        public ResourceKey<Level> dimension() { return dimension; }
+        public int dimension() { return dimension; }
         public BlockPos targetPos() { return targetPos; }
         public Deque<PlacedRecoveryClaim> claims() { return claims; }
 
@@ -68,17 +66,24 @@ public class RtsPlacementState {
     /**
      * 世界掉落实体的保守 claim。expectedStack 始终防御性复制，避免外部代码修改持久化指纹。
      */
-    public record PlacedRecoveryClaim(UUID entityId, int ordinal, ItemStack expectedStack) {
-        public PlacedRecoveryClaim {
+    public static final class PlacedRecoveryClaim {
+        private final UUID entityId;
+        private final int ordinal;
+        private final ItemStack expectedStack;
+
+        public PlacedRecoveryClaim(UUID entityId, int ordinal, ItemStack expectedStack) {
             if (entityId == null) throw new IllegalArgumentException("entityId 不能为空");
             if (ordinal < 0) throw new IllegalArgumentException("ordinal 不能为负数");
             if (expectedStack == null || expectedStack.isEmpty()) {
                 throw new IllegalArgumentException("expectedStack 不能为空");
             }
-            expectedStack = expectedStack.copy();
+            this.entityId = entityId;
+            this.ordinal = ordinal;
+            this.expectedStack = expectedStack.copy();
         }
 
-        @Override
+        public UUID entityId() { return entityId; }
+        public int ordinal() { return ordinal; }
         public ItemStack expectedStack() {
             return expectedStack.copy();
         }
@@ -87,8 +92,19 @@ public class RtsPlacementState {
         public boolean matches(ItemStack actual) {
             return actual != null
                     && !actual.isEmpty()
-                    && actual.getCount() == expectedStack.getCount()
-                    && ItemStack.isSameItemSameComponents(actual, expectedStack);
+                    && ItemStack.areItemStacksEqual(actual, expectedStack);
+        }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof PlacedRecoveryClaim)) return false;
+            PlacedRecoveryClaim that = (PlacedRecoveryClaim) other;
+            return ordinal == that.ordinal && entityId.equals(that.entityId)
+                    && ItemStack.areItemStacksEqual(expectedStack, that.expectedStack);
+        }
+        @Override public int hashCode() {
+            return java.util.Objects.hash(entityId, ordinal, expectedStack.getItem(),
+                    expectedStack.getMetadata(), expectedStack.getCount(), expectedStack.getTagCompound());
         }
     }
 }

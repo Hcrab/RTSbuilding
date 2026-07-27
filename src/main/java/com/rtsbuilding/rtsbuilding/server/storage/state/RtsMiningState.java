@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.storage.state;
 
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ public class RtsMiningState {
     /** 当前挖掘目标坐标，null = 未在挖掘 */
     public BlockPos miningPos;
     /** 挖掘方向（默认为下） */
-    public Direction miningFace = Direction.DOWN;
+    public EnumFacing miningFace = EnumFacing.DOWN;
     /** 当前使用的工具栏格索引 */
     public int miningToolSlot;
     /** 当前借用的远程挖掘工具租约 */

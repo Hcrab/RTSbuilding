@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage.model;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
+import net.minecraft.util.math.BlockPos;
+
+import java.util.Objects;
 
 /**
  * 已链接存储方块的<strong>稳定身份标识</strong>。
@@ -13,5 +13,24 @@ import net.minecraft.world.level.Level;
  * @param dimension 方块所在的维度键
  * @param pos       方块的世界坐标
  */
-public record LinkedStorageRef(ResourceKey<Level> dimension, BlockPos pos) {
+public final class LinkedStorageRef {
+    private final int dimension;
+    private final BlockPos pos;
+
+    public LinkedStorageRef(int dimension, BlockPos pos) {
+        this.dimension = dimension;
+        this.pos = Objects.requireNonNull(pos, "pos").toImmutable();
+    }
+
+    public int dimension() { return dimension; }
+    public BlockPos pos() { return pos; }
+
+    @Override public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof LinkedStorageRef)) return false;
+        LinkedStorageRef that = (LinkedStorageRef) other;
+        return dimension == that.dimension && pos.equals(that.pos);
+    }
+    @Override public int hashCode() { return 31 * dimension + pos.hashCode(); }
+    @Override public String toString() { return "LinkedStorageRef[dimension=" + dimension + ", pos=" + pos + "]"; }
 }

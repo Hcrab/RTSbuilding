@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.concurrent.atomic.AtomicLong;
 

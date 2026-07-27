@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.storage.session;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
 import com.rtsbuilding.rtsbuilding.server.storage.model.RecentEntry;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
