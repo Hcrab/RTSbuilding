@@ -12,4 +12,22 @@ rootProject.name = "rtsbuilding"
 
 include "common"
 include "rtsbuilding-api"
+// Main mod — project path kept flat to avoid Java module naming issues with ModDevGradle
 include "neoforge-1.21"
+project(":neoforge-1.21").projectDir = file("neoforge/neoforge-1.21")
+
+// Addon mods
+include "addon-ae2"
+project(":addon-ae2").projectDir = file("addons/addon-ae2/neoforge-1.21")
+
+include "addon-refinedstorage"
+project(":addon-refinedstorage").projectDir = file("addons/addon-refinedstorage/neoforge-1.21")
+
+include "addon-beyonddimensions"
+project(":addon-beyonddimensions").projectDir = file("addons/addon-beyonddimensions/neoforge-1.21")
+
+include "addon-sophisticatedbackpacks"
+project(":addon-sophisticatedbackpacks").projectDir = file("addons/addon-sophisticatedbackpacks/neoforge-1.21")
+
+include "addon-ftb"
+project(":addon-ftb").projectDir = file("addons/addon-ftb/neoforge-1.21")
