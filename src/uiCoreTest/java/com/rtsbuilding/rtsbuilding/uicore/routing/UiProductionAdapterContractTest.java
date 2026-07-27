@@ -55,12 +55,13 @@ class UiProductionAdapterContractTest {
     void 隐藏窗口和切屏会清理捕获焦点与escape() throws IOException {
         String input = floatingInputSource();
         String layer = floatingLayerSource();
-        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java");
         assertTrue(input.contains("pointerCapture.releaseOwner(window)"));
         assertTrue(input.contains("keyboardFocus.clear(window)"));
         assertTrue(input.contains("void clearTransientState()"));
         assertTrue(layer.contains("clearTransientInputState"));
-        assertTrue(screen.contains("this.floatingWindowLayer.clearTransientInputState();"));
+        assertTrue(screen.contains("screen.floatingWindowLayer.clearTransientInputState();"));
     }
 
     @Test
@@ -77,13 +78,15 @@ class UiProductionAdapterContractTest {
     @Test
     void 顶栏按下视觉来自Core所有权而不是全局鼠标轮询() throws IOException {
         String topbar = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java");
-        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java");
         assertTrue(topbar.contains("PointerCapture<TopBarTypes.TopBarButtonId>"));
         assertTrue(topbar.contains("pointerCapture.capture(PRIMARY_MOUSE_BUTTON, button.id())"));
         assertTrue(topbar.contains("pointerCapture.ownerOf(PRIMARY_MOUSE_BUTTON) == button.id()"));
         assertFalse(topbar.contains("glfwGetMouseButton"));
-        assertTrue(screen.contains("this.topBarPanel.mouseReleased(button);"));
-        assertTrue(screen.contains("this.topBarPanel.clearTransientInputState();"));
+        assertTrue(screen.contains("screen.topBarPanel.mouseReleased(button);"));
+        assertTrue(screen.contains("screen.topBarPanel.clearTransientInputState();"));
     }
 
     @Test
@@ -202,7 +205,9 @@ class UiProductionAdapterContractTest {
             assertFalse(source.contains("private static boolean inside("), path);
         }
         String builder = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenRenderOwner.java");
         String quickBuild = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java");
         assertFalse(builder.contains("resolveQuickBuildPanelLayout("));
@@ -344,7 +349,9 @@ class UiProductionAdapterContractTest {
     @Test
     void BuilderScreen不再拥有颜色且绑定光标复用九宫格() throws IOException {
         String builder = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenRenderOwner.java");
         String tooltip = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/TooltipStyle.java");
         String craft = read(
@@ -659,7 +666,8 @@ class UiProductionAdapterContractTest {
     @Test
     void blueprintLibrarySharesChromeThemeRowsAndHalfOpenInput() throws IOException {
         String panel = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanel.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanel.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibrarySession.java");
         String renderer = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryPanelRenderer.java");
         String rowRenderer = read(
@@ -737,9 +745,10 @@ class UiProductionAdapterContractTest {
         String window = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java");
         String screen = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenComponentState.java");
 
-        assertTrue(screen.contains("private final BlueprintWindowPanel blueprintWindowPanel"));
+        assertTrue(screen.contains("final BlueprintWindowPanel blueprintWindowPanel"));
         assertTrue(window.contains("BlueprintUiAction.Type.SAVE_CAPTURE"));
         assertTrue(window.contains("BlueprintUiAction.Type.CANCEL_CAPTURE"));
         assertTrue(window.contains("BlueprintUiAction.Type.OPEN_MATERIALS"));

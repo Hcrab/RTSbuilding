@@ -110,6 +110,12 @@ tasks.register('uiCoreTest', Test) {
     description = '运行不依赖 Minecraft 的 Java 8 UI Core 契约测试。'
     dependsOn tasks.named('uiCoreTestClasses')
     dependsOn tasks.named('verifyUiCoreIsolation')
+    // UI Core 契约会直接读取生产 Adapter 与 Kit 源码来审计路由边界。
+    // 必须把这些源码显式列为输入，否则 owner 拆分后 Gradle 可能误用旧的绿色结果。
+    inputs.files(
+            fileTree('src/main/java') { include '**/*.java' },
+            fileTree('src/uiCore/java') { include '**/*.java' },
+            fileTree('src/uiKit/java') { include '**/*.java' })
     testClassesDirs = sourceSets.uiCoreTest.output.classesDirs
     classpath = sourceSets.uiCoreTest.runtimeClasspath
     useJUnitPlatform()
