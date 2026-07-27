@@ -1,52 +1,29 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.core.BlockPos;
-
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderGlobal;
+import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.math.BlockPos;
+import org.lwjgl.opengl.GL11;
 import java.util.List;
 
-/**
- * Wireframe renderer for single-block ghost previews.
- * <p>
- * Renders block outline wireframes. Build previews deliberately stay blue even
- * at the final confirmation step, because this layer is only a preview of
- * future positions, not a server-confirmed placement animation.
- */
+/** 1.12 建造幽灵私有线框层；兼容参数绝不读取或结束。 */
 public final class BuildGhostWireframeRenderer {
-    private BuildGhostWireframeRenderer() {
-    }
-
-    /**
-     * Renders wireframes at all target positions.
-     *
-     * @param blocks       Target block positions
-     * @param poseStack    Pose stack for coordinate transforms
-     * @param lineBuffer   Line vertex buffer
-     * @param readyConfirm Kept for call-site compatibility; preview colour is constant.
-     */
-    public static void renderWireframes(List<BlockPos> blocks, PoseStack poseStack,
-            VertexConsumer lineBuffer, boolean readyConfirm) {
-        if (blocks == null || blocks.isEmpty()) {
-            return;
-        }
-        float lineR = 0.30F;
-        float lineG = 0.75F;
-        float lineB = 1.00F;
-
-        for (BlockPos pos : blocks) {
-            double minX = pos.getX() + 0.03D;
-            double minY = pos.getY() + 0.03D;
-            double minZ = pos.getZ() + 0.03D;
-            double maxX = pos.getX() + 0.97D;
-            double maxY = pos.getY() + 0.97D;
-            double maxZ = pos.getZ() + 0.97D;
-            LevelRenderer.renderLineBox(
-                    poseStack, lineBuffer,
-                    minX, minY, minZ,
-                    maxX, maxY, maxZ,
-                    lineR, lineG, lineB, 0.70F);
-        }
+    private static final BufferBuilder BUFFER = new BufferBuilder(256*1024);
+    private static final WorldVertexBufferUploader UPLOADER = new WorldVertexBufferUploader();
+    private BuildGhostWireframeRenderer() {}
+    public static void renderWireframes(List<BlockPos> blocks, BufferBuilder callerBuffer, boolean readyConfirm) {
+        if (blocks==null||blocks.isEmpty()) return;
+        RenderManager m=Minecraft.getMinecraft().getRenderManager();
+        BUFFER.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
+        BUFFER.setTranslation(-m.viewerPosX,-m.viewerPosY,-m.viewerPosZ);
+        for(BlockPos p:blocks) RenderGlobal.drawBoundingBox(BUFFER,p.getX()+.03,p.getY()+.03,p.getZ()+.03,
+                p.getX()+.97,p.getY()+.97,p.getZ()+.97,.30F,.75F,1F,.70F);
+        UltimineGhostRenderer.GlSnapshot gl=UltimineGhostRenderer.GlSnapshot.capture();try { GlStateManager.enableBlend(); GlStateManager.disableTexture2D(); GlStateManager.depthMask(false); UPLOADER.draw(BUFFER); }
+        finally { BUFFER.setTranslation(0,0,0); gl.restore(); }
     }
 }

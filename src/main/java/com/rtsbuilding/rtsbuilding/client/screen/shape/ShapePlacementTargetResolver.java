@@ -2,13 +2,11 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.item.ItemStack;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.RayTraceResult;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -16,7 +14,7 @@ import java.util.List;
 /**
  * 统一形状放置前的 Minecraft 目标位置解析。
  * <p>
- * 本类负责三件紧密相关的事：按原版 {@link BlockPlaceContext} 判断点击方块能否直接替换、
+ * 本类负责三件紧密相关的事：按原版方块替换规则判断点击方块能否直接替换、
  * 为平面形状应用统一的锚点偏移，以及在严格空位锁定时剔除已占用目标。它不拥有形状会话、
  * 玩家选择、工具来源、网络发送或世界修改；调用方必须显式提供输入、物品和只读世界探针。
  * 这样单方块幽灵、批量预览、成本和最终发送可以共享相同的放置目标语义，而不会在屏幕类中
@@ -27,14 +25,14 @@ public final class ShapePlacementTargetResolver {
      * 形状目标映射所需的最小只读世界边界。
      * <p>
      * 测试可提供纯内存实现；生产通过 {@link #minecraftWorld(Minecraft, ItemStack)} 接入
-     * Minecraft 世界和 {@link BlockPlaceContext}。
+     * Minecraft 世界和 1.12 方块替换规则。
      */
     public interface PlacementWorld {
         boolean available();
 
         boolean hasChunkAt(BlockPos pos);
 
-        boolean canReplace(BlockPos pos, Direction face);
+        boolean canReplace(BlockPos pos, EnumFacing face);
     }
 
     /**
@@ -51,16 +49,16 @@ public final class ShapePlacementTargetResolver {
             boolean strictEmptyLock,
             PlacementWorld world) {
         if (clickedTargets == null || clickedTargets.isEmpty()) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         if (input == null || input.placementFace() == null) {
             return immutableDistinct(clickedTargets);
         }
         if (world == null || !world.available()) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
 
-        Direction face = input.placementFace();
+        EnumFacing face = input.placementFace();
         boolean uniformPlacement = usesUniformPlanePlacement(input.shape());
         LinkedHashSet<BlockPos> resolved = new LinkedHashSet<>(clickedTargets.size());
         for (BlockPos clickedPos : clickedTargets) {
@@ -78,9 +76,9 @@ public final class ShapePlacementTargetResolver {
                     && !world.canReplace(placePos, face)) {
                 continue;
             }
-            resolved.add(placePos.immutable());
+            resolved.add(placePos);
         }
-        return List.copyOf(resolved);
+        return java.util.Collections.unmodifiableList(new java.util.ArrayList<>(resolved));
     }
 
     /**
@@ -88,7 +86,7 @@ public final class ShapePlacementTargetResolver {
      * 这条路径只做空值清理和稳定去重，不再根据已有方块把整幅形状推向相邻面。
      */
     public static List<BlockPos> resolveOverwriteTargets(List<BlockPos> targets) {
-        return immutableDistinct(targets == null ? List.of() : targets);
+        return immutableDistinct(targets == null ? java.util.Collections.emptyList() : targets);
     }
 
     /**
@@ -96,17 +94,17 @@ public final class ShapePlacementTargetResolver {
      */
     public static BlockPos resolveClickedTarget(
             BlockPos clickedPos,
-            Direction face,
+            EnumFacing face,
             PlacementWorld world) {
         if (clickedPos == null || face == null || world == null || !world.available()) {
             return null;
         }
         if (!world.hasChunkAt(clickedPos)) {
-            return clickedPos.immutable();
+            return clickedPos;
         }
         return world.canReplace(clickedPos, face)
-                ? clickedPos.immutable()
-                : clickedPos.relative(face).immutable();
+                ? clickedPos
+                : clickedPos.offset(face);
     }
 
     /**
@@ -114,33 +112,29 @@ public final class ShapePlacementTargetResolver {
      */
     public static BlockPos resolveSingleGhostTarget(
             Minecraft minecraft,
-            BlockHitResult hit,
+            RayTraceResult hit,
             ItemStack placementStack) {
         if (minecraft == null
-                || minecraft.level == null
+                || minecraft.world == null
                 || minecraft.player == null
                 || hit == null
                 || placementStack == null
                 || placementStack.isEmpty()) {
             return null;
         }
-        BlockPlaceContext context = new BlockPlaceContext(
-                minecraft.level,
-                minecraft.player,
-                InteractionHand.MAIN_HAND,
-                placementStack,
-                hit);
-        BlockPos placePos = context.getClickedPos();
-        if (placePos == null) {
-            return null;
-        }
-        if (minecraft.level.hasChunkAt(placePos)) {
-            BlockState state = minecraft.level.getBlockState(placePos);
-            if (!state.isAir() && !state.canBeReplaced(context)) {
+        BlockPos clickedPos = hit.getBlockPos();
+        EnumFacing face = hit.sideHit;
+        if (clickedPos == null || face == null) return null;
+        BlockPos placePos = minecraft.world.isBlockLoaded(clickedPos)
+                && minecraft.world.getBlockState(clickedPos).getBlock().isReplaceable(minecraft.world, clickedPos)
+                ? clickedPos : clickedPos.offset(face);
+        if (minecraft.world.isBlockLoaded(placePos)) {
+            IBlockState state = minecraft.world.getBlockState(placePos);
+            if (!state.getBlock().isReplaceable(minecraft.world, placePos)) {
                 return null;
             }
         }
-        return placePos.immutable();
+        return placePos;
     }
 
     /**
@@ -165,7 +159,7 @@ public final class ShapePlacementTargetResolver {
             BlockPos clickedPos,
             PlacementWorld world) {
         BlockPos anchor = input.pointA();
-        Direction face = input.placementFace();
+        EnumFacing face = input.placementFace();
         if (anchor == null || face == null) {
             return clickedPos;
         }
@@ -173,7 +167,7 @@ public final class ShapePlacementTargetResolver {
         if (anchorPlaced == null) {
             return clickedPos;
         }
-        return clickedPos.offset(
+        return clickedPos.add(
                 anchorPlaced.getX() - anchor.getX(),
                 anchorPlaced.getY() - anchor.getY(),
                 anchorPlaced.getZ() - anchor.getZ());
@@ -183,10 +177,10 @@ public final class ShapePlacementTargetResolver {
         LinkedHashSet<BlockPos> distinct = new LinkedHashSet<>();
         for (BlockPos pos : positions) {
             if (pos != null) {
-                distinct.add(pos.immutable());
+                distinct.add(pos);
             }
         }
-        return List.copyOf(distinct);
+        return java.util.Collections.unmodifiableList(new java.util.ArrayList<>(distinct));
     }
 
     private static final class MinecraftPlacementWorld implements PlacementWorld {
@@ -200,34 +194,21 @@ public final class ShapePlacementTargetResolver {
 
         @Override
         public boolean available() {
-            return this.minecraft != null && this.minecraft.level != null;
+            return this.minecraft != null && this.minecraft.world != null;
         }
 
         @Override
         public boolean hasChunkAt(BlockPos pos) {
-            return available() && pos != null && this.minecraft.level.hasChunkAt(pos);
+            return available() && pos != null && this.minecraft.world.isBlockLoaded(pos);
         }
 
         @Override
-        public boolean canReplace(BlockPos pos, Direction face) {
+        public boolean canReplace(BlockPos pos, EnumFacing face) {
             if (!hasChunkAt(pos) || face == null) {
                 return false;
             }
-            BlockState state = this.minecraft.level.getBlockState(pos);
-            BlockPlaceContext context = createContext(pos, face);
-            return context == null ? state.canBeReplaced() : state.canBeReplaced(context);
-        }
-
-        private BlockPlaceContext createContext(BlockPos clickedPos, Direction face) {
-            if (this.minecraft.player == null || this.placementStack.isEmpty()) {
-                return null;
-            }
-            return new BlockPlaceContext(
-                    this.minecraft.level,
-                    this.minecraft.player,
-                    InteractionHand.MAIN_HAND,
-                    this.placementStack,
-                    ShapeGeometryUtil.createShapePlacementHit(clickedPos, face));
+            IBlockState state = this.minecraft.world.getBlockState(pos);
+            return state.getBlock().isReplaceable(this.minecraft.world, pos);
         }
     }
 

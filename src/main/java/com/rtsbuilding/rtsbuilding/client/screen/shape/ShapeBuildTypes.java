@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 
 /**
  * Container for shape-building data types used in the multi-click shape
@@ -55,14 +55,51 @@ public final class ShapeBuildTypes {
      * @param pointB         second anchor point (opposite corner / end)
      * @param boxHeightOffset height offset in blocks (BOX only, 0 otherwise)
      */
-    public record Input(
-            BuildShape shape,
-            Direction planeFace,
-            Direction placementFace,
-            BlockPos pointA,
-            BlockPos pointB,
-            int boxHeightOffset,
-            boolean connectedLine) {}
+    public static final class Input {
+        private final BuildShape shape;
+        private final EnumFacing planeFace;
+        private final EnumFacing placementFace;
+        private final BlockPos pointA;
+        private final BlockPos pointB;
+        private final int boxHeightOffset;
+        private final boolean connectedLine;
+
+        public Input(BuildShape shape, EnumFacing planeFace, EnumFacing placementFace,
+                BlockPos pointA, BlockPos pointB, int boxHeightOffset, boolean connectedLine) {
+            this.shape = shape;
+            this.planeFace = planeFace;
+            this.placementFace = placementFace;
+            this.pointA = pointA;
+            this.pointB = pointB;
+            this.boxHeightOffset = boxHeightOffset;
+            this.connectedLine = connectedLine;
+        }
+
+        public BuildShape shape() { return this.shape; }
+        public EnumFacing planeFace() { return this.planeFace; }
+        public EnumFacing placementFace() { return this.placementFace; }
+        public BlockPos pointA() { return this.pointA; }
+        public BlockPos pointB() { return this.pointB; }
+        public int boxHeightOffset() { return this.boxHeightOffset; }
+        public boolean connectedLine() { return this.connectedLine; }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Input)) return false;
+            Input that = (Input) other;
+            return this.boxHeightOffset == that.boxHeightOffset && this.connectedLine == that.connectedLine
+                    && java.util.Objects.equals(this.shape, that.shape)
+                    && java.util.Objects.equals(this.planeFace, that.planeFace)
+                    && java.util.Objects.equals(this.placementFace, that.placementFace)
+                    && java.util.Objects.equals(this.pointA, that.pointA)
+                    && java.util.Objects.equals(this.pointB, that.pointB);
+        }
+
+        @Override public int hashCode() {
+            return java.util.Objects.hash(this.shape, this.planeFace, this.placementFace,
+                    this.pointA, this.pointB, this.boxHeightOffset, this.connectedLine);
+        }
+    }
 
     /**
      * Shape build session (immutable, extends the Input concept).
@@ -80,15 +117,55 @@ public final class ShapeBuildTypes {
      * @param boxHeightOffset     height offset in blocks (BOX only)
      * @param boxHeightMouseBaseY screen Y at which height-drag started
      */
-    public record Session(
-            BuildShape shape,
-            Direction planeFace,
-            Direction placementFace,
-            BlockPos pointA,
-            BlockPos pointB,
-            Phase phase,
-            int boxHeightOffset,
-            double boxHeightMouseBaseY) {}
+    public static final class Session {
+        private final BuildShape shape;
+        private final EnumFacing planeFace;
+        private final EnumFacing placementFace;
+        private final BlockPos pointA;
+        private final BlockPos pointB;
+        private final Phase phase;
+        private final int boxHeightOffset;
+        private final double boxHeightMouseBaseY;
+
+        public Session(BuildShape shape, EnumFacing planeFace, EnumFacing placementFace,
+                BlockPos pointA, BlockPos pointB, Phase phase, int boxHeightOffset,
+                double boxHeightMouseBaseY) {
+            this.shape = shape;
+            this.planeFace = planeFace;
+            this.placementFace = placementFace;
+            this.pointA = pointA;
+            this.pointB = pointB;
+            this.phase = phase;
+            this.boxHeightOffset = boxHeightOffset;
+            this.boxHeightMouseBaseY = boxHeightMouseBaseY;
+        }
+
+        public BuildShape shape() { return this.shape; }
+        public EnumFacing planeFace() { return this.planeFace; }
+        public EnumFacing placementFace() { return this.placementFace; }
+        public BlockPos pointA() { return this.pointA; }
+        public BlockPos pointB() { return this.pointB; }
+        public Phase phase() { return this.phase; }
+        public int boxHeightOffset() { return this.boxHeightOffset; }
+        public double boxHeightMouseBaseY() { return this.boxHeightMouseBaseY; }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Session)) return false;
+            Session that = (Session) other;
+            return this.boxHeightOffset == that.boxHeightOffset
+                    && Double.compare(this.boxHeightMouseBaseY, that.boxHeightMouseBaseY) == 0
+                    && this.shape == that.shape && this.planeFace == that.planeFace
+                    && this.placementFace == that.placementFace && this.phase == that.phase
+                    && java.util.Objects.equals(this.pointA, that.pointA)
+                    && java.util.Objects.equals(this.pointB, that.pointB);
+        }
+
+        @Override public int hashCode() {
+            return java.util.Objects.hash(this.shape, this.planeFace, this.placementFace, this.pointA,
+                    this.pointB, this.phase, this.boxHeightOffset, this.boxHeightMouseBaseY);
+        }
+    }
 
 
 

@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.MathHelper;
 
 /**
  * 快速建造与范围破坏共用的预览输入限幅器。
@@ -68,7 +68,7 @@ public final class ShapeSelectionLimiter {
             ShapeBuildTypes.Input input, int maxWidth, int maxHeight, int maxDepth) {
         BlockPos a = input.pointA();
         BlockPos b = input.pointB();
-        BlockPos limitedB = a.offset(
+        BlockPos limitedB = a.add(
                 clampSignedOffset(b.getX() - a.getX(), maxWidth - 1),
                 clampSignedOffset(b.getY() - a.getY(), maxHeight - 1),
                 clampSignedOffset(b.getZ() - a.getZ(), maxDepth - 1));
@@ -78,7 +78,7 @@ public final class ShapeSelectionLimiter {
 
     private static ShapeBuildTypes.Input clampRound(
             ShapeBuildTypes.Input input, int maxWidth, int maxHeight, int maxDepth) {
-        Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
+        EnumFacing[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
         BlockPos a = input.pointA();
         BlockPos b = input.pointB();
         int dx = b.getX() - a.getX();
@@ -97,7 +97,7 @@ public final class ShapeSelectionLimiter {
                     axes[0], (int) Math.round(axisA * scale),
                     axes[1], (int) Math.round(axisB * scale));
         }
-        Direction normal = input.planeFace() == null ? Direction.UP : input.planeFace();
+        EnumFacing normal = input.planeFace() == null ? EnumFacing.UP : input.planeFace();
         int height = input.shape() == BuildShape.CYLINDER
                 ? clampSignedOffset(
                         input.boxHeightOffset(),
@@ -117,7 +117,7 @@ public final class ShapeSelectionLimiter {
         int radius = (int) Math.round(Math.sqrt(dx * (double) dx + dy * (double) dy + dz * (double) dz));
         if (radius > maxRadius && radius > 0) {
             double scale = maxRadius / (double) radius;
-            b = a.offset(
+            b = a.add(
                     (int) Math.round(dx * scale),
                     (int) Math.round(dy * scale),
                     (int) Math.round(dz * scale));
@@ -128,7 +128,7 @@ public final class ShapeSelectionLimiter {
     private static ShapeBuildTypes.Input scaleSelection(ShapeBuildTypes.Input input, double scale) {
         BlockPos a = input.pointA();
         BlockPos b = input.pointB();
-        BlockPos scaledB = a.offset(
+        BlockPos scaledB = a.add(
                 scaleSignedOffset(b.getX() - a.getX(), scale),
                 scaleSignedOffset(b.getY() - a.getY(), scale),
                 scaleSignedOffset(b.getZ() - a.getZ(), scale));
@@ -136,7 +136,7 @@ public final class ShapeSelectionLimiter {
     }
 
     private static int scaleSignedOffset(int offset, double scale) {
-        return (int) Math.round(offset * Mth.clamp(scale, 0.0D, 1.0D));
+        return (int) Math.round(offset * MathHelper.clamp(scale, 0.0D, 1.0D));
     }
 
     static long envelopeVolume(ShapeBuildTypes.Input input) {
@@ -157,7 +157,7 @@ public final class ShapeSelectionLimiter {
                 yield saturatedProduct(diameter, diameter, diameter);
             }
             case SQUARE -> {
-                Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
+                EnumFacing[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
                 long axisA = Math.abs((long) ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[0])) + 1L;
                 long axisB = Math.abs((long) ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[1])) + 1L;
                 yield saturatedProduct(axisA, axisB, 1L);
@@ -179,7 +179,7 @@ public final class ShapeSelectionLimiter {
 
     private static long roundEnvelopeVolume(
             ShapeBuildTypes.Input input, int dx, int dy, int dz, boolean includeHeight) {
-        Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
+        EnumFacing[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(input.shape(), input.planeFace());
         int axisA = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[0]);
         int axisB = ShapeGeometryUtil.dotDelta(dx, dy, dz, axes[1]);
         int radius = (int) Math.round(Math.sqrt(axisA * (double) axisA + axisB * (double) axisB));
@@ -215,7 +215,7 @@ public final class ShapeSelectionLimiter {
     }
 
     private static int maxLengthForAxis(
-            Direction.Axis axis, int maxWidth, int maxHeight, int maxDepth) {
+            EnumFacing.Axis axis, int maxWidth, int maxHeight, int maxDepth) {
         return switch (axis) {
             case X -> maxWidth;
             case Y -> maxHeight;
@@ -224,6 +224,6 @@ public final class ShapeSelectionLimiter {
     }
 
     private static int clampSignedOffset(int offset, int maxMagnitude) {
-        return Mth.clamp(offset, -Math.max(0, maxMagnitude), Math.max(0, maxMagnitude));
+        return MathHelper.clamp(offset, -Math.max(0, maxMagnitude), Math.max(0, maxMagnitude));
     }
 }

@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 
 /**
  * 把当前形状交互会话解析为一次可预览或可确认的形状输入。
@@ -20,13 +20,13 @@ public final class ShapeSessionInputResolver {
 
     public static ShapeBuildTypes.Input resolve(
             ShapeBuildTypes.Session session,
-            BlockHitResult cursorHit,
+            RayTraceResult cursorHit,
             boolean requireReady,
             boolean lineConnected,
             int footprintNudgeA,
             int footprintNudgeB,
-            Vec3 rayOrigin,
-            Vec3 rayDirection) {
+            Vec3d rayOrigin,
+            Vec3d rayDirection) {
         return resolve(
                 session,
                 cursorHit,
@@ -44,14 +44,14 @@ public final class ShapeSessionInputResolver {
      */
     public static ShapeBuildTypes.Input resolve(
             ShapeBuildTypes.Session session,
-            BlockHitResult cursorHit,
+            RayTraceResult cursorHit,
             boolean requireReady,
             boolean verticalLine,
             boolean lineConnected,
             int footprintNudgeA,
             int footprintNudgeB,
-            Vec3 rayOrigin,
-            Vec3 rayDirection) {
+            Vec3d rayOrigin,
+            Vec3d rayDirection) {
         if (session == null) {
             return null;
         }
@@ -101,7 +101,7 @@ public final class ShapeSessionInputResolver {
      */
     public static BlockPos resolveVerticalLinePoint(
             ShapeBuildTypes.Session session,
-            BlockHitResult cursorHit) {
+            RayTraceResult cursorHit) {
         BlockPos pointA = session == null ? null : session.pointA();
         if (pointA == null) {
             return cursorHit == null ? null : cursorHit.getBlockPos();
@@ -113,14 +113,14 @@ public final class ShapeSessionInputResolver {
         if (offset == 0) {
             offset = 1;
         }
-        return pointA.offset(0, ShapeGeometryUtil.clampShapeOffset(offset), 0);
+        return pointA.add(0, ShapeGeometryUtil.clampShapeOffset(offset), 0);
     }
 
     public static BlockPos resolvePlanePoint(
             ShapeBuildTypes.Session session,
-            BlockHitResult cursorHit,
-            Vec3 rayOrigin,
-            Vec3 rayDirection) {
+            RayTraceResult cursorHit,
+            Vec3d rayOrigin,
+            Vec3d rayDirection) {
         if (session == null) {
             return cursorHit == null ? null : cursorHit.getBlockPos();
         }
@@ -132,26 +132,26 @@ public final class ShapeSessionInputResolver {
         if (shape == null || shape == BuildShape.BLOCK) {
             return cursorHit == null ? pointA : cursorHit.getBlockPos();
         }
-        Direction planeFace = planeFace(shape, session.planeFace());
+        EnumFacing planeFace = planeFace(shape, session.planeFace());
         if (planeFace == null) {
             return cursorHit == null ? pointA : cursorHit.getBlockPos();
         }
-        Vec3 planeHit = intersectPlane(pointA, planeFace, rayOrigin, rayDirection);
+        Vec3d planeHit = intersectPlane(pointA, planeFace, rayOrigin, rayDirection);
         if (planeHit == null && cursorHit != null) {
-            planeHit = cursorHit.getLocation();
+            planeHit = cursorHit.hitVec;
         }
         return planeHit == null ? pointA : blockPosFromPlaneHit(pointA, planeFace, planeHit);
     }
 
-    static Vec3 intersectPlane(
+    static Vec3d intersectPlane(
             BlockPos anchor,
-            Direction face,
-            Vec3 rayOrigin,
-            Vec3 rayDirection) {
+            EnumFacing face,
+            Vec3d rayOrigin,
+            Vec3d rayDirection) {
         if (anchor == null || face == null || rayOrigin == null || rayDirection == null) {
             return null;
         }
-        Vec3 planeAnchor = Vec3.atCenterOf(anchor);
+        Vec3d planeAnchor = new Vec3d(anchor).add(0.5D, 0.5D, 0.5D);
         double planeCoordinate = coordinate(planeAnchor, face.getAxis());
         double originCoordinate = coordinate(rayOrigin, face.getAxis());
         double directionCoordinate = coordinate(rayDirection, face.getAxis());
@@ -167,7 +167,7 @@ public final class ShapeSessionInputResolver {
 
     static BlockPos applyFootprintNudges(
             BuildShape shape,
-            Direction face,
+            EnumFacing face,
             BlockPos pointA,
             BlockPos pointB,
             int footprintNudgeA,
@@ -177,13 +177,13 @@ public final class ShapeSessionInputResolver {
                 || shape == null || shape == BuildShape.BLOCK) {
             return pointB;
         }
-        Direction axisA;
-        Direction axisB;
+        EnumFacing axisA;
+        EnumFacing axisB;
         if (shape == BuildShape.BOX) {
-            axisA = Direction.EAST;
-            axisB = Direction.SOUTH;
+            axisA = EnumFacing.EAST;
+            axisB = EnumFacing.SOUTH;
         } else {
-            Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(shape, face);
+            EnumFacing[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(shape, face);
             if (axes.length < 2) {
                 return pointB;
             }
@@ -216,33 +216,33 @@ public final class ShapeSessionInputResolver {
                 lineConnected);
     }
 
-    private static Direction planeFace(BuildShape shape, Direction configured) {
+    private static EnumFacing planeFace(BuildShape shape, EnumFacing configured) {
         if (shape == BuildShape.LINE
                 || shape == BuildShape.SQUARE
                 || shape == BuildShape.WALL
                 || shape == BuildShape.BOX) {
-            return Direction.UP;
+            return EnumFacing.UP;
         }
         return configured;
     }
 
     private static BlockPos blockPosFromPlaneHit(
             BlockPos anchor,
-            Direction face,
-            Vec3 hit) {
+            EnumFacing face,
+            Vec3d hit) {
         switch (face.getAxis()) {
             case X:
-                return new BlockPos(anchor.getX(), Mth.floor(hit.y), Mth.floor(hit.z));
+                return new BlockPos(anchor.getX(), MathHelper.floor(hit.y), MathHelper.floor(hit.z));
             case Y:
-                return new BlockPos(Mth.floor(hit.x), anchor.getY(), Mth.floor(hit.z));
+                return new BlockPos(MathHelper.floor(hit.x), anchor.getY(), MathHelper.floor(hit.z));
             case Z:
-                return new BlockPos(Mth.floor(hit.x), Mth.floor(hit.y), anchor.getZ());
+                return new BlockPos(MathHelper.floor(hit.x), MathHelper.floor(hit.y), anchor.getZ());
             default:
                 return anchor;
         }
     }
 
-    private static double coordinate(Vec3 value, Direction.Axis axis) {
+    private static double coordinate(Vec3d value, EnumFacing.Axis axis) {
         switch (axis) {
             case X:
                 return value.x;

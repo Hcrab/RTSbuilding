@@ -4,12 +4,12 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.EndCrystalItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.SpawnEggItem;
-import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemEndCrystal;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.ItemMonsterPlacer;
+import net.minecraft.util.math.RayTraceResult;
 
 import java.util.List;
 
@@ -23,7 +23,7 @@ public final class ShapeGhostPreviewProvider {
     public interface Runtime {
         ShapeBuildTypes.Session session();
 
-        ShapeBuildTypes.Input resolveInput(BlockHitResult cursorHit, boolean requireReady);
+        ShapeBuildTypes.Input resolveInput(RayTraceResult cursorHit, boolean requireReady);
 
         List<BlockPos> generate(ShapeBuildTypes.Input input);
 
@@ -69,18 +69,18 @@ public final class ShapeGhostPreviewProvider {
             List<BlockPos> preview = this.screen.collectUltiminePreviewBlocks();
             return preview.isEmpty()
                     ? ShapeDataRecords.GhostPreview.EMPTY
-                    : new ShapeDataRecords.GhostPreview(preview, true, true, List.of(), true);
+                    : new ShapeDataRecords.GhostPreview(preview, true, true, java.util.Collections.emptyList(), true);
         }
         if (this.controller.getBuildShape() == BuildShape.BLOCK) {
-            BlockHitResult hit = this.screen.pickBlockHit();
+            RayTraceResult hit = this.screen.pickBlockHit();
             if (hit == null) {
                 return ShapeDataRecords.GhostPreview.EMPTY;
             }
             List<BlockPos> breakable = ShapeDestroyTargetClassifier.breakableTargets(
-                    List.of(hit.getBlockPos().immutable()), this.runtime::isBreakable);
+                    java.util.Collections.singletonList(hit.getBlockPos()), this.runtime::isBreakable);
             return breakable.isEmpty()
                     ? ShapeDataRecords.GhostPreview.EMPTY
-                    : new ShapeDataRecords.GhostPreview(breakable, true, true, List.of());
+                    : new ShapeDataRecords.GhostPreview(breakable, true, true, java.util.Collections.emptyList());
         }
         ShapeBuildTypes.Input input = this.runtime.resolveInput(this.screen.pickBlockHit(), false);
         if (input == null) {
@@ -92,7 +92,7 @@ public final class ShapeGhostPreviewProvider {
         if (selection.breakableBlocks().isEmpty()) {
             return selection.envelopeBlocks().isEmpty()
                     ? ShapeDataRecords.GhostPreview.EMPTY
-                    : new ShapeDataRecords.GhostPreview(List.of(), ready, true, selection.envelopeBlocks());
+                    : new ShapeDataRecords.GhostPreview(java.util.Collections.emptyList(), ready, true, selection.envelopeBlocks());
         }
         return new ShapeDataRecords.GhostPreview(
                 selection.breakableBlocks(), ready, true, selection.envelopeBlocks());
@@ -123,20 +123,20 @@ public final class ShapeGhostPreviewProvider {
         if (!hasSingleBlockSource(mc)) {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
-        BlockHitResult hit = this.screen.pickBlockHit();
-        if (hit == null || mc == null || mc.level == null || mc.player == null) {
+        RayTraceResult hit = this.screen.pickBlockHit();
+        if (hit == null || mc == null || mc.world == null || mc.player == null) {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
         ItemStack stack = this.controller.hasSelectedItem()
                 ? this.controller.getSelectedItemPreview()
-                : mc.player.getMainHandItem();
+                : mc.player.getHeldItemMainhand();
         if (stack.isEmpty()) {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
         BlockPos target = ShapePlacementTargetResolver.resolveSingleGhostTarget(mc, hit, stack);
         return target == null
                 ? ShapeDataRecords.GhostPreview.EMPTY
-                : new ShapeDataRecords.GhostPreview(List.of(target), true);
+                : new ShapeDataRecords.GhostPreview(java.util.Collections.singletonList(target), true);
     }
 
     private boolean hasSingleBlockSource(Minecraft mc) {
@@ -146,9 +146,9 @@ public final class ShapeGhostPreviewProvider {
         if (mc == null || mc.player == null) {
             return false;
         }
-        return mc.player.getMainHandItem().getItem() instanceof BlockItem
-                || mc.player.getMainHandItem().getItem() instanceof SpawnEggItem
-                || mc.player.getMainHandItem().getItem() instanceof EndCrystalItem;
+        return mc.player.getHeldItemMainhand().getItem() instanceof ItemBlock
+                || mc.player.getHeldItemMainhand().getItem() instanceof ItemMonsterPlacer
+                || mc.player.getHeldItemMainhand().getItem() instanceof ItemEndCrystal;
     }
 
     private boolean ready() {

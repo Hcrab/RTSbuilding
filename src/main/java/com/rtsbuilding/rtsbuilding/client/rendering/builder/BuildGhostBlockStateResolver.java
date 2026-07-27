@@ -1,219 +1,127 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
-import net.minecraft.client.Camera;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.EndCrystalItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.SpawnEggItem;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemMonsterPlacer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.Rotation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
 /**
- * BlockState resolver for single-block ghost previews.
- * <p>
- * Resolves the correct BlockState for ghost rendering by simulating
- * the server-side {@link net.minecraft.world.level.block.Block#getStateForPlacement(BlockPlaceContext)}
- * logic based on the player's held item and camera direction.
- * <p>
- * Supports rotation and multi-block block orientation (doors, beds, etc.).
+ * 1.12 单方块幽灵状态解析器。
+ *
+ * <p>这里直接走 {@link Block#getStateForPlacement}，不会把楼梯、门、床等方块静默
+ * 退化为 defaultState。命中点优先取客户端真实方块射线；射线未命中时在目标方块
+ * 中心构造一个与相机朝向一致的等价点击面。</p>
  */
 public final class BuildGhostBlockStateResolver {
+    private BuildGhostBlockStateResolver() {}
 
-    private BuildGhostBlockStateResolver() {
-    }
-
-    /**
-     * Resolves the expected BlockState for a placement position.
-     *
-     * @param minecraft Minecraft client instance
-     * @param targetPos Target placement position, may be null
-     * @return Resolved BlockState, or null if resolution fails
-     */
-    public static BlockState resolve(Minecraft minecraft, BlockPos targetPos) {
+    public static IBlockState resolve(Minecraft minecraft, BlockPos targetPos) {
         ClientRtsController controller = ClientRtsController.get();
-        ItemStack itemStack = resolveGhostItemStack(minecraft, controller);
-        if (itemStack == null || !(itemStack.getItem() instanceof BlockItem blockItem)) {
-            return null;
-        }
+        ItemStack stack = resolveGhostItemStack(minecraft, controller);
+        if (stack.isEmpty() || !(stack.getItem() instanceof ItemBlock)) return null;
+        ItemBlock item = (ItemBlock) stack.getItem();
+        IBlockState state;
         if (targetPos == null) {
-            return PlacementStatePreset.apply(
-                    blockItem.getBlock().defaultBlockState(),
-                    controller.getPlacementStatePreset());
+            state = item.getBlock().getDefaultState();
+        } else {
+            state = resolveStateWithCamera(minecraft, item, stack, targetPos);
+            if (state == null) return null;
         }
-        BlockState state = resolveStateWithCamera(minecraft, blockItem, itemStack, targetPos);
-        if (state == null) return null;
-        int rotateDegrees = controller.getPlaceRotateDegrees();
-        if (rotateDegrees != 0) {
-            state = applyRotation(state, rotateDegrees, minecraft.level, targetPos);
-        }
+        state = applyRotation(state, controller.getPlaceRotateDegrees());
         return PlacementStatePreset.apply(state, controller.getPlacementStatePreset());
     }
 
-    /**
-     * Determines the item source for ghost rendering.
-     */
     private static ItemStack resolveGhostItemStack(Minecraft minecraft, ClientRtsController controller) {
-        ItemStack itemPreview = controller.getSelectedItemPreview();
-        if (!itemPreview.isEmpty() && itemPreview.getItem() instanceof BlockItem) {
-            return itemPreview;
-        }
+        ItemStack preview = controller.getSelectedItemPreview();
+        if (!preview.isEmpty() && preview.getItem() instanceof ItemBlock) return preview;
         if (minecraft != null && minecraft.player != null) {
-            ItemStack mainHand = minecraft.player.getMainHandItem();
-            if (mainHand.getItem() instanceof BlockItem) {
-                return mainHand;
-            }
+            ItemStack hand = minecraft.player.getHeldItemMainhand();
+            if (!hand.isEmpty() && hand.getItem() instanceof ItemBlock) return hand;
         }
-        return null;
+        return ItemStack.EMPTY;
     }
 
-    /**
-     * Resolves the currently held spawn egg item stack.
-     *
-     * @param minecraft Minecraft client instance
-     * @return The spawn egg ItemStack, or {@link ItemStack#EMPTY} if not holding one
-     */
     public static ItemStack resolveSpawnEggStack(Minecraft minecraft) {
-        ClientRtsController controller = ClientRtsController.get();
-        ItemStack itemPreview = controller.getSelectedItemPreview();
-        if (!itemPreview.isEmpty() && itemPreview.getItem() instanceof SpawnEggItem) {
-            return itemPreview;
-        }
+        ItemStack preview = ClientRtsController.get().getSelectedItemPreview();
+        if (!preview.isEmpty() && preview.getItem() instanceof ItemMonsterPlacer) return preview;
         if (minecraft != null && minecraft.player != null) {
-            ItemStack mainHand = minecraft.player.getMainHandItem();
-            if (mainHand.getItem() instanceof SpawnEggItem) {
-                return mainHand;
-            }
+            ItemStack hand = minecraft.player.getHeldItemMainhand();
+            if (!hand.isEmpty() && hand.getItem() instanceof ItemMonsterPlacer) return hand;
         }
         return ItemStack.EMPTY;
     }
 
-    /**
-     * Resolves the currently held end crystal item stack.
-     *
-     * @param minecraft Minecraft client instance
-     * @return The end crystal ItemStack, or {@link ItemStack#EMPTY} if not holding one
-     */
     public static ItemStack resolveEndCrystalStack(Minecraft minecraft) {
-        ClientRtsController controller = ClientRtsController.get();
-        ItemStack itemPreview = controller.getSelectedItemPreview();
-        if (!itemPreview.isEmpty() && itemPreview.getItem() instanceof EndCrystalItem) {
-            return itemPreview;
-        }
+        ItemStack preview = ClientRtsController.get().getSelectedItemPreview();
+        if (!preview.isEmpty() && preview.getItem() == Items.END_CRYSTAL) return preview;
         if (minecraft != null && minecraft.player != null) {
-            ItemStack mainHand = minecraft.player.getMainHandItem();
-            if (mainHand.getItem() instanceof EndCrystalItem) {
-                return mainHand;
-            }
+            ItemStack hand = minecraft.player.getHeldItemMainhand();
+            if (!hand.isEmpty() && hand.getItem() == Items.END_CRYSTAL) return hand;
         }
         return ItemStack.EMPTY;
     }
 
-    /**
-     * Simulates BlockPlaceContext using the client camera direction, matching server-side placement logic.
-     */
-    public static BlockState resolveStateWithCamera(Minecraft minecraft, BlockItem blockItem,
+    public static IBlockState resolveStateWithCamera(Minecraft minecraft, ItemBlock item,
             ItemStack stack, BlockPos targetPos) {
-        if (minecraft == null || minecraft.player == null || minecraft.level == null) return null;
-
-        Camera camera = minecraft.gameRenderer.getMainCamera();
-        Vec3 cameraPos = camera.getPosition();
-        Vec3 targetCenter = Vec3.atCenterOf(targetPos);
-        Vec3 viewDir = RaycastHelper.computeCursorRayDirection(minecraft);
-        // 服务端 TemporaryContextSwitcher 也由客户端光标射线恢复虚拟玩家朝向。
-        // 这里若改用“相机到方块中心”的连线，鼠标靠近方块边缘时可能跨过方向象限，
-        // 导致幽灵/R 轮盘显示的状态与最终 getStateForPlacement 不一致。
-        float yawDeg = placementYawFromRay(viewDir);
-        Vec3 rayEnd = cameraPos.add(viewDir.scale(128.0D));
-        BlockHitResult actualHit = RaycastHelper.raycastBlockFromCursor(minecraft, cameraPos, rayEnd, false);
-
-        Direction clickedFace;
-        BlockPos adjacentPos;
-        Vec3 hitLocation;
-
-        if (actualHit != null) {
-            clickedFace = actualHit.getDirection();
-            adjacentPos = actualHit.getBlockPos();
-            hitLocation = actualHit.getLocation();
+        if (minecraft == null || minecraft.player == null || minecraft.world == null) return null;
+        Entity camera = minecraft.getRenderViewEntity();
+        if (camera == null) camera = minecraft.player;
+        float partial = minecraft.getRenderPartialTicks();
+        Vec3d eye = camera.getPositionEyes(partial);
+        Vec3d direction = camera.getLook(partial).normalize();
+        RayTraceResult hit = minecraft.world.rayTraceBlocks(eye, eye.add(direction.scale(128.0D)),
+                false, false, false);
+        EnumFacing face;
+        Vec3d location;
+        if (hit != null && hit.typeOfHit == RayTraceResult.Type.BLOCK && hit.sideHit != null) {
+            face = hit.sideHit;
+            location = hit.hitVec;
         } else {
-            clickedFace = Direction.getNearest(-viewDir.x, -viewDir.y, -viewDir.z);
-            adjacentPos = targetPos.relative(clickedFace.getOpposite());
-            hitLocation = computeFallbackHitLocation(clickedFace, adjacentPos, targetCenter, cameraPos, viewDir);
+            face = EnumFacing.getFacingFromVector((float) -direction.x, (float) -direction.y,
+                    (float) -direction.z);
+            location = new Vec3d(targetPos).add(new Vec3d(0.5D, 0.5D, 0.5D));
         }
-
-        BlockPlaceContext context = new BlockPlaceContext(
-                minecraft.level, minecraft.player, InteractionHand.MAIN_HAND, stack,
-                new BlockHitResult(hitLocation, clickedFace, adjacentPos, false)) {
-            @Override
-            public @NotNull Direction getHorizontalDirection() { return Direction.fromYRot(yawDeg); }
-            @Override
-            public @NotNull Direction getNearestLookingDirection() { return clickedFace; }
-            @Override
-            public @NotNull Direction getNearestLookingVerticalDirection() {
-                return Direction.getNearest(0.0, viewDir.y, 0.0);
-            }
-            @Override
-            public float getRotation() { return yawDeg; }
-        };
-        return blockItem.getBlock().getStateForPlacement(context);
+        float hitX = clampHit(location.x - targetPos.getX());
+        float hitY = clampHit(location.y - targetPos.getY());
+        float hitZ = clampHit(location.z - targetPos.getZ());
+        EntityPlayer player = minecraft.player;
+        int metadata = item.getMetadata(stack.getMetadata());
+        return item.getBlock().getStateForPlacement(minecraft.world, targetPos, face,
+                hitX, hitY, hitZ, metadata, player, EnumHand.MAIN_HAND);
     }
 
-    static float placementYawFromRay(Vec3 viewDir) {
-        return (float) Math.toDegrees(Mth.atan2(-viewDir.x, viewDir.z));
+    private static float clampHit(double value) {
+        return (float) Math.max(0.0D, Math.min(1.0D, value));
     }
 
-    /**
-     * Computes the fallback hit location via ray-plane intersection when the ray misses all blocks.
-     */
-    private static Vec3 computeFallbackHitLocation(Direction face, BlockPos adjacentPos,
-            Vec3 targetCenter, Vec3 cameraPos, Vec3 viewDir) {
-        return switch (face) {
-            case DOWN -> computePlaneHit(viewDir, cameraPos, adjacentPos.getY(), targetCenter.x, targetCenter.z, true, false);
-            case UP -> computePlaneHit(viewDir, cameraPos, adjacentPos.getY() + 1.0, targetCenter.x, targetCenter.z, true, false);
-            case NORTH -> computePlaneHit(viewDir, cameraPos, adjacentPos.getZ(), targetCenter.x, targetCenter.y, false, true);
-            case SOUTH -> computePlaneHit(viewDir, cameraPos, adjacentPos.getZ() + 1.0, targetCenter.x, targetCenter.y, false, true);
-            case WEST -> computePlaneHit(viewDir, cameraPos, adjacentPos.getX(), targetCenter.y, targetCenter.z, false, false);
-            case EAST -> computePlaneHit(viewDir, cameraPos, adjacentPos.getX() + 1.0, targetCenter.y, targetCenter.z, false, false);
-            default -> targetCenter;
-        };
+    static float placementYawFromRay(Vec3d direction) {
+        return (float) Math.toDegrees(Math.atan2(-direction.x, direction.z));
     }
 
-    private static Vec3 computePlaneHit(Vec3 viewDir, Vec3 cameraPos, double planeCoord,
-            double coord1, double coord2, boolean isVertical, boolean isZAxis) {
-        double dirComponent = isVertical ? viewDir.y : (isZAxis ? viewDir.z : viewDir.x);
-        if (dirComponent == 0.0) {
-            return isVertical ? new Vec3(coord1, planeCoord, coord2)
-                    : (isZAxis ? new Vec3(coord1, coord2, planeCoord) : new Vec3(planeCoord, coord1, coord2));
-        }
-        double t = (planeCoord - (isVertical ? cameraPos.y : (isZAxis ? cameraPos.z : cameraPos.x))) / dirComponent;
-        double x = isVertical ? cameraPos.x + t * viewDir.x : (isZAxis ? coord1 : planeCoord);
-        double y = isVertical ? planeCoord : (isZAxis ? coord2 : cameraPos.y + t * viewDir.y);
-        double z = isVertical ? cameraPos.z + t * viewDir.z : (isZAxis ? planeCoord : coord2);
-        return new Vec3(x, y, z);
-    }
-
-    /**
-     * Applies 90° stepping rotation to a BlockState.
-     */
-    public static BlockState applyRotation(BlockState state, int rotateDegrees, LevelAccessor level, BlockPos pos) {
+    public static IBlockState applyRotation(IBlockState state, int rotateDegrees) {
+        if (state == null) return null;
         int turns = (rotateDegrees / 90) & 3;
-        if (turns == 0) return state;
-        BlockState rotated = state;
-        for (int i = 0; i < turns; i++) {
-            rotated = rotated.rotate(level, pos, Rotation.CLOCKWISE_90);
-        }
-        return rotated;
+        for (int i = 0; i < turns; i++) state = state.withRotation(Rotation.CLOCKWISE_90);
+        return state;
+    }
+
+    /** 保留旧调用形状，1.12 的旋转不需要 World/BlockPos 参数。 */
+    public static IBlockState applyRotation(IBlockState state, int rotateDegrees, World world, BlockPos pos) {
+        return applyRotation(state, rotateDegrees);
     }
 }

@@ -1,95 +1,65 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
+import net.minecraft.block.BlockBed;
+import net.minecraft.block.BlockDoor;
+import net.minecraft.block.BlockDoublePlant;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BedPart;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
-
+import net.minecraft.client.renderer.BlockModelRenderer;
+import net.minecraft.client.renderer.BlockRendererDispatcher;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraftforge.client.ForgeHooksClient;
+import org.lwjgl.opengl.GL11;
+import java.nio.ByteBuffer;
 import java.util.List;
 
-/**
- * Block model renderer for single-block placement ghosts.
- * <p>
- * Renders translucent block models and automatically handles multi-block
- * expansions (doors, tall plants, beds, etc.).
- */
+/** 以真实客户端世界和位置烘焙 1.12 半透明方块模型，并扩展门、双层植物和床。 */
 public final class BuildGhostModelRenderer {
+    public static final float GHOST_ALPHA=.8F;
+    private static final BufferBuilder BUFFER=new BufferBuilder(2*1024*1024);
+    private static final WorldVertexBufferUploader UPLOADER=new WorldVertexBufferUploader();
+    private BuildGhostModelRenderer(){}
 
-    /** Ghost model opacity */
-    public static final float GHOST_ALPHA = 0.8F;
-
-    private BuildGhostModelRenderer() {
+    public static void renderModels(Minecraft mc,List<BlockPos> blocks,BufferBuilder caller,IBlockState state){
+        if(mc==null||mc.world==null||blocks==null||blocks.isEmpty()||state==null)return;
+        RenderManager rm=mc.getRenderManager();
+        for(BlockPos p:blocks){ renderAt(mc,state,p,rm); expand(mc,state,p,rm); }
     }
-
-    /**
-     * Renders translucent block models at all target positions.
-     *
-     * @param minecraft    Minecraft client instance
-     * @param blocks       Target block position list
-     * @param poseStack    Pose stack
-     * @param blockState   BlockState to render
-     */
-    public static void renderModels(Minecraft minecraft, List<BlockPos> blocks,
-            PoseStack poseStack, BlockState blockState) {
-        if (minecraft == null || blocks == null || blocks.isEmpty()) {
-            return;
+    private static void expand(Minecraft mc,IBlockState s,BlockPos p,RenderManager rm){
+        if(s.getBlock() instanceof BlockDoor){
+            BlockDoor.EnumDoorHalf h=s.getValue(BlockDoor.HALF);
+            renderAt(mc,s.withProperty(BlockDoor.HALF,h==BlockDoor.EnumDoorHalf.LOWER?BlockDoor.EnumDoorHalf.UPPER:BlockDoor.EnumDoorHalf.LOWER),h==BlockDoor.EnumDoorHalf.LOWER?p.up():p.down(),rm);
+        } else if(s.getBlock() instanceof BlockDoublePlant){
+            BlockDoublePlant.EnumBlockHalf h=s.getValue(BlockDoublePlant.HALF);
+            renderAt(mc,s.withProperty(BlockDoublePlant.HALF,h==BlockDoublePlant.EnumBlockHalf.LOWER?BlockDoublePlant.EnumBlockHalf.UPPER:BlockDoublePlant.EnumBlockHalf.LOWER),h==BlockDoublePlant.EnumBlockHalf.LOWER?p.up():p.down(),rm);
+        } else if(s.getBlock() instanceof BlockBed){
+            BlockBed.EnumPartType part=s.getValue(BlockBed.PART); EnumFacing f=s.getValue(BlockBed.FACING);
+            renderAt(mc,s.withProperty(BlockBed.PART,part==BlockBed.EnumPartType.FOOT?BlockBed.EnumPartType.HEAD:BlockBed.EnumPartType.FOOT),part==BlockBed.EnumPartType.FOOT?p.offset(f):p.offset(f.getOpposite()),rm);
         }
-        MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
-
-        for (BlockPos pos : blocks) {
-            renderGhostAt(minecraft, pos, blockState, poseStack, blockBuffer);
-            expandMultiblockGhost(minecraft, pos, blockState, poseStack, blockBuffer);
-        }
-        blockBuffer.endBatch();
     }
-
-    /**
-     * Renders a translucent block model at a single position.
-     */
-    private static void renderGhostAt(Minecraft minecraft, BlockPos pos, BlockState state,
-            PoseStack poseStack, MultiBufferSource blockBuffer) {
-        if (state.isAir() || state.getRenderShape() != RenderShape.MODEL) return;
-        GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA);
-    }
-
-    /**
-     * Detects and renders additional ghost parts for multi-block structures
-     * (doors, tall plants, beds, etc.) via standard BlockState properties.
-     */
-    private static void expandMultiblockGhost(Minecraft minecraft, BlockPos pos, BlockState state,
-            PoseStack poseStack, MultiBufferSource blockBuffer) {
-        if (state.hasProperty(BlockStateProperties.DOUBLE_BLOCK_HALF)) {
-            DoubleBlockHalf half = state.getValue(BlockStateProperties.DOUBLE_BLOCK_HALF);
-            if (half == DoubleBlockHalf.LOWER) {
-                renderGhostAt(minecraft, pos.above(),
-                        state.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.UPPER),
-                        poseStack, blockBuffer);
-            } else if (half == DoubleBlockHalf.UPPER) {
-                renderGhostAt(minecraft, pos.below(),
-                        state.setValue(BlockStateProperties.DOUBLE_BLOCK_HALF, DoubleBlockHalf.LOWER),
-                        poseStack, blockBuffer);
+    private static boolean renderAt(Minecraft mc,IBlockState s,BlockPos p,RenderManager rm){
+        BlockRendererDispatcher d=mc.getBlockRendererDispatcher(); BlockModelRenderer r=d.getBlockModelRenderer(); IBakedModel model=d.getModelForState(s);
+        boolean any=false,closed=false; BUFFER.begin(GL11.GL_QUADS,DefaultVertexFormats.BLOCK); BUFFER.setTranslation(-rm.viewerPosX,-rm.viewerPosY,-rm.viewerPosZ);
+        try{
+            for(BlockRenderLayer layer:BlockRenderLayer.values()) if(s.getBlock().canRenderInLayer(s,layer)){
+                ForgeHooksClient.setRenderLayer(layer); any|=r.renderModel(mc.world,model,s,p,BUFFER,false,MathHelper.getPositionRandom(p));
             }
-        }
-        if (state.hasProperty(BlockStateProperties.BED_PART)
-                && state.hasProperty(BlockStateProperties.HORIZONTAL_FACING)) {
-            BedPart part = state.getValue(BlockStateProperties.BED_PART);
-            Direction facing = state.getValue(BlockStateProperties.HORIZONTAL_FACING);
-            if (part == BedPart.FOOT) {
-                renderGhostAt(minecraft, pos.relative(facing),
-                        state.setValue(BlockStateProperties.BED_PART, BedPart.HEAD),
-                        poseStack, blockBuffer);
-            } else if (part == BedPart.HEAD) {
-                renderGhostAt(minecraft, pos.relative(facing.getOpposite()),
-                        state.setValue(BlockStateProperties.BED_PART, BedPart.FOOT),
-                        poseStack, blockBuffer);
-            }
-        }
+            if(!any||BUFFER.getVertexCount()==0){BUFFER.finishDrawing();BUFFER.reset();closed=true;return false;}
+            ByteBuffer bytes=BUFFER.getByteBuffer();int stride=BUFFER.getVertexFormat().getSize(),off=BUFFER.getVertexFormat().getColorOffset(),a=Math.round(GHOST_ALPHA*255F);
+            for(int i=0;i<BUFFER.getVertexCount();i++)bytes.put(i*stride+off+3,(byte)a);
+            UltimineGhostRenderer.GlSnapshot gl=UltimineGhostRenderer.GlSnapshot.capture();mc.getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE); GlStateManager.enableBlend(); GlStateManager.depthMask(false); GlStateManager.disableCull();
+            try{UPLOADER.draw(BUFFER);closed=true;}finally{gl.restore();GlStateManager.resetColor();}
+            return true;
+        }finally{ForgeHooksClient.setRenderLayer(null);BUFFER.setTranslation(0,0,0);if(!closed){try{BUFFER.finishDrawing();}catch(IllegalStateException ignored){}BUFFER.reset();}}
     }
 }

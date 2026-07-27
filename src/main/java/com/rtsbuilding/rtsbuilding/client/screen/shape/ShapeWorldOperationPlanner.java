@@ -7,14 +7,14 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.RayTraceResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -68,7 +68,7 @@ public final class ShapeWorldOperationPlanner {
 
     public List<BlockPos> generate(ShapeBuildTypes.Input input) {
         if (input == null) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         boolean rangeDestroy = this.screen.isQuickBuildRangeDestroyMode()
                 && !this.screen.isQuickBuildRangeDestroyChainMode();
@@ -95,13 +95,13 @@ public final class ShapeWorldOperationPlanner {
             return false;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.level == null) {
+        if (mc == null || mc.world == null) {
             return true;
         }
-        BlockState state = mc.level.getBlockState(pos);
-        return state.getFluidState().isEmpty()
-                && !state.isAir()
-                && state.getDestroySpeed(mc.level, pos) >= 0.0F;
+        IBlockState state = mc.world.getBlockState(pos);
+        return !state.getMaterial().isLiquid()
+                && !state.getBlock().isAir(state, mc.world, pos)
+                && state.getBlockHardness(mc.world, pos) >= 0.0F;
     }
 
     public List<BlockPos> filterPlacementTargets(ShapeBuildTypes.Input input, List<BlockPos> targets) {
@@ -120,19 +120,20 @@ public final class ShapeWorldOperationPlanner {
             return this.controller.getSelectedItemPreview();
         }
         Minecraft mc = this.screen.getMinecraft();
-        return mc != null && mc.player != null ? mc.player.getMainHandItem() : ItemStack.EMPTY;
+        return mc != null && mc.player != null ? mc.player.getHeldItemMainhand() : ItemStack.EMPTY;
     }
 
-    public BlockState pendingGhostState(BlockPos targetPos) {
+    public IBlockState pendingGhostState(BlockPos targetPos) {
         Minecraft mc = this.screen.getMinecraft();
         ItemStack stack = placementStack();
-        if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem blockItem)) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof ItemBlock)) {
             return null;
         }
+        ItemBlock blockItem = (ItemBlock) stack.getItem();
         if (targetPos == null) {
-            return blockItem.getBlock().defaultBlockState();
+            return blockItem.getBlock().getDefaultState();
         }
-        BlockState state = BuildGhostBlockStateResolver.resolveStateWithCamera(
+        IBlockState state = BuildGhostBlockStateResolver.resolveStateWithCamera(
                 mc, blockItem, stack, targetPos);
         if (state == null) {
             return null;
@@ -140,7 +141,7 @@ public final class ShapeWorldOperationPlanner {
         int degrees = this.modeState.activeRotateDegrees();
         return degrees == 0
                 ? state
-                : BuildGhostBlockStateResolver.applyRotation(state, degrees, mc.level, targetPos);
+                : BuildGhostBlockStateResolver.applyRotation(state, degrees, mc.world, targetPos);
     }
 
     private boolean shouldSkipOccupiedTargets(ShapeBuildTypes.Input input) {
@@ -154,15 +155,15 @@ public final class ShapeWorldOperationPlanner {
         }
         if (this.controller.hasSelectedItem()) {
             String itemId = this.controller.getSelectedItemId();
-            ResourceLocation key = itemId == null || itemId.isBlank() ? null : ResourceLocation.tryParse(itemId);
+            ResourceLocation key = resourceLocation(itemId);
             return key != null
-                    && BuiltInRegistries.ITEM.containsKey(key)
-                    && BuiltInRegistries.ITEM.get(key) instanceof BlockItem;
+                    && Item.REGISTRY.containsKey(key)
+                    && Item.REGISTRY.getObject(key) instanceof ItemBlock;
         }
         return this.screen.canUseToolSlotShapeSource();
     }
 
-    public BlockHitResult templateHit(ShapeBuildTypes.Input input) {
+    public RayTraceResult templateHit(ShapeBuildTypes.Input input) {
         if (this.session.templateHit() != null) {
             return this.session.templateHit();
         }
@@ -189,14 +190,23 @@ public final class ShapeWorldOperationPlanner {
         return true;
     }
 
-    public static List<BlockHitResult> wrapPlacementHits(List<BlockPos> positions, Direction face) {
+    public static List<RayTraceResult> wrapPlacementHits(List<BlockPos> positions, EnumFacing face) {
         if (positions == null || positions.isEmpty()) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
-        List<BlockHitResult> hits = new ArrayList<>(positions.size());
+        List<RayTraceResult> hits = new ArrayList<>(positions.size());
         for (BlockPos pos : positions) {
             hits.add(ShapeGeometryUtil.createShapePlacementHit(pos, face));
         }
         return hits;
+    }
+
+    private static ResourceLocation resourceLocation(String value) {
+        if (value == null || value.trim().isEmpty()) return null;
+        try {
+            return new ResourceLocation(value);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
     }
 }

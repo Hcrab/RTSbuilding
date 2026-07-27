@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -57,14 +57,14 @@ public final class RangeDestroySelectionLimiter {
             List<BlockPos> positions,
             Limits limits) {
         if (positions == null || positions.isEmpty()) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         Limits safe = Limits.safe(limits);
         if (envelopeFits(positions, safe)) {
             List<BlockPos> copy = new ArrayList<>(positions.size());
             for (BlockPos pos : positions) {
                 if (pos != null) {
-                    copy.add(pos.immutable());
+                    copy.add(pos);
                 }
             }
             return copy;
@@ -77,7 +77,7 @@ public final class RangeDestroySelectionLimiter {
             List<BlockPos> positions,
             Limits limits) {
         if (positions == null || positions.isEmpty()) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         int minX = Integer.MAX_VALUE;
         int minY = Integer.MAX_VALUE;
@@ -97,7 +97,7 @@ public final class RangeDestroySelectionLimiter {
             maxZ = Math.max(maxZ, pos.getZ());
         }
         if (minX == Integer.MAX_VALUE) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
 
         BlockPos anchor = input != null && input.pointA() != null
@@ -113,7 +113,7 @@ public final class RangeDestroySelectionLimiter {
         List<BlockPos> clamped = new ArrayList<>(positions.size());
         for (BlockPos pos : positions) {
             if (pos != null && limited.contains(pos)) {
-                clamped.add(pos.immutable());
+                clamped.add(pos);
             }
         }
         return clamped;
@@ -232,17 +232,31 @@ public final class RangeDestroySelectionLimiter {
         return new AxisBounds(anchor - left, anchor + right);
     }
 
-    public record Limits(
-            int maxWidth,
-            int maxHeight,
-            int maxDepth,
-            int maxVolume) {
-        public Limits {
-            maxWidth = Math.max(1, maxWidth);
-            maxHeight = Math.max(1, maxHeight);
-            maxDepth = Math.max(1, maxDepth);
-            maxVolume = Math.max(1, maxVolume);
+    public static final class Limits {
+        private final int maxWidth;
+        private final int maxHeight;
+        private final int maxDepth;
+        private final int maxVolume;
+
+        public Limits(int maxWidth, int maxHeight, int maxDepth, int maxVolume) {
+            this.maxWidth = Math.max(1, maxWidth);
+            this.maxHeight = Math.max(1, maxHeight);
+            this.maxDepth = Math.max(1, maxDepth);
+            this.maxVolume = Math.max(1, maxVolume);
         }
+
+        public int maxWidth() { return this.maxWidth; }
+        public int maxHeight() { return this.maxHeight; }
+        public int maxDepth() { return this.maxDepth; }
+        public int maxVolume() { return this.maxVolume; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Limits)) return false;
+            Limits that = (Limits) other;
+            return this.maxWidth == that.maxWidth && this.maxHeight == that.maxHeight
+                    && this.maxDepth == that.maxDepth && this.maxVolume == that.maxVolume;
+        }
+        @Override public int hashCode() { return java.util.Objects.hash(this.maxWidth, this.maxHeight, this.maxDepth, this.maxVolume); }
 
         private static Limits safe(Limits limits) {
             return limits == null
@@ -251,7 +265,26 @@ public final class RangeDestroySelectionLimiter {
         }
     }
 
-    private record AxisBounds(int min, int max) {
+    private static final class AxisBounds {
+        private final int min;
+        private final int max;
+
+        private AxisBounds(int min, int max) {
+            this.min = min;
+            this.max = max;
+        }
+
+        int min() { return this.min; }
+        int max() { return this.max; }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof AxisBounds)) return false;
+            AxisBounds that = (AxisBounds) other;
+            return this.min == that.min && this.max == that.max;
+        }
+        @Override public int hashCode() { return java.util.Objects.hash(this.min, this.max); }
+
         int length() {
             return max - min + 1;
         }

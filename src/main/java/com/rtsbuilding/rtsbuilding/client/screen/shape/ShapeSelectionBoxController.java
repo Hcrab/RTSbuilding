@@ -6,10 +6,10 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.EnumSet;
 import java.util.Set;
@@ -69,30 +69,30 @@ public final class ShapeSelectionBoxController {
         return hasEditableSession() ? AdvancedShapeSelectionGeometry.boxFromSession(current()) : null;
     }
 
-    public AABB renderAabb(RtsCullingBox generatedBounds) {
+    public AxisAlignedBB renderAabb(RtsCullingBox generatedBounds) {
         return generatedBounds == null ? null : this.animator.renderAabb(generatedBounds);
     }
 
-    public Direction hoveredHandle() {
+    public EnumFacing hoveredHandle() {
         return this.handles.hoveredDirection();
     }
 
-    public Direction activeHandle() {
+    public EnumFacing activeHandle() {
         return this.handles.activeDirection();
     }
 
-    public Set<Direction> allowedDirections() {
+    public Set<EnumFacing> allowedDirections() {
         if (!hasEditableSession()) {
-            return Set.of();
+            return java.util.Collections.emptySet();
         }
         ShapeBuildTypes.Session session = current();
         if (session.shape() == BuildShape.SQUARE) {
-            return EnumSet.of(Direction.EAST, Direction.WEST, Direction.SOUTH, Direction.NORTH);
+            return EnumSet.of(EnumFacing.EAST, EnumFacing.WEST, EnumFacing.SOUTH, EnumFacing.NORTH);
         }
         if (session.shape() == BuildShape.CIRCLE) {
-            Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(session.shape(), session.planeFace());
-            EnumSet<Direction> directions = EnumSet.noneOf(Direction.class);
-            for (Direction axis : axes) {
+            EnumFacing[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(session.shape(), session.planeFace());
+            EnumSet<EnumFacing> directions = EnumSet.noneOf(EnumFacing.class);
+            for (EnumFacing axis : axes) {
                 directions.add(axis);
                 directions.add(axis.getOpposite());
             }
@@ -101,18 +101,18 @@ public final class ShapeSelectionBoxController {
         if (session.shape() == BuildShape.WALL) {
             RtsCullingBox box = AdvancedShapeSelectionGeometry.boxFromSession(session);
             return box.width() >= box.depth()
-                    ? EnumSet.of(Direction.EAST, Direction.WEST, Direction.UP, Direction.DOWN)
-                    : EnumSet.of(Direction.SOUTH, Direction.NORTH, Direction.UP, Direction.DOWN);
+                    ? EnumSet.of(EnumFacing.EAST, EnumFacing.WEST, EnumFacing.UP, EnumFacing.DOWN)
+                    : EnumSet.of(EnumFacing.SOUTH, EnumFacing.NORTH, EnumFacing.UP, EnumFacing.DOWN);
         }
-        return EnumSet.allOf(Direction.class);
+        return EnumSet.allOf(EnumFacing.class);
     }
 
-    public void updateHover(Vec3 origin, Vec3 rayDirection, boolean enabled) {
+    public void updateHover(Vec3d origin, Vec3d rayDirection, boolean enabled) {
         RtsCullingBox box = box();
         this.handles.updateHover(box, origin, rayDirection, enabled && box != null, allowedDirections());
     }
 
-    public boolean click(Vec3 origin, Vec3 rayDirection) {
+    public boolean click(Vec3d origin, Vec3d rayDirection) {
         RtsCullingBox box = box();
         return box != null && this.handles.clickHandle(box, origin, rayDirection, allowedDirections()).handled();
     }
@@ -129,7 +129,7 @@ public final class ShapeSelectionBoxController {
         return this.handles.releaseActiveHandleIfDragged();
     }
 
-    private boolean resize(Direction direction, int delta) {
+    private boolean resize(EnumFacing direction, int delta) {
         if (direction == null || delta == 0 || !hasEditableSession()) {
             return false;
         }
@@ -156,7 +156,7 @@ public final class ShapeSelectionBoxController {
                 : null;
         ShapeBuildTypes.Session moved = new ShapeBuildTypes.Session(
                 session.shape(), session.planeFace(), session.placementFace(),
-                session.pointA().offset(dx, dy, dz), session.pointB().offset(dx, dy, dz),
+                session.pointA().add(dx, dy, dz), session.pointB().add(dx, dy, dz),
                 session.phase(), session.boxHeightOffset(), session.boxHeightMouseBaseY());
         update(moved);
         if (oldBox != null) {

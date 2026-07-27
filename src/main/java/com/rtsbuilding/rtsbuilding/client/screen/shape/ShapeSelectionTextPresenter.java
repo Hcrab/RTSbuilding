@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -32,12 +32,37 @@ public final class ShapeSelectionTextPresenter {
     /**
      * 待确认状态所需的最小快照。会话可以为空，表示玩家尚未确定第一个点。
      */
-    public record Status(
-            boolean quickBuildOpen,
-            BuildShape shape,
-            boolean destroyMode,
-            boolean chainDestroyMode,
-            ShapeBuildTypes.Session session) {
+    public static final class Status {
+        private final boolean quickBuildOpen;
+        private final BuildShape shape;
+        private final boolean destroyMode;
+        private final boolean chainDestroyMode;
+        private final ShapeBuildTypes.Session session;
+
+        public Status(boolean quickBuildOpen, BuildShape shape, boolean destroyMode,
+                boolean chainDestroyMode, ShapeBuildTypes.Session session) {
+            this.quickBuildOpen = quickBuildOpen;
+            this.shape = shape;
+            this.destroyMode = destroyMode;
+            this.chainDestroyMode = chainDestroyMode;
+            this.session = session;
+        }
+
+        public boolean quickBuildOpen() { return this.quickBuildOpen; }
+        public BuildShape shape() { return this.shape; }
+        public boolean destroyMode() { return this.destroyMode; }
+        public boolean chainDestroyMode() { return this.chainDestroyMode; }
+        public ShapeBuildTypes.Session session() { return this.session; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Status)) return false;
+            Status that = (Status) other;
+            return this.quickBuildOpen == that.quickBuildOpen && this.destroyMode == that.destroyMode
+                    && this.chainDestroyMode == that.chainDestroyMode && this.shape == that.shape
+                    && java.util.Objects.equals(this.session, that.session);
+        }
+        @Override public int hashCode() { return java.util.Objects.hash(this.quickBuildOpen, this.shape,
+                this.destroyMode, this.chainDestroyMode, this.session); }
     }
 
     public static String fillModeLabel(ShapeFillMode mode, Translator translator) {

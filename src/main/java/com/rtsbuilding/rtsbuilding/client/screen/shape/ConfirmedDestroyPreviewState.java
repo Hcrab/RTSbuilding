@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.HashSet;
 import java.util.List;
@@ -45,7 +45,28 @@ public final class ConfirmedDestroyPreviewState {
      * @param mineStage             单块/批量挖掘阶段，负数表示无活动进度
      * @param activeDestroyWorkflow 是否存在带目标数量的活动破坏工作流
      */
-    public record Progress(BlockPos position, int mineStage, boolean activeDestroyWorkflow) {
+    public static final class Progress {
+        private final BlockPos position;
+        private final int mineStage;
+        private final boolean activeDestroyWorkflow;
+
+        public Progress(BlockPos position, int mineStage, boolean activeDestroyWorkflow) {
+            this.position = position;
+            this.mineStage = mineStage;
+            this.activeDestroyWorkflow = activeDestroyWorkflow;
+        }
+
+        public BlockPos position() { return this.position; }
+        public int mineStage() { return this.mineStage; }
+        public boolean activeDestroyWorkflow() { return this.activeDestroyWorkflow; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Progress)) return false;
+            Progress that = (Progress) other;
+            return this.mineStage == that.mineStage && this.activeDestroyWorkflow == that.activeDestroyWorkflow
+                    && java.util.Objects.equals(this.position, that.position);
+        }
+        @Override public int hashCode() { return java.util.Objects.hash(this.position, this.mineStage, this.activeDestroyWorkflow); }
     }
 
     public void rememberRange(List<BlockPos> breakableBlocks, List<BlockPos> envelopeBlocks) {
@@ -73,7 +94,7 @@ public final class ConfirmedDestroyPreviewState {
                 copied,
                 true,
                 true,
-                List.of(),
+                java.util.Collections.emptyList(),
                 true,
                 true);
         this.chainPreviewUntilMs = this.clock.getAsLong() + INITIAL_HOLD_MS;
@@ -153,7 +174,7 @@ public final class ConfirmedDestroyPreviewState {
             Progress progress,
             Predicate<BlockPos> liveTarget) {
         ShapeDataRecords.GhostPreview preview = activeRange(progress, liveTarget);
-        return preview == ShapeDataRecords.GhostPreview.EMPTY ? List.of() : List.of(preview);
+        return preview == ShapeDataRecords.GhostPreview.EMPTY ? java.util.Collections.emptyList() : java.util.Collections.singletonList(preview);
     }
 
     public boolean hasAnyActive(
@@ -188,7 +209,7 @@ public final class ConfirmedDestroyPreviewState {
         Set<Long> skippedKeys = new HashSet<>();
         for (BlockPos pos : skippedPositions) {
             if (pos != null) {
-                skippedKeys.add(pos.asLong());
+                skippedKeys.add(pos.toLong());
             }
         }
         if (skippedKeys.isEmpty()) {
@@ -197,9 +218,8 @@ public final class ConfirmedDestroyPreviewState {
 
         List<BlockPos> remainingBlocks = preview.blocks().stream()
                 .filter(Objects::nonNull)
-                .filter(pos -> !skippedKeys.contains(pos.asLong()))
-                .map(BlockPos::immutable)
-                .toList();
+                .filter(pos -> !skippedKeys.contains(pos.toLong()))
+                .collect(java.util.stream.Collectors.toList());
         if (remainingBlocks.size() == preview.blocks().size()) {
             return preview;
         }
@@ -207,12 +227,11 @@ public final class ConfirmedDestroyPreviewState {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
         List<BlockPos> remainingEmptyBlocks = preview.emptyBlocks() == null
-                ? List.of()
+                ? java.util.Collections.emptyList()
                 : preview.emptyBlocks().stream()
                         .filter(Objects::nonNull)
-                        .filter(pos -> !skippedKeys.contains(pos.asLong()))
-                        .map(BlockPos::immutable)
-                        .toList();
+                        .filter(pos -> !skippedKeys.contains(pos.toLong()))
+                        .collect(java.util.stream.Collectors.toList());
         return new ShapeDataRecords.GhostPreview(
                 remainingBlocks,
                 preview.readyConfirm(),
@@ -264,12 +283,11 @@ public final class ConfirmedDestroyPreviewState {
 
     private static List<BlockPos> copyImmutableBlocks(List<BlockPos> blocks) {
         if (blocks == null || blocks.isEmpty()) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         return blocks.stream()
                 .filter(Objects::nonNull)
-                .map(BlockPos::immutable)
-                .toList();
+                .collect(java.util.stream.Collectors.toList());
     }
 
     private void clearRange() {

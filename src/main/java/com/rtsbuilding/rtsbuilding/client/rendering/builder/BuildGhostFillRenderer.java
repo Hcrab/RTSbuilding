@@ -1,53 +1,40 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.core.BlockPos;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderGlobal;
+import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.math.BlockPos;
+import org.lwjgl.opengl.GL11;
 
 import java.util.List;
 
-/**
- * Fallback fill renderer for single-block ghost previews.
- * <p>
- * Renders semi-transparent coloured boxes as placeholders when blocks
- * cannot be rendered as models (e.g., non-model blocks, air).
- */
+/** 1.12 建造幽灵的私有半透明填充层。 */
 public final class BuildGhostFillRenderer {
+    private static final BufferBuilder BUFFER = new BufferBuilder(256 * 1024);
+    private static final WorldVertexBufferUploader UPLOADER = new WorldVertexBufferUploader();
+    private BuildGhostFillRenderer() {}
 
-    private BuildGhostFillRenderer() {
-    }
-
-    /**
-     * Renders fallback fill boxes at the given positions.
-     *
-     * @param blocks      Target block positions
-     * @param poseStack   Pose stack for coordinate transforms
-     * @param fillBuffer  Fill vertex buffer
-     * @param readyConfirm Whether the placement is ready to confirm
-     */
-    public static void renderFill(List<BlockPos> blocks, PoseStack poseStack,
-            VertexConsumer fillBuffer, boolean readyConfirm) {
-        if (blocks == null || blocks.isEmpty()) {
-            return;
-        }
-        float fillR = readyConfirm ? 0.24F : 0.16F;
-        float fillG = readyConfirm ? 0.72F : 0.55F;
-        float fillB = readyConfirm ? 0.24F : 0.90F;
-        float fillA = readyConfirm ? 0.22F : 0.16F;
-
-        for (BlockPos pos : blocks) {
-            double minX = pos.getX() + 0.03D;
-            double minY = pos.getY() + 0.03D;
-            double minZ = pos.getZ() + 0.03D;
-            double maxX = pos.getX() + 0.97D;
-            double maxY = pos.getY() + 0.97D;
-            double maxZ = pos.getZ() + 0.97D;
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
-                    minX, minY, minZ,
-                    maxX, maxY, maxZ,
-                    fillR, fillG, fillB, fillA);
+    public static void renderFill(List<BlockPos> blocks, BufferBuilder callerBuffer, boolean readyConfirm) {
+        if (blocks == null || blocks.isEmpty()) return;
+        RenderManager manager = Minecraft.getMinecraft().getRenderManager();
+        BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+        BUFFER.setTranslation(-manager.viewerPosX, -manager.viewerPosY, -manager.viewerPosZ);
+        float r = readyConfirm ? 0.24F : 0.16F;
+        float g = readyConfirm ? 0.72F : 0.55F;
+        float b = readyConfirm ? 0.24F : 0.90F;
+        float a = readyConfirm ? 0.22F : 0.16F;
+        for (BlockPos pos : blocks) RenderGlobal.addChainedFilledBoxVertices(BUFFER,
+                pos.getX()+.03D,pos.getY()+.03D,pos.getZ()+.03D,
+                pos.getX()+.97D,pos.getY()+.97D,pos.getZ()+.97D,r,g,b,a);
+        UltimineGhostRenderer.GlSnapshot gl=UltimineGhostRenderer.GlSnapshot.capture(); try {
+            GlStateManager.enableBlend(); GlStateManager.disableTexture2D(); GlStateManager.disableCull();
+            GlStateManager.depthMask(false); UPLOADER.draw(BUFFER);
+        } finally {
+            BUFFER.setTranslation(0,0,0); gl.restore();
         }
     }
 }

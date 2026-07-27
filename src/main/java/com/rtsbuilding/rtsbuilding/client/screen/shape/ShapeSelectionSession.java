@@ -4,10 +4,10 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 
 /**
  * 持有一次形状选区会话，并独占多次点击推进与滚轮尺寸调整。
@@ -19,7 +19,7 @@ public final class ShapeSelectionSession {
     private BuilderScreen screen;
     private ShapeSelectionBoxController boxes;
     private ShapeBuildTypes.Session session;
-    private BlockHitResult templateHit;
+    private RayTraceResult templateHit;
     private int footprintNudgeA;
     private int footprintNudgeB;
     private double cursorY;
@@ -37,7 +37,7 @@ public final class ShapeSelectionSession {
         this.session = session;
     }
 
-    public BlockHitResult templateHit() {
+    public RayTraceResult templateHit() {
         return this.templateHit;
     }
 
@@ -59,7 +59,7 @@ public final class ShapeSelectionSession {
                 && ShapeConfirmationPolicy.shouldSubmitAfterSelection(keyboardConfirmEnabled, this.session.phase());
     }
 
-    public void advance(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
+    public void advance(RayTraceResult hit, Vec3d rayDir, double mouseY, BuildShape shape) {
         if (this.session == null || this.session.shape() != shape) {
             start(hit, rayDir, mouseY, shape);
             return;
@@ -73,14 +73,14 @@ public final class ShapeSelectionSession {
         }
     }
 
-    private void start(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
+    private void start(RayTraceResult hit, Vec3d rayDir, double mouseY, BuildShape shape) {
         this.footprintNudgeA = 0;
         this.footprintNudgeB = 0;
-        Direction placementFace = ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir);
-        this.templateHit = new BlockHitResult(hit.getLocation(), placementFace, hit.getBlockPos(), hit.isInside());
+        EnumFacing placementFace = ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.sideHit, rayDir);
+        this.templateHit = new RayTraceResult(hit.hitVec, placementFace, hit.getBlockPos());
         this.session = new ShapeBuildTypes.Session(
                 shape,
-                resolveBuildFace(shape, hit.getDirection(), rayDir),
+                resolveBuildFace(shape, hit.sideHit, rayDir),
                 placementFace,
                 hit.getBlockPos(),
                 null,
@@ -89,23 +89,23 @@ public final class ShapeSelectionSession {
                 mouseY);
     }
 
-    private Direction resolveBuildFace(BuildShape shape, Direction clickedFace, Vec3 rayDir) {
+    private EnumFacing resolveBuildFace(BuildShape shape, EnumFacing clickedFace, Vec3d rayDir) {
         if (shape != BuildShape.CIRCLE && shape != BuildShape.CYLINDER) {
             return ShapeGeometryUtil.resolveShapeBuildFace(shape, clickedFace, rayDir);
         }
         if (this.screen == null || !this.screen.isRoundShapeVertical(shape)) {
-            return Direction.UP;
+            return EnumFacing.UP;
         }
         if (rayDir != null && (Math.abs(rayDir.x) > 1.0E-5D || Math.abs(rayDir.z) > 1.0E-5D)) {
-            Direction nearest = Direction.getNearest(rayDir.x, 0.0D, rayDir.z);
-            if (nearest.getAxis() != Direction.Axis.Y) {
+            EnumFacing nearest = EnumFacing.getFacingFromVector((float) rayDir.x, 0.0F, (float) rayDir.z);
+            if (nearest.getAxis() != EnumFacing.Axis.Y) {
                 return nearest;
             }
         }
-        return clickedFace != null && clickedFace.getAxis() != Direction.Axis.Y ? clickedFace : Direction.NORTH;
+        return clickedFace != null && clickedFace.getAxis() != EnumFacing.Axis.Y ? clickedFace : EnumFacing.NORTH;
     }
 
-    private void advanceLine(BlockHitResult hit) {
+    private void advanceLine(RayTraceResult hit) {
         if (this.session.phase() != ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
             return;
         }
@@ -122,7 +122,7 @@ public final class ShapeSelectionSession {
                 this.session.boxHeightMouseBaseY());
     }
 
-    private void advanceTwoPoint(BlockHitResult hit, double mouseY) {
+    private void advanceTwoPoint(RayTraceResult hit, double mouseY) {
         if (this.session.phase() != ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
             return;
         }
@@ -132,7 +132,7 @@ public final class ShapeSelectionSession {
         this.session = ready(this.session, pointB, mouseY);
     }
 
-    private void advanceHeightShape(BlockHitResult hit, double mouseY) {
+    private void advanceHeightShape(RayTraceResult hit, double mouseY) {
         if (this.session.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
             BlockPos pointB = this.boxes.isAdvanced(this.session.shape())
                     ? resolveAdvancedSecondPoint(this.session, hit)
@@ -152,7 +152,7 @@ public final class ShapeSelectionSession {
         }
     }
 
-    private void advanceBox(BlockHitResult hit, double mouseY) {
+    private void advanceBox(RayTraceResult hit, double mouseY) {
         if (this.session.phase() == ShapeBuildTypes.Phase.NEED_SECOND_POINT) {
             boolean advanced = this.boxes.isAdvanced(this.session.shape());
             BlockPos pointB = advanced
@@ -194,22 +194,23 @@ public final class ShapeSelectionSession {
                 : ready;
     }
 
-    private BlockPos resolveAdvancedSecondPoint(ShapeBuildTypes.Session base, BlockHitResult hit) {
+    private BlockPos resolveAdvancedSecondPoint(ShapeBuildTypes.Session base, RayTraceResult hit) {
         if (hit == null) {
             return resolvePlanePoint(base, null);
         }
         Minecraft mc = this.screen.getMinecraft();
         BlockPos clicked = hit.getBlockPos();
-        if (mc != null && mc.level != null
-                && mc.level.getBlockState(clicked).isAir()
-                && mc.level.getFluidState(clicked).isEmpty()) {
-            return resolvePlanePoint(base, hit);
+        if (mc != null && mc.world != null) {
+            net.minecraft.block.state.IBlockState state = mc.world.getBlockState(clicked);
+            if (state.getBlock().isAir(state, mc.world, clicked)) {
+                return resolvePlanePoint(base, hit);
+            }
         }
         return clicked;
     }
 
     public ShapeBuildTypes.Input resolveInput(
-            BlockHitResult cursorHit,
+            RayTraceResult cursorHit,
             boolean requireReady,
             BuildShape currentShape,
             boolean lineConnected) {
@@ -217,21 +218,17 @@ public final class ShapeSelectionSession {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        Vec3 rayOrigin = mc != null && mc.gameRenderer != null
-                ? mc.gameRenderer.getMainCamera().getPosition()
-                : null;
-        Vec3 rayDirection = mc != null ? this.screen.computeCursorRayDirection() : null;
+        Vec3d rayOrigin = cameraOrigin(mc);
+        Vec3d rayDirection = mc != null ? this.screen.computeCursorRayDirection() : null;
         return ShapeSessionInputResolver.resolve(
                 this.session, cursorHit, requireReady, isVerticalLine(this.session.shape()), lineConnected,
                 this.footprintNudgeA, this.footprintNudgeB, rayOrigin, rayDirection);
     }
 
-    private BlockPos resolvePlanePoint(ShapeBuildTypes.Session base, BlockHitResult cursorHit) {
+    private BlockPos resolvePlanePoint(ShapeBuildTypes.Session base, RayTraceResult cursorHit) {
         Minecraft mc = this.screen.getMinecraft();
-        Vec3 origin = mc != null && mc.gameRenderer != null
-                ? mc.gameRenderer.getMainCamera().getPosition()
-                : null;
-        Vec3 direction = mc != null ? this.screen.computeCursorRayDirection() : null;
+        Vec3d origin = cameraOrigin(mc);
+        Vec3d direction = mc != null ? this.screen.computeCursorRayDirection() : null;
         return ShapeSessionInputResolver.resolvePlanePoint(base, cursorHit, origin, direction);
     }
 
@@ -291,7 +288,7 @@ public final class ShapeSelectionSession {
         int nextOffset = ShapeGeometryUtil.clampShapeOffset(this.session.boxHeightOffset() + delta);
         BlockPos nextPointB = this.session.pointB();
         if (this.session.shape() == BuildShape.LINE && this.session.pointA() != null) {
-            nextPointB = this.session.pointA().offset(0, nextOffset, 0);
+            nextPointB = this.session.pointA().add(0, nextOffset, 0);
         }
         this.session = new ShapeBuildTypes.Session(
                 this.session.shape(), this.session.planeFace(), this.session.placementFace(),
@@ -302,5 +299,10 @@ public final class ShapeSelectionSession {
 
     private boolean isVerticalLine(BuildShape shape) {
         return shape == BuildShape.LINE && this.screen != null && this.screen.isRoundShapeVertical(BuildShape.LINE);
+    }
+
+    private static Vec3d cameraOrigin(Minecraft minecraft) {
+        if (minecraft == null || minecraft.getRenderViewEntity() == null) return null;
+        return minecraft.getRenderViewEntity().getPositionEyes(minecraft.getRenderPartialTicks());
     }
 }

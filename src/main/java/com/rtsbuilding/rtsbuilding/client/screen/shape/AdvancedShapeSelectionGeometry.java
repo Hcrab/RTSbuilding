@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 
 /**
  * 高级形状选区与交互会话之间的纯几何转换。
@@ -20,8 +20,8 @@ public final class AdvancedShapeSelectionGeometry {
             return null;
         }
         if (usesPlaneNormalHeight(session.shape())) {
-            Direction normal = session.planeFace() == null
-                    ? Direction.UP
+            EnumFacing normal = session.planeFace() == null
+                    ? EnumFacing.UP
                     : session.planeFace();
             BlockPos normalEnd = withAxisOffset(
                     session.pointA(),
@@ -43,10 +43,10 @@ public final class AdvancedShapeSelectionGeometry {
             ShapeBuildTypes.Session previous,
             RtsCullingBox box) {
         if (usesPlaneNormalHeight(previous.shape())) {
-            Direction normal = previous.planeFace() == null
-                    ? Direction.UP
+            EnumFacing normal = previous.planeFace() == null
+                    ? EnumFacing.UP
                     : previous.planeFace();
-            Direction.Axis normalAxis = normal.getAxis();
+            EnumFacing.Axis normalAxis = normal.getAxis();
             BlockPos min = box.min();
             BlockPos max = box.max();
             BlockPos pointB = mergeAxis(max, min, normalAxis);
@@ -118,7 +118,7 @@ public final class AdvancedShapeSelectionGeometry {
 
     private static BlockPos withAxisOffset(
             BlockPos origin,
-            Direction.Axis axis,
+            EnumFacing.Axis axis,
             int offset) {
         return switch (axis) {
             case X -> new BlockPos(
@@ -139,7 +139,7 @@ public final class AdvancedShapeSelectionGeometry {
     private static BlockPos mergeAxis(
             BlockPos base,
             BlockPos axisSource,
-            Direction.Axis axis) {
+            EnumFacing.Axis axis) {
         return switch (axis) {
             case X -> new BlockPos(
                     axisSource.getX(),
@@ -156,7 +156,7 @@ public final class AdvancedShapeSelectionGeometry {
         };
     }
 
-    private static int coordinate(BlockPos pos, Direction.Axis axis) {
+    private static int coordinate(BlockPos pos, EnumFacing.Axis axis) {
         return switch (axis) {
             case X -> pos.getX();
             case Y -> pos.getY();
@@ -167,19 +167,19 @@ public final class AdvancedShapeSelectionGeometry {
     private static RtsCullingBox centeredPlaneBox(
             BlockPos center,
             int radius,
-            Direction face,
+            EnumFacing face,
             int heightOffset) {
         int safeRadius = Math.max(0, radius);
-        Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(
+        EnumFacing[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(
                 BuildShape.CIRCLE,
                 face);
-        Direction normal = face == null ? Direction.UP : face;
+        EnumFacing normal = face == null ? EnumFacing.UP : face;
         BlockPos min = center;
         BlockPos max = withAxisOffset(
                 center,
                 normal.getAxis(),
                 heightOffset);
-        for (Direction axis : axes) {
+        for (EnumFacing axis : axes) {
             min = withAxisOffset(min, axis.getAxis(), -safeRadius);
             max = withAxisOffset(max, axis.getAxis(), safeRadius);
         }
@@ -203,8 +203,8 @@ public final class AdvancedShapeSelectionGeometry {
     private static int planeRadius(
             BlockPos center,
             BlockPos point,
-            Direction face) {
-        Direction[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(
+            EnumFacing face) {
+        EnumFacing[] axes = ShapeGeometryUtil.resolveShapePlaneAxes(
                 BuildShape.CIRCLE,
                 face);
         int dx = point.getX() - center.getX();

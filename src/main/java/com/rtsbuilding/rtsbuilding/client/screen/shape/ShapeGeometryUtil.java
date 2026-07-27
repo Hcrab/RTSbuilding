@@ -4,11 +4,11 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.*;
 
@@ -69,13 +69,13 @@ public final class ShapeGeometryUtil {
 
     public static List<BlockPos> buildAdvancedShapePositions(BuildShape shape, RtsCullingBox box,
             ShapeFillMode fillMode) {
-        return buildAdvancedShapePositions(shape, box, fillMode, Direction.UP);
+        return buildAdvancedShapePositions(shape, box, fillMode, EnumFacing.UP);
     }
 
     public static List<BlockPos> buildAdvancedShapePositions(BuildShape shape, RtsCullingBox box,
-            ShapeFillMode fillMode, Direction planeFace) {
+            ShapeFillMode fillMode, EnumFacing planeFace) {
         if (shape == null || box == null) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         LinkedHashSet<BlockPos> targets = new LinkedHashSet<>();
         switch (shape) {
@@ -235,13 +235,13 @@ public final class ShapeGeometryUtil {
     }
 
     /** 生成正方形方块 */
-    public static void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
+    public static void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, EnumFacing face, ShapeFillMode fillMode) {
         addSquareTargets(targets, start, end, face, fillMode, BuilderScreenConstants.SHAPE_MAX_OFFSET);
     }
 
     private static void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
-            Direction face, ShapeFillMode fillMode, int maxOffset) {
-        Direction[] axes = resolveShapePlaneAxes(BuildShape.SQUARE, face);
+            EnumFacing face, ShapeFillMode fillMode, int maxOffset) {
+        EnumFacing[] axes = resolveShapePlaneAxes(BuildShape.SQUARE, face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
@@ -251,7 +251,7 @@ public final class ShapeGeometryUtil {
         LinkedHashSet<BlockPos> tmp = new LinkedHashSet<>();
         addRotatedPlaneRectangleTargets(tmp, start, axes[0], axes[1], aOffset, bOffset, fillMode, 0);
         List<BlockPos> sorted = new ArrayList<>(tmp);
-        sorted.sort(Comparator.comparingDouble(pos -> pos.distSqr(start)));
+        sorted.sort(Comparator.comparingDouble(pos -> pos.distanceSq(start)));
         targets.addAll(sorted);
     }
 
@@ -286,26 +286,26 @@ public final class ShapeGeometryUtil {
                 if (fillMode != ShapeFillMode.FILL && !endColumn && iy != minY && iy != maxY) {
                     continue;
                 }
-                targets.add(basePos.above(iy));
+                targets.add(basePos.up(iy));
             }
         }
     }
 
     /** 生成圆形方块 */
-    public static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
+    public static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, EnumFacing face, ShapeFillMode fillMode) {
         addCircleTargets(targets, start, end, face, fillMode, BuilderScreenConstants.SHAPE_MAX_RADIUS);
     }
 
     private static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
-            Direction face, ShapeFillMode fillMode, int maxRadius) {
+            EnumFacing face, ShapeFillMode fillMode, int maxRadius) {
         int degrees = 0; // 由调用方传入旋转角度
-        Direction[] axes = resolveShapePlaneAxes(BuildShape.CIRCLE, face);
+        EnumFacing[] axes = resolveShapePlaneAxes(BuildShape.CIRCLE, face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
         int a = dotDelta(dx, dy, dz, axes[0]);
         int b = dotDelta(dx, dy, dz, axes[1]);
-        int radius = Mth.clamp((int) Math.round(Math.sqrt((a * (double) a) + (b * (double) b))),
+        int radius = MathHelper.clamp((int) Math.round(Math.sqrt((a * (double) a) + (b * (double) b))),
                 0, maxRadius);
         Set<PlaneCell> rotatedCells = new HashSet<>();
         for (PlaneCell cell : buildCircleCells(radius, fillMode == ShapeFillMode.FILL)) {
@@ -318,27 +318,27 @@ public final class ShapeGeometryUtil {
         for (PlaneCell cell : rotatedCells) {
             positions.add(offsetPos(start, axes[0], cell.a(), axes[1], cell.b()));
         }
-        positions.sort(Comparator.comparingDouble(pos -> pos.distSqr(start)));
+        positions.sort(Comparator.comparingDouble(pos -> pos.distanceSq(start)));
         targets.addAll(positions);
     }
 
     /** 生成圆柱体方块：圆形底面 + 高度偏移 */
     public static void addCylinderTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset,
-            Direction face, ShapeFillMode fillMode) {
+            EnumFacing face, ShapeFillMode fillMode) {
         addCylinderTargets(targets, start, end, heightOffset, face, fillMode,
                 BuilderScreenConstants.SHAPE_MAX_RADIUS, BuilderScreenConstants.SHAPE_MAX_OFFSET);
     }
 
     private static void addCylinderTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset,
-            Direction face, ShapeFillMode fillMode, int maxRadius, int maxOffset) {
-        Direction[] axes = resolveShapePlaneAxes(BuildShape.CYLINDER, face);
-        Direction normal = normalizePlaneFace(face);
+            EnumFacing face, ShapeFillMode fillMode, int maxRadius, int maxOffset) {
+        EnumFacing[] axes = resolveShapePlaneAxes(BuildShape.CYLINDER, face);
+        EnumFacing normal = normalizePlaneFace(face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
         int a = dotDelta(dx, dy, dz, axes[0]);
         int b = dotDelta(dx, dy, dz, axes[1]);
-        int radius = Mth.clamp((int) Math.round(Math.sqrt((a * (double) a) + (b * (double) b))),
+        int radius = MathHelper.clamp((int) Math.round(Math.sqrt((a * (double) a) + (b * (double) b))),
                 0, maxRadius);
         Set<PlaneCell> filledBase = buildCircleCells(radius, true);
         Set<PlaneCell> shellBase = buildCircleCells(radius, false);
@@ -357,7 +357,7 @@ public final class ShapeGeometryUtil {
                     layerPositions.add(offsetPos(layerOrigin, axes[0], cell.a(), axes[1], cell.b()));
                 }
             }
-            layerPositions.sort(Comparator.comparingDouble(pos -> pos.distSqr(start)));
+            layerPositions.sort(Comparator.comparingDouble(pos -> pos.distanceSq(start)));
             targets.addAll(layerPositions);
         }
     }
@@ -372,7 +372,7 @@ public final class ShapeGeometryUtil {
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
-        int radius = Mth.clamp((int) Math.round(Math.sqrt(
+        int radius = MathHelper.clamp((int) Math.round(Math.sqrt(
                 dx * (double) dx + dy * (double) dy + dz * (double) dz)),
                 0, maxRadius);
         int outer2 = radius * radius;
@@ -386,12 +386,12 @@ public final class ShapeGeometryUtil {
                 for (int z = -radius; z <= radius; z++) {
                     int dist2 = (x * x) + (y * y) + (z * z);
                     if (dist2 <= outer2 && (fill || dist2 >= inner2)) {
-                        positions.add(start.offset(x, y, z));
+                        positions.add(start.add(x, y, z));
                     }
                 }
             }
         }
-        positions.sort(Comparator.comparingDouble(pos -> pos.distSqr(start)));
+        positions.sort(Comparator.comparingDouble(pos -> pos.distanceSq(start)));
         targets.addAll(positions);
     }
 
@@ -423,9 +423,9 @@ public final class ShapeGeometryUtil {
             for (int iy = minY; iy <= maxY; iy++) {
                 List<BlockPos> layerPositions = new ArrayList<>();
                 for (PlaneCell cell : rotatedFootprint) {
-                    layerPositions.add(start.offset(cell.a(), iy, cell.b()));
+                    layerPositions.add(start.add(cell.a(), iy, cell.b()));
                 }
-                layerPositions.sort(Comparator.comparingDouble(pos -> pos.distSqr(start)));
+                layerPositions.sort(Comparator.comparingDouble(pos -> pos.distanceSq(start)));
                 targets.addAll(layerPositions);
             }
             return;
@@ -435,7 +435,7 @@ public final class ShapeGeometryUtil {
         Set<BlockPos> fullVolume = new HashSet<>(rotatedFootprint.size() * Math.max(1, (maxY - minY) + 1));
         for (PlaneCell cell : rotatedFootprint) {
             for (int iy = minY; iy <= maxY; iy++) {
-                fullVolume.add(start.offset(cell.a(), iy, cell.b()));
+                fullVolume.add(start.add(cell.a(), iy, cell.b()));
             }
         }
 
@@ -443,7 +443,7 @@ public final class ShapeGeometryUtil {
         Set<BlockPos> boundary = new HashSet<>();
         for (BlockPos pos : fullVolume) {
             boolean xBoundary = !fullVolume.contains(pos.east()) || !fullVolume.contains(pos.west());
-            boolean yBoundary = !fullVolume.contains(pos.above()) || !fullVolume.contains(pos.below());
+            boolean yBoundary = !fullVolume.contains(pos.up()) || !fullVolume.contains(pos.down());
             boolean zBoundary = !fullVolume.contains(pos.north()) || !fullVolume.contains(pos.south());
             int boundaryAxes = (xBoundary ? 1 : 0) + (yBoundary ? 1 : 0) + (zBoundary ? 1 : 0);
             if (fillMode == ShapeFillMode.HOLLOW) {
@@ -459,12 +459,12 @@ public final class ShapeGeometryUtil {
         for (int iy = minY; iy <= maxY; iy++) {
             List<BlockPos> layerPositions = new ArrayList<>();
             for (PlaneCell cell : rotatedFootprint) {
-                BlockPos pos = start.offset(cell.a(), iy, cell.b());
+                BlockPos pos = start.add(cell.a(), iy, cell.b());
                 if (boundary.contains(pos)) {
                     layerPositions.add(pos);
                 }
             }
-            layerPositions.sort(Comparator.comparingDouble(p -> p.distSqr(start)));
+            layerPositions.sort(Comparator.comparingDouble(p -> p.distanceSq(start)));
             targets.addAll(layerPositions);
         }
     }
@@ -472,7 +472,7 @@ public final class ShapeGeometryUtil {
     // ======================== 平面矩形（带旋转） ========================
 
     /** 生成带旋转的平面矩形方块 */
-    public static void addRotatedPlaneRectangleTargets(Set<BlockPos> targets, BlockPos start, Direction axisA, Direction axisB,
+    public static void addRotatedPlaneRectangleTargets(Set<BlockPos> targets, BlockPos start, EnumFacing axisA, EnumFacing axisB,
             int aOffset, int bOffset, ShapeFillMode fillMode, int degrees) {
         int minA = Math.min(0, aOffset);
         int maxA = Math.max(0, aOffset);
@@ -596,7 +596,7 @@ public final class ShapeGeometryUtil {
     /** 填充平面内部空洞（洪水填充算法） */
     public static Set<PlaneCell> fillPlaneInteriorHoles(Set<PlaneCell> filledCells) {
         if (filledCells == null || filledCells.isEmpty()) {
-            return filledCells == null ? Set.of() : filledCells;
+            return filledCells == null ? java.util.Collections.emptySet() : filledCells;
         }
 
         int minA = Integer.MAX_VALUE, maxA = Integer.MIN_VALUE;
@@ -713,9 +713,9 @@ public final class ShapeGeometryUtil {
     }
 
     private static void addAdvancedEllipseTargets(Set<BlockPos> targets, RtsCullingBox box, ShapeFillMode fillMode,
-            Direction planeFace) {
-        Direction[] axes = resolveShapePlaneAxes(BuildShape.CIRCLE, planeFace);
-        Direction normal = normalizePlaneFace(planeFace);
+            EnumFacing planeFace) {
+        EnumFacing[] axes = resolveShapePlaneAxes(BuildShape.CIRCLE, planeFace);
+        EnumFacing normal = normalizePlaneFace(planeFace);
         int fixedNormal = minCoord(box, normal.getAxis());
         for (int x = box.min().getX(); x <= box.max().getX(); x++) {
             for (int y = box.min().getY(); y <= box.max().getY(); y++) {
@@ -737,9 +737,9 @@ public final class ShapeGeometryUtil {
     }
 
     private static void addAdvancedEllipticCylinderTargets(Set<BlockPos> targets, RtsCullingBox box,
-            ShapeFillMode fillMode, Direction planeFace) {
-        Direction[] axes = resolveShapePlaneAxes(BuildShape.CYLINDER, planeFace);
-        Direction normal = normalizePlaneFace(planeFace);
+            ShapeFillMode fillMode, EnumFacing planeFace) {
+        EnumFacing[] axes = resolveShapePlaneAxes(BuildShape.CYLINDER, planeFace);
+        EnumFacing normal = normalizePlaneFace(planeFace);
         int normalMin = minCoord(box, normal.getAxis());
         int normalMax = maxCoord(box, normal.getAxis());
         boolean singleLayer = normalMin == normalMax;
@@ -790,7 +790,7 @@ public final class ShapeGeometryUtil {
                 + normalizedCellDistance(z, box.min().getZ(), box.max().getZ()) <= 1.0D;
     }
 
-    private static boolean insideEllipseCell(BlockPos pos, RtsCullingBox box, Direction[] axes) {
+    private static boolean insideEllipseCell(BlockPos pos, RtsCullingBox box, EnumFacing[] axes) {
         return normalizedCellDistance(coord(pos, axes[0].getAxis()),
                 minCoord(box, axes[0].getAxis()), maxCoord(box, axes[0].getAxis()))
                 + normalizedCellDistance(coord(pos, axes[1].getAxis()),
@@ -814,36 +814,36 @@ public final class ShapeGeometryUtil {
     }
 
     public static int clampShapeOffset(int value) {
-        return Mth.clamp(value, -BuilderScreenConstants.SHAPE_MAX_OFFSET, BuilderScreenConstants.SHAPE_MAX_OFFSET);
+        return MathHelper.clamp(value, -BuilderScreenConstants.SHAPE_MAX_OFFSET, BuilderScreenConstants.SHAPE_MAX_OFFSET);
     }
 
     private static int clampShapeOffset(int value, int maxOffset) {
         int safeMaxOffset = Math.max(0, maxOffset);
-        return Mth.clamp(value, -safeMaxOffset, safeMaxOffset);
+        return MathHelper.clamp(value, -safeMaxOffset, safeMaxOffset);
     }
 
     /** 计算方向上的投影分量 */
-    public static int dotDelta(int dx, int dy, int dz, Direction axis) {
-        return (dx * axis.getStepX()) + (dy * axis.getStepY()) + (dz * axis.getStepZ());
+    public static int dotDelta(int dx, int dy, int dz, EnumFacing axis) {
+        return (dx * axis.getXOffset()) + (dy * axis.getYOffset()) + (dz * axis.getZOffset());
     }
 
     /** 在两个方向轴上偏移位置 */
-    public static BlockPos offsetPos(BlockPos origin, Direction axisA, int stepA, Direction axisB, int stepB) {
-        int dx = (axisA.getStepX() * stepA) + (axisB.getStepX() * stepB);
-        int dy = (axisA.getStepY() * stepA) + (axisB.getStepY() * stepB);
-        int dz = (axisA.getStepZ() * stepA) + (axisB.getStepZ() * stepB);
-        return origin.offset(dx, dy, dz);
+    public static BlockPos offsetPos(BlockPos origin, EnumFacing axisA, int stepA, EnumFacing axisB, int stepB) {
+        int dx = (axisA.getXOffset() * stepA) + (axisB.getXOffset() * stepB);
+        int dy = (axisA.getYOffset() * stepA) + (axisB.getYOffset() * stepB);
+        int dz = (axisA.getZOffset() * stepA) + (axisB.getZOffset() * stepB);
+        return origin.add(dx, dy, dz);
     }
 
-    private static BlockPos offsetAlong(BlockPos origin, Direction axis, int step) {
-        return origin.offset(axis.getStepX() * step, axis.getStepY() * step, axis.getStepZ() * step);
+    private static BlockPos offsetAlong(BlockPos origin, EnumFacing axis, int step) {
+        return origin.add(axis.getXOffset() * step, axis.getYOffset() * step, axis.getZOffset() * step);
     }
 
-    private static Direction normalizePlaneFace(Direction face) {
-        return face == null ? Direction.UP : face;
+    private static EnumFacing normalizePlaneFace(EnumFacing face) {
+        return face == null ? EnumFacing.UP : face;
     }
 
-    private static int coord(BlockPos pos, Direction.Axis axis) {
+    private static int coord(BlockPos pos, EnumFacing.Axis axis) {
         return switch (axis) {
             case X -> pos.getX();
             case Y -> pos.getY();
@@ -851,7 +851,7 @@ public final class ShapeGeometryUtil {
         };
     }
 
-    private static int minCoord(RtsCullingBox box, Direction.Axis axis) {
+    private static int minCoord(RtsCullingBox box, EnumFacing.Axis axis) {
         return switch (axis) {
             case X -> box.min().getX();
             case Y -> box.min().getY();
@@ -859,7 +859,7 @@ public final class ShapeGeometryUtil {
         };
     }
 
-    private static int maxCoord(RtsCullingBox box, Direction.Axis axis) {
+    private static int maxCoord(RtsCullingBox box, EnumFacing.Axis axis) {
         return switch (axis) {
             case X -> box.max().getX();
             case Y -> box.max().getY();
@@ -881,33 +881,33 @@ public final class ShapeGeometryUtil {
     // ======================== 面朝向解析 ========================
 
     /** 解析形状的构建基准面 */
-    public static Direction resolveShapeBuildFace(BuildShape shape, Direction clickedFace, Vec3 rayDir) {
-        if (shape == null) return clickedFace == null ? Direction.UP : clickedFace;
+    public static EnumFacing resolveShapeBuildFace(BuildShape shape, EnumFacing clickedFace, Vec3d rayDir) {
+        if (shape == null) return clickedFace == null ? EnumFacing.UP : clickedFace;
         return switch (shape) {
-            case LINE, SQUARE, WALL, CYLINDER, BOX -> Direction.UP;
-            default -> clickedFace == null ? Direction.UP : clickedFace;
+            case LINE, SQUARE, WALL, CYLINDER, BOX -> EnumFacing.UP;
+            default -> clickedFace == null ? EnumFacing.UP : clickedFace;
         };
     }
 
     /** 解析形状的放置面 */
-    public static Direction resolveShapePlacementFace(BuildShape shape, Direction clickedFace, Vec3 rayDir) {
+    public static EnumFacing resolveShapePlacementFace(BuildShape shape, EnumFacing clickedFace, Vec3d rayDir) {
         if (clickedFace != null) return clickedFace;
         return resolveShapeBuildFace(shape, clickedFace, rayDir);
     }
 
     /** 解析形状的平面轴向 */
-    public static Direction[] resolveShapePlaneAxes(BuildShape shape, Direction face) {
+    public static EnumFacing[] resolveShapePlaneAxes(BuildShape shape, EnumFacing face) {
         if (shape == BuildShape.SQUARE || shape == BuildShape.BOX) {
-            return new Direction[] { Direction.EAST, Direction.SOUTH };
+            return new EnumFacing[] { EnumFacing.EAST, EnumFacing.SOUTH };
         }
         if (shape == BuildShape.WALL) {
-            return new Direction[] { Direction.EAST, Direction.SOUTH };
+            return new EnumFacing[] { EnumFacing.EAST, EnumFacing.SOUTH };
         }
-        if (face == null) return new Direction[] { Direction.EAST, Direction.SOUTH };
+        if (face == null) return new EnumFacing[] { EnumFacing.EAST, EnumFacing.SOUTH };
         return switch (face.getAxis()) {
-            case Y -> new Direction[] { Direction.EAST, Direction.SOUTH };
-            case X -> new Direction[] { Direction.UP, Direction.SOUTH };
-            case Z -> new Direction[] { Direction.EAST, Direction.UP };
+            case Y -> new EnumFacing[] { EnumFacing.EAST, EnumFacing.SOUTH };
+            case X -> new EnumFacing[] { EnumFacing.UP, EnumFacing.SOUTH };
+            case Z -> new EnumFacing[] { EnumFacing.EAST, EnumFacing.UP };
         };
     }
 
@@ -918,33 +918,61 @@ public final class ShapeGeometryUtil {
 
     // ======================== 放置命中结果生成 ========================
 
-    /** 创建形状放置的 BlockHitResult */
-    public static BlockHitResult createShapePlacementHit(BlockPos pos, Direction face) {
-        Vec3 faceNormal = Vec3.atLowerCornerOf(face.getNormal());
-        Vec3 hitVec = Vec3.atCenterOf(pos).add(faceNormal.scale(0.5D));
-        return new BlockHitResult(hitVec, face, pos, false);
+    /** 创建形状放置的 RayTraceResult */
+    public static RayTraceResult createShapePlacementHit(BlockPos pos, EnumFacing face) {
+        Vec3d faceNormal = new Vec3d(face.getDirectionVec());
+        Vec3d hitVec = new Vec3d(pos).add(0.5D, 0.5D, 0.5D).add(faceNormal.scale(0.5D));
+        return new RayTraceResult(hitVec, face, pos);
     }
 
     // ======================== 可用填充模式 ========================
 
     /** 获取形状的可用填充模式列表 */
     public static List<ShapeFillMode> availableFillModes(BuildShape shape) {
-        if (shape == null) return List.of(ShapeFillMode.FILL);
+        if (shape == null) return java.util.Collections.singletonList(ShapeFillMode.FILL);
         return switch (shape) {
-            case LINE -> List.of(ShapeFillMode.FILL);
-            case SQUARE, WALL, CIRCLE, CYLINDER, BALL -> List.of(ShapeFillMode.FILL, ShapeFillMode.HOLLOW);
-            case BOX -> List.of(ShapeFillMode.FILL, ShapeFillMode.HOLLOW, ShapeFillMode.SKELETON);
-            default -> List.of(ShapeFillMode.FILL);
+            case LINE -> java.util.Collections.singletonList(ShapeFillMode.FILL);
+            case SQUARE, WALL, CIRCLE, CYLINDER, BALL -> java.util.Collections.unmodifiableList(
+                    java.util.Arrays.asList(ShapeFillMode.FILL, ShapeFillMode.HOLLOW));
+            case BOX -> java.util.Collections.unmodifiableList(
+                    java.util.Arrays.asList(ShapeFillMode.FILL, ShapeFillMode.HOLLOW, ShapeFillMode.SKELETON));
+            default -> java.util.Collections.singletonList(ShapeFillMode.FILL);
         };
     }
 
     // ======================== 数据记录 ========================
 
     /** 旋转偏移量 */
-    public record RotatedOffset(int a, int b) {}
+    public static final class RotatedOffset {
+        private final int a;
+        private final int b;
+        public RotatedOffset(int a, int b) { this.a = a; this.b = b; }
+        public int a() { return this.a; }
+        public int b() { return this.b; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof RotatedOffset)) return false;
+            RotatedOffset that = (RotatedOffset) other;
+            return this.a == that.a && this.b == that.b;
+        }
+        @Override public int hashCode() { return 31 * this.a + this.b; }
+    }
 
     /** 平面单元格 */
-    public record PlaneCell(int a, int b) {}
+    public static final class PlaneCell {
+        private final int a;
+        private final int b;
+        public PlaneCell(int a, int b) { this.a = a; this.b = b; }
+        public int a() { return this.a; }
+        public int b() { return this.b; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof PlaneCell)) return false;
+            PlaneCell that = (PlaneCell) other;
+            return this.a == that.a && this.b == that.b;
+        }
+        @Override public int hashCode() { return 31 * this.a + this.b; }
+    }
 
     private ShapeGeometryUtil() {
         // 工具类，禁止实例化

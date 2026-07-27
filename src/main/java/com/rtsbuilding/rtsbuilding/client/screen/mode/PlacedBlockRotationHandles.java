@@ -1,15 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.screen.mode;
 
 import com.rtsbuilding.rtsbuilding.common.placement.PlacedBlockRotationStep;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -40,57 +43,61 @@ public final class PlacedBlockRotationHandles {
         return this.hoveredGesture;
     }
 
-    public boolean select(Level level, BlockPos pos, Direction cameraForward) {
+    public boolean select(World world, BlockPos pos, EnumFacing cameraForward) {
         clear();
-        if (level == null || pos == null || !level.hasChunkAt(pos)) {
+        if (world == null || pos == null || !world.isBlockLoaded(pos, false)) {
             return false;
         }
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir() || availableArcs(state, pos, cameraForward).isEmpty()) {
+        IBlockState state = world.getBlockState(pos);
+        if (state == null || state.getBlock() == Blocks.AIR
+                || availableArcs(state, pos, cameraForward).isEmpty()) {
             return false;
         }
-        this.targetPos = pos.immutable();
+        this.targetPos = pos.toImmutable();
         this.targetBlock = state.getBlock();
         return true;
     }
 
-    public List<ArcHandle> arcs(Level level, Direction cameraForward) {
-        if (!targetStillMatches(level)) {
-            return List.of();
+    public List<ArcHandle> arcs(World world, EnumFacing cameraForward) {
+        if (!targetStillMatches(world)) {
+            return Collections.emptyList();
         }
         return availableArcs(
-                level.getBlockState(this.targetPos),
+                world.getBlockState(this.targetPos),
                 this.targetPos,
                 horizontal(cameraForward));
     }
 
     public void updateHover(
-            Level level,
-            Vec3 origin,
-            Vec3 direction,
-            Direction cameraForward) {
-        if (!targetStillMatches(level)) {
+            World world,
+            Vec3d origin,
+            Vec3d direction,
+            EnumFacing cameraForward) {
+        if (!targetStillMatches(world)) {
             clear();
             return;
         }
         this.hoveredGesture = nearestHit(
-                arcs(level, cameraForward), origin, direction, MAX_HIT_DISTANCE);
+                arcs(world, cameraForward), origin, direction, MAX_HIT_DISTANCE);
     }
 
     public PlacedBlockRotationGesture hitGesture(
-            Level level,
-            Vec3 origin,
-            Vec3 direction,
-            Direction cameraForward) {
-        updateHover(level, origin, direction, cameraForward);
+            World world,
+            Vec3d origin,
+            Vec3d direction,
+            EnumFacing cameraForward) {
+        updateHover(world, origin, direction, cameraForward);
         return this.hoveredGesture;
     }
 
-    public boolean targetStillMatches(Level level) {
+    /**
+     * 只比较目标位置上的方块类型，与主线行为一致；方块状态发生合法旋转后目标仍保持选中。
+     */
+    public boolean targetStillMatches(World world) {
         return this.targetPos != null
-                && level != null
-                && level.hasChunkAt(this.targetPos)
-                && level.getBlockState(this.targetPos).is(this.targetBlock);
+                && world != null
+                && world.isBlockLoaded(this.targetPos, false)
+                && world.getBlockState(this.targetPos).getBlock() == this.targetBlock;
     }
 
     public void clear() {
@@ -100,11 +107,11 @@ public final class PlacedBlockRotationHandles {
     }
 
     private static List<ArcHandle> availableArcs(
-            BlockState state,
+            IBlockState state,
             BlockPos pos,
-            Direction cameraForward) {
-        Direction forward = horizontal(cameraForward);
-        List<ArcHandle> result = new ArrayList<>(4);
+            EnumFacing cameraForward) {
+        EnumFacing forward = horizontal(cameraForward);
+        List<ArcHandle> result = new ArrayList<ArcHandle>(4);
         for (PlacedBlockRotationGesture gesture : PlacedBlockRotationGesture.values()) {
             if (PlacedBlockRotationStep.supports(
                     state,
@@ -113,24 +120,27 @@ public final class PlacedBlockRotationHandles {
                 result.add(createArc(pos, forward, gesture));
             }
         }
-        return List.copyOf(result);
+        return Collections.unmodifiableList(result);
     }
 
     private static ArcHandle createArc(
             BlockPos pos,
-            Direction cameraForward,
+            EnumFacing cameraForward,
             PlacedBlockRotationGesture gesture) {
-        Vec3 center = Vec3.atCenterOf(pos);
-        Vec3 forward = directionVector(cameraForward);
-        Vec3 near = forward.scale(-1.0D);
-        Vec3 right = directionVector(PlacedBlockRotationGesture.rightOf(cameraForward));
-        Vec3 up = new Vec3(0.0D, 1.0D, 0.0D);
+        Vec3d center = new Vec3d(
+                pos.getX() + 0.5D,
+                pos.getY() + 0.5D,
+                pos.getZ() + 0.5D);
+        Vec3d forward = directionVector(cameraForward);
+        Vec3d near = forward.scale(-1.0D);
+        Vec3d right = directionVector(PlacedBlockRotationGesture.rightOf(cameraForward));
+        Vec3d up = new Vec3d(0.0D, 1.0D, 0.0D);
 
         boolean horizontal = gesture == PlacedBlockRotationGesture.HORIZONTAL_LEFT
                 || gesture == PlacedBlockRotationGesture.HORIZONTAL_RIGHT;
-        Vec3 planeNormal = horizontal ? up : right;
-        Vec3 radialBase = near;
-        Vec3 angularBase = horizontal ? right : up;
+        Vec3d planeNormal = horizontal ? up : right;
+        Vec3d radialBase = near;
+        Vec3d angularBase = horizontal ? right : up;
         double startDegrees;
         double endDegrees;
         if (gesture == PlacedBlockRotationGesture.HORIZONTAL_RIGHT
@@ -142,14 +152,14 @@ public final class PlacedBlockRotationHandles {
             endDegrees = -74.0D;
         }
 
-        Vec3 arcCenter = horizontal
-                ? center.add(0.0D, 0.68D, 0.0D)
+        Vec3d arcCenter = horizontal
+                ? center.add(new Vec3d(0.0D, 0.68D, 0.0D))
                 : center;
-        List<Vec3> points = new ArrayList<>(ARC_SEGMENTS + 1);
+        List<Vec3d> points = new ArrayList<Vec3d>(ARC_SEGMENTS + 1);
         for (int i = 0; i <= ARC_SEGMENTS; i++) {
             double t = i / (double) ARC_SEGMENTS;
             double angle = Math.toRadians(startDegrees + (endDegrees - startDegrees) * t);
-            Vec3 radial = radialBase.scale(Math.cos(angle))
+            Vec3d radial = radialBase.scale(Math.cos(angle))
                     .add(angularBase.scale(Math.sin(angle)));
             points.add(arcCenter.add(radial.scale(ARC_RADIUS)));
         }
@@ -157,28 +167,34 @@ public final class PlacedBlockRotationHandles {
                 gesture,
                 arcCenter,
                 planeNormal,
-                List.copyOf(points));
+                Collections.unmodifiableList(points));
     }
 
     private static PlacedBlockRotationGesture nearestHit(
             List<ArcHandle> arcs,
-            Vec3 origin,
-            Vec3 direction,
+            Vec3d origin,
+            Vec3d direction,
             double maxDistance) {
-        if (origin == null || direction == null || direction.lengthSqr() < 1.0E-8D) {
+        if (origin == null || direction == null || direction.lengthSquared() < 1.0E-8D) {
             return null;
         }
-        Vec3 end = origin.add(direction.normalize().scale(maxDistance));
+        Vec3d end = origin.add(direction.normalize().scale(maxDistance));
         PlacedBlockRotationGesture nearest = null;
         double nearestDistance = Double.POSITIVE_INFINITY;
         for (ArcHandle arc : arcs) {
-            for (Vec3 point : arc.points()) {
-                AABB hitBox = new AABB(point, point).inflate(HIT_RADIUS);
-                var hit = hitBox.clip(origin, end);
-                if (hit.isEmpty()) {
+            for (Vec3d point : arc.points()) {
+                AxisAlignedBB hitBox = new AxisAlignedBB(
+                        point.x - HIT_RADIUS,
+                        point.y - HIT_RADIUS,
+                        point.z - HIT_RADIUS,
+                        point.x + HIT_RADIUS,
+                        point.y + HIT_RADIUS,
+                        point.z + HIT_RADIUS);
+                RayTraceResult hit = hitBox.calculateIntercept(origin, end);
+                if (hit == null || hit.hitVec == null) {
                     continue;
                 }
-                double distance = hit.get().distanceToSqr(origin);
+                double distance = hit.hitVec.squareDistanceTo(origin);
                 if (distance < nearestDistance) {
                     nearestDistance = distance;
                     nearest = arc.gesture();
@@ -188,23 +204,51 @@ public final class PlacedBlockRotationHandles {
         return nearest;
     }
 
-    private static Vec3 directionVector(Direction direction) {
-        return new Vec3(
-                direction.getStepX(),
-                direction.getStepY(),
-                direction.getStepZ());
+    private static Vec3d directionVector(EnumFacing direction) {
+        return new Vec3d(
+                direction.getXOffset(),
+                direction.getYOffset(),
+                direction.getZOffset());
     }
 
-    private static Direction horizontal(Direction direction) {
-        return direction != null && direction.getAxis().isHorizontal()
+    private static EnumFacing horizontal(EnumFacing direction) {
+        return direction != null && direction.getAxis() != EnumFacing.Axis.Y
                 ? direction
-                : Direction.NORTH;
+                : EnumFacing.NORTH;
     }
 
-    public record ArcHandle(
-            PlacedBlockRotationGesture gesture,
-            Vec3 center,
-            Vec3 planeNormal,
-            List<Vec3> points) {
+    /** 渲染器读取的不可变圆弧快照；方法名保持与主线数据载体访问器一致。 */
+    public static final class ArcHandle {
+        private final PlacedBlockRotationGesture gesture;
+        private final Vec3d center;
+        private final Vec3d planeNormal;
+        private final List<Vec3d> points;
+
+        private ArcHandle(
+                PlacedBlockRotationGesture gesture,
+                Vec3d center,
+                Vec3d planeNormal,
+                List<Vec3d> points) {
+            this.gesture = gesture;
+            this.center = center;
+            this.planeNormal = planeNormal;
+            this.points = points;
+        }
+
+        public PlacedBlockRotationGesture gesture() {
+            return this.gesture;
+        }
+
+        public Vec3d center() {
+            return this.center;
+        }
+
+        public Vec3d planeNormal() {
+            return this.planeNormal;
+        }
+
+        public List<Vec3d> points() {
+            return this.points;
+        }
     }
 }
