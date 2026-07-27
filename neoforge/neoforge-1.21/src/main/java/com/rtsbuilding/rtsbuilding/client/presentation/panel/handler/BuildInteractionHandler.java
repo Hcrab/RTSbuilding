@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.handler;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.mining.MiningModule;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.client.input.layer.CameraInputLayer;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
@@ -114,6 +115,10 @@ public final class BuildInteractionHandler {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return false;
 
+        BuildingModule buildingModule = kernel.module(BuildingModule.class);
+        if (buildingModule == null) return false;
+        if (buildingModule.getMode() != BuilderMode.BUILD) return false;
+
         var ray = CursorRaycaster.computeCursorRay(mc, screen);
         if (ray == null) return false;
 
@@ -123,9 +128,8 @@ public final class BuildInteractionHandler {
         MiningModule miningModule = kernel.module(MiningModule.class);
         if (miningModule == null) return false;
 
-        BuildingModule buildingModule = kernel.module(BuildingModule.class);
-        String toolItemId = buildingModule != null ? buildingModule.getSelectedItemId() : "";
-        ItemStack toolPreview = buildingModule != null ? buildingModule.getSelectedItemPreview() : ItemStack.EMPTY;
+        String toolItemId = buildingModule.getSelectedItemId();
+        ItemStack toolPreview = buildingModule.getSelectedItemPreview();
         int toolSlot = mc.player != null ? mc.player.getInventory().selected : 0;
 
         miningModule.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
@@ -161,18 +165,24 @@ public final class BuildInteractionHandler {
         if (buildingModule == null) return PASS;
 
         boolean shiftDown = isShiftDown();
+        boolean isBuildMode = buildingModule.getMode() == BuilderMode.BUILD;
 
         
         if (buildingModule.hasSelectedFluid()) {
+            if (!isBuildMode) return PASS;
             buildingModule.placeFluid(hit, shiftDown, ray.origin(), ray.direction());
             return CONSUMED;
         }
 
         
         if (buildingModule.hasSelectedItem()) {
+            if (!isBuildMode) return PASS;
             buildingModule.placeSelected(hit, shiftDown, ray.origin(), ray.direction());
             return CONSUMED;
         }
+
+        
+        if (isBuildMode) return PASS;
 
         
         if (buildingModule.isEmptyHandSelected()) {

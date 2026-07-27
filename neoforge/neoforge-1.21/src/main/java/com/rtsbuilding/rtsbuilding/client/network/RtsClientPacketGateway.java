@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.network;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.core.network.ActionType;
+import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
 import com.rtsbuilding.rtsbuilding.network.message.C2SAction;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -191,7 +192,7 @@ public final class RtsClientPacketGateway {
         else { clickedPos = BlockPos.containing(hitLocation); face = 1; }
         var t = tag(); t.putInt("entityId", entityId); t.putLong("clickedPos", clickedPos.asLong());
         t.putByte("face", face); t.putDouble("hitX", hitLocation.x); t.putDouble("hitY", hitLocation.y); t.putDouble("hitZ", hitLocation.z);
-        t.putByte("sourceType", (byte) 0); t.putByte("toolSlot", (byte) 0);
+        t.putByte("sourceType", (byte) NetworkConstants.INTERACT_EMPTY_HAND); t.putByte("toolSlot", (byte) 0);
         t.putDouble("rayOriginX", rayOrigin.x); t.putDouble("rayOriginY", rayOrigin.y); t.putDouble("rayOriginZ", rayOrigin.z);
         t.putDouble("rayDirX", rayDir.x); t.putDouble("rayDirY", rayDir.y); t.putDouble("rayDirZ", rayDir.z);
         PacketDistributor.sendToServer(act(ActionType.INTERACT_BLOCK, t));

@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.tracking;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
@@ -39,6 +41,13 @@ public final class RtsBlockTrackingEvents {
         if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
+        if (RtsCameraManager.isActive(player)) {
+            RtsStorageSession session = RtsServer.get().session().getIfPresent(player);
+            if (session == null || session.mode != BuilderMode.BUILD) {
+                event.setCanceled(true);
+                return;
+            }
+        }
         PlacedBlockTrackerData.get(serverLevel).mark(event.getPos());
         serverLevel.getServer().execute(() -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, event.getPos()));
         // 手动放置方块后刷新放置工作流进度（更新进度条和重启所需方块数）
@@ -63,6 +72,13 @@ public final class RtsBlockTrackingEvents {
         if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
+        if (RtsCameraManager.isActive(player)) {
+            RtsStorageSession session = RtsServer.get().session().getIfPresent(player);
+            if (session == null || session.mode != BuilderMode.BUILD) {
+                event.setCanceled(true);
+                return;
+            }
+        }
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(serverLevel);
         for (BlockSnapshot snapshot : event.getReplacedBlockSnapshots()) {
             tracker.mark(snapshot.getPos());
@@ -84,18 +100,25 @@ public final class RtsBlockTrackingEvents {
      */
     @SubscribeEvent
     public static void onBreak(BlockEvent.BreakEvent event) {
-        if (!(event.getPlayer() instanceof ServerPlayer)) {
+        if (!(event.getPlayer() instanceof ServerPlayer player)) {
             return;
         }
         if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
+        if (RtsCameraManager.isActive(player)) {
+            RtsStorageSession session = RtsServer.get().session().getIfPresent(player);
+            if (session == null || session.mode != BuilderMode.BUILD) {
+                event.setCanceled(true);
+                return;
+            }
+        }
         PlacedBlockTrackerData.get(serverLevel).clear(event.getPos());
         RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockBroken(serverLevel, event.getPos());
         // 手动破坏方块后刷新放置工作流进度（更新进度条和重启所需方块数）
-        RtsStorageSession session = RtsServer.get().session().getIfPresent((ServerPlayer) event.getPlayer());
+        RtsStorageSession session = RtsServer.get().session().getIfPresent(player);
         if (session != null) {
-            RtsProgressRefresher.refreshWorkflowProgress((ServerPlayer) event.getPlayer(), session);
+            RtsProgressRefresher.refreshWorkflowProgress(player, session);
         }
     }
 }

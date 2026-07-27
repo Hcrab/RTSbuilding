@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.group_button.CameraModeGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.group_button.UtilityButtonGroup;
@@ -121,6 +122,14 @@ public final class TopBarPanel implements RtsPanelApi {
         this.modeSwitcher = new ModeSwitcher();
         
         this.modeSwitcher.setOnModeChange(mode -> {
+            var bm = RtsClientKernel.get().module(BuildingModule.class);
+            if (bm != null) {
+                bm.setMode(switch (mode) {
+                    case BUILD -> BuilderMode.BUILD;
+                    case BLUEPRINT -> BuilderMode.BLUEPRINT;
+                    default -> BuilderMode.INTERACT;
+                });
+            }
         });
         
         this.logoPopup = createLogoPopup();

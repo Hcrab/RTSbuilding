@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -49,6 +51,10 @@ public final class RtsPlacementService {
             double hitZ, byte rotateSteps, boolean forcePlace, boolean skipIfOccupied, String itemId,
             ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild, boolean forceEmptyHand) {
+        if (RtsCameraManager.isActive(player)) {
+            var session = RtsServer.get().session().getIfPresent(player);
+            if (session == null || session.mode != BuilderMode.BUILD) return;
+        }
         double hitOffsetX = clickedPos == null ? 0.5D : hitX - clickedPos.getX();
         double hitOffsetY = clickedPos == null ? 0.5D : hitY - clickedPos.getY();
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();

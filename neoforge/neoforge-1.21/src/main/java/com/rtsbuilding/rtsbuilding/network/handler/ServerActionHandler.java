@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.network.message.C2SAction;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBlueprintJobService;
@@ -69,10 +70,12 @@ public final class ServerActionHandler {
             case REQUEST_CRAFTABLES -> RtsServer.get().crafting().requestCraftables(p, t.getString("search"), t.getBoolean("showUnavailable"), t.getInt("offset"), t.getInt("limit"), true, new ArrayList<>());
             case OPEN_CRAFT_TERMINAL -> RtsServer.get().crafting().openCraftTerminal(p);
             case PLACE_BLOCK -> {
+                if (!isBuildMode(p)) return;
                 Direction face = Direction.from3DDataValue(t.getByte("face"));
                 RtsServer.get().placement().placeSelected(p, BlockPos.of(t.getLong("pos")), face, t.getDouble("hitX"), t.getDouble("hitY"), t.getDouble("hitZ"), t.getByte("rotateSteps"), t.getBoolean("forcePlace"), t.getBoolean("skipIfOccupied"), t.getString("itemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getDouble("rayOriginX"), t.getDouble("rayOriginY"), t.getDouble("rayOriginZ"), t.getDouble("rayDirX"), t.getDouble("rayDirY"), t.getDouble("rayDirZ"), t.getBoolean("quickBuild"), false);
             }
             case PLACE_FLUID -> {
+                if (!isBuildMode(p)) return;
                 Direction face = Direction.from3DDataValue(t.getByte("face"));
                 RtsServer.get().fluid().placeFluid(p, BlockPos.of(t.getLong("pos")), face, t.getDouble("hitX"), t.getDouble("hitY"), t.getDouble("hitZ"), t.getBoolean("forcePlace"), t.getString("fluidId"), t.getDouble("rayOriginX"), t.getDouble("rayOriginY"), t.getDouble("rayOriginZ"), t.getDouble("rayDirX"), t.getDouble("rayDirY"), t.getDouble("rayDirZ"));
             }
@@ -80,21 +83,28 @@ public final class ServerActionHandler {
             case STORE_FLUID -> RtsServer.get().fluid().storeFluidFromContainer(p, t.getByte("sourceType"), t.getByte("toolSlot"), t.getString("itemId"));
             case SUBMIT_PENDING -> RtsServer.get().placement().submitPendingPlacement(p);
             case MINE_BLOCK -> {
+                if (!isBuildMode(p)) return;
                 Direction face = Direction.from3DDataValue(t.getByte("face"));
                 RtsServer.get().mining().mine(p, BlockPos.of(t.getLong("pos")), face, t.getBoolean("start"), t.getByte("toolSlot"), t.getString("toolItemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getBoolean("allowPlacedBlockRecovery"), t.getBoolean("toolProtectionEnabled"));
             }
             case ULTIMINE -> {
+                if (!isBuildMode(p)) return;
                 Direction face = Direction.from3DDataValue(t.getByte("face"));
                 RtsServer.get().mining().startUltimine(p, BlockPos.of(t.getLong("pos")), face, t.getByte("toolSlot"), t.getString("toolItemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getShort("limit") & 0xFFFF, t.getByte("mode"), t.getBoolean("toolProtectionEnabled"));
             }
-            case AREA_MINE -> RtsServer.get().mining().areaMine(p, t.getInt("minX"), t.getInt("maxX"), t.getInt("minY"), t.getInt("maxY"), t.getInt("minZ"), t.getInt("maxZ"), t.getByte("toolSlot"), t.getString("toolItemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getByte("shapeType"), t.getByte("fillType"), t.getBoolean("toolProtectionEnabled"));
+            case AREA_MINE -> {
+                if (!isBuildMode(p)) return;
+                RtsServer.get().mining().areaMine(p, t.getInt("minX"), t.getInt("maxX"), t.getInt("minY"), t.getInt("maxY"), t.getInt("minZ"), t.getInt("maxZ"), t.getByte("toolSlot"), t.getString("toolItemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getByte("shapeType"), t.getByte("fillType"), t.getBoolean("toolProtectionEnabled"));
+            }
             case AREA_DESTROY -> {
+                if (!isBuildMode(p)) return;
                 var list = t.getList("positions", net.minecraft.nbt.Tag.TAG_LONG);
                 var positions = new ArrayList<BlockPos>();
                 for (int i = 0; i < list.size(); i++) positions.add(BlockPos.of(((net.minecraft.nbt.LongTag) list.get(i)).getAsLong()));
                 RtsServer.get().mining().areaDestroy(p, positions, t.getByte("toolSlot"), t.getString("toolItemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getBoolean("toolProtectionEnabled"));
             }
             case BREAK -> {
+                if (!isBuildMode(p)) return;
                 Direction face = Direction.from3DDataValue(t.getByte("face"));
                 RtsPlacedRecoveryService.breakPlaced(p, BlockPos.of(t.getLong("pos")), face, t.getBoolean("allowAdjacentFallback"));
             }
@@ -124,5 +134,11 @@ public final class ServerActionHandler {
             case PATHFIND -> RtsServer.get().pathfinding().goTo(p, BlockPos.of(t.getLong("target")));
             default -> LOG.debug("Unhandled: {} from {}", msg.actionType(), p.getName().getString());
         }
+    }
+
+    private static boolean isBuildMode(ServerPlayer p) {
+        if (!RtsCameraManager.isActive(p)) return true;
+        var session = RtsServer.get().session().getIfPresent(p);
+        return session != null && session.mode == BuilderMode.BUILD;
     }
 }
