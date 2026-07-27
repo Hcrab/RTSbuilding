@@ -1,179 +1,98 @@
 package com.rtsbuilding.rtsbuilding.compat.create;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.EntityBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 import javax.annotation.Nullable;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 
 /**
- * Create 蓝图放置的窄兼容插头。
+ * Create Legacy（非官方 1.12.2 回移植）的蓝图放置隔离层。
  *
- * <p>Create 的结构蓝图不会把传送带、保险库等方块实体的运行时网络数据原样写回世界：
- * 它先通过自己的安全 NBT 写出器重建可复制配置，并且放置传送带时刻意不触发邻居更新。
- * RTS 导入的原版结构 NBT 可能仍包含旧世界的绝对 {@code Controller}/{@code LastKnownPos}，
- * 若直接加载就会让新建筑继续引用旧坐标。</p>
- *
- * <p>本类只在方块命名空间为 {@code create} 时生效。通过反射调用 Create 已公开的
- * {@code BlockHelper.prepareBlockEntityData}，因此 RTS 本身不对 Create 建立硬依赖；
- * Create 不存在时不会加载任何第三方类型。</p>
+ * <p>Create Legacy 没有现代 Create 的 {@code BlockHelper.prepareBlockEntityData} 或结构蓝图 API，
+ * 所以这里绝不反射调用不存在的现代类。普通方块始终使用原版 Forge 放置路径；仅对确认属于
+ * {@code create} 命名空间的旧版传送带做最小 NBT 清理，避免复制运行时物品与运动状态。</p>
  */
 public final class BlueprintCreatePlacementCompat {
     private static final String CREATE_NAMESPACE = "create";
-    private static final String BELT_PATH = "belt";
-    private static final int UPDATE_CLIENTS = Block.UPDATE_CLIENTS;
-    private static final int UPDATE_CLIENTS_KNOWN_SHAPE =
-            Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE;
-    private static volatile Method prepareBlockEntityData;
-    private static volatile boolean reflectionLookupAttempted;
+    private static final String BELT_STRAIGHT = "belt_straight";
+    private static final String BELT_DIAGONAL = "belt_diagonal";
+    private static final int NOTIFY_NEIGHBORS_AND_CLIENTS = 3;
 
     private BlueprintCreatePlacementCompat() {
     }
 
-    /** Create 的传送带必须等整条蓝图放完后自行初始化，不能在每一段落地时通知邻居。 */
-    public static int placementFlags(BlockState state) {
-        if (!isCreate(state)) {
-            return Block.UPDATE_ALL;
-        }
-        return isCreateBelt(state) ? UPDATE_CLIENTS : UPDATE_CLIENTS_KNOWN_SHAPE;
+    /** 1.12.2 无 UPDATE_KNOWN_SHAPE；Create Legacy 也没有要求抑制邻居通知的公开放置协议。 */
+    public static int placementFlags(IBlockState state) {
+        return NOTIFY_NEIGHBORS_AND_CLIENTS;
     }
 
     /**
-     * 把原始结构 NBT 转成 Create 自己认可的安全蓝图 NBT。
-     * 反射不可用时只清理已确认会携带旧绝对坐标的传送带/多方块运行时字段。
+     * 返回可安全交给 1.12 TileEntity.readFromNBT 的副本。
+     * Create Legacy 缺失时本方法只做原样复制，不会禁用或跳过蓝图放置。
      */
     @Nullable
-    public static CompoundTag prepareBlockEntityTag(
-            ServerLevel level, BlockPos target, BlockState state, @Nullable CompoundTag original) {
-        if (original == null || original.isEmpty() || !isCreate(state)) {
+    public static NBTTagCompound prepareBlockEntityTag(
+            WorldServer level, BlockPos target, IBlockState state,
+            @Nullable NBTTagCompound original) {
+        if (original == null || original.isEmpty()) {
             return original;
         }
-        CompoundTag prepared = prepareWithCreate(level, target, state, original);
-        if (prepared == null) {
-            prepared = fallbackSanitize(state, original);
+        NBTTagCompound prepared = original.copy();
+        if (isLegacyBelt(state)) {
+            // 这些字段是 Create Legacy TileEntityBeltBase 的瞬时运输/插值状态，不能跨世界复制。
+            removeAll(prepared,
+                    "left", "right", "leftPos", "rightPos", "leftPosOld", "rightPosOld",
+                    "speed", "lastUpdateTick", "flag");
         }
-        if (isCreateBelt(state)) {
-            copyIfPresent(original, prepared, "Casing");
-            copyIfPresent(original, prepared, "Covered");
-            copyIfPresent(original, prepared, "Dye");
-        }
+        prepared.setInteger("x", target.getX());
+        prepared.setInteger("y", target.getY());
+        prepared.setInteger("z", target.getZ());
         return prepared;
     }
 
-    /** Create 的标准蓝图链路会在 NBT 应用后补一次 setPlacedBy，以便模组完成连接初始化。 */
+    /**
+     * 使用 1.12 原版放置回调完成初始化。Create Legacy 未安装时，普通模组与原版方块行为不变。
+     */
     public static void finishPlacement(
-            ServerLevel level, BlockPos target, BlockState state, @Nullable ItemStack stack) {
-        if (!isCreate(state)) {
+            WorldServer level, BlockPos target, IBlockState state, @Nullable ItemStack stack) {
+        if (level == null || target == null || !isCreateBlock(state)) {
             return;
         }
         try {
-            state.getBlock().setPlacedBy(
+            Block block = state.getBlock();
+            block.onBlockPlacedBy(
                     level, target, state, null, stack == null ? ItemStack.EMPTY : stack);
         } catch (RuntimeException ignored) {
-            // 第三方放置回调不应把已经成功写入世界的整个蓝图任务打断。
+            // 可选第三方回调失败不能回滚已经成功写入世界的整批蓝图。
         }
     }
 
-    private static CompoundTag prepareWithCreate(
-            ServerLevel level, BlockPos target, BlockState state, CompoundTag original) {
-        if (!(state.getBlock() instanceof EntityBlock entityBlock)) {
-            return new CompoundTag();
-        }
-        BlockEntity virtual = entityBlock.newBlockEntity(target, state);
-        if (virtual == null) {
-            return new CompoundTag();
-        }
-        CompoundTag loadTag = original.copy();
-        loadTag.putInt("x", target.getX());
-        loadTag.putInt("y", target.getY());
-        loadTag.putInt("z", target.getZ());
-        try {
-            virtual.loadWithComponents(loadTag, level.registryAccess());
-            Method method = resolvePrepareMethod(state);
-            if (method == null) {
-                return null;
-            }
-            Object result = method.invoke(null, level, state, virtual);
-            return result instanceof CompoundTag tag ? tag.copy() : new CompoundTag();
-        } catch (IllegalAccessException | InvocationTargetException | RuntimeException ignored) {
-            return null;
-        }
-    }
-
-    @Nullable
-    private static Method resolvePrepareMethod(BlockState state) {
-        if (reflectionLookupAttempted) {
-            return prepareBlockEntityData;
-        }
-        synchronized (BlueprintCreatePlacementCompat.class) {
-            if (reflectionLookupAttempted) {
-                return prepareBlockEntityData;
-            }
-            reflectionLookupAttempted = true;
-            try {
-                ClassLoader loader = state.getBlock().getClass().getClassLoader();
-                Class<?> helper = Class.forName(
-                        "com.simibubi.create.foundation.utility.BlockHelper", false, loader);
-                prepareBlockEntityData = helper.getMethod(
-                        "prepareBlockEntityData",
-                        net.minecraft.world.level.Level.class,
-                        BlockState.class,
-                        BlockEntity.class);
-            } catch (ClassNotFoundException | NoSuchMethodException | LinkageError ignored) {
-                prepareBlockEntityData = null;
-            }
-            return prepareBlockEntityData;
-        }
-    }
-
-    private static CompoundTag fallbackSanitize(BlockState state, CompoundTag original) {
-        CompoundTag sanitized = original.copy();
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-        String path = id == null ? "" : id.getPath();
-        if (BELT_PATH.equals(path)) {
-            removeAll(sanitized,
-                    "Controller", "IsController", "Length", "Index", "Inventory",
-                    "Speed", "NeedsSpeedUpdate");
-        } else if ("item_vault".equals(path) || "fluid_tank".equals(path)) {
-            removeAll(sanitized,
-                    "Controller", "LastKnownPos", "Length", "Size", "Inventory", "StorageType");
-        }
-        return sanitized;
-    }
-
-    private static void removeAll(CompoundTag tag, String... keys) {
+    private static void removeAll(NBTTagCompound tag, String... keys) {
         for (String key : keys) {
-            tag.remove(key);
+            tag.removeTag(key);
         }
     }
 
-    private static void copyIfPresent(CompoundTag source, CompoundTag target, String key) {
-        if (source.contains(key) && source.get(key) != null) {
-            target.put(key, source.get(key).copy());
-        }
-    }
-
-    private static boolean isCreate(BlockState state) {
-        if (state == null) {
+    private static boolean isLegacyBelt(IBlockState state) {
+        ResourceLocation id = registryName(state);
+        if (id == null || !CREATE_NAMESPACE.equals(id.getNamespace())) {
             return false;
         }
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        return BELT_STRAIGHT.equals(id.getPath()) || BELT_DIAGONAL.equals(id.getPath());
+    }
+
+    private static boolean isCreateBlock(IBlockState state) {
+        ResourceLocation id = registryName(state);
         return id != null && CREATE_NAMESPACE.equals(id.getNamespace());
     }
 
-    private static boolean isCreateBelt(BlockState state) {
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
-        return id != null
-                && CREATE_NAMESPACE.equals(id.getNamespace())
-                && BELT_PATH.equals(id.getPath());
+    @Nullable
+    private static ResourceLocation registryName(IBlockState state) {
+        return state == null || state.getBlock() == null ? null : state.getBlock().getRegistryName();
     }
 }

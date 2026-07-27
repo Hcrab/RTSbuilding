@@ -1,295 +1,349 @@
 package com.rtsbuilding.rtsbuilding.compat.bd;
 
+import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
-import com.wintercogs.beyonddimensions.api.capability.helper.unordered.FluidUnifiedStorageHandler;
-import com.wintercogs.beyonddimensions.api.dimensionnet.DimensionsNet;
-import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
-import com.wintercogs.beyonddimensions.api.storage.handler.impl.AbstractUnorderedStackHandler;
-import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
-import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.items.IItemHandler;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import javax.annotation.Nullable;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
+/**
+ * Beyond Dimensions 1.12.2 的可选兼容入口。
+ *
+ * <p>BD 0.1.7.x 确实提供 Forge 1.12.2 版本，但包名和存储 API 与现代版完全不同。
+ * 这里仅在确认模组存在后反射解析旧版公开 API，因而未安装 BD 时服务端可以安全加载本类。
+ * API 形状不匹配时会明确把适配器判为不可用，不会伪造一个空网络。</p>
+ */
 public final class RtsBdCompat {
+    private static final String MOD_ID = "beyonddimensions";
+    private static final String DIMENSIONS_NET =
+            "com.wintercogs.beyonddimensions.DataBase.DimensionsNet";
+    private static final String UNIFIED_STORAGE =
+            "com.wintercogs.beyonddimensions.DataBase.Storage.UnifiedStorage";
+    private static final String ITEM_STACK_TYPE =
+            "com.wintercogs.beyonddimensions.DataBase.Stack.ItemStackType";
+    private static final String ITEM_HANDLER =
+            "com.wintercogs.beyonddimensions.DataBase.Storage.ItemUnifiedStorageHandler";
+    private static final String FLUID_HANDLER =
+            "com.wintercogs.beyonddimensions.DataBase.Storage.FluidUnifiedStorageHandler";
+
+    private static volatile LegacyApi api;
+    private static volatile boolean apiLookupAttempted;
+    private static volatile String unavailableReason = "Beyond Dimensions 未安装";
+
     public interface DirectExtractHandler {
         ItemStack tryExtractItem(Item target, int amount, boolean simulate);
     }
+
     private RtsBdCompat() {
     }
 
+    /** 只有模组存在且 0.1.7.x API 完整匹配时才返回 true。 */
     public static boolean isAvailable() {
-        return ModList.get().isLoaded("beyonddimensions");
+        return resolveApi() != null;
     }
 
-    public static boolean hasPrimaryNetwork(ServerPlayer player) {
-        if (!isAvailable() || player == null || player.getServer() == null) {
-            return false;
-        }
-        return DimensionsNet.getPrimaryNetFromPlayer(player) != null;
+    /** 供诊断界面/日志区分“没装”与“旧版 API 不匹配”。 */
+    public static String getUnavailableReason() {
+        resolveApi();
+        return unavailableReason;
     }
 
-    public static IItemHandler createNetworkItemHandler(ServerPlayer player) {
-        if (!isAvailable() || player == null || player.getServer() == null) {
-            return null;
-        }
-        DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
-        if (net == null) {
-            return null;
-        }
-        return new BdDirectItemHandler(net.getUnifiedStorage());
+    public static boolean hasPrimaryNetwork(EntityPlayerMP player) {
+        LegacyApi resolved = resolveApi();
+        return resolved != null && player != null && resolved.getNetwork(player) != null;
     }
 
-    public static IFluidHandler createNetworkFluidHandler(ServerPlayer player) {
-        if (!isAvailable() || player == null || player.getServer() == null) {
+    @Nullable
+    public static IItemHandler createNetworkItemHandler(EntityPlayerMP player) {
+        LegacyApi resolved = resolveApi();
+        if (resolved == null || player == null) {
             return null;
         }
-        DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
-        if (net == null) {
+        Object storage = resolved.getStorage(player);
+        if (storage == null) {
             return null;
         }
-        return new FluidUnifiedStorageHandler(net.getUnifiedStorage());
+        try {
+            Object raw = resolved.itemHandlerConstructor.newInstance(storage);
+            if (!(raw instanceof IItemHandler)) {
+                unavailableReason = "Beyond Dimensions 物品适配器未实现 Forge IItemHandler";
+                return null;
+            }
+            return new BdNetworkItemHandler((IItemHandler) raw, storage, resolved);
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException
+                | RuntimeException | LinkageError failure) {
+            unavailableReason = "Beyond Dimensions 物品适配器初始化失败: "
+                    + failure.getClass().getSimpleName();
+            return null;
+        }
     }
 
-    /**
-     * Releases the internal caches held by a BD network handler so the GC
-     * can reclaim memory immediately. Safe to call on non-BD handlers —
-     * the instanceof check will simply skip them.
-     */
+    @Nullable
+    public static IFluidHandler createNetworkFluidHandler(EntityPlayerMP player) {
+        LegacyApi resolved = resolveApi();
+        if (resolved == null || player == null) {
+            return null;
+        }
+        Object storage = resolved.getStorage(player);
+        if (storage == null) {
+            return null;
+        }
+        try {
+            Object raw = resolved.fluidHandlerConstructor.newInstance(storage);
+            if (raw instanceof IFluidHandler) {
+                return (IFluidHandler) raw;
+            }
+            unavailableReason = "Beyond Dimensions 流体适配器未实现 Forge IFluidHandler";
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException
+                | RuntimeException | LinkageError failure) {
+            unavailableReason = "Beyond Dimensions 流体适配器初始化失败: "
+                    + failure.getClass().getSimpleName();
+        }
+        return null;
+    }
+
     public static void releaseNetworkHandler(IItemHandler handler) {
-        if (handler instanceof BdDirectItemHandler bd) {
-            bd.release();
+        if (handler instanceof BdNetworkItemHandler) {
+            ((BdNetworkItemHandler) handler).release();
         }
     }
 
     /**
-     * Refreshes the internal cache of a BD network handler, re-reading the
-     * current BD network state without creating a new handler object.
-     * <p>
-     * This avoids the unmount/mount cycle that would happen if the handler
-     * were replaced entirely, letting the tick service reuse its existing
-     * slot cache.
+     * 1.12.2 的 BD handler 直接读取 UnifiedStorage，不持有槽位快照，因此刷新无需重建。
+     * 保留此入口以维持主服务的生命周期协议，并拒绝刷新已经 release 的包装器。
      */
     public static void refreshNetworkHandler(IItemHandler handler) {
-        if (handler instanceof BdDirectItemHandler bd) {
-            bd.refreshCache();
+        if (handler instanceof BdNetworkItemHandler) {
+            ((BdNetworkItemHandler) handler).refresh();
         }
     }
 
-    public static String getNetworkDisplayName(ServerPlayer player) {
-        if (!isAvailable() || player == null || player.getServer() == null) {
-            return "Beyond Dimensions Network";
-        }
-        DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
-        if (net == null) {
-            return "Beyond Dimensions Network";
-        }
-        String customName = getCustomNameOrDefault(net);
-        if (customName != null && !customName.isEmpty()) {
-            return customName;
-        }
+    public static String getNetworkDisplayName(EntityPlayerMP player) {
+        // BD 0.1.7.x 没有公开的网络自定义名称接口。
         return "Beyond Dimensions Network";
     }
 
-    private static String getCustomNameOrDefault(DimensionsNet net) {
-        try {
-            return net.getCustomName();
-        } catch (NoSuchMethodError ignored) {
+    @Nullable
+    private static LegacyApi resolveApi() {
+        if (!Loader.isModLoaded(MOD_ID)) {
+            unavailableReason = "Beyond Dimensions 未安装";
             return null;
+        }
+        if (apiLookupAttempted) {
+            return api;
+        }
+        synchronized (RtsBdCompat.class) {
+            if (apiLookupAttempted) {
+                return api;
+            }
+            try {
+                ClassLoader loader = RtsBdCompat.class.getClassLoader();
+                Class<?> dimensionsNet = Class.forName(DIMENSIONS_NET, false, loader);
+                Class<?> unifiedStorage = Class.forName(UNIFIED_STORAGE, false, loader);
+                Class<?> itemStackType = Class.forName(ITEM_STACK_TYPE, false, loader);
+                Class<?> itemHandler = Class.forName(ITEM_HANDLER, false, loader);
+                Class<?> fluidHandler = Class.forName(FLUID_HANDLER, false, loader);
+                LegacyApi resolved = new LegacyApi(
+                        dimensionsNet.getMethod("getNetFromPlayer", EntityPlayer.class),
+                        dimensionsNet.getMethod("getUnifiedStorage"),
+                        itemHandler.getConstructor(unifiedStorage),
+                        fluidHandler.getConstructor(unifiedStorage),
+                        itemStackType.getConstructor(ItemStack.class),
+                        unifiedStorage.getMethod("getStackByStack",
+                                Class.forName(
+                                        "com.wintercogs.beyonddimensions.DataBase.Stack.IStackType",
+                                        false, loader)),
+                        itemStackType.getMethod("getStackAmount"));
+                api = resolved;
+                unavailableReason = "";
+            } catch (ClassNotFoundException | NoSuchMethodException | SecurityException
+                    | LinkageError failure) {
+                api = null;
+                unavailableReason = "Beyond Dimensions 1.12.2 API 不兼容: "
+                        + failure.getClass().getSimpleName();
+            } finally {
+                apiLookupAttempted = true;
+            }
+            return api;
         }
     }
 
-    private static final class BdDirectItemHandler implements IItemHandler, ReportedCountItemHandler, DirectExtractHandler,
-            com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler {
-        private final UnifiedStorage storage;
-        private final Map<Item, ItemStackKey> itemToKey;
-        private final List<ItemStackKey> keys;
-        private final List<ItemStack> displayStacks;
-        private final List<Long> counts;
+    /** 精确对应 BD 0.1.7.x 的公开 1.12.2 API 形状。 */
+    private static final class LegacyApi {
+        private final Method getNetFromPlayer;
+        private final Method getUnifiedStorage;
+        private final Constructor<?> itemHandlerConstructor;
+        private final Constructor<?> fluidHandlerConstructor;
+        private final Constructor<?> itemStackTypeConstructor;
+        private final Method getStackByStack;
+        private final Method getStackAmount;
 
-        private BdDirectItemHandler(UnifiedStorage storage) {
-            this.storage = storage;
-            this.itemToKey = new HashMap<>();
-            this.keys = new ArrayList<>();
-            this.displayStacks = new ArrayList<>();
-            this.counts = new ArrayList<>();
-            rebuildCache();
+        private LegacyApi(Method getNetFromPlayer, Method getUnifiedStorage,
+                Constructor<?> itemHandlerConstructor, Constructor<?> fluidHandlerConstructor,
+                Constructor<?> itemStackTypeConstructor, Method getStackByStack,
+                Method getStackAmount) {
+            this.getNetFromPlayer = getNetFromPlayer;
+            this.getUnifiedStorage = getUnifiedStorage;
+            this.itemHandlerConstructor = itemHandlerConstructor;
+            this.fluidHandlerConstructor = fluidHandlerConstructor;
+            this.itemStackTypeConstructor = itemStackTypeConstructor;
+            this.getStackByStack = getStackByStack;
+            this.getStackAmount = getStackAmount;
         }
 
-        private void rebuildCache() {
-            this.itemToKey.clear();
-            this.keys.clear();
-            this.displayStacks.clear();
-            this.counts.clear();
-            var bucket = storage.<AbstractUnorderedStackHandler.TypeBucket>getBucket(ItemStackKey.ID);
-            if (bucket.isEmpty()) {
-                return;
+        @Nullable
+        private Object getNetwork(EntityPlayerMP player) {
+            try {
+                return getNetFromPlayer.invoke(null, player);
+            } catch (IllegalAccessException | InvocationTargetException | RuntimeException
+                    | LinkageError failure) {
+                unavailableReason = "Beyond Dimensions 网络查询失败: "
+                        + failure.getClass().getSimpleName();
+                return null;
             }
-            AbstractUnorderedStackHandler.TypeBucket tb = bucket.get();
-            for (int i = 0; i < tb.size(); i++) {
-                var rawKey = tb.get(i);
-                if (!(rawKey instanceof ItemStackKey key)) {
-                    continue;
-                }
-                KeyAmount entry = storage.getStackByKey(key);
-                long amount = entry.amount();
-                if (amount <= 0L) {
-                    continue;
-                }
-                Object outStack = storage.getOutStackByKey(key);
-                if (!(outStack instanceof ItemStack itemStack) || itemStack.isEmpty()) {
-                    continue;
-                }
-                this.itemToKey.put(itemStack.getItem(), key);
-                this.keys.add(key);
-                this.displayStacks.add(itemStack.copyWithCount(1));
-                this.counts.add(amount);
+        }
+
+        @Nullable
+        private Object getStorage(EntityPlayerMP player) {
+            Object network = getNetwork(player);
+            if (network == null) {
+                return null;
             }
+            try {
+                return getUnifiedStorage.invoke(network);
+            } catch (IllegalAccessException | InvocationTargetException | RuntimeException
+                    | LinkageError failure) {
+                unavailableReason = "Beyond Dimensions 存储查询失败: "
+                        + failure.getClass().getSimpleName();
+                return null;
+            }
+        }
+
+        private long reportedCount(Object storage, ItemStack displayed) {
+            if (displayed == null || displayed.isEmpty()) {
+                return 0L;
+            }
+            try {
+                // 构造器会保留 item、metadata 与完整 NBT；查询不会把同物品的不同变体合并。
+                Object key = itemStackTypeConstructor.newInstance(displayed.copy());
+                Object stored = getStackByStack.invoke(storage, key);
+                if (stored == null) {
+                    return 0L;
+                }
+                Object amount = getStackAmount.invoke(stored);
+                return amount instanceof Number ? Math.max(0L, ((Number) amount).longValue()) : 0L;
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException
+                    | RuntimeException | LinkageError failure) {
+                return Math.max(0, displayed.getCount());
+            }
+        }
+    }
+
+    /**
+     * 包装 BD 自带的真实 Forge handler，同时补上 RTS 的任意槽和 long 数量协议。
+     * 所有返回值都来自 BD handler 本身，所以 metadata/NBT、simulate 与 remainder 语义不会丢失。
+     */
+    private static final class BdNetworkItemHandler implements IItemHandler,
+            ReportedCountItemHandler, DirectExtractHandler, AnySlotInsertItemHandler {
+        private IItemHandler delegate;
+        private Object storage;
+        private LegacyApi api;
+
+        private BdNetworkItemHandler(IItemHandler delegate, Object storage, LegacyApi api) {
+            this.delegate = delegate;
+            this.storage = storage;
+            this.api = api;
         }
 
         @Override
         public int getSlots() {
-            return this.keys.size();
+            return delegate == null ? 0 : delegate.getSlots();
         }
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            if (slot < 0 || slot >= this.keys.size()) {
-                return ItemStack.EMPTY;
-            }
-            long amount = this.counts.get(slot);
-            if (amount <= 0L) {
-                return ItemStack.EMPTY;
-            }
-            ItemStack display = this.displayStacks.get(slot);
-            ItemStack result = display.copy();
-            result.setCount((int) Math.min(Integer.MAX_VALUE, amount));
-            return result;
+            return delegate == null ? ItemStack.EMPTY : delegate.getStackInSlot(slot);
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) {
-                return ItemStack.EMPTY;
+            if (delegate == null || stack == null || stack.isEmpty()) {
+                return stack == null ? ItemStack.EMPTY : stack;
             }
-            KeyAmount remainder = storage.insert(new ItemStackKey(stack), stack.getCount(), simulate);
-            if (!simulate && remainder.isEmpty()) {
-                rebuildCache();
-            }
-            if (remainder.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            Object rawStack = remainder.toStack();
-            if (rawStack instanceof ItemStack result) {
-                return result;
-            }
-            return stack.copy();
+            // BD 0.1.7.x 的 ItemStackType 构造器持有传入对象；传副本避免其返回 remainder 时改写调用方。
+            return delegate.insertItem(slot, stack.copy(), simulate);
         }
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot < 0 || slot >= this.keys.size() || amount <= 0) {
-                return ItemStack.EMPTY;
-            }
-            ItemStackKey key = this.keys.get(slot);
-            if (key == null) {
-                return ItemStack.EMPTY;
-            }
-            KeyAmount extracted = storage.extract(key, amount, simulate, false);
-            if (!simulate) {
-                rebuildCache();
-            }
-            if (extracted.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            Object rawStack = extracted.toStack();
-            if (rawStack instanceof ItemStack result) {
-                return result;
-            }
-            return ItemStack.EMPTY;
+            return delegate == null || amount <= 0
+                    ? ItemStack.EMPTY : delegate.extractItem(slot, amount, simulate);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return delegate == null ? 0 : delegate.getSlotLimit(slot);
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return delegate != null && delegate.isItemValid(slot, stack);
         }
 
         @Override
         public ItemStack tryExtractItem(Item target, int amount, boolean simulate) {
-            if (target == null || amount <= 0) {
+            if (delegate == null || target == null || amount <= 0) {
                 return ItemStack.EMPTY;
             }
-            ItemStackKey key = this.itemToKey.get(target);
-            if (key == null) {
-                return ItemStack.EMPTY;
-            }
-            KeyAmount result = storage.extract(key, amount, simulate, false);
-            if (!simulate) {
-                rebuildCache();
-            }
-            if (result.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            Object rawStack = result.toStack();
-            if (rawStack instanceof ItemStack stack) {
-                return stack;
+            for (int slot = 0; slot < delegate.getSlots(); slot++) {
+                ItemStack candidate = delegate.getStackInSlot(slot);
+                if (candidate.isEmpty() || candidate.getItem() != target) {
+                    continue;
+                }
+                ItemStack extracted = delegate.extractItem(slot, amount, simulate);
+                if (!extracted.isEmpty()) {
+                    return extracted;
+                }
             }
             return ItemStack.EMPTY;
         }
 
-
         @Override
         public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
-            // BD's storage.insert() is slot-independent — just delegate to slot 0
+            // BD 的 1.12 handler 明确忽略 slot 参数并直接调用 UnifiedStorage.insert。
             return insertItem(0, stack, simulate);
         }
 
         @Override
         public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
-            // Use the existing O(1) item-to-key lookup
             return tryExtractItem(targetItem, amount, simulate);
         }
 
         @Override
-        public int getSlotLimit(int slot) {
-            return 64;
-        }
-
-        @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            return true;
-        }
-
-        @Override
         public long getReportedCount(int slot) {
-            if (slot < 0 || slot >= this.counts.size()) {
+            if (delegate == null || storage == null || api == null) {
                 return 0L;
             }
-            return Math.max(0L, this.counts.get(slot));
+            return api.reportedCount(storage, delegate.getStackInSlot(slot));
         }
 
-        /**
-         * Refreshes the internal cache by clearing and re-reading the
-         * current BD network state. Can be called on an existing handler
-         * to update its slot list without changing object identity.
-         */
-        void refreshCache() {
-            rebuildCache();
+        private void refresh() {
+            // 真实 handler 不缓存槽列表；只要尚未 release，下一次调用自然读取最新 UnifiedStorage。
         }
 
-        /**
-         * Clears internal caches and drops the storage reference so the GC
-         * can reclaim memory immediately. After this call the handler must
-         * NOT be used again.
-         */
-        void release() {
-            this.itemToKey.clear();
-            this.keys.clear();
-            this.displayStacks.clear();
-            this.counts.clear();
+        private void release() {
+            delegate = null;
+            storage = null;
+            api = null;
         }
     }
 }
