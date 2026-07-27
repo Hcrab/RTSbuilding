@@ -2,10 +2,11 @@ package com.rtsbuilding.rtsbuilding.server.loadout;
 
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.OptionalInt;
 
@@ -28,27 +29,27 @@ public final class MiningLoadoutState {
     /**
      * 获取指定角色绑定的工具槽位。
      */
-    public static OptionalInt getSlot(ServerPlayer player, MiningLoadoutRole role) {
-        CompoundTag loadout = loadoutTag(player);
+    public static OptionalInt getSlot(EntityPlayerMP player, MiningLoadoutRole role) {
+        NBTTagCompound loadout = loadoutTag(player);
         if (loadout == null) return OptionalInt.empty();
 
         String key = roleKey(role);
-        if (!loadout.contains(key)) return OptionalInt.empty();
+        if (!loadout.hasKey(key)) return OptionalInt.empty();
 
-        int slot = loadout.getInt(key);
+        int slot = loadout.getInteger(key);
         return slot >= MIN_SLOT && slot <= MAX_SLOT ? OptionalInt.of(slot) : OptionalInt.empty();
     }
 
     /**
      * 为指定角色绑定一个工具槽位，同时记录该槽位物品的指纹以检测后续变化。
      */
-    public static boolean setSlot(ServerPlayer player, MiningLoadoutRole role, int slot) {
+    public static boolean setSlot(EntityPlayerMP player, MiningLoadoutRole role, int slot) {
         if (slot < MIN_SLOT || slot > MAX_SLOT) return false;
 
-        CompoundTag loadout = loadoutTag(player);
+        NBTTagCompound loadout = loadoutTag(player);
         String key = roleKey(role);
-        loadout.putInt(key, slot);
-        loadout.putString(fingerprintKey(role), stackFingerprint(player.getInventory().getItem(slot)));
+        loadout.setInteger(key, slot);
+        loadout.setString(fingerprintKey(role), stackFingerprint(player.inventory.getStackInSlot(slot)));
         markDirty(player);
         return true;
     }
@@ -56,43 +57,44 @@ public final class MiningLoadoutState {
     /**
      * 清除指定角色的绑定信息（槽位和指纹）。
      */
-    public static void clearSlot(ServerPlayer player, MiningLoadoutRole role) {
-        CompoundTag loadout = loadoutTag(player);
+    public static void clearSlot(EntityPlayerMP player, MiningLoadoutRole role) {
+        NBTTagCompound loadout = loadoutTag(player);
         if (loadout == null) return;
-        loadout.remove(roleKey(role));
-        loadout.remove(fingerprintKey(role));
+        loadout.removeTag(roleKey(role));
+        loadout.removeTag(fingerprintKey(role));
         markDirty(player);
     }
 
     /**
      * 检查指定角色绑定的槽位中的物品是否仍然与记录的指纹匹配。
      */
-    public static boolean isStillMatching(ServerPlayer player, MiningLoadoutRole role) {
+    public static boolean isStillMatching(EntityPlayerMP player, MiningLoadoutRole role) {
         OptionalInt slotOpt = getSlot(player, role);
-        if (slotOpt.isEmpty()) return false;
+        if (!slotOpt.isPresent()) return false;
 
-        CompoundTag loadout = loadoutTag(player);
-        if (loadout == null || !loadout.contains(fingerprintKey(role))) return false;
+        NBTTagCompound loadout = loadoutTag(player);
+        if (loadout == null || !loadout.hasKey(fingerprintKey(role))) return false;
 
         String expected = loadout.getString(fingerprintKey(role));
-        String current = stackFingerprint(player.getInventory().getItem(slotOpt.getAsInt()));
+        String current = stackFingerprint(player.inventory.getStackInSlot(slotOpt.getAsInt()));
         return expected.equals(current);
     }
 
     /**
      * 获取指定角色绑定的槽位中的物品堆。
      */
-    public static ItemStack getAssignedStack(ServerPlayer player, MiningLoadoutRole role) {
+    public static ItemStack getAssignedStack(EntityPlayerMP player, MiningLoadoutRole role) {
         OptionalInt slot = getSlot(player, role);
-        if (slot.isEmpty()) return ItemStack.EMPTY;
-        return player.getInventory().getItem(slot.getAsInt());
+        if (!slot.isPresent()) return ItemStack.EMPTY;
+        return player.inventory.getStackInSlot(slot.getAsInt());
     }
 
     // ── 内部方法 ──
 
     private static String stackFingerprint(ItemStack stack) {
         if (stack.isEmpty()) return "";
-        return BuiltInRegistries.ITEM.getKey(stack.getItem()).toString() + ":" + stack.getDamageValue();
+        ResourceLocation key = Item.REGISTRY.getNameForObject(stack.getItem());
+        return key == null ? "" : key.toString() + ":" + stack.getItemDamage();
     }
 
     private static String roleKey(MiningLoadoutRole role) {
@@ -104,12 +106,12 @@ public final class MiningLoadoutState {
     }
 
     /** 从 DataCluster 获取装备栏 NBT 标签（永不返回 null） */
-    private static CompoundTag loadoutTag(ServerPlayer player) {
+    private static NBTTagCompound loadoutTag(EntityPlayerMP player) {
         return SaveScheduler.INSTANCE.player(player).get(PlayerComponents.MINING_LOADOUT);
     }
 
     /** 标记装备栏数据为脏，下次 SaveScheduler 刷盘时写入 */
-    private static void markDirty(ServerPlayer player) {
+    private static void markDirty(EntityPlayerMP player) {
         SaveScheduler.INSTANCE.player(player).set(PlayerComponents.MINING_LOADOUT,
                 SaveScheduler.INSTANCE.player(player).get(PlayerComponents.MINING_LOADOUT));
     }

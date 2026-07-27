@@ -1,10 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.loadout;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.block.material.Material;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.OptionalInt;
 
@@ -27,18 +28,32 @@ public final class RtsMiningRules {
      * @param state 要挖掘的方块状态
      * @return 所需的工具角色，如果不需要特定工具则返回 null
      */
-    public static MiningLoadoutRole requiredRole(BlockState state) {
-        if (state.is(BlockTags.MINEABLE_WITH_PICKAXE)) {
-            return MiningLoadoutRole.PICK;
-        }
-        if (state.is(BlockTags.MINEABLE_WITH_SHOVEL)) {
+    public static MiningLoadoutRole requiredRole(IBlockState state) {
+        if (state == null) return null;
+        String harvestTool = state.getBlock().getHarvestTool(state);
+        if ("pickaxe".equalsIgnoreCase(harvestTool)) return MiningLoadoutRole.PICK;
+        if ("shovel".equalsIgnoreCase(harvestTool) || "spade".equalsIgnoreCase(harvestTool)) {
             return MiningLoadoutRole.SHOVEL;
         }
-        if (state.is(BlockTags.MINEABLE_WITH_AXE)) {
-            return MiningLoadoutRole.AXE;
+        if ("axe".equalsIgnoreCase(harvestTool)) return MiningLoadoutRole.AXE;
+        if ("hoe".equalsIgnoreCase(harvestTool)) return MiningLoadoutRole.HOE;
+        return roleFromMaterial(state.getMaterial());
+    }
+
+    /**
+     * 部分 1.12 原版方块直到 Forge 完整注册阶段才暴露 harvestTool；定向测试、
+     * 早期生命周期和少数旧模组方块因此需要按原版材质补齐等价分类。
+     */
+    private static MiningLoadoutRole roleFromMaterial(Material material) {
+        if (material == Material.ROCK || material == Material.IRON || material == Material.ANVIL) {
+            return MiningLoadoutRole.PICK;
         }
-        if (state.is(BlockTags.MINEABLE_WITH_HOE)) {
-            return MiningLoadoutRole.HOE;
+        if (material == Material.GROUND || material == Material.GRASS || material == Material.SAND
+                || material == Material.SNOW || material == Material.CRAFTED_SNOW || material == Material.CLAY) {
+            return MiningLoadoutRole.SHOVEL;
+        }
+        if (material == Material.WOOD || material == Material.GOURD) {
+            return MiningLoadoutRole.AXE;
         }
         return null;
     }
@@ -57,23 +72,16 @@ public final class RtsMiningRules {
      * @param state 要挖掘的方块状态
      * @return 所需的挖掘等级
      */
-    public static int requiredLevel(BlockState state) {
-        if (state.is(BlockTags.NEEDS_DIAMOND_TOOL)) {
-            return 3;
-        }
-        if (state.is(BlockTags.NEEDS_IRON_TOOL)) {
-            return 2;
-        }
-        if (state.is(BlockTags.NEEDS_STONE_TOOL)) {
-            return 1;
-        }
-        if (state.is(BlockTags.MINEABLE_WITH_PICKAXE)) {
+    public static int requiredLevel(IBlockState state) {
+        if (state == null) return 0;
+        int forgeLevel = state.getBlock().getHarvestLevel(state);
+        if (requiredRole(state) == MiningLoadoutRole.PICK) {
             // 1.21.1 原版石头、平滑石头等普通镐类方块不一定带 NEEDS_STONE_TOOL；
             // 但对 RTS 生存平衡来说，它们仍然是“需要基础采掘插件”的对象。
             // 泥土、沙子等非镐类方块仍保持 0 级，可以无采掘插件范围挖掘。
-            return 1;
+            return Math.max(1, forgeLevel);
         }
-        return 0;
+        return Math.max(0, forgeLevel);
     }
 
     /**
@@ -95,7 +103,8 @@ public final class RtsMiningRules {
         if (stack.isEmpty()) {
             return 0;
         }
-        String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+        ResourceLocation key = Item.REGISTRY.getNameForObject(stack.getItem());
+        String path = key == null ? "" : key.getPath();
         if (path.contains("netherite")) {
             return 4;
         }
@@ -126,24 +135,24 @@ public final class RtsMiningRules {
      * @param state  要挖掘的方块状态
      * @return 如果玩家装备栏中有合适的工具则返回 true，否则返回 false
      */
-    public static boolean hasRequiredLoadoutTool(ServerPlayer player, BlockState state) {
+    public static boolean hasRequiredLoadoutTool(EntityPlayerMP player, IBlockState state) {
         MiningLoadoutRole role = requiredRole(state);
         if (role == null) {
             return true;
         }
 
         OptionalInt slotOpt = MiningLoadoutState.getSlot(player, role);
-        if (slotOpt.isEmpty()) {
+        if (!slotOpt.isPresent()) {
             return false;
         }
 
-        ItemStack toolStack = player.getInventory().getItem(slotOpt.getAsInt());
+        ItemStack toolStack = player.inventory.getStackInSlot(slotOpt.getAsInt());
         if (toolStack.isEmpty()) {
             return false;
         }
 
         int required = requiredLevel(state);
         int actual = toolLevel(toolStack);
-        return actual >= required && toolStack.isCorrectToolForDrops(state);
+        return actual >= required && toolStack.canHarvestBlock(state);
     }
 }
