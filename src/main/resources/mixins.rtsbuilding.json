@@ -1,0 +1,21 @@
+{
+  "required": true,
+  "package": "com.rtsbuilding.rtsbuilding.mixin",
+  "refmap": "mixins.rtsbuilding.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "BlockEntityRenderDispatcherMixin",
+    "BlockRenderDispatcherMixin",
+    "EmbeddiumWorldSliceMixin",
+    "SodiumLevelSliceMixin",
+    "RenderChunkRegionMixin",
+    "LocalPlayerMixin"
+  ],
+  "mixins": [
+    "ChestMenuMixin",
+    "ModdedRemoteStillValidMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

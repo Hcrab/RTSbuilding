@@ -1,0 +1,26 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    "GLG",
+                    "RLR",
+                    "GLG"
+                ],
+    "key":  {
+                "G":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "paneGlass"
+                      },
+                "L":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "gemLapis"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:range_culling_plugin",
+                   "count":  1
+               }
+}

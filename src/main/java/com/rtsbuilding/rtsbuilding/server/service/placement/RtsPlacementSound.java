@@ -4,12 +4,13 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.SoundType;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.SoundEvent;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 import java.util.UUID;
 
@@ -49,12 +50,12 @@ public final class RtsPlacementSound {
     /**
      * 向玩家发送给定位置的方块破坏动画数据包。
      */
-    public static void playRemotePlacedBlockAnimation(ServerPlayer player, BlockPos pos) {
+    public static void playRemotePlacedBlockAnimation(EntityPlayerMP player, BlockPos pos) {
         if (player == null || pos == null) {
             return;
         }
-        BlockState state = player.serverLevel().getBlockState(pos);
-        RtsClientboundPackets.sendToPlayer(player, new S2CRtsPlaceAnimationPayload(pos.immutable(), state));
+        IBlockState state = player.getServerWorld().getBlockState(pos);
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsPlaceAnimationPayload(pos.toImmutable(), state));
     }
 
     /**
@@ -62,19 +63,19 @@ public final class RtsPlacementSound {
      * <p>
      * 同 tick 超过服务端上限的声音会直接丢弃，不产生延迟尾音。
      */
-    public static void playRemotePlacedBlockSound(ServerPlayer player, ServerLevel level,
+    public static void playRemotePlacedBlockSound(EntityPlayerMP player, WorldServer level,
                                                    BlockPos pos) {
-        if (player == null || level == null || pos == null || !level.hasChunkAt(pos)) {
+        if (player == null || level == null || pos == null || !level.isBlockLoaded(pos)) {
             return;
         }
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) {
+        IBlockState state = level.getBlockState(pos);
+        if (state.getBlock() == net.minecraft.init.Blocks.AIR) {
             return;
         }
         if (!tryAcquireSound(player, level)) {
             return;
         }
-        SoundType soundType = state.getSoundType(level, pos, player);
+        SoundType soundType = state.getBlock().getSoundType(state, level, pos, player);
         sendBlockActionSound(
                 player,
                 soundType.getPlaceSound(),
@@ -86,18 +87,18 @@ public final class RtsPlacementSound {
     /**
      * 播放远程挖掘/破坏方块的方块破坏声音。
      */
-    public static void playRemoteBlockBreakSound(ServerPlayer player, ServerLevel level,
-                                                  BlockPos pos, BlockState brokenState) {
-        if (player == null || level == null || pos == null || brokenState == null || !level.hasChunkAt(pos)) {
+    public static void playRemoteBlockBreakSound(EntityPlayerMP player, WorldServer level,
+                                                  BlockPos pos, IBlockState brokenState) {
+        if (player == null || level == null || pos == null || brokenState == null || !level.isBlockLoaded(pos)) {
             return;
         }
-        if (brokenState.isAir()) {
+        if (brokenState.getBlock() == net.minecraft.init.Blocks.AIR) {
             return;
         }
         if (!tryAcquireSound(player, level)) {
             return;
         }
-        SoundType soundType = brokenState.getSoundType(level, pos, player);
+        SoundType soundType = brokenState.getBlock().getSoundType(brokenState, level, pos, player);
         sendBlockActionSound(
                 player,
                 soundType.getBreakSound(),
@@ -106,10 +107,10 @@ public final class RtsPlacementSound {
                 true);
     }
 
-    private static boolean tryAcquireSound(ServerPlayer player, ServerLevel level) {
+    private static boolean tryAcquireSound(EntityPlayerMP player, WorldServer level) {
         return SOUND_LIMITER.tryAcquire(
-                player.getUUID(),
-                level.getGameTime(),
+                player.getUniqueID(),
+                level.getTotalWorldTime(),
                 Config.remotePlaceSoundsPerTick());
     }
 
@@ -119,16 +120,21 @@ public final class RtsPlacementSound {
     }
 
     private static void sendBlockActionSound(
-            ServerPlayer player, SoundEvent sound, float volume, float pitch, boolean breakAction) {
+            EntityPlayerMP player, SoundEvent sound, float volume, float pitch, boolean breakAction) {
         if (player == null || sound == null) {
             return;
         }
         RtsClientboundPackets.sendToPlayer(
                 player,
                 new S2CRtsBlockActionSoundPayload(
-                        sound.getLocation().toString(),
+                        registryName(sound),
                         volume,
                         pitch,
                         breakAction));
+    }
+
+    private static String registryName(SoundEvent sound) {
+        ResourceLocation id = sound.getRegistryName();
+        return id == null ? "minecraft:block.stone.place" : id.toString();
     }
 }

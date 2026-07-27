@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.List;
 
@@ -26,7 +26,7 @@ public interface PageService {
      * @param sort      排序方式
      * @param ascending 是否升序排列
      */
-    void requestPage(ServerPlayer player, int page, String search, String category,
+    void requestPage(EntityPlayerMP player, int page, String search, String category,
                      RtsStorageSort sort, boolean ascending);
 
     /**
@@ -40,7 +40,7 @@ public interface PageService {
      * @param ascending           是否升序排列
      * @param pinyinSearchEnabled 是否启用拼音搜索
      */
-    void requestPage(ServerPlayer player, int page, String search, String category,
+    void requestPage(EntityPlayerMP player, int page, String search, String category,
                      RtsStorageSort sort, boolean ascending, boolean pinyinSearchEnabled);
 
     /**
@@ -56,7 +56,7 @@ public interface PageService {
      * @param pinyinSearchEnabled    是否启用拼音搜索
      * @param localizedSearchMatches 本地化搜索匹配的预计算物品 ID 列表
      */
-    void requestPage(ServerPlayer player, int page, String search, String category,
+    void requestPage(EntityPlayerMP player, int page, String search, String category,
                      RtsStorageSort sort, boolean ascending, int pageSize,
                      boolean pinyinSearchEnabled, List<String> localizedSearchMatches);
 
@@ -67,7 +67,7 @@ public interface PageService {
      * @param player  目标玩家
      * @param session 玩家的 RTS 储存会话
      */
-    void markStorageViewDirty(ServerPlayer player, RtsStorageSession session);
+    void markStorageViewDirty(EntityPlayerMP player, RtsStorageSession session);
 
     /**
      * 记录最近使用的物品到会话中。

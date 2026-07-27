@@ -135,7 +135,7 @@ public final class RtsTaskEngine {
     }
 
     public void detachPlayer(UUID playerId) {
-        // 必须在移除 scheduler lane 前把 durable cursor 冻结，并释放 Context→ServerPlayer 强引用。
+        // 必须在移除 scheduler lane 前把 durable cursor 冻结，并释放 Context→EntityPlayerMP 强引用。
         durableBlueprintBridge.detachOwner(playerId);
         long now = System.nanoTime();
         for (TaskRecord detached : scheduler.detachOwner(playerId)) {
@@ -159,7 +159,7 @@ public final class RtsTaskEngine {
      * 登出/停用前把所有仍留在 Session 的旧迁移源提交给 TaskStore。
      * 调用方随后必须执行 owner 定向 flush，并再次调用 {@link #reconcilePlayerDetach}。
      */
-    public void preparePlayerDetach(net.minecraft.server.level.ServerPlayer player) {
+    public void preparePlayerDetach(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return;
         var session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) return;
@@ -167,7 +167,7 @@ public final class RtsTaskEngine {
     }
 
     /** owner flush 后消费 root ACK，并把已接管的 Session shadow 转成持久 clear。 */
-    public void reconcilePlayerDetach(net.minecraft.server.level.ServerPlayer player) {
+    public void reconcilePlayerDetach(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return;
         var session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) return;
@@ -203,7 +203,7 @@ public final class RtsTaskEngine {
     }
 
     /** 玩家暂停/恢复命令的唯一执行入口；WorkflowToken 只负责展示投影。 */
-    public boolean setWorkflowPaused(net.minecraft.server.level.ServerPlayer player, int workflowEntryId,
+    public boolean setWorkflowPaused(net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId,
             boolean paused) {
         if (player == null || workflowEntryId < 0) return false;
         WorkflowTaskKey key = new WorkflowTaskKey(
@@ -247,7 +247,7 @@ public final class RtsTaskEngine {
     }
 
     /** RTS 关闭时先暂停真实任务，再由工作流引擎刷新显示。 */
-    public void pauseAllWorkflowTasks(net.minecraft.server.level.ServerPlayer player) {
+    public void pauseAllWorkflowTasks(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return;
         for (var status : com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                 .getAllProgress(player)) {
@@ -258,7 +258,7 @@ public final class RtsTaskEngine {
     }
 
     /** 删除工作流前先收拢对应领域任务，不等待下一个 tick 通过“token 缺失”兜底。 */
-    public boolean cancelWorkflowTask(net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+    public boolean cancelWorkflowTask(net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         if (player == null) return false;
         return cancelWorkflowTask(player, player.serverLevel().dimension(), workflowEntryId);
     }
@@ -268,7 +268,7 @@ public final class RtsTaskEngine {
      * 因此不能用玩家当前维度偷偷替换任务身份。
      */
     public boolean cancelWorkflowTask(
-            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.entity.player.EntityPlayerMP player,
             net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension,
             int workflowEntryId) {
         if (player == null || dimension == null || workflowEntryId < 0) return false;
@@ -344,14 +344,14 @@ public final class RtsTaskEngine {
     }
 
     /** 仅唤醒与本次真实物品变化匹配的 placement 等待任务，不扫描其它挂起任务。 */
-    public void resumeWaitingPlacementItems(net.minecraft.server.level.ServerPlayer player,
+    public void resumeWaitingPlacementItems(net.minecraft.entity.player.EntityPlayerMP player,
             java.util.Collection<String> changedItemIds) {
         if (player == null || changedItemIds == null || changedItemIds.isEmpty()) return;
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
         long gameTime = player.serverLevel().getGameTime();
         for (String itemId : new java.util.LinkedHashSet<>(changedItemIds)) {
-            if (itemId == null || itemId.isBlank()) continue;
+            if (itemId == null || itemId.trim().isEmpty()) continue;
             var key = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey("item", itemId);
             for (var snapshot : coordinator.query().waitingFor(key)) {
                 if (!snapshot.ownerId().equals(player.getUUID()) || snapshot.type() != TaskType.PLACEMENT
@@ -366,7 +366,7 @@ public final class RtsTaskEngine {
     }
 
     /** 玩家显式点击“重试”时恢复自己的全部 placement 等待任务；仍不遍历全服任务。 */
-    public int resumeAllWaitingPlacements(net.minecraft.server.level.ServerPlayer player) {
+    public int resumeAllWaitingPlacements(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return 0;
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
@@ -390,7 +390,7 @@ public final class RtsTaskEngine {
 
     /** UI 扫描只读取 TaskStore 中当前维度、当前 workflow 的等待快照。 */
     public PendingPlacementTaskView findWaitingPlacement(
-            net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+            net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         if (player == null || workflowEntryId < 0) return null;
         var snapshot = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator().query().findByWorkflow(
@@ -416,7 +416,7 @@ public final class RtsTaskEngine {
      * 覆盖策略包含世界破坏，因此绝不能在本方法中直接修改世界。
      */
     public boolean resumeWaitingPlacementWithStrategy(
-            net.minecraft.server.level.ServerPlayer player, int workflowEntryId, int strategy,
+            net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId, int strategy,
             com.rtsbuilding.rtsbuilding.server.task.identity.TaskId expectedTaskId,
             long expectedRevision) {
         if (player == null || workflowEntryId < 0 || (strategy != 0 && strategy != 1)
@@ -450,19 +450,19 @@ public final class RtsTaskEngine {
         return true;
     }
 
-    public String firstPlacementItemId(net.minecraft.server.level.ServerPlayer player) {
+    public String firstPlacementItemId(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return "";
         return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator().query().ownedBy(player.getUUID()).stream()
                 .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT && !snapshot.state().terminal())
                 .map(snapshot -> com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
                         .decode(snapshot.payload()).state().definition().getString("itemId"))
-                .filter(value -> value != null && !value.isBlank())
+                .filter(value -> value != null && !value.trim().isEmpty())
                 .findFirst().orElse("");
     }
 
     /** 返回当前维度一个仍活动的 durable mining workflow；控制管道不再读取 Session 游标。 */
-    public int activeMiningWorkflowEntry(net.minecraft.server.level.ServerPlayer player) {
+    public int activeMiningWorkflowEntry(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return -1;
         String dimensionId = player.serverLevel().dimension().location().toString();
         return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
@@ -480,7 +480,7 @@ public final class RtsTaskEngine {
      * <p>查询时必须读取 durable 执行镜像，而不能只看最近一次落盘快照；首块可能已经在本 tick
      * 完成并切换到批处理，但新的 checkpoint 仍在等待持久化 ACK。</p>
      */
-    public boolean hasCommittedMiningBatch(net.minecraft.server.level.ServerPlayer player) {
+    public boolean hasCommittedMiningBatch(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return false;
         String dimensionId = player.serverLevel().dimension().location().toString();
         var states = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
@@ -494,7 +494,7 @@ public final class RtsTaskEngine {
     }
 
     /** 停止当前维度的全部 durable mining；Session 清理由旧迁移兼容层随后完成。 */
-    public int cancelActiveMiningTasks(net.minecraft.server.level.ServerPlayer player) {
+    public int cancelActiveMiningTasks(net.minecraft.entity.player.EntityPlayerMP player) {
         if (player == null) return 0;
         String dimensionId = player.serverLevel().dimension().location().toString();
         var workflowIds = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
@@ -513,7 +513,7 @@ public final class RtsTaskEngine {
 
     /** 领域入口提交后读取 TaskStore 的过滤后总量，避免再窥探 Session 旧 Job。 */
     public int workflowTaskTotalUnits(
-            net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+            net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         if (player == null || workflowEntryId < 0) return 0;
         return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator().query().findByWorkflow(
@@ -523,7 +523,7 @@ public final class RtsTaskEngine {
     }
 
     private void resumeAvailableToolWaits(
-            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator) {
         if (player == null || session == null
@@ -544,7 +544,7 @@ public final class RtsTaskEngine {
     }
 
     /** Chunk Load 事件只命中该 chunk 的 WaitIndex 桶。 */
-    public void resumeLoadedChunk(net.minecraft.server.level.ServerLevel level,
+    public void resumeLoadedChunk(net.minecraft.world.WorldServer level,
             net.minecraft.world.level.ChunkPos chunkPos) {
         if (level == null || chunkPos == null) return;
         var runtime = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE;
@@ -636,7 +636,7 @@ public final class RtsTaskEngine {
     }
 
     public BlueprintContext findBlueprintContext(
-            net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+            net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         if (player == null) return null;
         TaskRecord record = blueprintRecords.get(new WorkflowTaskKey(
                 player.getUUID(), player.serverLevel().dimension(), workflowEntryId));
@@ -646,7 +646,7 @@ public final class RtsTaskEngine {
     }
 
     public boolean resumeBlueprint(
-            net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+            net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         TaskRecord record = player == null ? null
                 : blueprintRecords.get(new WorkflowTaskKey(
                         player.getUUID(), player.serverLevel().dimension(), workflowEntryId));
@@ -666,7 +666,7 @@ public final class RtsTaskEngine {
      * 任务提交时再以异常形式拒绝玩家操作。</p>
      */
     public boolean hasDurableTaskForWorkflow(
-            net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+            net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
         if (player == null || workflowEntryId < 0) return false;
         return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator()
@@ -678,7 +678,7 @@ public final class RtsTaskEngine {
                 .isPresent();
     }
 
-    public boolean submitPlacementJob(net.minecraft.server.level.ServerPlayer player,
+    public boolean submitPlacementJob(net.minecraft.entity.player.EntityPlayerMP player,
             RtsPlacementBatch.PlaceBatchJob job) {
         if (player == null || job == null) return false;
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
@@ -725,7 +725,7 @@ public final class RtsTaskEngine {
      * “钉住”状态，因此同样必须允许新任务将其回收。</p>
      */
     private boolean makeRoomForDurableTaskFamily(
-            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
             TaskType taskType,
             int limit,
@@ -764,7 +764,7 @@ public final class RtsTaskEngine {
      * 更不能继续占用任何任务族容量。放置、破坏和挖掘都在同一入口执行这项对账。</p>
      */
     private void reconcileHiddenDurableWorkflows(
-            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator) {
         String dimensionId = player.serverLevel().dimension().location().toString();
         var workflowEngine = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance();
@@ -784,7 +784,7 @@ public final class RtsTaskEngine {
 
     /** 通过工作流统一入口终止任务；旧存档没有合法工作流 ID 时直接写入同一持久终态。 */
     private void cancelDurableSnapshot(
-            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
         if (snapshot.workflowEntryId() >= 0
@@ -812,7 +812,7 @@ public final class RtsTaskEngine {
         }
     }
 
-    public boolean submitDestructionJob(net.minecraft.server.level.ServerPlayer player,
+    public boolean submitDestructionJob(net.minecraft.entity.player.EntityPlayerMP player,
             RtsDestructionBatch.DestructionJob job) {
         if (player == null || job == null) return false;
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
@@ -841,18 +841,18 @@ public final class RtsTaskEngine {
     }
 
     public boolean submitMiningTargets(
-            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.entity.player.EntityPlayerMP player,
             int workflowEntryId,
-            java.util.Collection<net.minecraft.core.BlockPos> targets,
-            net.minecraft.core.Direction face,
+            java.util.Collection<net.minecraft.util.math.BlockPos> targets,
+            net.minecraft.util.EnumFacing face,
             int toolSlot,
             boolean selectedToolRequested,
             boolean toolProtectionEnabled,
             boolean progressiveSingle) {
         if (player == null || targets == null || targets.isEmpty() || workflowEntryId < 0) return false;
-        java.util.List<net.minecraft.core.BlockPos> immutableTargets = targets.stream()
+        java.util.List<net.minecraft.util.math.BlockPos> immutableTargets = targets.stream()
                 .filter(java.util.Objects::nonNull)
-                .map(net.minecraft.core.BlockPos::immutable)
+                .map(net.minecraft.util.math.BlockPos::immutable)
                 .toList();
         if (immutableTargets.isEmpty()) return false;
         var state = new com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState(
@@ -861,19 +861,19 @@ public final class RtsTaskEngine {
                         : com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState.Mode.BATCH,
                 workflowEntryId, immutableTargets, immutableTargets.size(), 0, 0, 0,
                 face, toolSlot, selectedToolRequested, toolProtectionEnabled,
-                0.0F, -1, java.util.List.of());
+                0.0F, -1, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf());
         return submitMiningState(player, state);
     }
 
     /** 旧 MiningJob 的唯一迁移入口。 */
-    public boolean submitMiningJob(net.minecraft.server.level.ServerPlayer player,
+    public boolean submitMiningJob(net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
             RtsMiningStateMachine.MiningJob job) {
         if (player == null || session == null || job == null) return false;
         return submitMiningState(player, RtsMiningStateMachine.snapshotDetachedQueued(session, job));
     }
 
-    private boolean submitMiningState(net.minecraft.server.level.ServerPlayer player,
+    private boolean submitMiningState(net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState state) {
         var coordinator = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator();
@@ -901,7 +901,7 @@ public final class RtsTaskEngine {
     }
 
     private void drainMiningBuffer(
-            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
         if (session.miningDropBuffer.isEmpty()) return;
         long now = System.nanoTime();
@@ -933,7 +933,7 @@ public final class RtsTaskEngine {
         return BlueprintTickPipe.execute(payload, budget);
     }
 
-    private void syncFunnelTask(net.minecraft.server.level.ServerPlayer player,
+    private void syncFunnelTask(net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
         TaskRecord existing = funnelRecords.get(player.getUUID());
         boolean active = session.funnel.funnelEnabled
@@ -959,7 +959,7 @@ public final class RtsTaskEngine {
         return TaskStepResult.nextTick(result.processedUnits(), 0, 0, 0);
     }
 
-    private void syncPlacedRecoveryTask(net.minecraft.server.level.ServerPlayer player,
+    private void syncPlacedRecoveryTask(net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session) {
         TaskRecord existing = recoveryRecords.get(player.getUUID());
         if (session.placement.recoveryJobs.isEmpty()) {
@@ -984,12 +984,12 @@ public final class RtsTaskEngine {
         return TaskStepResult.nextTick(result.processedUnits(), 0, 0, 0);
     }
 
-    private void applyInitialPause(net.minecraft.server.level.ServerPlayer player, int workflowEntryId,
+    private void applyInitialPause(net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId,
             TaskRecord record, long now) {
         applyInitialPause(player, workflowEntryId, record, now, player.serverLevel().dimension());
     }
 
-    private void applyInitialPause(net.minecraft.server.level.ServerPlayer player, int workflowEntryId,
+    private void applyInitialPause(net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId,
             TaskRecord record, long now,
             net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension) {
         if (workflowEntryId < 0) return;
@@ -1176,7 +1176,7 @@ public final class RtsTaskEngine {
      * 任意具体物品唤醒，必须标记为 poison 并经统一取消入口回收。</p>
      */
     private DurableWorkflowProjection inspectDurableProjection(
-            net.minecraft.server.level.ServerPlayer player,
+            net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
         try {
             return switch (snapshot.type()) {
@@ -1184,7 +1184,7 @@ public final class RtsTaskEngine {
                     var state = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
                             .decode(snapshot.payload()).state();
                     var job = RtsPlacementBatch.restoreDetachedJob(state, player.registryAccess());
-                    if (job.quickBuild() && job.itemId().isBlank()) {
+                    if (job.quickBuild() && job.itemId().trim().isEmpty()) {
                         yield DurableWorkflowProjection.poison();
                     }
                     var type = job.quickBuild()

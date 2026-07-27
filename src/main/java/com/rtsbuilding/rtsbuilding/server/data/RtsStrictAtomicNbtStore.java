@@ -1,11 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.FilterOutputStream;
 import java.io.IOException;
@@ -27,8 +25,6 @@ import java.util.UUID;
  * 其他 I/O 错误一律使本次提交失败。</p>
  */
 public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
-    private static final long MAX_FILE_BYTES = 128L * 1024L * 1024L;
-
     private final Path filePath;
     private final String label;
     private final AtomicMover mover;
@@ -36,7 +32,7 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
     private final DirectoryForcer directoryForcer;
 
     public RtsStrictAtomicNbtStore(MinecraftServer server, String subDir, String fileName) {
-        this(Objects.requireNonNull(server, "server").getWorldPath(LevelResource.ROOT)
+        this(RtsServerDataPaths.worldRoot(server)
                         .resolve(subDir).resolve(fileName),
                 subDir + "/" + fileName,
                 RtsStrictAtomicNbtStore::atomicMove,
@@ -66,7 +62,7 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
             return ReadResult.failed(new IOException("NBT 路径不是普通文件: " + filePath));
         }
         try {
-            CompoundTag root = NbtIo.readCompressed(filePath, NbtAccounter.create(MAX_FILE_BYTES));
+            NBTTagCompound root = RtsCompressedNbtIo.read(filePath);
             return root == null
                     ? ReadResult.failed(new IOException("NBT 根标签为空: " + filePath))
                     : ReadResult.found(root);
@@ -76,7 +72,7 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
     }
 
     @Override
-    public boolean write(CompoundTag tag) {
+    public boolean write(NBTTagCompound tag) {
         Objects.requireNonNull(tag, "tag");
         Path parent = filePath.getParent();
         Path temporary = filePath.resolveSibling(
@@ -85,11 +81,11 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
             Files.createDirectories(parent);
             writeAndForce(temporary, tag);
             long compressedBytes = Files.size(temporary);
-            if (compressedBytes <= 0L || compressedBytes > MAX_FILE_BYTES) {
+            if (compressedBytes <= 0L || compressedBytes > RtsCompressedNbtIo.MAX_FILE_BYTES) {
                 throw new IOException("NBT 压缩文件大小越界: " + compressedBytes);
             }
             // 发布前按与启动相同的 128 MiB accounter 再读一次，拒绝写出无法重载的根。
-            if (NbtIo.readCompressed(temporary, NbtAccounter.create(MAX_FILE_BYTES)) == null) {
+            if (RtsCompressedNbtIo.read(temporary) == null) {
                 throw new IOException("临时 NBT 根标签为空");
             }
             mover.move(temporary, filePath);
@@ -107,16 +103,16 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
         }
     }
 
-    private static void writeAndForce(Path temporary, CompoundTag tag) throws IOException {
+    private static void writeAndForce(Path temporary, NBTTagCompound tag) throws IOException {
         try (FileChannel channel = FileChannel.open(temporary,
                 StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)) {
-            var output = new FilterOutputStream(Channels.newOutputStream(channel)) {
+            FilterOutputStream output = new FilterOutputStream(Channels.newOutputStream(channel)) {
                 @Override
                 public void close() throws IOException {
                     flush();
                 }
             };
-            NbtIo.writeCompressed(tag, output);
+            CompressedStreamTools.writeCompressed(tag, output);
             output.flush();
             channel.force(true);
         }
@@ -127,7 +123,7 @@ public final class RtsStrictAtomicNbtStore implements RtsNbtStore {
             forcer.force(directory);
         } catch (AccessDeniedException | UnsupportedOperationException unsupported) {
             if (!System.getProperty("os.name", "").startsWith("Windows")) {
-                if (unsupported instanceof IOException io) throw io;
+                if (unsupported instanceof IOException) throw (IOException) unsupported;
                 throw unsupported;
             }
         }

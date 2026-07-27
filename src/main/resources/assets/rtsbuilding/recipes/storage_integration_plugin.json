@@ -1,0 +1,24 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    "RHR",
+                    "HCH",
+                    "RHR"
+                ],
+    "key":  {
+                "C":  {
+                          "item":  "minecraft:chest"
+                      },
+                "H":  {
+                          "item":  "minecraft:hopper"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:storage_integration_plugin",
+                   "count":  1
+               }
+}

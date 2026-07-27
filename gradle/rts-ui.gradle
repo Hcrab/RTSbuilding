@@ -41,17 +41,8 @@ sourceSets {
     }
 }
 
-// ModDev 的开发运行不会自动继承 main.runtimeClasspath 里的独立 source set。
-// 必须把 Core/Kit 明确登记为同一个 rtsbuilding 模组的源码根，否则发布 JAR 正常，
-// 但按 G 构造 BuilderScreen 时 ModLauncher 的 TRANSFORMER 类加载器看不到这些类。
-neoForge {
-    mods {
-        "${mod_id}" {
-            sourceSet(sourceSets.uiCore)
-            sourceSet(sourceSets.uiKit)
-        }
-    }
-}
+// 1.12.2 的 RFG 运行时直接使用 main 的运行 classpath；Core/Kit 输出已经在上面的
+// main classpath 中登记，不需要 NeoForge ModDev 的多 source-set 模组注册 API。
 
 dependencies {
     // 两个测试 source set 故意不继承主测试依赖，确保 classpath 没有 Minecraft。
@@ -291,19 +282,20 @@ tasks.register('verifyUiJava8Bytecode') {
 
 tasks.register('verifyUiDevModSources') {
     group = 'verification'
-    description = '确认 NeoForge 开发运行的 MOD_CLASSES 同时包含 main、UI Core 与 UI Kit。'
+    description = '确认 RFG 开发运行的 main classpath 同时包含 UI Core 与 UI Kit。'
     dependsOn tasks.named('compileUiCoreJava')
     dependsOn tasks.named('compileUiKitJava')
     doLast {
-        def registered = neoForge.mods.named(mod_id).get().modSourceSets.get()
-                .collect { it.name } as Set
-        ['main', 'uiCore', 'uiKit'].each { required ->
-            if (!registered.contains(required)) {
-                throw new GradleException(
-                        "NeoForge dev mod '${mod_id}' missing source set '${required}': ${registered}")
+        def runtimeFiles = sourceSets.main.runtimeClasspath.files as Set
+        [sourceSets.uiCore.output, sourceSets.uiKit.output].each { required ->
+            required.files.each { outputDirectory ->
+                if (!runtimeFiles.contains(outputDirectory)) {
+                    throw new GradleException(
+                            "RFG main runtime classpath missing UI output: ${outputDirectory}")
+                }
             }
         }
-        println "Verified NeoForge dev mod sources: ${registered.sort()}"
+        println 'Verified RFG main runtime classpath contains UI Core and UI Kit outputs'
     }
 }
 

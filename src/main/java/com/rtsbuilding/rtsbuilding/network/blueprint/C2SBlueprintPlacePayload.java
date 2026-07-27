@@ -1,49 +1,79 @@
 package com.rtsbuilding.rtsbuilding.network.blueprint;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 import java.util.UUID;
 
-public record C2SBlueprintPlacePayload(
-        UUID submissionId,
-        String fileName,
-        byte[] data,
-        BlockPos anchor,
-        byte yRotationSteps,
-        byte xRotationSteps,
-        byte zRotationSteps) implements CustomPacketPayload {
+/** 客户端上传蓝图并请求在指定锚点创建服务端权威放置任务。 */
+public final class C2SBlueprintPlacePayload implements IMessage {
     public static final int MAX_FILE_NAME_CHARS = 160;
     public static final int MAX_FILE_BYTES = 2 * 1024 * 1024;
 
-    public static final Type<C2SBlueprintPlacePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_blueprint_place"));
+    private UUID submissionId;
+    private String fileName;
+    private byte[] data;
+    private BlockPos anchor;
+    private byte yRotationSteps;
+    private byte xRotationSteps;
+    private byte zRotationSteps;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SBlueprintPlacePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeUUID(payload.submissionId());
-                buf.writeUtf(payload.fileName() == null ? "" : payload.fileName(), MAX_FILE_NAME_CHARS);
-                buf.writeByteArray(payload.data() == null ? new byte[0] : payload.data());
-                buf.writeBlockPos(payload.anchor());
-                buf.writeByte(payload.yRotationSteps());
-                buf.writeByte(payload.xRotationSteps());
-                buf.writeByte(payload.zRotationSteps());
-            },
-            (buf) -> new C2SBlueprintPlacePayload(
-                    buf.readUUID(),
-                    buf.readUtf(MAX_FILE_NAME_CHARS),
-                    buf.readByteArray(MAX_FILE_BYTES),
-                    buf.readBlockPos().immutable(),
-                    buf.readByte(),
-                    buf.readByte(),
-                    buf.readByte()));
+    public C2SBlueprintPlacePayload() {
+    }
+
+    public C2SBlueprintPlacePayload(UUID submissionId, String fileName, byte[] data, BlockPos anchor,
+            byte yRotationSteps, byte xRotationSteps, byte zRotationSteps) {
+        this.submissionId = submissionId;
+        this.fileName = fileName == null ? "" : fileName;
+        this.data = data == null ? new byte[0] : data;
+        this.anchor = anchor;
+        this.yRotationSteps = yRotationSteps;
+        this.xRotationSteps = xRotationSteps;
+        this.zRotationSteps = zRotationSteps;
+    }
+
+    public UUID submissionId() { return submissionId; }
+    public String fileName() { return fileName; }
+    public byte[] data() { return data; }
+    public BlockPos anchor() { return anchor; }
+    public byte yRotationSteps() { return yRotationSteps; }
+    public byte xRotationSteps() { return xRotationSteps; }
+    public byte zRotationSteps() { return zRotationSteps; }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public void fromBytes(ByteBuf buffer) {
+        submissionId = RtsPacketBuffer.readUuid(buffer);
+        fileName = RtsPacketBuffer.readString(buffer, MAX_FILE_NAME_CHARS, "blueprint file name");
+        data = RtsPacketBuffer.readByteArray(buffer, MAX_FILE_BYTES, "blueprint data");
+        anchor = BlockPos.fromLong(buffer.readLong());
+        yRotationSteps = buffer.readByte();
+        xRotationSteps = buffer.readByte();
+        zRotationSteps = buffer.readByte();
+    }
+
+    @Override
+    public void toBytes(ByteBuf buffer) {
+        RtsPacketBuffer.writeUuid(buffer, submissionId);
+        RtsPacketBuffer.writeString(buffer, fileName, MAX_FILE_NAME_CHARS, "blueprint file name");
+        RtsPacketBuffer.writeByteArray(buffer, data, MAX_FILE_BYTES, "blueprint data");
+        if (anchor == null) throw new IllegalArgumentException("blueprint anchor must not be null");
+        buffer.writeLong(anchor.toLong());
+        buffer.writeByte(yRotationSteps);
+        buffer.writeByte(xRotationSteps);
+        buffer.writeByte(zRotationSteps);
+    }
+
+    public boolean isValid() {
+        return submissionId != null && fileName != null && !fileName.isEmpty()
+                && fileName.length() <= MAX_FILE_NAME_CHARS
+                && data != null && data.length > 0 && data.length <= MAX_FILE_BYTES
+                && anchor != null && validRotation(yRotationSteps)
+                && validRotation(xRotationSteps) && validRotation(zRotationSteps);
+    }
+
+    private static boolean validRotation(byte steps) {
+        return steps >= -3 && steps <= 3;
     }
 }

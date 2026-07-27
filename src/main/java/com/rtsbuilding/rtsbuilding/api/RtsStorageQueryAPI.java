@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.api;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.function.Predicate;
 
@@ -20,14 +21,14 @@ public interface RtsStorageQueryAPI {
      * @param predicate 匹配条件
      * @return 匹配的物品总数，无存储时返回 0
      */
-    long countItemsMatching(ServerPlayer player, Predicate<ItemStack> predicate);
+    long countItemsMatching(EntityPlayerMP player, Predicate<ItemStack> predicate);
 
     /**
      * 检查玩家是否可以访问指定坐标的方块目标。
      *
      * @param player 目标玩家
-     * @param pos    目标坐标（使用 net.minecraft.core.BlockPos）
+     * @param pos    目标坐标（使用 net.minecraft.util.math.BlockPos）
      * @return 如果在 RTS 相机范围内且可以交互则返回 true
      */
-    boolean canAccessTarget(ServerPlayer player, Object pos);
+    boolean canAccessTarget(EntityPlayerMP player, BlockPos pos);
 }

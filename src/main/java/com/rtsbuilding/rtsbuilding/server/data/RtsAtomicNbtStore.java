@@ -1,11 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -28,8 +25,6 @@ import java.nio.file.StandardCopyOption;
 public final class RtsAtomicNbtStore implements RtsNbtStore {
 
     /** 单个 NBT 文件最大允许大小（128 MB） */
-    private static final long MAX_FILE_BYTES = 128L * 1024L * 1024L;
-
     private final Path filePath;
     private final Path tempPath;
     private final String label;
@@ -40,7 +35,7 @@ public final class RtsAtomicNbtStore implements RtsNbtStore {
      * @param fileName 文件名，如 {@code "storage_sessions.dat"}
      */
     public RtsAtomicNbtStore(MinecraftServer server, String subDir, String fileName) {
-        Path dir = server.getWorldPath(LevelResource.ROOT).resolve(subDir);
+        Path dir = RtsServerDataPaths.worldRoot(server).resolve(subDir);
         this.filePath = dir.resolve(fileName);
         this.tempPath = dir.resolve(fileName + ".tmp");
         this.label = subDir + "/" + fileName;
@@ -65,7 +60,7 @@ public final class RtsAtomicNbtStore implements RtsNbtStore {
             return ReadResult.failed(cause);
         }
         try {
-            CompoundTag root = NbtIo.readCompressed(filePath, NbtAccounter.create(MAX_FILE_BYTES));
+            NBTTagCompound root = RtsCompressedNbtIo.read(filePath);
             if (root == null) {
                 IOException cause = new IOException("NBT 根标签为空");
                 RtsbuildingMod.LOGGER.error("读取 NBT 文件 {} 失败: {}", filePath, cause.getMessage());
@@ -84,13 +79,20 @@ public final class RtsAtomicNbtStore implements RtsNbtStore {
      * <p>文件不存在仍返回空标签；文件存在但损坏时必须抛出异常，绝不能把损坏误报成空存档，
      * 否则调用方随后保存默认值会覆盖仍可人工恢复的原文件。
      */
-    public CompoundTag read() {
-        return switch (readResult()) {
-            case ReadResult.Found found -> found.root();
-            case ReadResult.Missing ignored -> new CompoundTag();
-            case ReadResult.Failed failed -> throw new IllegalStateException(
+    public NBTTagCompound read() {
+        ReadResult result = readResult();
+        if (result instanceof ReadResult.Found) {
+            return ((ReadResult.Found) result).root();
+        }
+        if (result instanceof ReadResult.Missing) {
+            return new NBTTagCompound();
+        }
+        if (result instanceof ReadResult.Failed) {
+            ReadResult.Failed failed = (ReadResult.Failed) result;
+            throw new IllegalStateException(
                     "读取 NBT 文件失败，拒绝以空数据继续: " + label, failed.cause());
-        };
+        }
+        throw new IllegalStateException("未知的 NBT 读取结果: " + result);
     }
 
     /**
@@ -102,10 +104,10 @@ public final class RtsAtomicNbtStore implements RtsNbtStore {
      * @return 写入是否成功
      */
     @Override
-    public boolean write(CompoundTag tag) {
+    public boolean write(NBTTagCompound tag) {
         try {
             Files.createDirectories(filePath.getParent());
-            NbtIo.writeCompressed(tag, tempPath);
+            RtsCompressedNbtIo.write(tempPath, tag);
             try {
                 Files.move(tempPath, filePath, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
             } catch (IOException e) {

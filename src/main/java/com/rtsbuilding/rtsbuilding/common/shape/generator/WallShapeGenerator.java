@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +46,7 @@ public class WallShapeGenerator extends AreaShapeGenerator {
                 if (fillMode != ShapeFillMode.FILL && !endColumn && iy != minY && iy != maxY) {
                     continue;
                 }
-                result.add(basePos.above(iy));
+                result.add(basePos.up(iy));
             }
         }
 

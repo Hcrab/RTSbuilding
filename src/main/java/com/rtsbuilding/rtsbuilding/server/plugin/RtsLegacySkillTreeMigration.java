@@ -5,14 +5,14 @@ import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -57,9 +57,9 @@ final class RtsLegacySkillTreeMigration {
     private RtsLegacySkillTreeMigration() {
     }
 
-    static List<RtsPluginDefinition> migrate(ServerPlayer player) {
+    static List<RtsPluginDefinition> migrate(EntityPlayerMP player) {
         if (player == null || !RtsProgressionManager.isEnabled()) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
 
         List<RtsPluginTeamService.StoredPlugin> installed = RtsPluginTeamService.installedPlugins(player);
@@ -68,7 +68,7 @@ final class RtsLegacySkillTreeMigration {
         boolean needsHarvestTierCompatibility = false;
 
         String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
-        if (!sharedKey.isBlank()) {
+        if (!sharedKey.isEmpty()) {
             RtsSharedProgressionData sharedData = RtsProgressionManager.sharedProgressionData(player);
             if (sharedData.pluginMigrationVersion(sharedKey) < MIGRATION_VERSION) {
                 needsHarvestTierCompatibility = true;
@@ -83,8 +83,8 @@ final class RtsLegacySkillTreeMigration {
             }
         }
 
-        CompoundTag currentRoot = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
-        CompoundTag oldPersistentRoot = player.getPersistentData().getCompound(OLD_PERSISTENT_ROOT);
+        NBTTagCompound currentRoot = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
+        NBTTagCompound oldPersistentRoot = player.getEntityData().getCompoundTag(OLD_PERSISTENT_ROOT);
         if (migrationVersion(currentRoot, oldPersistentRoot) < MIGRATION_VERSION) {
             needsHarvestTierCompatibility = true;
             LinkedHashSet<ResourceLocation> personalNodes = readUnlockedNodes(currentRoot);
@@ -94,13 +94,13 @@ final class RtsLegacySkillTreeMigration {
                     installed,
                     added,
                     personalNodes,
-                    player.getUUID(),
+                    player.getUniqueID(),
                     player.getGameProfile().getName());
-            currentRoot.putInt(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
+            currentRoot.setInteger(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
             SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PROGRESSION, currentRoot);
             if (!oldPersistentRoot.isEmpty()) {
-                oldPersistentRoot.putInt(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
-                player.getPersistentData().put(OLD_PERSISTENT_ROOT, oldPersistentRoot);
+                oldPersistentRoot.setInteger(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
+                player.getEntityData().setTag(OLD_PERSISTENT_ROOT, oldPersistentRoot);
             }
         }
 
@@ -110,14 +110,14 @@ final class RtsLegacySkillTreeMigration {
         if (changed) {
             RtsPluginTeamService.saveInstalledPlugins(player, installed);
         }
-        return List.copyOf(added);
+        return java.util.Collections.unmodifiableList(new ArrayList<>(added));
     }
 
     /**
      * 插件系统 v1 的范围破坏不需要独立采掘等级插件。
      * 旧存档升级时补发同一贡献者名下的木级插件，避免已有能力无故消失。
      */
-    private static boolean addLegacyHarvestTierIfNeeded(ServerPlayer player,
+    private static boolean addLegacyHarvestTierIfNeeded(EntityPlayerMP player,
             List<RtsPluginTeamService.StoredPlugin> installed,
             List<RtsPluginDefinition> added) {
         RtsPluginTeamService.StoredPlugin areaPlugin = null;
@@ -144,7 +144,7 @@ final class RtsLegacySkillTreeMigration {
         RtsInstalledPlugin plugin = new RtsInstalledPlugin(
                 stoneTier.id(),
                 pluginStack(stoneTier),
-                player.level().getGameTime());
+                player.world.getTotalWorldTime());
         if (!RtsPluginTeamService.canAddWithoutTeamConflict(installed, plugin)) {
             return false;
         }
@@ -154,7 +154,7 @@ final class RtsLegacySkillTreeMigration {
         return true;
     }
 
-    private static boolean addMigratedPlugins(ServerPlayer player, List<RtsPluginTeamService.StoredPlugin> installed,
+    private static boolean addMigratedPlugins(EntityPlayerMP player, List<RtsPluginTeamService.StoredPlugin> installed,
             List<RtsPluginDefinition> added, Set<ResourceLocation> legacyNodes, UUID ownerId, String ownerName) {
         if (legacyNodes == null || legacyNodes.isEmpty()) {
             return false;
@@ -168,7 +168,7 @@ final class RtsLegacySkillTreeMigration {
             RtsInstalledPlugin plugin = new RtsInstalledPlugin(
                     definition.id(),
                     pluginStack(definition),
-                    player.level().getGameTime());
+                    player.world.getTotalWorldTime());
             if (!RtsPluginTeamService.canAddWithoutTeamConflict(installed, plugin)) {
                 continue;
             }
@@ -231,14 +231,14 @@ final class RtsLegacySkillTreeMigration {
         return false;
     }
 
-    private static LinkedHashSet<ResourceLocation> readUnlockedNodes(CompoundTag root) {
+    private static LinkedHashSet<ResourceLocation> readUnlockedNodes(NBTTagCompound root) {
         LinkedHashSet<ResourceLocation> nodes = new LinkedHashSet<>();
         if (root == null || root.isEmpty()) {
             return nodes;
         }
-        ListTag list = root.getList(NBT_UNLOCKED_NODES, Tag.TAG_STRING);
-        for (int i = 0; i < list.size(); i++) {
-            ResourceLocation id = ResourceLocation.tryParse(list.getString(i));
+        NBTTagList list = root.getTagList(NBT_UNLOCKED_NODES, 8);
+        for (int i = 0; i < list.tagCount(); i++) {
+            ResourceLocation id = parseId(list.getStringTagAt(i));
             if (id != null && RtsbuildingMod.MODID.equals(id.getNamespace())) {
                 nodes.add(id);
             }
@@ -246,22 +246,31 @@ final class RtsLegacySkillTreeMigration {
         return nodes;
     }
 
-    private static int migrationVersion(CompoundTag currentRoot, CompoundTag oldPersistentRoot) {
+    private static int migrationVersion(NBTTagCompound currentRoot, NBTTagCompound oldPersistentRoot) {
         return Math.max(
-                currentRoot == null ? 0 : currentRoot.getInt(NBT_PLUGIN_MIGRATION_VERSION),
-                oldPersistentRoot == null ? 0 : oldPersistentRoot.getInt(NBT_PLUGIN_MIGRATION_VERSION));
+                currentRoot == null ? 0 : currentRoot.getInteger(NBT_PLUGIN_MIGRATION_VERSION),
+                oldPersistentRoot == null ? 0 : oldPersistentRoot.getInteger(NBT_PLUGIN_MIGRATION_VERSION));
     }
 
     private static ItemStack pluginStack(RtsPluginDefinition definition) {
-        return new ItemStack(BuiltInRegistries.ITEM.get(definition.itemId()));
+        Item item = Item.REGISTRY.getObject(definition.itemId());
+        return item == null ? ItemStack.EMPTY : new ItemStack(item);
     }
 
     private static ResourceLocation node(String path) {
-        return ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, path);
+        return new ResourceLocation(RtsbuildingMod.MODID, path);
     }
 
-    static Component migrationMessage(List<RtsPluginDefinition> added) {
+    static ITextComponent migrationMessage(List<RtsPluginDefinition> added) {
         long count = added.stream().map(RtsPluginDefinition::id).distinct().count();
-        return Component.translatable("message.rtsbuilding.plugin.legacy_migrated", count);
+        return new TextComponentTranslation("message.rtsbuilding.plugin.legacy_migrated", count);
+    }
+
+    private static ResourceLocation parseId(String value) {
+        try {
+            return value == null || value.isEmpty() ? null : new ResourceLocation(value);
+        } catch (IllegalArgumentException invalid) {
+            return null;
+        }
     }
 }

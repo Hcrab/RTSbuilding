@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.api;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
 
 /**
  * 物品转移 API。
@@ -17,7 +17,7 @@ public interface RtsTransferAPI {
      * @param itemId  物品 ID
      * @param amount  归还数量
      */
-    void returnCarriedToLinked(ServerPlayer player, String itemId, int amount);
+    void returnCarriedToLinked(EntityPlayerMP player, String itemId, int amount);
 
     /**
      * 从链接存储拾取物品到手中。
@@ -26,7 +26,7 @@ public interface RtsTransferAPI {
      * @param prototype 物品原型
      * @param amount    拾取数量
      */
-    void pickupToCarried(ServerPlayer player, ItemStack prototype, int amount);
+    void pickupToCarried(EntityPlayerMP player, ItemStack prototype, int amount);
 
     /**
      * 快速移动物品从链接存储到玩家物品栏。
@@ -34,14 +34,14 @@ public interface RtsTransferAPI {
      * @param player    执行玩家
      * @param prototype 物品原型
      */
-    void quickMoveToInventory(ServerPlayer player, ItemStack prototype);
+    void quickMoveToInventory(EntityPlayerMP player, ItemStack prototype);
 
     /**
      * 从链接存储填充玩家物品栏。
      *
      * @param player 执行玩家
      */
-    void fillPlayerInventory(ServerPlayer player);
+    void fillPlayerInventory(EntityPlayerMP player);
 
     /**
      * 快速丢弃链接存储中的物品。
@@ -53,7 +53,7 @@ public interface RtsTransferAPI {
      * @param dropY  丢弃位置 Y
      * @param dropZ  丢弃位置 Z
      */
-    void quickDropItem(ServerPlayer player, String itemId, byte amount,
+    void quickDropItem(EntityPlayerMP player, String itemId, byte amount,
                        double dropX, double dropY, double dropZ);
 
     /**
@@ -62,5 +62,5 @@ public interface RtsTransferAPI {
      * @param player   执行玩家
      * @param menuSlot 菜单槽位索引
      */
-    void importMenuSlot(ServerPlayer player, int menuSlot);
+    void importMenuSlot(EntityPlayerMP player, int menuSlot);
 }

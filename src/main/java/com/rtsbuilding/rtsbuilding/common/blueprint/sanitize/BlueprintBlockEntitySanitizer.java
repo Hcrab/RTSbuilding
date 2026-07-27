@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.sanitize;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.Locale;
 
@@ -24,17 +25,17 @@ public final class BlueprintBlockEntitySanitizer {
      * @param original 蓝图中保存的原始方块实体 NBT
      * @return 可安全用于生存放置的新 NBT，原始对象不会被修改
      */
-    public static CompoundTag sanitizeForSurvivalPlacement(CompoundTag original) {
+    public static NBTTagCompound sanitizeForSurvivalPlacement(NBTTagCompound original) {
         if (original == null || original.isEmpty()) {
-            return new CompoundTag();
+            return new NBTTagCompound();
         }
-        CompoundTag sanitized = sanitizeCompound(original, true);
-        return sanitized == null ? new CompoundTag() : sanitized;
+        NBTTagCompound sanitized = sanitizeCompound(original, true);
+        return sanitized == null ? new NBTTagCompound() : sanitized;
     }
 
-    private static CompoundTag sanitizeCompound(CompoundTag source, boolean topLevel) {
+    private static NBTTagCompound sanitizeCompound(NBTTagCompound source, boolean topLevel) {
         if (source == null || source.isEmpty()) {
-            return new CompoundTag();
+            return new NBTTagCompound();
         }
         if (!topLevel && looksLikeItemStack(source)) {
             return null;
@@ -43,36 +44,36 @@ public final class BlueprintBlockEntitySanitizer {
             return null;
         }
 
-        CompoundTag out = new CompoundTag();
-        for (String key : source.getAllKeys()) {
-            Tag value = source.get(key);
+        NBTTagCompound out = new NBTTagCompound();
+        for (String key : source.getKeySet()) {
+            NBTBase value = source.getTag(key);
             if (value == null || shouldDropBlueprintKey(key)) {
                 continue;
             }
-            Tag sanitized = sanitizeTag(key, value);
+            NBTBase sanitized = sanitizeTag(key, value);
             if (sanitized != null) {
-                out.put(key, sanitized);
+                out.setTag(key, sanitized);
             }
         }
         return out;
     }
 
-    private static Tag sanitizeTag(String key, Tag value) {
-        if (value instanceof CompoundTag compound) {
-            return sanitizeCompound(compound, false);
+    private static NBTBase sanitizeTag(String key, NBTBase value) {
+        if (value instanceof NBTTagCompound) {
+            return sanitizeCompound((NBTTagCompound) value, false);
         }
-        if (value instanceof ListTag list) {
-            return sanitizeList(key, list);
+        if (value instanceof NBTTagList) {
+            return sanitizeList(key, (NBTTagList) value);
         }
         return value.copy();
     }
 
-    private static ListTag sanitizeList(String key, ListTag source) {
-        ListTag out = new ListTag();
-        for (Tag child : source) {
-            Tag sanitized = sanitizeTag(key, child);
+    private static NBTTagList sanitizeList(String key, NBTTagList source) {
+        NBTTagList out = new NBTTagList();
+        for (int i = 0; i < source.tagCount(); i++) {
+            NBTBase sanitized = sanitizeTag(key, source.get(i));
             if (sanitized != null) {
-                out.add(sanitized);
+                out.appendTag(sanitized);
             }
         }
         return out;
@@ -131,23 +132,20 @@ public final class BlueprintBlockEntitySanitizer {
                 || normalized.equals("filteredtext4");
     }
 
-    private static boolean looksLikeItemStack(CompoundTag tag) {
-        return tag.contains("id", Tag.TAG_STRING)
+    private static boolean looksLikeItemStack(NBTTagCompound tag) {
+        return tag.hasKey("id", Constants.NBT.TAG_STRING)
                 && (hasNumeric(tag, "count") || hasNumeric(tag, "Count"));
     }
 
-    private static boolean looksLikeFluidStack(CompoundTag tag) {
-        if (tag.contains("FluidName", Tag.TAG_STRING) && hasNumeric(tag, "Amount")) {
+    private static boolean looksLikeFluidStack(NBTTagCompound tag) {
+        if (tag.hasKey("FluidName", Constants.NBT.TAG_STRING) && hasNumeric(tag, "Amount")) {
             return true;
         }
-        return (tag.contains("fluid", Tag.TAG_STRING) || tag.contains("Fluid", Tag.TAG_STRING))
+        return (tag.hasKey("fluid", Constants.NBT.TAG_STRING) || tag.hasKey("Fluid", Constants.NBT.TAG_STRING))
                 && (hasNumeric(tag, "amount") || hasNumeric(tag, "Amount"));
     }
 
-    private static boolean hasNumeric(CompoundTag tag, String key) {
-        return tag.contains(key, Tag.TAG_BYTE)
-                || tag.contains(key, Tag.TAG_SHORT)
-                || tag.contains(key, Tag.TAG_INT)
-                || tag.contains(key, Tag.TAG_LONG);
+    private static boolean hasNumeric(NBTTagCompound tag, String key) {
+        return tag.hasKey(key, Constants.NBT.TAG_ANY_NUMERIC);
     }
 }

@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.server.api.impl;
 import com.rtsbuilding.rtsbuilding.api.RtsStorageQueryAPI;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.function.Predicate;
 
@@ -17,12 +17,12 @@ public final class RtsStorageQueryAPIImpl implements RtsStorageQueryAPI {
     private static final ServiceRegistry REGISTRY = ServiceRegistry.getInstance();
 
     @Override
-    public long countItemsMatching(ServerPlayer player, Predicate<ItemStack> predicate) {
+    public long countItemsMatching(EntityPlayerMP player, Predicate<ItemStack> predicate) {
         return REGISTRY.transfer().countLinkedItemsMatching(player, predicate);
     }
 
     @Override
-    public boolean canAccessTarget(ServerPlayer player, Object pos) {
-        return pos instanceof BlockPos bp && RtsLinkedStorageResolver.canAccessWorldTarget(player, bp);
+    public boolean canAccessTarget(EntityPlayerMP player, BlockPos pos) {
+        return RtsLinkedStorageResolver.canAccessWorldTarget(player, pos);
     }
 }

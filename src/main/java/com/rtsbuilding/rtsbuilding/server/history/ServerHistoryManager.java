@@ -3,13 +3,14 @@ package com.rtsbuilding.rtsbuilding.server.history;
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.WorldServer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.init.Blocks;
+import net.minecraft.block.state.IBlockState;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
@@ -42,16 +43,16 @@ public final class ServerHistoryManager {
     //  记录操作
     // ======================================================================
 
-    public static void recordPlacement(ServerPlayer player, List<BlockPos> positions, Direction face) {
+    public static void recordPlacement(EntityPlayerMP player, List<BlockPos> positions, EnumFacing face) {
         if (player == null || positions == null || positions.isEmpty()) {
             return;
         }
-        List<HistoryBlockRecord> records = captureBlocks(player.serverLevel(), positions);
+        List<HistoryBlockRecord> records = captureBlocks(player.getServerWorld(), positions);
         if (records.isEmpty()) {
             return;
         }
-        HistoryEntry entry = new HistoryEntry(false, records, face, player.serverLevel().dimension());
-        PlayerHistory ph = playerHistories.computeIfAbsent(player.getUUID(), k -> new PlayerHistory());
+        HistoryEntry entry = new HistoryEntry(false, records, face, player.dimension);
+        PlayerHistory ph = playerHistories.computeIfAbsent(player.getUniqueID(), k -> new PlayerHistory());
         ph.undoStack.add(entry);
         if (ph.undoStack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
             ph.undoStack.removeFirst();
@@ -60,27 +61,27 @@ public final class ServerHistoryManager {
         sendSync(player);
     }
 
-    public static void recordBreak(ServerPlayer player, List<BlockPos> positions, Direction face) {
+    public static void recordBreak(EntityPlayerMP player, List<BlockPos> positions, EnumFacing face) {
         if (player == null || positions == null || positions.isEmpty()) {
             return;
         }
-        List<HistoryBlockRecord> records = captureBlocks(player.serverLevel(), positions);
+        List<HistoryBlockRecord> records = captureBlocks(player.getServerWorld(), positions);
         if (records.isEmpty()) {
             return;
         }
         pushBreakEntry(player, records, face);
     }
 
-    public static void recordBreakWithRecords(ServerPlayer player, List<HistoryBlockRecord> records, Direction face) {
+    public static void recordBreakWithRecords(EntityPlayerMP player, List<HistoryBlockRecord> records, EnumFacing face) {
         if (player == null || records == null || records.isEmpty()) {
             return;
         }
         pushBreakEntry(player, records, face);
     }
 
-    private static void pushBreakEntry(ServerPlayer player, List<HistoryBlockRecord> records, Direction face) {
-        HistoryEntry entry = new HistoryEntry(true, records, face, player.serverLevel().dimension());
-        PlayerHistory ph = playerHistories.computeIfAbsent(player.getUUID(), k -> new PlayerHistory());
+    private static void pushBreakEntry(EntityPlayerMP player, List<HistoryBlockRecord> records, EnumFacing face) {
+        HistoryEntry entry = new HistoryEntry(true, records, face, player.dimension);
+        PlayerHistory ph = playerHistories.computeIfAbsent(player.getUniqueID(), k -> new PlayerHistory());
         ph.undoStack.add(entry);
         if (ph.undoStack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
             ph.undoStack.removeFirst();
@@ -93,13 +94,13 @@ public final class ServerHistoryManager {
     //  撤回 完整流程
     // ======================================================================
 
-    public static int executeUndo(ServerPlayer player) {
+    public static int executeUndo(EntityPlayerMP player) {
         if (player == null) return 0;
         HistoryEntry entry = undo(player);
         if (entry == null) return 0;
 
-        if (!entry.getDimension().equals(player.serverLevel().dimension())) {
-            PlayerHistory ph = playerHistories.get(player.getUUID());
+        if (entry.getDimension() != player.dimension) {
+            PlayerHistory ph = playerHistories.get(player.getUniqueID());
             if (ph != null) {
                 ph.undoStack.addLast(entry);
             }
@@ -109,7 +110,7 @@ public final class ServerHistoryManager {
         int executed = HistoryExecutor.executeUndo(player, entry);
         if (executed < entry.getBlockCount()) {
             if (executed <= 0) {
-                PlayerHistory ph0 = playerHistories.get(player.getUUID());
+                PlayerHistory ph0 = playerHistories.get(player.getUniqueID());
                 if (ph0 != null) {
                     ph0.undoStack.add(entry);
                 }
@@ -124,14 +125,14 @@ public final class ServerHistoryManager {
         return executed;
     }
 
-    public static void sendSync(ServerPlayer player) {
-        if (player != null) RtsEffectAccumulator.INSTANCE.markHistory(player.getUUID());
+    public static void sendSync(EntityPlayerMP player) {
+        if (player != null) RtsEffectAccumulator.INSTANCE.markHistory(player.getUniqueID());
     }
 
     /** 仅由 Tick 末 Effect Committer 调用。 */
-    public static void sendSyncNow(ServerPlayer player) {
+    public static void sendSyncNow(EntityPlayerMP player) {
         if (player == null) return;
-        int undoSize = getUndoSize(player.getUUID());
+        int undoSize = getUndoSize(player.getUniqueID());
         RtsClientboundPackets.sendToPlayer(player,
                 new com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload(undoSize));
     }
@@ -141,9 +142,9 @@ public final class ServerHistoryManager {
     // ======================================================================
 
     @Nullable
-    public static HistoryEntry undo(ServerPlayer player) {
+    public static HistoryEntry undo(EntityPlayerMP player) {
         if (player == null) return null;
-        PlayerHistory ph = playerHistories.get(player.getUUID());
+        PlayerHistory ph = playerHistories.get(player.getUniqueID());
         if (ph == null) return null;
         if (ph.undoStack.isEmpty()) return null;
         return ph.undoStack.removeLast();
@@ -153,9 +154,9 @@ public final class ServerHistoryManager {
     //  部分恢复支持
     // ======================================================================
 
-    public static void updateUndoEntry(ServerPlayer player, HistoryEntry entry) {
+    public static void updateUndoEntry(EntityPlayerMP player, HistoryEntry entry) {
         if (player == null || entry == null) return;
-        PlayerHistory ph = playerHistories.get(player.getUUID());
+        PlayerHistory ph = playerHistories.get(player.getUniqueID());
         if (ph == null) return;
         if (!ph.undoStack.isEmpty()) {
             ph.undoStack.removeLast();
@@ -198,11 +199,11 @@ public final class ServerHistoryManager {
     }
 
     @Nullable
-    public static HistoryBlockRecord captureBlock(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null || !level.isLoaded(pos)) return null;
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) return null;
-        CompoundTag beData = captureBlockEntityData(level, pos);
+    public static HistoryBlockRecord captureBlock(WorldServer level, BlockPos pos) {
+        if (level == null || pos == null || !level.isBlockLoaded(pos)) return null;
+        IBlockState state = level.getBlockState(pos);
+        if (state.getBlock() == Blocks.AIR) return null;
+        NBTTagCompound beData = captureBlockEntityData(level, pos);
         return new HistoryBlockRecord(pos, state, beData);
     }
 
@@ -210,24 +211,24 @@ public final class ServerHistoryManager {
     //  内部方法
     // ======================================================================
 
-    private static List<HistoryBlockRecord> captureBlocks(ServerLevel level, List<BlockPos> positions) {
+    private static List<HistoryBlockRecord> captureBlocks(WorldServer level, List<BlockPos> positions) {
         List<HistoryBlockRecord> records = new ArrayList<>(positions.size());
         for (BlockPos pos : positions) {
-            if (!level.isLoaded(pos)) continue;
-            BlockState state = level.getBlockState(pos);
-            if (state.isAir()) continue;
-            CompoundTag beData = captureBlockEntityData(level, pos);
+            if (!level.isBlockLoaded(pos)) continue;
+            IBlockState state = level.getBlockState(pos);
+            if (state.getBlock() == Blocks.AIR) continue;
+            NBTTagCompound beData = captureBlockEntityData(level, pos);
             records.add(new HistoryBlockRecord(pos, state, beData));
         }
         return records;
     }
 
     @Nullable
-    private static CompoundTag captureBlockEntityData(ServerLevel level, BlockPos pos) {
-        if (!level.isLoaded(pos)) return null;
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+    private static NBTTagCompound captureBlockEntityData(WorldServer level, BlockPos pos) {
+        if (!level.isBlockLoaded(pos)) return null;
+        TileEntity blockEntity = level.getTileEntity(pos);
         if (blockEntity == null) return null;
-        return blockEntity.saveWithFullMetadata(level.registryAccess());
+        return blockEntity.writeToNBT(new NBTTagCompound());
     }
 
     // ======================================================================

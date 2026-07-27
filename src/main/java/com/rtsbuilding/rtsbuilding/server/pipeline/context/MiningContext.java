@@ -9,9 +9,9 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePip
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.item.ItemStack;
 
 import javax.annotation.Nullable;
@@ -31,7 +31,7 @@ import java.util.Map;
  * <pre>{@code
  * MiningContext mctx = MiningContext.require(ctx);
  * BlockPos pos = mctx.getPos();
- * Direction face = mctx.getFace();
+ * EnumFacing face = mctx.getFace();
  * }</pre>
  */
 public class MiningContext extends PipelineContext {
@@ -42,7 +42,7 @@ public class MiningContext extends PipelineContext {
      * @param player 执行操作的服务器端玩家
      * @param args   不可变输入参数（会创建防御性副本）
      */
-    private MiningContext(ServerPlayer player, Map<String, Object> args) {
+    private MiningContext(EntityPlayerMP player, Map<String, Object> args) {
         super(player, args);
     }
 
@@ -51,7 +51,7 @@ public class MiningContext extends PipelineContext {
      * 提供类型安全的流式 setter，消除 {@code Map<String, Object>}
      * 样板代码。
      */
-    public static Builder builder(ServerPlayer player) {
+    public static Builder builder(EntityPlayerMP player) {
         return new Builder(player);
     }
 
@@ -112,10 +112,10 @@ public class MiningContext extends PipelineContext {
      * 返回挖掘面。
      *
      * @return 面方向，如果未提供则返回 {@code null}
-     *         （默认为 {@link Direction#DOWN}）
+     *         （默认为 {@link EnumFacing#DOWN}）
      */
     @Nullable
-    public Direction getFace() {
+    public EnumFacing getFace() {
         return getArg(MiningExecutePipe.ARG_FACE);
     }
 
@@ -157,10 +157,10 @@ public class MiningContext extends PipelineContext {
      * }</pre>
      */
     public static final class Builder {
-        private final ServerPlayer player;
+        private final EntityPlayerMP player;
         private final Map<String, Object> args = new HashMap<>();
 
-        private Builder(ServerPlayer player) {
+        private Builder(EntityPlayerMP player) {
             this.player = player;
         }
 
@@ -189,7 +189,7 @@ public class MiningContext extends PipelineContext {
         }
 
         /** 挖掘面方向。 */
-        public Builder face(Direction face) {
+        public Builder face(EnumFacing face) {
             args.put(MiningExecutePipe.ARG_FACE.name(), face);
             return this;
         }

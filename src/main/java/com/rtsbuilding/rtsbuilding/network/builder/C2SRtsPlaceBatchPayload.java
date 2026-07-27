@@ -1,101 +1,106 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-public record C2SRtsPlaceBatchPayload(
-        List<BlockPos> clickedPositions,
-        byte face,
-        double hitOffsetX,
-        double hitOffsetY,
-        double hitOffsetZ,
-        byte rotateSteps,
-        String statePreset,
-        boolean forcePlace,
-        boolean skipIfOccupied,
-        boolean overwriteExisting,
-        String itemId,
-        ItemStack itemPrototype,
-        double rayOriginX,
-        double rayOriginY,
-        double rayOriginZ,
-        double rayDirX,
-        double rayDirY,
-        double rayDirZ) implements CustomPacketPayload {
+/** 有严格数量上限的批量放置意图。 */
+public final class C2SRtsPlaceBatchPayload implements IMessage {
     public static final int MAX_POSITIONS = 32768;
+    private List<BlockPos> clickedPositions = Collections.emptyList();
+    private byte face;
+    private double hitOffsetX, hitOffsetY, hitOffsetZ;
+    private byte rotateSteps;
+    private String statePreset = "";
+    private boolean forcePlace, skipIfOccupied, overwriteExisting;
+    private String itemId = "";
+    private ItemStack itemPrototype = ItemStack.EMPTY;
+    private double rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ;
 
-    public static final Type<C2SRtsPlaceBatchPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_place_batch"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsPlaceBatchPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                int size = Math.min(payload.clickedPositions().size(), MAX_POSITIONS);
-                buf.writeVarInt(size);
-                for (int i = 0; i < size; i++) {
-                    buf.writeBlockPos(payload.clickedPositions().get(i));
-                }
-                buf.writeByte(payload.face());
-                buf.writeDouble(payload.hitOffsetX());
-                buf.writeDouble(payload.hitOffsetY());
-                buf.writeDouble(payload.hitOffsetZ());
-                buf.writeByte(payload.rotateSteps());
-                buf.writeUtf(payload.statePreset(), 256);
-                buf.writeBoolean(payload.forcePlace());
-                buf.writeBoolean(payload.skipIfOccupied());
-                buf.writeBoolean(payload.overwriteExisting());
-                buf.writeUtf(payload.itemId(), 128);
-                ItemStack itemPrototype = payload.itemPrototype() == null ? ItemStack.EMPTY : payload.itemPrototype();
-                buf.writeBoolean(!itemPrototype.isEmpty());
-                if (!itemPrototype.isEmpty()) {
-                    ItemStack.STREAM_CODEC.encode(buf, itemPrototype);
-                }
-                buf.writeDouble(payload.rayOriginX());
-                buf.writeDouble(payload.rayOriginY());
-                buf.writeDouble(payload.rayOriginZ());
-                buf.writeDouble(payload.rayDirX());
-                buf.writeDouble(payload.rayDirY());
-                buf.writeDouble(payload.rayDirZ());
-            },
-            (buf) -> {
-                int size = buf.readVarInt();
-                if (size < 0 || size > MAX_POSITIONS) {
-                    throw new IllegalArgumentException("Invalid RTS place batch size: " + size);
-                }
-                List<BlockPos> positions = new ArrayList<>(size);
-                for (int i = 0; i < size; i++) {
-                    positions.add(buf.readBlockPos().immutable());
-                }
-                return new C2SRtsPlaceBatchPayload(
-                        positions,
-                        buf.readByte(),
-                        buf.readDouble(),
-                        buf.readDouble(),
-                        buf.readDouble(),
-                        buf.readByte(),
-                        buf.readUtf(256),
-                        buf.readBoolean(),
-                        buf.readBoolean(),
-                        buf.readBoolean(),
-                        buf.readUtf(128),
-                        buf.readBoolean() ? ItemStack.STREAM_CODEC.decode(buf) : ItemStack.EMPTY,
-                        buf.readDouble(),
-                        buf.readDouble(),
-                        buf.readDouble(),
-                        buf.readDouble(),
-                        buf.readDouble(),
-                        buf.readDouble());
-            });
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsPlaceBatchPayload() {
     }
+
+    public C2SRtsPlaceBatchPayload(List<BlockPos> positions, byte face,
+            double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps,
+            String statePreset, boolean forcePlace, boolean skipIfOccupied,
+            boolean overwriteExisting, String itemId, ItemStack itemPrototype,
+            double rayOriginX, double rayOriginY, double rayOriginZ,
+            double rayDirX, double rayDirY, double rayDirZ) {
+        clickedPositions = positions == null ? Collections.<BlockPos>emptyList()
+                : Collections.unmodifiableList(new ArrayList<BlockPos>(positions));
+        this.face = face;
+        this.hitOffsetX = hitOffsetX; this.hitOffsetY = hitOffsetY; this.hitOffsetZ = hitOffsetZ;
+        this.rotateSteps = rotateSteps; this.statePreset = statePreset == null ? "" : statePreset;
+        this.forcePlace = forcePlace; this.skipIfOccupied = skipIfOccupied;
+        this.overwriteExisting = overwriteExisting;
+        this.itemId = itemId == null ? "" : itemId;
+        this.itemPrototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype;
+        this.rayOriginX = rayOriginX; this.rayOriginY = rayOriginY; this.rayOriginZ = rayOriginZ;
+        this.rayDirX = rayDirX; this.rayDirY = rayDirY; this.rayDirZ = rayDirZ;
+    }
+
+    @Override public void fromBytes(ByteBuf b) {
+        int size = RtsPacketBuffer.readBoundedCount(b, MAX_POSITIONS, "place positions");
+        if (size == 0) throw new IllegalArgumentException("empty place batch");
+        List<BlockPos> positions = new ArrayList<BlockPos>(size);
+        for (int i = 0; i < size; i++) positions.add(BlockPos.fromLong(b.readLong()));
+        clickedPositions = Collections.unmodifiableList(positions);
+        face = b.readByte();
+        hitOffsetX = b.readDouble(); hitOffsetY = b.readDouble(); hitOffsetZ = b.readDouble();
+        rotateSteps = b.readByte();
+        statePreset = RtsPacketBuffer.readString(b, 256, "state preset");
+        forcePlace = b.readBoolean(); skipIfOccupied = b.readBoolean();
+        overwriteExisting = b.readBoolean();
+        itemId = RtsPacketBuffer.readString(b, 128, "item id");
+        itemPrototype = RtsPacketBuffer.readItemStack(b);
+        rayOriginX = b.readDouble(); rayOriginY = b.readDouble(); rayOriginZ = b.readDouble();
+        rayDirX = b.readDouble(); rayDirY = b.readDouble(); rayDirZ = b.readDouble();
+        if (!isValid()) throw new IllegalArgumentException("invalid RTS place batch");
+    }
+
+    @Override public void toBytes(ByteBuf b) {
+        if (!isValid()) throw new IllegalArgumentException("invalid RTS place batch");
+        RtsPacketBuffer.writeVarInt(b, clickedPositions.size());
+        for (BlockPos pos : clickedPositions) b.writeLong(pos.toLong());
+        b.writeByte(face); b.writeDouble(hitOffsetX); b.writeDouble(hitOffsetY); b.writeDouble(hitOffsetZ);
+        b.writeByte(rotateSteps);
+        RtsPacketBuffer.writeString(b, statePreset, 256, "state preset");
+        b.writeBoolean(forcePlace); b.writeBoolean(skipIfOccupied); b.writeBoolean(overwriteExisting);
+        RtsPacketBuffer.writeString(b, itemId, 128, "item id");
+        RtsPacketBuffer.writeItemStack(b, itemPrototype);
+        b.writeDouble(rayOriginX); b.writeDouble(rayOriginY); b.writeDouble(rayOriginZ);
+        b.writeDouble(rayDirX); b.writeDouble(rayDirY); b.writeDouble(rayDirZ);
+    }
+
+    public boolean isValid() {
+        if (clickedPositions == null || clickedPositions.isEmpty()
+                || clickedPositions.size() > MAX_POSITIONS || face < 0
+                || face >= EnumFacing.values().length || statePreset == null
+                || statePreset.length() > 256 || itemId == null || itemId.length() > 128) return false;
+        for (BlockPos pos : clickedPositions) if (pos == null) return false;
+        return finite(hitOffsetX, hitOffsetY, hitOffsetZ, rayOriginX, rayOriginY,
+                rayOriginZ, rayDirX, rayDirY, rayDirZ);
+    }
+
+    private static boolean finite(double... values) {
+        for (double value : values) if (Double.isNaN(value) || Double.isInfinite(value)) return false;
+        return true;
+    }
+
+    public List<BlockPos> clickedPositions(){return clickedPositions;} public byte face(){return face;}
+    public double hitOffsetX(){return hitOffsetX;} public double hitOffsetY(){return hitOffsetY;}
+    public double hitOffsetZ(){return hitOffsetZ;} public byte rotateSteps(){return rotateSteps;}
+    public String statePreset(){return statePreset;} public boolean forcePlace(){return forcePlace;}
+    public boolean skipIfOccupied(){return skipIfOccupied;}
+    public boolean overwriteExisting(){return overwriteExisting;} public String itemId(){return itemId;}
+    public ItemStack itemPrototype(){return itemPrototype;} public double rayOriginX(){return rayOriginX;}
+    public double rayOriginY(){return rayOriginY;} public double rayOriginZ(){return rayOriginZ;}
+    public double rayDirX(){return rayDirX;} public double rayDirY(){return rayDirY;}
+    public double rayDirZ(){return rayDirZ;}
 }

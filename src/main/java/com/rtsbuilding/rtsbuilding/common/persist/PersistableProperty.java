@@ -12,7 +12,7 @@ import java.util.function.Supplier;
  * 双向映射。Panel 子类重写 {@link com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel#persistableProperties()}
  * 返回自己的属性列表，Manager 遍历所有面板的属性完成收集与分发，不再硬编码字段。
  */
-public sealed interface PersistableProperty {
+public interface PersistableProperty {
 
     /** 属性在 JSON 中的存储键 */
     String jsonKey();
@@ -31,13 +31,45 @@ public sealed interface PersistableProperty {
      * 通用字段映射属性——绑定 UiState 上的一个 public 字段，
      * 通过 getter/setter 与运行时组件双向同步。
      */
-    record FieldProperty<T>(
-            String jsonKey,
-            Function<RtsClientUiStateStore.UiState, T> stateReader,
-            BiConsumer<RtsClientUiStateStore.UiState, T> stateWriter,
-            Supplier<T> runtimeGetter,
-            java.util.function.Consumer<T> runtimeSetter
-    ) implements PersistableProperty {
+    final class FieldProperty<T> implements PersistableProperty {
+        private final String jsonKey;
+        private final Function<RtsClientUiStateStore.UiState, T> stateReader;
+        private final BiConsumer<RtsClientUiStateStore.UiState, T> stateWriter;
+        private final Supplier<T> runtimeGetter;
+        private final java.util.function.Consumer<T> runtimeSetter;
+
+        public FieldProperty(String jsonKey,
+                             Function<RtsClientUiStateStore.UiState, T> stateReader,
+                             BiConsumer<RtsClientUiStateStore.UiState, T> stateWriter,
+                             Supplier<T> runtimeGetter,
+                             java.util.function.Consumer<T> runtimeSetter) {
+            this.jsonKey = jsonKey;
+            this.stateReader = stateReader;
+            this.stateWriter = stateWriter;
+            this.runtimeGetter = runtimeGetter;
+            this.runtimeSetter = runtimeSetter;
+        }
+
+        @Override
+        public String jsonKey() {
+            return jsonKey;
+        }
+
+        public Function<RtsClientUiStateStore.UiState, T> stateReader() {
+            return stateReader;
+        }
+
+        public BiConsumer<RtsClientUiStateStore.UiState, T> stateWriter() {
+            return stateWriter;
+        }
+
+        public Supplier<T> runtimeGetter() {
+            return runtimeGetter;
+        }
+
+        public java.util.function.Consumer<T> runtimeSetter() {
+            return runtimeSetter;
+        }
         @Override
         public void applyToRuntime(RtsClientUiStateStore.UiState state) {
             T value = stateReader.apply(state);
@@ -60,15 +92,59 @@ public sealed interface PersistableProperty {
      * <p>UiState 中枚举以字符串形式存储，此属性在 apply 时做安全解析，
      * 非法值使用 fallback 兜底。
      */
-    record EnumFieldProperty<E extends Enum<E>>(
-            String jsonKey,
-            Function<RtsClientUiStateStore.UiState, String> stateReader,
-            BiConsumer<RtsClientUiStateStore.UiState, String> stateWriter,
-            Supplier<E> runtimeGetter,
-            java.util.function.Consumer<E> runtimeSetter,
-            E fallback,
-            Class<E> enumClass
-    ) implements PersistableProperty {
+    final class EnumFieldProperty<E extends Enum<E>> implements PersistableProperty {
+        private final String jsonKey;
+        private final Function<RtsClientUiStateStore.UiState, String> stateReader;
+        private final BiConsumer<RtsClientUiStateStore.UiState, String> stateWriter;
+        private final Supplier<E> runtimeGetter;
+        private final java.util.function.Consumer<E> runtimeSetter;
+        private final E fallback;
+        private final Class<E> enumClass;
+
+        public EnumFieldProperty(String jsonKey,
+                                 Function<RtsClientUiStateStore.UiState, String> stateReader,
+                                 BiConsumer<RtsClientUiStateStore.UiState, String> stateWriter,
+                                 Supplier<E> runtimeGetter,
+                                 java.util.function.Consumer<E> runtimeSetter,
+                                 E fallback,
+                                 Class<E> enumClass) {
+            this.jsonKey = jsonKey;
+            this.stateReader = stateReader;
+            this.stateWriter = stateWriter;
+            this.runtimeGetter = runtimeGetter;
+            this.runtimeSetter = runtimeSetter;
+            this.fallback = fallback;
+            this.enumClass = enumClass;
+        }
+
+        @Override
+        public String jsonKey() {
+            return jsonKey;
+        }
+
+        public Function<RtsClientUiStateStore.UiState, String> stateReader() {
+            return stateReader;
+        }
+
+        public BiConsumer<RtsClientUiStateStore.UiState, String> stateWriter() {
+            return stateWriter;
+        }
+
+        public Supplier<E> runtimeGetter() {
+            return runtimeGetter;
+        }
+
+        public java.util.function.Consumer<E> runtimeSetter() {
+            return runtimeSetter;
+        }
+
+        public E fallback() {
+            return fallback;
+        }
+
+        public Class<E> enumClass() {
+            return enumClass;
+        }
         @Override
         public void applyToRuntime(RtsClientUiStateStore.UiState state) {
             String raw = stateReader.apply(state);
@@ -82,7 +158,7 @@ public sealed interface PersistableProperty {
         }
 
         private E parseSafe(String raw) {
-            if (raw == null || raw.isBlank()) return fallback;
+            if (raw == null || raw.trim().isEmpty()) return fallback;
             try {
                 return Enum.valueOf(enumClass, raw.trim().toUpperCase(Locale.ROOT));
             } catch (IllegalArgumentException e) {
@@ -99,10 +175,22 @@ public sealed interface PersistableProperty {
      * 窗口边界属性——将面板的 x/y/width/height 映射到
      * {@link RtsClientUiStateStore.UiState#windowPanelBounds}。
      */
-    record BoundsProperty(
-            String panelKey,
-            BoundsProvider panel
-    ) implements PersistableProperty {
+    final class BoundsProperty implements PersistableProperty {
+        private final String panelKey;
+        private final BoundsProvider panel;
+
+        public BoundsProperty(String panelKey, BoundsProvider panel) {
+            this.panelKey = panelKey;
+            this.panel = panel;
+        }
+
+        public String panelKey() {
+            return panelKey;
+        }
+
+        public BoundsProvider panel() {
+            return panel;
+        }
         @Override
         public String jsonKey() {
             return panelKey + ".bounds";
@@ -110,7 +198,7 @@ public sealed interface PersistableProperty {
 
         @Override
         public void applyToRuntime(RtsClientUiStateStore.UiState state) {
-            var bounds = state.windowPanelBounds.get(panelKey);
+            RtsClientUiStateStore.UiState.PanelBounds bounds = state.windowPanelBounds.get(panelKey);
             if (bounds != null) {
                 panel.setBounds(bounds.x, bounds.y, bounds.width, bounds.height);
             }

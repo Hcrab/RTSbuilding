@@ -1,23 +1,26 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsRotateBlockPayload(BlockPos pos)
-        implements CustomPacketPayload {
-    public static final Type<C2SRtsRotateBlockPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_rotate_block"));
+/** 客户端请求将范围内的真实服务端方块绕默认轴旋转一步。 */
+public final class C2SRtsRotateBlockPayload implements IMessage {
+    private BlockPos pos;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsRotateBlockPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeBlockPos(payload.pos()),
-            buf -> new C2SRtsRotateBlockPayload(buf.readBlockPos()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsRotateBlockPayload() {
     }
+
+    public C2SRtsRotateBlockPayload(BlockPos pos) {
+        this.pos = pos;
+    }
+
+    public BlockPos pos() { return pos; }
+
+    @Override public void fromBytes(ByteBuf buffer) { pos = BlockPos.fromLong(buffer.readLong()); }
+    @Override public void toBytes(ByteBuf buffer) {
+        if (pos == null) throw new IllegalArgumentException("rotation position must not be null");
+        buffer.writeLong(pos.toLong());
+    }
+    public boolean isValid() { return pos != null; }
 }

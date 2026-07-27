@@ -1,52 +1,10 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-
-public record C2SRtsUltiminePayload(
-        BlockPos pos,
-        byte face,
-        byte toolSlot,
-        String toolItemId,
-        ItemStack toolPrototype,
-        short limit,
-        byte mode,
-        boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsUltiminePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_ultimine"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsUltiminePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeBlockPos(payload.pos());
-                buf.writeByte(payload.face());
-                buf.writeByte(payload.toolSlot());
-                buf.writeUtf(payload.toolItemId() == null ? "" : payload.toolItemId(), 256);
-                ItemStack toolPrototype = payload.toolPrototype() == null ? ItemStack.EMPTY : payload.toolPrototype();
-                buf.writeBoolean(!toolPrototype.isEmpty());
-                if (!toolPrototype.isEmpty()) {
-                    ItemStack.STREAM_CODEC.encode(buf, toolPrototype);
-                }
-                buf.writeShort(payload.limit());
-                buf.writeByte(payload.mode());
-                buf.writeBoolean(payload.toolProtectionEnabled());
-            },
-            (buf) -> new C2SRtsUltiminePayload(
-                    buf.readBlockPos(),
-                    buf.readByte(),
-                    buf.readByte(),
-                    buf.readUtf(256),
-                    buf.readBoolean() ? ItemStack.STREAM_CODEC.decode(buf) : ItemStack.EMPTY,
-                    buf.readShort(),
-                    buf.readByte(),
-                    buf.readBoolean()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;import io.netty.buffer.ByteBuf;import net.minecraft.item.ItemStack;import net.minecraft.util.EnumFacing;import net.minecraft.util.math.BlockPos;import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+public final class C2SRtsUltiminePayload implements IMessage{
+ private BlockPos pos;private byte face,toolSlot,mode;private String toolItemId;private ItemStack toolPrototype=ItemStack.EMPTY;private short limit;private boolean toolProtectionEnabled;
+ public C2SRtsUltiminePayload(){}public C2SRtsUltiminePayload(BlockPos p,byte f,byte t,String id,ItemStack proto,short l,byte m,boolean protect){pos=p;face=f;toolSlot=t;toolItemId=id==null?"":id;toolPrototype=proto==null?ItemStack.EMPTY:proto;limit=l;mode=m;toolProtectionEnabled=protect;}
+ public BlockPos pos(){return pos;}public byte face(){return face;}public byte toolSlot(){return toolSlot;}public String toolItemId(){return toolItemId;}public ItemStack toolPrototype(){return toolPrototype;}public short limit(){return limit;}public byte mode(){return mode;}public boolean toolProtectionEnabled(){return toolProtectionEnabled;}
+ public void fromBytes(ByteBuf b){pos=BlockPos.fromLong(b.readLong());face=b.readByte();toolSlot=b.readByte();toolItemId=RtsPacketBuffer.readString(b,256,"tool id");toolPrototype=RtsPacketBuffer.readItemStack(b);limit=b.readShort();mode=b.readByte();toolProtectionEnabled=b.readBoolean();}
+ public void toBytes(ByteBuf b){if(pos==null)throw new IllegalArgumentException("ultimine pos");b.writeLong(pos.toLong());b.writeByte(face);b.writeByte(toolSlot);RtsPacketBuffer.writeString(b,toolItemId,256,"tool id");RtsPacketBuffer.writeItemStack(b,toolPrototype);b.writeShort(limit);b.writeByte(mode);b.writeBoolean(toolProtectionEnabled);}
+ public boolean isValid(){return pos!=null&&face>=0&&face<EnumFacing.values().length&&toolSlot>=0&&toolSlot<=8&&limit>=1&&limit<=256&&mode>=0&&toolItemId!=null&&toolItemId.length()<=256;}
 }

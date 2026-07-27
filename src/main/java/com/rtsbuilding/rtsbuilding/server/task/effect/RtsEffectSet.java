@@ -108,7 +108,7 @@ public final class RtsEffectSet {
         for (RtsEffectKind kind : KINDS) {
             if (contains(kind)) result.add(kind);
         }
-        return Set.copyOf(result);
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(result);
     }
 
     long rawBits() {
@@ -130,7 +130,7 @@ public final class RtsEffectSet {
 
     @Override
     public boolean equals(Object other) {
-        return this == other || other instanceof RtsEffectSet set && bits == set.bits;
+        return this == other || (other instanceof RtsEffectSet && bits == ((RtsEffectSet) other).bits);
     }
 
     @Override

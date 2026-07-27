@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.transform;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Direction.Axis;
-import net.minecraft.core.Vec3i;
-import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.Property;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumFacing.Axis;
+import net.minecraft.util.Rotation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
 
 /**
  * 蓝图变换工具 —— 提供蓝图的旋转和变换操作。
@@ -41,7 +41,7 @@ public final class BlueprintTransform {
      */
     public static BlockPos rotate(BlockPos pos, int ySteps, int xSteps, int zSteps) {
         if (pos == null) {
-            return BlockPos.ZERO;
+            return BlockPos.ORIGIN;
         }
         int[] xyz = rotateRaw(pos.getX(), pos.getY(), pos.getZ(), ySteps, xSteps, zSteps);
         return new BlockPos(xyz[0], xyz[1], xyz[2]);
@@ -61,7 +61,7 @@ public final class BlueprintTransform {
      */
     public static BlockPos centerRotationOffset(Vec3i size, int ySteps, int xSteps, int zSteps) {
         if (size == null || size.getX() <= 0 || size.getY() <= 0 || size.getZ() <= 0) {
-            return BlockPos.ZERO;
+            return BlockPos.ORIGIN;
         }
         int maxX = size.getX() - 1;
         int maxY = size.getY() - 1;
@@ -112,7 +112,7 @@ public final class BlueprintTransform {
      */
     public static BlockPos rotateAroundCenter(BlockPos pos, int ySteps, int xSteps, int zSteps, BlockPos centerOffset) {
         BlockPos rotated = rotate(pos, ySteps, xSteps, zSteps);
-        return centerOffset == null ? rotated : rotated.offset(centerOffset);
+        return centerOffset == null ? rotated : rotated.add(centerOffset);
     }
 
     /**
@@ -127,25 +127,25 @@ public final class BlueprintTransform {
      * @param zSteps Z 轴旋转步数
      * @return 旋转后的方块状态
      */
-    public static BlockState rotateState(BlockState state, int ySteps, int xSteps, int zSteps) {
+    public static IBlockState rotateState(IBlockState state, int ySteps, int xSteps, int zSteps) {
         if (state == null) {
             return state;
         }
         // 先应用原版的 Y 轴旋转
-        BlockState out = state.rotate(rotationForYSteps(ySteps));
+        IBlockState out = state.withRotation(rotationForYSteps(ySteps));
         int x = normalizeSteps(xSteps);
         int z = normalizeSteps(zSteps);
         if (x == 0 && z == 0) {
             return out;
         }
         // 遍历所有属性，更新 Direction 和 Axis 类型
-        for (Property<?> property : out.getProperties()) {
+        for (IProperty<?> property : out.getPropertyKeys()) {
             Object value = out.getValue(property);
-            if (value instanceof Direction direction) {
-                Direction rotated = rotateDirection(direction, x, z);
+            if (value instanceof EnumFacing) {
+                EnumFacing rotated = rotateDirection((EnumFacing) value, x, z);
                 out = setValueUnsafe(out, property, rotated);
-            } else if (value instanceof Axis axis) {
-                Axis rotated = rotateAxis(axis, x, z);
+            } else if (value instanceof Axis) {
+                Axis rotated = rotateAxis((Axis) value, x, z);
                 out = setValueUnsafe(out, property, rotated);
             }
         }
@@ -156,29 +156,29 @@ public final class BlueprintTransform {
      * 根据 Y 轴旋转步数获取对应的 {@link Rotation} 枚举。
      */
     private static Rotation rotationForYSteps(int steps) {
-        return switch (normalizeSteps(steps)) {
-            case 1 -> Rotation.CLOCKWISE_90;
-            case 2 -> Rotation.CLOCKWISE_180;
-            case 3 -> Rotation.COUNTERCLOCKWISE_90;
-            default -> Rotation.NONE;
-        };
+        switch (normalizeSteps(steps)) {
+            case 1: return Rotation.CLOCKWISE_90;
+            case 2: return Rotation.CLOCKWISE_180;
+            case 3: return Rotation.COUNTERCLOCKWISE_90;
+            default: return Rotation.NONE;
+        }
     }
 
     /**
      * 旋转方向（支持 X 和 Z 轴旋转的组合）。
      */
-    private static Direction rotateDirection(Direction direction, int xSteps, int zSteps) {
+    private static EnumFacing rotateDirection(EnumFacing direction, int xSteps, int zSteps) {
         int[] normal = new int[] {
-                direction.getNormal().getX(),
-                direction.getNormal().getY(),
-                direction.getNormal().getZ()
+                direction.getDirectionVec().getX(),
+                direction.getDirectionVec().getY(),
+                direction.getDirectionVec().getZ()
         };
         normal = rotateX(normal[0], normal[1], normal[2], xSteps);
         normal = rotateZ(normal[0], normal[1], normal[2], zSteps);
-        for (Direction candidate : Direction.values()) {
-            if (candidate.getNormal().getX() == normal[0]
-                    && candidate.getNormal().getY() == normal[1]
-                    && candidate.getNormal().getZ() == normal[2]) {
+        for (EnumFacing candidate : EnumFacing.values()) {
+            if (candidate.getDirectionVec().getX() == normal[0]
+                    && candidate.getDirectionVec().getY() == normal[1]
+                    && candidate.getDirectionVec().getZ() == normal[2]) {
                 return candidate;
             }
         }
@@ -189,42 +189,44 @@ public final class BlueprintTransform {
      * 旋转轴。
      */
     private static Axis rotateAxis(Axis axis, int xSteps, int zSteps) {
-        Direction positive = switch (axis) {
-            case X -> Direction.EAST;
-            case Y -> Direction.UP;
-            case Z -> Direction.SOUTH;
-        };
+        EnumFacing positive;
+        switch (axis) {
+            case X: positive = EnumFacing.EAST; break;
+            case Y: positive = EnumFacing.UP; break;
+            case Z: positive = EnumFacing.SOUTH; break;
+            default: positive = EnumFacing.UP;
+        }
         return rotateDirection(positive, xSteps, zSteps).getAxis();
     }
 
     /** 绕 Y 轴旋转坐标 */
     private static int[] rotateY(int x, int y, int z, int steps) {
-        return switch (steps) {
-            case 1 -> new int[] { -z, y, x };
-            case 2 -> new int[] { -x, y, -z };
-            case 3 -> new int[] { z, y, -x };
-            default -> new int[] { x, y, z };
-        };
+        switch (steps) {
+            case 1: return new int[] { -z, y, x };
+            case 2: return new int[] { -x, y, -z };
+            case 3: return new int[] { z, y, -x };
+            default: return new int[] { x, y, z };
+        }
     }
 
     /** 绕 X 轴旋转坐标 */
     private static int[] rotateX(int x, int y, int z, int steps) {
-        return switch (steps) {
-            case 1 -> new int[] { x, -z, y };
-            case 2 -> new int[] { x, -y, -z };
-            case 3 -> new int[] { x, z, -y };
-            default -> new int[] { x, y, z };
-        };
+        switch (steps) {
+            case 1: return new int[] { x, -z, y };
+            case 2: return new int[] { x, -y, -z };
+            case 3: return new int[] { x, z, -y };
+            default: return new int[] { x, y, z };
+        }
     }
 
     /** 绕 Z 轴旋转坐标 */
     private static int[] rotateZ(int x, int y, int z, int steps) {
-        return switch (steps) {
-            case 1 -> new int[] { -y, x, z };
-            case 2 -> new int[] { -x, -y, z };
-            case 3 -> new int[] { y, -x, z };
-            default -> new int[] { x, y, z };
-        };
+        switch (steps) {
+            case 1: return new int[] { -y, x, z };
+            case 2: return new int[] { -x, -y, z };
+            case 3: return new int[] { y, -x, z };
+            default: return new int[] { x, y, z };
+        }
     }
 
     /** 执行三个轴的组合旋转 */
@@ -244,9 +246,9 @@ public final class BlueprintTransform {
      * 防止旋转产生不合法的方块状态属性值。
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static <T extends Comparable<T>> BlockState setIfAllowed(BlockState state, Property<T> property, T value) {
-        return property.getPossibleValues().contains(value)
-                ? state.setValue(property, value)
+    private static <T extends Comparable<T>> IBlockState setIfAllowed(IBlockState state, IProperty<T> property, T value) {
+        return property.getAllowedValues().contains(value)
+                ? state.withProperty(property, value)
                 : state;
     }
 
@@ -254,9 +256,9 @@ public final class BlueprintTransform {
      * 原始类型版本的 {@link #setIfAllowed}，避开泛型通配符捕获问题。
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static BlockState setValueUnsafe(BlockState state, Property property, Comparable value) {
-        return property.getPossibleValues().contains(value)
-                ? state.setValue(property, value)
+    private static IBlockState setValueUnsafe(IBlockState state, IProperty property, Comparable value) {
+        return property.getAllowedValues().contains(value)
+                ? state.withProperty(property, value)
                 : state;
     }
 }

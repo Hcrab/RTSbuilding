@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.api;
 
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * 远程交互 API。
@@ -15,7 +16,7 @@ public interface RtsInteractionAPI {
      *
      * @param player      执行玩家
      * @param entityId    目标实体 ID（-1 = 无实体目标）
-     * @param clickedPos  点击的方块坐标（net.minecraft.core.BlockPos）
+     * @param clickedPos  点击的方块坐标（net.minecraft.util.math.BlockPos）
      * @param face        点击的面
      * @param hitX        X 命中坐标
      * @param hitY        Y 命中坐标
@@ -30,8 +31,8 @@ public interface RtsInteractionAPI {
      * @param rayDirY     射线方向 Y
      * @param rayDirZ     射线方向 Z
      */
-    void interactTarget(ServerPlayer player, int entityId, Object clickedPos,
-                        Direction face, double hitX, double hitY, double hitZ,
+    void interactTarget(EntityPlayerMP player, int entityId, BlockPos clickedPos,
+                        EnumFacing face, double hitX, double hitY, double hitZ,
                         byte sourceType, byte toolSlot, String itemId,
                         double rayOriginX, double rayOriginY, double rayOriginZ,
                         double rayDirX, double rayDirY, double rayDirZ);
@@ -40,17 +41,17 @@ public interface RtsInteractionAPI {
      * 远程破坏已放置的方块。
      *
      * @param player               执行玩家
-     * @param pos                  目标坐标（net.minecraft.core.BlockPos）
+     * @param pos                  目标坐标（net.minecraft.util.math.BlockPos）
      * @param face                 破坏的面
      * @param allowAdjacentFallback 是否允许相邻回退
      */
-    void breakPlaced(ServerPlayer player, Object pos, Direction face, boolean allowAdjacentFallback);
+    void breakPlaced(EntityPlayerMP player, BlockPos pos, EnumFacing face, boolean allowAdjacentFallback);
 
     /**
      * 远程旋转方块。
      *
      * @param player 执行玩家
-     * @param pos    目标坐标（net.minecraft.core.BlockPos）
+     * @param pos    目标坐标（net.minecraft.util.math.BlockPos）
      */
-    void rotateBlock(ServerPlayer player, Object pos);
+    void rotateBlock(EntityPlayerMP player, BlockPos pos);
 }

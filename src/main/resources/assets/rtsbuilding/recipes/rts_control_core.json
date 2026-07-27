@@ -1,0 +1,30 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    " R ",
+                    "AEA",
+                    " R "
+                ],
+    "key":  {
+                "A":  [
+                          {
+                              "type":  "forge:ore_dict",
+                              "ore":  "gemAmethyst"
+                          },
+                          {
+                              "item":  "minecraft:quartz"
+                          }
+                      ],
+                "E":  {
+                          "item":  "minecraft:ender_eye"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:rts_control_core",
+                   "count":  1
+               }
+}

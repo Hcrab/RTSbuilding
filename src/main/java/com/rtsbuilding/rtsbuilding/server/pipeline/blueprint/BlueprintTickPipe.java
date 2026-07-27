@@ -17,16 +17,16 @@ import com.rtsbuilding.rtsbuilding.server.task.BlueprintTaskPayload;
 import com.rtsbuilding.rtsbuilding.server.task.TaskBudget;
 import com.rtsbuilding.rtsbuilding.server.task.TaskStepResult;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.WorldServer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.neoforged.neoforge.fluids.FluidType;
@@ -47,8 +47,8 @@ public final class BlueprintTickPipe {
 
     public static TaskStepResult execute(BlueprintTaskPayload payload, TaskBudget budget) {
         BlueprintContext context = payload.context();
-        ServerPlayer player = payload.player();
-        ServerLevel level = player.serverLevel();
+        EntityPlayerMP player = payload.player();
+        WorldServer level = player.serverLevel();
         List<PlacementPlan> plans = context.getPlacementPlans();
         LinkedList<Integer> remaining = context.getRemainingQueue();
         if (plans == null || remaining == null) {
@@ -136,7 +136,7 @@ public final class BlueprintTickPipe {
         if (delta > 0 && context.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
             int entryId = context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
             RtsWorkflowEngine.getInstance().from(player, entryId)
-                    .ifPresent(token -> token.updateProgress(delta, List.of()));
+                    .ifPresent(token -> token.updateProgress(delta, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf()));
         }
 
         if (remaining.isEmpty()) {
@@ -161,7 +161,7 @@ public final class BlueprintTickPipe {
                 payload.player(), context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID), context);
     }
 
-    private static void finish(BlueprintContext context, ServerPlayer player, int total) {
+    private static void finish(BlueprintContext context, EntityPlayerMP player, int total) {
         if (context.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
             int entryId = context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
             RtsWorkflowEngine.getInstance().from(player, entryId).ifPresent(token -> {
@@ -183,7 +183,7 @@ public final class BlueprintTickPipe {
 
     private enum PlaceResult { PLACED, MISSING_MATERIALS, UNSUPPORTED, BLOCKED }
 
-    private static PlaceResult attemptPlaceOne(ServerPlayer player, ServerLevel level, PlacementPlan plan) {
+    private static PlaceResult attemptPlaceOne(EntityPlayerMP player, WorldServer level, PlacementPlan plan) {
         List<ItemStack> extracted = new ArrayList<>(plan.items().size());
         BlueprintService service = blueprint();
         if (!player.isCreative()) {
@@ -231,10 +231,10 @@ public final class BlueprintTickPipe {
         return PlaceResult.PLACED;
     }
 
-    private static CompoundTag blockEntityTag(
-            ServerPlayer player, ServerLevel level, PlacementPlan plan) {
+    private static NBTTagCompound blockEntityTag(
+            EntityPlayerMP player, WorldServer level, PlacementPlan plan) {
         if (plan.blockEntityTag() == null || plan.blockEntityTag().isEmpty()) return null;
-        CompoundTag tag = player.isCreative() && player.canUseGameMasterBlocks()
+        NBTTagCompound tag = player.isCreative() && player.canUseGameMasterBlocks()
                 ? plan.blockEntityTag()
                 : BlueprintBlockEntitySanitizer.sanitizeForSurvivalPlacement(plan.blockEntityTag());
         return BlueprintCreatePlacementCompat.prepareBlockEntityTag(
@@ -242,20 +242,20 @@ public final class BlueprintTickPipe {
     }
 
     private static boolean canStillPlace(
-            ServerPlayer player, ServerLevel level, BlockPos target, BlockState state) {
+            EntityPlayerMP player, WorldServer level, BlockPos target, IBlockState state) {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) return false;
         if (!RtsClaimProtectionService.canPlaceBlock(player, target)) return false;
         if (level.getBlockEntity(target) != null) return false;
-        if (!BlueprintReplaceRules.canBlueprintReplace(level.getBlockState(target))) return false;
+        if (!BlueprintReplaceRules.canBlueprintReplace(level.getIBlockState(target))) return false;
         CollisionContext collision = CollisionContext.of(player);
         return state.canSurvive(level, target) && level.isUnobstructed(state, target, collision);
     }
 
-    private static boolean isAlreadyPlaced(ServerLevel level, PlacementPlan plan) {
-        return level.getBlockState(plan.target()).getBlock() == plan.state().getBlock();
+    private static boolean isAlreadyPlaced(WorldServer level, PlacementPlan plan) {
+        return level.getIBlockState(plan.target()).getBlock() == plan.state().getBlock();
     }
 
-    private static boolean hasAllMaterialsForPlan(ServerPlayer player, PlacementPlan plan) {
+    private static boolean hasAllMaterialsForPlan(EntityPlayerMP player, PlacementPlan plan) {
         BlueprintService service = blueprint();
         if (plan.items().isEmpty()) {
             if (plan.fluidCost() == Fluids.WATER) return hasReusableWater(player);
@@ -268,13 +268,13 @@ public final class BlueprintTickPipe {
         return true;
     }
 
-    private static boolean hasReusableWater(ServerPlayer player) {
+    private static boolean hasReusableWater(EntityPlayerMP player) {
         BlueprintService service = blueprint();
         return service.countMaterial(player, Items.WATER_BUCKET)
                 + service.countFluidMb(player, Fluids.WATER) / FluidType.BUCKET_VOLUME >= 2L;
     }
 
-    private static void refund(ServerPlayer player, List<ItemStack> stacks) {
+    private static void refund(EntityPlayerMP player, List<ItemStack> stacks) {
         for (ItemStack stack : stacks) if (!stack.isEmpty()) blueprint().refundMaterial(player, stack);
     }
 

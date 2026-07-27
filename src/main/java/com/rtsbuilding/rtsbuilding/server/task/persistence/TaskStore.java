@@ -141,7 +141,7 @@ final class TaskStore {
     synchronized List<TaskSnapshot> runnableFor(UUID ownerId, String dimensionId) {
         Set<TaskId> owned = ownerIndex.get(ownerId);
         Set<TaskId> inDimension = dimensionIndex.get(dimensionId);
-        if (owned == null || inDimension == null) return List.of();
+        if (owned == null || inDimension == null) return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf();
         Collection<TaskId> smaller = owned.size() <= inDimension.size() ? owned : inDimension;
         Set<TaskId> other = smaller == owned ? inDimension : owned;
         List<TaskSnapshot> result = new ArrayList<>();
@@ -151,7 +151,7 @@ final class TaskStore {
             if (snapshot != null && snapshot.state().runnable()) result.add(snapshot);
         }
         result.sort(STABLE_ORDER);
-        return List.copyOf(result);
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(result);
     }
 
     synchronized Optional<TaskSnapshot> remove(TaskId taskId) {
@@ -168,18 +168,18 @@ final class TaskStore {
     synchronized List<TaskSnapshot> snapshots() {
         List<TaskSnapshot> result = new ArrayList<>(tasks.values());
         result.sort(STABLE_ORDER);
-        return List.copyOf(result);
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(result);
     }
 
     private List<TaskSnapshot> snapshots(Set<TaskId> ids) {
-        if (ids == null || ids.isEmpty()) return List.of();
+        if (ids == null || ids.isEmpty()) return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf();
         List<TaskSnapshot> result = new ArrayList<>(ids.size());
         for (TaskId id : ids) {
             TaskSnapshot snapshot = tasks.get(id);
             if (snapshot != null) result.add(snapshot);
         }
         result.sort(STABLE_ORDER);
-        return List.copyOf(result);
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(result);
     }
 
     private void addIndexes(TaskSnapshot snapshot) {
@@ -278,7 +278,7 @@ final class TaskStore {
     synchronized List<TaskTombstone> receipts() {
         List<TaskTombstone> result = new ArrayList<>(receipts.values());
         result.sort(Comparator.comparing(TaskTombstone::taskId));
-        return List.copyOf(result);
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(result);
     }
 
     private record SubmissionKey(UUID ownerId, SubmissionId submissionId) {

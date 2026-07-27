@@ -1,0 +1,24 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    "PPP",
+                    "RBR",
+                    "PPP"
+                ],
+    "key":  {
+                "B":  {
+                          "item":  "minecraft:book"
+                      },
+                "P":  {
+                          "item":  "minecraft:paper"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:blueprint_plugin",
+                   "count":  1
+               }
+}

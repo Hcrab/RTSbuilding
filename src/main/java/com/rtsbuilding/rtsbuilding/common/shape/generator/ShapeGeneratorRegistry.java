@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.Collections;
 import java.util.EnumMap;
@@ -78,7 +78,7 @@ public final class ShapeGeneratorRegistry {
 
         @Override
         public List<BlockPos> generatePositions(AreaShapeInput input, ShapeFillMode fillMode) {
-            return List.of(input.start());
+            return Collections.singletonList(input.start());
         }
     }
 }

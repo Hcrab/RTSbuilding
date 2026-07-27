@@ -17,11 +17,11 @@ import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.Placed
 import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
 import com.rtsbuilding.rtsbuilding.server.task.BoundedQueueSelector;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.item.ItemStack;
@@ -71,7 +71,7 @@ public final class RtsPlacedRecoveryService {
     /**
      * 远程破坏已放置的方块。
      */
-    public static void breakPlaced(ServerPlayer player, BlockPos pos, Direction face, boolean allowAdjacentFallback) {
+    public static void breakPlaced(EntityPlayerMP player, BlockPos pos, EnumFacing face, boolean allowAdjacentFallback) {
         boolean undoRecovery = allowAdjacentFallback;
         if (!undoRecovery && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_BREAK)) {
             return;
@@ -89,13 +89,13 @@ public final class RtsPlacedRecoveryService {
         }
         ServerLevel level = player.serverLevel();
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(level);
-        BlockPos targetPos = pos.immutable();
+        BlockPos targetPos = pos.toImmutable();
         if (!tracker.isPlaced(targetPos)) {
             if (!allowAdjacentFallback) {
                 return;
             }
-            Direction resolvedFace = face == null ? Direction.UP : face;
-            BlockPos adjacent = targetPos.relative(resolvedFace);
+            EnumFacing resolvedFace = face == null ? EnumFacing.UP : face;
+            BlockPos adjacent = targetPos.offset(resolvedFace);
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, adjacent) || !tracker.isPlaced(adjacent)) {
                 return;
             }
@@ -107,7 +107,7 @@ public final class RtsPlacedRecoveryService {
             tracker.clear(targetPos);
             return;
         }
-        if (!RtsClaimProtectionService.canBreakBlock(player, targetPos, face != null ? face : Direction.UP)) {
+        if (!RtsClaimProtectionService.canBreakBlock(player, targetPos, face != null ? face : EnumFacing.UP)) {
             return;
         }
 
@@ -116,7 +116,8 @@ public final class RtsPlacedRecoveryService {
             return;
         }
         if (!allowAdjacentFallback) {
-            ServerHistoryManager.recordBreak(player, List.of(targetPos), face != null ? face : Direction.UP);
+            ServerHistoryManager.recordBreak(player, Collections.singletonList(targetPos),
+                    face != null ? face : EnumFacing.UP);
         }
 
         ItemStack recoveredBlock = recoveryStack(level, targetPos, state);
@@ -164,7 +165,7 @@ public final class RtsPlacedRecoveryService {
     /**
      * Tick 处理恢复作业。
      */
-    public static void tick(ServerPlayer player, RtsStorageSession session) {
+    public static void tick(EntityPlayerMP player, RtsStorageSession session) {
         tickBudgeted(player, session,
                 RtsServiceConstants.PLACED_RECOVERY_MAX_STACKS_PER_TICK, Long.MAX_VALUE);
     }
@@ -176,7 +177,7 @@ public final class RtsPlacedRecoveryService {
      * 始终由世界实体持有。实体缺失或物品身份变化时保留 claim，不静默吸走其他物品。</p>
      */
     public static RecoveryTickResult tickBudgeted(
-            ServerPlayer player, RtsStorageSession session, int maxUnits, long deadlineNanos) {
+            EntityPlayerMP player, RtsStorageSession session, int maxUnits, long deadlineNanos) {
         if (player == null || session == null) {
             return new RecoveryTickResult(0, true);
         }
@@ -200,7 +201,7 @@ public final class RtsPlacedRecoveryService {
                 && processedStacks < Math.max(1, maxUnits)
                 && System.nanoTime() < deadlineNanos) {
             int inspectionBudget = RtsServiceConstants.PLACED_RECOVERY_MAX_JOBS_PER_TICK - inspectedJobs;
-            var selection = BoundedQueueSelector.rotateToRunnable(
+            BoundedQueueSelector.Selection<PlacedRecoveryJob> selection = BoundedQueueSelector.rotateToRunnable(
                     jobs,
                     candidate -> candidate.claims().isEmpty()
                             || (candidate.requiredPersistedRevision() <= persistedPlacementRevision
@@ -231,10 +232,11 @@ public final class RtsPlacedRecoveryService {
                     && System.nanoTime() < deadlineNanos) {
                 PlacedRecoveryClaim claim = job.claims().peekFirst();
                 net.minecraft.world.entity.Entity entity = jobLevel.getEntity(claim.entityId());
-                if (!(entity instanceof ItemEntity droppedEntity) || !droppedEntity.isAlive()) {
+                if (!(entity instanceof ItemEntity) || !entity.isAlive()) {
                     claimBlocked = true;
                     break;
                 }
+                ItemEntity droppedEntity = (ItemEntity) entity;
                 ItemStack droppedStack = droppedEntity.getItem();
                 if (!claim.matches(droppedStack)) {
                     claimBlocked = true;
@@ -282,32 +284,47 @@ public final class RtsPlacedRecoveryService {
         return new RecoveryTickResult(processedStacks, jobs.isEmpty());
     }
 
-    public record RecoveryTickResult(int processedUnits, boolean complete) {
+    public static final class RecoveryTickResult {
+        private final int processedUnits;
+        private final boolean complete;
+
+        public RecoveryTickResult(int processedUnits, boolean complete) {
+            this.processedUnits = processedUnits;
+            this.complete = complete;
+        }
+
+        public int processedUnits() {
+            return processedUnits;
+        }
+
+        public boolean complete() {
+            return complete;
+        }
     }
 
     // ---- 内部方法 ----
 
     static NearbyDropSnapshot snapshotNearbyDrops(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null) return new NearbyDropSnapshot(Set.of(), false);
+        if (level == null || pos == null) return new NearbyDropSnapshot(Collections.<UUID>emptySet(), false);
         AABB box = new AABB(pos).inflate(0.5D);
         int safeLimit = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
         List<ItemEntity> nearby = new ArrayList<>(safeLimit + 1);
         level.getEntities(EntityTypeTest.forClass(ItemEntity.class), box,
                 e -> e != null && e.isAlive() && !e.getItem().isEmpty(), nearby, safeLimit + 1);
         if (nearby.size() > safeLimit) {
-            return new NearbyDropSnapshot(Set.of(), true);
+            return new NearbyDropSnapshot(Collections.<UUID>emptySet(), true);
         }
         Set<UUID> ids = new HashSet<>(nearby.size());
         for (ItemEntity entity : nearby) {
             ids.add(entity.getUUID());
         }
-        return new NearbyDropSnapshot(Set.copyOf(ids), false);
+        return new NearbyDropSnapshot(Collections.unmodifiableSet(new HashSet<>(ids)), false);
     }
 
     static NearbyDropCollection collectNewNearbyDrops(
             ServerLevel level, BlockPos pos, Set<UUID> existingIds) {
-        if (level == null || pos == null) return new NearbyDropCollection(List.of(), false);
-        Set<UUID> safeExistingIds = existingIds == null ? Set.of() : existingIds;
+        if (level == null || pos == null) return new NearbyDropCollection(Collections.<ItemEntity>emptyList(), false);
+        Set<UUID> safeExistingIds = existingIds == null ? Collections.<UUID>emptySet() : existingIds;
         AABB box = new AABB(pos).inflate(0.5D);
         int maxNewDrops = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
         int queryLimit = safeExistingIds.size() + maxNewDrops + 1;
@@ -319,18 +336,48 @@ public final class RtsPlacedRecoveryService {
             if (!safeExistingIds.contains(entity.getUUID())) {
                 fresh.add(entity);
                 if (fresh.size() > maxNewDrops) {
-                    return new NearbyDropCollection(List.of(), true);
+                    return new NearbyDropCollection(Collections.<ItemEntity>emptyList(), true);
                 }
             }
         }
-        if (all.size() >= queryLimit) return new NearbyDropCollection(List.of(), true);
-        return new NearbyDropCollection(List.copyOf(fresh), false);
+        if (all.size() >= queryLimit) return new NearbyDropCollection(Collections.<ItemEntity>emptyList(), true);
+        return new NearbyDropCollection(Collections.unmodifiableList(new ArrayList<>(fresh)), false);
     }
 
-    record NearbyDropSnapshot(Set<UUID> entityIds, boolean saturated) {
+    static final class NearbyDropSnapshot {
+        private final Set<UUID> entityIds;
+        private final boolean saturated;
+
+        NearbyDropSnapshot(Set<UUID> entityIds, boolean saturated) {
+            this.entityIds = entityIds;
+            this.saturated = saturated;
+        }
+
+        Set<UUID> entityIds() {
+            return entityIds;
+        }
+
+        boolean saturated() {
+            return saturated;
+        }
     }
 
-    record NearbyDropCollection(List<ItemEntity> entities, boolean saturated) {
+    static final class NearbyDropCollection {
+        private final List<ItemEntity> entities;
+        private final boolean saturated;
+
+        NearbyDropCollection(List<ItemEntity> entities, boolean saturated) {
+            this.entities = entities;
+            this.saturated = saturated;
+        }
+
+        List<ItemEntity> entities() {
+            return entities;
+        }
+
+        boolean saturated() {
+            return saturated;
+        }
     }
 
     static ItemStack recoveryStack(ServerLevel level, BlockPos pos, BlockState state) {
@@ -343,9 +390,10 @@ public final class RtsPlacedRecoveryService {
     }
 
     static boolean recoverTrackedBlock(
-            ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
+            EntityPlayerMP player, ServerLevel level, BlockPos pos, BlockState state) {
         if (player == null || level == null || pos == null || state == null || state.isAir()) return false;
-        var breakEvent = TemporaryContextSwitcher.withTemporaryMainHandItem(
+        net.neoforged.neoforge.event.level.BlockEvent.BreakEvent breakEvent =
+                TemporaryContextSwitcher.withTemporaryMainHandItem(
                 player, ItemStack.EMPTY,
                 () -> CommonHooks.fireBlockBreak(
                         level, player.gameMode.getGameModeForPlayer(), player, pos, state));
@@ -367,7 +415,7 @@ public final class RtsPlacedRecoveryService {
     }
 
     private static PlacedRecoveryJob enqueueRecoveryJob(
-            ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
+            EntityPlayerMP player, RtsStorageSession session, BlockPos targetPos,
             List<ItemEntity> droppedEntities) {
         if (player == null || droppedEntities == null || droppedEntities.isEmpty()) {
             return null;
@@ -397,7 +445,7 @@ public final class RtsPlacedRecoveryService {
         }
         if (claims.isEmpty()) return null;
         PlacedRecoveryJob job = new PlacedRecoveryJob(
-                UUID.randomUUID(), player.serverLevel().dimension(), targetPos.immutable(), claims);
+                UUID.randomUUID(), player.serverLevel().dimension(), targetPos.toImmutable(), claims);
         session.placement.recoveryJobs.addLast(job);
         return job;
     }
@@ -408,7 +456,7 @@ public final class RtsPlacedRecoveryService {
      * re-storing into the same block that was just broken).
      */
     private static List<IItemHandler> recoveryHandlersExcluding(List<LinkedHandler> orderedLinked, BlockPos targetPos) {
-        if (orderedLinked == null || orderedLinked.isEmpty()) return List.of();
+        if (orderedLinked == null || orderedLinked.isEmpty()) return Collections.emptyList();
         List<IItemHandler> handlers = new ArrayList<>(orderedLinked.size());
         for (LinkedHandler lh : orderedLinked) {
             if (lh == null || lh.pos() == null || lh.pos().equals(targetPos)) continue;

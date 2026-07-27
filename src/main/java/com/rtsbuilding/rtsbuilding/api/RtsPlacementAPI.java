@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.api;
 
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 
@@ -17,7 +18,7 @@ public interface RtsPlacementAPI {
      * 放置单个选中的方块。
      *
      * @param player           执行玩家
-     * @param clickedPos       点击的方块坐标（net.minecraft.core.BlockPos）
+     * @param clickedPos       点击的方块坐标（net.minecraft.util.math.BlockPos）
      * @param face             点击的面
      * @param hitX             X 命中坐标
      * @param hitY             Y 命中坐标
@@ -36,7 +37,7 @@ public interface RtsPlacementAPI {
      * @param quickBuild       是否快速建造
      * @param forceEmptyHand   是否强制空手
      */
-    void placeSelected(ServerPlayer player, Object clickedPos, Direction face,
+    void placeSelected(EntityPlayerMP player, BlockPos clickedPos, EnumFacing face,
                        double hitX, double hitY, double hitZ,
                        byte rotateSteps, boolean forcePlace, boolean skipIfOccupied,
                        String itemId, ItemStack itemPrototype,
@@ -47,7 +48,7 @@ public interface RtsPlacementAPI {
     /**
      * 将多个位置加入放置队列。
      */
-    void enqueueBatch(ServerPlayer player, List<Object> clickedPositions, Direction face,
+    void enqueueBatch(EntityPlayerMP player, List<BlockPos> clickedPositions, EnumFacing face,
                       double hitOffsetX, double hitOffsetY, double hitOffsetZ,
                       byte rotateSteps, boolean forcePlace, boolean skipIfOccupied,
                       String itemId, ItemStack itemPrototype,
@@ -64,7 +65,7 @@ public interface RtsPlacementAPI {
      * @param player 目标玩家
      * @return 总方块数，如果没有进行中的批量放置则返回 0
      */
-    int getPlaceBatchTotalBlocks(ServerPlayer player);
+    int getPlaceBatchTotalBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前批量范围放置的已放置方块数量。
@@ -72,7 +73,7 @@ public interface RtsPlacementAPI {
      * @param player 目标玩家
      * @return 已放置方块数，如果没有进行中的批量放置则返回 0
      */
-    int getPlaceBatchCompletedBlocks(ServerPlayer player);
+    int getPlaceBatchCompletedBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前批量范围放置的未放置方块数（剩余待放置方块）。
@@ -80,7 +81,7 @@ public interface RtsPlacementAPI {
      * @param player 目标玩家
      * @return 未放置方块数，如果没有进行中的批量放置则返回 0
      */
-    int getPlaceBatchRemainingBlocks(ServerPlayer player);
+    int getPlaceBatchRemainingBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前批量范围放置的方块类型（物品 ID）。
@@ -91,5 +92,5 @@ public interface RtsPlacementAPI {
      * @return 物品 ID 字符串（如 "minecraft:diamond_block"），
      *         如果没有进行中的批量放置则返回空字符串
      */
-    String getPlaceBatchItemId(ServerPlayer player);
+    String getPlaceBatchItemId(EntityPlayerMP player);
 }

@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.AtomicBlueprintBlobRepository;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.BlueprintBlobCodec;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -261,7 +261,7 @@ final class BlueprintBlobAdmissionQueue {
             String name,
             String sourceName,
             String format,
-            CompoundTag structure) {
+            NBTTagCompound structure) {
         FreezeRequest {
             Objects.requireNonNull(taskId, "taskId");
             Objects.requireNonNull(name, "name");
@@ -272,11 +272,11 @@ final class BlueprintBlobAdmissionQueue {
         }
 
         @Override
-        public CompoundTag structure() {
+        public NBTTagCompound structure() {
             return structure.copy();
         }
 
-        CompoundTag structureView() {
+        NBTTagCompound structureView() {
             return structure;
         }
 

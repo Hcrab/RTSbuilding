@@ -3,12 +3,11 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -38,11 +37,12 @@ public final class RtsPlacementExtractor {
      * 当匹配时返回原型堆叠的单个计数副本，否则返回 {@link ItemStack#EMPTY}。
      */
     public static ItemStack sanitizePrototype(String itemId, ItemStack itemPrototype) {
-        if (itemId == null || itemId.isBlank() || itemPrototype == null || itemPrototype.isEmpty()) {
+        if (itemId == null || itemId.trim().isEmpty() || itemPrototype == null || itemPrototype.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        ResourceLocation expectedId = ResourceLocation.tryParse(itemId);
-        ResourceLocation actualId = BuiltInRegistries.ITEM.getKey(itemPrototype.getItem());
+        ResourceLocation expectedId;
+        try { expectedId = new ResourceLocation(itemId); } catch (RuntimeException invalid) { return ItemStack.EMPTY; }
+        ResourceLocation actualId = Item.REGISTRY.getNameForObject(itemPrototype.getItem());
         if (expectedId == null || actualId == null || !expectedId.equals(actualId)) {
             return ItemStack.EMPTY;
         }
@@ -67,7 +67,7 @@ public final class RtsPlacementExtractor {
      * 从网络（链接处理器 + 玩家主背包）提取一个单位的 {@code item}，
      * 如果提供了原型则优先匹配。
      */
-    public static ItemStack extractSelectedFromNetwork(List<IItemHandler> handlers, ServerPlayer player, Item item,
+    public static ItemStack extractSelectedFromNetwork(List<IItemHandler> handlers, EntityPlayerMP player, Item item,
                                                         ItemStack preferredStack) {
         return extractSelectedFromNetworkCached(player, handlers, item, preferredStack);
     }
@@ -77,7 +77,7 @@ public final class RtsPlacementExtractor {
      * 提取一个单位的 {@code item}，回退到直接提取。
      * 通知 tick 服务唤醒自适应调度器以实现近乎即时的 GUI 更新。
      */
-    public static ItemStack extractSelectedFromNetworkCached(ServerPlayer player, List<IItemHandler> handlers, Item item,
+    public static ItemStack extractSelectedFromNetworkCached(EntityPlayerMP player, List<IItemHandler> handlers, Item item,
                                                               ItemStack preferredStack) {
         // Try aggregate storage cache first (linked handlers only)
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
@@ -89,7 +89,7 @@ public final class RtsPlacementExtractor {
                 extracted = aggregate.extract(item, 1);
             }
             if (!extracted.isEmpty()) {
-                RtsStorageTickService.INSTANCE.alert(player.getUUID());
+                RtsStorageTickService.INSTANCE.alert(player.getUniqueID());
                 return extracted;
             }
         }
@@ -116,7 +116,7 @@ public final class RtsPlacementExtractor {
      * 回退到直接处理器提取。这确保 pendingChanges 被追踪
      * 且 tick 服务被通知以实现近乎即时的 GUI 更新。
      */
-    public static ItemStack extractSelectedFromLinkedCached(ServerPlayer player, List<IItemHandler> handlers, Item item, ItemStack preferredStack) {
+    public static ItemStack extractSelectedFromLinkedCached(EntityPlayerMP player, List<IItemHandler> handlers, Item item, ItemStack preferredStack) {
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
         if (aggregate != null && !aggregate.isEmpty()) {
             ItemStack extracted;
@@ -126,7 +126,7 @@ public final class RtsPlacementExtractor {
                 extracted = aggregate.extract(item, 1);
             }
             if (!extracted.isEmpty()) {
-                RtsStorageTickService.INSTANCE.alert(player.getUUID());
+                RtsStorageTickService.INSTANCE.alert(player.getUniqueID());
                 return extracted;
             }
         }

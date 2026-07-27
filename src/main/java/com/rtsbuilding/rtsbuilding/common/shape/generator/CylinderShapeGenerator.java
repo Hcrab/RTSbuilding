@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -39,7 +39,7 @@ public class CylinderShapeGenerator extends AreaShapeGenerator {
             boolean capLayer = y == minY || y == maxY;
             for (Cell cell : filledBase) {
                 if (fill || (!singleLayer && capLayer) || shellBase.contains(cell)) {
-                    result.add(input.start().offset(cell.x(), y, cell.z()));
+                    result.add(input.start().add(cell.x(), y, cell.z()));
                 }
             }
         }
@@ -62,6 +62,34 @@ public class CylinderShapeGenerator extends AreaShapeGenerator {
         return cells;
     }
 
-    private record Cell(int x, int z) {
+    private static final class Cell {
+        private final int x;
+        private final int z;
+
+        private Cell(int x, int z) {
+            this.x = x;
+            this.z = z;
+        }
+
+        private int x() {
+            return x;
+        }
+
+        private int z() {
+            return z;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Cell)) return false;
+            Cell that = (Cell) other;
+            return x == that.x && z == that.z;
+        }
+
+        @Override
+        public int hashCode() {
+            return (31 * x) + z;
+        }
     }
 }

@@ -43,7 +43,7 @@ public interface TaskRepository {
         public Image {
             tasks = Map.copyOf(new LinkedHashMap<>(Objects.requireNonNull(tasks, "tasks")));
             tombstones = Map.copyOf(new LinkedHashMap<>(Objects.requireNonNull(tombstones, "tombstones")));
-            completedMigrations = Set.copyOf(
+            completedMigrations = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(
                     new LinkedHashSet<>(Objects.requireNonNull(completedMigrations, "completedMigrations")));
             Objects.requireNonNull(assets, "assets");
             assets.requireOwnedBy(tasks.keySet());
@@ -51,7 +51,7 @@ public interface TaskRepository {
         }
 
         public static Image empty() {
-            return new Image(Map.of(), Map.of(), Set.of(), TaskAssetManifest.empty());
+            return new Image(Map.of(), Map.of(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), TaskAssetManifest.empty());
         }
     }
 
@@ -63,14 +63,14 @@ public interface TaskRepository {
                   List<TaskAssetMetadata> assetUpserts,
                   Set<TaskAssetId> removedAssets) {
         public Commit {
-            upserts = List.copyOf(new ArrayList<>(Objects.requireNonNull(upserts, "upserts")));
-            tombstones = List.copyOf(new ArrayList<>(Objects.requireNonNull(tombstones, "tombstones")));
-            purgedTombstones = Set.copyOf(
+            upserts = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(new ArrayList<>(Objects.requireNonNull(upserts, "upserts")));
+            tombstones = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(new ArrayList<>(Objects.requireNonNull(tombstones, "tombstones")));
+            purgedTombstones = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(
                     new LinkedHashSet<>(Objects.requireNonNull(purgedTombstones, "purgedTombstones")));
-            completedMigrations = Set.copyOf(
+            completedMigrations = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(
                     new LinkedHashSet<>(Objects.requireNonNull(completedMigrations, "completedMigrations")));
-            assetUpserts = List.copyOf(new ArrayList<>(Objects.requireNonNull(assetUpserts, "assetUpserts")));
-            removedAssets = Set.copyOf(
+            assetUpserts = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(new ArrayList<>(Objects.requireNonNull(assetUpserts, "assetUpserts")));
+            removedAssets = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(
                     new LinkedHashSet<>(Objects.requireNonNull(removedAssets, "removedAssets")));
             if (upserts.isEmpty() && tombstones.isEmpty()
                     && purgedTombstones.isEmpty() && completedMigrations.isEmpty()
@@ -81,11 +81,11 @@ public interface TaskRepository {
 
         public Commit(List<TaskSnapshot> upserts, List<TaskTombstone> tombstones,
                 Set<TaskId> purgedTombstones, Set<String> completedMigrations) {
-            this(upserts, tombstones, purgedTombstones, completedMigrations, List.of(), Set.of());
+            this(upserts, tombstones, purgedTombstones, completedMigrations, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf());
         }
 
         public static Commit upserts(Collection<TaskSnapshot> snapshots) {
-            return new Commit(List.copyOf(snapshots), List.of(), Set.of(), Set.of());
+            return new Commit(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(snapshots), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf());
         }
 
         public int recordCount() {
@@ -101,7 +101,7 @@ public interface TaskRepository {
         int recordCount();
     }
 
-    sealed interface LoadResult permits LoadResult.Found, LoadResult.Missing, LoadResult.Failed {
+    interface LoadResult {
         record Found(Image image) implements LoadResult {
             public Found {
                 Objects.requireNonNull(image, "image");
@@ -118,7 +118,7 @@ public interface TaskRepository {
         }
     }
 
-    sealed interface PrepareResult permits PrepareResult.Prepared, PrepareResult.Failed {
+    interface PrepareResult {
         record Prepared(PreparedCommit commit) implements PrepareResult {
             public Prepared {
                 Objects.requireNonNull(commit, "commit");
@@ -157,7 +157,7 @@ public interface TaskRepository {
         }
     }
 
-    private static void requireConsistentAssetLinks(
+    static void requireConsistentAssetLinks(
             Map<TaskId, TaskSnapshot> tasks, TaskAssetManifest manifest) {
         Map<TaskId, Integer> assetsPerTask = new LinkedHashMap<>();
         for (TaskAssetMetadata metadata : manifest.entries().values()) {

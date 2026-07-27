@@ -1,114 +1,120 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.Level;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.loading.FMLEnvironment;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.text.translation.I18n;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
- * Real inventory item used to install one RTS plugin.
+ * 可真实安装的插件物品。
  *
- * <p>The item only adapts right-click use into the server service. It does not
- * decide install legality or mutate persistent state directly.
+ * <p>本类只把右击动作适配到权威服务；安装合法性、物品消耗、持久化和替换退回仍由
+ * {@link RtsPluginService} 负责，不能在客户端预先扣除或复制物品。</p>
  */
 public class RtsPluginItem extends Item {
     private static final String REMOTE_CONTROL_PLUGIN = "remote_control_plugin";
     private static final String STORAGE_INTEGRATION_PLUGIN = "storage_integration_plugin";
     private static final String AREA_DESTROY_PLUGIN = "area_destroy_plugin";
 
-    public RtsPluginItem(Properties properties) {
-        super(properties);
+    /** 1.12.2 Item 没有 Properties；堆叠数和创造栏由集中注册器设置。 */
+    public RtsPluginItem() {
+        super();
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
-        ItemStack stack = player.getItemInHand(usedHand);
-        if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
-            if (RtsPluginService.installHeldPlugin(serverPlayer, usedHand)) {
-                return InteractionResultHolder.sidedSuccess(serverPlayer.getItemInHand(usedHand), false);
-            }
+    public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
+        ItemStack held = player.getHeldItem(hand);
+        if (!world.isRemote && player instanceof EntityPlayerMP
+                && RtsPluginService.installHeldPlugin((EntityPlayerMP) player, hand)) {
+            return new ActionResult<>(EnumActionResult.SUCCESS, player.getHeldItem(hand));
         }
-        return InteractionResultHolder.pass(stack);
+        return new ActionResult<>(EnumActionResult.PASS, held);
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> tooltipComponents,
-            TooltipFlag tooltipFlag) {
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        if (itemId != null && RtsbuildingMod.MODID.equals(itemId.getNamespace())) {
-            String pluginPath = itemId.getPath();
-            tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin." + pluginPath)
-                    .withStyle(ChatFormatting.GRAY));
-            appendDependencyTooltip(pluginPath, tooltipComponents);
-        }
+    @SideOnly(Side.CLIENT)
+    public void addInformation(ItemStack stack, World world, List<String> tooltip, ITooltipFlag flag) {
+        ResourceLocation itemId = stack.getItem().getRegistryName();
+        if (itemId == null || !RtsbuildingMod.MODID.equals(itemId.getNamespace())) return;
+
+        String pluginPath = itemId.getPath();
+        tooltip.add(TextFormatting.GRAY + localize("tooltip.rtsbuilding.plugin." + pluginPath));
+        appendDependencyTooltip(pluginPath, tooltip);
     }
 
-    private static void appendDependencyTooltip(String pluginPath, List<Component> tooltipComponents) {
+    @SideOnly(Side.CLIENT)
+    private static void appendDependencyTooltip(String pluginPath, List<String> tooltip) {
         List<String> dependencies = dependenciesFor(pluginPath);
-        if (dependencies.isEmpty()) {
+        if (dependencies.isEmpty()) return;
+        if (!ClientKeyState.isControlDown()) {
+            tooltip.add(TextFormatting.DARK_GRAY
+                    + localize("tooltip.rtsbuilding.plugin.dependencies.hold_ctrl"));
             return;
         }
-        if (!isControlDown()) {
-            tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin.dependencies.hold_ctrl")
-                    .withStyle(ChatFormatting.DARK_GRAY));
-            return;
-        }
-        tooltipComponents.add(Component.translatable("tooltip.rtsbuilding.plugin.dependencies.title")
-                .withStyle(ChatFormatting.DARK_GRAY));
+        tooltip.add(TextFormatting.DARK_GRAY
+                + localize("tooltip.rtsbuilding.plugin.dependencies.title"));
         for (String dependency : dependencies) {
-            tooltipComponents.add(Component.translatable(
-                            "tooltip.rtsbuilding.plugin.dependencies.requires",
-                            styledPluginName(dependency))
-                    .withStyle(ChatFormatting.GRAY));
+            tooltip.add(TextFormatting.GRAY + I18n.translateToLocalFormatted(
+                    "tooltip.rtsbuilding.plugin.dependencies.requires", styledPluginName(dependency)));
         }
     }
 
     private static List<String> dependenciesFor(String pluginPath) {
-        return switch (pluginPath) {
-            case "chain_break_plugin", "area_destroy_plugin", "blueprint_plugin" -> List.of(REMOTE_CONTROL_PLUGIN);
-            case "craft_terminal_plugin" -> List.of(STORAGE_INTEGRATION_PLUGIN);
-            case "harvest_tier_stone", "harvest_tier_iron",
-                    "harvest_tier_diamond", "harvest_tier_unlimited" -> List.of(AREA_DESTROY_PLUGIN);
-            default -> List.of();
-        };
+        if ("chain_break_plugin".equals(pluginPath)
+                || "area_destroy_plugin".equals(pluginPath)
+                || "blueprint_plugin".equals(pluginPath)) {
+            return Collections.singletonList(REMOTE_CONTROL_PLUGIN);
+        }
+        if ("craft_terminal_plugin".equals(pluginPath)) {
+            return Collections.singletonList(STORAGE_INTEGRATION_PLUGIN);
+        }
+        if ("harvest_tier_stone".equals(pluginPath)
+                || "harvest_tier_iron".equals(pluginPath)
+                || "harvest_tier_diamond".equals(pluginPath)
+                || "harvest_tier_unlimited".equals(pluginPath)) {
+            return Collections.singletonList(AREA_DESTROY_PLUGIN);
+        }
+        return Collections.emptyList();
     }
 
-    private static Component styledPluginName(String pluginPath) {
-        return Component.translatable("item.rtsbuilding." + pluginPath)
-                .withStyle(colorFor(pluginPath));
+    private static String styledPluginName(String pluginPath) {
+        return colorFor(pluginPath) + localize("item.rtsbuilding." + pluginPath) + TextFormatting.RESET;
     }
 
-    private static ChatFormatting colorFor(String pluginPath) {
-        return switch (pluginPath) {
-            case REMOTE_CONTROL_PLUGIN -> ChatFormatting.AQUA;
-            case STORAGE_INTEGRATION_PLUGIN -> ChatFormatting.GREEN;
-            default -> ChatFormatting.GOLD;
-        };
+    private static TextFormatting colorFor(String pluginPath) {
+        if (REMOTE_CONTROL_PLUGIN.equals(pluginPath)) return TextFormatting.AQUA;
+        if (STORAGE_INTEGRATION_PLUGIN.equals(pluginPath)) return TextFormatting.GREEN;
+        return TextFormatting.GOLD;
     }
 
-    private static boolean isControlDown() {
-        return FMLEnvironment.dist == Dist.CLIENT && ClientKeyState.isControlDown();
+    private static String localize(String key) {
+        return I18n.translateToLocal(key);
     }
 
+    /** 该嵌套类只会在 tooltip 的客户端调用路径中加载。 */
+    @SideOnly(Side.CLIENT)
     private static final class ClientKeyState {
         private ClientKeyState() {
         }
 
         private static boolean isControlDown() {
-            return net.minecraft.client.gui.screens.Screen.hasControlDown();
+            return FMLCommonHandler.instance().getSide().isClient()
+                    && net.minecraft.client.gui.GuiScreen.isCtrlKeyDown();
         }
     }
 }

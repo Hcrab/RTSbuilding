@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "rtsbuilding:item/storage_integration_plugin"
+    "layer0": "rtsbuilding:items/storage_integration_plugin"
   }
 }

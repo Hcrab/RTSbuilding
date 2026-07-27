@@ -1,10 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -68,12 +67,12 @@ public enum SaveScheduler {
      * <p>数据存储在 {@code rtsbuilding/players/{uuid}/session.dat}。
      * 懒加载——首次调用时才读文件。
      */
-    public DataCluster player(ServerPlayer player) {
+    public DataCluster player(EntityPlayerMP player) {
         MinecraftServer server = player.getServer();
         if (server == null) {
             throw new IllegalStateException("无法在服务器未就绪时获取 DataCluster");
         }
-        return dataCluster(server, player.getUUID(), "session");
+        return dataCluster(server, player.getUniqueID(), "session");
     }
 
     /**
@@ -102,7 +101,8 @@ public enum SaveScheduler {
      */
     public DataCluster dataCluster(MinecraftServer server, UUID playerId, String scope) {
         return clusters.computeIfAbsent(cacheKey(playerId, scope), key -> {
-            var store = new RtsAtomicNbtStore(server, "rtsbuilding/players/" + playerId, scope + ".dat");
+            RtsAtomicNbtStore store = new RtsAtomicNbtStore(
+                    server, "rtsbuilding/players/" + playerId, scope + ".dat");
             return new DataCluster(store);
         });
     }
@@ -128,8 +128,8 @@ public enum SaveScheduler {
      * 玩家登出时调用——刷盘并释放该玩家所有作用域的数据。
      * 建议在 {@code PlayerLoggedOutEvent} 中调用。
      */
-    public void onPlayerLogout(ServerPlayer player) {
-        onPlayerLogout(player.getUUID());
+    public void onPlayerLogout(EntityPlayerMP player) {
+        onPlayerLogout(player.getUniqueID());
     }
 
     /** 同包生命周期测试使用 UUID 入口，避免在普通 JVM 中初始化完整 Minecraft 实体注册表。 */
@@ -210,28 +210,29 @@ public enum SaveScheduler {
     }
 
     private void cleanupSingleLegacyFile(MinecraftServer server, String subDir, String fileName, String label) {
-        Path path = server.getWorldPath(LevelResource.ROOT).resolve(subDir).resolve(fileName);
+        Path path = RtsServerDataPaths.worldRoot(server).resolve(subDir).resolve(fileName);
         if (!Files.isRegularFile(path)) return;
 
         try {
             RtsAtomicNbtStore store = new RtsAtomicNbtStore(server, subDir, fileName);
             RtsNbtStore.ReadResult readResult = store.readResult();
-            if (readResult instanceof RtsNbtStore.ReadResult.Failed failed) {
+            if (readResult instanceof RtsNbtStore.ReadResult.Failed) {
+                RtsNbtStore.ReadResult.Failed failed = (RtsNbtStore.ReadResult.Failed) readResult;
                 RtsbuildingMod.LOGGER.warn("[迁移] 检查 {} 文件失败，保留原文件等待人工恢复: {}",
                         label, failed.cause().getMessage());
                 return;
             }
             if (readResult instanceof RtsNbtStore.ReadResult.Missing) return;
-            CompoundTag root = ((RtsNbtStore.ReadResult.Found) readResult).root();
-            CompoundTag players = root.getCompound("players");
-            if (players.isEmpty()) {
+            NBTTagCompound root = ((RtsNbtStore.ReadResult.Found) readResult).root();
+            NBTTagCompound players = root.getCompoundTag("players");
+            if (players.hasNoTags()) {
                 Files.delete(path);
                 Path tempPath = path.resolveSibling(fileName + ".tmp");
                 Files.deleteIfExists(tempPath);
                 RtsbuildingMod.LOGGER.info("[迁移] 已清理空的 {} 文件: {}", label, path.getFileName());
             } else {
                 RtsbuildingMod.LOGGER.warn("[迁移] {} 文件仍有 {} 名玩家数据未迁移 (需这些玩家登录一次)",
-                        label, players.getAllKeys().size());
+                        label, players.getKeySet().size());
             }
         } catch (IOException | RuntimeException e) {
             RtsbuildingMod.LOGGER.warn("[迁移] 检查 {} 文件失败: {}", label, e.getMessage());

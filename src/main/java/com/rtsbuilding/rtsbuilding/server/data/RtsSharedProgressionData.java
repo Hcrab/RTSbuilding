@@ -1,28 +1,27 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.saveddata.SavedData;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.storage.MapStorage;
+import net.minecraft.world.storage.WorldSavedData;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-public final class RtsSharedProgressionData extends SavedData {
+/** 1.12.2 的全服共享 RTS 进度数据。维度以整数 ID 表示。 */
+public final class RtsSharedProgressionData extends WorldSavedData {
     private static final String DATA_NAME = "rtsbuilding_shared_progression";
     private static final String KEY_GROUPS = "groups";
     private static final String KEY_GROUP = "group";
@@ -38,112 +37,99 @@ public final class RtsSharedProgressionData extends SavedData {
     private static final String KEY_PLUGIN_OWNER = "owner";
     private static final String KEY_PLUGIN_OWNER_NAME = "owner_name";
 
-    private static final Factory<RtsSharedProgressionData> FACTORY = new Factory<>(
-            RtsSharedProgressionData::new,
-            RtsSharedProgressionData::load);
+    private final Map<String, SharedProgression> groups = new HashMap<String, SharedProgression>();
 
-    private final Map<String, SharedProgression> groups = new HashMap<>();
-
-    private RtsSharedProgressionData() {
+    public RtsSharedProgressionData() {
+        this(DATA_NAME);
     }
 
-    private static RtsSharedProgressionData load(CompoundTag tag, HolderLookup.Provider registries) {
-        RtsSharedProgressionData data = new RtsSharedProgressionData();
-        ListTag groups = tag.getList(KEY_GROUPS, Tag.TAG_COMPOUND);
-        for (int i = 0; i < groups.size(); i++) {
-            CompoundTag groupTag = groups.getCompound(i);
-            String groupKey = groupTag.getString(KEY_GROUP);
-            if (groupKey == null || groupKey.isBlank()) {
-                continue;
-            }
+    /** MapStorage 反射加载所需的 String 构造器。 */
+    public RtsSharedProgressionData(String name) {
+        super(name);
+    }
 
-            SharedProgression progression = new SharedProgression();
-            if (groupTag.contains(KEY_HOME_POS, Tag.TAG_LONG) && groupTag.contains(KEY_HOME_DIMENSION, Tag.TAG_STRING)) {
-                ResourceLocation dimensionId = ResourceLocation.tryParse(groupTag.getString(KEY_HOME_DIMENSION));
-                if (dimensionId != null) {
-                    progression.homePos = BlockPos.of(groupTag.getLong(KEY_HOME_POS)).immutable();
-                    progression.homeDimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
-                    progression.homeSetGameTime = groupTag.getLong(KEY_HOME_SET_GAME_TIME);
-                }
-            }
-
-            ListTag unlockedNodes = groupTag.getList(KEY_LEGACY_UNLOCKED_NODES, Tag.TAG_STRING);
-            for (int nodeIndex = 0; nodeIndex < unlockedNodes.size(); nodeIndex++) {
-                ResourceLocation nodeId = ResourceLocation.tryParse(unlockedNodes.getString(nodeIndex));
-                if (nodeId != null) {
-                    progression.legacyUnlockedNodes.add(nodeId);
-                }
-            }
-            progression.pluginMigrationVersion = groupTag.getInt(KEY_PLUGIN_MIGRATION_VERSION);
-
-            ListTag plugins = groupTag.getList(KEY_PLUGINS, Tag.TAG_COMPOUND);
-            for (int j = 0; j < plugins.size(); j++) {
-                CompoundTag pluginTag = plugins.getCompound(j);
-                ResourceLocation pluginId = ResourceLocation.tryParse(pluginTag.getString(KEY_PLUGIN_ID));
-                if (pluginId == null) {
-                    continue;
-                }
-                ItemStack stack = ItemStack.parseOptional(registries, pluginTag.getCompound(KEY_PLUGIN_STACK));
-                if (stack.isEmpty()) {
-                    continue;
-                }
-                UUID owner = pluginTag.contains(KEY_PLUGIN_OWNER, Tag.TAG_INT_ARRAY)
-                        ? pluginTag.getUUID(KEY_PLUGIN_OWNER)
-                        : null;
-                progression.plugins.add(new SharedPlugin(
-                        pluginId,
-                        stack,
-                        pluginTag.getLong(KEY_PLUGIN_INSTALLED_GAME_TIME),
-                        owner,
-                        pluginTag.getString(KEY_PLUGIN_OWNER_NAME)));
-            }
-
-            data.groups.put(groupKey, progression);
+    public static RtsSharedProgressionData get(WorldServer level) {
+        MapStorage storage = level.getMapStorage();
+        RtsSharedProgressionData data = (RtsSharedProgressionData) storage.getOrLoadData(
+                RtsSharedProgressionData.class, DATA_NAME);
+        if (data == null) {
+            data = new RtsSharedProgressionData(DATA_NAME);
+            storage.setData(DATA_NAME, data);
         }
         return data;
     }
 
-    public static RtsSharedProgressionData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
+    @Override
+    public void readFromNBT(NBTTagCompound tag) {
+        groups.clear();
+        NBTTagList encodedGroups = tag.getTagList(KEY_GROUPS, Constants.NBT.TAG_COMPOUND);
+        for (int i = 0; i < encodedGroups.tagCount(); i++) {
+            NBTTagCompound groupTag = encodedGroups.getCompoundTagAt(i);
+            String groupKey = groupTag.getString(KEY_GROUP);
+            if (isBlank(groupKey)) continue;
+
+            SharedProgression progression = new SharedProgression();
+            if (groupTag.hasKey(KEY_HOME_POS, Constants.NBT.TAG_LONG)
+                    && groupTag.hasKey(KEY_HOME_DIMENSION, Constants.NBT.TAG_STRING)) {
+                Integer dimension = parseDimension(groupTag.getString(KEY_HOME_DIMENSION));
+                if (dimension != null) {
+                    progression.homePos = BlockPos.fromLong(groupTag.getLong(KEY_HOME_POS));
+                    progression.homeDimension = dimension;
+                    progression.homeSetGameTime = groupTag.getLong(KEY_HOME_SET_GAME_TIME);
+                }
+            }
+
+            NBTTagList unlocked = groupTag.getTagList(
+                    KEY_LEGACY_UNLOCKED_NODES, Constants.NBT.TAG_STRING);
+            for (int j = 0; j < unlocked.tagCount(); j++) {
+                ResourceLocation id = parseResourceLocation(unlocked.getStringTagAt(j));
+                if (id != null) progression.legacyUnlockedNodes.add(id);
+            }
+            progression.pluginMigrationVersion = groupTag.getInteger(KEY_PLUGIN_MIGRATION_VERSION);
+
+            NBTTagList plugins = groupTag.getTagList(KEY_PLUGINS, Constants.NBT.TAG_COMPOUND);
+            for (int j = 0; j < plugins.tagCount(); j++) {
+                NBTTagCompound pluginTag = plugins.getCompoundTagAt(j);
+                ResourceLocation pluginId = parseResourceLocation(pluginTag.getString(KEY_PLUGIN_ID));
+                ItemStack stack = new ItemStack(pluginTag.getCompoundTag(KEY_PLUGIN_STACK));
+                if (pluginId == null || stack.isEmpty()) continue;
+                UUID owner = pluginTag.hasUniqueId(KEY_PLUGIN_OWNER)
+                        ? pluginTag.getUniqueId(KEY_PLUGIN_OWNER) : null;
+                progression.plugins.add(new SharedPlugin(pluginId, stack,
+                        pluginTag.getLong(KEY_PLUGIN_INSTALLED_GAME_TIME), owner,
+                        pluginTag.getString(KEY_PLUGIN_OWNER_NAME)));
+            }
+            groups.put(groupKey, progression);
+        }
     }
 
     public SharedHome home(String groupKey) {
-        if (groupKey == null || groupKey.isBlank()) {
-            return null;
-        }
-        SharedProgression progression = this.groups.get(groupKey);
-        if (progression == null || progression.homePos == null || progression.homeDimension == null) {
-            return null;
-        }
-        return new SharedHome(progression.homePos, progression.homeDimension, progression.homeSetGameTime);
+        if (isBlank(groupKey)) return null;
+        SharedProgression progression = groups.get(groupKey);
+        if (progression == null || progression.homePos == null
+                || progression.homeDimension == null) return null;
+        return new SharedHome(progression.homePos, progression.homeDimension,
+                progression.homeSetGameTime);
     }
 
-    public void setHome(String groupKey, BlockPos pos, ResourceKey<Level> dimension, long gameTime) {
-        if (groupKey == null || groupKey.isBlank() || pos == null || dimension == null) {
-            return;
-        }
+    public void setHome(String groupKey, BlockPos pos, int dimension, long gameTime) {
+        if (isBlank(groupKey) || pos == null) return;
         SharedProgression progression = group(groupKey);
-        progression.homePos = pos.immutable();
+        progression.homePos = pos.toImmutable();
         progression.homeDimension = dimension;
         progression.homeSetGameTime = gameTime;
-        setDirty();
+        markDirty();
     }
 
     public List<SharedPlugin> plugins(String groupKey) {
-        if (groupKey == null || groupKey.isBlank()) {
-            return List.of();
-        }
-        SharedProgression progression = this.groups.get(groupKey);
-        if (progression == null || progression.plugins.isEmpty()) {
-            return List.of();
-        }
-        return List.copyOf(progression.plugins);
+        if (isBlank(groupKey)) return Collections.emptyList();
+        SharedProgression progression = groups.get(groupKey);
+        if (progression == null || progression.plugins.isEmpty()) return Collections.emptyList();
+        return Collections.unmodifiableList(new ArrayList<SharedPlugin>(progression.plugins));
     }
 
     public void setPlugins(String groupKey, List<SharedPlugin> plugins) {
-        if (groupKey == null || groupKey.isBlank()) {
-            return;
-        }
+        if (isBlank(groupKey)) return;
         SharedProgression progression = group(groupKey);
         progression.plugins.clear();
         if (plugins != null) {
@@ -153,118 +139,165 @@ public final class RtsSharedProgressionData extends SavedData {
                 }
             }
         }
-        setDirty();
+        markDirty();
     }
 
     public LinkedHashSet<ResourceLocation> legacyUnlockedNodes(String groupKey) {
-        if (groupKey == null || groupKey.isBlank()) {
-            return new LinkedHashSet<>();
-        }
-        SharedProgression progression = this.groups.get(groupKey);
-        if (progression == null || progression.legacyUnlockedNodes.isEmpty()) {
-            return new LinkedHashSet<>();
-        }
-        return new LinkedHashSet<>(progression.legacyUnlockedNodes);
+        SharedProgression progression = isBlank(groupKey) ? null : groups.get(groupKey);
+        return progression == null
+                ? new LinkedHashSet<ResourceLocation>()
+                : new LinkedHashSet<ResourceLocation>(progression.legacyUnlockedNodes);
     }
 
     public int pluginMigrationVersion(String groupKey) {
-        if (groupKey == null || groupKey.isBlank()) {
-            return 0;
-        }
-        SharedProgression progression = this.groups.get(groupKey);
+        SharedProgression progression = isBlank(groupKey) ? null : groups.get(groupKey);
         return progression == null ? 0 : progression.pluginMigrationVersion;
     }
 
     public void setPluginMigrationVersion(String groupKey, int version) {
-        if (groupKey == null || groupKey.isBlank()) {
-            return;
-        }
+        if (isBlank(groupKey)) return;
         group(groupKey).pluginMigrationVersion = Math.max(0, version);
-        setDirty();
+        markDirty();
     }
 
     private SharedProgression group(String groupKey) {
-        return this.groups.computeIfAbsent(groupKey, ignored -> new SharedProgression());
+        SharedProgression result = groups.get(groupKey);
+        if (result == null) {
+            result = new SharedProgression();
+            groups.put(groupKey, result);
+        }
+        return result;
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
-        ListTag groups = new ListTag();
-        for (var entry : this.groups.entrySet()) {
+    public NBTTagCompound writeToNBT(NBTTagCompound tag) {
+        NBTTagList encodedGroups = new NBTTagList();
+        for (Map.Entry<String, SharedProgression> entry : groups.entrySet()) {
             String groupKey = entry.getKey();
             SharedProgression progression = entry.getValue();
-            if (groupKey == null || groupKey.isBlank() || progression == null) {
-                continue;
-            }
+            if (isBlank(groupKey) || progression == null) continue;
 
-            CompoundTag groupTag = new CompoundTag();
-            groupTag.putString(KEY_GROUP, groupKey);
-
+            NBTTagCompound groupTag = new NBTTagCompound();
+            groupTag.setString(KEY_GROUP, groupKey);
             if (progression.homePos != null && progression.homeDimension != null) {
-                groupTag.putLong(KEY_HOME_POS, progression.homePos.asLong());
-                groupTag.putString(KEY_HOME_DIMENSION, progression.homeDimension.location().toString());
-                groupTag.putLong(KEY_HOME_SET_GAME_TIME, progression.homeSetGameTime);
+                groupTag.setLong(KEY_HOME_POS, progression.homePos.toLong());
+                groupTag.setString(KEY_HOME_DIMENSION, dimensionName(progression.homeDimension));
+                groupTag.setLong(KEY_HOME_SET_GAME_TIME, progression.homeSetGameTime);
             }
 
             if (!progression.legacyUnlockedNodes.isEmpty()) {
-                ListTag unlockedNodes = new ListTag();
-                for (ResourceLocation nodeId : progression.legacyUnlockedNodes) {
-                    if (nodeId != null) {
-                        unlockedNodes.add(StringTag.valueOf(nodeId.toString()));
-                    }
+                NBTTagList unlocked = new NBTTagList();
+                for (ResourceLocation id : progression.legacyUnlockedNodes) {
+                    if (id != null) unlocked.appendTag(new NBTTagString(id.toString()));
                 }
-                groupTag.put(KEY_LEGACY_UNLOCKED_NODES, unlockedNodes);
+                groupTag.setTag(KEY_LEGACY_UNLOCKED_NODES, unlocked);
             }
             if (progression.pluginMigrationVersion > 0) {
-                groupTag.putInt(KEY_PLUGIN_MIGRATION_VERSION, progression.pluginMigrationVersion);
+                groupTag.setInteger(KEY_PLUGIN_MIGRATION_VERSION, progression.pluginMigrationVersion);
             }
 
             if (!progression.plugins.isEmpty()) {
-                ListTag plugins = new ListTag();
+                NBTTagList plugins = new NBTTagList();
                 for (SharedPlugin plugin : progression.plugins) {
-                    if (plugin == null || plugin.pluginId() == null || plugin.stack().isEmpty()) {
-                        continue;
-                    }
-                    CompoundTag pluginTag = new CompoundTag();
-                    pluginTag.putString(KEY_PLUGIN_ID, plugin.pluginId().toString());
-                    pluginTag.put(KEY_PLUGIN_STACK, plugin.stack().copyWithCount(1).save(registries));
-                    pluginTag.putLong(KEY_PLUGIN_INSTALLED_GAME_TIME, plugin.installedGameTime());
-                    if (plugin.ownerId() != null) {
-                        pluginTag.putUUID(KEY_PLUGIN_OWNER, plugin.ownerId());
-                    }
-                    pluginTag.putString(KEY_PLUGIN_OWNER_NAME, plugin.ownerName());
-                    plugins.add(pluginTag);
+                    if (plugin == null || plugin.pluginId() == null || plugin.stack().isEmpty()) continue;
+                    NBTTagCompound pluginTag = new NBTTagCompound();
+                    pluginTag.setString(KEY_PLUGIN_ID, plugin.pluginId().toString());
+                    pluginTag.setTag(KEY_PLUGIN_STACK, copyOne(plugin.stack()).writeToNBT(new NBTTagCompound()));
+                    pluginTag.setLong(KEY_PLUGIN_INSTALLED_GAME_TIME, plugin.installedGameTime());
+                    if (plugin.ownerId() != null) pluginTag.setUniqueId(KEY_PLUGIN_OWNER, plugin.ownerId());
+                    pluginTag.setString(KEY_PLUGIN_OWNER_NAME, plugin.ownerName());
+                    plugins.appendTag(pluginTag);
                 }
-                groupTag.put(KEY_PLUGINS, plugins);
+                groupTag.setTag(KEY_PLUGINS, plugins);
             }
-
-            groups.add(groupTag);
+            encodedGroups.appendTag(groupTag);
         }
-        tag.put(KEY_GROUPS, groups);
+        tag.setTag(KEY_GROUPS, encodedGroups);
         return tag;
     }
 
-    public record SharedHome(BlockPos pos, ResourceKey<Level> dimension, long setGameTime) {
+    private static ItemStack copyOne(ItemStack stack) {
+        ItemStack copy = stack.copy();
+        copy.setCount(1);
+        return copy;
     }
 
-    public record SharedPlugin(
-            ResourceLocation pluginId,
-            ItemStack stack,
-            long installedGameTime,
-            UUID ownerId,
-            String ownerName) {
-        public SharedPlugin {
-            stack = stack == null ? ItemStack.EMPTY : stack.copyWithCount(1);
-            ownerName = ownerName == null ? "" : ownerName;
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private static ResourceLocation parseResourceLocation(String value) {
+        if (isBlank(value)) return null;
+        try {
+            return new ResourceLocation(value);
+        } catch (RuntimeException ignored) {
+            return null;
         }
+    }
+
+    private static Integer parseDimension(String value) {
+        if ("minecraft:overworld".equals(value)) return 0;
+        if ("minecraft:the_nether".equals(value)) return -1;
+        if ("minecraft:the_end".equals(value)) return 1;
+        try {
+            return Integer.valueOf(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
+    }
+
+    private static String dimensionName(int dimension) {
+        if (dimension == 0) return "minecraft:overworld";
+        if (dimension == -1) return "minecraft:the_nether";
+        if (dimension == 1) return "minecraft:the_end";
+        return Integer.toString(dimension);
+    }
+
+    public static final class SharedHome {
+        private final BlockPos pos;
+        private final int dimension;
+        private final long setGameTime;
+
+        public SharedHome(BlockPos pos, int dimension, long setGameTime) {
+            this.pos = pos;
+            this.dimension = dimension;
+            this.setGameTime = setGameTime;
+        }
+
+        public BlockPos pos() { return pos; }
+        public int dimension() { return dimension; }
+        public long setGameTime() { return setGameTime; }
+    }
+
+    public static final class SharedPlugin {
+        private final ResourceLocation pluginId;
+        private final ItemStack stack;
+        private final long installedGameTime;
+        private final UUID ownerId;
+        private final String ownerName;
+
+        public SharedPlugin(ResourceLocation pluginId, ItemStack stack, long installedGameTime,
+                UUID ownerId, String ownerName) {
+            this.pluginId = pluginId;
+            this.stack = stack == null ? ItemStack.EMPTY : copyOne(stack);
+            this.installedGameTime = installedGameTime;
+            this.ownerId = ownerId;
+            this.ownerName = ownerName == null ? "" : ownerName;
+        }
+
+        public ResourceLocation pluginId() { return pluginId; }
+        public ItemStack stack() { return stack; }
+        public long installedGameTime() { return installedGameTime; }
+        public UUID ownerId() { return ownerId; }
+        public String ownerName() { return ownerName; }
     }
 
     private static final class SharedProgression {
         private BlockPos homePos;
-        private ResourceKey<Level> homeDimension;
+        private Integer homeDimension;
         private long homeSetGameTime;
-        private final Set<ResourceLocation> legacyUnlockedNodes = new LinkedHashSet<>();
+        private final Set<ResourceLocation> legacyUnlockedNodes = new LinkedHashSet<ResourceLocation>();
         private int pluginMigrationVersion;
-        private final List<SharedPlugin> plugins = new ArrayList<>();
+        private final List<SharedPlugin> plugins = new ArrayList<SharedPlugin>();
     }
 }

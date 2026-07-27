@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -24,9 +24,9 @@ final class RtsPluginTeamService {
     private RtsPluginTeamService() {
     }
 
-    static List<EffectivePlugin> effectivePlugins(ServerPlayer player) {
+    static List<EffectivePlugin> effectivePlugins(EntityPlayerMP player) {
         if (player == null) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         Map<ResourceLocation, EffectivePlugin> merged = new LinkedHashMap<>();
         for (StoredPlugin stored : installedPlugins(player)) {
@@ -35,12 +35,12 @@ final class RtsPluginTeamService {
         return new ArrayList<>(merged.values());
     }
 
-    static List<StoredPlugin> installedPlugins(ServerPlayer player) {
+    static List<StoredPlugin> installedPlugins(EntityPlayerMP player) {
         if (player == null) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
-        if (sharedKey.isBlank()) {
+        if (sharedKey.isEmpty()) {
             return wrapPersonalPlugins(player, RtsPluginPersistence.load(player));
         }
 
@@ -49,12 +49,12 @@ final class RtsPluginTeamService {
         return loadSharedPlugins(player, sharedKey);
     }
 
-    static void saveInstalledPlugins(ServerPlayer player, List<StoredPlugin> installed) {
+    static void saveInstalledPlugins(EntityPlayerMP player, List<StoredPlugin> installed) {
         if (player == null) {
             return;
         }
         String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
-        if (sharedKey.isBlank()) {
+        if (sharedKey.isEmpty()) {
             List<RtsInstalledPlugin> personal = new ArrayList<>();
             if (installed != null) {
                 for (StoredPlugin stored : installed) {
@@ -84,16 +84,16 @@ final class RtsPluginTeamService {
         RtsPluginDurability.checkpoint(player);
     }
 
-    static List<ServerPlayer> relatedPlayers(ServerPlayer player) {
+    static List<EntityPlayerMP> relatedPlayers(EntityPlayerMP player) {
         if (player == null || player.getServer() == null) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
-        if (sharedKey.isBlank()) {
-            return List.of(player);
+        if (sharedKey.isEmpty()) {
+            return java.util.Collections.singletonList(player);
         }
-        List<ServerPlayer> related = new ArrayList<>();
-        for (ServerPlayer onlinePlayer : player.getServer().getPlayerList().getPlayers()) {
+        List<EntityPlayerMP> related = new ArrayList<>();
+        for (EntityPlayerMP onlinePlayer : player.getServer().getPlayerList().getPlayers()) {
             if (onlinePlayer != null && sharedKey.equals(RtsProgressionManager.sharedProgressionKey(onlinePlayer))) {
                 related.add(onlinePlayer);
             }
@@ -104,15 +104,15 @@ final class RtsPluginTeamService {
         return related;
     }
 
-    static String teamLabel(ServerPlayer player) {
+    static String teamLabel(EntityPlayerMP player) {
         String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
-        if (sharedKey.isBlank()) {
+        if (sharedKey.isEmpty()) {
             return "";
         }
         return RtsProgressionManager.sharedProgressionLabel(player);
     }
 
-    private static List<StoredPlugin> loadSharedPlugins(ServerPlayer player, String sharedKey) {
+    private static List<StoredPlugin> loadSharedPlugins(EntityPlayerMP player, String sharedKey) {
         List<RtsSharedProgressionData.SharedPlugin> plugins =
                 RtsProgressionManager.sharedProgressionData(player).plugins(sharedKey);
         List<StoredPlugin> installed = new ArrayList<>(plugins.size());
@@ -125,9 +125,9 @@ final class RtsPluginTeamService {
         return installed;
     }
 
-    private static List<StoredPlugin> wrapPersonalPlugins(ServerPlayer player, List<RtsInstalledPlugin> plugins) {
+    private static List<StoredPlugin> wrapPersonalPlugins(EntityPlayerMP player, List<RtsInstalledPlugin> plugins) {
         List<StoredPlugin> installed = new ArrayList<>(plugins.size());
-        UUID ownerId = player.getUUID();
+        UUID ownerId = player.getUniqueID();
         String ownerName = player.getGameProfile().getName();
         for (RtsInstalledPlugin plugin : plugins) {
             installed.add(new StoredPlugin(plugin, ownerId, ownerName));
@@ -135,7 +135,7 @@ final class RtsPluginTeamService {
         return installed;
     }
 
-    private static void migratePersonalPluginsIntoTeam(ServerPlayer player, String sharedKey, List<StoredPlugin> shared) {
+    private static void migratePersonalPluginsIntoTeam(EntityPlayerMP player, String sharedKey, List<StoredPlugin> shared) {
         List<RtsInstalledPlugin> personal = RtsPluginPersistence.load(player);
         if (personal.isEmpty()) {
             return;
@@ -144,7 +144,7 @@ final class RtsPluginTeamService {
         boolean changed = false;
         for (RtsInstalledPlugin plugin : personal) {
             if (canAddWithoutTeamConflict(shared, plugin)) {
-                shared.add(new StoredPlugin(plugin, player.getUUID(), player.getGameProfile().getName()));
+                shared.add(new StoredPlugin(plugin, player.getUniqueID(), player.getGameProfile().getName()));
                 changed = true;
             } else {
                 remainingPersonal.add(plugin);
@@ -185,19 +185,38 @@ final class RtsPluginTeamService {
         merged.putIfAbsent(plugin.pluginId(), new EffectivePlugin(plugin, personal, ownerName));
     }
 
-    record StoredPlugin(RtsInstalledPlugin plugin, UUID ownerId, String ownerName) {
-        StoredPlugin {
-            ownerName = ownerName == null ? "" : ownerName;
+    static final class StoredPlugin {
+        private final RtsInstalledPlugin plugin;
+        private final UUID ownerId;
+        private final String ownerName;
+
+        StoredPlugin(RtsInstalledPlugin plugin, UUID ownerId, String ownerName) {
+            this.plugin = plugin;
+            this.ownerId = ownerId;
+            this.ownerName = ownerName == null ? "" : ownerName;
         }
 
-        boolean isOwnedBy(ServerPlayer player) {
-            return player != null && ownerId != null && ownerId.equals(player.getUUID());
+        RtsInstalledPlugin plugin() { return plugin; }
+        UUID ownerId() { return ownerId; }
+        String ownerName() { return ownerName; }
+        boolean isOwnedBy(EntityPlayerMP player) {
+            return player != null && ownerId != null && ownerId.equals(player.getUniqueID());
         }
     }
 
-    record EffectivePlugin(RtsInstalledPlugin plugin, boolean personal, String ownerName) {
-        EffectivePlugin {
-            ownerName = ownerName == null ? "" : ownerName;
+    static final class EffectivePlugin {
+        private final RtsInstalledPlugin plugin;
+        private final boolean personal;
+        private final String ownerName;
+
+        EffectivePlugin(RtsInstalledPlugin plugin, boolean personal, String ownerName) {
+            this.plugin = plugin;
+            this.personal = personal;
+            this.ownerName = ownerName == null ? "" : ownerName;
         }
+
+        RtsInstalledPlugin plugin() { return plugin; }
+        boolean personal() { return personal; }
+        String ownerName() { return ownerName; }
     }
 }

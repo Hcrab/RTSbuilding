@@ -6,8 +6,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 
 import java.util.List;
 
@@ -37,8 +37,8 @@ public final class HistoryRecordPipe implements PipelinePipe<PipelineContext> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static final TypedKey<List<HistoryBlockRecord>> ARG_HISTORY_RECORDS =
             new TypedKey<>("historyRecords", (Class) List.class);
-    public static final TypedKey<Direction> ARG_HISTORY_FACE =
-            new TypedKey<>("historyFace", Direction.class);
+    public static final TypedKey<EnumFacing> ARG_HISTORY_FACE =
+            new TypedKey<>("historyFace", EnumFacing.class);
 
     @Override
     public PipelineResult execute(PipelineContext ctx) {
@@ -49,9 +49,9 @@ public final class HistoryRecordPipe implements PipelinePipe<PipelineContext> {
             return PipelineResult.success();
         }
 
-        Direction face = ctx.hasData(ARG_HISTORY_FACE)
+        EnumFacing face = ctx.hasData(ARG_HISTORY_FACE)
                 ? ctx.getData(ARG_HISTORY_FACE)
-                : Direction.DOWN;
+                : EnumFacing.DOWN;
 
         if (hasRecords) {
             List<HistoryBlockRecord> records = ctx.getData(ARG_HISTORY_RECORDS);

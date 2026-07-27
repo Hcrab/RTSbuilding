@@ -24,9 +24,17 @@ class PlacementStatePresetTest {
     @Test
     void boundsAndSanitizesTheNetworkRepresentation() {
         String encoded = PlacementStatePreset.sanitize(
-                "facing=west;bad pair;UPPER=value;half=top;" + "x".repeat(300));
+                "facing=west;bad pair;UPPER=value;half=top;" + repeat('x', 300));
         assertEquals("facing=west;half=top", encoded);
         assertTrue(encoded.length() <= PlacementStatePreset.MAX_ENCODED_LENGTH);
+    }
+
+    private static String repeat(char value, int count) {
+        StringBuilder result = new StringBuilder(count);
+        for (int index = 0; index < count; index++) {
+            result.append(value);
+        }
+        return result.toString();
     }
 
 }

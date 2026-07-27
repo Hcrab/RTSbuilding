@@ -3,8 +3,10 @@ package com.rtsbuilding.rtsbuilding.server.plugin;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.ResourceLocation;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -39,7 +41,7 @@ public final class BuiltInRtsPluginCatalog {
     }
 
     public static List<RtsPluginDefinition> definitions() {
-        return List.of(
+        return Arrays.asList(
                 definition(RTS_CONTROL_CORE, RtsPluginFamily.UNIQUE,
                         EnumSet.of(RtsFeature.CAMERA, RtsFeature.INTERACT), 16, false),
                 definition(REMOTE_CONTROL_PLUGIN, RtsPluginFamily.UNIQUE,
@@ -59,11 +61,11 @@ public final class BuiltInRtsPluginCatalog {
                 definition(RANGE_CULLING_PLUGIN, RtsPluginFamily.UNIQUE,
                         EnumSet.of(RtsFeature.RANGE_CULLING), 0, false),
                 definition(FIELD_DEPLOYMENT_PLUGIN, RtsPluginFamily.UNIQUE,
-                        Set.of(), 0, true),
-                definition(RANGE_EXTENSION_I, RtsPluginFamily.RANGE_EXTENSION, Set.of(), 16, false),
-                definition(RANGE_EXTENSION_II, RtsPluginFamily.RANGE_EXTENSION, Set.of(), 32, false),
-                definition(RANGE_EXTENSION_III, RtsPluginFamily.RANGE_EXTENSION, Set.of(), 48, false),
-                definition(RANGE_EXTENSION_MAX, RtsPluginFamily.RANGE_EXTENSION, Set.of(), Integer.MAX_VALUE, false),
+                        Collections.<RtsFeature>emptySet(), 0, true),
+                definition(RANGE_EXTENSION_I, RtsPluginFamily.RANGE_EXTENSION, Collections.<RtsFeature>emptySet(), 16, false),
+                definition(RANGE_EXTENSION_II, RtsPluginFamily.RANGE_EXTENSION, Collections.<RtsFeature>emptySet(), 32, false),
+                definition(RANGE_EXTENSION_III, RtsPluginFamily.RANGE_EXTENSION, Collections.<RtsFeature>emptySet(), 48, false),
+                definition(RANGE_EXTENSION_MAX, RtsPluginFamily.RANGE_EXTENSION, Collections.<RtsFeature>emptySet(), Integer.MAX_VALUE, false),
                 harvestTierDefinition(HARVEST_TIER_STONE, RangeMiningHarvestTier.STONE),
                 harvestTierDefinition(HARVEST_TIER_IRON, RangeMiningHarvestTier.IRON),
                 harvestTierDefinition(HARVEST_TIER_DIAMOND, RangeMiningHarvestTier.DIAMOND),
@@ -79,7 +81,7 @@ public final class BuiltInRtsPluginCatalog {
     private static RtsPluginDefinition harvestTierDefinition(ResourceLocation pluginId,
             RangeMiningHarvestTier harvestTier) {
         return new RtsPluginDefinition(pluginId, pluginId, RtsPluginFamily.HARVEST_TIER,
-                Set.of(), 0, false, harvestTier);
+                Collections.<RtsFeature>emptySet(), 0, false, harvestTier);
     }
 
     /** 返回解锁指定功能的内置插件；没有对应插件时返回 {@code null}。 */
@@ -96,6 +98,6 @@ public final class BuiltInRtsPluginCatalog {
     }
 
     private static ResourceLocation id(String path) {
-        return ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, path);
+        return new ResourceLocation(RtsbuildingMod.MODID, path);
     }
 }

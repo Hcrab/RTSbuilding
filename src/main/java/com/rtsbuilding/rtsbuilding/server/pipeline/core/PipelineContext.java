@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -35,7 +35,7 @@ public class PipelineContext {
     //  不可变字段
     // ──────────────────────────────────────────────────────────────────
 
-    private final ServerPlayer player;
+    private final EntityPlayerMP player;
     private final Map<String, Object> args;
 
     // ──────────────────────────────────────────────────────────────────
@@ -55,7 +55,7 @@ public class PipelineContext {
      * @param player 执行操作的服务器端玩家
      * @param args   不可变输入参数（会创建防御性副本）
      */
-    public PipelineContext(ServerPlayer player, Map<String, Object> args) {
+    public PipelineContext(EntityPlayerMP player, Map<String, Object> args) {
         this.player = Objects.requireNonNull(player, "player");
         this.args = Collections.unmodifiableMap(new HashMap<>(args));
     }
@@ -65,7 +65,7 @@ public class PipelineContext {
     // ──────────────────────────────────────────────────────────────────
 
     /** 返回服务器端玩家。 */
-    public ServerPlayer player() {
+    public EntityPlayerMP player() {
         return player;
     }
 

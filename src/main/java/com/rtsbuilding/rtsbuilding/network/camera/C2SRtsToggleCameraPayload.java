@@ -1,21 +1,30 @@
 package com.rtsbuilding.rtsbuilding.network.camera;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsToggleCameraPayload(boolean startAtPlayerHead) implements CustomPacketPayload {
-    public static final Type<C2SRtsToggleCameraPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_toggle_camera"));
+/** 客户端请求切换自己的 RTS 相机会话。 */
+public final class C2SRtsToggleCameraPayload implements IMessage {
+    private boolean startAtPlayerHead;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsToggleCameraPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeBoolean(payload.startAtPlayerHead()),
-            (buf) -> new C2SRtsToggleCameraPayload(buf.readBoolean()));
+    public C2SRtsToggleCameraPayload() {
+    }
+
+    public C2SRtsToggleCameraPayload(boolean startAtPlayerHead) {
+        this.startAtPlayerHead = startAtPlayerHead;
+    }
+
+    public boolean startAtPlayerHead() {
+        return startAtPlayerHead;
+    }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public void fromBytes(ByteBuf buffer) {
+        startAtPlayerHead = buffer.readBoolean();
+    }
+
+    @Override
+    public void toBytes(ByteBuf buffer) {
+        buffer.writeBoolean(startAtPlayerHead);
     }
 }

@@ -6,17 +6,17 @@ import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.WorldServer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.block.state.IBlockState;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -48,7 +48,7 @@ public final class HistoryExecutor {
      * @param entry  要撤回的历史记录
      * @return 实际成功处理的方块数量（可能小于总数，如位置已被占用时跳过）
      */
-    public static int executeUndo(ServerPlayer player, HistoryEntry entry) {
+    public static int executeUndo(EntityPlayerMP player, HistoryEntry entry) {
         if (entry.isDestructive()) {
             // 破坏批次→撤回=重新放置方块
             return restoreBlocks(player, entry.getBlocks(), entry.getFace());
@@ -69,22 +69,23 @@ public final class HistoryExecutor {
      * 跳过已被占用的位置。
      * 创造模式额外恢复方块实体 NBT 数据（类似 Ultimine-Rewind 的 RewindExecutor）。
      */
-    private static int restoreBlocks(ServerPlayer player, List<HistoryBlockRecord> blocks, net.minecraft.core.Direction face) {
-        ServerLevel level = player.serverLevel();
-        boolean isCreative = player.isCreative();
+    private static int restoreBlocks(EntityPlayerMP player, List<HistoryBlockRecord> blocks, net.minecraft.util.EnumFacing face) {
+        WorldServer level = player.getServerWorld();
+        boolean isCreative = player.capabilities.isCreativeMode;
         int restoredCount = 0;
 
         for (HistoryBlockRecord record : blocks) {
             BlockPos pos = record.pos();
-            if (!level.isLoaded(pos)) continue;
+            if (!level.isBlockLoaded(pos)) continue;
             if (!RtsClaimProtectionService.canPlaceBlock(player, pos)) continue;
 
-            BlockState currentState = level.getBlockState(pos);
-            if (!currentState.isAir() && !currentState.canBeReplaced()) {
+            IBlockState currentState = level.getBlockState(pos);
+            if (currentState.getBlock() != Blocks.AIR
+                    && !currentState.getBlock().isReplaceable(level, pos)) {
                 continue; // 位置已被占用，跳过
             }
 
-            BlockState targetState = record.state();
+            IBlockState targetState = record.state();
 
             // 生存模式：验证并消耗物品（防止刷物品漏洞）
             // 类似 Ultimine-Rewind 的 RewindExecutor 在恢复前检查物品
@@ -94,17 +95,17 @@ public final class HistoryExecutor {
                 }
             }
 
-            level.setBlock(pos, targetState, Block.UPDATE_ALL | Block.UPDATE_CLIENTS);
+            level.setBlockState(pos, targetState, 3);
 
             // 创造模式：恢复方块实体 NBT 数据（类似 Ultimine-Rewind 的做法）
             // 生存模式不恢复 NBT，防止刷物品漏洞
             if (isCreative) {
-                CompoundTag beData = record.blockEntityData();
+                NBTTagCompound beData = record.blockEntityData();
                 if (beData != null) {
-                    BlockEntity blockEntity = level.getBlockEntity(pos);
+                    TileEntity blockEntity = level.getTileEntity(pos);
                     if (blockEntity != null) {
-                        blockEntity.loadWithComponents(beData, level.registryAccess());
-                        blockEntity.setChanged();
+                        blockEntity.readFromNBT(beData);
+                        blockEntity.markDirty();
                     }
                 }
             }
@@ -124,19 +125,19 @@ public final class HistoryExecutor {
      * @param state  要放置的方块状态
      * @return true 如果找到了对应物品并成功消耗
      */
-    private static boolean consumeItemForBlock(ServerPlayer player, BlockState state) {
-        ItemStack required = new ItemStack(state.getBlock().asItem());
+    private static boolean consumeItemForBlock(EntityPlayerMP player, IBlockState state) {
+        ItemStack required = new ItemStack(state.getBlock());
         if (required.isEmpty()) {
             // 没有物品形式（如空气、火、结构方块等），跳过验证
             return true;
         }
-        Inventory inventory = player.getInventory();
-        for (int i = 0; i < inventory.getContainerSize(); i++) {
-            ItemStack stack = inventory.getItem(i);
-            if (!stack.isEmpty() && stack.is(required.getItem())) {
+        InventoryPlayer inventory = player.inventory;
+        for (int i = 0; i < inventory.getSizeInventory(); i++) {
+            ItemStack stack = inventory.getStackInSlot(i);
+            if (!stack.isEmpty() && stack.getItem() == required.getItem()) {
                 stack.shrink(1);
-                inventory.setItem(i, stack.isEmpty() ? ItemStack.EMPTY : stack);
-                inventory.setChanged();
+                inventory.setInventorySlotContents(i, stack.isEmpty() ? ItemStack.EMPTY : stack);
+                inventory.markDirty();
                 return true;
             }
         }
@@ -150,7 +151,7 @@ public final class HistoryExecutor {
      * <p>
      * 退还优先级：链接储存空间 → 玩家背包 → 原地掉落物。
      * <p>
-     * <b>为什么不用 {@link net.minecraft.server.level.ServerLevel#destroyBlock}：</b>
+     * <b>为什么不用 {@link net.minecraft.world.WorldServer#destroyBlock}：</b>
      * <ul>
      *   <li>{@code destroyBlock(pos, true, player)} 会以掉落物实体形式丢出物品</li>
      *   <li>取而代之：移除方块后优先尝试放入链接储存空间</li>
@@ -158,29 +159,29 @@ public final class HistoryExecutor {
      *   <li>背包也满时生成掉落物作为最终回退</li>
      * </ul>
      */
-    private static int breakBlocks(ServerPlayer player, List<HistoryBlockRecord> blocks) {
-        ServerLevel level = player.serverLevel();
-        boolean isCreative = player.isCreative();
+    private static int breakBlocks(EntityPlayerMP player, List<HistoryBlockRecord> blocks) {
+        WorldServer level = player.getServerWorld();
+        boolean isCreative = player.capabilities.isCreativeMode;
         int brokenCount = 0;
 
         for (HistoryBlockRecord record : blocks) {
             BlockPos pos = record.pos();
-            if (!level.isLoaded(pos)) continue;
-            if (!RtsClaimProtectionService.canBreakBlock(player, pos, net.minecraft.core.Direction.UP)) continue;
+            if (!level.isBlockLoaded(pos)) continue;
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, net.minecraft.util.EnumFacing.UP)) continue;
 
-            BlockState currentState = level.getBlockState(pos);
-            if (currentState.isAir()) continue; // 方块已不存在
+            IBlockState currentState = level.getBlockState(pos);
+            if (currentState.getBlock() == Blocks.AIR) continue; // 方块已不存在
 
-            BlockState expectedState = record.state();
+            IBlockState expectedState = record.state();
             // 只破坏与记录中类型相同的方块（防止误破坏玩家后来放置的其他方块）
-            if (!currentState.is(expectedState.getBlock())) continue;
+            if (currentState.getBlock() != expectedState.getBlock()) continue;
 
             // 移除方块（不生成掉落物实体）
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL | Block.UPDATE_CLIENTS);
+            level.setBlockState(pos, Blocks.AIR.getDefaultState(), 3);
 
             // 生存模式：优先返还到链接储存空间，然后玩家背包，最后掉落物
             if (!isCreative) {
-                ItemStack stack = new ItemStack(expectedState.getBlock().asItem());
+                ItemStack stack = new ItemStack(expectedState.getBlock());
                 if (!stack.isEmpty()) {
                     boolean refunded = false;
                     RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
@@ -194,8 +195,8 @@ public final class HistoryExecutor {
                     }
                     if (!refunded) {
                         // 没有链接储存时，回退到玩家背包
-                        if (!player.addItem(stack)) {
-                            Block.popResource(level, pos, stack);
+                        if (!player.inventory.addItemStackToInventory(stack)) {
+                            Block.spawnAsEntity(level, pos, stack);
                         }
                     }
                 }

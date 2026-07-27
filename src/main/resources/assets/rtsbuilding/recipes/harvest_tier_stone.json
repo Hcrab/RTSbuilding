@@ -1,0 +1,30 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    " C ",
+                    "RPR",
+                    " C "
+                ],
+    "key":  {
+                "C":  [
+                          {
+                              "type":  "forge:ore_dict",
+                              "ore":  "ingotCopper"
+                          },
+                          {
+                              "item":  "minecraft:iron_ingot"
+                          }
+                      ],
+                "P":  {
+                          "item":  "minecraft:wooden_pickaxe"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:harvest_tier_stone",
+                   "count":  1
+               }
+}

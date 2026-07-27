@@ -1,63 +1,11 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-
-public record C2SRtsAreaMinePayload(
-        int minX,
-        int maxX,
-        int minY,
-        int maxY,
-        int minZ,
-        int maxZ,
-        byte toolSlot,
-        String toolItemId,
-        ItemStack toolPrototype,
-        byte shapeType,
-        byte fillType,
-        boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsAreaMinePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_area_mine"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsAreaMinePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeInt(payload.minX());
-                buf.writeInt(payload.maxX());
-                buf.writeInt(payload.minY());
-                buf.writeInt(payload.maxY());
-                buf.writeInt(payload.minZ());
-                buf.writeInt(payload.maxZ());
-                buf.writeByte(payload.toolSlot());
-                buf.writeUtf(payload.toolItemId() == null ? "" : payload.toolItemId(), 256);
-                ItemStack toolPrototype = payload.toolPrototype() == null ? ItemStack.EMPTY : payload.toolPrototype();
-                buf.writeBoolean(!toolPrototype.isEmpty());
-                if (!toolPrototype.isEmpty()) {
-                    ItemStack.STREAM_CODEC.encode(buf, toolPrototype);
-                }
-                buf.writeByte(payload.shapeType());
-                buf.writeByte(payload.fillType());
-                buf.writeBoolean(payload.toolProtectionEnabled());
-            },
-            (buf) -> new C2SRtsAreaMinePayload(
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readInt(),
-                    buf.readByte(),
-                    buf.readUtf(256),
-                    buf.readBoolean() ? ItemStack.STREAM_CODEC.decode(buf) : ItemStack.EMPTY,
-                    buf.readByte(),
-                    buf.readByte(),
-                    buf.readBoolean()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;import io.netty.buffer.ByteBuf;import net.minecraft.item.ItemStack;import net.minecraft.util.math.BlockPos;import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+public final class C2SRtsAreaMinePayload implements IMessage{
+ public static final int MAX_VOLUME=98304;private int minX,maxX,minY,maxY,minZ,maxZ;private byte toolSlot,shapeType,fillType;private String toolItemId;private ItemStack toolPrototype=ItemStack.EMPTY;private boolean toolProtectionEnabled;
+ public C2SRtsAreaMinePayload(){}public C2SRtsAreaMinePayload(int a,int b,int c,int d,int e,int f,byte t,String id,ItemStack p,byte s,byte fill,boolean protect){minX=a;maxX=b;minY=c;maxY=d;minZ=e;maxZ=f;toolSlot=t;toolItemId=id==null?"":id;toolPrototype=p==null?ItemStack.EMPTY:p;shapeType=s;fillType=fill;toolProtectionEnabled=protect;}
+ public int minX(){return minX;}public int maxX(){return maxX;}public int minY(){return minY;}public int maxY(){return maxY;}public int minZ(){return minZ;}public int maxZ(){return maxZ;}public byte toolSlot(){return toolSlot;}public String toolItemId(){return toolItemId;}public ItemStack toolPrototype(){return toolPrototype;}public byte shapeType(){return shapeType;}public byte fillType(){return fillType;}public boolean toolProtectionEnabled(){return toolProtectionEnabled;}
+ public BlockPos minPos(){return new BlockPos(minX,minY,minZ);}public BlockPos maxPos(){return new BlockPos(maxX,maxY,maxZ);}
+ public void fromBytes(ByteBuf b){minX=b.readInt();maxX=b.readInt();minY=b.readInt();maxY=b.readInt();minZ=b.readInt();maxZ=b.readInt();toolSlot=b.readByte();toolItemId=RtsPacketBuffer.readString(b,256,"tool id");toolPrototype=RtsPacketBuffer.readItemStack(b);shapeType=b.readByte();fillType=b.readByte();toolProtectionEnabled=b.readBoolean();if(!isValid())throw new IllegalArgumentException("invalid area mine");}
+ public void toBytes(ByteBuf b){if(!isValid())throw new IllegalArgumentException("invalid area mine");b.writeInt(minX);b.writeInt(maxX);b.writeInt(minY);b.writeInt(maxY);b.writeInt(minZ);b.writeInt(maxZ);b.writeByte(toolSlot);RtsPacketBuffer.writeString(b,toolItemId,256,"tool id");RtsPacketBuffer.writeItemStack(b,toolPrototype);b.writeByte(shapeType);b.writeByte(fillType);b.writeBoolean(toolProtectionEnabled);}
+ public boolean isValid(){if(minX>maxX||minY>maxY||minZ>maxZ||toolSlot<0||toolSlot>8||shapeType<0||fillType<0)return false;long dx=(long)maxX-minX+1L,dy=(long)maxY-minY+1L,dz=(long)maxZ-minZ+1L;if(dx<=0L||dy<=0L||dz<=0L)return false;long v=dx*dy;if(v>MAX_VOLUME)return false;v*=dz;return v>0L&&v<=MAX_VOLUME&&toolItemId!=null&&toolItemId.length()<=256;}
 }

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +40,7 @@ public class BoxShapeGenerator extends AreaShapeGenerator {
         for (int y = maxY; y >= minY; y--) {
             for (int x = minX; x <= maxX; x++) {
                 for (int z = minZ; z <= maxZ; z++) {
-                    full.add(input.start().offset(x, y, z));
+                    full.add(input.start().add(x, y, z));
                 }
             }
         }

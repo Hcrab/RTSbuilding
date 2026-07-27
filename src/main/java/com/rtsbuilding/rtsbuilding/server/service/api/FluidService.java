@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * 流体服务接口——管理流体抽取和放置。
@@ -21,7 +21,7 @@ public interface FluidService {
      * @param toolSlot   工具槽位编号
      * @param itemId     用于抽取的工具/容器物品 ID
      */
-    void storeFluidFromContainer(ServerPlayer player, byte sourceType, byte toolSlot, String itemId);
+    void storeFluidFromContainer(EntityPlayerMP player, byte sourceType, byte toolSlot, String itemId);
 
     /**
      * 从链接网络提取流体并放置到世界中的指定位置。
@@ -35,7 +35,7 @@ public interface FluidService {
      * @param rayOriginX,rayOriginY,rayOriginZ 射线起点
      * @param rayDirX,rayDirY,rayDirZ 射线方向
      */
-    void placeFluid(ServerPlayer player, BlockPos clickedPos, Direction face,
+    void placeFluid(EntityPlayerMP player, BlockPos clickedPos, EnumFacing face,
                     double hitX, double hitY, double hitZ, boolean forcePlace, String fluidId,
                     double rayOriginX, double rayOriginY, double rayOriginZ,
                     double rayDirX, double rayDirY, double rayDirZ);

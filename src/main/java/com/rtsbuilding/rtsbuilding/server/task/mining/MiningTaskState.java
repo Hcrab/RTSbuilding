@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.task.mining;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,20 +24,20 @@ public final class MiningTaskState {
     private final int cursorUnits;
     private final int succeededUnits;
     private final int failedUnits;
-    private final Direction face;
+    private final EnumFacing face;
     private final int toolSlot;
     private final boolean selectedToolRequested;
     private final boolean toolProtectionEnabled;
     private final float blockProgress;
     private final int visibleStage;
-    private final List<CompoundTag> historyRecords;
+    private final List<NBTTagCompound> historyRecords;
 
     public MiningTaskState(
             Mode mode, int workflowEntryId, List<BlockPos> remainingTargets,
             int totalUnits, int cursorUnits, int succeededUnits, int failedUnits,
-            Direction face, int toolSlot, boolean selectedToolRequested,
+            EnumFacing face, int toolSlot, boolean selectedToolRequested,
             boolean toolProtectionEnabled, float blockProgress, int visibleStage,
-            List<CompoundTag> historyRecords) {
+            List<NBTTagCompound> historyRecords) {
         this(mode, workflowEntryId, remainingTargets, totalUnits, cursorUnits,
                 succeededUnits, failedUnits, face, toolSlot, selectedToolRequested,
                 toolProtectionEnabled, blockProgress, visibleStage, historyRecords, false);
@@ -46,9 +46,9 @@ public final class MiningTaskState {
     private MiningTaskState(
             Mode mode, int workflowEntryId, List<BlockPos> remainingTargets,
             int totalUnits, int cursorUnits, int succeededUnits, int failedUnits,
-            Direction face, int toolSlot, boolean selectedToolRequested,
+            EnumFacing face, int toolSlot, boolean selectedToolRequested,
             boolean toolProtectionEnabled, float blockProgress, int visibleStage,
-            List<CompoundTag> historyRecords, boolean trustedTransition) {
+            List<NBTTagCompound> historyRecords, boolean trustedTransition) {
         this.mode = Objects.requireNonNull(mode, "mode");
         if (workflowEntryId < -1) throw new IllegalArgumentException("workflowEntryId 不能小于 -1");
         Objects.requireNonNull(remainingTargets, "remainingTargets");
@@ -71,27 +71,27 @@ public final class MiningTaskState {
         }
         this.workflowEntryId = workflowEntryId;
         this.remainingTargets = trustedTransition
-                ? List.copyOf(remainingTargets)
-                : remainingTargets.stream().map(BlockPos::immutable).toList();
+                ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(remainingTargets)
+                : freezePositions(remainingTargets);
         this.totalUnits = totalUnits;
         this.cursorUnits = cursorUnits;
         this.succeededUnits = succeededUnits;
         this.failedUnits = failedUnits;
-        this.face = face == null ? Direction.DOWN : face;
+        this.face = face == null ? EnumFacing.DOWN : face;
         this.toolSlot = Math.max(0, Math.min(8, toolSlot));
         this.selectedToolRequested = selectedToolRequested;
         this.toolProtectionEnabled = toolProtectionEnabled;
         this.blockProgress = blockProgress;
         this.visibleStage = visibleStage;
         if (trustedTransition) {
-            this.historyRecords = List.copyOf(historyRecords);
+            this.historyRecords = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(historyRecords);
         } else {
-            List<CompoundTag> copiedHistory = new ArrayList<>(historyRecords.size());
-            for (CompoundTag history : historyRecords) {
-                if (history == null || history.isEmpty()) throw new IllegalArgumentException("history record 不能为空");
+            List<NBTTagCompound> copiedHistory = new ArrayList<>(historyRecords.size());
+            for (NBTTagCompound history : historyRecords) {
+                if (history == null || history.hasNoTags()) throw new IllegalArgumentException("history record 不能为空");
                 copiedHistory.add(history.copy());
             }
-            this.historyRecords = List.copyOf(copiedHistory);
+            this.historyRecords = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(copiedHistory);
         }
     }
 
@@ -102,22 +102,33 @@ public final class MiningTaskState {
     public int cursorUnits() { return cursorUnits; }
     public int succeededUnits() { return succeededUnits; }
     public int failedUnits() { return failedUnits; }
-    public Direction face() { return face; }
+    public EnumFacing face() { return face; }
     public int toolSlot() { return toolSlot; }
     public boolean selectedToolRequested() { return selectedToolRequested; }
     public boolean toolProtectionEnabled() { return toolProtectionEnabled; }
     public float blockProgress() { return blockProgress; }
     public int visibleStage() { return visibleStage; }
 
-    public List<CompoundTag> historyRecords() {
-        return historyRecords.stream().map(CompoundTag::copy).toList();
+    public List<NBTTagCompound> historyRecords() {
+        List<NBTTagCompound> copy = new ArrayList<NBTTagCompound>(historyRecords.size());
+        for (NBTTagCompound history : historyRecords) copy.add(history.copy());
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(copy);
+    }
+
+    private static List<BlockPos> freezePositions(List<BlockPos> positions) {
+        List<BlockPos> copy = new ArrayList<BlockPos>(positions.size());
+        for (BlockPos pos : positions) {
+            Objects.requireNonNull(pos, "remainingTargets element");
+            copy.add(new BlockPos(pos.getX(), pos.getY(), pos.getZ()));
+        }
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(copy);
     }
 
     /**
      * 仅供主线程执行镜像复用已冻结的历史引用；调用方只能追加新 Tag，不能修改已有 Tag。
      * 对外读取仍必须使用 {@link #historyRecords()} 的防御性副本。
      */
-    public void appendFrozenHistoryTo(List<CompoundTag> destination) {
+    public void appendFrozenHistoryTo(List<NBTTagCompound> destination) {
         Objects.requireNonNull(destination, "destination").addAll(historyRecords);
     }
 
@@ -134,7 +145,7 @@ public final class MiningTaskState {
     public MiningTaskState next(
             Mode nextMode, List<BlockPos> nextTargets,
             int nextCursor, int nextSucceeded, int nextFailed,
-            float nextProgress, int nextStage, List<CompoundTag> nextHistory) {
+            float nextProgress, int nextStage, List<NBTTagCompound> nextHistory) {
         return new MiningTaskState(nextMode, workflowEntryId, nextTargets,
                 totalUnits, nextCursor, nextSucceeded, nextFailed,
                 face, toolSlot, selectedToolRequested, toolProtectionEnabled,

@@ -1,42 +1,43 @@
 package com.rtsbuilding.rtsbuilding.network.camera;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/**
- * Server-to-client payload carrying an updated RTS camera anchor position.
- *
- * <p>Sent when the server updates the building anchor to follow the player
- * entity's movement. The client uses these values to keep camera bounds and
- * build-zone visuals in sync with the server-authoritative anchor.
- */
-public record S2CRtsCameraAnchorPayload(
-        double anchorX,
-        double anchorY,
-        double anchorZ,
-        double maxRadius) implements CustomPacketPayload {
+/** 服务端更新的相机锚点，用于同步移动边界和建筑区域显示。 */
+public final class S2CRtsCameraAnchorPayload implements IMessage {
+    private double anchorX;
+    private double anchorY;
+    private double anchorZ;
+    private double maxRadius;
 
-    public static final Type<S2CRtsCameraAnchorPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_camera_anchor"));
+    public S2CRtsCameraAnchorPayload() {
+    }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsCameraAnchorPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeDouble(payload.anchorX());
-                buf.writeDouble(payload.anchorY());
-                buf.writeDouble(payload.anchorZ());
-                buf.writeDouble(payload.maxRadius());
-            },
-            (buf) -> new S2CRtsCameraAnchorPayload(
-                    buf.readDouble(),
-                    buf.readDouble(),
-                    buf.readDouble(),
-                    buf.readDouble()));
+    public S2CRtsCameraAnchorPayload(double anchorX, double anchorY, double anchorZ, double maxRadius) {
+        this.anchorX = anchorX;
+        this.anchorY = anchorY;
+        this.anchorZ = anchorZ;
+        this.maxRadius = maxRadius;
+    }
+
+    public double anchorX() { return anchorX; }
+    public double anchorY() { return anchorY; }
+    public double anchorZ() { return anchorZ; }
+    public double maxRadius() { return maxRadius; }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public void fromBytes(ByteBuf buffer) {
+        anchorX = buffer.readDouble();
+        anchorY = buffer.readDouble();
+        anchorZ = buffer.readDouble();
+        maxRadius = buffer.readDouble();
+    }
+
+    @Override
+    public void toBytes(ByteBuf buffer) {
+        buffer.writeDouble(anchorX);
+        buffer.writeDouble(anchorY);
+        buffer.writeDouble(anchorZ);
+        buffer.writeDouble(maxRadius);
     }
 }

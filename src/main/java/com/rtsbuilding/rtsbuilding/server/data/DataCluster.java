@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,7 +25,7 @@ public final class DataCluster {
 
     private final RtsNbtStore store;
     private final Map<String, Cell<?>> cells = new HashMap<>();
-    private CompoundTag rawRoot;  // 首次加载时的原始 NBT 缓存
+    private NBTTagCompound rawRoot;  // 首次加载时的原始 NBT 缓存
     private boolean loaded;
 
     /**
@@ -86,15 +86,15 @@ public final class DataCluster {
     public synchronized boolean flush() {
         if (!loaded) return true;
 
-        CompoundTag root = rawRoot == null ? new CompoundTag() : rawRoot.copy();
+        NBTTagCompound root = rawRoot == null ? new NBTTagCompound() : rawRoot.copy();
         Map<String, Long> revisionsToConfirm = new HashMap<>();
         boolean hasDirty = false;
 
         for (Cell<?> cell : cells.values()) {
             if (!cell.isDirty()) continue;
-            CompoundTag slot = new CompoundTag();
+            NBTTagCompound slot = new NBTTagCompound();
             encodeCell(slot, cell);
-            root.put(cell.key(), slot);
+            root.setTag(cell.key(), slot);
             revisionsToConfirm.put(cell.key(), cell.revision);
             hasDirty = true;
         }
@@ -123,12 +123,12 @@ public final class DataCluster {
     public synchronized boolean flushAndClose() {
         if (!loaded) return true;
 
-        CompoundTag root = rawRoot == null ? new CompoundTag() : rawRoot.copy();
+        NBTTagCompound root = rawRoot == null ? new NBTTagCompound() : rawRoot.copy();
         boolean hasLoadedCells = false;
         for (Cell<?> cell : cells.values()) {
-            CompoundTag slot = new CompoundTag();
+            NBTTagCompound slot = new NBTTagCompound();
             encodeCell(slot, cell);
-            root.put(cell.key(), slot);
+            root.setTag(cell.key(), slot);
             hasLoadedCells = true;
         }
         if (hasLoadedCells && !store.write(root)) return false;
@@ -168,26 +168,28 @@ public final class DataCluster {
     /** 从文件懒加载原始 NBT */
     private void loadIfNeeded() {
         if (loaded) return;
-        switch (store.readResult()) {
-            case RtsNbtStore.ReadResult.Found found -> {
-                rawRoot = found.root();
-                loaded = true;
-            }
-            case RtsNbtStore.ReadResult.Missing ignored -> {
-                rawRoot = new CompoundTag();
-                loaded = true;
-            }
-            case RtsNbtStore.ReadResult.Failed failed -> throw new IllegalStateException(
+        RtsNbtStore.ReadResult result = store.readResult();
+        if (result instanceof RtsNbtStore.ReadResult.Found) {
+            rawRoot = ((RtsNbtStore.ReadResult.Found) result).root();
+            loaded = true;
+        } else if (result instanceof RtsNbtStore.ReadResult.Missing) {
+            rawRoot = new NBTTagCompound();
+            loaded = true;
+        } else if (result instanceof RtsNbtStore.ReadResult.Failed) {
+            RtsNbtStore.ReadResult.Failed failed = (RtsNbtStore.ReadResult.Failed) result;
+            throw new IllegalStateException(
                     "读取数据簇失败，拒绝覆盖原文件: " + store.label(), failed.cause());
+        } else {
+            throw new IllegalStateException("未知的 NBT 读取结果: " + result);
         }
     }
 
     /** 从原始 NBT 解码一个组件，如果原始数据中不存在则返回默认值 */
     @SuppressWarnings("unchecked")
     private <T> T decodeFromRaw(DataComponent<T> component) {
-        if (rawRoot != null && rawRoot.contains(component.key(), Tag.TAG_COMPOUND)) {
-            CompoundTag slot = rawRoot.getCompound(component.key());
-            if (!slot.isEmpty()) {
+        if (rawRoot != null && rawRoot.hasKey(component.key(), Constants.NBT.TAG_COMPOUND)) {
+            NBTTagCompound slot = rawRoot.getCompoundTag(component.key());
+            if (!slot.hasNoTags()) {
                 T decoded = component.codec().decode(slot);
                 if (decoded != null) return decoded;
             }
@@ -196,7 +198,7 @@ public final class DataCluster {
     }
 
     @SuppressWarnings("unchecked")
-    private static <T> void encodeCell(CompoundTag tag, Cell<T> cell) {
+    private static <T> void encodeCell(NBTTagCompound tag, Cell<T> cell) {
         DataComponent<T> comp = (DataComponent<T>) cell.component;
         comp.codec().encode(tag, cell.value);
     }

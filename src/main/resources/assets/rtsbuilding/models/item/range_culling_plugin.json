@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "rtsbuilding:item/range_culling_plugin"
+    "layer0": "rtsbuilding:items/range_culling_plugin"
   }
 }

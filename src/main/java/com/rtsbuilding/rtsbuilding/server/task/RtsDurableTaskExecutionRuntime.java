@@ -110,7 +110,7 @@ final class RtsDurableTaskExecutionRuntime {
     void checkpointMiningExecutions(
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
             long gameTime) {
-        for (var taskId : java.util.List.copyOf(miningProgressOverlays.keySet())) {
+        for (var taskId : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(miningProgressOverlays.keySet())) {
             var snapshot = coordinator.query().get(taskId).orElse(null);
             if (snapshot == null || snapshot.state().terminal()) {
                 miningProgressOverlays.remove(taskId);
@@ -129,7 +129,7 @@ final class RtsDurableTaskExecutionRuntime {
     void checkpointDestructionExecutions(
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
             long gameTime) {
-        for (var taskId : java.util.List.copyOf(destructionProgressOverlays.keySet())) {
+        for (var taskId : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(destructionProgressOverlays.keySet())) {
             var snapshot = coordinator.query().get(taskId).orElse(null);
             if (snapshot == null || snapshot.state().terminal()) {
                 destructionProgressOverlays.remove(taskId);
@@ -186,7 +186,7 @@ final class RtsDurableTaskExecutionRuntime {
                 == com.rtsbuilding.rtsbuilding.server.task.placement.PlacementSliceResult.Outcome.WAITING_RESOURCE) {
             String itemId = result.state().definition().getString("itemId");
             waitKey = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
-                    "item", itemId.isBlank() ? "rtsbuilding:any-placement-item" : itemId);
+                    "item", itemId.trim().isEmpty() ? "rtsbuilding:any-placement-item" : itemId);
         }
         var next = snapshot.nextRevision(lifecycle, waitKey, player.serverLevel().getGameTime(),
                 result.state().cursorUnits(), result.state().succeededUnits(), result.state().failedUnits(),
@@ -293,13 +293,13 @@ final class RtsDurableTaskExecutionRuntime {
 
     private DurableTaskScheduler.SliceResult durableNoProgress(
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
-            int cursor, int succeeded, int failed, net.minecraft.nbt.CompoundTag payload) {
+            int cursor, int succeeded, int failed, net.minecraft.nbt.NBTTagCompound payload) {
         var next = snapshot.nextRevision(snapshot.state(), snapshot.waitKey(), snapshot.updatedGameTime(),
                 cursor, succeeded, failed, payload);
         return new DurableTaskScheduler.SliceResult(next, 0);
     }
 
-    private void projectDurableTerminal(net.minecraft.server.level.ServerPlayer player,
+    private void projectDurableTerminal(net.minecraft.entity.player.EntityPlayerMP player,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
         if (snapshot.workflowEntryId() < 0) return;
         var token = com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()

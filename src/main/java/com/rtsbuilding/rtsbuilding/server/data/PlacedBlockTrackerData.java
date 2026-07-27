@@ -1,77 +1,93 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.saveddata.SavedData;
-import org.jetbrains.annotations.NotNull;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagLong;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.storage.MapStorage;
+import net.minecraft.world.storage.WorldSavedData;
+import net.minecraftforge.common.util.Constants;
 
-/**
- * 追踪已放置方块位置的世界存档数据。
- * 用于记录玩家在建筑模式下放置的方块，以便在撤销或清除时恢复。
- */
-public final class PlacedBlockTrackerData extends SavedData {
-    /** 存档数据在 SavedData 中的注册名称 */
+/** 记录由 RTS 放置的方块位置；数据按维度存入 1.12.2 的 per-world MapStorage。 */
+public final class PlacedBlockTrackerData extends WorldSavedData {
     private static final String DATA_NAME = "rtsbuilding_placed_blocks";
-    /** NBT 键名：存储已放置方块位置的长整型数组 */
     private static final String KEY_PLACED = "placed";
+    private static final String LEGACY_KEY_PLACED = "placed_positions";
 
-    /** 已放置方块追踪数据的工厂实例，用于创建和加载数据 */
-    private static final Factory<PlacedBlockTrackerData> FACTORY = new Factory<>(
-            PlacedBlockTrackerData::new,
-            PlacedBlockTrackerData::load);
+    private final LongOpenHashSet placedPositions = new LongOpenHashSet();
 
-    /** 已放置方块位置集合（使用 long 编码的 BlockPos） */
-    private final LongOpenHashSet placedPositions;
-
-    /** 创建新的空追踪数据实例 */
-    private PlacedBlockTrackerData() {
-        this.placedPositions = new LongOpenHashSet();
+    public PlacedBlockTrackerData() {
+        this(DATA_NAME);
     }
 
-    /** 从 NBT 中加载已放置方块追踪数据 */
-    private static PlacedBlockTrackerData load(CompoundTag tag, HolderLookup.Provider registries) {
-        PlacedBlockTrackerData data = new PlacedBlockTrackerData();
-        long[] packed = tag.getLongArray(KEY_PLACED);
-        for (long value : packed) {
-            data.placedPositions.add(value);
+    /** MapStorage 反射加载所需的 String 构造器。 */
+    public PlacedBlockTrackerData(String name) {
+        super(name);
+    }
+
+    public static PlacedBlockTrackerData get(WorldServer level) {
+        MapStorage storage = level.getPerWorldStorage();
+        PlacedBlockTrackerData data = (PlacedBlockTrackerData) storage.getOrLoadData(
+                PlacedBlockTrackerData.class, DATA_NAME);
+        if (data == null) {
+            data = new PlacedBlockTrackerData(DATA_NAME);
+            storage.setData(DATA_NAME, data);
         }
         return data;
     }
 
-    /**
-     * 获取指定世界的已放置方块追踪数据。
-     * 如果不存在则创建新的实例。
-     */
-    public static PlacedBlockTrackerData get(ServerLevel level) {
-        return level.getDataStorage().computeIfAbsent(FACTORY, DATA_NAME);
-    }
-
-    /** 标记指定位置的方块为已放置状态 */
     public void mark(BlockPos pos) {
-        if (this.placedPositions.add(pos.asLong())) {
-            setDirty(); // 标记数据已变更，下次保存时写入磁盘
+        if (placedPositions.add(pos.toLong())) {
+            markDirty();
         }
     }
 
-    /** 清除指定位置的已放置标记 */
     public void clear(BlockPos pos) {
-        if (this.placedPositions.remove(pos.asLong())) {
-            setDirty(); // 标记数据已变更，下次保存时写入磁盘
+        if (placedPositions.remove(pos.toLong())) {
+            markDirty();
         }
     }
 
-    /** 检查指定位置是否已被标记为已放置 */
     public boolean isPlaced(BlockPos pos) {
-        return this.placedPositions.contains(pos.asLong());
+        return placedPositions.contains(pos.toLong());
     }
 
     @Override
-    public @NotNull CompoundTag save(CompoundTag tag, HolderLookup.@NotNull Provider registries) {
-        tag.putLongArray(KEY_PLACED, this.placedPositions.toLongArray()); // 将所有已放置方块位置写入 NBT
+    public void readFromNBT(NBTTagCompound tag) {
+        placedPositions.clear();
+        String key = tag.hasKey(KEY_PLACED, Constants.NBT.TAG_LIST)
+                ? KEY_PLACED : LEGACY_KEY_PLACED;
+        for (long value : readLongList(tag, key)) {
+            placedPositions.add(value);
+        }
+    }
+
+    @Override
+    public NBTTagCompound writeToNBT(NBTTagCompound tag) {
+        NBTTagList encoded = new NBTTagList();
+        for (long value : placedPositions.toLongArray()) {
+            encoded.appendTag(new NBTTagLong(value));
+        }
+        tag.setTag(KEY_PLACED, encoded);
+        tag.removeTag(LEGACY_KEY_PLACED);
         return tag;
     }
-}
 
+    /** 缺失键或非 long 列表按空集合处理；列表内部类型异常则显式拒绝损坏数据。 */
+    private static long[] readLongList(NBTTagCompound tag, String key) {
+        if (!tag.hasKey(key, Constants.NBT.TAG_LIST)) return new long[0];
+        NBTTagList encoded = (NBTTagList) tag.getTag(key);
+        long[] values = new long[encoded.tagCount()];
+        for (int i = 0; i < values.length; i++) {
+            NBTBase element = encoded.get(i);
+            if (!(element instanceof NBTTagLong)) {
+                throw new IllegalArgumentException("方块位置列表包含非 long 元素: " + key);
+            }
+            values[i] = ((NBTTagLong) element).getLong();
+        }
+        return values;
+    }
+}

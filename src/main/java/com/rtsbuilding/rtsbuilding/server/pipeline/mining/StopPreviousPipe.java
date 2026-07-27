@@ -10,6 +10,9 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowToken;
+
+import java.util.Optional;
 
 /**
  * 在启动新操作之前停止玩家任何活跃的挖掘/连锁挖掘操作。
@@ -22,7 +25,14 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
  * 以指示新操作应被<b>排队</b>（作为挂起 {@code MiningJob} 添加）
  * 而不是替换当前活跃的操作。</p>
  */
-public record StopPreviousPipe(boolean mergeable) implements PipelinePipe<PipelineContext> {
+public final class StopPreviousPipe implements PipelinePipe<PipelineContext> {
+    private final boolean mergeable;
+
+    public StopPreviousPipe(boolean mergeable) {
+        this.mergeable = mergeable;
+    }
+
+    public boolean mergeable() { return mergeable; }
 
     /** 共享数据键：如果为 {@code true}，下游 Pipe 应将新操作排队
      *  作为挂起的 {@code MiningJob}，而不是停止当前活跃操作
@@ -41,7 +51,7 @@ public record StopPreviousPipe(boolean mergeable) implements PipelinePipe<Pipeli
             int existingEntryId = RtsTaskEngine.INSTANCE.activeMiningWorkflowEntry(ctx.player());
             if (existingEntryId < 0) existingEntryId = session.mining.workflowEntryId;
             if (existingEntryId >= 0) {
-                var tokenOpt = RtsWorkflowEngine.getInstance().from(ctx.player(), existingEntryId);
+                Optional<RtsWorkflowToken> tokenOpt = RtsWorkflowEngine.getInstance().from(ctx.player(), existingEntryId);
                 if (tokenOpt.isPresent()) {
                     // 存在活跃挖掘工作流——排队新目标而不是停止
                     RtsbuildingMod.LOGGER.debug("[StopPreviousPipe] Queue mode activated for {} — existing entry #{}",

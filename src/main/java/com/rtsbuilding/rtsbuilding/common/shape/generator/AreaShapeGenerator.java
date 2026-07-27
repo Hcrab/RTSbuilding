@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,11 +51,11 @@ public abstract class AreaShapeGenerator {
      * @param player 执行操作的玩家
      * @return true 如果位置在建筑高度内且玩家可与之交互
      */
-    private static boolean validatePositionBase(Level level, BlockPos pos, Player player) {
-        if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) {
+    private static boolean validatePositionBase(World level, BlockPos pos, EntityPlayer player) {
+        if (pos.getY() < 0 || pos.getY() >= level.getHeight()) {
             return false;
         }
-        return level.mayInteract(player, pos);
+        return level.isBlockModifiable(player, pos);
     }
 
     /**
@@ -69,14 +69,14 @@ public abstract class AreaShapeGenerator {
      * @param player 执行操作的玩家
      * @return true 如果此处可以放置方块
      */
-    public static boolean validatePlacementPosition(Level level, BlockPos pos, BlockState state, Player player) {
+    public static boolean validatePlacementPosition(World level, BlockPos pos, IBlockState state, EntityPlayer player) {
         if (!validatePositionBase(level, pos, player)) {
             return false;
         }
-        if (!state.canSurvive(level, pos)) {
+        if (!state.getBlock().canPlaceBlockAt(level, pos)) {
             return false;
         }
-        return level.getBlockState(pos).canBeReplaced();
+        return level.getBlockState(pos).getBlock().isReplaceable(level, pos);
     }
 
     /**
@@ -89,12 +89,12 @@ public abstract class AreaShapeGenerator {
      * @param player 执行操作的玩家
      * @return true 如果此处的方块可以被破坏
      */
-    public static boolean validateDestroyPosition(ServerLevel level, BlockPos pos, Player player) {
+    public static boolean validateDestroyPosition(WorldServer level, BlockPos pos, EntityPlayer player) {
         if (!validatePositionBase(level, pos, player)) {
             return false;
         }
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir() || state.getDestroySpeed(level, pos) < 0.0F) {
+        IBlockState state = level.getBlockState(pos);
+        if (state.getBlock().isAir(state, level, pos) || state.getBlockHardness(level, pos) < 0.0F) {
             return false;
         }
         return true;
@@ -111,8 +111,8 @@ public abstract class AreaShapeGenerator {
     /**
      * 计算向量 (dx, dy, dz) 在指定轴上的投影（点积）。
      */
-    protected static int dotDelta(int dx, int dy, int dz, Direction axis) {
-        return (dx * axis.getStepX()) + (dy * axis.getStepY()) + (dz * axis.getStepZ());
+    protected static int dotDelta(int dx, int dy, int dz, EnumFacing axis) {
+        return (dx * axis.getXOffset()) + (dy * axis.getYOffset()) + (dz * axis.getZOffset());
     }
 
     /**
@@ -141,26 +141,31 @@ public abstract class AreaShapeGenerator {
     /**
      * 根据点击面确定 2D 形状的两个平面轴。
      */
-    protected static Direction[] resolvePlaneAxes(Direction face) {
-        return switch (face.getAxis()) {
-            case Y -> new Direction[]{Direction.EAST, Direction.SOUTH};
-            case X -> new Direction[]{Direction.UP, Direction.SOUTH};
-            case Z -> new Direction[]{Direction.EAST, Direction.UP};
-        };
+    protected static EnumFacing[] resolvePlaneAxes(EnumFacing face) {
+        switch (face.getAxis()) {
+            case Y:
+                return new EnumFacing[]{EnumFacing.EAST, EnumFacing.SOUTH};
+            case X:
+                return new EnumFacing[]{EnumFacing.UP, EnumFacing.SOUTH};
+            case Z:
+                return new EnumFacing[]{EnumFacing.EAST, EnumFacing.UP};
+            default:
+                throw new IllegalArgumentException("未知方向轴: " + face.getAxis());
+        }
     }
 
     /**
      * 沿两个平面轴从起点生成所有方块位置。
      */
-    protected static List<BlockPos> buildPlanePositions(BlockPos start, Direction axisA, Direction axisB,
+    protected static List<BlockPos> buildPlanePositions(BlockPos start, EnumFacing axisA, EnumFacing axisB,
                                                          int aMin, int aMax, int bMin, int bMax) {
         List<BlockPos> result = new ArrayList<>();
         for (int a = aMin; a <= aMax; a++) {
             for (int b = bMin; b <= bMax; b++) {
-                int dx = (axisA.getStepX() * a) + (axisB.getStepX() * b);
-                int dy = (axisA.getStepY() * a) + (axisB.getStepY() * b);
-                int dz = (axisA.getStepZ() * a) + (axisB.getStepZ() * b);
-                result.add(start.offset(dx, dy, dz));
+                int dx = (axisA.getXOffset() * a) + (axisB.getXOffset() * b);
+                int dy = (axisA.getYOffset() * a) + (axisB.getYOffset() * b);
+                int dz = (axisA.getZOffset() * a) + (axisB.getZOffset() * b);
+                result.add(start.add(dx, dy, dz));
             }
         }
         return result;
@@ -177,7 +182,7 @@ public abstract class AreaShapeGenerator {
         for (BlockPos pos : full) {
             boolean xEdge = !set.contains(pos.east()) || !set.contains(pos.west());
             // 单层 2D 形状没有上下邻居，不能因此把内部格子误判成边界。
-            boolean yEdge = minY != maxY && (!set.contains(pos.above()) || !set.contains(pos.below()));
+            boolean yEdge = minY != maxY && (!set.contains(pos.up()) || !set.contains(pos.down()));
             boolean zEdge = !set.contains(pos.north()) || !set.contains(pos.south());
             int edges = (xEdge ? 1 : 0) + (yEdge ? 1 : 0) + (zEdge ? 1 : 0);
             if (edges >= 1) {

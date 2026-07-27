@@ -51,11 +51,11 @@ public final class TaskScheduler {
      * 将玩家 lane 从在线调度器摘除，但不改变任务生命周期。
      *
      * <p>durable task 登出后必须由 TaskStore 在下次登录重新绑定 Player/Level，不能因为网络会话结束就被误记为
-     * CANCELLED。调用方仍须显式取消不具备持久化权威的旧任务，并释放所有 ServerPlayer/Session 引用。</p>
+     * CANCELLED。调用方仍须显式取消不具备持久化权威的旧任务，并释放所有 EntityPlayerMP/Session 引用。</p>
      */
     public synchronized List<TaskRecord> detachOwner(UUID ownerId) {
         ArrayDeque<TaskRecord> lane = lanes.remove(ownerId);
-        return lane == null ? List.of() : List.copyOf(lane);
+        return lane == null ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf() : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(lane);
     }
 
     /** 世界切换时清除所有在线执行绑定；durable root 由下一世界重新恢复。 */

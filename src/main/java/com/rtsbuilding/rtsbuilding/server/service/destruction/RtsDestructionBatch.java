@@ -12,15 +12,21 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResult;
 import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskState;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
+import com.google.common.base.Optional;
+import net.minecraft.block.Block;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagLong;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.*;
 
@@ -59,7 +65,7 @@ public final class RtsDestructionBatch {
      *
      * @return {@code true} 如果作业被排队；{@code false} 如果没有有效目标
      */
-    public static boolean enqueueDestroyBatch(ServerPlayer player, RtsStorageSession session,
+    public static boolean enqueueDestroyBatch(EntityPlayerMP player, RtsStorageSession session,
             List<BlockPos> positions, byte toolSlot, boolean toolProtectionEnabled,
             int workflowEntryId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.AREA_DESTROY)) {
@@ -71,7 +77,7 @@ public final class RtsDestructionBatch {
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        boolean creative = player.isCreative();
+        boolean creative = player.capabilities.isCreativeMode;
         boolean selectedToolRequested = session.mining.miningSelectedToolRequested;
         ItemStack linkedTool = (creative || session.mining.miningToolLease == null)
                 ? ItemStack.EMPTY
@@ -116,9 +122,8 @@ public final class RtsDestructionBatch {
      */
     public static DestructionTaskState snapshotDetachedState(DestructionJob job) {
         if (job == null) throw new IllegalArgumentException("job 不能为空");
-        List<CompoundTag> history = job.processedRecords.stream()
-                .map(RtsDestructionBatch::encodeHistoryRecord)
-                .toList();
+        List<NBTTagCompound> history = new ArrayList<NBTTagCompound>(job.processedRecords.size());
+        for (HistoryBlockRecord record : job.processedRecords) history.add(encodeHistoryRecord(record));
         return new DestructionTaskState(
                 job.positions,
                 job.toolSlot,
@@ -140,7 +145,7 @@ public final class RtsDestructionBatch {
      * identity，也不直接管理 Workflow 生命周期；所有跨 tick 状态都通过返回值交回 TaskStore。</p>
      */
     public static DestructionSliceResult tickDetachedDestructionSlice(
-            ServerPlayer player, RtsStorageSession session, DestructionTaskState state,
+            EntityPlayerMP player, RtsStorageSession session, DestructionTaskState state,
             int maxBlocks, long deadlineNanos) {
         if (player == null || session == null || state == null) {
             throw new IllegalArgumentException("player/session/state 不能为空");
@@ -170,7 +175,7 @@ public final class RtsDestructionBatch {
         int limit = Math.max(0, Math.min(DESTROY_MAX_BLOCKS_PER_TICK, maxBlocks));
         int processed = 0;
         DestructionSliceResult.Outcome outcome = DestructionSliceResult.Outcome.CONTINUE;
-        ServerLevel level = player.serverLevel();
+        WorldServer level = player.getServerWorld();
         // 同一 slice 的掉落先合并进轻量缓存，避免每破坏一个方块都触发一次外部储存写入。
         List<BlockPos> dropsToAbsorb = new ArrayList<>();
 
@@ -179,11 +184,11 @@ public final class RtsDestructionBatch {
             processed++;
 
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)
-                    || !RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
+                    || !RtsClaimProtectionService.canBreakBlock(player, target, EnumFacing.DOWN)) {
                 job.skippedWhileProcessing++;
                 continue;
             }
-            BlockState blockState = level.getBlockState(target);
+            IBlockState blockState = level.getBlockState(target);
             if (!RtsMiningValidator.isBreakableBlock(blockState)
                     || !RtsMiningValidator.hasValidDestroySpeed(blockState, level, target)) {
                 job.skippedWhileProcessing++;
@@ -191,7 +196,7 @@ public final class RtsDestructionBatch {
             }
             ItemStack linkedTool = session.mining.miningToolLease == null
                     ? ItemStack.EMPTY : session.mining.miningToolLease.stack();
-            if (!player.isCreative()
+            if (!player.capabilities.isCreativeMode
                     && MiningSpeedCalculator.computeRemoteDestroyStep(
                             player, blockState, target, job.toolSlot(), linkedTool,
                             job.selectedToolRequested()) <= 0.0F) {
@@ -201,7 +206,7 @@ public final class RtsDestructionBatch {
 
             HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(level, target);
             List<HistoryBlockRecord> neighborRecords = captureNeighborRecords(level, target);
-            var result = RtsMiningStateMachine.destroyMinedBlock(
+            RtsMiningStateMachine.MiningBreakResult result = RtsMiningStateMachine.destroyMinedBlock(
                     player, session, target, job.toolSlot());
             if (!result.broken()) {
                 job.skippedWhileProcessing++;
@@ -229,10 +234,8 @@ public final class RtsDestructionBatch {
 
         List<BlockPos> destroyed = new ArrayList<>(state.destroyedPositions());
         destroyed.addAll(job.destroyedPositions);
-        List<CompoundTag> history = new ArrayList<>(state.historyRecords());
-        job.processedRecords.stream()
-                .map(RtsDestructionBatch::encodeHistoryRecord)
-                .forEach(history::add);
+        List<NBTTagCompound> history = new ArrayList<NBTTagCompound>(state.historyRecords());
+        for (HistoryBlockRecord record : job.processedRecords) history.add(encodeHistoryRecord(record));
         int succeededDelta = job.destroyedPositions.size();
         int failedDelta = Math.max(0, job.skippedWhileProcessing - beforeFailed);
         int cursorDelta = Math.max(0, job.index - beforeCursor);
@@ -250,20 +253,20 @@ public final class RtsDestructionBatch {
      * 把 detached task 已捕获的破坏前快照写入撤销历史。
      * 调用方只能在 Task 首次进入 terminal/cancel 边界时调用一次。
      */
-    public static void recordDetachedHistory(ServerPlayer player, DestructionTaskState state) {
+    public static void recordDetachedHistory(EntityPlayerMP player, DestructionTaskState state) {
         if (player == null || state == null || state.historyRecords().isEmpty()) return;
         List<HistoryBlockRecord> records = new ArrayList<>();
-        for (CompoundTag encoded : state.historyRecords()) {
+        for (NBTTagCompound encoded : state.historyRecords()) {
             records.add(decodeHistoryRecord(player, encoded));
         }
-        ServerHistoryManager.recordBreakWithRecords(player, records, Direction.DOWN);
+        ServerHistoryManager.recordBreakWithRecords(player, records, EnumFacing.DOWN);
     }
 
     /**
      * 归还 detached destruction 使用的工具租约。
      * 调用方必须先通过 TaskStore 确认该玩家已没有其它活跃拆除任务。
      */
-    public static void returnDetachedDestroyTool(ServerPlayer player, RtsStorageSession session) {
+    public static void returnDetachedDestroyTool(EntityPlayerMP player, RtsStorageSession session) {
         if (player == null || session == null
                 || session.mining.miningToolLease == null
                 || session.mining.miningToolLease.isEmpty()) return;
@@ -275,12 +278,12 @@ public final class RtsDestructionBatch {
                 player.getGameProfile().getName());
     }
 
-    private static Deque<BlockPos> collectAreaDestroyTargets(ServerPlayer player, List<BlockPos> positions,
+    private static Deque<BlockPos> collectAreaDestroyTargets(EntityPlayerMP player, List<BlockPos> positions,
             int toolSlot, ItemStack linkedTool, boolean selectedToolRequested, boolean creative) {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
-        ServerLevel level = player.serverLevel();
+        WorldServer level = player.getServerWorld();
 
         // 按 Y 降序排列（从上往下逐层破坏）
         List<BlockPos> sortedPositions = new ArrayList<>(positions);
@@ -294,14 +297,14 @@ public final class RtsDestructionBatch {
             if (raw == null || unique.size() >= C2SRtsAreaDestroyPayload.MAX_POSITIONS) {
                 continue;
             }
-            BlockPos pos = raw.immutable();
+            BlockPos pos = raw.toImmutable();
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
                 continue;
             }
-            if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.DOWN)) {
                 continue;
             }
-            BlockState state = level.getBlockState(pos);
+            IBlockState state = level.getBlockState(pos);
             if (!RtsMiningValidator.isBreakableBlock(state)
                     || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
                 continue;
@@ -333,13 +336,13 @@ public final class RtsDestructionBatch {
     /**
      * 捕获所有 6 个邻居的破坏前状态，用于多方块结构追踪（门、床、双高植物等）。
      */
-    private static List<HistoryBlockRecord> captureNeighborRecords(ServerLevel level, BlockPos pos) {
+    private static List<HistoryBlockRecord> captureNeighborRecords(WorldServer level, BlockPos pos) {
         List<HistoryBlockRecord> records = new ArrayList<>(6);
-        for (Direction dir : Direction.values()) {
-            BlockPos neighbor = pos.relative(dir);
-            BlockState state = level.getBlockState(neighbor);
-            if (!state.isAir()) {
-                records.add(new HistoryBlockRecord(neighbor.immutable(), state));
+        for (EnumFacing dir : EnumFacing.values()) {
+            BlockPos neighbor = pos.offset(dir);
+            IBlockState state = level.getBlockState(neighbor);
+            if (state.getBlock() != Blocks.AIR) {
+                records.add(new HistoryBlockRecord(neighbor.toImmutable(), state));
             }
         }
         return records;
@@ -349,37 +352,72 @@ public final class RtsDestructionBatch {
      * 方块被破坏后，检查哪些邻居位置变成了空气，
      * 并将它们添加到 job 的已记录位置中，以便包含在批次历史记录中。
      */
-    private static void recordCollateralBlocks(ServerLevel level, DestructionJob job,
+    private static void recordCollateralBlocks(WorldServer level, DestructionJob job,
             List<HistoryBlockRecord> neighborRecords, BlockPos brokenPos) {
         for (HistoryBlockRecord nr : neighborRecords) {
             if (nr.pos().equals(brokenPos)) {
                 continue;
             }
-            BlockState currentState = level.getBlockState(nr.pos());
-            if (currentState.isAir() && !nr.state().isAir()) {
+            IBlockState currentState = level.getBlockState(nr.pos());
+            if (currentState.getBlock() == Blocks.AIR && nr.state().getBlock() != Blocks.AIR) {
                 job.processedRecords.add(nr);
             }
         }
     }
 
-    private static CompoundTag encodeHistoryRecord(HistoryBlockRecord record) {
-        CompoundTag tag = new CompoundTag();
-        tag.putLong("pos", record.pos().asLong());
-        tag.put("state", NbtUtils.writeBlockState(record.state()));
+    private static NBTTagCompound encodeHistoryRecord(HistoryBlockRecord record) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setLong("pos", record.pos().toLong());
+        tag.setTag("state", writeBlockState(record.state()));
         if (record.blockEntityData() != null) {
-            tag.put("blockEntity", record.blockEntityData().copy());
+            tag.setTag("blockEntity", record.blockEntityData().copy());
         }
         return tag;
     }
 
-    private static HistoryBlockRecord decodeHistoryRecord(ServerPlayer player, CompoundTag tag) {
-        BlockState state = NbtUtils.readBlockState(
-                player.registryAccess().lookupOrThrow(Registries.BLOCK), tag.getCompound("state"));
-        if (state.isAir()) throw new IllegalArgumentException("detached destruction history 方块状态无效");
-        CompoundTag blockEntity = tag.contains("blockEntity", net.minecraft.nbt.Tag.TAG_COMPOUND)
-                ? tag.getCompound("blockEntity").copy() : null;
-        return new HistoryBlockRecord(BlockPos.of(tag.getLong("pos")), state, blockEntity);
+    private static HistoryBlockRecord decodeHistoryRecord(EntityPlayerMP player, NBTTagCompound tag) {
+        IBlockState state = readBlockState(tag.getCompoundTag("state"));
+        if (state.getBlock() == Blocks.AIR) throw new IllegalArgumentException("detached destruction history 方块状态无效");
+        NBTTagCompound blockEntity = tag.hasKey("blockEntity", Constants.NBT.TAG_COMPOUND)
+                ? tag.getCompoundTag("blockEntity").copy() : null;
+        return new HistoryBlockRecord(BlockPos.fromLong(tag.getLong("pos")), state, blockEntity);
     }
+
+    private static NBTTagCompound writeBlockState(IBlockState state) {
+        NBTTagCompound tag = new NBTTagCompound();
+        ResourceLocation id = Block.REGISTRY.getNameForObject(state.getBlock());
+        tag.setString("Name", id == null ? "minecraft:air" : id.toString());
+        NBTTagCompound properties = new NBTTagCompound();
+        for (Map.Entry<IProperty<?>, Comparable<?>> entry : state.getProperties().entrySet()) {
+            properties.setString(entry.getKey().getName(), propertyName(entry.getKey(), entry.getValue()));
+        }
+        if (!properties.isEmpty()) tag.setTag("Properties", properties);
+        return tag;
+    }
+
+    private static IBlockState readBlockState(NBTTagCompound tag) {
+        Block block;
+        try { block = Block.REGISTRY.getObject(new ResourceLocation(tag.getString("Name"))); }
+        catch (RuntimeException invalid) { return Blocks.AIR.getDefaultState(); }
+        if (block == null) return Blocks.AIR.getDefaultState();
+        IBlockState state = block.getDefaultState();
+        NBTTagCompound properties = tag.getCompoundTag("Properties");
+        for (IProperty<?> property : state.getPropertyKeys()) {
+            if (properties.hasKey(property.getName(), Constants.NBT.TAG_STRING)) {
+                state = applyProperty(state, property, properties.getString(property.getName()));
+            }
+        }
+        return state;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static IBlockState applyProperty(IBlockState state, IProperty property, String value) {
+        Optional parsed = property.parseValue(value);
+        return parsed.isPresent() ? state.withProperty(property, (Comparable) parsed.get()) : state;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static String propertyName(IProperty property, Comparable value) { return property.getName(value); }
 
     // =========================================================================
     //  DestructionJob —— 破坏作业
@@ -489,37 +527,35 @@ public final class RtsDestructionBatch {
         /**
          * 将此破坏作业序列化为 {@link CompoundTag} 用于持久化存储。
          */
-        public CompoundTag toNbt() {
-            CompoundTag tag = new CompoundTag();
-            long[] posArray = new long[positions.size()];
-            for (int i = 0; i < positions.size(); i++) {
-                posArray[i] = positions.get(i).asLong();
-            }
-            tag.putLongArray(NBT_POSITIONS, posArray);
-            tag.putByte(NBT_TOOL_SLOT, toolSlot);
-            tag.putBoolean(NBT_TOOL_PROTECTION, toolProtectionEnabled);
-            tag.putBoolean(NBT_SELECTED_TOOL, selectedToolRequested);
-            tag.putInt(NBT_WORKFLOW_ENTRY_ID, workflowEntryId);
-            tag.putInt(NBT_TOTAL_TARGETS, totalTargets);
-            tag.putInt(NBT_INDEX, index);
+        public NBTTagCompound toNbt() {
+            NBTTagCompound tag = new NBTTagCompound();
+            NBTTagList encodedPositions = new NBTTagList();
+            for (BlockPos pos : positions) encodedPositions.appendTag(new NBTTagLong(pos.toLong()));
+            tag.setTag(NBT_POSITIONS, encodedPositions);
+            tag.setByte(NBT_TOOL_SLOT, toolSlot);
+            tag.setBoolean(NBT_TOOL_PROTECTION, toolProtectionEnabled);
+            tag.setBoolean(NBT_SELECTED_TOOL, selectedToolRequested);
+            tag.setInteger(NBT_WORKFLOW_ENTRY_ID, workflowEntryId);
+            tag.setInteger(NBT_TOTAL_TARGETS, totalTargets);
+            tag.setInteger(NBT_INDEX, index);
             return tag;
         }
 
         /**
          * 从 {@link CompoundTag} 反序列化 {@link DestructionJob}。
          */
-        public static DestructionJob fromNbt(CompoundTag tag) {
-            long[] posArray = tag.getLongArray(NBT_POSITIONS);
-            List<BlockPos> positions = new ArrayList<>(posArray.length);
-            for (long l : posArray) {
-                positions.add(BlockPos.of(l));
+        public static DestructionJob fromNbt(NBTTagCompound tag) {
+            NBTTagList encodedPositions = tag.getTagList(NBT_POSITIONS, Constants.NBT.TAG_LONG);
+            List<BlockPos> positions = new ArrayList<BlockPos>(encodedPositions.tagCount());
+            for (int i = 0; i < encodedPositions.tagCount(); i++) {
+                positions.add(BlockPos.fromLong(((NBTTagLong) encodedPositions.get(i)).getLong()));
             }
             byte toolSlot = tag.getByte(NBT_TOOL_SLOT);
             boolean toolProtectionEnabled = tag.getBoolean(NBT_TOOL_PROTECTION);
             boolean selectedToolRequested = tag.getBoolean(NBT_SELECTED_TOOL);
-            int workflowEntryId = tag.getInt(NBT_WORKFLOW_ENTRY_ID);
-            int totalTargets = tag.getInt(NBT_TOTAL_TARGETS);
-            int index = tag.getInt(NBT_INDEX);
+            int workflowEntryId = tag.getInteger(NBT_WORKFLOW_ENTRY_ID);
+            int totalTargets = tag.getInteger(NBT_TOTAL_TARGETS);
+            int index = tag.getInteger(NBT_INDEX);
 
             DestructionJob job = new DestructionJob(
                     positions, toolSlot, toolProtectionEnabled,

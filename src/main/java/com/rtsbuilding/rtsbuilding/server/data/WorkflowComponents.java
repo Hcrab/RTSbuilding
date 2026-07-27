@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 
 /**
  * 工作流数据（{@code workflow.dat}）的所有 {@link DataComponent} 注册表。
@@ -32,17 +32,17 @@ public final class WorkflowComponents {
  * {@link com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager#saveToNbt()}
  * 和 {@link com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager#loadFromNbt(CompoundTag)}。
  */
-    public static final DataComponent<CompoundTag> FULL_WORKFLOW = new DataComponent<>(
+    public static final DataComponent<NBTTagCompound> FULL_WORKFLOW = new DataComponent<>(
             "workflow",
             NbtCodec.of(
                     tag -> tag,                            // decode: 返回 slot 引用
                     (tag, v) -> {                           // encode: 复制所有键
-                        for (String key : v.getAllKeys()) {
-                            tag.put(key, v.get(key));
+                        for (String key : v.getKeySet()) {
+                            tag.setTag(key, v.getTag(key));
                         }
                     }
             ),
-            CompoundTag::new
+            NBTTagCompound::new
     );
 
     private WorkflowComponents() {

@@ -1,0 +1,31 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    " C ",
+                    "RGR",
+                    " C "
+                ],
+    "key":  {
+                "C":  [
+                          {
+                              "type":  "forge:ore_dict",
+                              "ore":  "ingotCopper"
+                          },
+                          {
+                              "item":  "minecraft:iron_ingot"
+                          }
+                      ],
+                "G":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "paneGlass"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:range_extension_i",
+                   "count":  1
+               }
+}

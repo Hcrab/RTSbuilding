@@ -1,0 +1,25 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    " L ",
+                    "RPR",
+                    " L "
+                ],
+    "key":  {
+                "L":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "gemLapis"
+                      },
+                "P":  {
+                          "item":  "minecraft:iron_pickaxe"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:area_destroy_plugin",
+                   "count":  1
+               }
+}

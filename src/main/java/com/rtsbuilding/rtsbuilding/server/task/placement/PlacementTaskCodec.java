@@ -1,13 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.task.placement;
 
 import com.rtsbuilding.rtsbuilding.server.task.PlacementTaskPayload;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.Level;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,58 +18,60 @@ public final class PlacementTaskCodec {
     private PlacementTaskCodec() {
     }
 
-    public static CompoundTag encode(PlacementTaskPayload payload) {
+    public static NBTTagCompound encode(PlacementTaskPayload payload) {
         PlacementTaskState state = payload.state();
         validateDefinition(state.definition(), state.totalUnits());
-        CompoundTag tag = new CompoundTag();
-        tag.putInt("schema", SCHEMA_VERSION);
-        tag.putUUID("owner", payload.ownerId());
-        tag.putString("dimension", payload.dimension().location().toString());
-        tag.putInt("workflow", payload.workflowEntryId());
-        tag.put("definition", state.definition());
-        tag.putInt("total", state.totalUnits());
-        tag.putInt("cursor", state.cursorUnits());
-        tag.putInt("succeeded", state.succeededUnits());
-        tag.putInt("failed", state.failedUnits());
-        tag.putString("resumePolicy", state.resumePolicy().name());
-        tag.putLongArray("placed", state.placedPositions().stream().mapToLong(BlockPos::asLong).toArray());
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("schema", SCHEMA_VERSION);
+        NbtCompat.setUuid(tag, "owner", payload.ownerId());
+        tag.setString("dimension", DimensionIdCodec.fromDimension(payload.dimension()));
+        tag.setInteger("workflow", payload.workflowEntryId());
+        tag.setTag("definition", state.definition());
+        tag.setInteger("total", state.totalUnits());
+        tag.setInteger("cursor", state.cursorUnits());
+        tag.setInteger("succeeded", state.succeededUnits());
+        tag.setInteger("failed", state.failedUnits());
+        tag.setString("resumePolicy", state.resumePolicy().name());
+        long[] placed = new long[state.placedPositions().size()];
+        for (int i = 0; i < placed.length; i++) placed[i] = state.placedPositions().get(i).toLong();
+        NbtCompat.setLongArray(tag, "placed", placed);
         return tag;
     }
 
-    public static PlacementTaskPayload decode(CompoundTag tag) {
+    public static PlacementTaskPayload decode(NBTTagCompound tag) {
         if (tag == null
-                || !tag.contains("schema", Tag.TAG_INT)
-                || (tag.getInt("schema") != 1 && tag.getInt("schema") != SCHEMA_VERSION)
-                || !tag.hasUUID("owner")
-                || !tag.contains("dimension", Tag.TAG_STRING)
-                || !tag.contains("workflow", Tag.TAG_INT)
-                || !tag.contains("total", Tag.TAG_INT)
-                || !tag.contains("cursor", Tag.TAG_INT)
-                || !tag.contains("succeeded", Tag.TAG_INT)
-                || !tag.contains("failed", Tag.TAG_INT)
-                || !tag.contains("placed", Tag.TAG_LONG_ARRAY)) {
+                || !NbtCompat.hasType(tag, "schema", Constants.NBT.TAG_INT)
+                || (tag.getInteger("schema") != 1 && tag.getInteger("schema") != SCHEMA_VERSION)
+                || !NbtCompat.hasUuid(tag, "owner")
+                || !NbtCompat.hasType(tag, "dimension", Constants.NBT.TAG_STRING)
+                || !NbtCompat.hasType(tag, "workflow", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "total", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "cursor", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "succeeded", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "failed", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "placed", Constants.NBT.TAG_LIST)) {
             throw new IllegalArgumentException("不支持或不完整的 placement task payload");
         }
-        ResourceLocation dimensionId = ResourceLocation.tryParse(tag.getString("dimension"));
-        if (dimensionId == null || !dimensionId.toString().equals(tag.getString("dimension"))) {
+        String dimensionId = tag.getString("dimension");
+        if (!DimensionIdCodec.isCanonical(dimensionId)) {
             throw new IllegalArgumentException("placement task 维度无效");
         }
-        ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
-        if (!tag.contains("definition", Tag.TAG_COMPOUND)) {
+        int dimension = DimensionIdCodec.toDimension(dimensionId);
+        if (!NbtCompat.hasType(tag, "definition", Constants.NBT.TAG_COMPOUND)) {
             throw new IllegalArgumentException("placement task 缺少 definition");
         }
-        int total = tag.getInt("total");
+        int total = tag.getInteger("total");
         if (total < 0 || total > MAX_TARGETS) throw new IllegalArgumentException("placement total 越界");
-        CompoundTag definition = tag.getCompound("definition");
+        NBTTagCompound definition = tag.getCompoundTag("definition");
         validateDefinition(definition, total);
-        long[] encodedPositions = tag.getLongArray("placed");
+        long[] encodedPositions = NbtCompat.getLongArray(tag, "placed");
         if (encodedPositions.length > total) throw new IllegalArgumentException("placed positions 越界");
         List<BlockPos> positions = new ArrayList<>(encodedPositions.length);
-        for (long encoded : encodedPositions) positions.add(BlockPos.of(encoded).immutable());
-        int workflow = tag.getInt("workflow");
+        for (long encoded : encodedPositions) positions.add(BlockPos.fromLong(encoded));
+        int workflow = tag.getInteger("workflow");
         PlacementResumePolicy resumePolicy = PlacementResumePolicy.DEFAULT;
-        if (tag.getInt("schema") >= 2) {
-            if (!tag.contains("resumePolicy", Tag.TAG_STRING)) {
+        if (tag.getInteger("schema") >= 2) {
+            if (!NbtCompat.hasType(tag, "resumePolicy", Constants.NBT.TAG_STRING)) {
                 throw new IllegalArgumentException("placement task 缺少 resumePolicy");
             }
             try {
@@ -82,16 +82,16 @@ public final class PlacementTaskCodec {
         }
         PlacementTaskState state = new PlacementTaskState(
                 definition, workflow, total,
-                tag.getInt("cursor"), tag.getInt("succeeded"), tag.getInt("failed"), positions,
+                tag.getInteger("cursor"), tag.getInteger("succeeded"), tag.getInteger("failed"), positions,
                 resumePolicy);
-        return new PlacementTaskPayload(tag.getUUID("owner"), dimension, workflow, state);
+        return new PlacementTaskPayload(NbtCompat.getUuid(tag, "owner"), dimension, workflow, state);
     }
 
-    private static void validateDefinition(CompoundTag definition, int totalUnits) {
-        if (!definition.contains("positions", Tag.TAG_LONG_ARRAY)) {
+    private static void validateDefinition(NBTTagCompound definition, int totalUnits) {
+        if (!NbtCompat.hasType(definition, "positions", Constants.NBT.TAG_LIST)) {
             throw new IllegalArgumentException("placement definition 缺少 positions");
         }
-        int targets = definition.getLongArray("positions").length;
+        int targets = NbtCompat.getLongArray(definition, "positions").length;
         if (targets != totalUnits || targets > MAX_TARGETS) {
             throw new IllegalArgumentException("placement definition 目标数量与 total 不一致或越界");
         }

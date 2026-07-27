@@ -1,0 +1,30 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    "IRI",
+                    "RCR",
+                    "IRI"
+                ],
+    "key":  {
+                "C":  {
+                          "item":  "minecraft:compass"
+                      },
+                "I":  [
+                          {
+                              "type":  "forge:ore_dict",
+                              "ore":  "ingotCopper"
+                          },
+                          {
+                              "item":  "minecraft:iron_ingot"
+                          }
+                      ],
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:remote_control_plugin",
+                   "count":  1
+               }
+}

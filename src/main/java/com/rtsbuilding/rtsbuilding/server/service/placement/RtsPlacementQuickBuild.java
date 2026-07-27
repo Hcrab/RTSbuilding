@@ -11,19 +11,18 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -65,7 +64,7 @@ public final class RtsPlacementQuickBuild {
      *
      * <p>当玩家、作业或放置上下文无效时返回 {@code null}。
      */
-    public static StatePlacementPlan resolveStatePlacementPlan(ServerPlayer player,
+    public static StatePlacementPlan resolveStatePlacementPlan(EntityPlayerMP player,
                                                                RtsPlacementBatch.PlaceBatchJob job) {
         if (player == null || job == null || !job.quickBuild()) {
             return null;
@@ -74,41 +73,41 @@ public final class RtsPlacementQuickBuild {
         // 完全改为使用储存空间的方块进行放置。
         // 必须存在有效的 itemId，否则拒绝
         String jobItemId = job.itemId();
-        if (jobItemId == null || jobItemId.isBlank()) {
+        if (jobItemId == null || jobItemId.trim().isEmpty()) {
             return null;
         }
 
-        ResourceLocation id = ResourceLocation.tryParse(jobItemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-            return null;
-        }
-        Item item = BuiltInRegistries.ITEM.get(id);
+        ResourceLocation id;
+        try { id = new ResourceLocation(jobItemId); } catch (RuntimeException invalid) { return null; }
+        Item item = Item.REGISTRY.getObject(id);
+        if (item == null) return null;
         ItemStack templateStack = job.itemPrototype();
         if (templateStack.isEmpty()) {
             templateStack = new ItemStack(item);
         }
 
-        if (!(item instanceof BlockItem blockItem)) {
+        if (!(item instanceof ItemBlock)) {
             return null;
         }
+        ItemBlock blockItem = (ItemBlock) item;
 
         BlockPos templatePos = job.templatePosition();
-        if (templatePos == null || job.face() == null || !player.serverLevel().hasChunkAt(templatePos)) {
+        if (templatePos == null || job.face() == null || !player.getServerWorld().isBlockLoaded(templatePos)) {
             return null;
         }
         templateStack.setCount(1);
-        BlockPlaceContext context = new BlockPlaceContext(
-                player.serverLevel(),
-                player,
-                InteractionHand.MAIN_HAND,
-                templateStack,
-                job.templateHit(templatePos));
-        BlockState state = blockItem.getBlock().getStateForPlacement(context);
+        RayTraceResult hit = job.templateHit(templatePos);
+        IBlockState state = blockItem.getBlock().getStateForPlacement(
+                player.getServerWorld(), templatePos, job.face(),
+                (float) (hit.hitVec.x - templatePos.getX()),
+                (float) (hit.hitVec.y - templatePos.getY()),
+                (float) (hit.hitVec.z - templatePos.getZ()),
+                blockItem.getMetadata(templateStack.getMetadata()), player, EnumHand.MAIN_HAND);
         if (state == null) {
             return null;
         }
 
-        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
+        ResourceLocation sourceId = Item.REGISTRY.getNameForObject(item);
         if (sourceId == null) {
             return null;
         }
@@ -129,7 +128,7 @@ public final class RtsPlacementQuickBuild {
      *
      * @return {@code true} 继续处理批次，{@code false} 中止当前作业
      */
-    public static boolean placeStateBatchEntry(ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
+    public static boolean placeStateBatchEntry(EntityPlayerMP player, RtsStorageSession session, BlockPos targetPos,
                                                StatePlacementPlan plan) {
         return placeStateBatchEntry(player, session, targetPos, plan, false);
     }
@@ -137,7 +136,7 @@ public final class RtsPlacementQuickBuild {
     /**
      * @param creativeOverwrite 已由服务端核验的创造覆盖标志；允许替换既有方块并忽略实体占位。
      */
-    public static boolean placeStateBatchEntry(ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
+    public static boolean placeStateBatchEntry(EntityPlayerMP player, RtsStorageSession session, BlockPos targetPos,
                                                StatePlacementPlan plan, boolean creativeOverwrite) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return false;
@@ -150,23 +149,23 @@ public final class RtsPlacementQuickBuild {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 
-        ServerLevel level = player.serverLevel();
+        WorldServer level = player.getServerWorld();
         if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
             return true;
         }
-        if (!canPlaceStateAt(level, player, targetPos, plan.state(), creativeOverwrite && player.isCreative())) {
+        if (!canPlaceStateAt(level, player, targetPos, plan.state(), creativeOverwrite && player.capabilities.isCreativeMode)) {
             return true;
         }
 
         ItemStack placementStack = plan.templateStack();
         ItemStack extracted = ItemStack.EMPTY;
         boolean refundExtractedOnFailure = false;
-        List<IItemHandler> insertHandlers = List.of();
+        List<IItemHandler> insertHandlers = java.util.Collections.emptyList();
         // 完全改为使用储存空间的方块进行放置
         {
             List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
             boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
-            boolean creativeSource = player.isCreative();
+            boolean creativeSource = player.capabilities.isCreativeMode;
             if (activeLinked.isEmpty() && !includePlayerMainInventory && !creativeSource) {
                 return false;
             }
@@ -193,8 +192,8 @@ public final class RtsPlacementQuickBuild {
             return true;
         }
 
-        BlockState placedState = level.getBlockState(targetPos);
-        if (placedState.is(plan.state().getBlock())) {
+        IBlockState placedState = level.getBlockState(targetPos);
+        if (placedState.getBlock() == plan.state().getBlock()) {
             BlockPlacer.applyQuickBuildBlockEntity(level, targetPos, placementStack, placedState, player);
         }
         // 完全改为使用储存空间的方块进行放置，不再从主手扣除
@@ -205,24 +204,25 @@ public final class RtsPlacementQuickBuild {
         return true;
     }
 
-    static boolean canPlaceStateAt(ServerLevel level, ServerPlayer player, BlockPos targetPos, BlockState state) {
+    static boolean canPlaceStateAt(WorldServer level, EntityPlayerMP player, BlockPos targetPos, IBlockState state) {
         return canPlaceStateAt(level, player, targetPos, state, false);
     }
 
-    static boolean canPlaceStateAt(ServerLevel level, ServerPlayer player, BlockPos targetPos, BlockState state,
+    static boolean canPlaceStateAt(WorldServer level, EntityPlayerMP player, BlockPos targetPos, IBlockState state,
                                    boolean creativeOverwrite) {
-        if (level == null || targetPos == null || state == null || !level.hasChunkAt(targetPos)) {
+        if (level == null || targetPos == null || state == null || !level.isBlockLoaded(targetPos)) {
             return false;
         }
-        BlockState current = level.getBlockState(targetPos);
-        if (!creativeOverwrite && !current.isAir() && !current.canBeReplaced()) {
+        IBlockState current = level.getBlockState(targetPos);
+        if (!creativeOverwrite && current.getBlock() != net.minecraft.init.Blocks.AIR && !current.getMaterial().isReplaceable()) {
             return false;
         }
         if (creativeOverwrite) {
-            return state.canSurvive(level, targetPos);
+            return state.getBlock().canPlaceBlockAt(level, targetPos);
         }
-        CollisionContext collision = player == null ? CollisionContext.empty() : CollisionContext.of(player);
-        return state.canSurvive(level, targetPos) && level.isUnobstructed(state, targetPos, collision);
+        AxisAlignedBB box = state.getCollisionBoundingBox(level, targetPos);
+        return state.getBlock().canPlaceBlockAt(level, targetPos)
+                && (box == null || level.checkNoEntityCollision(box.offset(targetPos)));
     }
 
     /**
@@ -235,17 +235,25 @@ public final class RtsPlacementQuickBuild {
      *                              还是使用主手堆叠（{@code false}）
      * @param itemId                用于最近物品追踪的字符串编码物品 ID
      */
-    public record StatePlacementPlan(
-            Item item,
-            ItemStack templateStack,
-            BlockState state,
-            boolean selectedStorageItem,
-            String itemId) {
-        public StatePlacementPlan {
-            templateStack = templateStack == null ? ItemStack.EMPTY : templateStack.copy();
-            if (!templateStack.isEmpty()) {
-                templateStack.setCount(1);
-            }
+    public static final class StatePlacementPlan {
+        private final Item item;
+        private final ItemStack templateStack;
+        private final IBlockState state;
+        private final boolean selectedStorageItem;
+        private final String itemId;
+        public StatePlacementPlan(Item item, ItemStack templateStack, IBlockState state,
+                                  boolean selectedStorageItem, String itemId) {
+            this.item = item;
+            this.templateStack = templateStack == null ? ItemStack.EMPTY : templateStack.copy();
+            if (!this.templateStack.isEmpty()) this.templateStack.setCount(1);
+            this.state = state;
+            this.selectedStorageItem = selectedStorageItem;
+            this.itemId = itemId;
         }
+        public Item item() { return item; }
+        public ItemStack templateStack() { return templateStack.copy(); }
+        public IBlockState state() { return state; }
+        public boolean selectedStorageItem() { return selectedStorageItem; }
+        public String itemId() { return itemId; }
     }
 }

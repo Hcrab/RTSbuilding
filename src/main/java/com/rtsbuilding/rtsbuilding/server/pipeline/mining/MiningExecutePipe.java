@@ -13,9 +13,9 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.List;
 
@@ -34,7 +34,7 @@ import java.util.List;
  * <p>预期的上下文参数：</p>
  * <ul>
  *   <li>{@code "pos"} —— {@link BlockPos} 目标位置</li>
- *   <li>{@code "face"} —— {@link Direction} 挖掘面（可为空）</li>
+ *   <li>{@code "face"} —— {@link EnumFacing} 挖掘面（可为空）</li>
  *   <li>{@code "allowPlacedBlockRecovery"} —— {@code boolean}（可选，默认 false）</li>
  *   <li>{@code "toolProtectionEnabled"} —— {@code boolean}（可选，默认 true）</li>
  * </ul>
@@ -50,8 +50,8 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
 
     public static final TypedKey<BlockPos> ARG_POS =
             new TypedKey<>("pos", BlockPos.class);
-    public static final TypedKey<Direction> ARG_FACE =
-            new TypedKey<>("face", Direction.class);
+    public static final TypedKey<EnumFacing> ARG_FACE =
+            new TypedKey<>("face", EnumFacing.class);
     public static final TypedKey<Boolean> ARG_ALLOW_PLACED_BLOCK_RECOVERY =
             new TypedKey<>("allowPlacedBlockRecovery", Boolean.class);
     public static final TypedKey<Boolean> ARG_TOOL_PROTECTION_ENABLED =
@@ -69,9 +69,9 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
             return PipelineResult.failure("No session in context — SessionValidatePipe must run first");
         }
 
-        ServerPlayer player = mctx.player();
+        EntityPlayerMP player = mctx.player();
         BlockPos pos = mctx.getPos();
-        Direction face = mctx.getFace();
+        EnumFacing face = mctx.getFace();
         int toolSlot = RtsMiningValidator.clampHotbarSlot(mctx.getToolSlot());
         boolean allowPlacedBlockRecovery = mctx.isAllowPlacedBlockRecovery();
         boolean toolProtectionEnabled = mctx.isToolProtectionEnabled();
@@ -80,7 +80,7 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return PipelineResult.failure("Cannot access world target at " + pos.toShortString());
         }
-        if (!RtsClaimProtectionService.canBreakBlock(player, pos, face == null ? Direction.DOWN : face)) {
+        if (!RtsClaimProtectionService.canBreakBlock(player, pos, face == null ? EnumFacing.DOWN : face)) {
             return PipelineResult.failure("Claim protection denied block break at " + pos.toShortString());
         }
 
@@ -92,13 +92,13 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
 
         // ── 3. 创造模式快速路径 ───────────────────────────────────
         if (player.isCreative()) {
-            Direction actualFace = face == null ? Direction.DOWN : face;
+            EnumFacing actualFace = face == null ? EnumFacing.DOWN : face;
             // 在上下文数据中存储破坏信息，用于历史记录
-            ctx.setData(HistoryRecordPipe.ARG_HISTORY_POSITIONS, List.of(pos.immutable()));
+            ctx.setData(HistoryRecordPipe.ARG_HISTORY_POSITIONS, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(pos.toImmutable()));
             ctx.setData(HistoryRecordPipe.ARG_HISTORY_FACE, actualFace);
             RtsMiningStateMachine.destroyMinedBlock(player, session, pos, toolSlot);
             // 完成工作流、归还工具、记录历史（同生存模式 finalizeMiningOperation）
-            WorkflowPipeline.runCleanupSequence(ctx, List.of(
+            WorkflowPipeline.runCleanupSequence(ctx, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(
                     new WorkflowCompletePipe(),
                     new ToolReturnPipe(),
                     new HistoryRecordPipe()
@@ -117,7 +117,7 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
 
         int workflowEntryId = mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1;
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
-                .submitMiningTargets(player, workflowEntryId, java.util.List.of(pos), face, toolSlot,
+                .submitMiningTargets(player, workflowEntryId, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(pos), face, toolSlot,
                         session.mining.miningSelectedToolRequested, toolProtectionEnabled, true);
         return submitted ? PipelineResult.success()
                 : PipelineResult.failure("无法提交挖掘任务到 TaskStore");

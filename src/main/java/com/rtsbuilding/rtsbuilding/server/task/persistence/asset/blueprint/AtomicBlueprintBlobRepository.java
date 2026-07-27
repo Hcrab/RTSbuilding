@@ -298,7 +298,7 @@ public final class AtomicBlueprintBlobRepository {
         for (TaskAssetId assetId : liveAssetIds) {
             activeRootLeases.merge(assetId, 1, Integer::sum);
         }
-        maintenanceLiveAssetIds = Set.copyOf(liveAssetIds);
+        maintenanceLiveAssetIds = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(liveAssetIds);
     }
 
     /**
@@ -397,7 +397,7 @@ public final class AtomicBlueprintBlobRepository {
         if (maxEntries <= 0 || maxCompressedBytes <= 0L) {
             throw new IllegalArgumentException("scan 配额必须为正数");
         }
-        if (!Files.exists(directory)) return new ScanResult(List.of(), 0L, 0, true, false);
+        if (!Files.exists(directory)) return new ScanResult(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), 0L, 0, true, false);
         List<TaskAssetId> ids = new ArrayList<>();
         long totalBytes = 0L;
         int visited = 0;
@@ -531,8 +531,12 @@ public final class AtomicBlueprintBlobRepository {
     }
 
     private static BlueprintBlobRecord requireFound(LoadResult result) {
-        if (result instanceof LoadResult.Found found) return found.record();
-        if (result instanceof LoadResult.Failed failed) {
+        if (result instanceof LoadResult.Missing) {
+            throw new BlobRepositoryException("预期蓝图 blob 已存在，但读取结果为 Missing");
+        }
+        if (result instanceof LoadResult.Found) return ((LoadResult.Found) result).record();
+        if (result instanceof LoadResult.Failed) {
+            LoadResult.Failed failed = (LoadResult.Failed) result;
             throw new BlobRepositoryException("读取现有蓝图 blob 失败，拒绝覆盖", failed.cause());
         }
         throw new BlobRepositoryException("预期蓝图 blob 存在但文件缺失");
@@ -557,7 +561,7 @@ public final class AtomicBlueprintBlobRepository {
     }
 
     private static LoadResult.Found requireFoundResult(LoadResult result) {
-        if (result instanceof LoadResult.Found found) return found;
+        if (result instanceof LoadResult.Found) return (LoadResult.Found) result;
         requireFound(result);
         throw new AssertionError("requireFound 应当已经抛出异常");
     }
@@ -620,7 +624,7 @@ public final class AtomicBlueprintBlobRepository {
         }
     }
 
-    public sealed interface LoadResult permits LoadResult.Found, LoadResult.Missing, LoadResult.Failed {
+    public interface LoadResult {
         record Found(BlueprintBlobRecord record, long compressedBytes) implements LoadResult { }
         record Missing() implements LoadResult { }
         record Failed(Throwable cause) implements LoadResult {
@@ -634,7 +638,7 @@ public final class AtomicBlueprintBlobRepository {
             int removedTemporaryFiles,
             boolean complete,
             boolean quotaExceeded) {
-        public ScanResult { assetIds = List.copyOf(assetIds); }
+        public ScanResult { assetIds = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(assetIds); }
     }
 
     public record ReconcileResult(

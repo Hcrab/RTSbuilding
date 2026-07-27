@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.Map;
 import java.util.UUID;
@@ -26,7 +26,7 @@ public interface SessionService {
      * @param player 目标玩家
      * @return 玩家的 RTS 储存会话
      */
-    RtsStorageSession getOrCreate(ServerPlayer player);
+    RtsStorageSession getOrCreate(EntityPlayerMP player);
 
     /**
      * 获取指定玩家的 RTS 会话（如果存在）。
@@ -35,7 +35,7 @@ public interface SessionService {
      * @param player 目标玩家
      * @return 玩家的 RTS 储存会话，或 {@code null} 如果会话不存在
      */
-    RtsStorageSession getIfPresent(ServerPlayer player);
+    RtsStorageSession getIfPresent(EntityPlayerMP player);
 
     /**
      * 获取所有活跃的 RTS 会话的只读视图。
@@ -52,24 +52,24 @@ public interface SessionService {
      * @param player  目标玩家
      * @param session 要保存的会话
      */
-    void saveToPlayerNbt(ServerPlayer player, RtsStorageSession session);
+    void saveToPlayerNbt(EntityPlayerMP player, RtsStorageSession session);
 
     /**
      * 只冻结并标记漏斗组件，避免漏斗热路径反复序列化整个会话中的放置、拆除和 UI 数据。
      */
-    void saveFunnelToPlayerNbt(ServerPlayer player, RtsStorageSession session);
+    void saveFunnelToPlayerNbt(EntityPlayerMP player, RtsStorageSession session);
 
     /** 只冻结并标记放置组件，供回收 claim 的增量变化使用。 */
-    long savePlacementToPlayerNbt(ServerPlayer player, RtsStorageSession session);
+    long savePlacementToPlayerNbt(EntityPlayerMP player, RtsStorageSession session);
 
     /** 返回放置组件当前内存 revision。 */
-    long placementRevision(ServerPlayer player);
+    long placementRevision(EntityPlayerMP player);
 
     /** 返回放置组件已经由底层存储确认的 revision。 */
-    long persistedPlacementRevision(ServerPlayer player);
+    long persistedPlacementRevision(EntityPlayerMP player);
 
     /** 只保存建造模式；用于模式切换时与漏斗组件分别提交。 */
-    void saveModeToPlayerNbt(ServerPlayer player, RtsStorageSession session);
+    void saveModeToPlayerNbt(EntityPlayerMP player, RtsStorageSession session);
 
     /**
      * 玩家启用 RTS 模式时触发的生命周期回调。
@@ -77,7 +77,7 @@ public interface SessionService {
      *
      * @param player 目标玩家
      */
-    void onRtsEnabled(ServerPlayer player);
+    void onRtsEnabled(EntityPlayerMP player);
 
     /**
      * 玩家禁用 RTS 模式时触发的生命周期回调。
@@ -85,7 +85,7 @@ public interface SessionService {
      *
      * @param player 目标玩家
      */
-    void onRtsDisabled(ServerPlayer player);
+    void onRtsDisabled(EntityPlayerMP player);
 
     /**
      * 玩家登出时触发的生命周期回调。
@@ -93,7 +93,7 @@ public interface SessionService {
      *
      * @param player 目标玩家
      */
-    void onPlayerLogout(ServerPlayer player);
+    void onPlayerLogout(EntityPlayerMP player);
 
     /**
      * 获取玩家当前的建造模式。
@@ -101,5 +101,5 @@ public interface SessionService {
      * @param player 目标玩家
      * @return 当前的建造模式枚举值
      */
-    BuilderMode getMode(ServerPlayer player);
+    BuilderMode getMode(EntityPlayerMP player);
 }

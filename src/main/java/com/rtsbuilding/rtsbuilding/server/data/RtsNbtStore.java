@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.nio.file.Path;
 
@@ -14,7 +14,7 @@ public interface RtsNbtStore {
 
     ReadResult readResult();
 
-    boolean write(CompoundTag tag);
+    boolean write(NBTTagCompound tag);
 
     String label();
 
@@ -24,9 +24,9 @@ public interface RtsNbtStore {
     }
 
     /** 明确区分文件不存在、读取成功和读取失败，避免损坏文件被当作空存档覆盖。 */
-    sealed interface ReadResult permits ReadResult.Found, ReadResult.Missing, ReadResult.Failed {
+    interface ReadResult {
 
-        static ReadResult found(CompoundTag root) {
+        static ReadResult found(NBTTagCompound root) {
             return new Found(root);
         }
 
@@ -38,9 +38,16 @@ public interface RtsNbtStore {
             return new Failed(cause);
         }
 
-        record Found(CompoundTag root) implements ReadResult {
-            public Found {
+        final class Found implements ReadResult {
+            private final NBTTagCompound root;
+
+            public Found(NBTTagCompound root) {
                 if (root == null) throw new IllegalArgumentException("root 不能为 null");
+                this.root = root;
+            }
+
+            public NBTTagCompound root() {
+                return root;
             }
         }
 
@@ -51,9 +58,16 @@ public interface RtsNbtStore {
             }
         }
 
-        record Failed(Throwable cause) implements ReadResult {
-            public Failed {
+        final class Failed implements ReadResult {
+            private final Throwable cause;
+
+            public Failed(Throwable cause) {
                 if (cause == null) throw new IllegalArgumentException("cause 不能为 null");
+                this.cause = cause;
+            }
+
+            public Throwable cause() {
+                return cause;
             }
         }
     }

@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "rtsbuilding:item/field_deployment_plugin"
+    "layer0": "rtsbuilding:items/field_deployment_plugin"
   }
 }

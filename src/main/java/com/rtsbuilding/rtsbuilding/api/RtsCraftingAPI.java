@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.api;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
 
 import java.util.List;
 
@@ -17,12 +17,12 @@ public interface RtsCraftingAPI {
      *
      * @param player 目标玩家
      */
-    void openCraftTerminal(ServerPlayer player);
+    void openCraftTerminal(EntityPlayerMP player);
 
     /**
      * 请求可合成物品列表。
      */
-    void requestCraftables(ServerPlayer player, String search, boolean showUnavailable,
+    void requestCraftables(EntityPlayerMP player, String search, boolean showUnavailable,
                            int offset, int limit);
 
     /**
@@ -32,7 +32,7 @@ public interface RtsCraftingAPI {
      * @param recipeId   配方 ID
      * @param craftCount 合成次数
      */
-    void craftRecipeToLinked(ServerPlayer player, String recipeId, int craftCount);
+    void craftRecipeToLinked(EntityPlayerMP player, String recipeId, int craftCount);
 
     /**
      * 从链接存储填充合成网格。
@@ -42,19 +42,19 @@ public interface RtsCraftingAPI {
      * @param craftedItemId 合成输出的物品 ID
      * @param craftedCount  合成数量
      */
-    void refillGridFromIds(ServerPlayer player, List<String> blueprintIds,
+    void refillGridFromIds(EntityPlayerMP player, List<String> blueprintIds,
                            String craftedItemId, int craftedCount);
 
     /**
      * 使用精确原型栈填充合成网格。
      */
-    void refillGridFromStacks(ServerPlayer player, List<ItemStack> blueprintStacks,
+    void refillGridFromStacks(EntityPlayerMP player, List<ItemStack> blueprintStacks,
                               String craftedItemId, int craftedCount);
 
     /**
      * 应用 JEI 配方传输。
      */
-    void applyJeiTransfer(ServerPlayer player, String recipeId,
+    void applyJeiTransfer(EntityPlayerMP player, String recipeId,
                           List<ItemStack> ingredientPrototypes,
                           boolean maxTransfer, boolean clearGridFirst);
 }

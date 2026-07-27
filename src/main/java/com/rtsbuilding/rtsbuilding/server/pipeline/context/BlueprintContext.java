@@ -7,8 +7,8 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
@@ -105,14 +105,14 @@ public class BlueprintContext extends PipelineContext {
     //  构造
     // ──────────────────────────────────────────────────────────────
 
-    private BlueprintContext(ServerPlayer player, Map<String, Object> args) {
+    private BlueprintContext(EntityPlayerMP player, Map<String, Object> args) {
         super(player, args);
     }
 
     /**
      * 创建一个新的 {@link Builder}，用于构建 {@link BlueprintContext}。
      */
-    public static Builder builder(ServerPlayer player) {
+    public static Builder builder(EntityPlayerMP player) {
         return new Builder(player);
     }
 
@@ -287,10 +287,10 @@ public class BlueprintContext extends PipelineContext {
      * {@link BlueprintContext} 的类型安全流式构建器。
      */
     public static final class Builder {
-        private final ServerPlayer player;
+        private final EntityPlayerMP player;
         private final Map<String, Object> args = new HashMap<>();
 
-        private Builder(ServerPlayer player) {
+        private Builder(EntityPlayerMP player) {
             this.player = player;
         }
 

@@ -47,7 +47,7 @@ public final class TaskAssetManifest {
         if (copy.size() > MAX_ASSETS) throw new IllegalArgumentException("活动资产数量超过 100000");
         this.entries = Map.copyOf(copy);
         LinkedHashMap<TaskId, Set<TaskAssetId>> frozenByTask = new LinkedHashMap<>();
-        byTask.forEach((taskId, assetIds) -> frozenByTask.put(taskId, Set.copyOf(assetIds)));
+        byTask.forEach((taskId, assetIds) -> frozenByTask.put(taskId, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(assetIds)));
         this.assetsByTask = Map.copyOf(frozenByTask);
         this.compressedBytes = compressed;
         this.logicalBytes = logical;
@@ -72,7 +72,7 @@ public final class TaskAssetManifest {
     /** 按任务反向查询资产 ID；终态提交不得再全量扫描整个 manifest。 */
     public Set<TaskAssetId> assetIdsForTask(TaskId taskId) {
         Objects.requireNonNull(taskId, "taskId");
-        return assetsByTask.getOrDefault(taskId, Set.of());
+        return assetsByTask.getOrDefault(taskId, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf());
     }
 
     public TaskAssetManifest apply(

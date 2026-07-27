@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
 
 import java.util.function.Predicate;
 
@@ -22,7 +22,7 @@ public interface TransferService {
      * @param predicate 匹配条件谓词
      * @return 匹配物品的总数
      */
-    long countLinkedItemsMatching(ServerPlayer player, Predicate<ItemStack> predicate);
+    long countLinkedItemsMatching(EntityPlayerMP player, Predicate<ItemStack> predicate);
 
     /**
      * 将玩家手持（鼠标托起）的物品存入链接存储。
@@ -31,7 +31,7 @@ public interface TransferService {
      * @param itemId  要存入的物品 ID
      * @param amount  要存入的数量
      */
-    void returnCarriedToLinked(ServerPlayer player, String itemId, int amount);
+    void returnCarriedToLinked(EntityPlayerMP player, String itemId, int amount);
 
     /**
      * 从链接存储中提取物品并将其丢弃到世界中的指定位置。
@@ -41,7 +41,7 @@ public interface TransferService {
      * @param amount      丢弃的数量（1-64）
      * @param dropX,dropY,dropZ 丢弃位置坐标
      */
-    void quickDropLinkedItem(ServerPlayer player, String itemId, byte amount,
+    void quickDropLinkedItem(EntityPlayerMP player, String itemId, byte amount,
                              double dropX, double dropY, double dropZ);
 
     /**
@@ -51,7 +51,7 @@ public interface TransferService {
      * @param player   目标玩家
      * @param menuSlot 菜单槽位编号
      */
-    void importMenuSlotToLinked(ServerPlayer player, int menuSlot);
+    void importMenuSlotToLinked(EntityPlayerMP player, int menuSlot);
 
     /**
      * 从链接存储中提取指定物品到玩家的手持（鼠标托起）位置。
@@ -60,7 +60,7 @@ public interface TransferService {
      * @param prototype 要提取的物品原型栈
      * @param amount    要提取的数量
      */
-    void pickupLinkedToCarried(ServerPlayer player, ItemStack prototype, int amount);
+    void pickupLinkedToCarried(EntityPlayerMP player, ItemStack prototype, int amount);
 
     /**
      * 从链接存储快速移动指定物品到玩家背包或当前打开的菜单。
@@ -69,7 +69,7 @@ public interface TransferService {
      * @param player    目标玩家
      * @param prototype 要移动的物品原型栈
      */
-    void quickMoveLinkedItem(ServerPlayer player, ItemStack prototype);
+    void quickMoveLinkedItem(EntityPlayerMP player, ItemStack prototype);
 
     /**
      * 从链接存储中取出物品填充玩家的背包（直至背包满）。
@@ -77,5 +77,5 @@ public interface TransferService {
      *
      * @param player 目标玩家
      */
-    void fillPlayerInventoryFromLinked(ServerPlayer player);
+    void fillPlayerInventoryFromLinked(EntityPlayerMP player);
 }

@@ -1,0 +1,29 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    " R ",
+                    "NPN",
+                    " R "
+                ],
+    "key":  {
+                "N":  {
+                          "item":  "minecraft:nether_star"
+                      },
+                "P":  {
+                          "item":  "rtsbuilding:harvest_tier_diamond"
+                      },
+                "R":  [
+                          {
+                              "type":  "forge:ore_dict",
+                              "ore":  "ingotNetherite"
+                          },
+                          {
+                              "item":  "minecraft:obsidian"
+                          }
+                      ]
+            },
+    "result":  {
+                   "item":  "rtsbuilding:harvest_tier_unlimited",
+                   "count":  1
+               }
+}

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint;
 
 import net.minecraft.nbt.ByteArrayTag;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.IntArrayTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.LongArrayTag;
@@ -60,7 +60,7 @@ final class CanonicalNbtHasher {
                 for (Tag element : list) hashTag(digest, element);
             }
             case Tag.TAG_COMPOUND -> {
-                CompoundTag compound = (CompoundTag) tag;
+                NBTTagCompound compound = (NBTTagCompound) tag;
                 List<String> keys = new ArrayList<>(compound.getAllKeys());
                 keys.sort(String::compareTo);
                 putInt(digest, keys.size());

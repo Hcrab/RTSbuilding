@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 
 /**
  * 玩家级别的非会话 {@link DataComponent} 注册表。
@@ -12,30 +12,30 @@ import net.minecraft.nbt.CompoundTag;
 public final class PlayerComponents {
 
     /** 已安装插件列表——CompoundTag 桥接，兼容 {@code RtsPluginPersistence} 格式 */
-    public static final DataComponent<CompoundTag> PLUGINS = bridge("plugins");
+    public static final DataComponent<NBTTagCompound> PLUGINS = bridge("plugins");
 
     /** 挖掘装备栏绑定——CompoundTag 桥接，兼容 {@code MiningLoadoutState} 格式 */
-    public static final DataComponent<CompoundTag> MINING_LOADOUT = bridge("mining_loadout");
+    public static final DataComponent<NBTTagCompound> MINING_LOADOUT = bridge("mining_loadout");
 
     /** 玩家进度数据——CompoundTag 桥接，兼容 {@code RtsProgressionPersistence} 格式 */
-    public static final DataComponent<CompoundTag> PROGRESSION = bridge("progression");
+    public static final DataComponent<NBTTagCompound> PROGRESSION = bridge("progression");
 
     /** 按维度保存的客户端范围剔除盒；文件本身随玩家与存档隔离。 */
-    public static final DataComponent<CompoundTag> CULLING = bridge("culling");
+    public static final DataComponent<NBTTagCompound> CULLING = bridge("culling");
 
     /** 创建直通桥接组件 */
-    private static DataComponent<CompoundTag> bridge(String key) {
+    private static DataComponent<NBTTagCompound> bridge(String key) {
         return new DataComponent<>(
                 key,
                 NbtCodec.of(
                         tag -> tag,
                         (tag, v) -> {
-                            for (String k : v.getAllKeys()) {
-                                tag.put(k, v.get(k));
+                            for (String k : v.getKeySet()) {
+                                tag.setTag(k, v.getTag(k));
                             }
                         }
                 ),
-                CompoundTag::new
+                NBTTagCompound::new
         );
     }
 

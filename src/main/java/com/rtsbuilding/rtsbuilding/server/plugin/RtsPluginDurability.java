@@ -3,11 +3,10 @@ package com.rtsbuilding.rtsbuilding.server.plugin;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.IOUtilities;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.storage.ThreadedFileIOBase;
 
 /**
  * 插件安装、卸载与迁移完成后的即时耐久化检查点。
@@ -20,7 +19,7 @@ final class RtsPluginDurability {
     private RtsPluginDurability() {
     }
 
-    static boolean checkpoint(ServerPlayer player) {
+    static boolean checkpoint(EntityPlayerMP player) {
         if (player == null) {
             return false;
         }
@@ -40,18 +39,23 @@ final class RtsPluginDurability {
 
             // 队伍共享插件使用 SavedData；save() 只提交异步任务，必须等 IO worker 真正完成。
             String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
-            if (!sharedKey.isBlank()) {
-                ServerLevel storageLevel = server.getLevel(Level.OVERWORLD);
+            if (!sharedKey.isEmpty()) {
+                WorldServer storageLevel = server.getWorld(0);
                 if (storageLevel == null) {
-                    storageLevel = player.serverLevel();
+                    storageLevel = player.getServerWorld();
                 }
-                storageLevel.getDataStorage().save();
-                IOUtilities.waitUntilIOWorkerComplete();
+                storageLevel.getMapStorage().saveAllData();
+                ThreadedFileIOBase.getThreadedIOInstance().waitForFinish();
             }
 
             // 插件物品已经从背包扣除或退回；同一检查点保存玩家文件，避免状态与物品只存一边。
-            server.getPlayerList().saveAll();
+            server.getPlayerList().saveAllPlayerData();
             return true;
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            RtsbuildingMod.LOGGER.error("等待插件持久化 IO 时被中断：玩家 {}",
+                    player.getGameProfile().getName(), interrupted);
+            return false;
         } catch (RuntimeException exception) {
             RtsbuildingMod.LOGGER.error(
                     "插件变更即时保存异常：玩家 {}，将由后续自动保存继续重试",

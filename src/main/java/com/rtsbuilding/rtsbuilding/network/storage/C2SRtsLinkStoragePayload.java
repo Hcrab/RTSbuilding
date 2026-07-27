@@ -1,28 +1,14 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-
-public record C2SRtsLinkStoragePayload(BlockPos pos, byte linkMode) implements CustomPacketPayload {
-    public static final byte MODE_BIDIRECTIONAL = 0;
-    public static final byte MODE_EXTRACT_ONLY = 1;
-
-    public static final Type<C2SRtsLinkStoragePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_link_storage"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsLinkStoragePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeBlockPos(payload.pos());
-                buf.writeByte(payload.linkMode());
-            },
-            (buf) -> new C2SRtsLinkStoragePayload(buf.readBlockPos(), buf.readByte()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+public final class C2SRtsLinkStoragePayload implements IMessage {
+    public static final byte MODE_BIDIRECTIONAL=0, MODE_EXTRACT_ONLY=1;
+    private BlockPos pos; private byte linkMode;
+    public C2SRtsLinkStoragePayload() { }
+    public C2SRtsLinkStoragePayload(BlockPos pos, byte linkMode){this.pos=pos;this.linkMode=linkMode;}
+    public BlockPos pos(){return pos;} public byte linkMode(){return linkMode;}
+    @Override public void fromBytes(ByteBuf b){pos=BlockPos.fromLong(b.readLong());linkMode=b.readByte();}
+    @Override public void toBytes(ByteBuf b){if(pos==null)throw new IllegalArgumentException("storage pos");b.writeLong(pos.toLong());b.writeByte(linkMode);}
+    public boolean isValid(){return pos!=null&&(linkMode==MODE_BIDIRECTIONAL||linkMode==MODE_EXTRACT_ONLY);}
 }

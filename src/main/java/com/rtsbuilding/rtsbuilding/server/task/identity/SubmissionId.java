@@ -10,12 +10,18 @@ import java.util.UUID;
  * <p>网络重发、断线恢复和旧存档迁移必须复用同一个标识，不能因为重复进入入口而创建第二个任务。
  * 该值对象不负责持久化或调度；调用方仍需把玩家 UUID 与它组合成完整的幂等键。</p>
  */
-public record SubmissionId(UUID value) implements Comparable<SubmissionId> {
+public final class SubmissionId implements Comparable<SubmissionId> {
 
     private static final String LEGACY_NAMESPACE = "rtsbuilding:legacy-submission:";
 
-    public SubmissionId {
-        Objects.requireNonNull(value, "value");
+    private final UUID value;
+
+    public SubmissionId(UUID value) {
+        this.value = Objects.requireNonNull(value, "value");
+    }
+
+    public UUID value() {
+        return value;
     }
 
     /** 为一次全新的用户操作生成提交标识。 */
@@ -44,13 +50,23 @@ public record SubmissionId(UUID value) implements Comparable<SubmissionId> {
 
     private static String requirePart(String value, String name) {
         Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " 不能为空");
+        if (value.trim().isEmpty()) throw new IllegalArgumentException(name + " 不能为空");
         return value;
     }
 
     @Override
     public int compareTo(SubmissionId other) {
         return value.compareTo(other.value);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return this == other || (other instanceof SubmissionId && value.equals(((SubmissionId) other).value));
+    }
+
+    @Override
+    public int hashCode() {
+        return value.hashCode();
     }
 
     @Override

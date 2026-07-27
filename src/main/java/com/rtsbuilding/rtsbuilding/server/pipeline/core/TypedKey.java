@@ -17,12 +17,28 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.core;
  *
  * @param <T> 期望的值类型
  */
-public record TypedKey<T>(String name, Class<T> type) {
+public final class TypedKey<T> {
+    private final String name;
+    private final Class<T> type;
 
-    public TypedKey {
-        java.util.Objects.requireNonNull(name, "name");
-        java.util.Objects.requireNonNull(type, "type");
+    public TypedKey(String name, Class<T> type) {
+        this.name = java.util.Objects.requireNonNull(name, "name");
+        this.type = java.util.Objects.requireNonNull(type, "type");
     }
+
+    public String name() { return name; }
+    public Class<T> type() { return type; }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof TypedKey)) return false;
+        TypedKey<?> key = (TypedKey<?>) other;
+        return name.equals(key.name) && type.equals(key.type);
+    }
+
+    @Override
+    public int hashCode() { return 31 * name.hashCode() + type.hashCode(); }
 
     @Override
     public String toString() {

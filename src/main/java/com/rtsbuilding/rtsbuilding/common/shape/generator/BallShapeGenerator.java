@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +36,7 @@ public class BallShapeGenerator extends AreaShapeGenerator {
                 for (int z = -radius; z <= radius; z++) {
                     int dist2 = x * x + y * y + z * z;
                     if (dist2 <= outer2 && (fill || dist2 >= inner2)) {
-                        result.add(input.start().offset(x, y, z));
+                        result.add(input.start().add(x, y, z));
                     }
                 }
             }

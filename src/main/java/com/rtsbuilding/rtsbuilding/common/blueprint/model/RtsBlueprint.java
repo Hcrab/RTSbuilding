@@ -1,77 +1,63 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.model;
 
 import com.rtsbuilding.rtsbuilding.common.blueprint.material.BlueprintMaterialResolver;
-import net.minecraft.core.Vec3i;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3i;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 蓝图记录，表示一个完整的建筑结构蓝图。
- *
- * @param name          蓝图名称
- * @param sourceName    来源文件名
- * @param format        蓝图格式
- * @param size          蓝图尺寸
- * @param blocks        蓝图中的方块
- * @param requiredItems 由可信方块状态推导出的材料清单
- */
-public record RtsBlueprint(
-        String name,
-        String sourceName,
-        BlueprintFormat format,
-        Vec3i size,
-        List<RtsBlueprintBlock> blocks,
-        Map<ResourceLocation, Integer> requiredItems) {
+/** Java 8 蓝图数据载体；访问器名称与主线 record 保持一致。 */
+public final class RtsBlueprint {
+    private final String name;
+    private final String sourceName;
+    private final BlueprintFormat format;
+    private final Vec3i size;
+    private final List<RtsBlueprintBlock> blocks;
+    private final Map<ResourceLocation, Integer> requiredItems;
 
-    /**
-     * 创建蓝图实例，并自动计算材料清单。
-     */
-    public static RtsBlueprint create(
-            String name,
-            String sourceName,
-            BlueprintFormat format,
-            Vec3i size,
-            List<RtsBlueprintBlock> blocks) {
-        Map<ResourceLocation, Integer> requirements = new LinkedHashMap<>();
+    public RtsBlueprint(String name, String sourceName, BlueprintFormat format, Vec3i size,
+                        List<RtsBlueprintBlock> blocks, Map<ResourceLocation, Integer> requiredItems) {
+        this.name = name;
+        this.sourceName = sourceName;
+        this.format = format;
+        this.size = size;
+        this.blocks = Collections.unmodifiableList(new ArrayList<RtsBlueprintBlock>(blocks));
+        this.requiredItems = Collections.unmodifiableMap(new LinkedHashMap<ResourceLocation, Integer>(requiredItems));
+    }
+
+    public static RtsBlueprint create(String name, String sourceName, BlueprintFormat format, Vec3i size,
+                                      List<RtsBlueprintBlock> blocks) {
+        Map<ResourceLocation, Integer> requirements = new LinkedHashMap<ResourceLocation, Integer>();
         for (RtsBlueprintBlock block : blocks) {
-            if (block.isMissingBlock()) {
-                continue;
-            }
+            if (block.isMissingBlock()) continue;
             for (ResourceLocation id : materialItemIds(block)) {
-                requirements.merge(id, 1, Integer::sum);
+                Integer count = requirements.get(id);
+                requirements.put(id, count == null ? 1 : count + 1);
             }
         }
-        return new RtsBlueprint(
-                name == null || name.isBlank() ? sourceName : name,
-                sourceName == null ? "" : sourceName,
-                format,
-                size,
-                List.copyOf(blocks),
-                Collections.unmodifiableMap(requirements));
+        return new RtsBlueprint(isBlank(name) ? sourceName : name, sourceName == null ? "" : sourceName,
+                format, size, blocks, requirements);
     }
 
-    /**
-     * 获取蓝图中的方块总数。
-     */
-    public int blockCount() {
-        return this.blocks.size();
-    }
+    public String name() { return name; }
+    public String sourceName() { return sourceName; }
+    public BlueprintFormat format() { return format; }
+    public Vec3i size() { return size; }
+    public List<RtsBlueprintBlock> blocks() { return blocks; }
+    public Map<ResourceLocation, Integer> requiredItems() { return requiredItems; }
+    public int blockCount() { return blocks.size(); }
 
-    /**
-     * 获取指定方块所需的材料物品 ID。
-     *
-     * <p>导入文件里的 {@code rtsbuilding_material_item} 只作为旧格式元数据保留，
-     * 不再参与生存模式扣料。真实消耗必须从方块状态推导，避免蓝图文件把钻石块伪装成泥土，
-     * 或把泥土伪装成钻石来骗过材料系统。</p>
-     */
     public static List<ResourceLocation> materialItemIds(RtsBlueprintBlock block) {
-        if (block == null || block.isMissingBlock()) {
-            return List.of();
-        }
-        return BlueprintMaterialResolver.materialItemIds(block.state());
+        return block == null || block.isMissingBlock()
+                ? Collections.<ResourceLocation>emptyList()
+                : BlueprintMaterialResolver.materialItemIds(block.state());
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

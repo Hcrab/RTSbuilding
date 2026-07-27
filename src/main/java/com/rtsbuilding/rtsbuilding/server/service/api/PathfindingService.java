@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * 寻路跟踪服务接口——追踪玩家在 RTS 模式下的移动目标。
@@ -19,7 +19,7 @@ public interface PathfindingService {
      * @param player 目标玩家
      * @param target 目标方块坐标
      */
-    void goTo(ServerPlayer player, BlockPos target);
+    void goTo(EntityPlayerMP player, BlockPos target);
 
     /**
      * 取消玩家的当前移动目标。
@@ -27,7 +27,7 @@ public interface PathfindingService {
      *
      * @param player 目标玩家
      */
-    void cancel(ServerPlayer player);
+    void cancel(EntityPlayerMP player);
 
     /**
      * 检查玩家当前是否有活跃的移动目标。
@@ -35,5 +35,5 @@ public interface PathfindingService {
      * @param player 目标玩家
      * @return {@code true} 如果玩家正在移动中
      */
-    boolean isMoving(ServerPlayer player);
+    boolean isMoving(EntityPlayerMP player);
 }

@@ -1,52 +1,10 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-
-public record C2SRtsMinePayload(
-        BlockPos pos,
-        byte face,
-        boolean start,
-        byte toolSlot,
-        String toolItemId,
-        ItemStack toolPrototype,
-        boolean allowPlacedBlockRecovery,
-        boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final Type<C2SRtsMinePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_mine"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsMinePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeBlockPos(payload.pos());
-                buf.writeByte(payload.face());
-                buf.writeBoolean(payload.start());
-                buf.writeByte(payload.toolSlot());
-                buf.writeUtf(payload.toolItemId() == null ? "" : payload.toolItemId(), 256);
-                ItemStack toolPrototype = payload.toolPrototype() == null ? ItemStack.EMPTY : payload.toolPrototype();
-                buf.writeBoolean(!toolPrototype.isEmpty());
-                if (!toolPrototype.isEmpty()) {
-                    ItemStack.STREAM_CODEC.encode(buf, toolPrototype);
-                }
-                buf.writeBoolean(payload.allowPlacedBlockRecovery());
-                buf.writeBoolean(payload.toolProtectionEnabled());
-            },
-            (buf) -> new C2SRtsMinePayload(
-                    buf.readBlockPos(),
-                    buf.readByte(),
-                    buf.readBoolean(),
-                    buf.readByte(),
-                    buf.readUtf(256),
-                    buf.readBoolean() ? ItemStack.STREAM_CODEC.decode(buf) : ItemStack.EMPTY,
-                    buf.readBoolean(),
-                    buf.readBoolean()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;import io.netty.buffer.ByteBuf;import net.minecraft.item.ItemStack;import net.minecraft.util.EnumFacing;import net.minecraft.util.math.BlockPos;import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+public final class C2SRtsMinePayload implements IMessage{
+ private BlockPos pos;private byte face,toolSlot;private boolean start,allowPlacedBlockRecovery,toolProtectionEnabled;private String toolItemId;private ItemStack toolPrototype=ItemStack.EMPTY;
+ public C2SRtsMinePayload(){}public C2SRtsMinePayload(BlockPos p,byte f,boolean s,byte t,String id,ItemStack proto,boolean r,boolean protect){pos=p;face=f;start=s;toolSlot=t;toolItemId=id==null?"":id;toolPrototype=proto==null?ItemStack.EMPTY:proto;allowPlacedBlockRecovery=r;toolProtectionEnabled=protect;}
+ public BlockPos pos(){return pos;}public byte face(){return face;}public boolean start(){return start;}public byte toolSlot(){return toolSlot;}public String toolItemId(){return toolItemId;}public ItemStack toolPrototype(){return toolPrototype;}public boolean allowPlacedBlockRecovery(){return allowPlacedBlockRecovery;}public boolean toolProtectionEnabled(){return toolProtectionEnabled;}
+ public void fromBytes(ByteBuf b){pos=BlockPos.fromLong(b.readLong());face=b.readByte();start=b.readBoolean();toolSlot=b.readByte();toolItemId=RtsPacketBuffer.readString(b,256,"tool id");toolPrototype=RtsPacketBuffer.readItemStack(b);allowPlacedBlockRecovery=b.readBoolean();toolProtectionEnabled=b.readBoolean();}
+ public void toBytes(ByteBuf b){if(pos==null)throw new IllegalArgumentException("mine pos");b.writeLong(pos.toLong());b.writeByte(face);b.writeBoolean(start);b.writeByte(toolSlot);RtsPacketBuffer.writeString(b,toolItemId,256,"tool id");RtsPacketBuffer.writeItemStack(b,toolPrototype);b.writeBoolean(allowPlacedBlockRecovery);b.writeBoolean(toolProtectionEnabled);}
+ public boolean isValid(){return pos!=null&&face>=0&&face<EnumFacing.values().length&&toolSlot>=0&&toolSlot<=8&&toolItemId!=null&&toolItemId.length()<=256;}
 }

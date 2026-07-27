@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 
 import javax.annotation.Nullable;
 import java.util.function.BiConsumer;
@@ -29,7 +29,7 @@ public interface NbtCodec<T> {
      * @return 解码后的对象，解析失败可返回 null
      */
     @Nullable
-    T decode(CompoundTag tag);
+    T decode(NBTTagCompound tag);
 
     /**
      * 将目标对象编码到 NBT 标签中。
@@ -38,7 +38,7 @@ public interface NbtCodec<T> {
      * @param tag   目标 NBT 标签
      * @param value 要编码的对象
      */
-    default void encode(CompoundTag tag, T value) {
+    default void encode(NBTTagCompound tag, T value) {
         throw new UnsupportedOperationException("此 NbtCodec 是只读的");
     }
 
@@ -50,15 +50,15 @@ public interface NbtCodec<T> {
      * @param <T>     目标类型
      * @return 双向编解码器
      */
-    static <T> NbtCodec<T> of(Function<CompoundTag, T> decoder, BiConsumer<CompoundTag, T> encoder) {
-        return new NbtCodec<>() {
+    static <T> NbtCodec<T> of(Function<NBTTagCompound, T> decoder, BiConsumer<NBTTagCompound, T> encoder) {
+        return new NbtCodec<T>() {
             @Override
-            public T decode(CompoundTag tag) {
+            public T decode(NBTTagCompound tag) {
                 return decoder.apply(tag);
             }
 
             @Override
-            public void encode(CompoundTag tag, T value) {
+            public void encode(NBTTagCompound tag, T value) {
                 encoder.accept(tag, value);
             }
         };

@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.api;
 
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * 流体操作 API。
@@ -18,12 +19,12 @@ public interface RtsFluidAPI {
      * @param toolSlot   工具栏格索引
      * @param itemId     容器物品 ID
      */
-    void storeFromContainer(ServerPlayer player, byte sourceType, byte toolSlot, String itemId);
+    void storeFromContainer(EntityPlayerMP player, byte sourceType, byte toolSlot, String itemId);
 
     /**
      * 在目标位置放置流体。
      */
-    void placeFluid(ServerPlayer player, Object clickedPos, Direction face,
+    void placeFluid(EntityPlayerMP player, BlockPos clickedPos, EnumFacing face,
                     double hitX, double hitY, double hitZ,
                     boolean forcePlace, String fluidId,
                     double rayOriginX, double rayOriginY, double rayOriginZ,

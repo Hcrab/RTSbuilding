@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.ResourceLocation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,39 +27,49 @@ final class RtsPluginPersistence {
     private RtsPluginPersistence() {
     }
 
-    static List<RtsInstalledPlugin> load(ServerPlayer player) {
-        CompoundTag root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PLUGINS);
-        ListTag list = root.getList(NBT_INSTALLED, Tag.TAG_COMPOUND);
+    static List<RtsInstalledPlugin> load(EntityPlayerMP player) {
+        NBTTagCompound root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PLUGINS);
+        NBTTagList list = root.getTagList(NBT_INSTALLED, 10);
         List<RtsInstalledPlugin> installed = new ArrayList<>();
-        for (int i = 0; i < list.size(); i++) {
-            CompoundTag tag = list.getCompound(i);
-            ResourceLocation pluginId = ResourceLocation.tryParse(tag.getString(NBT_PLUGIN_ID));
+        for (int i = 0; i < list.tagCount(); i++) {
+            NBTTagCompound tag = list.getCompoundTagAt(i);
+            ResourceLocation pluginId = parseId(tag.getString(NBT_PLUGIN_ID));
             if (pluginId == null) continue;
 
-            ItemStack stack = ItemStack.parseOptional(player.registryAccess(), tag.getCompound(NBT_STACK));
+            ItemStack stack = new ItemStack(tag.getCompoundTag(NBT_STACK));
             if (stack.isEmpty()) {
                 RtsPluginDefinition definition = RtsPluginRegistry.byId(pluginId);
                 if (definition == null) continue;
-                stack = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(definition.itemId()));
+                Item item = Item.REGISTRY.getObject(definition.itemId());
+                if (item == null) continue;
+                stack = new ItemStack(item);
             }
             installed.add(new RtsInstalledPlugin(pluginId, stack, tag.getLong(NBT_INSTALLED_GAME_TIME)));
         }
         return installed;
     }
 
-    static void save(ServerPlayer player, List<RtsInstalledPlugin> installed) {
-        CompoundTag root = new CompoundTag();
-        ListTag list = new ListTag();
+    static void save(EntityPlayerMP player, List<RtsInstalledPlugin> installed) {
+        NBTTagCompound root = new NBTTagCompound();
+        NBTTagList list = new NBTTagList();
         for (RtsInstalledPlugin plugin : installed) {
             if (plugin == null || plugin.pluginId() == null || plugin.stack().isEmpty()) continue;
 
-            CompoundTag tag = new CompoundTag();
-            tag.putString(NBT_PLUGIN_ID, plugin.pluginId().toString());
-            tag.put(NBT_STACK, plugin.stack().copyWithCount(1).save(player.registryAccess()));
-            tag.putLong(NBT_INSTALLED_GAME_TIME, plugin.installedGameTime());
-            list.add(tag);
+            NBTTagCompound tag = new NBTTagCompound();
+            tag.setString(NBT_PLUGIN_ID, plugin.pluginId().toString());
+            tag.setTag(NBT_STACK, RtsInstalledPlugin.copyOne(plugin.stack()).writeToNBT(new NBTTagCompound()));
+            tag.setLong(NBT_INSTALLED_GAME_TIME, plugin.installedGameTime());
+            list.appendTag(tag);
         }
-        root.put(NBT_INSTALLED, list);
+        root.setTag(NBT_INSTALLED, list);
         SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PLUGINS, root);
+    }
+
+    private static ResourceLocation parseId(String value) {
+        try {
+            return value == null || value.isEmpty() ? null : new ResourceLocation(value);
+        } catch (IllegalArgumentException invalid) {
+            return null;
+        }
     }
 }

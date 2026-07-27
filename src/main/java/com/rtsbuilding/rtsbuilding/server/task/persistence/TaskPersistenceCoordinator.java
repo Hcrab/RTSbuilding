@@ -61,8 +61,10 @@ public final class TaskPersistenceCoordinator {
         Objects.requireNonNull(codec, "codec");
         TaskStore store = new TaskStore();
         TaskPersistenceCoordinator coordinator = new TaskPersistenceCoordinator(store, repository, codec);
-        switch (repository.load()) {
-            case TaskRepository.LoadResult.Found found -> {
+        TaskRepository.LoadResult loadResult = repository.load();
+        if (loadResult instanceof TaskRepository.LoadResult.Found) {
+                TaskRepository.LoadResult.Found found =
+                        (TaskRepository.LoadResult.Found) loadResult;
                 found.image().tasks().values().stream()
                         .sorted(Comparator.comparing(TaskSnapshot::id))
                         .forEach(snapshot -> {
@@ -81,10 +83,15 @@ public final class TaskPersistenceCoordinator {
                         found.image().tasks().keySet());
                 found.image().tasks().values().forEach(coordinator::requireExistingAssetReference);
             }
-            case TaskRepository.LoadResult.Missing ignored -> {
+        else if (loadResult instanceof TaskRepository.LoadResult.Missing) {
             }
-            case TaskRepository.LoadResult.Failed failed -> throw new IllegalStateException(
+        else if (loadResult instanceof TaskRepository.LoadResult.Failed) {
+            TaskRepository.LoadResult.Failed failed =
+                    (TaskRepository.LoadResult.Failed) loadResult;
+            throw new IllegalStateException(
                     "读取 durable task 仓库失败，拒绝空仓启动", failed.cause());
+        } else {
+            throw new IllegalStateException("未知的 durable task 读取结果: " + loadResult);
         }
         return coordinator;
     }
@@ -192,29 +199,29 @@ public final class TaskPersistenceCoordinator {
      */
     synchronized PreparationResult prepareReadyAssetAdmission(TaskId taskId) {
         Objects.requireNonNull(taskId, "taskId");
-        if (inFlight != null) return PreparationResult.inFlight(List.of(taskId));
+        if (inFlight != null) return PreparationResult.inFlight(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(taskId));
         TaskSnapshot snapshot = assetReservations.get(taskId).orElse(null);
         if (snapshot == null) {
             return store.get(taskId).isPresent()
                     ? PreparationResult.alreadyApplied()
-                    : PreparationResult.failed(List.of(taskId),
+                    : PreparationResult.failed(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(taskId),
                             new IllegalStateException("找不到 asset admission reservation"));
         }
         TaskAssetMetadata metadata = verifiedAssetAdmissions.get(taskId);
         if (metadata == null) {
-            return PreparationResult.failed(List.of(taskId),
+            return PreparationResult.failed(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(taskId),
                     new IllegalStateException("asset admission 尚未附加 verified metadata"));
         }
         try {
             validateAssetAdmission(snapshot, metadata);
             long estimated = addSaturated(codec.estimateSnapshotBytes(snapshot), 256L);
             return prepare(new TaskRepository.Commit(
-                            List.of(snapshot), List.of(), Set.of(), Set.of(),
-                            List.of(metadata), Set.of()),
-                    CommitKind.ASSET_ADMISSION, List.of(snapshot), List.of(), Set.of(), null,
-                    List.of(snapshot), estimated, new LinkedHashSet<>());
+                            com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(snapshot), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(),
+                            com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(metadata), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf()),
+                    CommitKind.ASSET_ADMISSION, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(snapshot), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), null,
+                    com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(snapshot), estimated, new LinkedHashSet<>());
         } catch (RuntimeException failure) {
-            return PreparationResult.failed(List.of(taskId), failure);
+            return PreparationResult.failed(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(taskId), failure);
         }
     }
 
@@ -376,11 +383,11 @@ public final class TaskPersistenceCoordinator {
             bytes += candidate.estimatedBytes();
         }
         rotationCursor = (start + 1) % candidates.size();
-        if (selectedIds.isEmpty()) return PreparationResult.budgetBlocked(List.copyOf(deferred));
+        if (selectedIds.isEmpty()) return PreparationResult.budgetBlocked(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(deferred));
         return prepare(new TaskRepository.Commit(
-                        snapshots, tombstones, Set.of(), Set.of(), List.of(), removedAssets),
-                CommitKind.CHECKPOINT, snapshots, tombstones, Set.of(), null,
-                List.of(), bytes, deferred);
+                        snapshots, tombstones, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), removedAssets),
+                CommitKind.CHECKPOINT, snapshots, tombstones, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), null,
+                com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), bytes, deferred);
     }
 
     /** 为普通 Tick 预算装不下的单个任务提供显式专用通道；不会偷偷突破调用方给出的硬上限。 */
@@ -395,16 +402,16 @@ public final class TaskPersistenceCoordinator {
         deferred.remove(taskId);
         if (candidate.estimatedBytes() > maxDedicatedBytes) {
             deferred.add(taskId);
-            return PreparationResult.budgetBlocked(List.copyOf(deferred));
+            return PreparationResult.budgetBlocked(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(deferred));
         }
         List<TaskSnapshot> snapshots = candidate.snapshot() == null
-                ? List.of() : List.of(candidate.snapshot());
+                ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf() : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(candidate.snapshot());
         List<TaskTombstone> tombstones = candidate.tombstone() == null
-                ? List.of() : List.of(candidate.tombstone());
+                ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf() : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(candidate.tombstone());
         return prepare(new TaskRepository.Commit(
-                        snapshots, tombstones, Set.of(), Set.of(), List.of(), candidate.removedAssets()),
-                CommitKind.DEDICATED, snapshots, tombstones, Set.of(), null,
-                List.of(), candidate.estimatedBytes(), deferred);
+                        snapshots, tombstones, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), candidate.removedAssets()),
+                CommitKind.DEDICATED, snapshots, tombstones, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), null,
+                com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), candidate.estimatedBytes(), deferred);
     }
 
     /** retention 到期后分批删除 receipt；ACK 前仍保留重放保护。 */
@@ -418,9 +425,9 @@ public final class TaskPersistenceCoordinator {
         if (expired.isEmpty()) return PreparationResult.idle();
         Set<TaskId> selected = new LinkedHashSet<>(expired.subList(0, Math.min(maxRecords, expired.size())));
         List<TaskId> deferred = expired.subList(selected.size(), expired.size());
-        return prepare(new TaskRepository.Commit(List.of(), List.of(), selected, Set.of()),
-                CommitKind.COMPACTION, List.of(), List.of(), selected, null,
-                List.of(), selected.size() * 64L, new LinkedHashSet<>(deferred));
+        return prepare(new TaskRepository.Commit(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), selected, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf()),
+                CommitKind.COMPACTION, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), selected, null,
+                com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), selected.size() * 64L, new LinkedHashSet<>(deferred));
     }
 
     /** 旧 Session Job 与迁移标记在同一个后台原子批次中写入；ACK 前不暴露第二套运行状态。 */
@@ -452,8 +459,8 @@ public final class TaskPersistenceCoordinator {
                 bytes = addSaturated(bytes, estimated);
             }
         }
-        return prepare(new TaskRepository.Commit(newSnapshots, List.of(), Set.of(), Set.of(migrationId)),
-                CommitKind.MIGRATION, newSnapshots, List.of(), Set.of(), migrationId,
+        return prepare(new TaskRepository.Commit(newSnapshots, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(migrationId)),
+                CommitKind.MIGRATION, newSnapshots, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), migrationId,
                 newSnapshots, bytes, new LinkedHashSet<>());
     }
 
@@ -572,16 +579,25 @@ public final class TaskPersistenceCoordinator {
                 .filter(Objects::nonNull)
                 .toList();
         TaskRepository.PrepareResult result = repository.prepare(commit);
-        if (result instanceof TaskRepository.PrepareResult.Failed failed) {
+        if (result instanceof TaskRepository.PrepareResult.Failed) {
+            TaskRepository.PrepareResult.Failed failed =
+                    (TaskRepository.PrepareResult.Failed) result;
             deferred.addAll(commit.upserts().stream().map(TaskSnapshot::id).toList());
             deferred.addAll(commit.tombstones().stream().map(TaskTombstone::taskId).toList());
-            return PreparationResult.failed(List.copyOf(deferred), failed.cause());
+            return PreparationResult.failed(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(deferred), failed.cause());
+        }
+        if (!(result instanceof TaskRepository.PrepareResult.Prepared)) {
+            deferred.addAll(commit.upserts().stream().map(TaskSnapshot::id).toList());
+            deferred.addAll(commit.tombstones().stream().map(TaskTombstone::taskId).toList());
+            return PreparationResult.failed(
+                    com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(deferred),
+                    new IllegalStateException("未知的 repository prepare 结果: " + result));
         }
         TaskRepository.PreparedCommit prepared = ((TaskRepository.PrepareResult.Prepared) result).commit();
-        inFlight = new PendingCommit(prepared, kind, List.copyOf(snapshots), List.copyOf(tombstones),
-                Set.copyOf(purgedReceipts), migrationId, List.copyOf(postAckSnapshots),
+        inFlight = new PendingCommit(prepared, kind, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(snapshots), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(tombstones),
+                com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(purgedReceipts), migrationId, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(postAckSnapshots),
                 commit.assetUpserts(), removedAssetMetadata);
-        return PreparationResult.prepared(prepared, estimatedBytes, List.copyOf(deferred));
+        return PreparationResult.prepared(prepared, estimatedBytes, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(deferred));
     }
 
     private List<Candidate> candidates() {
@@ -591,7 +607,7 @@ public final class TaskPersistenceCoordinator {
             TaskTombstone tombstone = pendingTombstones.get(pending.snapshot().id());
             if (tombstone != null) consumedTombstones.add(tombstone.taskId());
             Set<TaskAssetId> removedAssets = tombstone == null
-                    ? Set.of() : assetIdsForTask(tombstone.taskId());
+                    ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf() : assetIdsForTask(tombstone.taskId());
             result.add(new Candidate(pending.snapshot().id(), pending.snapshot(), tombstone,
                     removedAssets,
                     pending.estimatedBytes() + (tombstone == null ? 0L : 192L)
@@ -611,7 +627,7 @@ public final class TaskPersistenceCoordinator {
         PendingSnapshot snapshot = dirtySnapshots.get(taskId);
         TaskTombstone tombstone = pendingTombstones.get(taskId);
         if (snapshot == null && tombstone == null) return null;
-        Set<TaskAssetId> removedAssets = tombstone == null ? Set.of() : assetIdsForTask(taskId);
+        Set<TaskAssetId> removedAssets = tombstone == null ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf() : assetIdsForTask(taskId);
         return new Candidate(taskId, snapshot == null ? null : snapshot.snapshot(), tombstone,
                 removedAssets, (snapshot == null ? 0L : snapshot.estimatedBytes())
                         + (tombstone == null ? 0L : 192L) + removedAssets.size() * 96L);
@@ -624,7 +640,7 @@ public final class TaskPersistenceCoordinator {
     private List<TaskId> allDirtyTaskIds() {
         LinkedHashSet<TaskId> ids = new LinkedHashSet<>(dirtySnapshots.keySet());
         ids.addAll(pendingTombstones.keySet());
-        return List.copyOf(ids);
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(ids);
     }
 
     private static void requireBudget(int maxRecords, long maxEstimatedBytes) {
@@ -635,7 +651,7 @@ public final class TaskPersistenceCoordinator {
 
     private static void requireMigrationId(String migrationId) {
         Objects.requireNonNull(migrationId, "migrationId");
-        if (migrationId.isBlank() || migrationId.length() > 128) {
+        if (migrationId.trim().isEmpty() || migrationId.length() > 128) {
             throw new IllegalArgumentException("migrationId 无效");
         }
         NbtStringLimits.requireWritable(migrationId, "migrationId");
@@ -657,16 +673,16 @@ public final class TaskPersistenceCoordinator {
                                     List<TaskId> deferredTaskIds,
                                     Throwable failure) {
         public PreparationResult {
-            deferredTaskIds = List.copyOf(deferredTaskIds);
+            deferredTaskIds = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(deferredTaskIds);
         }
 
         static PreparationResult idle() {
-            return new PreparationResult(PreparationOutcome.IDLE, null, 0L, List.of(), null);
+            return new PreparationResult(PreparationOutcome.IDLE, null, 0L, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), null);
         }
 
         static PreparationResult alreadyApplied() {
             return new PreparationResult(
-                    PreparationOutcome.ALREADY_APPLIED, null, 0L, List.of(), null);
+                    PreparationOutcome.ALREADY_APPLIED, null, 0L, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), null);
         }
 
         static PreparationResult inFlight(List<TaskId> deferred) {
@@ -704,8 +720,8 @@ public final class TaskPersistenceCoordinator {
                                   long bytesWritten, Throwable failure) {
         public CommitAckResult {
             acknowledgedRevisions = Map.copyOf(acknowledgedRevisions);
-            purgedReceipts = Set.copyOf(purgedReceipts);
-            removedAssets = List.copyOf(removedAssets);
+            purgedReceipts = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(purgedReceipts);
+            removedAssets = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(removedAssets);
         }
 
         static CommitAckResult acknowledged(
@@ -716,11 +732,11 @@ public final class TaskPersistenceCoordinator {
         }
 
         static CommitAckResult failed(Throwable failure) {
-            return new CommitAckResult(AckOutcome.FAILED, Map.of(), Set.of(), List.of(), -1L, failure);
+            return new CommitAckResult(AckOutcome.FAILED, Map.of(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), -1L, failure);
         }
 
         static CommitAckResult rejected(Throwable failure) {
-            return new CommitAckResult(AckOutcome.REJECTED, Map.of(), Set.of(), List.of(), -1L, failure);
+            return new CommitAckResult(AckOutcome.REJECTED, Map.of(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), -1L, failure);
         }
     }
 
@@ -745,7 +761,7 @@ public final class TaskPersistenceCoordinator {
                              TaskTombstone tombstone, Set<TaskAssetId> removedAssets,
                              long estimatedBytes) {
         private Candidate {
-            removedAssets = Set.copyOf(removedAssets);
+            removedAssets = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(removedAssets);
         }
 
         int recordCount() {

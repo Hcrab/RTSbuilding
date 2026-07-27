@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * 远程交互服务接口——处理 RTS 模式下与方块/实体的远程交互。
@@ -28,7 +28,7 @@ public interface InteractionService {
      * @param rayOriginX,rayOriginY,rayOriginZ 射线起点
      * @param rayDirX,rayDirY,rayDirZ 射线方向
      */
-    void interactTarget(ServerPlayer player, int entityId, BlockPos clickedPos, Direction face,
+    void interactTarget(EntityPlayerMP player, int entityId, BlockPos clickedPos, EnumFacing face,
                         double hitX, double hitY, double hitZ,
                         byte sourceType, byte toolSlot, String itemId,
                         double rayOriginX, double rayOriginY, double rayOriginZ,

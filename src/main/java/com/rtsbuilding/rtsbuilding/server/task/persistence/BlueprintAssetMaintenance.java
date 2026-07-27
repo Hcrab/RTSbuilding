@@ -61,7 +61,7 @@ final class BlueprintAssetMaintenance {
     void enqueueCleanup(List<TaskAssetMetadata> removedAssets) {
         Objects.requireNonNull(removedAssets, "removedAssets");
         if (removedAssets.isEmpty() || executor == null || repository == null) return;
-        List<TaskAssetMetadata> batch = List.copyOf(removedAssets);
+        List<TaskAssetMetadata> batch = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(removedAssets);
         try {
             executor.execute(() -> {
                 for (TaskAssetMetadata metadata : batch) {

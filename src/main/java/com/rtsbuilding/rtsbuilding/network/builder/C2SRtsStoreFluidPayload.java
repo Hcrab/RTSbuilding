@@ -1,35 +1,11 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-
-public record C2SRtsStoreFluidPayload(
-        byte sourceType,
-        byte toolSlot,
-        String itemId) implements CustomPacketPayload {
-    public static final byte SOURCE_STORAGE_ITEM = 0;
-    public static final byte SOURCE_TOOL_SLOT = 1;
-    public static final byte SOURCE_PIN_ITEM = 2;
-
-    public static final Type<C2SRtsStoreFluidPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_store_fluid"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsStoreFluidPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeByte(payload.sourceType());
-                buf.writeByte(payload.toolSlot());
-                buf.writeUtf(payload.itemId(), 128);
-            },
-            (buf) -> new C2SRtsStoreFluidPayload(
-                    buf.readByte(),
-                    buf.readByte(),
-                    buf.readUtf(128)));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;import io.netty.buffer.ByteBuf;import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+public final class C2SRtsStoreFluidPayload implements IMessage{
+ public static final byte SOURCE_STORAGE_ITEM=0,SOURCE_TOOL_SLOT=1,SOURCE_PIN_ITEM=2;public static final int MAX_ITEM_ID_CHARS=128;
+ private byte sourceType,toolSlot;private String itemId;
+ public C2SRtsStoreFluidPayload(){}public C2SRtsStoreFluidPayload(byte s,byte t,String i){sourceType=s;toolSlot=t;itemId=i==null?"":i;}
+ public byte sourceType(){return sourceType;}public byte toolSlot(){return toolSlot;}public String itemId(){return itemId;}
+ public void fromBytes(ByteBuf b){sourceType=b.readByte();toolSlot=b.readByte();itemId=RtsPacketBuffer.readString(b,MAX_ITEM_ID_CHARS,"fluid source item");}
+ public void toBytes(ByteBuf b){b.writeByte(sourceType);b.writeByte(toolSlot);RtsPacketBuffer.writeString(b,itemId,MAX_ITEM_ID_CHARS,"fluid source item");}
+ public boolean isValid(){if(sourceType<0||sourceType>2)return false;if(sourceType==SOURCE_TOOL_SLOT)return toolSlot>=0&&toolSlot<=8;return itemId!=null&&!itemId.isEmpty()&&itemId.length()<=MAX_ITEM_ID_CHARS;}
 }

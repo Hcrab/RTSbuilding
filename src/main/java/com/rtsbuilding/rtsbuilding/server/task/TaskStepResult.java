@@ -7,16 +7,19 @@ package com.rtsbuilding.rtsbuilding.server.task;
  * 表示领域游标真正向前推进的数量；成功和失败分别记录玩家可见的执行结果。
  * 资源不足导致执行回退时，只有预算消耗增加，后三者都必须为零。</p>
  */
-public record TaskStepResult(
-        int processedUnits,
-        int cursorUnits,
-        int succeededUnits,
-        int failedUnits,
-        Outcome outcome,
-        String errorKey) {
+public final class TaskStepResult {
+    private final int processedUnits;
+    private final int cursorUnits;
+    private final int succeededUnits;
+    private final int failedUnits;
+    private final Outcome outcome;
+    private final String errorKey;
+
     public enum Outcome { CONTINUE, YIELD, NEXT_TICK, COMPLETE, WAIT_RESOURCE, FAIL }
 
-    public TaskStepResult {
+    public TaskStepResult(int processedUnits, int cursorUnits, int succeededUnits,
+            int failedUnits, Outcome outcome, String errorKey) {
+        if (outcome == null) throw new NullPointerException("outcome");
         if (processedUnits < 0) throw new IllegalArgumentException("processedUnits < 0");
         if (cursorUnits < 0) throw new IllegalArgumentException("cursorUnits < 0");
         if (succeededUnits < 0) throw new IllegalArgumentException("succeededUnits < 0");
@@ -28,7 +31,20 @@ public record TaskStepResult(
         if (outcome != Outcome.FAIL && errorKey != null) {
             throw new IllegalArgumentException("只有失败结果可以携带 errorKey");
         }
+        this.processedUnits = processedUnits;
+        this.cursorUnits = cursorUnits;
+        this.succeededUnits = succeededUnits;
+        this.failedUnits = failedUnits;
+        this.outcome = outcome;
+        this.errorKey = errorKey;
     }
+
+    public int processedUnits() { return processedUnits; }
+    public int cursorUnits() { return cursorUnits; }
+    public int succeededUnits() { return succeededUnits; }
+    public int failedUnits() { return failedUnits; }
+    public Outcome outcome() { return outcome; }
+    public String errorKey() { return errorKey; }
 
     public static TaskStepResult continueWith(int units) {
         return new TaskStepResult(units, units, units, 0, Outcome.CONTINUE, null);

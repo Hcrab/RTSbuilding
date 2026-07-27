@@ -18,6 +18,16 @@ public final class ToolLeaseRollbackPolicy {
                 pipelineLeasePresent && !leaseTransferred && !leaseReturned);
     }
 
-    public record Decision(boolean cancelSubmittedTask, boolean returnPipelineLease) {
+    public static final class Decision {
+        private final boolean cancelSubmittedTask;
+        private final boolean returnPipelineLease;
+
+        public Decision(boolean cancelSubmittedTask, boolean returnPipelineLease) {
+            this.cancelSubmittedTask = cancelSubmittedTask;
+            this.returnPipelineLease = returnPipelineLease;
+        }
+
+        public boolean cancelSubmittedTask() { return cancelSubmittedTask; }
+        public boolean returnPipelineLease() { return returnPipelineLease; }
     }
 }

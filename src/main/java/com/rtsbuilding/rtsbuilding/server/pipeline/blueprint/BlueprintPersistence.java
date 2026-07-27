@@ -11,14 +11,14 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePip
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.WorldServer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.level.Level;
 
 import java.util.LinkedList;
@@ -72,8 +72,8 @@ public final class BlueprintPersistence {
      *
      * <p>包含：蓝图源数据、放置参数、剩余队列、进度计数器。</p>
      */
-    public static void saveToEntry(ServerPlayer player, int entryId, BlueprintContext bctx) {
-        CompoundTag data = new CompoundTag();
+    public static void saveToEntry(EntityPlayerMP player, int entryId, BlueprintContext bctx) {
+        NBTTagCompound data = new NBTTagCompound();
 
         // 蓝图源数据
         RtsBlueprint blueprint = bctx.getBlueprint();
@@ -133,7 +133,7 @@ public final class BlueprintPersistence {
     /**
      * 清除工作流条目中的额外蓝图数据（完成/取消时调用）。
      */
-    public static void clearFromEntry(ServerPlayer player, int entryId) {
+    public static void clearFromEntry(EntityPlayerMP player, int entryId) {
         com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                 .setWorkflowExtraData(player, entryId, null);
     }
@@ -148,15 +148,15 @@ public final class BlueprintPersistence {
      * <p>此方法由 {@link com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.BlueprintRestoreHandler}
      * 在服务端重启、玩家加入世界时调用。</p>
      */
-    public static void restoreFromEntry(ServerPlayer player,
+    public static void restoreFromEntry(EntityPlayerMP player,
                                          com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEntry entry) {
-        CompoundTag data = entry.getExtraData();
+        NBTTagCompound data = entry.getExtraData();
         if (data == null || data.isEmpty()) return;
 
-        ServerLevel level = player.serverLevel();
+        WorldServer level = player.serverLevel();
 
         // ── 重建蓝图 ─────────────────────────────────────────────
-        CompoundTag structureTag = data.contains(KEY_BLUEPRINT_STRUCTURE, Tag.TAG_COMPOUND)
+        NBTTagCompound structureTag = data.contains(KEY_BLUEPRINT_STRUCTURE, Tag.TAG_COMPOUND)
                 ? data.getCompound(KEY_BLUEPRINT_STRUCTURE) : null;
         if (structureTag == null || structureTag.isEmpty()) return;
 
@@ -174,7 +174,7 @@ public final class BlueprintPersistence {
         int zSteps = data.getInt(KEY_Z_STEPS);
         ResourceKey<Level> sourceDimension = player.serverLevel().dimension();
         String sourceDimensionId = data.getString(KEY_SOURCE_DIMENSION);
-        if (!sourceDimensionId.isBlank()) {
+        if (!sourceDimensionId.trim().isEmpty()) {
             ResourceLocation parsed = ResourceLocation.tryParse(sourceDimensionId);
             if (parsed != null) {
                 sourceDimension = ResourceKey.create(Registries.DIMENSION, parsed);

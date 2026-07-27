@@ -35,6 +35,11 @@ final class RtsBlockActionSoundLimiter {
         }
     }
 
-    private record TickBudget(long gameTick, int used) {
+    private static final class TickBudget {
+        private final long gameTick;
+        private final int used;
+        private TickBudget(long gameTick, int used) { this.gameTick = gameTick; this.used = used; }
+        private long gameTick() { return gameTick; }
+        private int used() { return used; }
     }
 }

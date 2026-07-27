@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 import java.util.function.Supplier;
@@ -35,7 +35,7 @@ public interface MiningService {
      * @param allowPlacedBlockRecovery 是否允许回收已放置的方块
      * @param toolProtectionEnabled  是否启用工具保护（防止工具损坏）
      */
-    void mine(ServerPlayer player, BlockPos pos, Direction face, boolean start, byte toolSlot,
+    void mine(EntityPlayerMP player, BlockPos pos, EnumFacing face, boolean start, byte toolSlot,
               String toolItemId, ItemStack toolPrototype, boolean allowPlacedBlockRecovery,
               boolean toolProtectionEnabled);
 
@@ -52,7 +52,7 @@ public interface MiningService {
      * @param mode                  连锁模式（0=精确匹配, 1=模糊匹配等）
      * @param toolProtectionEnabled 是否启用工具保护
      */
-    void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot,
+    void startUltimine(EntityPlayerMP player, BlockPos pos, EnumFacing face, byte toolSlot,
                        String toolItemId, ItemStack toolPrototype, int requestedLimit,
                        byte mode, boolean toolProtectionEnabled);
 
@@ -68,7 +68,7 @@ public interface MiningService {
      * @param fillType              填充类型
      * @param toolProtectionEnabled 是否启用工具保护
      */
-    void areaMine(ServerPlayer player, int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
+    void areaMine(EntityPlayerMP player, int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
                   byte toolSlot, String toolItemId, ItemStack toolPrototype,
                   byte shapeType, byte fillType, boolean toolProtectionEnabled);
 
@@ -83,7 +83,7 @@ public interface MiningService {
      * @param toolPrototype         工具的原型物品栈
      * @param toolProtectionEnabled 是否启用工具保护
      */
-    void areaDestroy(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
+    void areaDestroy(EntityPlayerMP player, List<BlockPos> positions, byte toolSlot,
                      String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled);
 
     /**
@@ -92,7 +92,7 @@ public interface MiningService {
      * @param player 目标玩家
      * @return 总方块数
      */
-    int getAreaDestroyTotalBlocks(ServerPlayer player);
+    int getAreaDestroyTotalBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前范围破坏操作中已完成（已破坏）的方块数量。
@@ -100,7 +100,7 @@ public interface MiningService {
      * @param player 目标玩家
      * @return 已破坏方块数
      */
-    int getAreaDestroyCompletedBlocks(ServerPlayer player);
+    int getAreaDestroyCompletedBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前范围破坏操作中剩余的未破坏方块数。
@@ -108,7 +108,7 @@ public interface MiningService {
      * @param player 目标玩家
      * @return 未破坏方块数
      */
-    int getAreaDestroyRemainingBlocks(ServerPlayer player);
+    int getAreaDestroyRemainingBlocks(EntityPlayerMP player);
 
     /**
      * 临时切换玩家的主手持物品为指定物品栈，执行操作后恢复原物品。
@@ -120,5 +120,5 @@ public interface MiningService {
      * @param <T>    操作返回值的类型
      * @return 操作执行后的返回结果
      */
-    <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action);
+    <T> T withTemporaryMainHandItem(EntityPlayerMP player, ItemStack stack, Supplier<T> action);
 }

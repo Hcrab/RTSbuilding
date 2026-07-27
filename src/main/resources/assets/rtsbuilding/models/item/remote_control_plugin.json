@@ -1,6 +1,6 @@
 {
   "parent": "minecraft:item/generated",
   "textures": {
-    "layer0": "rtsbuilding:item/remote_control_plugin"
+    "layer0": "rtsbuilding:items/remote_control_plugin"
   }
 }

@@ -1,22 +1,22 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record C2SRtsSetModePayload(byte mode) implements CustomPacketPayload {
-    public static final Type<C2SRtsSetModePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_set_mode"));
+/** 客户端选择建造模式；有效枚举范围最终由服务端 BuilderMode 决定。 */
+public final class C2SRtsSetModePayload implements IMessage {
+    private byte mode;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsSetModePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeByte(payload.mode()),
-            (buf) -> new C2SRtsSetModePayload(buf.readByte()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public C2SRtsSetModePayload() {
     }
-}
 
+    public C2SRtsSetModePayload(byte mode) {
+        this.mode = mode;
+    }
+
+    public byte mode() { return mode; }
+
+    @Override public void fromBytes(ByteBuf buffer) { mode = buffer.readByte(); }
+    @Override public void toBytes(ByteBuf buffer) { buffer.writeByte(mode); }
+    public boolean isValid() { return mode >= 0; }
+}

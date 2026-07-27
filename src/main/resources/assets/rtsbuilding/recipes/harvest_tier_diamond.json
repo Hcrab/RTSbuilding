@@ -1,0 +1,25 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    " D ",
+                    "RPR",
+                    " D "
+                ],
+    "key":  {
+                "D":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "gemDiamond"
+                      },
+                "P":  {
+                          "item":  "rtsbuilding:harvest_tier_iron"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:harvest_tier_diamond",
+                   "count":  1
+               }
+}

@@ -1,24 +1,21 @@
 package com.rtsbuilding.rtsbuilding.common.placement;
 
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.SlabBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.AttachFace;
-import net.minecraft.world.level.block.state.properties.Half;
-import net.minecraft.world.level.block.state.properties.IntegerProperty;
-import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.level.block.state.properties.SlabType;
+import net.minecraft.block.BlockSlab;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.EnumFacing;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * 待放置方块的轻量 BlockState 预设。
+ * 待放置方块的轻量 1.12 {@link IBlockState} 预设。
  *
- * <p>网络只传经过长度和字符限制的“属性=值”，服务端再针对实际放下来的方块解析。
- * 本类不接受方块 ID、方块实体数据或任意 NBT，因此它与世界中已有方块的旋转请求完全分离。</p>
+ * <p>网络只传经过长度、字符和属性白名单约束的“属性=值”。服务端再针对实际
+ * 方块的 {@link IProperty#getAllowedValues()} 解析；无法由当前状态表达的值保持不变。</p>
  */
 public final class PlacementStatePreset {
     public static final int MAX_ENCODED_LENGTH = 256;
@@ -40,19 +37,14 @@ public final class PlacementStatePreset {
         return encode(decode(encoded));
     }
 
-    /**
-     * 从中键选中的世界方块复制玩家可安全预选的放置属性。
-     *
-     * <p>这里只复制方向、轴、上下半部、上下半砖、附着面和 16 段角度；
-     * 不复制方块实体、含水状态或其他可能改变物品数量/结构的数据。</p>
-     */
-    public static String fromBlockState(BlockState state) {
-        if (state == null || state.isAir()) {
+    /** 只复制方向、轴、上下半部、半砖、附着面和 16 段角度。 */
+    public static String fromBlockState(IBlockState state) {
+        if (state == null || state.getBlock() == Blocks.AIR) {
             return "";
         }
         Map<String, String> values = new LinkedHashMap<>();
-        for (Property<?> property : state.getProperties()) {
-            Comparable<?> value = state.getValue(property);
+        for (IProperty<?> property : state.getPropertyKeys()) {
+            Comparable<?> value = getValue(state, property);
             String valueName = propertyValueName(property, value);
             if (isAllowed(state, property, valueName)) {
                 values.put(property.getName(), valueName);
@@ -61,16 +53,13 @@ public final class PlacementStatePreset {
         return encode(values);
     }
 
-    public static BlockState apply(BlockState state, String encoded) {
-        if (state == null || encoded == null || encoded.isBlank()) {
+    public static IBlockState apply(IBlockState state, String encoded) {
+        if (state == null || encoded == null || encoded.trim().isEmpty()) {
             return state;
         }
-        BlockState result = state;
+        IBlockState result = state;
         for (Map.Entry<String, String> entry : decode(encoded).entrySet()) {
-            Property<?> property = result.getProperties().stream()
-                    .filter(candidate -> candidate.getName().equals(entry.getKey()))
-                    .findFirst()
-                    .orElse(null);
+            IProperty<?> property = findProperty(result, entry.getKey());
             if (property != null && isAllowed(result, property, entry.getValue())) {
                 result = applyValue(result, property, entry.getValue());
             }
@@ -78,35 +67,87 @@ public final class PlacementStatePreset {
         return result;
     }
 
-    private static boolean isAllowed(BlockState state, Property<?> property, String valueName) {
-        Class<?> valueClass = property.getValueClass();
-        if (Direction.class.isAssignableFrom(valueClass)
-                || Direction.Axis.class.isAssignableFrom(valueClass)
-                || Half.class.isAssignableFrom(valueClass)
-                || AttachFace.class.isAssignableFrom(valueClass)) {
+    private static boolean isAllowed(IBlockState state, IProperty<?> property, String valueName) {
+        if (!isToken(property.getName()) || !isToken(valueName) || !hasValue(property, valueName)) {
+            return false;
+        }
+        String name = property.getName();
+        if (("facing".equals(name) || "horizontal_facing".equals(name))
+                && EnumFacing.class.isAssignableFrom(property.getValueClass())) {
             return true;
         }
-        if (SlabType.class.isAssignableFrom(valueClass)) {
-            return state.getBlock() instanceof SlabBlock && !"double".equals(valueName);
+        if ("axis".equals(name) || "horizontal_axis".equals(name)) {
+            return "x".equals(valueName) || "y".equals(valueName) || "z".equals(valueName);
         }
-        return property instanceof IntegerProperty
-                && "rotation".equals(property.getName());
+        if ("half".equals(name)) {
+            boolean halfValue = "top".equals(valueName) || "bottom".equals(valueName)
+                    || "upper".equals(valueName) || "lower".equals(valueName);
+            if (!halfValue) return false;
+            if (state.getBlock() instanceof BlockSlab) {
+                return !((BlockSlab) state.getBlock()).isDouble();
+            }
+            return true;
+        }
+        if ("slab_type".equals(name)) {
+            return state.getBlock() instanceof BlockSlab
+                    && !((BlockSlab) state.getBlock()).isDouble()
+                    && ("top".equals(valueName) || "bottom".equals(valueName));
+        }
+        if ("attach_face".equals(name)) {
+            return "floor".equals(valueName) || "wall".equals(valueName)
+                    || "ceiling".equals(valueName);
+        }
+        if ("rotation".equals(name) && Integer.class.isAssignableFrom(property.getValueClass())) {
+            try {
+                int rotation = Integer.parseInt(valueName);
+                return rotation >= 0 && rotation < 16;
+            } catch (NumberFormatException ignored) {
+                return false;
+            }
+        }
+        return false;
     }
 
-    private static <T extends Comparable<T>> BlockState applyValue(
-            BlockState state, Property<T> property, String valueName) {
-        Optional<T> value = property.getValue(valueName);
-        return value.map(candidate -> state.setValue(property, candidate)).orElse(state);
+    private static IProperty<?> findProperty(IBlockState state, String name) {
+        for (IProperty<?> property : state.getPropertyKeys()) {
+            if (property.getName().equals(name)) return property;
+        }
+        return null;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static String propertyValueName(Property property, Comparable value) {
+    private static boolean hasValue(IProperty property, String valueName) {
+        Collection<? extends Comparable> allowed = property.getAllowedValues();
+        for (Comparable candidate : allowed) {
+            if (valueName.equals(property.getName(candidate))) return true;
+        }
+        return false;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static IBlockState applyValue(IBlockState state, IProperty property, String valueName) {
+        Collection<? extends Comparable> allowed = property.getAllowedValues();
+        for (Comparable candidate : allowed) {
+            if (valueName.equals(property.getName(candidate))) {
+                return state.withProperty(property, candidate);
+            }
+        }
+        return state;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Comparable<?> getValue(IBlockState state, IProperty property) {
+        return state.getValue(property);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static String propertyValueName(IProperty property, Comparable value) {
         return property.getName(value);
     }
 
     private static Map<String, String> decode(String encoded) {
         Map<String, String> values = new LinkedHashMap<>();
-        if (encoded == null || encoded.isBlank()) {
+        if (encoded == null || encoded.trim().isEmpty()) {
             return values;
         }
         String bounded = encoded.length() > MAX_ENCODED_LENGTH
@@ -132,13 +173,9 @@ public final class PlacementStatePreset {
     private static String encode(Map<String, String> values) {
         StringBuilder result = new StringBuilder();
         for (Map.Entry<String, String> entry : values.entrySet()) {
-            if (result.length() > 0) {
-                result.append(';');
-            }
+            if (result.length() > 0) result.append(';');
             String next = entry.getKey() + "=" + entry.getValue();
-            if (result.length() + next.length() > MAX_ENCODED_LENGTH) {
-                break;
-            }
+            if (result.length() + next.length() > MAX_ENCODED_LENGTH) break;
             result.append(next);
         }
         return result.toString();

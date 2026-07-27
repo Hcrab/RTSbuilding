@@ -2,18 +2,16 @@ package com.rtsbuilding.rtsbuilding.server.task.mining;
 
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.task.MiningTaskPayload;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTUtil;
+import net.minecraft.init.Blocks;
+import net.minecraft.block.state.IBlockState;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -26,39 +24,41 @@ public final class MiningTaskCodec {
     private MiningTaskCodec() {
     }
 
-    public static CompoundTag encode(MiningTaskPayload payload) {
+    public static NBTTagCompound encode(MiningTaskPayload payload) {
         MiningTaskState state = payload.state();
         if (state.totalUnits() > MAX_TARGETS) throw new IllegalArgumentException("mining target 数量越界");
         if (state.historyRecords().size() > MAX_TARGETS * 7) {
             throw new IllegalArgumentException("mining history 越界");
         }
-        CompoundTag tag = new CompoundTag();
-        tag.putInt("schema", SCHEMA_VERSION);
-        tag.putUUID("owner", payload.ownerId());
-        tag.putString("dimension", payload.dimension().location().toString());
-        tag.putInt("workflow", payload.workflowEntryId());
-        tag.putString("mode", state.mode().name());
-        tag.putLongArray("remaining", state.remainingTargets().stream().mapToLong(BlockPos::asLong).toArray());
-        tag.putInt("total", state.totalUnits());
-        tag.putInt("cursor", state.cursorUnits());
-        tag.putInt("succeeded", state.succeededUnits());
-        tag.putInt("failed", state.failedUnits());
-        tag.putByte("face", (byte) state.face().get3DDataValue());
-        tag.putInt("tool_slot", state.toolSlot());
-        tag.putBoolean("selected_tool", state.selectedToolRequested());
-        tag.putBoolean("protect_tool", state.toolProtectionEnabled());
-        tag.putFloat("progress", state.blockProgress());
-        tag.putInt("stage", state.visibleStage());
-        ListTag history = new ListTag();
-        state.historyRecords().forEach(history::add);
-        tag.put("history", history);
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("schema", SCHEMA_VERSION);
+        NbtCompat.setUuid(tag, "owner", payload.ownerId());
+        tag.setString("dimension", DimensionIdCodec.fromDimension(payload.dimension()));
+        tag.setInteger("workflow", payload.workflowEntryId());
+        tag.setString("mode", state.mode().name());
+        long[] remaining = new long[state.remainingTargets().size()];
+        for (int i = 0; i < remaining.length; i++) remaining[i] = state.remainingTargets().get(i).toLong();
+        NbtCompat.setLongArray(tag, "remaining", remaining);
+        tag.setInteger("total", state.totalUnits());
+        tag.setInteger("cursor", state.cursorUnits());
+        tag.setInteger("succeeded", state.succeededUnits());
+        tag.setInteger("failed", state.failedUnits());
+        tag.setByte("face", (byte) state.face().getIndex());
+        tag.setInteger("tool_slot", state.toolSlot());
+        tag.setBoolean("selected_tool", state.selectedToolRequested());
+        tag.setBoolean("protect_tool", state.toolProtectionEnabled());
+        tag.setFloat("progress", state.blockProgress());
+        tag.setInteger("stage", state.visibleStage());
+        NBTTagList history = new NBTTagList();
+        for (NBTTagCompound entry : state.historyRecords()) history.appendTag(entry);
+        tag.setTag("history", history);
         return tag;
     }
 
-    public static MiningTaskPayload decode(CompoundTag tag) {
+    public static MiningTaskPayload decode(NBTTagCompound tag) {
         requireFields(tag);
-        ResourceLocation dimensionId = ResourceLocation.tryParse(tag.getString("dimension"));
-        if (dimensionId == null || !dimensionId.toString().equals(tag.getString("dimension"))) {
+        String dimensionId = tag.getString("dimension");
+        if (!DimensionIdCodec.isCanonical(dimensionId)) {
             throw new IllegalArgumentException("mining dimension 无效");
         }
         MiningTaskState.Mode mode;
@@ -67,60 +67,66 @@ public final class MiningTaskCodec {
         } catch (IllegalArgumentException invalidMode) {
             throw new IllegalArgumentException("mining mode 无效", invalidMode);
         }
-        long[] encodedTargets = tag.getLongArray("remaining");
-        int total = tag.getInt("total");
+        long[] encodedTargets = NbtCompat.getLongArray(tag, "remaining");
+        int total = tag.getInteger("total");
         if (total < 0 || total > MAX_TARGETS || encodedTargets.length > total) {
             throw new IllegalArgumentException("mining target 数量越界");
         }
         List<BlockPos> targets = new ArrayList<>(encodedTargets.length);
-        for (long encoded : encodedTargets) targets.add(BlockPos.of(encoded).immutable());
-        ListTag encodedHistory = tag.getList("history", Tag.TAG_COMPOUND);
-        if (encodedHistory.size() > MAX_TARGETS * 7) throw new IllegalArgumentException("mining history 越界");
-        List<CompoundTag> history = new ArrayList<>(encodedHistory.size());
-        for (int i = 0; i < encodedHistory.size(); i++) history.add(encodedHistory.getCompound(i).copy());
-        int workflow = tag.getInt("workflow");
+        for (long encoded : encodedTargets) targets.add(BlockPos.fromLong(encoded));
+        NBTTagList encodedHistory = tag.getTagList("history", Constants.NBT.TAG_COMPOUND);
+        if (encodedHistory.tagCount() > MAX_TARGETS * 7) throw new IllegalArgumentException("mining history 越界");
+        List<NBTTagCompound> history = new ArrayList<NBTTagCompound>(encodedHistory.tagCount());
+        for (int i = 0; i < encodedHistory.tagCount(); i++) history.add(encodedHistory.getCompoundTagAt(i).copy());
+        int workflow = tag.getInteger("workflow");
         MiningTaskState state = new MiningTaskState(
                 mode, workflow, targets, total,
-                tag.getInt("cursor"), tag.getInt("succeeded"), tag.getInt("failed"),
-                Direction.from3DDataValue(tag.getByte("face")), tag.getInt("tool_slot"),
+                tag.getInteger("cursor"), tag.getInteger("succeeded"), tag.getInteger("failed"),
+                EnumFacing.byIndex(tag.getByte("face")), tag.getInteger("tool_slot"),
                 tag.getBoolean("selected_tool"), tag.getBoolean("protect_tool"),
-                tag.getFloat("progress"), tag.getInt("stage"), history);
-        ResourceKey<Level> dimension = ResourceKey.create(Registries.DIMENSION, dimensionId);
-        return new MiningTaskPayload(tag.getUUID("owner"), dimension, workflow, state);
+                tag.getFloat("progress"), tag.getInteger("stage"), history);
+        return new MiningTaskPayload(NbtCompat.getUuid(tag, "owner"),
+                DimensionIdCodec.toDimension(dimensionId), workflow, state);
     }
 
-    public static CompoundTag encodeHistory(HistoryBlockRecord record) {
-        CompoundTag tag = new CompoundTag();
-        tag.putLong("pos", record.pos().asLong());
-        tag.put("state", NbtUtils.writeBlockState(record.state()));
-        if (record.blockEntityData() != null) tag.put("block_entity", record.blockEntityData().copy());
+    public static NBTTagCompound encodeHistory(HistoryBlockRecord record) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setLong("pos", record.pos().toLong());
+        tag.setTag("state", NBTUtil.writeBlockState(new NBTTagCompound(), record.state()));
+        if (record.blockEntityData() != null) tag.setTag("block_entity", record.blockEntityData().copy());
         return tag;
     }
 
-    public static HistoryBlockRecord decodeHistory(RegistryAccess registryAccess, CompoundTag tag) {
-        if (tag == null || !tag.contains("pos", Tag.TAG_LONG)
-                || !tag.contains("state", Tag.TAG_COMPOUND)) {
+    public static HistoryBlockRecord decodeHistory(NBTTagCompound tag) {
+        if (tag == null || !NbtCompat.hasType(tag, "pos", Constants.NBT.TAG_LONG)
+                || !NbtCompat.hasType(tag, "state", Constants.NBT.TAG_COMPOUND)) {
             throw new IllegalArgumentException("mining history record 不完整");
         }
-        BlockState state = NbtUtils.readBlockState(
-                registryAccess.lookupOrThrow(Registries.BLOCK), tag.getCompound("state"));
-        if (state.isAir()) throw new IllegalArgumentException("mining history 不能记录空气");
-        CompoundTag blockEntity = tag.contains("block_entity", Tag.TAG_COMPOUND)
-                ? tag.getCompound("block_entity").copy() : null;
-        return new HistoryBlockRecord(BlockPos.of(tag.getLong("pos")), state, blockEntity);
+        IBlockState state = NBTUtil.readBlockState(tag.getCompoundTag("state"));
+        if (state.getBlock() == Blocks.AIR) throw new IllegalArgumentException("mining history 不能记录空气");
+        NBTTagCompound blockEntity = NbtCompat.hasType(tag, "block_entity", Constants.NBT.TAG_COMPOUND)
+                ? tag.getCompoundTag("block_entity").copy() : null;
+        return new HistoryBlockRecord(BlockPos.fromLong(tag.getLong("pos")), state, blockEntity);
     }
 
-    private static void requireFields(CompoundTag tag) {
-        if (tag == null || !tag.contains("schema", Tag.TAG_INT)
-                || tag.getInt("schema") != SCHEMA_VERSION || !tag.hasUUID("owner")
-                || !tag.contains("dimension", Tag.TAG_STRING) || !tag.contains("workflow", Tag.TAG_INT)
-                || !tag.contains("mode", Tag.TAG_STRING) || !tag.contains("remaining", Tag.TAG_LONG_ARRAY)
-                || !tag.contains("total", Tag.TAG_INT) || !tag.contains("cursor", Tag.TAG_INT)
-                || !tag.contains("succeeded", Tag.TAG_INT) || !tag.contains("failed", Tag.TAG_INT)
-                || !tag.contains("face", Tag.TAG_BYTE) || !tag.contains("tool_slot", Tag.TAG_INT)
-                || !tag.contains("selected_tool", Tag.TAG_BYTE) || !tag.contains("protect_tool", Tag.TAG_BYTE)
-                || !tag.contains("progress", Tag.TAG_FLOAT) || !tag.contains("stage", Tag.TAG_INT)
-                || !tag.contains("history", Tag.TAG_LIST)) {
+    private static void requireFields(NBTTagCompound tag) {
+        if (tag == null || !NbtCompat.hasType(tag, "schema", Constants.NBT.TAG_INT)
+                || tag.getInteger("schema") != SCHEMA_VERSION || !NbtCompat.hasUuid(tag, "owner")
+                || !NbtCompat.hasType(tag, "dimension", Constants.NBT.TAG_STRING)
+                || !NbtCompat.hasType(tag, "workflow", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "mode", Constants.NBT.TAG_STRING)
+                || !NbtCompat.hasType(tag, "remaining", Constants.NBT.TAG_LIST)
+                || !NbtCompat.hasType(tag, "total", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "cursor", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "succeeded", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "failed", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "face", Constants.NBT.TAG_BYTE)
+                || !NbtCompat.hasType(tag, "tool_slot", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "selected_tool", Constants.NBT.TAG_BYTE)
+                || !NbtCompat.hasType(tag, "protect_tool", Constants.NBT.TAG_BYTE)
+                || !NbtCompat.hasType(tag, "progress", Constants.NBT.TAG_FLOAT)
+                || !NbtCompat.hasType(tag, "stage", Constants.NBT.TAG_INT)
+                || !NbtCompat.hasType(tag, "history", Constants.NBT.TAG_LIST)) {
             throw new IllegalArgumentException("不支持或不完整的 mining task payload");
         }
     }

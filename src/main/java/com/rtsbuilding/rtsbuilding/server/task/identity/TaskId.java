@@ -10,12 +10,18 @@ import java.util.UUID;
  * <p>该类型只表达身份，不持有生命周期、玩家对象或执行器引用。阶段 1 可以先把它接入运行时，
  * 阶段 2 再由持久化仓库使用同一个主键，避免两套任务身份并存。</p>
  */
-public record TaskId(UUID value) implements Comparable<TaskId> {
+public final class TaskId implements Comparable<TaskId> {
 
     private static final String SUBMISSION_NAMESPACE = "rtsbuilding:task-from-submission:";
 
-    public TaskId {
-        Objects.requireNonNull(value, "value");
+    private final UUID value;
+
+    public TaskId(UUID value) {
+        this.value = Objects.requireNonNull(value, "value");
+    }
+
+    public UUID value() {
+        return value;
     }
 
     /** 为不需要请求级幂等语义的内部任务生成主键。 */
@@ -42,6 +48,16 @@ public record TaskId(UUID value) implements Comparable<TaskId> {
     @Override
     public int compareTo(TaskId other) {
         return value.compareTo(other.value);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        return this == other || (other instanceof TaskId && value.equals(((TaskId) other).value));
+    }
+
+    @Override
+    public int hashCode() {
+        return value.hashCode();
     }
 
     @Override

@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
-import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
+import net.minecraft.util.EnumFacing;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,9 +25,9 @@ public class HistoryEntry {
     private final long timestamp;
     private final boolean isDestructive;
     private final List<HistoryBlockRecord> blocks;
-    private final Direction face;
+    private final EnumFacing face;
     /** 操作所属维度，用于防止跨维度误操作 */
-    private final ResourceKey<Level> dimension;
+    private final int dimension;
 
     /**
      * @param isDestructive true=破坏操作（撤回=重新放置），false=放置操作（撤回=破坏方块）
@@ -37,11 +35,11 @@ public class HistoryEntry {
      * @param face         所有位置的公共操作面
      * @param dimension    操作发生时的维度，用于执行时校验
      */
-    public HistoryEntry(boolean isDestructive, List<HistoryBlockRecord> blocks, Direction face, ResourceKey<Level> dimension) {
+    public HistoryEntry(boolean isDestructive, List<HistoryBlockRecord> blocks, EnumFacing face, int dimension) {
         this.entryId = UUID.randomUUID();
         this.timestamp = System.currentTimeMillis();
         this.isDestructive = isDestructive;
-        this.blocks = List.copyOf(blocks);
+        this.blocks = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(blocks);
         this.face = face;
         this.dimension = dimension;
     }
@@ -64,11 +62,11 @@ public class HistoryEntry {
         return blocks;
     }
 
-    public Direction getFace() {
+    public EnumFacing getFace() {
         return face;
     }
 
-    public ResourceKey<Level> getDimension() {
+    public int getDimension() {
         return dimension;
     }
 

@@ -6,9 +6,9 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PlacementExecutePip
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.item.ItemStack;
 
 import javax.annotation.Nullable;
@@ -28,7 +28,7 @@ import java.util.Map;
  * <pre>{@code
  * PlaceContext pctx = PlaceContext.require(ctx);
  * List<BlockPos> positions = pctx.getClickedPositions();
- * Direction face = pctx.getFace();
+ * EnumFacing face = pctx.getFace();
  * }</pre>
  */
 public class PlaceContext extends PipelineContext {
@@ -39,7 +39,7 @@ public class PlaceContext extends PipelineContext {
      * @param player 执行操作的服务器端玩家
      * @param args   不可变输入参数（会创建防御性副本）
      */
-    private PlaceContext(ServerPlayer player, Map<String, Object> args) {
+    private PlaceContext(EntityPlayerMP player, Map<String, Object> args) {
         super(player, args);
     }
 
@@ -48,7 +48,7 @@ public class PlaceContext extends PipelineContext {
      * 提供类型安全的流式 setter，消除 {@code Map<String, Object>}
      * 样板代码。
      */
-    public static Builder builder(ServerPlayer player) {
+    public static Builder builder(EntityPlayerMP player) {
         return new Builder(player);
     }
 
@@ -86,7 +86,7 @@ public class PlaceContext extends PipelineContext {
     }
 
     /** 返回放置面。 */
-    public Direction getFace() {
+    public EnumFacing getFace() {
         return getArg(PlacementExecutePipe.ARG_FACE);
     }
 
@@ -237,10 +237,10 @@ public class PlaceContext extends PipelineContext {
      * }</pre>
      */
     public static final class Builder {
-        private final ServerPlayer player;
+        private final EntityPlayerMP player;
         private final Map<String, Object> args = new HashMap<>();
 
-        private Builder(ServerPlayer player) {
+        private Builder(EntityPlayerMP player) {
             this.player = player;
         }
 
@@ -251,7 +251,7 @@ public class PlaceContext extends PipelineContext {
         }
 
         /** 放置面方向。 */
-        public Builder face(Direction face) {
+        public Builder face(EnumFacing face) {
             args.put(PlacementExecutePipe.ARG_FACE.name(), face);
             return this;
         }

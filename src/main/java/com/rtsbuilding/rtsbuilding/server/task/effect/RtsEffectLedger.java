@@ -23,7 +23,7 @@ public final class RtsEffectLedger<K extends RtsEffectTarget> {
     private long activeLeaseId;
 
     public synchronized void mark(K key, RtsEffectKind kind) {
-        mark(key, RtsEffectSet.of(kind));
+        mark(key, RtsEffectcom.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(kind));
     }
 
     public synchronized void mark(K key, RtsEffectSet effects) {
@@ -91,7 +91,7 @@ public final class RtsEffectLedger<K extends RtsEffectTarget> {
         }
         activeLeaseId = leaseId;
         metrics.recordLease(entries.size());
-        return new Lease<>(leaseId, List.copyOf(entries));
+        return new Lease<>(leaseId, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(entries));
     }
 
     synchronized void complete(Lease<K> lease, Map<K, RtsEffectSet> retry,
@@ -138,10 +138,10 @@ public final class RtsEffectLedger<K extends RtsEffectTarget> {
     }
 
     record Lease<K>(long id, List<Entry<K>> entries) {
-        private static final Lease<?> EMPTY = new Lease<>(0L, List.of());
+        private static final Lease<?> EMPTY = new Lease<>(0L, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf());
 
         Lease {
-            entries = List.copyOf(entries);
+            entries = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(entries);
         }
 
         @SuppressWarnings("unchecked")

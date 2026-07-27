@@ -1,26 +1,15 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-
-public record C2SRtsUpdateLinkedStoragePayload(BlockPos pos, byte linkMode, int priority) implements CustomPacketPayload {
-    public static final Type<C2SRtsUpdateLinkedStoragePayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_update_linked_storage"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsUpdateLinkedStoragePayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeBlockPos(payload.pos());
-                buf.writeByte(payload.linkMode());
-                buf.writeVarInt(payload.priority());
-            },
-            (buf) -> new C2SRtsUpdateLinkedStoragePayload(buf.readBlockPos(), buf.readByte(), buf.readVarInt()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+public final class C2SRtsUpdateLinkedStoragePayload implements IMessage {
+    public static final int MIN_PRIORITY=-9999, MAX_PRIORITY=9999;
+    private BlockPos pos; private byte linkMode; private int priority;
+    public C2SRtsUpdateLinkedStoragePayload() { }
+    public C2SRtsUpdateLinkedStoragePayload(BlockPos pos,byte linkMode,int priority){this.pos=pos;this.linkMode=linkMode;this.priority=priority;}
+    public BlockPos pos(){return pos;} public byte linkMode(){return linkMode;} public int priority(){return priority;}
+    @Override public void fromBytes(ByteBuf b){pos=BlockPos.fromLong(b.readLong());linkMode=b.readByte();priority=RtsPacketBuffer.readVarInt(b);}
+    @Override public void toBytes(ByteBuf b){if(pos==null)throw new IllegalArgumentException("storage pos");b.writeLong(pos.toLong());b.writeByte(linkMode);RtsPacketBuffer.writeVarInt(b,priority);}
+    public boolean isValid(){return pos!=null&&(linkMode==0||linkMode==1)&&priority>=MIN_PRIORITY&&priority<=MAX_PRIORITY;}
 }

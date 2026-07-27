@@ -3,11 +3,11 @@ package com.rtsbuilding.rtsbuilding.server.api.impl;
 import com.rtsbuilding.rtsbuilding.api.RtsBlueprintAPI;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BlueprintService;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.material.Fluid;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fluids.Fluid;
 
 import java.util.Objects;
 
@@ -21,39 +21,37 @@ public final class RtsBlueprintAPIImpl implements RtsBlueprintAPI {
             REGISTRY.blueprint(), "BlueprintService not initialized");
 
     @Override
-    public long countMaterial(ServerPlayer player, Item item) {
+    public long countMaterial(EntityPlayerMP player, Item item) {
         return BLUEPRINT.countMaterial(player, item);
     }
 
     @Override
-    public ItemStack extractMaterial(ServerPlayer player, Item item, int count) {
+    public ItemStack extractMaterial(EntityPlayerMP player, Item item, int count) {
         return BLUEPRINT.extractMaterial(player, item, count);
     }
 
     @Override
-    public long countFluidMb(ServerPlayer player, Fluid fluid) {
+    public long countFluidMb(EntityPlayerMP player, Fluid fluid) {
         return BLUEPRINT.countFluidMb(player, fluid);
     }
 
     @Override
-    public boolean extractFluid(ServerPlayer player, Fluid fluid, int amountMb) {
+    public boolean extractFluid(EntityPlayerMP player, Fluid fluid, int amountMb) {
         return BLUEPRINT.extractFluid(player, fluid, amountMb);
     }
 
     @Override
-    public void refundMaterial(ServerPlayer player, ItemStack stack) {
+    public void refundMaterial(EntityPlayerMP player, ItemStack stack) {
         BLUEPRINT.refundMaterial(player, stack);
     }
 
     @Override
-    public void noteBlockPlaced(ServerPlayer player, Object pos, String itemId) {
-        if (pos instanceof BlockPos bp) {
-            BLUEPRINT.noteBlockPlaced(player, bp, itemId);
-        }
+    public void noteBlockPlaced(EntityPlayerMP player, BlockPos pos, String itemId) {
+        BLUEPRINT.noteBlockPlaced(player, pos, itemId);
     }
 
     @Override
-    public void refreshPage(ServerPlayer player) {
+    public void refreshPage(EntityPlayerMP player) {
         BLUEPRINT.refreshPage(player);
     }
 }

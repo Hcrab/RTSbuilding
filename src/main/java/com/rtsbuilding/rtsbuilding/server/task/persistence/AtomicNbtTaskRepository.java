@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence;
 import com.rtsbuilding.rtsbuilding.server.data.RtsNbtStore;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetManifest;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -40,19 +40,23 @@ public final class AtomicNbtTaskRepository implements TaskRepository {
     public synchronized LoadResult load() {
         if (loaded) return exists ? new LoadResult.Found(image) : new LoadResult.Missing();
         try {
-            switch (store.readResult()) {
-                case RtsNbtStore.ReadResult.Missing ignored -> {
+            RtsNbtStore.ReadResult readResult = store.readResult();
+            if (readResult instanceof RtsNbtStore.ReadResult.Missing) {
                     image = Image.empty();
                     exists = false;
-                }
-                case RtsNbtStore.ReadResult.Found found -> {
+            } else if (readResult instanceof RtsNbtStore.ReadResult.Found) {
+                    RtsNbtStore.ReadResult.Found found =
+                            (RtsNbtStore.ReadResult.Found) readResult;
                     // Found-empty 仍是存在但损坏的文件，必须让 Codec 因缺少 schema/list 而拒绝。
                     image = codec.decodeImage(found.root());
                     exists = true;
-                }
-                case RtsNbtStore.ReadResult.Failed failed -> {
+            } else if (readResult instanceof RtsNbtStore.ReadResult.Failed) {
+                    RtsNbtStore.ReadResult.Failed failed =
+                            (RtsNbtStore.ReadResult.Failed) readResult;
                     return new LoadResult.Failed(failed.cause());
-                }
+            } else {
+                return new LoadResult.Failed(
+                        new IllegalStateException("未知的 NBT 读取结果: " + readResult));
             }
             loaded = true;
             return exists ? new LoadResult.Found(image) : new LoadResult.Missing();
@@ -65,7 +69,9 @@ public final class AtomicNbtTaskRepository implements TaskRepository {
     public synchronized PrepareResult prepare(Commit commit) {
         if (!loaded) {
             LoadResult result = load();
-            if (result instanceof LoadResult.Failed failed) return new PrepareResult.Failed(failed.cause());
+            if (result instanceof LoadResult.Failed) {
+                return new PrepareResult.Failed(((LoadResult.Failed) result).cause());
+            }
         }
         if (!prepared.isEmpty()) {
             return new PrepareResult.Failed(new IllegalStateException("Atomic repository 只允许一个 in-flight commit"));
@@ -84,8 +90,12 @@ public final class AtomicNbtTaskRepository implements TaskRepository {
     /** 后台 correctness adapter：全 Root 合并、编码、压缩与原子替换全部发生在这里。 */
     @Override
     public synchronized WriteCompletion writePrepared(PreparedCommit preparedCommit) {
-        if (!(preparedCommit instanceof AtomicPreparedCommit atomic)
-                || prepared.get(atomic.ticketId()) != atomic) {
+        if (!(preparedCommit instanceof AtomicPreparedCommit)) {
+            return WriteCompletion.failed(preparedCommit.ticketId(),
+                    new IllegalArgumentException("PreparedCommit 不属于当前 Repository"));
+        }
+        AtomicPreparedCommit atomic = (AtomicPreparedCommit) preparedCommit;
+        if (prepared.get(atomic.ticketId()) != atomic) {
             return WriteCompletion.failed(preparedCommit.ticketId(),
                     new IllegalArgumentException("PreparedCommit 不属于当前 Repository"));
         }
@@ -99,7 +109,7 @@ public final class AtomicNbtTaskRepository implements TaskRepository {
         WriteCompletion completion;
         try {
             Image candidate = apply(image, atomic.logicalCommit());
-            CompoundTag encoded = codec.encodeImage(candidate);
+            NBTTagCompound encoded = codec.encodeImage(candidate);
             if (!store.write(encoded)) {
                 completion = WriteCompletion.failed(atomic.ticketId(),
                         new IOException("原子写入失败: " + store.label()));

@@ -1,42 +1,53 @@
 package com.rtsbuilding.rtsbuilding.network.blueprint;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public record S2CBlueprintStatusPayload(byte status, String messageKey, String detail) implements CustomPacketPayload {
+/** 服务端返回蓝图上传、解析或任务创建的状态。 */
+public final class S2CBlueprintStatusPayload implements IMessage {
     public static final byte INFO = 0;
     public static final byte SUCCESS = 1;
     public static final byte ERROR = 2;
     public static final int MAX_TEXT_CHARS = 192;
 
-    public S2CBlueprintStatusPayload {
-        messageKey = limitText(messageKey);
-        detail = limitText(detail);
+    private byte status;
+    private String messageKey;
+    private String detail;
+
+    public S2CBlueprintStatusPayload() {
     }
 
-    public static final Type<S2CBlueprintStatusPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_blueprint_status"));
+    public S2CBlueprintStatusPayload(byte status, String messageKey, String detail) {
+        this.status = status;
+        this.messageKey = limitText(messageKey);
+        this.detail = limitText(detail);
+    }
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CBlueprintStatusPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                buf.writeByte(payload.status());
-                buf.writeUtf(payload.messageKey() == null ? "" : payload.messageKey(), MAX_TEXT_CHARS);
-                buf.writeUtf(payload.detail() == null ? "" : payload.detail(), MAX_TEXT_CHARS);
-            },
-            (buf) -> new S2CBlueprintStatusPayload(
-                    buf.readByte(),
-                    buf.readUtf(MAX_TEXT_CHARS),
-                    buf.readUtf(MAX_TEXT_CHARS)));
+    public byte status() { return status; }
+    public String messageKey() { return messageKey; }
+    public String detail() { return detail; }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public void fromBytes(ByteBuf buffer) {
+        status = buffer.readByte();
+        messageKey = RtsPacketBuffer.readString(buffer, MAX_TEXT_CHARS, "blueprint status key");
+        detail = RtsPacketBuffer.readString(buffer, MAX_TEXT_CHARS, "blueprint status detail");
+        if (!isValidStatus(status)) throw new IllegalArgumentException("Unknown blueprint status: " + status);
     }
 
-    /** 所有发送入口统一限长，并避免把 UTF-16 代理对截成半个字符。 */
+    @Override
+    public void toBytes(ByteBuf buffer) {
+        if (!isValidStatus(status)) throw new IllegalArgumentException("Unknown blueprint status: " + status);
+        buffer.writeByte(status);
+        RtsPacketBuffer.writeString(buffer, messageKey, MAX_TEXT_CHARS, "blueprint status key");
+        RtsPacketBuffer.writeString(buffer, detail, MAX_TEXT_CHARS, "blueprint status detail");
+    }
+
+    private static boolean isValidStatus(byte status) {
+        return status == INFO || status == SUCCESS || status == ERROR;
+    }
+
     private static String limitText(String value) {
         if (value == null) return "";
         if (value.length() <= MAX_TEXT_CHARS) return value;

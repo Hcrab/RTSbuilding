@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.task.placement;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.util.List;
 import java.util.Objects;
@@ -13,21 +13,23 @@ import java.util.Objects;
  * 在这里单独成为权威值。每个 slice 可以临时重建 PlaceBatchJob，但不能把该临时对象放回
  * Session，也不能把其 mutable 字段当作跨 tick 状态源。</p>
  */
-public record PlacementTaskState(
-        CompoundTag definition,
-        int workflowEntryId,
-        int totalUnits,
-        int cursorUnits,
-        int succeededUnits,
-        int failedUnits,
-        List<BlockPos> placedPositions,
-        PlacementResumePolicy resumePolicy) {
+public final class PlacementTaskState {
+    private final NBTTagCompound definition;
+    private final int workflowEntryId;
+    private final int totalUnits;
+    private final int cursorUnits;
+    private final int succeededUnits;
+    private final int failedUnits;
+    private final List<BlockPos> placedPositions;
+    private final PlacementResumePolicy resumePolicy;
 
-    public PlacementTaskState {
+    public PlacementTaskState(NBTTagCompound definition, int workflowEntryId,
+            int totalUnits, int cursorUnits, int succeededUnits, int failedUnits,
+            List<BlockPos> placedPositions, PlacementResumePolicy resumePolicy) {
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(placedPositions, "placedPositions");
         Objects.requireNonNull(resumePolicy, "resumePolicy");
-        if (definition.isEmpty()) throw new IllegalArgumentException("definition 不能为空");
+        if (definition.hasNoTags()) throw new IllegalArgumentException("definition 不能为空");
         if (workflowEntryId < -1) throw new IllegalArgumentException("workflowEntryId 不能小于 -1");
         if (totalUnits < 0 || cursorUnits < 0 || succeededUnits < 0 || failedUnits < 0) {
             throw new IllegalArgumentException("placement 计数不能为负数");
@@ -39,13 +41,32 @@ public record PlacementTaskState(
         if (placedPositions.size() != succeededUnits) {
             throw new IllegalArgumentException("placedPositions 数量必须等于 succeededUnits");
         }
-        definition = definition.copy();
-        placedPositions = List.copyOf(placedPositions);
+        this.definition = definition.copy();
+        this.workflowEntryId = workflowEntryId;
+        this.totalUnits = totalUnits;
+        this.cursorUnits = cursorUnits;
+        this.succeededUnits = succeededUnits;
+        this.failedUnits = failedUnits;
+        List<BlockPos> frozenPositions = new java.util.ArrayList<BlockPos>(placedPositions.size());
+        for (BlockPos pos : placedPositions) {
+            Objects.requireNonNull(pos, "placedPositions element");
+            frozenPositions.add(new BlockPos(pos.getX(), pos.getY(), pos.getZ()));
+        }
+        this.placedPositions = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(frozenPositions);
+        this.resumePolicy = resumePolicy;
     }
+
+    public int workflowEntryId() { return workflowEntryId; }
+    public int totalUnits() { return totalUnits; }
+    public int cursorUnits() { return cursorUnits; }
+    public int succeededUnits() { return succeededUnits; }
+    public int failedUnits() { return failedUnits; }
+    public List<BlockPos> placedPositions() { return placedPositions; }
+    public PlacementResumePolicy resumePolicy() { return resumePolicy; }
 
     /** 兼容创建默认策略快照的调用点；持久 codec 会显式保存策略。 */
     public PlacementTaskState(
-            CompoundTag definition,
+            NBTTagCompound definition,
             int workflowEntryId,
             int totalUnits,
             int cursorUnits,
@@ -57,8 +78,7 @@ public record PlacementTaskState(
     }
 
     /** 防止调用方绕过 snapshot revision 修改定义 NBT。 */
-    @Override
-    public CompoundTag definition() {
+    public NBTTagCompound definition() {
         return definition.copy();
     }
 

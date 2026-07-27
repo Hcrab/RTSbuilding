@@ -35,7 +35,7 @@ public final class DataComponent<T> {
      * @param factory 默认值工厂，在文件不存在或解码失败时使用
      */
     public DataComponent(String key, NbtCodec<T> codec, Supplier<T> factory) {
-        if (key == null || key.isBlank()) {
+        if (key == null || key.trim().isEmpty()) {
             throw new IllegalArgumentException("DataComponent key 不能为空");
         }
         this.key = key;

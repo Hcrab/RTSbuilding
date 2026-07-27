@@ -4,12 +4,12 @@ import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.common.placement.PlacedBlockRotationStep;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.Rotation;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.Rotation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 /**
  * RTS 放置系统的纯辅助工具方法集合。
@@ -43,13 +43,13 @@ public final class RtsPlacementHelper {
      * 清理点击偏移坐标，当提供的值为 {@link Double#isFinite(double) 非有限} 时
      * 回退到基于面的默认值。
      */
-    public static double sanitizeHitOffset(double offset, Direction face, Direction.Axis axis) {
+    public static double sanitizeHitOffset(double offset, EnumFacing face, EnumFacing.Axis axis) {
         if (Double.isFinite(offset)) {
             return offset;
         }
         double fallback = 0.5D;
         if (face != null && face.getAxis() == axis) {
-            fallback += face.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 0.5D : -0.5D;
+            fallback += face.getAxisDirection() == EnumFacing.AxisDirection.POSITIVE ? 0.5D : -0.5D;
         }
         return fallback;
     }
@@ -58,11 +58,11 @@ public final class RtsPlacementHelper {
      * 将 {@link BlockState} 旋转指定数量的 90 度步数
      * （仅使用 {@code rotateSteps} 的最低两位）。
      */
-    public static BlockState rotateState(BlockState state, byte rotateSteps) {
+    public static IBlockState rotateState(IBlockState state, byte rotateSteps) {
         int turns = rotateSteps & 3;
-        BlockState rotated = state;
+        IBlockState rotated = state;
         for (int i = 0; i < turns; i++) {
-            rotated = rotated.rotate(Rotation.CLOCKWISE_90);
+            rotated = rotated.withRotation(Rotation.CLOCKWISE_90);
         }
         return rotated;
     }
@@ -70,28 +70,28 @@ public final class RtsPlacementHelper {
     /**
      * 对已放置的方块应用增量旋转。
      */
-    public static void rotatePlacedBlock(ServerLevel level, BlockPos pos, byte rotateSteps) {
+    public static void rotatePlacedBlock(WorldServer level, BlockPos pos, byte rotateSteps) {
         int turns = rotateSteps & 3;
         if (turns == 0 || !RtsPlacedBlockRotation.canReadNeighborhood(level, pos)) {
             return;
         }
-        BlockState state = level.getBlockState(pos);
-        BlockState rotated = rotateState(state, rotateSteps);
+        IBlockState state = level.getBlockState(pos);
+        IBlockState rotated = rotateState(state, rotateSteps);
         RtsPlacedBlockRotation.applyResolvedState(level, pos, state, rotated);
     }
 
     public static void rotatePlacedBlockStep(
-            ServerLevel level,
+            WorldServer level,
             BlockPos pos,
-            Direction axisDirection,
+            EnumFacing axisDirection,
             int quarterTurns) {
         if (!RtsPlacedBlockRotation.canReadNeighborhood(level, pos)
                 || axisDirection == null
                 || Math.abs(quarterTurns) != 1) {
             return;
         }
-        BlockState current = level.getBlockState(pos);
-        BlockState rotated = PlacedBlockRotationStep.rotate(
+        IBlockState current = level.getBlockState(pos);
+        IBlockState rotated = PlacedBlockRotationStep.rotate(
                 current, axisDirection, quarterTurns);
         RtsPlacedBlockRotation.applyResolvedState(
                 level, pos, current, rotated);
@@ -100,34 +100,34 @@ public final class RtsPlacementHelper {
     /**
      * 对刚刚成功放下的方块应用服务端白名单状态预设。
      */
-    public static void applyPlacementStatePreset(ServerLevel level, BlockPos pos, String encodedPreset) {
-        if (encodedPreset == null || encodedPreset.isBlank()
+    public static void applyPlacementStatePreset(WorldServer level, BlockPos pos, String encodedPreset) {
+        if (encodedPreset == null || encodedPreset.trim().isEmpty()
                 || !RtsPlacedBlockRotation.canReadNeighborhood(level, pos)) {
             return;
         }
-        BlockState current = level.getBlockState(pos);
-        BlockState resolved = PlacementStatePreset.apply(current, encodedPreset);
+        IBlockState current = level.getBlockState(pos);
+        IBlockState resolved = PlacementStatePreset.apply(current, encodedPreset);
         RtsPlacedBlockRotation.applyFreshPlacementState(level, pos, current, resolved);
     }
 
     /**
      * 通过比较点击位置及其相邻邻居的前后状态来检测方块实际放置的位置。
      */
-    public static BlockPos detectPlacedPos(ServerLevel level, BlockPos clickedPos, BlockState beforeClicked,
-                                            BlockPos adjacentPos, BlockState beforeAdjacent) {
-        if (!level.hasChunkAt(clickedPos)) {
+    public static BlockPos detectPlacedPos(WorldServer level, BlockPos clickedPos, IBlockState beforeClicked,
+                                            BlockPos adjacentPos, IBlockState beforeAdjacent) {
+        if (!level.isBlockLoaded(clickedPos)) {
             return null;
         }
-        BlockState afterClicked = level.getBlockState(clickedPos);
-        if (!afterClicked.equals(beforeClicked) && !afterClicked.isAir()) {
+        IBlockState afterClicked = level.getBlockState(clickedPos);
+        if (!afterClicked.equals(beforeClicked) && afterClicked.getBlock() != net.minecraft.init.Blocks.AIR) {
             return clickedPos;
         }
 
-        if (beforeAdjacent == null || !level.hasChunkAt(adjacentPos)) {
+        if (beforeAdjacent == null || !level.isBlockLoaded(adjacentPos)) {
             return null;
         }
-        BlockState afterAdjacent = level.getBlockState(adjacentPos);
-        if (!afterAdjacent.equals(beforeAdjacent) && !afterAdjacent.isAir()) {
+        IBlockState afterAdjacent = level.getBlockState(adjacentPos);
+        if (!afterAdjacent.equals(beforeAdjacent) && afterAdjacent.getBlock() != net.minecraft.init.Blocks.AIR) {
             return adjacentPos;
         }
         return null;
@@ -136,9 +136,9 @@ public final class RtsPlacementHelper {
     /**
      * 请求玩家的储存页面刷新，但仅在 {@code refreshStoragePage} 为 {@code true} 时。
      */
-    public static void requestSessionPage(ServerPlayer player, RtsStorageSession session, boolean refreshStoragePage) {
+    public static void requestSessionPage(EntityPlayerMP player, RtsStorageSession session, boolean refreshStoragePage) {
         if (refreshStoragePage) {
-            var reg = ServiceRegistry.getInstance();
+            ServiceRegistry reg = ServiceRegistry.getInstance();
             reg.serviceOp().markDirty(player, session);
             reg.serviceOp().refreshPage(player, session);
         }

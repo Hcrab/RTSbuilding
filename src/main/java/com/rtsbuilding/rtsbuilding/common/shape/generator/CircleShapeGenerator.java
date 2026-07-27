@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -47,7 +47,7 @@ public class CircleShapeGenerator extends AreaShapeGenerator {
                 if (!inOuter || (fillMode != ShapeFillMode.FILL && inInner)) {
                     continue;
                 }
-                result.add(input.start().offset(x, 0, z));
+                result.add(input.start().add(x, 0, z));
             }
         }
 

@@ -3,13 +3,13 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.blueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.level.material.Fluids;
 
@@ -51,14 +51,14 @@ public final class BlockPlacementPlanner {
      */
     public record PlacementPlan(
             BlockPos target,
-            BlockState state,
+            IBlockState state,
             List<Item> items,
             Fluid fluidCost,
-            @Nullable CompoundTag blockEntityTag
+            @Nullable NBTTagCompound blockEntityTag
     ) {
         public PlacementPlan {
             // 防御性复制
-            items = List.copyOf(items);
+            items = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(items);
         }
     }
 
@@ -107,7 +107,7 @@ public final class BlockPlacementPlanner {
 
         BlockPos target = anchor.offset(BlueprintTransform.rotateAroundCenter(
                 block.relativePos(), ySteps, xSteps, zSteps, centerOffset));
-        BlockState state = BlueprintTransform.rotateState(block.state(), ySteps, xSteps, zSteps);
+        IBlockState state = BlueprintTransform.rotateState(block.state(), ySteps, xSteps, zSteps);
         List<Item> items = materialItems(block, state);
         Fluid fluid = items.isEmpty() ? fluidCostFor(state) : Fluids.EMPTY;
         return new PlacementPlan(target, state, items, fluid, block.blockEntityTag());
@@ -121,11 +121,11 @@ public final class BlockPlacementPlanner {
      * 返回方块的材料物品列表。
      * 优先使用蓝图记录的材质 ID；若为空则回退到方块的 asItem()。
      */
-    public static List<Item> materialItems(RtsBlueprintBlock block, BlockState state) {
+    public static List<Item> materialItems(RtsBlueprintBlock block, IBlockState state) {
         List<ResourceLocation> ids = RtsBlueprint.materialItemIds(block);
         if (ids.isEmpty() && state != null) {
             Item fallback = state.getBlock().asItem();
-            return fallback == Items.AIR ? List.of() : List.of(fallback);
+            return fallback == Items.AIR ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf() : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(fallback);
         }
         List<Item> out = new ArrayList<>(ids.size());
         for (ResourceLocation id : ids) {
@@ -133,13 +133,13 @@ public final class BlockPlacementPlanner {
             Item item = BuiltInRegistries.ITEM.get(id);
             if (item != null && item != Items.AIR) out.add(item);
         }
-        return out.isEmpty() ? List.of() : List.copyOf(out);
+        return out.isEmpty() ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf() : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(out);
     }
 
     /**
      * 返回方块的流体成本——如果方块状态中有水/岩浆则返回对应流体。
      */
-    public static Fluid fluidCostFor(BlockState state) {
+    public static Fluid fluidCostFor(IBlockState state) {
         if (state == null) return Fluids.EMPTY;
         if (state.getFluidState().is(net.minecraft.tags.FluidTags.WATER)) return Fluids.WATER;
         if (state.getFluidState().is(net.minecraft.tags.FluidTags.LAVA)) return Fluids.LAVA;

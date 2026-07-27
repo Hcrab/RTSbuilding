@@ -5,9 +5,9 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.*;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
@@ -36,8 +36,8 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static final TypedKey<List<BlockPos>> ARG_CLICKED_POSITIONS =
             new TypedKey<>("clickedPositions", (Class) List.class);
-    public static final TypedKey<Direction> ARG_FACE =
-            new TypedKey<>("face", Direction.class);
+    public static final TypedKey<EnumFacing> ARG_FACE =
+            new TypedKey<>("face", EnumFacing.class);
     public static final TypedKey<Double> ARG_HIT_OFFSET_X =
             new TypedKey<>("hitOffsetX", Double.class);
     public static final TypedKey<Double> ARG_HIT_OFFSET_Y =
@@ -87,11 +87,11 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
             return PipelineResult.failure("No session in context — SessionValidatePipe must run first");
         }
 
-        ServerPlayer player = pctx.player();
+        EntityPlayerMP player = pctx.player();
 
         // ── 通过类型安全访问器读取放置参数 ──
         List<BlockPos> clickedPositions = pctx.getClickedPositions();
-        Direction face = pctx.getFace();
+        EnumFacing face = pctx.getFace();
         double hitOffsetX = pctx.getHitOffsetX();
         double hitOffsetY = pctx.getHitOffsetY();
         double hitOffsetZ = pctx.getHitOffsetZ();

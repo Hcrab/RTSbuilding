@@ -3,10 +3,10 @@ package com.rtsbuilding.rtsbuilding.server.api.impl;
 import com.rtsbuilding.rtsbuilding.api.RtsBindingsAPI;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * {@link RtsBindingsAPI} 的实现——委托给绑定服务层。
@@ -15,69 +15,67 @@ public final class RtsBindingsAPIImpl implements RtsBindingsAPI {
     private static final ServiceRegistry REGISTRY = ServiceRegistry.getInstance();
 
     @Override
-    public void setMode(ServerPlayer player, Object mode) {
-        if (mode instanceof BuilderMode m) {
-            REGISTRY.binding().setMode(player, m);
-        }
+    public void setMode(EntityPlayerMP player, BuilderMode mode) {
+        REGISTRY.binding().setMode(player, mode);
     }
 
     @Override
-    public void linkStorage(ServerPlayer player, BlockPos pos, byte linkMode) {
+    public void linkStorage(EntityPlayerMP player, BlockPos pos, byte linkMode) {
         REGISTRY.binding().linkStorage(player, pos, linkMode);
     }
 
     @Override
-    public void unlinkStorage(ServerPlayer player, BlockPos pos) {
+    public void unlinkStorage(EntityPlayerMP player, BlockPos pos) {
         REGISTRY.binding().unlinkStorage(player, pos);
     }
 
     @Override
-    public void updateLinkedStorageSettings(ServerPlayer player, BlockPos pos, byte linkMode, int priority) {
+    public void updateLinkedStorageSettings(EntityPlayerMP player, BlockPos pos, byte linkMode, int priority) {
         REGISTRY.binding().updateLinkedStorageSettings(player, pos, linkMode, priority);
     }
 
     @Override
-    public void setFunnelEnabled(ServerPlayer player, boolean enabled) {
+    public void setFunnelEnabled(EntityPlayerMP player, boolean enabled) {
         REGISTRY.binding().setFunnelEnabled(player, enabled);
     }
 
     @Override
-    public void updateFunnelTarget(ServerPlayer player, BlockPos target) {
+    public void updateFunnelTarget(EntityPlayerMP player, BlockPos target) {
         REGISTRY.binding().updateFunnelTarget(player, target);
     }
 
     @Override
-    public void setAutoStoreMinedDrops(ServerPlayer player, boolean enabled) {
+    public void setAutoStoreMinedDrops(EntityPlayerMP player, boolean enabled) {
         REGISTRY.binding().setAutoStoreMinedDrops(player, enabled);
     }
 
     @Override
-    public void setBdNetworkEnabled(ServerPlayer player, boolean enabled) {
+    public void setBdNetworkEnabled(EntityPlayerMP player, boolean enabled) {
         REGISTRY.binding().setBdNetworkEnabled(player, enabled);
     }
 
     @Override
-    public void setQuickSlot(ServerPlayer player, byte slotId, String itemId, ItemStack previewStack) {
+    public void setQuickSlot(EntityPlayerMP player, byte slotId, String itemId, ItemStack previewStack) {
         REGISTRY.binding().setQuickSlot(player, slotId, itemId, previewStack);
     }
 
     @Override
-    public void setGuiBinding(ServerPlayer player, byte slotId, boolean clear, BlockPos pos, Direction face, String itemIdHint) {
+    public void setGuiBinding(EntityPlayerMP player, byte slotId, boolean clear, BlockPos pos, EnumFacing face, String itemIdHint) {
         REGISTRY.binding().setGuiBinding(player, slotId, clear, pos, face, itemIdHint);
     }
 
     @Override
-    public void openGuiBinding(ServerPlayer player, byte slotId) {
+    public void openGuiBinding(EntityPlayerMP player, byte slotId) {
         REGISTRY.binding().openGuiBinding(player, slotId);
     }
 
     @Override
-    public void closeRemoteMenu(ServerPlayer player) {
+    public void closeRemoteMenu(EntityPlayerMP player) {
         REGISTRY.binding().closeRemoteMenu(player);
     }
 
     @Override
-    public void storeHotbarSlot(ServerPlayer player, byte slotId) {
+    public void storeHotbarSlot(EntityPlayerMP player, byte slotId) {
         REGISTRY.binding().storeHotbarSlot(player, slotId);
     }
 }

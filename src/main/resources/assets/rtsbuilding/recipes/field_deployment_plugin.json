@@ -1,0 +1,25 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    "ERE",
+                    "RQR",
+                    "ERE"
+                ],
+    "key":  {
+                "E":  {
+                          "item":  "minecraft:ender_pearl"
+                      },
+                "Q":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "gemQuartz"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:field_deployment_plugin",
+                   "count":  1
+               }
+}

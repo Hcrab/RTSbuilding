@@ -1,63 +1,10 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-
-import java.util.ArrayList;
-import java.util.List;
-
-public record C2SRtsAreaDestroyPayload(
-        List<BlockPos> positions,
-        byte toolSlot,
-        String toolItemId,
-        ItemStack toolPrototype,
-        boolean toolProtectionEnabled) implements CustomPacketPayload {
-    public static final int MAX_POSITIONS = 98304;
-
-    public static final Type<C2SRtsAreaDestroyPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_area_destroy"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsAreaDestroyPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {
-                List<BlockPos> payloadPositions = payload.positions() == null ? List.of() : payload.positions();
-                int size = Math.min(payloadPositions.size(), MAX_POSITIONS);
-                buf.writeVarInt(size);
-                for (int i = 0; i < size; i++) {
-                    buf.writeBlockPos(payloadPositions.get(i));
-                }
-                buf.writeByte(payload.toolSlot());
-                buf.writeUtf(payload.toolItemId() == null ? "" : payload.toolItemId(), 256);
-                ItemStack toolPrototype = payload.toolPrototype() == null ? ItemStack.EMPTY : payload.toolPrototype();
-                buf.writeBoolean(!toolPrototype.isEmpty());
-                if (!toolPrototype.isEmpty()) {
-                    ItemStack.STREAM_CODEC.encode(buf, toolPrototype);
-                }
-                buf.writeBoolean(payload.toolProtectionEnabled());
-            },
-            (buf) -> {
-                int size = buf.readVarInt();
-                if (size < 0 || size > MAX_POSITIONS) {
-                    throw new IllegalArgumentException("Invalid RTS area destroy target count: " + size);
-                }
-                List<BlockPos> positions = new ArrayList<>(size);
-                for (int i = 0; i < size; i++) {
-                    positions.add(buf.readBlockPos().immutable());
-                }
-                return new C2SRtsAreaDestroyPayload(
-                        positions,
-                        buf.readByte(),
-                        buf.readUtf(256),
-                        buf.readBoolean() ? ItemStack.STREAM_CODEC.decode(buf) : ItemStack.EMPTY,
-                        buf.readBoolean());
-            });
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;import io.netty.buffer.ByteBuf;import net.minecraft.item.ItemStack;import net.minecraft.util.math.BlockPos;import net.minecraftforge.fml.common.network.simpleimpl.IMessage;import java.util.*;
+public final class C2SRtsAreaDestroyPayload implements IMessage{
+ public static final int MAX_POSITIONS=98304;private List<BlockPos> positions=Collections.emptyList();private byte toolSlot;private String toolItemId;private ItemStack toolPrototype=ItemStack.EMPTY;private boolean toolProtectionEnabled;
+ public C2SRtsAreaDestroyPayload(){}public C2SRtsAreaDestroyPayload(List<BlockPos> p,byte t,String id,ItemStack proto,boolean protect){positions=p==null?Collections.<BlockPos>emptyList():Collections.unmodifiableList(new ArrayList<BlockPos>(p));toolSlot=t;toolItemId=id==null?"":id;toolPrototype=proto==null?ItemStack.EMPTY:proto;toolProtectionEnabled=protect;}
+ public List<BlockPos> positions(){return positions;}public byte toolSlot(){return toolSlot;}public String toolItemId(){return toolItemId;}public ItemStack toolPrototype(){return toolPrototype;}public boolean toolProtectionEnabled(){return toolProtectionEnabled;}
+ public void fromBytes(ByteBuf b){int n=RtsPacketBuffer.readBoundedCount(b,MAX_POSITIONS,"destroy positions");List<BlockPos>p=new ArrayList<BlockPos>(n);for(int i=0;i<n;i++)p.add(BlockPos.fromLong(b.readLong()));positions=Collections.unmodifiableList(p);toolSlot=b.readByte();toolItemId=RtsPacketBuffer.readString(b,256,"tool id");toolPrototype=RtsPacketBuffer.readItemStack(b);toolProtectionEnabled=b.readBoolean();if(!isValid())throw new IllegalArgumentException("invalid area destroy");}
+ public void toBytes(ByteBuf b){if(!isValid())throw new IllegalArgumentException("invalid area destroy");RtsPacketBuffer.writeVarInt(b,positions.size());for(BlockPos p:positions)b.writeLong(p.toLong());b.writeByte(toolSlot);RtsPacketBuffer.writeString(b,toolItemId,256,"tool id");RtsPacketBuffer.writeItemStack(b,toolPrototype);b.writeBoolean(toolProtectionEnabled);}
+ public boolean isValid(){if(positions==null||positions.isEmpty()||positions.size()>MAX_POSITIONS||toolSlot<0||toolSlot>8||toolItemId==null||toolItemId.length()>256)return false;for(BlockPos p:positions)if(p==null)return false;return true;}
 }

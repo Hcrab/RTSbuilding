@@ -2,14 +2,14 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.compat.create.BlueprintCreatePlacementCompat;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 import javax.annotation.Nullable;
 
@@ -34,21 +34,21 @@ public final class BlockPlacer {
      * @param state 要放置的方块状态
      * @return true 如果方块成功设置
      */
-    public static boolean setBlock(ServerLevel level, BlockPos pos, BlockState state) {
-        return level.setBlock(pos, state, 3);
+    public static boolean setBlock(WorldServer level, BlockPos pos, IBlockState state) {
+        return level.setBlockState(pos, state, 3);
     }
 
     /**
      * 蓝图专用放置入口；允许可选兼容插头收紧第三方方块的更新标志。
      */
-    public static boolean setBlueprintBlock(ServerLevel level, BlockPos pos, BlockState state) {
-        return level.setBlock(pos, state, BlueprintCreatePlacementCompat.placementFlags(state));
+    public static boolean setBlueprintBlock(WorldServer level, BlockPos pos, IBlockState state) {
+        return level.setBlockState(pos, state, BlueprintCreatePlacementCompat.placementFlags(state));
     }
 
     /**
      * 标记已放置方块到追踪器。
      */
-    public static void trackPlaced(ServerLevel level, BlockPos pos) {
+    public static void trackPlaced(WorldServer level, BlockPos pos) {
         PlacedBlockTrackerData.get(level).mark(pos);
     }
 
@@ -59,30 +59,30 @@ public final class BlockPlacer {
      * @param pos   目标位置
      * @param tag   方块实体 NBT 数据（从蓝图保存）
      */
-    public static void applyBlueprintBlockEntity(ServerLevel level, BlockPos pos, @Nullable CompoundTag tag) {
+    public static void applyBlueprintBlockEntity(WorldServer level, BlockPos pos, @Nullable NBTTagCompound tag) {
         if (tag == null || tag.isEmpty()) {
             return;
         }
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+        TileEntity blockEntity = level.getTileEntity(pos);
         if (blockEntity == null) {
             return;
         }
-        CompoundTag copy = tag.copy();
-        copy.putInt("x", pos.getX());
-        copy.putInt("y", pos.getY());
-        copy.putInt("z", pos.getZ());
+        NBTTagCompound copy = tag.copy();
+        copy.setInteger("x", pos.getX());
+        copy.setInteger("y", pos.getY());
+        copy.setInteger("z", pos.getZ());
         try {
-            blockEntity.loadWithComponents(copy, level.registryAccess());
-            blockEntity.setChanged();
-            BlockState state = level.getBlockState(pos);
-            level.sendBlockUpdated(pos, state, state, 3);
+            blockEntity.readFromNBT(copy);
+            blockEntity.markDirty();
+            IBlockState state = level.getBlockState(pos);
+            level.notifyBlockUpdate(pos, state, state, 3);
         } catch (RuntimeException ignored) {
         }
     }
 
     /** 在方块实体 NBT 应用完成后补齐第三方蓝图所需的标准放置回调。 */
     public static void finishBlueprintPlacement(
-            ServerLevel level, BlockPos pos, BlockState state, @Nullable ItemStack stack) {
+            WorldServer level, BlockPos pos, IBlockState state, @Nullable ItemStack stack) {
         BlueprintCreatePlacementCompat.finishPlacement(level, pos, state, stack);
     }
 
@@ -96,19 +96,18 @@ public final class BlockPlacer {
      * @param state 已放置的方块状态
      * @param placer 放置者（可为 null）
      */
-    public static void applyQuickBuildBlockEntity(ServerLevel level, BlockPos pos, ItemStack stack,
-            @Nullable BlockState state, @Nullable Player placer) {
+    public static void applyQuickBuildBlockEntity(WorldServer level, BlockPos pos, ItemStack stack,
+            @Nullable IBlockState state, @Nullable EntityPlayer placer) {
         if (stack == null || stack.isEmpty()) {
             return;
         }
-        BlockItem.updateCustomBlockEntityTag(level, placer, pos, stack);
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+        ItemBlock.setTileEntityNBT(level, placer, pos, stack);
+        TileEntity blockEntity = level.getTileEntity(pos);
         if (blockEntity != null) {
-            blockEntity.applyComponentsFromItemStack(stack);
-            blockEntity.setChanged();
+            blockEntity.markDirty();
         }
         if (state != null) {
-            state.getBlock().setPlacedBy(level, pos, state, placer, stack);
+            state.getBlock().onBlockPlacedBy(level, pos, state, placer, stack);
         }
     }
 }

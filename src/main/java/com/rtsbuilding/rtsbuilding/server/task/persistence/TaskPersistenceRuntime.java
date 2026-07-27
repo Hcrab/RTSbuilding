@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetada
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.AtomicBlueprintBlobRepository;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.BlueprintBlobCodec;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.BlueprintBlobRecord;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 
 import java.time.Duration;
@@ -102,7 +102,7 @@ public final class TaskPersistenceRuntime {
         BlueprintAssetMaintenance maintenance = new BlueprintAssetMaintenance();
         this.assetMaintenance = maintenance;
         try {
-            maintenance.start(blobs, Set.copyOf(opened.assetManifest().entries().keySet()));
+            maintenance.start(blobs, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(opened.assetManifest().entries().keySet()));
         } catch (RuntimeException failure) {
             // Root 与 live blob 已经验证成功；维护无法启动时保持资产只读，不阻断普通 task root。
             RtsbuildingMod.LOGGER.error("无法启动 task asset 维护，蓝图资产接纳将保持只读", failure);
@@ -209,7 +209,7 @@ public final class TaskPersistenceRuntime {
      * 领域层只能在后续 query 出现同一 TaskId 后创建执行器和 Workflow 投影。
      */
     public BlueprintQueueOutcome enqueueDurableBlueprint(
-            TaskSnapshot snapshot, String name, String sourceName, String format, CompoundTag structure) {
+            TaskSnapshot snapshot, String name, String sourceName, String format, NBTTagCompound structure) {
         requireServerThread();
         requireHealthy();
         if (blueprintAdmissionQueue == null) {
@@ -241,7 +241,7 @@ public final class TaskPersistenceRuntime {
         while (drained.size() < maxResults && !blueprintRecoveryRoots.isEmpty()) {
             drained.add(BlueprintAdmissionCompletion.rootDurable(blueprintRecoveryRoots.removeFirst()));
         }
-        return List.copyOf(drained);
+        return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(drained);
     }
 
     /** 按稳定 TaskId 精确加载已由 manifest 保护的蓝图；不会扫描物理目录。 */

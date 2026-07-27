@@ -101,20 +101,22 @@ public final class RtsLinkedStorageResolver {
      * 同时强制基岩层边界：拒绝任何在世界最小建筑高度
      *（基岩层）或以下的坐标，防止在虚空中进行 RTS 操作。
      */
-    public static boolean canAccessWorldTarget(ServerPlayer player, BlockPos pos) {
+    public static boolean canAccessWorldTarget(
+            net.minecraft.entity.player.EntityPlayerMP player,
+            net.minecraft.util.math.BlockPos pos) {
         if (!RtsCameraManager.isActive(player) || pos == null) {
             return false;
         }
 
-        ServerLevel level = player.serverLevel();
-        if (!level.hasChunkAt(pos)) {
+        net.minecraft.world.WorldServer level = player.getServerWorld();
+        if (!level.isBlockLoaded(pos)) {
             return false;
         }
         // ── Bedrock-layer boundary: reject positions below the world floor ──
-        if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) {
+        if (pos.getY() < 0 || pos.getY() >= level.getHeight()) {
             return false;
         }
-        if (!level.mayInteract(player, pos)) {
+        if (!level.isBlockModifiable(player, pos)) {
             return false;
         }
         return RtsCameraManager.isWithinActionRange(player, pos);

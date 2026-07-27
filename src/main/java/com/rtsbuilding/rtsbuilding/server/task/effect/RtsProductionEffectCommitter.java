@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.Objects;
 
@@ -29,7 +29,7 @@ public final class RtsProductionEffectCommitter
 
     @Override
     public RtsEffectCommitResult commit(RtsPlayerEffectTarget target, RtsEffectSet effects) {
-        ServerPlayer player = server.getPlayerList().getPlayer(target.playerId());
+        EntityPlayerMP player = server.getPlayerList().getPlayer(target.playerId());
         if (player == null || player.isRemoved()) {
             // 登出路径会直接完成最终 Session/Workflow 保存；离线网络投影已经失去接收者。
             return RtsEffectCommitResult.all(effects);
@@ -45,7 +45,7 @@ public final class RtsProductionEffectCommitter
             if (!effects.contains(kind)) continue;
             try {
                 commitOne(player, kind);
-                acknowledged = acknowledged.union(RtsEffectSet.of(kind));
+                acknowledged = acknowledged.union(RtsEffectcom.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(kind));
             } catch (RuntimeException failure) {
                 RtsbuildingMod.LOGGER.error(
                         "提交玩家 {} 的副作用 {} 失败，已保留到后续 tick 重试",
@@ -55,7 +55,7 @@ public final class RtsProductionEffectCommitter
         return new RtsEffectCommitResult(acknowledged);
     }
 
-    private static void commitOne(ServerPlayer player, RtsEffectKind kind) {
+    private static void commitOne(EntityPlayerMP player, RtsEffectKind kind) {
         var registry = ServiceRegistry.getInstance();
         var session = registry.session().getIfPresent(player);
         switch (kind) {

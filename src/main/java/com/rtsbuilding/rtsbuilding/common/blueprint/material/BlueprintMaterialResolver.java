@@ -1,52 +1,33 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.material;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.util.ResourceLocation;
 
+import java.util.Collections;
 import java.util.List;
 
-/**
- * 蓝图材料解析器。
- *
- * <p>这个类只根据可信的 {@link BlockState} 推导放置成本，不读取蓝图 NBT 里声明的物品 ID。
- * 这样导入的结构文件可以继续携带旧版导出的材料字段，但无法通过该字段篡改生存模式扣料。</p>
- */
+/** 从可信方块状态推导建造材料，不相信导入文件自行声明的材料 ID。 */
 public final class BlueprintMaterialResolver {
-    private BlueprintMaterialResolver() {
-    }
+    private BlueprintMaterialResolver() {}
 
-    public static List<ResourceLocation> materialItemIds(BlockState state) {
+    public static List<ResourceLocation> materialItemIds(IBlockState state) {
         Item item = materialItem(state);
-        if (item == Items.AIR) {
-            return List.of();
-        }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-            return List.of();
-        }
-        return List.of(id);
+        ResourceLocation id = Item.REGISTRY.getNameForObject(item);
+        return item == Items.AIR || id == null
+                ? Collections.<ResourceLocation>emptyList()
+                : Collections.singletonList(id);
     }
 
-    public static Item materialItem(BlockState state) {
-        if (state == null || state.isAir()) {
-            return Items.AIR;
-        }
+    public static Item materialItem(IBlockState state) {
+        if (state == null || state.getBlock() == Blocks.AIR) return Items.AIR;
         Block block = state.getBlock();
-        if (block == Blocks.FARMLAND || block == Blocks.DIRT_PATH) {
-            return Items.DIRT;
-        }
-        if (block == Blocks.TALL_GRASS) {
-            return Items.SHORT_GRASS;
-        }
-        if (block == Blocks.LARGE_FERN) {
-            return Items.FERN;
-        }
-        Item item = block.asItem();
+        if (block == Blocks.FARMLAND || block == Blocks.GRASS_PATH) return Item.getItemFromBlock(Blocks.DIRT);
+        if (block == Blocks.TALLGRASS || block == Blocks.DOUBLE_PLANT) return Item.getItemFromBlock(block);
+        Item item = Item.getItemFromBlock(block);
         return item == null ? Items.AIR : item;
     }
 }

@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 
@@ -35,7 +35,7 @@ public interface PlacementService {
      * @param quickBuild  是否为快速建造（使用预解析的状态计划）
      * @param forceEmptyHand 是否强制使用空手交互
      */
-    void placeSelected(ServerPlayer player, BlockPos clickedPos, Direction face,
+    void placeSelected(EntityPlayerMP player, BlockPos clickedPos, EnumFacing face,
                        double hitX, double hitY, double hitZ, byte rotateSteps, String statePreset,
                        boolean forcePlace, boolean skipIfOccupied, String itemId,
                        ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
@@ -58,7 +58,7 @@ public interface PlacementService {
      * @param rayOriginX,rayOriginY,rayOriginZ 射线起点
      * @param rayDirX,rayDirY,rayDirZ 射线方向
      */
-    default void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
+    default void enqueuePlaceBatch(EntityPlayerMP player, List<BlockPos> clickedPositions, EnumFacing face,
                            double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
                            boolean forcePlace, boolean skipIfOccupied, String itemId,
                            ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
@@ -72,7 +72,7 @@ public interface PlacementService {
     /**
      * 带创造覆盖策略的批量建造入口。服务端实现必须重新核验玩家是否仍为创造模式。
      */
-    void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
+    void enqueuePlaceBatch(EntityPlayerMP player, List<BlockPos> clickedPositions, EnumFacing face,
                            double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
                            boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting, String itemId,
                            ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
@@ -85,7 +85,7 @@ public interface PlacementService {
      * @param player 目标玩家
      * @return 已恢复的放置作业数量
      */
-    int submitPendingPlacement(ServerPlayer player);
+    int submitPendingPlacement(EntityPlayerMP player);
 
     /**
      * 旋转世界中已放置的方块。
@@ -93,15 +93,15 @@ public interface PlacementService {
      * @param player 目标玩家
      * @param pos    要旋转的方块坐标
      */
-    void rotateBlock(ServerPlayer player, BlockPos pos);
+    void rotateBlock(EntityPlayerMP player, BlockPos pos);
 
     /**
      * 根据世界圆弧提交的轴和 ±90° 步数旋转目标方块。
      */
     void rotateBlockStep(
-            ServerPlayer player,
+            EntityPlayerMP player,
             BlockPos pos,
-            Direction axisDirection,
+            EnumFacing axisDirection,
             int quarterTurns);
 
     /**
@@ -110,7 +110,7 @@ public interface PlacementService {
      * @param player 目标玩家
      * @return 总方块数
      */
-    int getPlaceBatchTotalBlocks(ServerPlayer player);
+    int getPlaceBatchTotalBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前批量放置作业中已完成（已放置）的方块数量。
@@ -118,7 +118,7 @@ public interface PlacementService {
      * @param player 目标玩家
      * @return 已放置方块数
      */
-    int getPlaceBatchCompletedBlocks(ServerPlayer player);
+    int getPlaceBatchCompletedBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前批量放置作业中剩余的未放置方块数。
@@ -126,7 +126,7 @@ public interface PlacementService {
      * @param player 目标玩家
      * @return 未放置方块数
      */
-    int getPlaceBatchRemainingBlocks(ServerPlayer player);
+    int getPlaceBatchRemainingBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前批量放置作业正在放置的方块类型（物品 ID）。
@@ -134,5 +134,5 @@ public interface PlacementService {
      * @param player 目标玩家
      * @return 物品 ID 字符串
      */
-    String getPlaceBatchItemId(ServerPlayer player);
+    String getPlaceBatchItemId(EntityPlayerMP player);
 }

@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -23,7 +24,7 @@ public interface CraftingService {
      *
      * @param player 目标玩家
      */
-    void openCraftTerminal(ServerPlayer player);
+    void openCraftTerminal(EntityPlayerMP player);
 
     /**
      * 请求可合成物品列表（完整参数，带本地化搜索匹配）。
@@ -37,7 +38,7 @@ public interface CraftingService {
      * @param pinyinSearchEnabled 是否启用拼音搜索
      * @param localizedSearchMatches 本地化搜索匹配的预计算物品 ID 列表
      */
-    void requestCraftables(ServerPlayer player, String search, boolean showUnavailable,
+    void requestCraftables(EntityPlayerMP player, String search, boolean showUnavailable,
                            int offset, int limit, boolean pinyinSearchEnabled,
                            List<String> localizedSearchMatches);
 
@@ -51,7 +52,7 @@ public interface CraftingService {
      * @param limit               每页条数
      * @param pinyinSearchEnabled 是否启用拼音搜索
      */
-    void requestCraftables(ServerPlayer player, String search, boolean showUnavailable,
+    void requestCraftables(EntityPlayerMP player, String search, boolean showUnavailable,
                            int offset, int limit, boolean pinyinSearchEnabled);
 
     /**
@@ -63,7 +64,7 @@ public interface CraftingService {
      * @param offset          分页偏移量
      * @param limit           每页条数
      */
-    void requestCraftables(ServerPlayer player, String search, boolean showUnavailable,
+    void requestCraftables(EntityPlayerMP player, String search, boolean showUnavailable,
                            int offset, int limit);
 
     /**
@@ -74,7 +75,7 @@ public interface CraftingService {
      * @param recipeId   目标配方的 ID
      * @param craftCount 要合成的次数
      */
-    void craftRecipeToLinked(ServerPlayer player, String recipeId, int craftCount);
+    void craftRecipeToLinked(EntityPlayerMP player, String recipeId, int craftCount);
 
     /**
      * 按物品 ID 列表填充当前合成格的配方材料。
@@ -85,7 +86,7 @@ public interface CraftingService {
      * @param craftedItemId 正在合成的目标物品 ID
      * @param craftedCount  已合成的数量
      */
-    void refillCurrentCraftGridFromBlueprintIds(ServerPlayer player, List<String> blueprintIds,
+    void refillCurrentCraftGridFromBlueprintIds(EntityPlayerMP player, List<String> blueprintIds,
                                                 String craftedItemId, int craftedCount);
 
     /**
@@ -98,7 +99,7 @@ public interface CraftingService {
      * @param craftedItemId  正在合成的目标物品 ID
      * @param craftedCount   已合成的数量
      */
-    void refillCurrentCraftGridFromBlueprintStacks(ServerPlayer player, List<ItemStack> blueprintStacks,
+    void refillCurrentCraftGridFromBlueprintStacks(EntityPlayerMP player, List<ItemStack> blueprintStacks,
                                                    String craftedItemId, int craftedCount);
 
     /**
@@ -111,7 +112,7 @@ public interface CraftingService {
      * @param maxTransfer         是否最大化传输（一次合尽可能多次）
      * @param clearGridFirst      是否在填充前清空合成格
      */
-    void applyJeiTransfer(ServerPlayer player, String recipeId, List<ItemStack> ingredientPrototypes,
+    void applyJeiTransfer(EntityPlayerMP player, String recipeId, List<ItemStack> ingredientPrototypes,
                           boolean maxTransfer, boolean clearGridFirst);
 
     /**
@@ -121,7 +122,7 @@ public interface CraftingService {
      * @param menu 合成菜单
      * @return 表示当前合成格中材料的物品栈数组
      */
-    ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu);
+    ItemStack[] snapshotCraftGridBlueprint(ContainerWorkbench menu);
 
     /**
      * 从蓝图数组填充合成格的配方材料。
@@ -134,8 +135,8 @@ public interface CraftingService {
      * @param fillAll               是否填充所有材料槽（不保留空缺）
      * @param includePlayerFallback 是否在链接存储不足时从玩家背包补充
      */
-    void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers,
-                                      ServerPlayer player, ItemStack[] blueprint,
+    void refillCraftGridFromBlueprint(ContainerWorkbench menu, List<IItemHandler> handlers,
+                                      EntityPlayerMP player, ItemStack[] blueprint,
                                       boolean fillAll, boolean includePlayerFallback);
 
     /**
@@ -147,8 +148,8 @@ public interface CraftingService {
      * @param blueprint    配方蓝图（材料栈数组）
      * @param recipe       当前合成配方
      */
-    void refillCraftGridFromLinked(ServerPlayer player, CraftingMenu craftingMenu,
-                                   ItemStack[] blueprint, net.minecraft.world.item.crafting.CraftingRecipe recipe);
+    void refillCraftGridFromLinked(EntityPlayerMP player, ContainerWorkbench craftingMenu,
+                                   ItemStack[] blueprint, IRecipe recipe);
 
     /**
      * 记录已合成的产出物品到最近物品列表。
@@ -157,5 +158,5 @@ public interface CraftingService {
      * @param player  目标玩家
      * @param crafted 已合成的产物物品栈
      */
-    void recordCraftedOutput(ServerPlayer player, ItemStack crafted);
+    void recordCraftedOutput(EntityPlayerMP player, ItemStack crafted);
 }

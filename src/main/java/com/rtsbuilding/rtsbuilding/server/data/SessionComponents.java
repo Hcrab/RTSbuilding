@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 
 /**
  * 存储会话（{@code session.dat}）的所有 {@link DataComponent} 注册表。
@@ -16,10 +16,10 @@ public final class SessionComponents {
     // ==================================================================
 
     /** 浏览状态——翻页、搜索、分类、排序 */
-    public static final DataComponent<CompoundTag> BROWSER = bridge("browser");
+    public static final DataComponent<NBTTagCompound> BROWSER = bridge("browser");
 
     /** 会话标志——autoStore、useBdNetwork、内部流体 */
-    public static final DataComponent<CompoundTag> FLAGS = bridge("flags");
+    public static final DataComponent<NBTTagCompound> FLAGS = bridge("flags");
 
     /** 建造模式 */
     public static final DataComponent<BuilderMode> MODE = new DataComponent<>(
@@ -33,46 +33,46 @@ public final class SessionComponents {
                             return BuilderMode.INTERACT;
                         }
                     },
-                    (tag, v) -> tag.putString("mode", v.name())
+                    (tag, v) -> tag.setString("mode", v.name())
             ),
             () -> BuilderMode.INTERACT
     );
 
     /** 链接存储——引用、模式、优先级、背包 */
-    public static final DataComponent<CompoundTag> LINKED_STORAGE = bridge("linked");
+    public static final DataComponent<NBTTagCompound> LINKED_STORAGE = bridge("linked");
 
     /** UI 记忆——近期条目、快捷槽、GUI 绑定 */
-    public static final DataComponent<CompoundTag> UI_MEMORY = bridge("ui_memory");
+    public static final DataComponent<NBTTagCompound> UI_MEMORY = bridge("ui_memory");
 
     /** 放置任务——待处理 + 进行中 */
-    public static final DataComponent<CompoundTag> PLACEMENT = bridge("placement");
+    public static final DataComponent<NBTTagCompound> PLACEMENT = bridge("placement");
 
     /** 破坏任务——活跃 + 挂起 */
-    public static final DataComponent<CompoundTag> DESTROY = bridge("destroy");
+    public static final DataComponent<NBTTagCompound> DESTROY = bridge("destroy");
 
     /** 自动存入挖掘掉落的持久缓存。 */
-    public static final DataComponent<CompoundTag> DROP_BUFFER = bridge("drop_buffer");
+    public static final DataComponent<NBTTagCompound> DROP_BUFFER = bridge("drop_buffer");
 
     /** 漏斗开关、目标和已从世界实体接管的有限缓冲。 */
-    public static final DataComponent<CompoundTag> FUNNEL = bridge("funnel");
+    public static final DataComponent<NBTTagCompound> FUNNEL = bridge("funnel");
 
     // ==================================================================
     //  工具
     // ==================================================================
 
     /** 创建一个 {@link CompoundTag} 直通桥接组件 */
-    private static DataComponent<CompoundTag> bridge(String key) {
+    private static DataComponent<NBTTagCompound> bridge(String key) {
         return new DataComponent<>(
                 key,
                 NbtCodec.of(
                         tag -> tag,
                         (tag, v) -> {
-                            for (String k : v.getAllKeys()) {
-                                tag.put(k, v.get(k));
+                            for (String k : v.getKeySet()) {
+                                tag.setTag(k, v.getTag(k));
                             }
                         }
                 ),
-                CompoundTag::new
+                NBTTagCompound::new
         );
     }
 

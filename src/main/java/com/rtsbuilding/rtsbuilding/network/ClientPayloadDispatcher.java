@@ -1,181 +1,176 @@
 package com.rtsbuilding.rtsbuilding.network;
 
-import com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.*;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
-import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
-import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
-import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import net.minecraft.util.IThreadListener;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 /**
- * Unified S2C dispatch bridge that keeps dedicated servers from loading
- * client-only handler classes.
+ * S2C 的专服安全分派器。
  *
- * <p>Each domain gets one dispatch method using Java 21 pattern matching,
- *
- * <p>The {@code IS_CLIENT} guard ensures {@code RtsClientNetworkHandlers} is
- * never loaded on dedicated server runtimes.
+ * <p>公共注册路径不链接任何 net.minecraft.client 或项目 client 包。只有消息真正
+ * 到达客户端并切回客户端主线程后，才按类名加载客户端控制器。这样专用服务端在
+ * 注册客户端消息处理器时不会触发客户端类验证。</p>
  */
 public final class ClientPayloadDispatcher {
-    private static final boolean IS_CLIENT = FMLEnvironment.dist == Dist.CLIENT;
+    private static final String CLIENT_CONTROLLER =
+            "com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController";
+    private static final String BLUEPRINT_PANEL =
+            "com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel";
+    private static final String MINECRAFT_CLIENT = "net.minecraft.client.Minecraft";
+    private static final String BUILDER_SCREEN =
+            "com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen";
 
     private ClientPayloadDispatcher() {
     }
 
-    // ======================================================================
-    //  Camera domain
-    // ======================================================================
-
-    public static void dispatchCamera(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CRtsCameraStatePayload p ->
-                    RtsClientNetworkHandlers.handleCameraState(p, ctx);
-            case S2CRtsCameraAnchorPayload p ->
-                    RtsClientNetworkHandlers.handleCameraAnchor(p, ctx);
-            default -> {}
+    public static final class CameraStateHandler implements IMessageHandler<S2CRtsCameraStatePayload, IMessage> {
+        @Override
+        public IMessage onMessage(final S2CRtsCameraStatePayload message, MessageContext context) {
+            schedule(context, new Runnable() {
+                @Override
+                public void run() {
+                    invokeController("applyServerCameraState", S2CRtsCameraStatePayload.class, message);
+                }
+            });
+            return null;
         }
     }
 
-    // ======================================================================
-    //  Storage domain
-    // ======================================================================
-
-    public static void dispatchStorage(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CRtsStoragePagePayload p ->
-                    RtsClientNetworkHandlers.handleStoragePage(p, ctx);
-            case S2CRtsStorageDirtyPayload p ->
-                    RtsClientNetworkHandlers.handleStorageDirty(p, ctx);
-            case S2CRtsRemoteMenuHintPayload p ->
-                    RtsClientNetworkHandlers.handleRemoteMenuHint(p, ctx);
-            default -> {}
+    public static final class CameraAnchorHandler implements IMessageHandler<S2CRtsCameraAnchorPayload, IMessage> {
+        @Override
+        public IMessage onMessage(final S2CRtsCameraAnchorPayload message, MessageContext context) {
+            schedule(context, new Runnable() {
+                @Override
+                public void run() {
+                    invokeController("applyServerCameraAnchor", S2CRtsCameraAnchorPayload.class, message);
+                }
+            });
+            return null;
         }
     }
 
-    // ======================================================================
-    //  Builder domain
-    // ======================================================================
-
-    public static void dispatchBuilder(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CRtsMineProgressPayload p ->
-                    RtsClientNetworkHandlers.handleMineProgress(p, ctx);
-            case S2CRtsUltimineProgressPayload p ->
-                    RtsClientNetworkHandlers.handleUltimineProgress(p, ctx);
-            case S2CRtsHarvestTierSkippedPayload p ->
-                    RtsClientNetworkHandlers.handleHarvestTierSkipped(p, ctx);
-            case S2CRtsPlaceAnimationPayload p ->
-                    RtsClientNetworkHandlers.handlePlaceAnimation(p, ctx);
-            case S2CRtsBreakAnimationPayload p ->
-                    RtsClientNetworkHandlers.handleBreakAnimation(p, ctx);
-            case S2CRtsBlockActionSoundPayload p ->
-                    RtsClientNetworkHandlers.handleBlockActionSound(p, ctx);
-            case S2CRtsHistorySyncPayload p ->
-                    RtsClientNetworkHandlers.handleHistorySync(p, ctx);
-            case S2CRtsWorkflowProgressPayload p ->
-                    RtsClientNetworkHandlers.handleWorkflowProgress(p, ctx);
-            case S2CRtsWorkflowProgressBatchPayload p ->
-                    RtsClientNetworkHandlers.handleWorkflowProgressBatch(p, ctx);
-            case S2CRtsResumePlacementScanPayload p ->
-                    RtsClientNetworkHandlers.handleResumePlacementScan(p, ctx);
-            case S2CRtsBlueprintResumeScanPayload p ->
-                    RtsClientNetworkHandlers.handleBlueprintResumeScan(p, ctx);
-            default -> {}
+    public static final class BlueprintStatusHandler implements IMessageHandler<S2CBlueprintStatusPayload, IMessage> {
+        @Override
+        public IMessage onMessage(final S2CBlueprintStatusPayload message, MessageContext context) {
+            schedule(context, new Runnable() {
+                @Override
+                public void run() {
+                    invokeStatic(BLUEPRINT_PANEL, "setStatus",
+                            new Class<?>[]{byte.class, String.class, String.class},
+                            message.status(), message.messageKey(), message.detail());
+                }
+            });
+            return null;
         }
     }
 
-    // ======================================================================
-    //  Craft domain
-    // ======================================================================
-
-    public static void dispatchCraft(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CRtsCraftablesPayload p ->
-                    RtsClientNetworkHandlers.handleCraftables(p, ctx);
-            case S2CRtsCraftFeedbackPayload p ->
-                    RtsClientNetworkHandlers.handleCraftFeedback(p, ctx);
-            default -> {}
+    public static final class BlueprintResumeScanHandler
+            implements IMessageHandler<S2CRtsBlueprintResumeScanPayload, IMessage> {
+        @Override
+        public IMessage onMessage(final S2CRtsBlueprintResumeScanPayload message, MessageContext context) {
+            schedule(context, new Runnable() {
+                @Override
+                public void run() {
+                    openBlueprintResumePanel(message);
+                }
+            });
+            return null;
         }
     }
 
-    // ======================================================================
-    //  Progression domain
-    // ======================================================================
-
-    public static void dispatchProgression(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CRtsProgressionStatePayload p ->
-                    RtsClientNetworkHandlers.handleProgressionState(p, ctx);
-            case S2CRtsQuestDetectStatusPayload p ->
-                    RtsClientNetworkHandlers.handleQuestDetectStatus(p, ctx);
-            default -> {}
+    /** 仅在客户端消息真正到达后，才按字符串加载客户端控制器。 */
+    public static final class StoragePageHandler implements IMessageHandler<S2CRtsStoragePagePayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsStoragePagePayload message, MessageContext context) {
+            schedule(context, new Runnable() {@Override public void run() {
+                invokeController("applyStoragePage", S2CRtsStoragePagePayload.class, message);
+            }});
+            return null;
         }
     }
 
-    // ======================================================================
-    //  Range-culling domain
-    // ======================================================================
-
-    public static void dispatchCulling(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        if (payload instanceof S2CRtsCullingStatePayload p) {
-            RtsClientNetworkHandlers.handleCullingState(p, ctx);
+    public static final class StorageDirtyHandler implements IMessageHandler<S2CRtsStorageDirtyPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsStorageDirtyPayload message, MessageContext context) {
+            schedule(context, new Runnable() {@Override public void run() {
+                invokeController("applyStorageDirty", S2CRtsStorageDirtyPayload.class, message);
+            }});
+            return null;
         }
     }
 
-    // ======================================================================
-    //  Plugin domain
-    // ======================================================================
-
-    public static void dispatchPlugin(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CRtsPluginStatePayload p ->
-                    RtsClientNetworkHandlers.handlePluginState(p, ctx);
-            default -> {}
+    public static final class RemoteMenuHintHandler
+            implements IMessageHandler<S2CRtsRemoteMenuHintPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsRemoteMenuHintPayload message, MessageContext context) {
+            schedule(context, new Runnable() {@Override public void run() {
+                invokeController("applyRemoteMenuHint", S2CRtsRemoteMenuHintPayload.class, message);
+            }});
+            return null;
         }
     }
 
-    // ======================================================================
-    //  Feedback domain
-    // ======================================================================
+    private static void schedule(MessageContext context, Runnable task) {
+        IThreadListener thread = FMLCommonHandler.instance().getWorldThread(context.netHandler);
+        thread.addScheduledTask(task);
+    }
 
-    public static void dispatchFeedback(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CRtsDamageFeedbackPayload p ->
-                    RtsClientNetworkHandlers.handleDamageFeedback(p, ctx);
-            default -> {}
+    private static void invokeController(String methodName, Class<?> payloadType, Object payload) {
+        try {
+            Class<?> controllerClass = Class.forName(CLIENT_CONTROLLER);
+            Object controller = controllerClass.getMethod("get").invoke(null);
+            Method method = controllerClass.getMethod(methodName, payloadType);
+            method.invoke(controller, payload);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException exception) {
+            throw new IllegalStateException("1.12.2 client camera adapter is unavailable", exception);
+        } catch (InvocationTargetException exception) {
+            Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            throw new IllegalStateException("Client camera handler failed", cause);
         }
     }
 
-    // ======================================================================
-    //  Blueprint domain
-    // ======================================================================
-
-    public static void dispatchBlueprintStatus(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CBlueprintStatusPayload p ->
-                    RtsClientNetworkHandlers.handleBlueprintStatus(p, ctx);
-            default -> {}
+    private static void invokeStatic(String className, String methodName, Class<?>[] parameterTypes, Object... values) {
+        try {
+            Class<?> target = Class.forName(className);
+            target.getMethod(methodName, parameterTypes).invoke(null, values);
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException exception) {
+            throw new IllegalStateException("1.12.2 client adapter is unavailable: " + className, exception);
+        } catch (InvocationTargetException exception) {
+            throw propagate("Client static handler failed", exception);
         }
+    }
+
+    private static void openBlueprintResumePanel(S2CRtsBlueprintResumeScanPayload payload) {
+        try {
+            Class<?> minecraftClass = Class.forName(MINECRAFT_CLIENT);
+            Object minecraft = minecraftClass.getMethod("getMinecraft").invoke(null);
+            Object screen = minecraftClass.getField("currentScreen").get(minecraft);
+            Class<?> builderScreenClass = Class.forName(BUILDER_SCREEN);
+            if (!builderScreenClass.isInstance(screen)) return;
+            Object panel = builderScreenClass.getMethod("getBlueprintResumePanel").invoke(screen);
+            panel.getClass().getMethod("openWithData", S2CRtsBlueprintResumeScanPayload.class).invoke(panel, payload);
+        } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException | IllegalAccessException exception) {
+            throw new IllegalStateException("1.12.2 blueprint resume UI adapter is unavailable", exception);
+        } catch (InvocationTargetException exception) {
+            throw propagate("Blueprint resume UI failed", exception);
+        }
+    }
+
+    private static RuntimeException propagate(String message, InvocationTargetException exception) {
+        Throwable cause = exception.getCause();
+        if (cause instanceof RuntimeException) return (RuntimeException) cause;
+        return new IllegalStateException(message, cause);
     }
 }

@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * 掉落物漏斗服务接口——自动收集地面掉落物并存入链接存储。
@@ -19,7 +19,7 @@ public interface FunnelService {
      * @param player  目标玩家
      * @param session 玩家的 RTS 储存会话
      */
-    void enable(ServerPlayer player, RtsStorageSession session);
+    void enable(EntityPlayerMP player, RtsStorageSession session);
 
     /**
      * 禁用掉落物漏斗并清空内部缓冲区中的所有物品到链接存储。
@@ -27,7 +27,7 @@ public interface FunnelService {
      * @param player  目标玩家
      * @param session 玩家的 RTS 储存会话
      */
-    void disableAndFlush(ServerPlayer player, RtsStorageSession session);
+    void disableAndFlush(EntityPlayerMP player, RtsStorageSession session);
 
     /**
      * 更新漏斗的掉落物收集目标位置。
@@ -37,7 +37,7 @@ public interface FunnelService {
      * @param session 玩家的 RTS 储存会话
      * @param target  新的收集目标位置
      */
-    void updateTarget(ServerPlayer player, RtsStorageSession session, BlockPos target);
+    void updateTarget(EntityPlayerMP player, RtsStorageSession session, BlockPos target);
 
     /**
      * 每 Tick 处理漏斗逻辑：扫描目标位置的掉落物并吸入链接存储。
@@ -45,12 +45,27 @@ public interface FunnelService {
      * @param player  目标玩家
      * @param session 玩家的 RTS 储存会话
      */
-    void tick(ServerPlayer player, RtsStorageSession session);
+    void tick(EntityPlayerMP player, RtsStorageSession session);
 
     /** 由统一 Task Engine 调用的预算化入口。 */
     FunnelTickResult tickBudgeted(
-            ServerPlayer player, RtsStorageSession session, int maxUnits, long deadlineNanos);
+            EntityPlayerMP player, RtsStorageSession session, int maxUnits, long deadlineNanos);
 
-    record FunnelTickResult(int processedUnits, boolean active) {
+    final class FunnelTickResult {
+        private final int processedUnits;
+        private final boolean active;
+
+        public FunnelTickResult(int processedUnits, boolean active) {
+            this.processedUnits = processedUnits;
+            this.active = active;
+        }
+
+        public int processedUnits() {
+            return processedUnits;
+        }
+
+        public boolean active() {
+            return active;
+        }
     }
 }

@@ -20,14 +20,14 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.level.Level;
 
 import java.util.ArrayList;
@@ -74,7 +74,7 @@ public final class DurableBlueprintTaskBridge {
 
     QueueResult queue(BlueprintContext context) {
         Objects.requireNonNull(context, "context");
-        ServerPlayer player = context.player();
+        EntityPlayerMP player = context.player();
         SubmissionId submissionId = new SubmissionId(context.getSubmissionId());
         TaskId taskId = TaskId.fromSubmission(player.getUUID(), submissionId);
         ResourceKey<Level> dimension = player.serverLevel().dimension();
@@ -141,7 +141,7 @@ public final class DurableBlueprintTaskBridge {
             } else {
                 FrozenSubmission failed = pending.remove(completion.taskId());
                 if (failed != null) {
-                    ServerPlayer player = server.getPlayerList().getPlayer(failed.ownerId());
+                    EntityPlayerMP player = server.getPlayerList().getPlayer(failed.ownerId());
                     if (player != null) {
                         BlueprintNetworkHandlers.send(player, S2CBlueprintStatusPayload.ERROR,
                                 "screen.rtsbuilding.blueprints.status.admission_failed", "");
@@ -176,7 +176,7 @@ public final class DurableBlueprintTaskBridge {
                 FrozenSubmission failed = pending.remove(taskId);
                 UUID ownerId = failed == null && snapshot != null ? snapshot.ownerId()
                         : failed == null ? null : failed.ownerId();
-                ServerPlayer player = ownerId == null ? null : server.getPlayerList().getPlayer(ownerId);
+                EntityPlayerMP player = ownerId == null ? null : server.getPlayerList().getPlayer(ownerId);
                 if (player != null) {
                     if (snapshot != null && snapshot.workflowEntryId() >= 0) {
                         RtsWorkflowEngine.getInstance().from(player, snapshot.workflowEntryId())
@@ -225,7 +225,7 @@ public final class DurableBlueprintTaskBridge {
         return context != null && context.hasData(BlueprintContext.KEY_DURABLE_TASK_ID);
     }
 
-    /** 登出前由 Task Engine 调用：先冻结最新进度，再释放所有 ServerPlayer/Context 强引用。 */
+    /** 登出前由 Task Engine 调用：先冻结最新进度，再释放所有 EntityPlayerMP/Context 强引用。 */
     void detachOwner(UUID ownerId) {
         List<TaskId> detached = new ArrayList<>();
         for (Map.Entry<TaskId, ActiveBinding> entry : active.entrySet()) {
@@ -269,7 +269,7 @@ public final class DurableBlueprintTaskBridge {
             pending.remove(taskId);
             return true;
         }
-        ServerPlayer player = server.getPlayerList().getPlayer(snapshot.ownerId());
+        EntityPlayerMP player = server.getPlayerList().getPlayer(snapshot.ownerId());
         if (player == null) return false;
         ResourceKey<Level> dimension = parseDimension(snapshot.dimensionId());
         if (!player.serverLevel().dimension().equals(dimension)) return false;
@@ -312,7 +312,7 @@ public final class DurableBlueprintTaskBridge {
                 if (legacyEntry.type() != RtsWorkflowType.BLUEPRINT_BUILD) {
                     throw new IllegalStateException("legacy 蓝图槽已经被其他 Workflow 占用");
                 }
-                CompoundTag extra = legacyEntry.getExtraData();
+                NBTTagCompound extra = legacyEntry.getExtraData();
                 ProjectionClaimDecision decision = decideProjectionClaim(extra, taskId.value(), true);
                 if (decision == ProjectionClaimDecision.FAIL_CONFLICT) {
                     throw new IllegalStateException("legacy 蓝图槽已绑定另一 durable TaskId");
@@ -323,7 +323,7 @@ public final class DurableBlueprintTaskBridge {
         if (token == null && snapshot.workflowEntryId() >= 0) {
             var claimed = workflowEngine.findEntryByPlayer(player, snapshot.workflowEntryId());
             if (claimed != null) {
-                CompoundTag extra = claimed.getExtraData();
+                NBTTagCompound extra = claimed.getExtraData();
                 if (claimed.type() != RtsWorkflowType.BLUEPRINT_BUILD) {
                     throw new IllegalStateException("durable root 的 workflowEntryId 已被其他投影占用");
                 }
@@ -345,7 +345,7 @@ public final class DurableBlueprintTaskBridge {
         try {
             context.setData(PipelineContext.KEY_WORKFLOW_ENTRY_ID, token.entryId());
             context.setData(BlueprintContext.KEY_DURABLE_TASK_ID, taskId.value());
-            CompoundTag projection = new CompoundTag();
+            NBTTagCompound projection = new NBTTagCompound();
             projection.putUUID(WORKFLOW_TASK_ID, taskId.value());
             workflowEngine.setWorkflowExtraData(player, token.entryId(), projection);
             TaskRecord record = taskEngine.activateDurableBlueprint(taskId, snapshot, context, dimension);
@@ -363,7 +363,7 @@ public final class DurableBlueprintTaskBridge {
         }
     }
 
-    private BlueprintContext materializeFromDurableRoot(ServerPlayer player, TaskSnapshot snapshot) {
+    private BlueprintContext materializeFromDurableRoot(EntityPlayerMP player, TaskSnapshot snapshot) {
         var blob = persistence.loadDurableBlueprint(snapshot.id());
         RtsBlueprint blueprint = VanillaStructureNbtReader.parse(
                 blob.structure(), blob.name(), blob.sourceName(), player.registryAccess());
@@ -374,8 +374,8 @@ public final class DurableBlueprintTaskBridge {
     }
 
     private static BlueprintContext materialize(
-            ServerPlayer player, TaskSnapshot snapshot, RtsBlueprint blueprint) {
-        CompoundTag payload = snapshot.payload();
+            EntityPlayerMP player, TaskSnapshot snapshot, RtsBlueprint blueprint) {
+        NBTTagCompound payload = snapshot.payload();
         requirePayload(payload, snapshot.id());
         BlueprintContext context = BlueprintContext.builder(player)
                 .submissionId(snapshot.submissionId().value())
@@ -419,8 +419,8 @@ public final class DurableBlueprintTaskBridge {
                 runtimePayload(before.payload(), context));
     }
 
-    private static CompoundTag runtimePayload(CompoundTag base, BlueprintContext context) {
-        CompoundTag payload = base.copy();
+    private static NBTTagCompound runtimePayload(NBTTagCompound base, BlueprintContext context) {
+        NBTTagCompound payload = base.copy();
         payload.putBoolean(PAYLOAD_PREPARING, context.isPreparing());
         LinkedList<Integer> remaining = context.getRemainingQueue();
         if (remaining == null || remaining.isEmpty()) {
@@ -459,7 +459,7 @@ public final class DurableBlueprintTaskBridge {
 
     /** 将“先 recovery completion、后 legacy restore”的顺序反转压缩成可执行纯状态门。 */
     static ProjectionClaimDecision decideProjectionClaim(
-            CompoundTag extra, UUID taskId, boolean hasFrozenLegacyRequest) {
+            NBTTagCompound extra, UUID taskId, boolean hasFrozenLegacyRequest) {
         if (extra == null || !extra.hasUUID(WORKFLOW_TASK_ID)) {
             return hasFrozenLegacyRequest
                     ? ProjectionClaimDecision.CLAIM_HEAVY
@@ -498,7 +498,7 @@ public final class DurableBlueprintTaskBridge {
         return ResourceKey.create(Registries.DIMENSION, parsed);
     }
 
-    private static void requirePayload(CompoundTag payload, TaskId taskId) {
+    private static void requirePayload(NBTTagCompound payload, TaskId taskId) {
         if (payload.getInt(PAYLOAD_SCHEMA) != 1
                 || !payload.hasUUID(PAYLOAD_ASSET_ID)
                 || !payload.contains(PAYLOAD_ANCHOR, Tag.TAG_LONG)
@@ -536,12 +536,12 @@ public final class DurableBlueprintTaskBridge {
     private record FrozenSubmission(TaskId taskId, SubmissionId submissionId, UUID ownerId,
             ResourceKey<Level> dimension, RtsBlueprint blueprint, BlockPos anchor,
             BlockPos center, int ySteps, int xSteps, int zSteps,
-            int preferredWorkflowEntryId, CompoundTag structure, TaskSnapshot initialSnapshot) {
+            int preferredWorkflowEntryId, NBTTagCompound structure, TaskSnapshot initialSnapshot) {
         static FrozenSubmission from(TaskId taskId, SubmissionId submissionId,
                 BlueprintContext context, ResourceKey<Level> dimension) {
             RtsBlueprint blueprint = context.getBlueprint();
-            CompoundTag structure = BlueprintWriters.toVanillaStructureTag(blueprint);
-            CompoundTag payload = new CompoundTag();
+            NBTTagCompound structure = BlueprintWriters.toVanillaStructureTag(blueprint);
+            NBTTagCompound payload = new NBTTagCompound();
             payload.putInt(PAYLOAD_SCHEMA, 1);
             payload.putUUID(PAYLOAD_ASSET_ID, TaskAssetId.forTask(taskId, "blueprint").value());
             payload.putLong(PAYLOAD_ANCHOR, context.getAnchor().asLong());
@@ -590,7 +590,7 @@ public final class DurableBlueprintTaskBridge {
         }
 
         @Override
-        public CompoundTag structure() {
+        public NBTTagCompound structure() {
             return structure.copy();
         }
 
@@ -602,7 +602,7 @@ public final class DurableBlueprintTaskBridge {
                     && preferredWorkflowEntryId == other.preferredWorkflowEntryId;
         }
 
-        BlueprintContext materialize(ServerPlayer player, TaskSnapshot snapshot) {
+        BlueprintContext materialize(EntityPlayerMP player, TaskSnapshot snapshot) {
             return DurableBlueprintTaskBridge.materialize(player, snapshot, blueprint);
         }
     }

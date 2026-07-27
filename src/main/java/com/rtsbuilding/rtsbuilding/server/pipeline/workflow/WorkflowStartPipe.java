@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowToken;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 
@@ -26,7 +27,17 @@ import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManage
  *   <li>{@code "workflowEntryId"} —— {@code int} 不可变的条目 ID</li>
  * </ul>
  */
-public record WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority defaultPriority) implements PipelinePipe<PipelineContext> {
+public final class WorkflowStartPipe implements PipelinePipe<PipelineContext> {
+    private final RtsWorkflowType defaultType;
+    private final RtsWorkflowPriority defaultPriority;
+
+    public WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority defaultPriority) {
+        this.defaultType = java.util.Objects.requireNonNull(defaultType, "defaultType");
+        this.defaultPriority = java.util.Objects.requireNonNull(defaultPriority, "defaultPriority");
+    }
+
+    public RtsWorkflowType defaultType() { return defaultType; }
+    public RtsWorkflowPriority defaultPriority() { return defaultPriority; }
 
     public static final TypedKey<RtsWorkflowType> ARG_WORKFLOW_TYPE =
             new TypedKey<>("workflowType", RtsWorkflowType.class);
@@ -50,7 +61,7 @@ public record WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority
         Integer totalBlocksArg = ctx.getArg(ARG_TOTAL_BLOCKS);
         int totalBlocks = totalBlocksArg != null ? totalBlocksArg : 0;
 
-        var token = RtsWorkflowEngine.getInstance()
+        RtsWorkflowToken token = RtsWorkflowEngine.getInstance()
                 .start(ctx.player(), type, priority, totalBlocks)
                 .orElse(null);
 

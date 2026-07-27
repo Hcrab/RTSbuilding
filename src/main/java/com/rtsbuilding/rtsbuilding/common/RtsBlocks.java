@@ -1,111 +1,73 @@
 package com.rtsbuilding.rtsbuilding.common;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.event.RegistryEvent;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
-/**
- * 方块注册器 —— RTSbuilding 的所有方块在此集中注册。
- * <p>
- * 使用 {@link DeferredRegister} 进行惰性注册，确保在正确的注册阶段完成。
- * 提供 {@link #simpleBlock(String, BlockBehaviour.Properties, boolean)} 和
- * {@link #registerBlock(String, java.util.function.Supplier, boolean)} 两种工厂方法，
- * 分别用于注册普通方块和自定义方块子类。
- * 通过 {@link #getCreativeTabBlocks()} 获取需加入创造栏的方块列表。
- */
+/** 1.12.2 方块注册器；方块与对应 ItemBlock 仍保持同一注册 ID。 */
+@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsBlocks {
+    private static final List<Handle<? extends Block>> ALL_BLOCKS = new ArrayList<>();
+    private static final Set<Handle<? extends Block>> CREATIVE_TAB_BLOCKS = new LinkedHashSet<>();
 
-    /** 统一的方块注册表实例 */
-    public static final DeferredRegister<Block> BLOCKS =
-            DeferredRegister.create(Registries.BLOCK, RtsbuildingMod.MODID);
-
-    /** 需要自动注册到创造栏的方块集合（按注册顺序排列） */
-    private static final Set<DeferredHolder<Block, ? extends Block>> CREATIVE_TAB_BLOCKS = new LinkedHashSet<>();
-
-    // ============================================================
-    //  方块定义
-    // ============================================================
-
-    // 方块注册示例（取消注释即可使用）
-    // public static final DeferredHolder<Block, Block> EXAMPLE_BLOCK = simpleBlock("example_block",
-    //         BlockBehaviour.Properties.of().strength(2.0f).requiresCorrectToolForDrops(),
-    //         true);
-
-    // ============================================================
-    //  工厂方法
-    // ============================================================
-
-    /**
-     * 注册一个简单的普通方块。
-     *
-     * @param id         方块的注册名
-     * @param properties 方块属性（硬度、声音等）
-     * @param creative   是否自动添加到创造栏标签页
-     * @return 方块的 {@link DeferredHolder}
-     */
-    public static DeferredHolder<Block, Block> simpleBlock(String id, BlockBehaviour.Properties properties, boolean creative) {
-        DeferredHolder<Block, Block> holder = BLOCKS.register(id, () -> new Block(properties));
-        if (creative) {
-            CREATIVE_TAB_BLOCKS.add(holder);
-        }
-        return holder;
+    public static Handle<Block> simpleBlock(String id, Material material, boolean creative) {
+        return registerBlock(id, () -> new Block(material), creative);
     }
 
-    /**
-     * 注册任意自定义 {@link Block} 子类的方块。
-     *
-     * @param id       方块的注册名
-     * @param factory  创建方块实例的工厂函数
-     * @param creative 是否自动添加到创造栏标签页
-     * @return 方块的 {@link DeferredHolder}
-     */
-    public static <T extends Block> DeferredHolder<Block, T> registerBlock(String id,
-            java.util.function.Supplier<? extends T> factory, boolean creative) {
-        DeferredHolder<Block, T> holder = BLOCKS.register(id, factory);
-        if (creative) {
-            CREATIVE_TAB_BLOCKS.add(holder);
-        }
-        return holder;
+    public static <T extends Block> Handle<T> registerBlock(String id, Supplier<? extends T> factory,
+            boolean creative) {
+        T block = factory.get();
+        block.setRegistryName(new ResourceLocation(RtsbuildingMod.MODID, id));
+        block.setTranslationKey(RtsbuildingMod.MODID + "." + id);
+        if (creative) block.setCreativeTab(RtsCreativeTabs.RTSBUILDING_TAB);
+        Handle<T> handle = new Handle<>(id, block);
+        ALL_BLOCKS.add(handle);
+        if (creative) CREATIVE_TAB_BLOCKS.add(handle);
+        return handle;
     }
 
-    // ============================================================
-    //  注册入口
-    // ============================================================
-
-    /**
-     * 在模组总线上注册所有方块。
-     * 应当在 {@link RtsbuildingMod} 的构造函数中调用。
-     */
-    public static void register(IEventBus modEventBus) {
-        BLOCKS.register(modEventBus);
+    @SubscribeEvent
+    public static void registerBlocks(RegistryEvent.Register<Block> event) {
+        Block[] blocks = new Block[ALL_BLOCKS.size()];
+        for (int i = 0; i < ALL_BLOCKS.size(); i++) blocks[i] = ALL_BLOCKS.get(i).get();
+        event.getRegistry().registerAll(blocks);
     }
 
-    // ============================================================
-    //  工具方法
-    // ============================================================
-
-    /**
-     * 获取所有标记为 {@code creative = true} 的方块集合。
-     *
-     * @return 不可修改的创造栏方块集合，按注册顺序排列
-     */
-    public static Set<DeferredHolder<Block, ? extends Block>> getCreativeTabBlocks() {
+    public static Set<Handle<? extends Block>> getCreativeTabBlocks() {
         return Collections.unmodifiableSet(CREATIVE_TAB_BLOCKS);
     }
 
-    /**
-     * 获取所有已注册方块的 {@link DeferredHolder} 列表。
-     */
-    public static java.util.Collection<DeferredHolder<Block, ? extends Block>> getAllBlocks() {
-        return BLOCKS.getEntries();
+    public static Collection<Handle<? extends Block>> getAllBlocks() {
+        return Collections.unmodifiableList(ALL_BLOCKS);
+    }
+
+    public static void register() {
+        // @EventBusSubscriber 负责 RegistryEvent；保留入口用于主生命周期显式触发类加载。
+    }
+
+    public static final class Handle<T> {
+        private final String id;
+        private final T value;
+
+        private Handle(String id, T value) {
+            this.id = id;
+            this.value = value;
+        }
+
+        public String id() { return id; }
+        public T get() { return value; }
     }
 
     private RtsBlocks() {

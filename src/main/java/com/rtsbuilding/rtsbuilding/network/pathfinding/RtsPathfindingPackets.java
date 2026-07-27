@@ -1,18 +1,3 @@
 package com.rtsbuilding.rtsbuilding.network.pathfinding;
-
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-
-/**
- * Registers RTS pathfinding C2S packet.
- */
-public final class RtsPathfindingPackets {
-
-    private RtsPathfindingPackets() {}
-
-    public static void register(PayloadRegistrar registrar) {
-        registrar.playToServer(
-                C2SRtsPathfindingPayload.TYPE,
-                C2SRtsPathfindingPayload.STREAM_CODEC,
-                RtsPathfindingNetworkHandlers::handlePathfinding);
-    }
-}
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;import net.minecraftforge.fml.relauncher.Side;
+public final class RtsPathfindingPackets{private RtsPathfindingPackets(){}public static void register(){RtsPayloadRegistrar.registerMessage(163,RtsPathfindingNetworkHandlers.Handler.class,C2SRtsPathfindingPayload.class,Side.SERVER);}}

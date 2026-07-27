@@ -16,8 +16,8 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RtsUltimineProcessor;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,7 +37,7 @@ import java.util.Objects;
  * <p><b>ULTIMINE:</b></p>
  * <ul>
  *   <li>{@code "pos"} —— {@link BlockPos} 种子位置</li>
- *   <li>{@code "face"} —— {@link Direction} 挖掘面（可选）</li>
+ *   <li>{@code "face"} —— {@link EnumFacing} 挖掘面（可选）</li>
  *   <li>{@code "requestedLimit"} —— {@code int} 最大挖掘方块数</li>
  *   <li>{@code "mode"} —— {@code byte} 连锁挖掘模式</li>
  * </ul>
@@ -59,8 +59,8 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
 
     public static final TypedKey<BlockPos> ARG_POS =
             new TypedKey<>("pos", BlockPos.class);
-    public static final TypedKey<Direction> ARG_FACE =
-            new TypedKey<>("face", Direction.class);
+    public static final TypedKey<EnumFacing> ARG_FACE =
+            new TypedKey<>("face", EnumFacing.class);
     public static final TypedKey<Integer> ARG_REQUESTED_LIMIT =
             new TypedKey<>("requestedLimit", Integer.class);
     public static final TypedKey<Byte> ARG_MODE =
@@ -145,7 +145,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
         switch (type) {
             case ULTIMINE: {
                 BlockPos pos = mctx.getPos();
-                Direction face = mctx.getFace();
+                EnumFacing face = mctx.getFace();
                 int requestedLimit = mctx.hasArg(ARG_REQUESTED_LIMIT)
                         ? Objects.requireNonNull(mctx.getArg(ARG_REQUESTED_LIMIT), "ULTIMINE missing required arg: requestedLimit") : Integer.MAX_VALUE;
                 byte mode = mctx.hasArg(ARG_MODE) ? Objects.requireNonNull(mctx.getArg(ARG_MODE), "ULTIMINE missing required arg: mode") : (byte) 0;

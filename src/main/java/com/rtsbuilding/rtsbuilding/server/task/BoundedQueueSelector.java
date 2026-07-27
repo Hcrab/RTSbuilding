@@ -25,7 +25,21 @@ public final class BoundedQueueSelector {
         return new Selection<>(null, limit, limit == roundSize);
     }
 
-    public record Selection<T>(T value, int inspected, boolean fullRoundExhausted) {
+    public static final class Selection<T> {
+        private final T value;
+        private final int inspected;
+        private final boolean fullRoundExhausted;
+
+        public Selection(T value, int inspected, boolean fullRoundExhausted) {
+            this.value = value;
+            this.inspected = inspected;
+            this.fullRoundExhausted = fullRoundExhausted;
+        }
+
+        public T value() { return value; }
+        public int inspected() { return inspected; }
+        public boolean fullRoundExhausted() { return fullRoundExhausted; }
+
         public boolean found() {
             return value != null;
         }

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.api;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 /**
  * 会话查询 API。
@@ -17,5 +17,5 @@ public interface RtsSessionQueryAPI {
      * @param player 目标玩家
      * @return 当前模式，非 RTS 模式下返回 INTERACT
      */
-    BuilderMode getMode(ServerPlayer player);
+    BuilderMode getMode(EntityPlayerMP player);
 }

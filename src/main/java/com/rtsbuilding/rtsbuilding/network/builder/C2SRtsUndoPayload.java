@@ -1,24 +1,20 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-/**
- * 客户端→服务端：请求撤回一次操作。
- */
-public record C2SRtsUndoPayload() implements CustomPacketPayload {
-    public static final Type<C2SRtsUndoPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_undo"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsUndoPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> {},
-            (buf) -> new C2SRtsUndoPayload());
+/** 客户端请求撤回自己最近一次可撤回的 RTS 操作。 */
+public final class C2SRtsUndoPayload implements IMessage {
+    public C2SRtsUndoPayload() {
+    }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public void fromBytes(ByteBuf buffer) {
+        // 无字段；玩家身份和历史栈均由服务端连接上下文决定。
+    }
+
+    @Override
+    public void toBytes(ByteBuf buffer) {
+        // 无字段。
     }
 }

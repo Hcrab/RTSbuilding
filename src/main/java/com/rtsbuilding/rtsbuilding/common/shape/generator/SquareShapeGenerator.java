@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 
@@ -23,8 +23,8 @@ public class SquareShapeGenerator extends AreaShapeGenerator {
     @Override
     public List<BlockPos> generatePositions(AreaShapeInput input, ShapeFillMode fillMode) {
         // 根据点击面确定平面上的两个轴向
-        Direction face = input.clickedFace();
-        Direction[] axes = resolvePlaneAxes(face);
+        EnumFacing face = input.clickedFace();
+        EnumFacing[] axes = resolvePlaneAxes(face);
 
         // 计算偏移并限制范围
         int dx = clampOffset(input.end().getX() - input.start().getX());

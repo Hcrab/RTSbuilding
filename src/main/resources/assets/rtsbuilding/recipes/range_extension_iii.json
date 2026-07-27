@@ -1,0 +1,25 @@
+{
+    "type":  "forge:ore_shaped",
+    "pattern":  [
+                    " G ",
+                    "RPR",
+                    " G "
+                ],
+    "key":  {
+                "G":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "ingotGold"
+                      },
+                "P":  {
+                          "item":  "rtsbuilding:range_extension_ii"
+                      },
+                "R":  {
+                          "type":  "forge:ore_dict",
+                          "ore":  "dustRedstone"
+                      }
+            },
+    "result":  {
+                   "item":  "rtsbuilding:range_extension_iii",
+                   "count":  1
+               }
+}

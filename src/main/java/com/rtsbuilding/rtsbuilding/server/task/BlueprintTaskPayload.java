@@ -4,8 +4,8 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
@@ -53,7 +53,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
         return context;
     }
 
-    public ServerPlayer player() {
+    public EntityPlayerMP player() {
         return context.player();
     }
 

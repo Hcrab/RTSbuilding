@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtStringLimits;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskCodec;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NbtAccounter;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.Tag;
@@ -32,14 +32,14 @@ public final class BlueprintBlobCodec {
     private static final String HASH_DOMAIN = "RTSBuilding/blueprint-blob";
     private static final int HASH_VERSION = 1;
     private static final String KIND = "blueprint";
-    private static final Set<String> EXACT_FIELDS = Set.of(
+    private static final Set<String> EXACT_FIELDS = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(
             "schema", "asset_id", "task_id", "block_count", "name", "source_name",
             "format", "sha256", "structure");
 
     private final TaskCodec boundedNbt = new TaskCodec();
 
     public BlueprintBlobRecord freeze(TaskId taskId, int blockCount, String name,
-            String sourceName, String format, CompoundTag structure) {
+            String sourceName, String format, NBTTagCompound structure) {
         TaskAssetId assetId = TaskAssetId.forTask(taskId, KIND);
         String safeName = safe(name);
         String safeSourceName = safe(sourceName);
@@ -50,13 +50,13 @@ public final class BlueprintBlobCodec {
                 structure);
     }
 
-    public CompoundTag encode(BlueprintBlobRecord record) {
+    public NBTTagCompound encode(BlueprintBlobRecord record) {
         validateLogical(record);
         String actualHash = hashContent(record);
         if (!actualHash.equals(record.sha256())) {
             throw new BlobCodecException("蓝图 blob 内容与 sha256 不一致");
         }
-        CompoundTag root = contentTag(record);
+        NBTTagCompound root = contentTag(record);
         root.putInt("schema", CURRENT_SCHEMA);
         root.putString("sha256", record.sha256());
         return root;
@@ -74,7 +74,7 @@ public final class BlueprintBlobCodec {
                 record.structureView(), MAX_LOGICAL_BYTES, MAX_NBT_NODES);
     }
 
-    public BlueprintBlobRecord decode(CompoundTag root) {
+    public BlueprintBlobRecord decode(NBTTagCompound root) {
         try {
             if (!root.getAllKeys().equals(EXACT_FIELDS)) {
                 throw new BlobCodecException("蓝图 blob 包含缺失或未知字段");
@@ -148,7 +148,7 @@ public final class BlueprintBlobCodec {
             throw new BlobCodecException("蓝图 blob 压缩文件大小越界: " + compressedBytes);
         }
         try {
-            CompoundTag root = NbtIo.readCompressed(input, NbtAccounter.create(MAX_DECODE_ACCOUNTING_BYTES));
+            NBTTagCompound root = NbtIo.readCompressed(input, NbtAccounter.create(MAX_DECODE_ACCOUNTING_BYTES));
             if (root == null) throw new BlobCodecException("蓝图 blob NBT 根标签为空");
             return decode(root);
         } catch (IOException failure) {
@@ -162,7 +162,7 @@ public final class BlueprintBlobCodec {
     }
 
     private void validateLogical(TaskAssetId assetId, TaskId taskId, int blockCount, String name,
-            String sourceName, String format, CompoundTag structure) {
+            String sourceName, String format, NBTTagCompound structure) {
         Objects.requireNonNull(assetId, "assetId");
         Objects.requireNonNull(taskId, "taskId");
         Objects.requireNonNull(structure, "structure");
@@ -183,8 +183,8 @@ public final class BlueprintBlobCodec {
         boundedNbt.estimatePayloadBytes(structure, MAX_LOGICAL_BYTES, MAX_NBT_NODES);
     }
 
-    private static CompoundTag contentTag(BlueprintBlobRecord record) {
-        CompoundTag content = new CompoundTag();
+    private static NBTTagCompound contentTag(BlueprintBlobRecord record) {
+        NBTTagCompound content = new NBTTagCompound();
         content.putUUID("asset_id", record.assetId().value());
         content.putUUID("task_id", record.taskId().value());
         content.putInt("block_count", record.blockCount());
@@ -201,8 +201,8 @@ public final class BlueprintBlobCodec {
     }
 
     private static String hashContent(TaskAssetId assetId, TaskId taskId, int blockCount, String name,
-            String sourceName, String format, CompoundTag structure) {
-        CompoundTag content = new CompoundTag();
+            String sourceName, String format, NBTTagCompound structure) {
+        NBTTagCompound content = new NBTTagCompound();
         content.putUUID("asset_id", assetId.value());
         content.putUUID("task_id", taskId.value());
         content.putInt("block_count", blockCount);
@@ -213,7 +213,7 @@ public final class BlueprintBlobCodec {
         return CanonicalNbtHasher.sha256(HASH_DOMAIN, HASH_VERSION, content);
     }
 
-    private static void require(CompoundTag root, String key, int type) {
+    private static void require(NBTTagCompound root, String key, int type) {
         if (!root.contains(key, type)) throw new BlobCodecException("缺少或错误的 blob 字段: " + key);
     }
 

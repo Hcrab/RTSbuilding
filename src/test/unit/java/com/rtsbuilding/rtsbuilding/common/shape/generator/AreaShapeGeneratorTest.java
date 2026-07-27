@@ -3,11 +3,12 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,7 +35,7 @@ class AreaShapeGeneratorTest {
 
         List<BlockPos> positions = generator.generatePositions(AreaShapeInput.of(start, end), ShapeFillMode.FILL);
 
-        assertEquals(List.of(
+        assertEquals(Arrays.asList(
                 new BlockPos(0, 64, 0),
                 new BlockPos(1, 64, 0),
                 new BlockPos(2, 64, 0),
@@ -45,7 +46,7 @@ class AreaShapeGeneratorTest {
     void squareFillAndHollowModesUseExpectedPlaneCells() {
         AreaShapeGenerator generator = ShapeGeneratorRegistry.getGenerator(AreaShape.SQUARE);
         BlockPos start = new BlockPos(0, 64, 0);
-        AreaShapeInput input = AreaShapeInput.of(start, new BlockPos(2, 64, 2), 0, Direction.UP, Direction.UP);
+        AreaShapeInput input = AreaShapeInput.of(start, new BlockPos(2, 64, 2), 0, EnumFacing.UP, EnumFacing.UP);
 
         List<BlockPos> fill = generator.generatePositions(input, ShapeFillMode.FILL);
         List<BlockPos> hollow = generator.generatePositions(input, ShapeFillMode.HOLLOW);
@@ -60,7 +61,7 @@ class AreaShapeGeneratorTest {
     void boxFillAndHollowModesKeepInteriorBoundaryContract() {
         AreaShapeGenerator generator = ShapeGeneratorRegistry.getGenerator(AreaShape.BOX);
         BlockPos start = new BlockPos(0, 64, 0);
-        AreaShapeInput input = AreaShapeInput.of(start, new BlockPos(2, 64, 2), 2, Direction.UP, Direction.UP);
+        AreaShapeInput input = AreaShapeInput.of(start, new BlockPos(2, 64, 2), 2, EnumFacing.UP, EnumFacing.UP);
 
         List<BlockPos> fill = generator.generatePositions(input, ShapeFillMode.FILL);
         List<BlockPos> hollow = generator.generatePositions(input, ShapeFillMode.HOLLOW);
@@ -75,7 +76,7 @@ class AreaShapeGeneratorTest {
     void cylinderUsesCircleFootprintAndHeightOffset() {
         AreaShapeGenerator generator = ShapeGeneratorRegistry.getGenerator(AreaShape.CYLINDER);
         BlockPos start = new BlockPos(0, 64, 0);
-        AreaShapeInput input = AreaShapeInput.of(start, new BlockPos(2, 64, 0), 2, Direction.UP, Direction.UP);
+        AreaShapeInput input = AreaShapeInput.of(start, new BlockPos(2, 64, 0), 2, EnumFacing.UP, EnumFacing.UP);
 
         List<BlockPos> fill = generator.generatePositions(input, ShapeFillMode.FILL);
         List<BlockPos> hollow = generator.generatePositions(input, ShapeFillMode.HOLLOW);
@@ -93,8 +94,8 @@ class AreaShapeGeneratorTest {
         AreaShapeGenerator circle = ShapeGeneratorRegistry.getGenerator(AreaShape.CIRCLE);
         AreaShapeGenerator cylinder = ShapeGeneratorRegistry.getGenerator(AreaShape.CYLINDER);
         BlockPos start = new BlockPos(0, 64, 0);
-        AreaShapeInput circleInput = AreaShapeInput.of(start, new BlockPos(3, 64, 0), 0, Direction.UP, Direction.UP);
-        AreaShapeInput cylinderInput = AreaShapeInput.of(start, new BlockPos(3, 64, 0), 0, Direction.UP, Direction.UP);
+        AreaShapeInput circleInput = AreaShapeInput.of(start, new BlockPos(3, 64, 0), 0, EnumFacing.UP, EnumFacing.UP);
+        AreaShapeInput cylinderInput = AreaShapeInput.of(start, new BlockPos(3, 64, 0), 0, EnumFacing.UP, EnumFacing.UP);
 
         assertEquals(
                 new HashSet<>(circle.generatePositions(circleInput, ShapeFillMode.FILL)),
@@ -108,13 +109,13 @@ class AreaShapeGeneratorTest {
     void ballRadiusCreatesThreeDimensionalVolume() {
         AreaShapeGenerator generator = ShapeGeneratorRegistry.getGenerator(AreaShape.BALL);
         BlockPos start = new BlockPos(0, 64, 0);
-        AreaShapeInput input = AreaShapeInput.of(start, new BlockPos(1, 64, 0), 0, Direction.UP, Direction.UP);
+        AreaShapeInput input = AreaShapeInput.of(start, new BlockPos(1, 64, 0), 0, EnumFacing.UP, EnumFacing.UP);
 
         List<BlockPos> fill = generator.generatePositions(input, ShapeFillMode.FILL);
 
         assertEquals(7, new HashSet<>(fill).size());
-        assertTrue(fill.contains(start.above()));
-        assertTrue(fill.contains(start.below()));
+        assertTrue(fill.contains(start.up()));
+        assertTrue(fill.contains(start.down()));
         assertTrue(fill.contains(start.east()));
         assertTrue(fill.contains(start.west()));
         assertTrue(fill.contains(start.north()));

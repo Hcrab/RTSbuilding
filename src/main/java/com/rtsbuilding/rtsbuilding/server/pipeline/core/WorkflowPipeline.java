@@ -128,11 +128,8 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                 PipelineResult result = pipe.execute(ctx);
                 ctx.setResult(result);
 
-                switch (result) {
-                    case PipelineResult.Success s -> {
-                        // 继续执行下一个 Pipe
-                    }
-                    case PipelineResult.Failure f -> {
+                if (result instanceof PipelineResult.Failure) {
+                        PipelineResult.Failure f = (PipelineResult.Failure) result;
                         RtsbuildingMod.LOGGER.debug("[Pipeline] Pipe[{}] '{}' failed: {}",
                                 i, pipe.getClass().getSimpleName(), f.message());
                         RtsOperationDiagnostics.pipelineResult(
@@ -140,8 +137,8 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                         rollbackIfNeeded(ctx);
                         firePipelineResultEvent(ctx, result);
                         return result;
-                    }
-                    case PipelineResult.Skip sk -> {
+                } else if (result instanceof PipelineResult.Skip) {
+                        PipelineResult.Skip sk = (PipelineResult.Skip) result;
                         RtsbuildingMod.LOGGER.debug("[Pipeline] Pipe[{}] '{}' skipped: {}",
                                 i, pipe.getClass().getSimpleName(), sk.reason());
                         RtsOperationDiagnostics.pipelineResult(
@@ -149,10 +146,9 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                         rollbackIfNeeded(ctx);
                         firePipelineResultEvent(ctx, result);
                         return result;
-                    }
                 }
             } catch (Exception e) {
-                var failure = new PipelineResult.Failure(
+                PipelineResult.Failure failure = new PipelineResult.Failure(
                         "Pipe[" + i + "] '" + pipe.getClass().getSimpleName() + "' threw: " + e.getMessage(), e);
                 ctx.setResult(failure);
                 RtsbuildingMod.LOGGER.error("[Pipeline] Pipe[{}] '{}' threw", i,
@@ -215,7 +211,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
      */
     @SafeVarargs
     public static void runCleanupSequence(PipelineContext ctx, PipelinePipe<? super PipelineContext>... pipes) {
-        runCleanupSequence(ctx, List.of(pipes));
+        runCleanupSequence(ctx, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(pipes));
     }
 
     /**
@@ -230,17 +226,15 @@ public final class WorkflowPipeline<C extends PipelineContext> {
             try {
                 PipelineResult result = pipe.execute(ctx);
                 ctx.setResult(result);
-                switch (result) {
-                    case PipelineResult.Success s -> {}
-                    case PipelineResult.Failure f -> {
+                if (result instanceof PipelineResult.Failure) {
+                        PipelineResult.Failure f = (PipelineResult.Failure) result;
                         RtsbuildingMod.LOGGER.error("[Pipeline] Cleanup pipe[{}] '{}' failed: {}",
                                 i, pipe.getClass().getSimpleName(), f.message());
                         rollbackIfNeeded(ctx);
-                    }
-                    case PipelineResult.Skip sk -> {
+                } else if (result instanceof PipelineResult.Skip) {
+                        PipelineResult.Skip sk = (PipelineResult.Skip) result;
                         RtsbuildingMod.LOGGER.debug("[Pipeline] Cleanup pipe[{}] '{}' skipped: {}",
                                 i, pipe.getClass().getSimpleName(), sk.reason());
-                    }
                 }
             } catch (Exception e) {
                 RtsbuildingMod.LOGGER.error("[Pipeline] Cleanup pipe[{}] '{}' threw",
@@ -296,12 +290,12 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                 ctx.getData(ToolBorrowPipe.KEY_TOOL_LEASE_TRANSFERRED));
         boolean returned = Boolean.TRUE.equals(
                 ctx.getData(ToolBorrowPipe.KEY_TOOL_LEASE_RETURNED));
-        var rollback = ToolLeaseRollbackPolicy.decide(
+        ToolLeaseRollbackPolicy.Decision rollback = ToolLeaseRollbackPolicy.decide(
                 taskSubmitted, transferred, returned,
                 ctx.hasData(ToolBorrowPipe.KEY_TOOL_LEASE));
         if (rollback.cancelSubmittedTask() && ctx.hasData(PipelineContext.KEY_WORKFLOW_ENTRY_ID)) {
             int entryId = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
-            var session = ctx.getData(
+            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session = ctx.getData(
                     com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe.KEY_SESSION);
             if (session != null) {
                 // Task 尚未进入下一 Tick 也能按 workflow 精确撤销；该路径负责归还 Session 持有的租约。
@@ -345,11 +339,9 @@ public final class WorkflowPipeline<C extends PipelineContext> {
         }
         int entryId = ctx.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
 
-        WorkflowEventType eventType = switch (result) {
-            case PipelineResult.Success s -> WorkflowEventType.SYNC_PHASE_COMPLETED;
-            case PipelineResult.Failure f -> WorkflowEventType.CANCELLED;
-            case PipelineResult.Skip sk -> WorkflowEventType.CANCELLED;
-        };
+        WorkflowEventType eventType = result instanceof PipelineResult.Success
+                ? WorkflowEventType.SYNC_PHASE_COMPLETED
+                : WorkflowEventType.CANCELLED;
 
         try {
             RtsWorkflowEngine.getInstance().firePipelineEvent(ctx.player(), entryId, eventType);

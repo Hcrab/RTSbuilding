@@ -1,8 +1,9 @@
 package com.rtsbuilding.rtsbuilding.api;
 
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 
@@ -17,7 +18,7 @@ public interface RtsMiningAPI {
      * 开始或停止对单个方块的远程挖掘。
      *
      * @param player                    执行玩家
-     * @param pos                       目标坐标（net.minecraft.core.BlockPos）
+     * @param pos                       目标坐标（net.minecraft.util.math.BlockPos）
      * @param face                      挖掘方向
      * @param start                     true=开始挖掘，false=停止
      * @param toolSlot                  工具栏格索引
@@ -26,7 +27,7 @@ public interface RtsMiningAPI {
      * @param allowPlacedBlockRecovery  是否允许已放置方块恢复
      * @param toolProtectionEnabled     是否启用工具保护
      */
-    void mine(ServerPlayer player, Object pos, Direction face, boolean start,
+    void mine(EntityPlayerMP player, BlockPos pos, EnumFacing face, boolean start,
               byte toolSlot, String toolItemId, ItemStack toolPrototype,
               boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled);
 
@@ -34,7 +35,7 @@ public interface RtsMiningAPI {
      * 启动连锁挖掘。
      *
      * @param player               执行玩家
-     * @param pos                  起始坐标（net.minecraft.core.BlockPos）
+     * @param pos                  起始坐标（net.minecraft.util.math.BlockPos）
      * @param face                 挖掘方向
      * @param toolSlot             工具栏格索引
      * @param toolItemId           工具物品 ID
@@ -43,14 +44,14 @@ public interface RtsMiningAPI {
      * @param mode                 连锁模式
      * @param toolProtectionEnabled 是否启用工具保护
      */
-    void startUltimine(ServerPlayer player, Object pos, Direction face,
+    void startUltimine(EntityPlayerMP player, BlockPos pos, EnumFacing face,
                        byte toolSlot, String toolItemId, ItemStack toolPrototype,
                        int requestedLimit, byte mode, boolean toolProtectionEnabled);
 
     /**
      * 区域挖掘。
      */
-    void areaMine(ServerPlayer player,
+    void areaMine(EntityPlayerMP player,
                   int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
                   byte toolSlot, String toolItemId, ItemStack toolPrototype,
                   byte shapeType, byte fillType, boolean toolProtectionEnabled);
@@ -58,7 +59,7 @@ public interface RtsMiningAPI {
     /**
      * 区域破坏指定方块。
      */
-    void areaDestroy(ServerPlayer player, List<Object> positions,
+    void areaDestroy(EntityPlayerMP player, List<BlockPos> positions,
                      byte toolSlot, String toolItemId, ItemStack toolPrototype,
                      boolean toolProtectionEnabled);
 
@@ -72,7 +73,7 @@ public interface RtsMiningAPI {
      * @param player 目标玩家
      * @return 总方块数，如果没有进行中的区域破坏则返回 0
      */
-    int getAreaDestroyTotalBlocks(ServerPlayer player);
+    int getAreaDestroyTotalBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前区域破坏的已破坏方块数量。
@@ -80,7 +81,7 @@ public interface RtsMiningAPI {
      * @param player 目标玩家
      * @return 已破坏方块数，如果没有进行中的区域破坏则返回 0
      */
-    int getAreaDestroyCompletedBlocks(ServerPlayer player);
+    int getAreaDestroyCompletedBlocks(EntityPlayerMP player);
 
     /**
      * 获取当前区域破坏的未破坏方块数（剩余待破坏方块）。
@@ -88,5 +89,5 @@ public interface RtsMiningAPI {
      * @param player 目标玩家
      * @return 未破坏方块数，如果没有进行中的区域破坏则返回 0
      */
-    int getAreaDestroyRemainingBlocks(ServerPlayer player);
+    int getAreaDestroyRemainingBlocks(EntityPlayerMP player);
 }

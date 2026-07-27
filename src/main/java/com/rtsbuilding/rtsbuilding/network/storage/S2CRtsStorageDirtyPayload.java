@@ -1,21 +1,11 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.resources.ResourceLocation;
-
-public record S2CRtsStorageDirtyPayload(boolean dirty) implements CustomPacketPayload {
-    public static final Type<S2CRtsStorageDirtyPayload> TYPE = new Type<>(
-            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_storage_dirty"));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsStorageDirtyPayload> STREAM_CODEC = StreamCodec.of(
-            (buf, payload) -> buf.writeBoolean(payload.dirty()),
-            (buf) -> new S2CRtsStorageDirtyPayload(buf.readBoolean()));
-
-    @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
-    }
+import io.netty.buffer.ByteBuf;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+public final class S2CRtsStorageDirtyPayload implements IMessage {
+    private boolean dirty;
+    public S2CRtsStorageDirtyPayload() {}
+    public S2CRtsStorageDirtyPayload(boolean dirty){this.dirty=dirty;}
+    @Override public void fromBytes(ByteBuf b){dirty=b.readBoolean();}
+    @Override public void toBytes(ByteBuf b){b.writeBoolean(dirty);}
+    public boolean dirty(){return dirty;}
 }
