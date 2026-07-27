@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.feedback;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.Map;
 import java.util.UUID;
@@ -30,9 +30,9 @@ public final class RtsDamageFeedbackManager {
      *
      * @param player 要记录的服务端玩家
      */
-    public static void remember(ServerPlayer player) {
+    public static void remember(EntityPlayerMP player) {
         if (player != null) {
-            LAST_HEALTH.put(player.getUUID(), player.getHealth());
+            LAST_HEALTH.put(player.getUniqueID(), player.getHealth());
         }
     }
 
@@ -42,9 +42,9 @@ public final class RtsDamageFeedbackManager {
      *
      * @param player 要停止追踪的服务端玩家
      */
-    public static void forget(ServerPlayer player) {
+    public static void forget(EntityPlayerMP player) {
         if (player != null) {
-            LAST_HEALTH.remove(player.getUUID());
+            LAST_HEALTH.remove(player.getUniqueID());
         }
     }
 
@@ -54,14 +54,14 @@ public final class RtsDamageFeedbackManager {
      *
      * @param player 要检查的服务端玩家
      */
-    public static void tick(ServerPlayer player) {
+    public static void tick(EntityPlayerMP player) {
         if (player == null) {
             return;
         }
 
         float currentHealth = player.getHealth();
         // 更新记录并获取上一次的生命值
-        Float previousHealth = LAST_HEALTH.put(player.getUUID(), currentHealth);
+        Float previousHealth = LAST_HEALTH.put(player.getUniqueID(), currentHealth);
         if (previousHealth == null) {
             // 首次记录，尚无上次值可供比对，跳过
             return;
