@@ -7,9 +7,11 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 
 /**
  * 直接在 {@link TaskSnapshot} 上运行的公平预算调度器。
@@ -36,11 +38,11 @@ public final class DurableTaskScheduler {
         if (maxNanos <= 0 || maxUnits <= 0 || maxUnitsPerSlice <= 0 || candidates.isEmpty()) {
             return new TickStats(0, 0, 0L, maxNanos <= 0, maxUnits <= 0);
         }
-        var ordered = candidates.stream()
+        List<TaskSnapshot> ordered = candidates.stream()
                 .filter(snapshot -> snapshot.state().runnable())
                 .filter(snapshot -> executors.containsKey(snapshot.type()))
                 .sorted(Comparator.comparing(TaskSnapshot::id))
-                .toList();
+                .collect(Collectors.toList());
         if (ordered.isEmpty()) return new TickStats(0, 0, 0L, false, false);
 
         ArrayDeque<TaskSnapshot> queue = new ArrayDeque<>(ordered.size());
@@ -93,14 +95,83 @@ public final class DurableTaskScheduler {
         SliceResult execute(TaskSnapshot snapshot, TaskBudget budget);
     }
 
-    public record SliceResult(TaskSnapshot snapshot, int processedUnits) {
-        public SliceResult {
-            Objects.requireNonNull(snapshot, "snapshot");
+    public static final class SliceResult {
+        private final TaskSnapshot snapshot;
+        private final int processedUnits;
+
+        public SliceResult(TaskSnapshot snapshot, int processedUnits) {
+            this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
             if (processedUnits < 0) throw new IllegalArgumentException("processedUnits 不能为负数");
+            this.processedUnits = processedUnits;
+        }
+
+        public TaskSnapshot snapshot() { return snapshot; }
+        public int processedUnits() { return processedUnits; }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) return true;
+            if (!(object instanceof SliceResult)) return false;
+            SliceResult other = (SliceResult) object;
+            return processedUnits == other.processedUnits && snapshot.equals(other.snapshot);
+        }
+
+        @Override
+        public int hashCode() { return 31 * snapshot.hashCode() + processedUnits; }
+
+        @Override
+        public String toString() {
+            return "SliceResult{snapshot=" + snapshot + ", processedUnits=" + processedUnits + "}";
         }
     }
 
-    public record TickStats(int slices, int processedUnits, long elapsedNanos,
-            boolean timeBudgetExhausted, boolean unitBudgetExhausted) {
+    public static final class TickStats {
+        private final int slices;
+        private final int processedUnits;
+        private final long elapsedNanos;
+        private final boolean timeBudgetExhausted;
+        private final boolean unitBudgetExhausted;
+
+        public TickStats(int slices, int processedUnits, long elapsedNanos,
+                boolean timeBudgetExhausted, boolean unitBudgetExhausted) {
+            this.slices = slices;
+            this.processedUnits = processedUnits;
+            this.elapsedNanos = elapsedNanos;
+            this.timeBudgetExhausted = timeBudgetExhausted;
+            this.unitBudgetExhausted = unitBudgetExhausted;
+        }
+
+        public int slices() { return slices; }
+        public int processedUnits() { return processedUnits; }
+        public long elapsedNanos() { return elapsedNanos; }
+        public boolean timeBudgetExhausted() { return timeBudgetExhausted; }
+        public boolean unitBudgetExhausted() { return unitBudgetExhausted; }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) return true;
+            if (!(object instanceof TickStats)) return false;
+            TickStats other = (TickStats) object;
+            return slices == other.slices && processedUnits == other.processedUnits
+                    && elapsedNanos == other.elapsedNanos
+                    && timeBudgetExhausted == other.timeBudgetExhausted
+                    && unitBudgetExhausted == other.unitBudgetExhausted;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = slices;
+            result = 31 * result + processedUnits;
+            result = 31 * result + (int) (elapsedNanos ^ (elapsedNanos >>> 32));
+            result = 31 * result + (timeBudgetExhausted ? 1 : 0);
+            return 31 * result + (unitBudgetExhausted ? 1 : 0);
+        }
+
+        @Override
+        public String toString() {
+            return "TickStats{slices=" + slices + ", processedUnits=" + processedUnits
+                    + ", elapsedNanos=" + elapsedNanos + ", timeBudgetExhausted="
+                    + timeBudgetExhausted + ", unitBudgetExhausted=" + unitBudgetExhausted + "}";
+        }
     }
 }
