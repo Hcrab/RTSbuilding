@@ -272,7 +272,7 @@ final class ClientRtsLifecycleOwner {
             // ServerPlayer's input is always null.
             // In RTS mode, prevent keyboard from controlling the player entity
             // (including jumping and sneaking).
-            // isControlledCamera() is overridden by LocalPlayerMixin to return true,
+            // 1.12 的 isCurrentViewEntity() 由 LocalPlayerMixin 在 RTS 模式下返回 true，
             // so Minecraft's native sync mechanism handles position/rotation packets automatically.
             EntityPlayerSP localPlayer = minecraft.player;
             if (localPlayer != null) {

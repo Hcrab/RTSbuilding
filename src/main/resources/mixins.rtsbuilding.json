@@ -6,9 +6,6 @@
   "client": [
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
-    "EmbeddiumWorldSliceMixin",
-    "SodiumLevelSliceMixin",
-    "RenderChunkRegionMixin",
     "LocalPlayerMixin"
   ],
   "mixins": [
