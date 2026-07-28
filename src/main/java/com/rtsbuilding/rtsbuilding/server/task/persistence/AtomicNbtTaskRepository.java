@@ -10,6 +10,7 @@ import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -194,10 +195,41 @@ public final class AtomicNbtTaskRepository implements TaskRepository {
         return new Image(tasks, tombstones, migrations, assets);
     }
 
-    private record AtomicPreparedCommit(UUID ticketId, Commit logicalCommit) implements PreparedCommit {
+    private static final class AtomicPreparedCommit implements PreparedCommit {
+        private final UUID ticketId;
+        private final Commit logicalCommit;
+
+        private AtomicPreparedCommit(UUID ticketId, Commit logicalCommit) {
+            this.ticketId = ticketId;
+            this.logicalCommit = logicalCommit;
+        }
+
+        @Override
+        public UUID ticketId() { return ticketId; }
+
+        Commit logicalCommit() { return logicalCommit; }
+
         @Override
         public int recordCount() {
             return logicalCommit.recordCount();
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof AtomicPreparedCommit)) return false;
+            AtomicPreparedCommit that = (AtomicPreparedCommit) other;
+            return Objects.equals(ticketId, that.ticketId)
+                    && Objects.equals(logicalCommit, that.logicalCommit);
+        }
+
+        @Override
+        public int hashCode() { return Objects.hash(ticketId, logicalCommit); }
+
+        @Override
+        public String toString() {
+            return "AtomicPreparedCommit[ticketId=" + ticketId
+                    + ", logicalCommit=" + logicalCommit + "]";
         }
     }
 
