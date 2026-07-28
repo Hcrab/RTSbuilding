@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.storage.state;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -12,26 +13,26 @@ public final class PendingItemIndex<T> {
     private final Map<String, LinkedHashSet<T>> byItemId = new LinkedHashMap<>();
 
     public void add(String itemId, T value) {
-        if (itemId == null || itemId.isBlank() || value == null) return;
-        byItemId.computeIfAbsent(itemId, ignored -> new LinkedHashSet<>()).add(value);
+        if (itemId == null || itemId.trim().isEmpty() || value == null) return;
+        byItemId.computeIfAbsent(itemId, ignored -> new LinkedHashSet<T>()).add(value);
     }
 
     public void remove(String itemId, T value) {
         if (itemId == null || value == null) return;
-        var values = byItemId.get(itemId);
+        LinkedHashSet<T> values = byItemId.get(itemId);
         if (values == null) return;
         values.remove(value);
         if (values.isEmpty()) byItemId.remove(itemId);
     }
 
     public List<T> valuesFor(Collection<String> changedItemIds) {
-        if (changedItemIds == null || changedItemIds.isEmpty()) return List.of();
-        LinkedHashSet<T> matches = new LinkedHashSet<>();
+        if (changedItemIds == null || changedItemIds.isEmpty()) return Collections.emptyList();
+        LinkedHashSet<T> matches = new LinkedHashSet<T>();
         for (String itemId : changedItemIds) {
-            var values = byItemId.get(itemId);
+            LinkedHashSet<T> values = byItemId.get(itemId);
             if (values != null) matches.addAll(values);
         }
-        return new ArrayList<>(matches);
+        return new ArrayList<T>(matches);
     }
 
     public void clear() {

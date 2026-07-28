@@ -12,7 +12,7 @@ public final class RtsCountUtil {
     }
 
     public static void mergeCount(Map<String, Long> counts, String key, long amount) {
-        if (counts == null || key == null || key.isBlank()) {
+        if (counts == null || key == null || key.trim().isEmpty()) {
             return;
         }
         long sanitized = sanitizeCount(amount);

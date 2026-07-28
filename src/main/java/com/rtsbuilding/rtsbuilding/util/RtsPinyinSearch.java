@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 
@@ -17,7 +18,7 @@ public final class RtsPinyinSearch {
     }
 
     public static boolean contains(String text, String query) {
-        if (text == null || text.isBlank() || query == null || query.isBlank()) {
+        if (text == null || text.trim().isEmpty() || query == null || query.trim().isEmpty()) {
             return false;
         }
         if (!containsCjk(text)) {
@@ -123,7 +124,7 @@ public final class RtsPinyinSearch {
                 }
             }
         } catch (IOException ignored) {
-            return Map.of();
+            return Collections.emptyMap();
         }
         return result;
     }
@@ -164,7 +165,7 @@ public final class RtsPinyinSearch {
     }
 
     private static String normalizePinyin(String value) {
-        if (value == null || value.isBlank()) {
+        if (value == null || value.trim().isEmpty()) {
             return "";
         }
         StringBuilder sb = new StringBuilder(value.length());
