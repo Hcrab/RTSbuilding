@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLeaseManager;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 /**
  * 从玩家的物品栏或链接存储中借用挖掘工具用于操作。

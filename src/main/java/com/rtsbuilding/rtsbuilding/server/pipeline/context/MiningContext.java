@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
@@ -69,8 +69,8 @@ public class MiningContext extends PipelineContext {
      *         {@code MiningContext} 实例
      */
     public static MiningContext require(PipelineContext ctx) {
-        if (ctx instanceof MiningContext mc) {
-            return mc;
+        if (ctx instanceof MiningContext) {
+            return (MiningContext) ctx;
         }
         throw new IllegalArgumentException(
                 "Expected MiningContext but got " + ctx.getClass().getSimpleName()

@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
@@ -66,8 +66,8 @@ public class PlaceContext extends PipelineContext {
      *         {@code PlaceContext} 实例
      */
     public static PlaceContext require(PipelineContext ctx) {
-        if (ctx instanceof PlaceContext pc) {
-            return pc;
+        if (ctx instanceof PlaceContext) {
+            return (PlaceContext) ctx;
         }
         throw new IllegalArgumentException(
                 "Expected PlaceContext but got " + ctx.getClass().getSimpleName()
