@@ -257,7 +257,8 @@ public final class BlueprintPersistence {
                 BlueprintContext.KEY_PREPARING,
                 BlueprintContext.KEY_SOURCE_DIMENSION
         );
-        var outcome = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+        com.rtsbuilding.rtsbuilding.server.task.DurableBlueprintTaskBridge.QueueResult outcome =
+                com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .queueLegacyDurableBlueprint(ctx);
         if (outcome == com.rtsbuilding.rtsbuilding.server.task.DurableBlueprintTaskBridge.QueueResult.ALREADY_FINISHED) {
             RtsWorkflowEngine.getInstance().from(player, entry.id()).ifPresent(token -> token.cancel());
@@ -282,9 +283,4 @@ public final class BlueprintPersistence {
     public static RtsWorkflowEngine.BlueprintRestoreHandler createRestoreHandler() {
         return BlueprintPersistence::restoreFromEntry;
     }
-
-    /**
-     * 日志引用。
-     */
-    private static final org.slf4j.Logger LOGGER = RtsbuildingMod.LOGGER;
 }
