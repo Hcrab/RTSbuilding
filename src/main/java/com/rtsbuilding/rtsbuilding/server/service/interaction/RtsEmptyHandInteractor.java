@@ -5,13 +5,13 @@ import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.UseOnOutcome;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.WorldServer;
 
 /**
  * 空手远程交互器——处理 RTS 模式下空手（未持有物品）的远程交互。
@@ -34,9 +34,9 @@ public final class RtsEmptyHandInteractor {
     /**
      * 使用空手与目标方块或实体交互。
      */
-    public static InteractionResult interactWithEmptyHand(ServerPlayer player, ServerLevel level, Entity targetEntity,
-            BlockHitResult blockHit, Vec3 hit, RayContext rayContext) {
-        Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
+    public static EnumActionResult interactWithEmptyHand(EntityPlayerMP player, WorldServer level, Entity targetEntity,
+            RayTraceResult blockHit, Vec3d hit, RayContext rayContext) {
+        Vec3d interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
         return TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
                 interactionPos,
@@ -49,7 +49,7 @@ public final class RtsEmptyHandInteractor {
                     }
                     if (blockHit != null) {
                         UseOnOutcome primary = InteractionHelper.useItemOnWithMainHand(player, level, ItemStack.EMPTY, blockHit, false);
-                        if (primary.result().consumesAction()) {
+                        if (primary.result() == EnumActionResult.SUCCESS) {
                             return primary.result();
                         }
                     }

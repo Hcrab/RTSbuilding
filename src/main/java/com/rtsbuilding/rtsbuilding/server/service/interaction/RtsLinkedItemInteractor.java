@@ -12,17 +12,17 @@ import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.UseOnOutcome;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -50,34 +50,34 @@ public final class RtsLinkedItemInteractor {
      * 该物品从玩家的链接存储中提取、使用，
      * 任何剩余物品被退还。
      */
-    public static InteractionResult interactWithLinkedItem(ServerPlayer player, ServerLevel level, RtsStorageSession session,
-            Entity targetEntity, BlockHitResult blockHit, Vec3 hit, String itemId, RayContext rayContext) {
-        if (itemId == null || itemId.isBlank()) {
-            return InteractionResult.PASS;
+    public static EnumActionResult interactWithLinkedItem(EntityPlayerMP player, WorldServer level, RtsStorageSession session,
+            Entity targetEntity, RayTraceResult blockHit, Vec3d hit, String itemId, RayContext rayContext) {
+        if (itemId == null || itemId.trim().isEmpty()) {
+            return EnumActionResult.PASS;
         }
 
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
-        boolean creativeSource = player.isCreative();
+        boolean creativeSource = player.capabilities.isCreativeMode;
         if (!canUseSelectedItemSource(!activeLinked.isEmpty(), includePlayerMainInventory, creativeSource)) {
-            return InteractionResult.PASS;
+            return EnumActionResult.PASS;
         }
 
         List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-            return InteractionResult.PASS;
+        ResourceLocation id = parseId(itemId);
+        if (id == null || !ForgeRegistries.ITEMS.containsKey(id)) {
+            return EnumActionResult.PASS;
         }
 
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = ForgeRegistries.ITEMS.getValue(id);
         ItemStack extracted = extractSelectedItem(player, extractHandlers, item, includePlayerMainInventory, creativeSource);
         if (extracted.isEmpty()) {
-            return InteractionResult.PASS;
+            return EnumActionResult.PASS;
         }
 
-        Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
+        Vec3d interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
         UseOnOutcome outcome = TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
                 interactionPos,
@@ -88,24 +88,27 @@ public final class RtsLinkedItemInteractor {
             if (targetEntity != null) {
                 return InteractionHelper.useItemOnEntityWithMainHand(player, level, extracted, targetEntity, hit);
             }
-            // Alt interaction: normal item interaction first, build-like secondary interaction later.
+            if (blockHit == null) {
+                return InteractionHelper.useItemWithMainHand(player, level, extracted, false);
+            }
+            // 普通右键优先；仅在原版明确 PASS 时继续尝试潜行语义。
             UseOnOutcome primaryOn = InteractionHelper.useItemOnWithMainHand(player, level, extracted, blockHit, false);
-            if (primaryOn.result().consumesAction()) {
+            if (consumesAction(primaryOn.result())) {
                 return primaryOn;
             }
-            ItemStack afterPrimaryOn = primaryOn.remainder().isEmpty() ? extracted.copy() : primaryOn.remainder().copy();
+            ItemStack afterPrimaryOn = primaryOn.remainder().copy();
 
             UseOnOutcome primaryUse = InteractionHelper.useItemWithMainHand(player, level, afterPrimaryOn, false);
-            if (primaryUse.result().consumesAction()) {
+            if (consumesAction(primaryUse.result())) {
                 return primaryUse;
             }
-            ItemStack afterPrimaryUse = primaryUse.remainder().isEmpty() ? afterPrimaryOn : primaryUse.remainder().copy();
+            ItemStack afterPrimaryUse = primaryUse.remainder().copy();
 
             UseOnOutcome secondaryOn = InteractionHelper.useItemOnWithMainHand(player, level, afterPrimaryUse, blockHit, true);
-            if (secondaryOn.result().consumesAction()) {
+            if (consumesAction(secondaryOn.result())) {
                 return secondaryOn;
             }
-            ItemStack afterSecondaryOn = secondaryOn.remainder().isEmpty() ? afterPrimaryUse : secondaryOn.remainder().copy();
+            ItemStack afterSecondaryOn = secondaryOn.remainder().copy();
             return InteractionHelper.useItemWithMainHand(player, level, afterSecondaryOn, true);
                 });
         if (!creativeSource && !outcome.remainder().isEmpty()) {
@@ -121,7 +124,7 @@ public final class RtsLinkedItemInteractor {
         return hasLinkedHandlers || includePlayerMainInventory || creativeSource;
     }
 
-    private static ItemStack extractSelectedItem(ServerPlayer player, List<IItemHandler> extractHandlers, Item item,
+    private static ItemStack extractSelectedItem(EntityPlayerMP player, List<IItemHandler> extractHandlers, Item item,
             boolean includePlayerMainInventory, boolean creativeSource) {
         if (creativeSource) {
             return new ItemStack(item);
@@ -130,5 +133,17 @@ public final class RtsLinkedItemInteractor {
             return RtsTransferExtractor.extractOneFromNetwork(extractHandlers, player, item);
         }
         return RtsTransferExtractor.extractOneFromLinked(extractHandlers, item);
+    }
+
+    private static ResourceLocation parseId(String itemId) {
+        try {
+            return itemId == null || itemId.trim().isEmpty() ? null : new ResourceLocation(itemId);
+        } catch (RuntimeException invalid) {
+            return null;
+        }
+    }
+
+    private static boolean consumesAction(EnumActionResult result) {
+        return result == EnumActionResult.SUCCESS;
     }
 }

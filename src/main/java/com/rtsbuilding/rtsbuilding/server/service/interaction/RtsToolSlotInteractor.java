@@ -4,13 +4,12 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.WorldServer;
 
 /**
  * 工具槽远程交互器——处理使用玩家快捷栏工具槽中的物品进行 RTS 远程交互。
@@ -34,11 +33,10 @@ public final class RtsToolSlotInteractor {
      * 使用指定快捷栏槽位中的物品与目标方块或实体交互。
      * 依次尝试四种交互模式：非潜行对块、非潜行空中、潜行对块、潜行空中。
      */
-    public static InteractionResult interactWithToolSlot(ServerPlayer player, ServerLevel level, Entity targetEntity,
-            BlockHitResult blockHit, Vec3 hit, int toolSlot, RayContext rayContext) {
+    public static EnumActionResult interactWithToolSlot(EntityPlayerMP player, WorldServer level, Entity targetEntity,
+            RayTraceResult blockHit, Vec3d hit, int toolSlot, RayContext rayContext) {
         int slot = clampHotbarSlot(toolSlot);
-        int previousSelected = player.getInventory().selected;
-        Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
+        Vec3d interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
         return TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
                 interactionPos,
@@ -46,59 +44,38 @@ public final class RtsToolSlotInteractor {
                 rayContext,
                 Config.remotePovBlockReach(),
                 () -> {
-            player.getInventory().selected = slot;
-            try {
+            return TemporaryContextSwitcher.withTemporarySelectedSlot(player, slot, () -> {
                 if (targetEntity != null) {
                     return InteractionHelper.interactEntityWithMainHand(player, level, targetEntity, hit);
                 }
                 if (blockHit != null) {
-                    InteractionResult primaryResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItemOn(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND,
-                            blockHit));
-                    if (primaryResult.consumesAction()) {
-                        return primaryResult;
+                    EnumActionResult result = InteractionHelper
+                            .useItemOnWithRealMainHand(player, level, blockHit, false).result();
+                    if (consumesAction(result)) {
+                        return result;
                     }
-                    InteractionResult primaryUseResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND));
-                    if (primaryUseResult.consumesAction()) {
-                        return primaryUseResult;
+                    result = InteractionHelper.useItemWithRealMainHand(player, level, false).result();
+                    if (consumesAction(result)) {
+                        return result;
                     }
-                    InteractionResult secondaryResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, true, () -> player.gameMode.useItemOn(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND,
-                            blockHit));
-                    if (secondaryResult.consumesAction()) {
-                        return secondaryResult;
+                    result = InteractionHelper.useItemOnWithRealMainHand(player, level, blockHit, true).result();
+                    if (consumesAction(result)) {
+                        return result;
                     }
-                    return TemporaryContextSwitcher.withTemporaryShiftKey(player, true, () -> player.gameMode.useItem(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND));
+                    return InteractionHelper.useItemWithRealMainHand(player, level, true).result();
                 }
-                return InteractionResult.PASS;
-            } finally {
-                player.getInventory().selected = previousSelected;
-            }
+                return EnumActionResult.PASS;
+            });
                 });
     }
 
     /**
      * 在空中使用指定快捷栏槽位中的物品（无目标方块/实体）。
      */
-    public static InteractionResult useItemInAirWithToolSlot(ServerPlayer player, ServerLevel level, Vec3 hit,
+    public static EnumActionResult useItemInAirWithToolSlot(EntityPlayerMP player, WorldServer level, Vec3d hit,
             int toolSlot, RayContext rayContext) {
         int slot = clampHotbarSlot(toolSlot);
-        int previousSelected = player.getInventory().selected;
-        Vec3 fallback = hit == null ? player.getEyePosition() : hit;
+        Vec3d fallback = hit == null ? player.getPositionEyes(1.0F) : hit;
         return TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
                 fallback,
@@ -106,16 +83,8 @@ public final class RtsToolSlotInteractor {
                 rayContext,
                 Config.remotePovBlockReach(),
                 () -> {
-            player.getInventory().selected = slot;
-            try {
-                return TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
-                        player,
-                        level,
-                        player.getMainHandItem(),
-                        InteractionHand.MAIN_HAND));
-            } finally {
-                player.getInventory().selected = previousSelected;
-            }
+            return TemporaryContextSwitcher.withTemporarySelectedSlot(player, slot,
+                    () -> InteractionHelper.useItemWithRealMainHand(player, level, false).result());
                 });
     }
 
@@ -123,5 +92,9 @@ public final class RtsToolSlotInteractor {
 
     private static int clampHotbarSlot(int slot) {
         return Math.max(0, Math.min(8, slot));
+    }
+
+    private static boolean consumesAction(EnumActionResult result) {
+        return result == EnumActionResult.SUCCESS;
     }
 }
