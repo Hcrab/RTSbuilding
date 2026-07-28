@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
@@ -48,10 +49,15 @@ public final class TaskPersistenceRuntime {
     public static final TaskPersistenceRuntime INSTANCE = new TaskPersistenceRuntime(
             () -> new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
                     // 最多容纳一个 ACK 后 orphan 清理和紧随其后的 root commit，仍保持单 writer 有界顺序。
-                    new ArrayBlockingQueue<>(2), Thread.ofPlatform()
-                            .daemon(true)
-                            .name("RTSBuilding-TaskWriter")
-                            .factory(), new ThreadPoolExecutor.AbortPolicy()));
+                    new ArrayBlockingQueue<Runnable>(2), runnable -> {
+                        Thread thread = new Thread(runnable, "RTSBuilding-TaskWriter");
+                        thread.setDaemon(true);
+                        thread.setUncaughtExceptionHandler((failedThread, failure) ->
+                                RtsbuildingMod.LOGGER.error(
+                                        "durable task writer 线程发生未捕获异常: {}",
+                                        failedThread.getName(), failure));
+                        return thread;
+                    }, new ThreadPoolExecutor.AbortPolicy()));
 
     private final Supplier<ExecutorService> writerFactory;
     private final int maxRetries;
@@ -218,12 +224,18 @@ public final class TaskPersistenceRuntime {
         BlueprintBlobAdmissionQueue.EnqueueOutcome outcome = blueprintAdmissionQueue.enqueue(
                 snapshot, new BlueprintBlobAdmissionQueue.FreezeRequest(
                         snapshot.id(), snapshot.totalUnits(), name, sourceName, format, structure));
-        return switch (outcome) {
-            case ENQUEUED -> BlueprintQueueOutcome.ENQUEUED;
-            case ALREADY_PENDING -> BlueprintQueueOutcome.ALREADY_PENDING;
-            case QUEUE_FULL -> BlueprintQueueOutcome.QUEUE_FULL;
-            case MEMORY_BUDGET_FULL -> BlueprintQueueOutcome.MEMORY_BUDGET_FULL;
-        };
+        switch (outcome) {
+            case ENQUEUED:
+                return BlueprintQueueOutcome.ENQUEUED;
+            case ALREADY_PENDING:
+                return BlueprintQueueOutcome.ALREADY_PENDING;
+            case QUEUE_FULL:
+                return BlueprintQueueOutcome.QUEUE_FULL;
+            case MEMORY_BUDGET_FULL:
+                return BlueprintQueueOutcome.MEMORY_BUDGET_FULL;
+            default:
+                throw new IllegalStateException("未知蓝图准入结果: " + outcome);
+        }
     }
 
     /**
@@ -253,17 +265,20 @@ public final class TaskPersistenceRuntime {
         Set<com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId> ids =
                 coordinator.assetManifest().assetIdsForTask(taskId);
         if (ids.size() != 1) throw new IllegalStateException("蓝图任务必须精确引用一个资产: " + taskId);
-        var assetId = ids.iterator().next();
+        com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId assetId =
+                ids.iterator().next();
         TaskAssetMetadata metadata = coordinator.assetManifest().entries().get(assetId);
         if (metadata == null || !"blueprint".equals(metadata.kind())) {
             throw new IllegalStateException("蓝图任务引用了未知资产: " + taskId);
         }
-        var loaded = blueprintBlobs.load(assetId);
-        if (!(loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Found found)) {
-            Throwable cause = loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Failed failed
-                    ? failed.cause() : null;
+        AtomicBlueprintBlobRepository.LoadResult loaded = blueprintBlobs.load(assetId);
+        if (!(loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Found)) {
+            Throwable cause = loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Failed
+                    ? ((AtomicBlueprintBlobRepository.LoadResult.Failed) loaded).cause() : null;
             throw new IllegalStateException("蓝图 durable blob 缺失或损坏: " + taskId, cause);
         }
+        AtomicBlueprintBlobRepository.LoadResult.Found found =
+                (AtomicBlueprintBlobRepository.LoadResult.Found) loaded;
         BlueprintBlobRecord record = found.record();
         if (!record.taskId().equals(taskId)
                 || !record.sha256().equals(metadata.sha256())
@@ -273,13 +288,21 @@ public final class TaskPersistenceRuntime {
         return record;
     }
 
-    public record BlueprintAdmissionCompletion(TaskId taskId, BlueprintAdmissionOutcome outcome,
-            String failureMessage) {
-        public BlueprintAdmissionCompletion {
-            Objects.requireNonNull(taskId, "taskId");
-            Objects.requireNonNull(outcome, "outcome");
-            failureMessage = failureMessage == null ? "" : failureMessage;
+    public static final class BlueprintAdmissionCompletion {
+        private final TaskId taskId;
+        private final BlueprintAdmissionOutcome outcome;
+        private final String failureMessage;
+
+        public BlueprintAdmissionCompletion(TaskId taskId, BlueprintAdmissionOutcome outcome,
+                String failureMessage) {
+            this.taskId = Objects.requireNonNull(taskId, "taskId");
+            this.outcome = Objects.requireNonNull(outcome, "outcome");
+            this.failureMessage = failureMessage == null ? "" : failureMessage;
         }
+
+        public TaskId taskId() { return taskId; }
+        public BlueprintAdmissionOutcome outcome() { return outcome; }
+        public String failureMessage() { return failureMessage; }
 
         static BlueprintAdmissionCompletion rootDurable(TaskId taskId) {
             return new BlueprintAdmissionCompletion(taskId, BlueprintAdmissionOutcome.ROOT_DURABLE, "");
@@ -289,6 +312,19 @@ public final class TaskPersistenceRuntime {
             String message = failure == null || failure.getMessage() == null
                     ? "unknown durable admission failure" : failure.getMessage();
             return new BlueprintAdmissionCompletion(taskId, BlueprintAdmissionOutcome.FAILED, message);
+        }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof BlueprintAdmissionCompletion)) return false;
+            BlueprintAdmissionCompletion that = (BlueprintAdmissionCompletion) other;
+            return Objects.equals(taskId, that.taskId) && outcome == that.outcome
+                    && Objects.equals(failureMessage, that.failureMessage);
+        }
+        @Override public int hashCode() { return Objects.hash(taskId, outcome, failureMessage); }
+        @Override public String toString() {
+            return "BlueprintAdmissionCompletion[taskId=" + taskId + ", outcome=" + outcome
+                    + ", failureMessage=" + failureMessage + "]";
         }
     }
 
@@ -311,10 +347,25 @@ public final class TaskPersistenceRuntime {
     }
 
     /** 调用方只能把 PENDING 当成“已排队”；玩家成功回执必须等待 query 中出现同一 TaskId。 */
-    public record AssetAdmissionTicket(TaskId taskId, AssetAdmissionState state) {
-        public AssetAdmissionTicket {
-            Objects.requireNonNull(taskId, "taskId");
-            Objects.requireNonNull(state, "state");
+    public static final class AssetAdmissionTicket {
+        private final TaskId taskId;
+        private final AssetAdmissionState state;
+
+        public AssetAdmissionTicket(TaskId taskId, AssetAdmissionState state) {
+            this.taskId = Objects.requireNonNull(taskId, "taskId");
+            this.state = Objects.requireNonNull(state, "state");
+        }
+        public TaskId taskId() { return taskId; }
+        public AssetAdmissionState state() { return state; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof AssetAdmissionTicket)) return false;
+            AssetAdmissionTicket that = (AssetAdmissionTicket) other;
+            return Objects.equals(taskId, that.taskId) && state == that.state;
+        }
+        @Override public int hashCode() { return Objects.hash(taskId, state); }
+        @Override public String toString() {
+            return "AssetAdmissionTicket[taskId=" + taskId + ", state=" + state + "]";
         }
     }
 
@@ -373,7 +424,7 @@ public final class TaskPersistenceRuntime {
         List<TaskId> ownedDirty = coordinator.query().ownedBy(ownerId).stream()
                 .map(TaskSnapshot::id)
                 .filter(coordinator::isDirty)
-                .toList();
+                .collect(Collectors.toList());
         flushTargets(ownedDirty, maxRetries, flushTimeout);
     }
 
@@ -477,11 +528,13 @@ public final class TaskPersistenceRuntime {
                 throw new IllegalStateException("当前 schema 不支持的活动资产 kind: " + metadata.kind());
             }
             AtomicBlueprintBlobRepository.LoadResult loaded = blobs.load(metadata.assetId());
-            if (!(loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Found found)) {
-                Throwable cause = loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Failed failed
-                        ? failed.cause() : null;
+            if (!(loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Found)) {
+                Throwable cause = loaded instanceof AtomicBlueprintBlobRepository.LoadResult.Failed
+                        ? ((AtomicBlueprintBlobRepository.LoadResult.Failed) loaded).cause() : null;
                 throw new IllegalStateException("manifest 引用的蓝图 blob 缺失或损坏: " + metadata.assetId(), cause);
             }
+            AtomicBlueprintBlobRepository.LoadResult.Found found =
+                    (AtomicBlueprintBlobRepository.LoadResult.Found) loaded;
             BlueprintBlobRecord record = found.record();
             TaskSnapshot snapshot = coordinator.query().get(metadata.taskId())
                     .orElseThrow(() -> new IllegalStateException("manifest 引用不存在的 task"));
@@ -527,7 +580,8 @@ public final class TaskPersistenceRuntime {
             enqueueBlueprintCompletion(BlueprintAdmissionCompletion.rootDurable(ticket.taskId()));
             return BlueprintBlobAdmissionQueue.ReadyDisposition.ACCEPTED;
         }
-        var previous = admissionProofsAwaitingRootAck.putIfAbsent(ticket.taskId(), ready.proof());
+        AtomicBlueprintBlobRepository.DurableBlueprintAdmissionProof previous =
+                admissionProofsAwaitingRootAck.putIfAbsent(ticket.taskId(), ready.proof());
         if (previous != null && previous != ready.proof()) {
             throw new IllegalStateException("同一 TaskId 存在两个等待 root ACK 的蓝图 proof: " + ticket.taskId());
         }
@@ -593,11 +647,10 @@ public final class TaskPersistenceRuntime {
             TaskPersistenceCoordinator.PreparationResult preparation =
                     coordinator.prepareReadyAssetAdmission(taskId);
             switch (preparation.outcome()) {
-                case ALREADY_APPLIED -> {
+                case ALREADY_APPLIED:
                     readyAssetAdmissions.remove(taskId);
                     continue;
-                }
-                case PREPARED -> {
+                case PREPARED:
                     UUID ticketId = preparation.preparedCommit().ticketId();
                     assetAdmissionInFlight = taskId;
                     try {
@@ -615,11 +668,14 @@ public final class TaskPersistenceRuntime {
                                 "蓝图 asset admission 已准备但 writer 拒绝派发，运行时 fail-closed",
                                 dispatchFailure);
                     }
-                }
-                case IDLE, IN_FLIGHT, BUDGET_BLOCKED, FAILED -> {
+                case IDLE:
+                case IN_FLIGHT:
+                case BUDGET_BLOCKED:
+                case FAILED:
                     logPreparationFailure(preparation);
                     return false;
-                }
+                default:
+                    throw new IllegalStateException("未知持久化准备结果: " + preparation.outcome());
             }
         }
         return true;
@@ -661,15 +717,21 @@ public final class TaskPersistenceRuntime {
 
     private void schedule(TaskPersistenceCoordinator.PreparationResult preparation) {
         switch (preparation.outcome()) {
-            case IDLE, ALREADY_APPLIED, IN_FLIGHT -> {
+            case IDLE:
+            case ALREADY_APPLIED:
+            case IN_FLIGHT:
                 return;
-            }
-            case PREPARED -> {
+            case PREPARED:
                 TaskRepository.PreparedCommit prepared = preparation.preparedCommit();
                 inFlight = CompletableFuture.supplyAsync(
                         () -> coordinator.writePrepared(prepared), writer);
-            }
-            case BUDGET_BLOCKED, FAILED -> logPreparationFailure(preparation);
+                return;
+            case BUDGET_BLOCKED:
+            case FAILED:
+                logPreparationFailure(preparation);
+                return;
+            default:
+                throw new IllegalStateException("未知持久化准备结果: " + preparation.outcome());
         }
     }
 
