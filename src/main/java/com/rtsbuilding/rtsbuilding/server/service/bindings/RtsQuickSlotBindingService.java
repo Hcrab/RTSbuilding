@@ -2,10 +2,9 @@ package com.rtsbuilding.rtsbuilding.server.service.bindings;
 
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
 
 /**
  * 管理 {@link RtsStorageSession} 上的快速槽绑定状态。
@@ -38,15 +37,24 @@ public final class RtsQuickSlotBindingService {
 
         String normalized = "";
         ItemStack normalizedPreview = ItemStack.EMPTY;
-        if (itemId != null && !itemId.isBlank()) {
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+        if (itemId != null && !itemId.trim().isEmpty()) {
+            ResourceLocation key;
+            try {
+                key = new ResourceLocation(itemId);
+            } catch (RuntimeException invalidId) {
+                return RtsStorageBindings.UpdateResult.none();
+            }
+            if (!Item.REGISTRY.containsKey(key)) {
                 return RtsStorageBindings.UpdateResult.none();
             }
             normalized = itemId;
-            Item item = BuiltInRegistries.ITEM.get(key);
-            if (previewStack != null && !previewStack.isEmpty() && previewStack.is(item)) {
-                normalizedPreview = previewStack.copyWithCount(1);
+            Item item = Item.REGISTRY.getObject(key);
+            if (item == null) {
+                return RtsStorageBindings.UpdateResult.none();
+            }
+            if (previewStack != null && !previewStack.isEmpty() && previewStack.getItem() == item) {
+                normalizedPreview = previewStack.copy();
+                normalizedPreview.setCount(1);
             } else {
                 normalizedPreview = new ItemStack(item);
             }
@@ -54,7 +62,7 @@ public final class RtsQuickSlotBindingService {
 
         ItemStack previousPreview = session.uiMemory.getQuickSlotPreview(slot);
         if (normalized.equals(session.uiMemory.getQuickSlotItemId(slot))
-                && ItemStack.isSameItemSameComponents(previousPreview, normalizedPreview)) {
+                && ItemStack.areItemStacksEqual(previousPreview, normalizedPreview)) {
             return RtsStorageBindings.UpdateResult.none();
         }
 
