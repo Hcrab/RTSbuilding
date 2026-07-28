@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.api.PageService;
+import com.rtsbuilding.rtsbuilding.server.service.page.PageResult;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
@@ -18,8 +19,10 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -39,28 +42,32 @@ public final class RtsPageServiceImpl implements PageService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
-    public void requestPage(ServerPlayer player, int page, String search, String category,
+    public void requestPage(EntityPlayerMP player, int page, String search, String category,
                             RtsStorageSort sort, boolean ascending) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
         boolean pinyinSearchEnabled = session != null && session.browser.pinyinSearchEnabled;
-        List<String> localizedSearchMatches = session == null ? List.of() : List.copyOf(session.browser.localizedSearchMatches);
+        List<String> localizedSearchMatches = session == null
+                ? Collections.<String>emptyList()
+                : new ArrayList<String>(session.browser.localizedSearchMatches);
         int pageSize = session == null ? RtsStoragePageBuilder.defaultPageSize() : session.browser.pageSize;
         requestPage(player, page, search, category, sort, ascending,
                 pageSize, pinyinSearchEnabled, localizedSearchMatches);
     }
 
     @Override
-    public void requestPage(ServerPlayer player, int page, String search, String category,
+    public void requestPage(EntityPlayerMP player, int page, String search, String category,
                             RtsStorageSort sort, boolean ascending, boolean pinyinSearchEnabled) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
-        List<String> localizedSearchMatches = session == null ? List.of() : List.copyOf(session.browser.localizedSearchMatches);
+        List<String> localizedSearchMatches = session == null
+                ? Collections.<String>emptyList()
+                : new ArrayList<String>(session.browser.localizedSearchMatches);
         int pageSize = session == null ? RtsStoragePageBuilder.defaultPageSize() : session.browser.pageSize;
         requestPage(player, page, search, category, sort, ascending,
                 pageSize, pinyinSearchEnabled, localizedSearchMatches);
     }
 
     @Override
-    public void requestPage(ServerPlayer player, int page, String search, String category,
+    public void requestPage(EntityPlayerMP player, int page, String search, String category,
                             RtsStorageSort sort, boolean ascending, int pageSize,
                             boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
@@ -70,15 +77,15 @@ public final class RtsPageServiceImpl implements PageService {
         String safeCategory = RtsStoragePageBuilder.normalizeCategory(category);
         RtsStorageSort safeSort = sort == null ? RtsStorageSort.QUANTITY : sort;
         int safePageSize = RtsStoragePageBuilder.sanitizePageSize(pageSize);
-        List<String> safeLocalizedMatches = List.copyOf(
-                RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches));
+        List<String> safeLocalizedMatches = Collections.unmodifiableList(new ArrayList<String>(
+                RtsStoragePageBuilder.sanitizeLocalizedSearchMatches(localizedSearchMatches)));
         RtsStoragePageRequestCoalescer.enqueue(player, () -> buildPageNow(
                 player, page, safeSearch, safeCategory, safeSort, ascending,
                 safePageSize, pinyinSearchEnabled, safeLocalizedMatches));
     }
 
     /** Tick 末由合并器调用；只有这里允许真正解析储存网络并构建页面。 */
-    private void buildPageNow(ServerPlayer player, int page, String search, String category,
+    private void buildPageNow(EntityPlayerMP player, int page, String search, String category,
                               RtsStorageSort sort, boolean ascending, int pageSize,
                               boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
@@ -103,18 +110,18 @@ public final class RtsPageServiceImpl implements PageService {
         List<LinkedHandler> activeHandlers = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         List<LinkedFluidHandler> activeFluidHandlers = RtsLinkedStorageResolver.resolveLinkedFluidHandlers(player, session);
         RtsLinkedHandlerResolutionService.registerStorageCaches(player, activeHandlers);
-        var result = RtsStoragePageBuilder.build(
+        PageResult result = RtsStoragePageBuilder.build(
                 player, session, page, session.browser.pageSize,
                 activeHandlers, activeFluidHandlers);
         RtsClientboundPackets.sendToPlayer(player, result.payload());
         RtsDeveloperMetrics.recordPageSend(player);
         session.transfer.storageViewDirty = false;
         session.browser.page = result.safePage();
-        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
     }
 
     @Override
-    public void markStorageViewDirty(ServerPlayer player, RtsStorageSession session) {
+    public void markStorageViewDirty(EntityPlayerMP player, RtsStorageSession session) {
         if (player == null || session == null) return;
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) return;
         if (session.transfer.storageViewDirty) return;
@@ -131,13 +138,13 @@ public final class RtsPageServiceImpl implements PageService {
     //  Internal helpers
     // ────────────────────────────────────────────────────────────────
 
-    private void refreshMissingGuiBindingIcons(ServerPlayer player, RtsStorageSession session) {
+    private void refreshMissingGuiBindingIcons(EntityPlayerMP player, RtsStorageSession session) {
         if (RtsStorageBindings.refreshMissingGuiBindingIcons(player, session)) {
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
         }
     }
 
-    private int sessionPageSize(ServerPlayer player) {
+    private int sessionPageSize(EntityPlayerMP player) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
         return session == null ? RtsStoragePageBuilder.defaultPageSize() : session.browser.pageSize;
     }
