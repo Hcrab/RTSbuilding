@@ -5,8 +5,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.RangeDestroySelectionLimi
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -23,8 +23,8 @@ class ScreenShapeControllerRangeDestroyClampTest {
         BlockPos origin = new BlockPos(0, 64, 0);
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.CIRCLE,
-                Direction.UP,
-                Direction.UP,
+                EnumFacing.UP,
+                EnumFacing.UP,
                 origin,
                 new BlockPos(100, 64, 0),
                 0,
@@ -51,8 +51,8 @@ class ScreenShapeControllerRangeDestroyClampTest {
         BlockPos origin = new BlockPos(0, 64, 0);
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.CYLINDER,
-                Direction.UP,
-                Direction.UP,
+                EnumFacing.UP,
+                EnumFacing.UP,
                 origin,
                 new BlockPos(100, 64, 0),
                 100,
@@ -77,9 +77,9 @@ class ScreenShapeControllerRangeDestroyClampTest {
     void oversizedRectilinearPreviewIsClampedBeforeGeneratingTargets() {
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.BOX,
-                Direction.UP,
-                Direction.UP,
-                BlockPos.ZERO,
+                EnumFacing.UP,
+                EnumFacing.UP,
+                BlockPos.ORIGIN,
                 new BlockPos(599, 0, 599),
                 599,
                 false);
@@ -145,7 +145,7 @@ class ScreenShapeControllerRangeDestroyClampTest {
         assertTrue(planner.contains("RangeDestroySelectionLimiter.clampRoundPositions("));
         assertTrue(planner.contains("RangeDestroySelectionLimiter.clampPositions("));
         assertTrue(selectionBox.contains("RangeDestroySelectionLimiter.clampBox("));
-        assertTrue(limiter.contains("record Limits("));
+        assertTrue(limiter.contains("static final class Limits"));
         assertFalse(controller.contains("RangeDestroySelectionLimiter.clampInput("));
         assertFalse(controller.contains("RangeDestroySelectionLimiter.clampRoundPositions("));
         assertFalse(controller.contains("RangeDestroySelectionLimiter.clampPositions("));
