@@ -139,7 +139,54 @@ public final class TaskScheduler {
         return null;
     }
 
-    public record TickStats(int slices, int processedUnits, long elapsedNanos,
-            boolean timeBudgetExhausted, boolean unitBudgetExhausted) {
+    /** 单次调度 tick 的不可变统计，保留主线 record 的同名访问器。 */
+    public static final class TickStats {
+        private final int slices;
+        private final int processedUnits;
+        private final long elapsedNanos;
+        private final boolean timeBudgetExhausted;
+        private final boolean unitBudgetExhausted;
+
+        public TickStats(int slices, int processedUnits, long elapsedNanos,
+                boolean timeBudgetExhausted, boolean unitBudgetExhausted) {
+            this.slices = slices;
+            this.processedUnits = processedUnits;
+            this.elapsedNanos = elapsedNanos;
+            this.timeBudgetExhausted = timeBudgetExhausted;
+            this.unitBudgetExhausted = unitBudgetExhausted;
+        }
+
+        public int slices() { return slices; }
+        public int processedUnits() { return processedUnits; }
+        public long elapsedNanos() { return elapsedNanos; }
+        public boolean timeBudgetExhausted() { return timeBudgetExhausted; }
+        public boolean unitBudgetExhausted() { return unitBudgetExhausted; }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) return true;
+            if (!(object instanceof TickStats)) return false;
+            TickStats other = (TickStats) object;
+            return slices == other.slices && processedUnits == other.processedUnits
+                    && elapsedNanos == other.elapsedNanos
+                    && timeBudgetExhausted == other.timeBudgetExhausted
+                    && unitBudgetExhausted == other.unitBudgetExhausted;
+        }
+
+        @Override
+        public int hashCode() {
+            int result = slices;
+            result = 31 * result + processedUnits;
+            result = 31 * result + (int) (elapsedNanos ^ (elapsedNanos >>> 32));
+            result = 31 * result + (timeBudgetExhausted ? 1 : 0);
+            return 31 * result + (unitBudgetExhausted ? 1 : 0);
+        }
+
+        @Override
+        public String toString() {
+            return "TickStats{slices=" + slices + ", processedUnits=" + processedUnits
+                    + ", elapsedNanos=" + elapsedNanos + ", timeBudgetExhausted="
+                    + timeBudgetExhausted + ", unitBudgetExhausted=" + unitBudgetExhausted + "}";
+        }
     }
 }
