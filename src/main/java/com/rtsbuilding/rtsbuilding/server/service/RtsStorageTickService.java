@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,9 +24,9 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p><b>生命周期方法：</b>
  * <ul>
- *   <li>{@link #registerPlayer(ServerPlayer, List)} — 注册玩家，挂载处理器、
+ *   <li>{@link #registerPlayer(EntityPlayerMP, List)} — 注册玩家，挂载处理器、
  *       重用现有缓存或创建新缓存、计算初始刷新率</li>
- *   <li>{@link #unregisterPlayer(ServerPlayer)} — 完全移除玩家的聚合缓存和槽位快照，
+ *   <li>{@link #unregisterPlayer(EntityPlayerMP)} — 完全移除玩家的聚合缓存和槽位快照，
  *       但不销毁归端点租约所有的 AE2/BD 网络处理器</li>
  * </ul>
  *
@@ -36,7 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *       检测到变化时加速（currentRate / 2），空闲超过 IDLE_THRESHOLD 时减速（+1）</li>
  *   <li>{@link #alert(UUID)} — 立即将玩家速率设为 MIN_TICK_RATE，
  *       强制在下个 tick 刷新（等效 AE2 的 alertDevice）</li>
- *   <li>{@link #forceRefresh(ServerPlayer)} — 强制立即刷新并返回变更集</li>
+ *   <li>{@link #forceRefresh(EntityPlayerMP)} — 强制立即刷新并返回变更集</li>
  * </ul>
  *
  * <p><b>初始速率计算：</b>使用对数公式 {@code rate = ceil(log2(slots / 27 + 1))}，
@@ -72,9 +72,9 @@ public final class RtsStorageTickService {
      * 注册或更新玩家的聚合存储以及给定的处理器。
      * 如果处理器身份匹配，则重用现有缓存。
      */
-    public RtsAggregateStorage registerPlayer(ServerPlayer player, List<IItemHandler> handlers) {
+    public RtsAggregateStorage registerPlayer(EntityPlayerMP player, List<IItemHandler> handlers) {
         if (player == null) return null;
-        return registerPlayer(player.getUUID(), handlers);
+        return registerPlayer(player.getUniqueID(), handlers);
     }
 
     /** 以玩家 ID 注册处理器，供生命周期边界和无游戏运行时的回归测试复用。 */
@@ -84,7 +84,8 @@ public final class RtsStorageTickService {
         RtsAggregateStorage storage = this.playerStorage.computeIfAbsent(uuid, k -> new RtsAggregateStorage());
 
         // Unmount stale handlers
-        List<HandlerCachePair> existing = this.playerHandlers.getOrDefault(uuid, List.of());
+        List<HandlerCachePair> existing = this.playerHandlers.getOrDefault(
+                uuid, Collections.<HandlerCachePair>emptyList());
         Set<IItemHandler> newSet = Collections.newSetFromMap(new IdentityHashMap<>());
         newSet.addAll(normalizedHandlers);
 
@@ -127,9 +128,9 @@ public final class RtsStorageTickService {
      * <p>这里不会销毁传入的 AE/BD Handler；处理器归端点租约所有，避免租约随后复用
      * 一个已经被本服务提前清空的对象。</p>
      */
-    public void unregisterPlayer(ServerPlayer player) {
+    public void unregisterPlayer(EntityPlayerMP player) {
         if (player == null) return;
-        unregisterPlayer(player.getUUID());
+        unregisterPlayer(player.getUniqueID());
     }
 
     /** 仅释放本服务拥有的聚合缓存和快照，不销毁端点处理器。 */
@@ -252,16 +253,16 @@ public final class RtsStorageTickService {
      * 强制立即为特定玩家刷新缓存并返回更改。
      * 同时重置自适应定时器，以便在下一个 tick 再次运行。
      */
-    public Set<String> forceRefresh(ServerPlayer player) {
-        if (player == null) return Set.of();
-        return forceRefresh(player.getUUID());
+    public Set<String> forceRefresh(EntityPlayerMP player) {
+        if (player == null) return Collections.emptySet();
+        return forceRefresh(player.getUniqueID());
     }
 
     /** 以玩家 ID 强制刷新，避免生命周期清理依赖仍存活的玩家实体。 */
     public Set<String> forceRefresh(UUID uuid) {
-        if (uuid == null) return Set.of();
+        if (uuid == null) return Collections.emptySet();
         RtsAggregateStorage storage = this.playerStorage.get(uuid);
-        if (storage == null) return Set.of();
+        if (storage == null) return Collections.emptySet();
 
         TickTracker tracker = this.tickTrackers.get(uuid);
         if (tracker != null) {
@@ -275,13 +276,13 @@ public final class RtsStorageTickService {
     /**
      * 返回玩家的聚合存储，如果未注册则返回 {@code null}。
      */
-    public RtsAggregateStorage getStorage(ServerPlayer player) {
+    public RtsAggregateStorage getStorage(EntityPlayerMP player) {
         if (player == null) return null;
-        return this.playerStorage.get(player.getUUID());
+        return this.playerStorage.get(player.getUniqueID());
     }
 
     private static List<IItemHandler> distinctByIdentity(List<IItemHandler> handlers) {
-        if (handlers == null || handlers.isEmpty()) return List.of();
+        if (handlers == null || handlers.isEmpty()) return Collections.emptyList();
         Set<IItemHandler> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         List<IItemHandler> result = new ArrayList<>(handlers.size());
         for (IItemHandler handler : handlers) {
@@ -322,7 +323,14 @@ public final class RtsStorageTickService {
 
     // ---- 值类型 -----------------------------------------------------------
 
-    record HandlerCachePair(IItemHandler handler, RtsHandlerCache cache) {
+    private static final class HandlerCachePair {
+        final IItemHandler handler;
+        final RtsHandlerCache cache;
+
+        HandlerCachePair(IItemHandler handler, RtsHandlerCache cache) {
+            this.handler = handler;
+            this.cache = cache;
+        }
     }
 
     /**
