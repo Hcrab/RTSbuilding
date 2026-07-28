@@ -11,15 +11,14 @@ import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.level.entity.EntityTypeTest;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +27,7 @@ import java.util.List;
  * {@link FunnelService} 的默认实现——处理掉落物漏斗的启用/禁用、
  * 目标更新和每 Tick 的掉落物收集逻辑。
  *
- * <p>掉落物漏斗自动扫描目标位置附近的 {@link net.minecraft.world.entity.item.ItemEntity}，
+ * <p>掉落物漏斗自动扫描目标位置附近的 {@link EntityItem}，
  * 将掉落物吸入链接存储。当链接存储满时，多余物品会先存入玩家背包，
  * 再存入内部缓冲区。禁用漏斗时会清空缓冲区。
  */
@@ -37,14 +36,14 @@ public final class RtsFunnelServiceImpl implements FunnelService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
-    public void enable(ServerPlayer player, RtsStorageSession session) {
+    public void enable(EntityPlayerMP player, RtsStorageSession session) {
         session.funnel.funnelEnabled = true;
         session.funnel.funnelTickCooldown = 0;
         registry.session().saveFunnelToPlayerNbt(player, session);
     }
 
     @Override
-    public void disableAndFlush(ServerPlayer player, RtsStorageSession session) {
+    public void disableAndFlush(EntityPlayerMP player, RtsStorageSession session) {
         session.funnel.funnelEnabled = false;
         session.funnel.funnelTarget = null;
         session.funnel.funnelTargetDimension = null;
@@ -54,7 +53,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = new ArrayList<>(linked.size());
+        List<IItemHandler> handlers = new ArrayList<IItemHandler>(linked.size());
         for (LinkedHandler h : linked) {
             handlers.add(h.handler());
         }
@@ -69,22 +68,22 @@ public final class RtsFunnelServiceImpl implements FunnelService {
     }
 
     @Override
-    public void updateTarget(ServerPlayer player, RtsStorageSession session, BlockPos target) {
+    public void updateTarget(EntityPlayerMP player, RtsStorageSession session, BlockPos target) {
         if (!session.funnel.funnelEnabled || target == null) return;
-        session.funnel.funnelTarget = target.immutable();
-        session.funnel.funnelTargetDimension = player.serverLevel().dimension();
+        session.funnel.funnelTarget = target.toImmutable();
+        session.funnel.funnelTargetDimension = player.dimension;
         registry.session().saveFunnelToPlayerNbt(player, session);
     }
 
     @Override
-    public void tick(ServerPlayer player, RtsStorageSession session) {
+    public void tick(EntityPlayerMP player, RtsStorageSession session) {
         tickBudgeted(player, session,
                 RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK, Long.MAX_VALUE);
     }
 
     @Override
     public FunnelTickResult tickBudgeted(
-            ServerPlayer player, RtsStorageSession session, int maxUnits, long deadlineNanos) {
+            EntityPlayerMP player, RtsStorageSession session, int maxUnits, long deadlineNanos) {
         if (!session.funnel.funnelEnabled || session.mode != BuilderMode.FUNNEL) {
             return new FunnelTickResult(0, false);
         }
@@ -96,7 +95,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
 
         if (session.funnel.funnelTarget == null) return new FunnelTickResult(0, true);
         if (session.funnel.funnelTargetDimension == null
-                || !player.serverLevel().dimension().equals(session.funnel.funnelTargetDimension)) {
+                || player.dimension != session.funnel.funnelTargetDimension.intValue()) {
             // 目标属于其他维度时只让出本轮调度，绝不解析端点或扫描当前世界的同坐标。
             return new FunnelTickResult(0, true);
         }
@@ -105,14 +104,14 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             return new FunnelTickResult(0, true);
         }
         if (!RtsClaimProtectionService.canInteractBlock(
-                player, session.funnel.funnelTarget, Direction.UP,
-                InteractionHand.MAIN_HAND, ItemStack.EMPTY)) return new FunnelTickResult(0, true);
+                player, session.funnel.funnelTarget, EnumFacing.UP,
+                EnumHand.MAIN_HAND, ItemStack.EMPTY)) return new FunnelTickResult(0, true);
         if (!RtsCameraManager.isWithinActionRange(player, session.funnel.funnelTarget)) {
             return new FunnelTickResult(0, true);
         }
 
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = new ArrayList<>(linked.size());
+        List<IItemHandler> handlers = new ArrayList<IItemHandler>(linked.size());
         for (LinkedHandler lh : linked) {
             handlers.add(lh.handler());
         }
@@ -137,7 +136,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
     //  Internal helpers
     // ────────────────────────────────────────────────────────────────
 
-    private WorkResult flushBuffer(List<IItemHandler> handlers, ServerPlayer player,
+    private WorkResult flushBuffer(List<IItemHandler> handlers, EntityPlayerMP player,
             RtsStorageSession session, int maxUnits, long deadlineNanos) {
         if (session.funnel.funnelBuffer.isEmpty()) return new WorkResult(0, false);
         boolean changed = false;
@@ -160,7 +159,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
                 session.funnel.funnelBuffer.remove(i);
                 i--;
                 changed = true;
-            } else if (remain.getCount() != buffered.getCount()) {
+            } else if (!ItemStack.areItemStacksEqual(remain, buffered)) {
                 session.funnel.funnelBuffer.set(i, remain);
                 changed = true;
             }
@@ -168,29 +167,26 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         return new WorkResult(processed, changed);
     }
 
-    private WorkResult absorbDrops(ServerPlayer player, BlockPos target, List<IItemHandler> handlers,
+    private WorkResult absorbDrops(EntityPlayerMP player, BlockPos target, List<IItemHandler> handlers,
             RtsStorageSession session, int maxUnits, long deadlineNanos) {
-        AABB box = new AABB(target).inflate(RtsServiceConstants.FUNNEL_RADIUS);
-        int queryLimit = Math.min(maxUnits, RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK);
-        List<ItemEntity> drops = new ArrayList<>(queryLimit);
-        player.serverLevel().getEntities(
-                EntityTypeTest.forClass(ItemEntity.class), box,
-                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), drops, queryLimit);
+        AxisAlignedBB box = new AxisAlignedBB(target).grow(RtsServiceConstants.FUNNEL_RADIUS);
+        List<EntityItem> drops = player.getServerWorld().getEntitiesWithinAABB(EntityItem.class, box);
 
         int processedEntities = 0;
         int processedItems = 0;
         boolean changed = false;
 
-        for (ItemEntity drop : drops) {
+        for (EntityItem drop : drops) {
             if (processedEntities >= RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK
                     || processedEntities >= maxUnits
                     || processedItems >= RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK) {
                 break;
             }
             if (System.nanoTime() >= deadlineNanos) break;
-            processedEntities++;
+            if (drop == null || !drop.isEntityAlive()) continue;
             ItemStack worldStack = drop.getItem();
             if (worldStack.isEmpty()) continue;
+            processedEntities++;
 
             int batchSize = Math.min(worldStack.getCount(),
                     RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK - processedItems);
@@ -210,7 +206,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
                 changed = true;
             }
             if (worldStack.isEmpty()) {
-                drop.discard();
+                drop.setDead();
             } else {
                 drop.setItem(worldStack);
             }
@@ -218,7 +214,22 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         return new WorkResult(processedEntities, changed);
     }
 
-    private record WorkResult(int processedUnits, boolean changed) {
+    private static final class WorkResult {
+        private final int processedUnits;
+        private final boolean changed;
+
+        private WorkResult(int processedUnits, boolean changed) {
+            this.processedUnits = processedUnits;
+            this.changed = changed;
+        }
+
+        private int processedUnits() {
+            return processedUnits;
+        }
+
+        private boolean changed() {
+            return changed;
+        }
     }
 
 }
