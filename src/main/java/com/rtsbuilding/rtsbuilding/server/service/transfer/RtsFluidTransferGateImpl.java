@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
 import com.rtsbuilding.rtsbuilding.server.storage.FluidTransferGate;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -13,11 +13,11 @@ import java.util.List;
  *
  * <p>此类将 {@link FluidTransferGate} 接口的方法委托给真正的传输实现：
  * <ul>
- *   <li>{@link #extractOneFromNetwork(List, ServerPlayer, Item)} →
+ *   <li>{@link #extractOneFromNetwork(List, EntityPlayerMP, Item)} →
  *       委托给 {@link RtsTransferExtractor#extractOneFromNetwork}</li>
- *   <li>{@link #refundToLinked(List, ServerPlayer, ItemStack)} →
+ *   <li>{@link #refundToLinked(List, EntityPlayerMP, ItemStack)} →
  *       委托给 {@link RtsTransferInserter#refundToLinked}</li>
- *   <li>{@link #moveToPlayerInventoryOnly(ServerPlayer, ItemStack)} →
+ *   <li>{@link #moveToPlayerInventoryOnly(EntityPlayerMP, ItemStack)} →
  *       委托给 {@link RtsTransferInserter#moveToPlayerInventoryOnly}</li>
  * </ul>
  *
@@ -28,17 +28,17 @@ import java.util.List;
 public final class RtsFluidTransferGateImpl implements FluidTransferGate {
 
     @Override
-    public ItemStack extractOneFromNetwork(List<IItemHandler> handlers, ServerPlayer player, Item targetItem) {
+    public ItemStack extractOneFromNetwork(List<IItemHandler> handlers, EntityPlayerMP player, Item targetItem) {
         return RtsTransferExtractor.extractOneFromNetwork(handlers, player, targetItem);
     }
 
     @Override
-    public void refundToLinked(List<IItemHandler> handlers, ServerPlayer player, ItemStack stack) {
+    public void refundToLinked(List<IItemHandler> handlers, EntityPlayerMP player, ItemStack stack) {
         RtsTransferInserter.refundToLinked(handlers, player, stack);
     }
 
     @Override
-    public ItemStack moveToPlayerInventoryOnly(ServerPlayer player, ItemStack stack) {
+    public ItemStack moveToPlayerInventoryOnly(EntityPlayerMP player, ItemStack stack) {
         return RtsTransferInserter.moveToPlayerInventoryOnly(player, stack);
     }
 }

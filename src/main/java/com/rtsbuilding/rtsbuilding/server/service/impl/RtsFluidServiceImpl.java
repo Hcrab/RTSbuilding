@@ -12,11 +12,11 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -25,10 +25,13 @@ import java.util.List;
  *
  * <p>该实现类协调多个系统组件：
  * <ul>
- *   <li>使用 {@link com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids} 执行实际的流体存取逻辑</li>
- *   <li>使用 {@link com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService} 解析流体处理器</li>
- *   <li>使用 {@link com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager} 检查相机状态</li>
+ *   <li>由 {@link RtsStorageFluids} 执行容器模拟/执行、真实余物回收和世界放置；</li>
+ *   <li>由 {@link RtsLinkedStorageResolver} 解析具有正确提取/插入权限的物品与流体处理器；</li>
+ *   <li>在进入底层前统一检查进度、相机、区块、世界修改权限和操作距离。</li>
  * </ul>
+ *
+ * <p>本类不自行重做 Forge 流体能力操作，避免服务层丢失容器 metadata/NBT 或模拟结果；
+ * 成功修改后统一交给服务操作模板刷新缓存与储存页面。
  */
 public final class RtsFluidServiceImpl implements FluidService {
 
@@ -36,7 +39,7 @@ public final class RtsFluidServiceImpl implements FluidService {
     private final FluidTransferGate fluidTransferGate = new RtsFluidTransferGateImpl();
 
     @Override
-    public void storeFluidFromContainer(ServerPlayer player, byte sourceType, byte toolSlot, String itemId) {
+    public void storeFluidFromContainer(EntityPlayerMP player, byte sourceType, byte toolSlot, String itemId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.FLUID_HANDLING)) {
             return;
         }
@@ -67,7 +70,7 @@ public final class RtsFluidServiceImpl implements FluidService {
     }
 
     @Override
-    public void placeFluid(ServerPlayer player, BlockPos clickedPos, Direction face,
+    public void placeFluid(EntityPlayerMP player, BlockPos clickedPos, EnumFacing face,
                            double hitX, double hitY, double hitZ, boolean forcePlace, String fluidId,
                            double rayOriginX, double rayOriginY, double rayOriginZ,
                            double rayDirX, double rayDirY, double rayDirZ) {
@@ -89,26 +92,26 @@ public final class RtsFluidServiceImpl implements FluidService {
     //  Internal helpers
     // ────────────────────────────────────────────────────────────────
 
-    private boolean canAccessFluidPlacementTarget(ServerPlayer player, BlockPos pos) {
+    private boolean canAccessFluidPlacementTarget(EntityPlayerMP player, BlockPos pos) {
         if (!RtsCameraManager.isActive(player) || pos == null) {
             return false;
         }
-        Level level = player.serverLevel();
-        if (!level.hasChunkAt(pos)) {
+        WorldServer level = player.getServerWorld();
+        if (!level.isBlockLoaded(pos)) {
             return false;
         }
-        if (level.mayInteract(player, pos)
+        if (level.isBlockModifiable(player, pos)
                 && RtsCameraManager.isWithinActionRange(player, pos)) {
             return true;
         }
-        if (!level.getBlockState(pos).isAir()) {
+        if (!level.isAirBlock(pos)) {
             return false;
         }
-        BlockPos below = pos.below();
-        if (!level.hasChunkAt(below)) {
+        BlockPos below = pos.down();
+        if (!level.isBlockLoaded(below)) {
             return false;
         }
-        return level.mayInteract(player, below)
+        return level.isBlockModifiable(player, below)
                 && RtsCameraManager.isWithinActionRange(player, pos);
     }
 }
