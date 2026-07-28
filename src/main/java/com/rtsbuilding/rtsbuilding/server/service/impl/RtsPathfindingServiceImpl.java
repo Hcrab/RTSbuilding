@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.server.service.api.PathfindingService;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.Map;
 import java.util.UUID;
@@ -20,18 +20,18 @@ public final class RtsPathfindingServiceImpl implements PathfindingService {
     private final Map<UUID, BlockPos> moveTargets = new ConcurrentHashMap<>();
 
     @Override
-    public void goTo(ServerPlayer player, BlockPos target) {
+    public void goTo(EntityPlayerMP player, BlockPos target) {
         cancel(player);
-        moveTargets.put(player.getUUID(), target.immutable());
+        moveTargets.put(player.getUniqueID(), target.toImmutable());
     }
 
     @Override
-    public void cancel(ServerPlayer player) {
-        moveTargets.remove(player.getUUID());
+    public void cancel(EntityPlayerMP player) {
+        moveTargets.remove(player.getUniqueID());
     }
 
     @Override
-    public boolean isMoving(ServerPlayer player) {
-        return moveTargets.containsKey(player.getUUID());
+    public boolean isMoving(EntityPlayerMP player) {
+        return moveTargets.containsKey(player.getUniqueID());
     }
 }
