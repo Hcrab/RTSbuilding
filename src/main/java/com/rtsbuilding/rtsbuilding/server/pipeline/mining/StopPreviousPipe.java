@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
-import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowToken;
+import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 
 import java.util.Optional;
 

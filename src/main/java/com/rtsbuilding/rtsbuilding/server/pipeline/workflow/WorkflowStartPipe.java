@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
-import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowToken;
+import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 
