@@ -47,8 +47,9 @@ class UiProductionAdapterContractTest {
         assertTrue(layer.contains("WINDOW_Z_STRIDE = 400.0F"));
         assertTrue(layer.contains("windowLayerZ(i)"));
         assertTrue(layer.contains("windowLayerZ(i) + WINDOW_Z_STRIDE - 1.0F"));
-        assertTrue(layer.contains("g.pose().pushPose()"));
-        assertTrue(layer.contains("g.pose().popPose()"));
+        // 1.12.2 没有 PoseStack；GlStateManager 的矩阵栈是同一隔离边界。
+        assertTrue(layer.contains("GlStateManager.pushMatrix()"));
+        assertTrue(layer.contains("GlStateManager.popMatrix()"));
     }
 
     @Test
@@ -698,10 +699,13 @@ class UiProductionAdapterContractTest {
         assertTrue(input.contains("BlueprintLibraryLayout.hitAt("));
         assertTrue(input.contains("BlueprintLibraryLayout.scrollRows("));
         assertTrue(panel.contains("applyFileOperation(BlueprintLibraryFileOperations."));
-        assertTrue(fileOperations.contains("record Result("));
-        assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_openFileDialog("));
-        assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_saveFileDialog("));
-        assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_messageBox("));
+        // Java 8 用显式不可变值类承载主线 record 的同等语义。
+        assertTrue(fileOperations.contains("static final class Result"));
+        // LWJGL 2 不提供 TinyFileDialogs；Java 8 Swing 在 EDT 上保留同等文件选择与确认边界。
+        assertTrue(fileOperations.contains("chooser.showOpenDialog(null)"));
+        assertTrue(fileOperations.contains("chooser.showSaveDialog(null)"));
+        assertTrue(fileOperations.contains("JOptionPane.showConfirmDialog(null"));
+        assertTrue(fileOperations.contains("SwingUtilities.invokeAndWait(task)"));
         assertTrue(fileOperations.contains("BlueprintWriters.writeVanillaStructure("));
         assertTrue(repository.contains("Files.list(folder)"));
         assertTrue(repository.contains("BlueprintReaders.parse("));

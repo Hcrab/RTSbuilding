@@ -1,9 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
@@ -587,11 +591,8 @@ public final class OverlayLayoutHelper {
 
     public static void drawPanelFrame(LegacyGuiGraphics g, FontRenderer font, int x, int y, int w, int h,
                                       UiColor fillColor, UiColor light, UiColor dark) {
-        g.fill(x, y, x + w, y + h, fillColor.toArgb());
-        g.fill(x, y, x + w, y + 1, light.toArgb());
-        g.fill(x, y, x + 1, y + h, light.toArgb());
-        g.fill(x, y + h - 1, x + w, y + h, dark.toArgb());
-        g.fill(x + w - 1, y, x + w, y + h, dark.toArgb());
+        UiChromeRenderer.frame(new MinecraftUiCanvas(g, font), new UiRect(x, y, w, h),
+                1.0D, fillColor, light, dark);
     }
 
     public static void drawOverlayWindowFrame(LegacyGuiGraphics g, FontRenderer font, int x, int y, int w, int h) {
@@ -602,7 +603,7 @@ public final class OverlayLayoutHelper {
     }
 
     public static void drawMiniButton(LegacyGuiGraphics g, FontRenderer font, int x, int y, int w, int h, String label) {
-        drawPanelFrame(g, font, x, y, w, h,
+        UiCompactFrameRenderer.frame(new MinecraftUiCanvas(g, font), new UiRect(x, y, w, h),
                 ContainerOverlayStyle.MINI_BUTTON_BACKGROUND,
                 ContainerOverlayStyle.BUTTON_BORDER_LIGHT,
                 ContainerOverlayStyle.BUTTON_BORDER_DARK);
@@ -634,6 +635,6 @@ public final class OverlayLayoutHelper {
     }
 
     public static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+        return UiRect.contains(x, y, w, h, mouseX, mouseY);
     }
 }

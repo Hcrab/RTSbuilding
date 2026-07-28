@@ -444,7 +444,7 @@ public final class PlacementStateWheel {
     private static float lerp(float amount, float from, float to) { return from + (to - from) * amount; }
     private static int color(int argb, float multiplier) {
         int alpha = Math.round(((argb >>> 24) & 255) * clamp(multiplier, 0.0F, 1.0F));
-        return argb & 0x00FFFFFF | alpha << 24;
+        return new com.rtsbuilding.rtsbuilding.uikit.theme.UiColor(argb).withAlpha(alpha).toArgb();
     }
 
     private static String trimToWidth(FontRenderer font, String text, int maxWidth) {

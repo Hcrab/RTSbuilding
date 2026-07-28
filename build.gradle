@@ -313,9 +313,20 @@ tasks.register('runPortableGameTests', JavaExec) {
     classpath = sourceSets.main.runtimeClasspath
     mainClass.set('com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests')
     args '--portable'
+    // Java 8 的容器感知较弱，不能按宿主机总内存推导默认大堆；契约本身只需很小堆。
+    minHeapSize = '64m'
+    maxHeapSize = '256m'
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion.set(JavaLanguageVersion.of(8))
     })
+}
+
+['runServer', 'runObfServer'].each { taskName ->
+    tasks.named(taskName, JavaExec).configure {
+        // 旧版 Java 8 不会按当前可用分页文件可靠推导默认堆，服务端烟测使用明确的小堆。
+        minHeapSize = '128m'
+        maxHeapSize = '768m'
+    }
 }
 
 tasks.named('check').configure {

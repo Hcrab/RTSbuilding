@@ -42,6 +42,10 @@ public final class CraftTerminalStyle {
     public static final UiColor SLOT_BORDER_LIGHT = new UiColor(0xFF596D84);
     public static final UiColor SLOT_BORDER_DARK = new UiColor(0xFF11171E);
     public static final UiColor MINI_BUTTON_BACKGROUND = new UiColor(0xAA2B3642);
+    public static final UiColor INPUT_BORDER_LIGHT = new UiColor(0xFFA0A0A0);
+    public static final UiColor INPUT_BACKGROUND = new UiColor(0xFF101010);
+    public static final UiColor INPUT_TEXT = new UiColor(0xFFE0E0E0);
+    public static final UiColor INPUT_CURSOR = new UiColor(0xFFD0D0D0);
 
     public static final UiColor BUTTON_BORDER_LIGHT = RtsMainlineTheme.BUTTON_BORDER_LIGHT;
     public static final UiColor BUTTON_BORDER_DARK = RtsMainlineTheme.BUTTON_BORDER_DARK;

@@ -292,13 +292,16 @@ public final class RtsModConfigScreen extends GuiScreen {
         }
         @Override public void drawTextBox() {
             if (!getVisible()) return;
-            Gui.drawRect(drawX, drawY, drawX + drawW, drawY + drawH, 0xFFA0A0A0);
-            Gui.drawRect(drawX + 1, drawY + 1, drawX + drawW - 1, drawY + drawH - 1, 0xFF101010);
+            Gui.drawRect(drawX, drawY, drawX + drawW, drawY + drawH,
+                    StandaloneScreenStyle.INPUT_BORDER_LIGHT.toArgb());
+            Gui.drawRect(drawX + 1, drawY + 1, drawX + drawW - 1, drawY + drawH - 1,
+                    StandaloneScreenStyle.INPUT_BACKGROUND.toArgb());
             String visible = font.trimStringToWidth(getText(), Math.max(1, drawW - 6), true);
             int textX = drawX + 3, textY = drawY + (drawH - 8) / 2;
-            font.drawString(visible, textX, textY, 0xFFE0E0E0, false);
+            font.drawString(visible, textX, textY, StandaloneScreenStyle.INPUT_TEXT.toArgb(), false);
             if (isFocused()) Gui.drawRect(textX + font.getStringWidth(visible) + 1, textY - 1,
-                    textX + font.getStringWidth(visible) + 2, textY + 9, 0xFFD0D0D0);
+                    textX + font.getStringWidth(visible) + 2, textY + 9,
+                    StandaloneScreenStyle.INPUT_CURSOR.toArgb());
         }
     }
 }

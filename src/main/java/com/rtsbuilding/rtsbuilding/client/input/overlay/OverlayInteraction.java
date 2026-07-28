@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsHomeScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
+import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRefillPayload;
@@ -461,10 +462,12 @@ public final class OverlayInteraction {
             return;
         }
         OverlayLayoutHelper.ButtonLayout home = inventoryHomeButton(screen);
-        Gui.drawRect(home.x(), home.y(), home.x() + home.w(), home.y() + home.h(), 0xCC303030);
+        Gui.drawRect(home.x(), home.y(), home.x() + home.w(), home.y() + home.h(),
+                ContainerOverlayStyle.INVENTORY_HOME_BACKGROUND.toArgb());
         String label = I18n.format("screen.rtsbuilding.inventory.home_button");
         font.drawString(label, home.x() + Math.max(2, (home.w() - font.getStringWidth(label)) / 2),
-                home.y() + Math.max(1, (home.h() - font.FONT_HEIGHT) / 2), 0xFFFFFF, false);
+                home.y() + Math.max(1, (home.h() - font.FONT_HEIGHT) / 2),
+                ContainerOverlayStyle.INVENTORY_HOME_TEXT.toArgb(), false);
     }
 
     public static boolean handleInventoryRtsButtonClick(GuiScreen screen, double mouseX, double mouseY) {

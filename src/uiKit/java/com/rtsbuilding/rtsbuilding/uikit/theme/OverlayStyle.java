@@ -30,6 +30,8 @@ public final class OverlayStyle {
     public static final UiColor PROGRESS_ERROR = new UiColor(0xFFE07070);
     public static final UiColor PROGRESS_BORDER_LIGHT = new UiColor(0xFF405064);
     public static final UiColor PROGRESS_BORDER_DARK = new UiColor(0xFF0A0D12);
+    public static final UiColor CURSOR_LINE = new UiColor(0xFFFFFFFF);
+    public static final UiColor CURSOR_TRANSPARENT = RtsMainlineTheme.TRANSPARENT;
 
     public static UiColor questStatus(boolean error, boolean unavailable) {
         if (error) {

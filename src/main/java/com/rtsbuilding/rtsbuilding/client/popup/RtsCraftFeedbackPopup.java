@@ -3,6 +3,9 @@ package com.rtsbuilding.rtsbuilding.client.popup;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.record.CraftFeedbackIngredient;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftFeedbackLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftFeedbackStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
@@ -109,10 +112,8 @@ public final class RtsCraftFeedbackPopup {
 
     private static void drawPanelFrame(LegacyGuiGraphics g, int x, int y, int w, int h,
                                        UiColor fill, UiColor light, UiColor dark) {
-        g.fill(x, y, x + w, y + h, fill.toArgb());
-        g.fill(x, y, x + w, y + 1, light.toArgb());
-        g.fill(x, y, x + 1, y + h, light.toArgb());
-        g.fill(x, y + h - 1, x + w, y + h, dark.toArgb());
-        g.fill(x + w - 1, y, x + w, y + h, dark.toArgb());
+        UiChromeRenderer.frame(
+                new MinecraftUiCanvas(g, net.minecraft.client.Minecraft.getMinecraft().fontRenderer),
+                new UiRect(x, y, w, h), 1.0D, fill, light, dark);
     }
 }

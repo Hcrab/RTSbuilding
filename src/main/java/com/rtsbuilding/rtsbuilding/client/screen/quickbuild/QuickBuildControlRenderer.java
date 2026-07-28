@@ -34,6 +34,7 @@ import java.util.List;
  * 不提交 action，也不执行任何形状或世界副作用。</p>
  */
 final class QuickBuildControlRenderer {
+    private static final int TOOLTIP_CURSOR_OFFSET = 12;
     private final UiSelectionAnimationSet<QuickBuildUiMode> modeAnimations =
             new UiSelectionAnimationSet<>(SystemUiClock.INSTANCE,
                     Arrays.asList(QuickBuildUiMode.values()), 100L, UiEasing.EASE_OUT_CUBIC);
@@ -86,16 +87,18 @@ final class QuickBuildControlRenderer {
                         QuickBuildIconCatalog.tooltipKey(state.shapes.get(i).shape));
                 int tooltipWidth = screen.font().getStringWidth(label) + 8;
                 int tooltipHeight = screen.font().FONT_HEIGHT + 6;
-                int tooltipX = Math.min(mouseX + 12,
+                int tooltipX = Math.min(mouseX + TOOLTIP_CURSOR_OFFSET,
                         Math.max(0, scaled.getScaledWidth() - tooltipWidth - 2));
-                int tooltipY = Math.min(mouseY - 12,
+                int tooltipY = Math.min(mouseY - TOOLTIP_CURSOR_OFFSET,
                         Math.max(0, scaled.getScaledHeight() - tooltipHeight - 2));
                 graphics.fill(tooltipX, tooltipY,
-                        tooltipX + tooltipWidth, tooltipY + tooltipHeight, 0xF0100010);
+                        tooltipX + tooltipWidth, tooltipY + tooltipHeight,
+                        QuickBuildStyle.TOOLTIP_BACKGROUND.toArgb());
                 graphics.fill(tooltipX, tooltipY,
-                        tooltipX + tooltipWidth, tooltipY + 1, 0xFF5050A0);
+                        tooltipX + tooltipWidth, tooltipY + 1,
+                        QuickBuildStyle.TOOLTIP_BORDER.toArgb());
                 graphics.drawString(screen.font(), label,
-                        tooltipX + 4, tooltipY + 3, 0xFFFFFFFF, false);
+                        tooltipX + 4, tooltipY + 3, QuickBuildStyle.TOOLTIP_TEXT.toArgb(), false);
                 return;
             }
         }

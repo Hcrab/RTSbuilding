@@ -25,6 +25,7 @@ public final class CraftQuantityStyle {
     public static final UiColor MISSING_BADGE = new UiColor(0xFFF0C4C4);
     public static final UiColor DETAIL = new UiColor(0xFFBCD0E2);
     public static final UiColor DETAIL_MISSING = new UiColor(0xFFD6AAAA);
+    public static final UiColor INPUT_SELECTION = new UiColor(0xFF2F5D9B);
 
     private CraftQuantityStyle() {
     }

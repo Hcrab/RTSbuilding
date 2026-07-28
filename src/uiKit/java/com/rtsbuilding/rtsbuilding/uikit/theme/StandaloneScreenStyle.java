@@ -26,6 +26,10 @@ public final class StandaloneScreenStyle {
     public static final UiColor WARNING_TEXT = new UiColor(0xFFFFD980);
     public static final UiColor WARNING_BACKGROUND = new UiColor(0xFF1B1F24);
     public static final UiColor WARNING_DIVIDER = new UiColor(0xFF6E8799);
+    public static final UiColor INPUT_BORDER_LIGHT = new UiColor(0xFFA0A0A0);
+    public static final UiColor INPUT_BACKGROUND = new UiColor(0xFF101010);
+    public static final UiColor INPUT_TEXT = new UiColor(0xFFE0E0E0);
+    public static final UiColor INPUT_CURSOR = new UiColor(0xFFD0D0D0);
 
     public static UiColor progressionStatus(boolean enabled) {
         return enabled ? STATUS_ENABLED : STATUS_DISABLED;

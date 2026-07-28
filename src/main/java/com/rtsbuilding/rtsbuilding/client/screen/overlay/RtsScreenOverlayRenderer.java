@@ -188,7 +188,7 @@ public final class RtsScreenOverlayRenderer {
     private static int cursorPixel(
             RtsWindowPanel.ResizeCursor style, int x, int y, int center, int size) {
         if (style == null) {
-            return 0x00000000;
+            return OverlayStyle.CURSOR_TRANSPARENT.toArgb();
         }
         int dx = x - center;
         int dy = y - center;
@@ -213,7 +213,7 @@ public final class RtsScreenOverlayRenderer {
             default:
                 line = false;
         }
-        return line ? 0xFFFFFFFF : 0x00000000;
+        return (line ? OverlayStyle.CURSOR_LINE : OverlayStyle.CURSOR_TRANSPARENT).toArgb();
     }
 
     public void renderHomeSelectionOverlay(LegacyGuiGraphics graphics, int mouseX, int mouseY) {

@@ -355,9 +355,10 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
             if (!getVisible()) return;
             String visible = font.trimStringToWidth(getText(), Math.max(1, drawW - 2), true);
             int textY = drawY + Math.max(0, (drawH - 8) / 2);
-            font.drawString(visible, drawX, textY, 0xFFE0E0E0, false);
+            font.drawString(visible, drawX, textY, CraftTerminalStyle.INPUT_TEXT.toArgb(), false);
             if (isFocused()) Gui.drawRect(drawX + font.getStringWidth(visible) + 1, textY - 1,
-                    drawX + font.getStringWidth(visible) + 2, textY + 9, 0xFFD0D0D0);
+                    drawX + font.getStringWidth(visible) + 2, textY + 9,
+                    CraftTerminalStyle.INPUT_CURSOR.toArgb());
         }
     }
 }

@@ -110,6 +110,12 @@ tasks.register('uiCoreTest', Test) {
     testClassesDirs = sourceSets.uiCoreTest.output.classesDirs
     classpath = sourceSets.uiCoreTest.runtimeClasspath
     useJUnitPlatform()
+    // 独立 UI 契约不需要 Gradle 默认的 512 MiB 测试堆。限制为单进程小堆，
+    // 避免在玩家客户端同时运行时反复申请分页文件而误判为测试失败。
+    maxParallelForks = 1
+    minHeapSize = '32m'
+    maxHeapSize = '192m'
+    forkEvery = 0
     testLogging {
         events 'passed', 'skipped', 'failed'
         exceptionFormat = 'short'
@@ -124,6 +130,10 @@ tasks.register('uiKitTest', Test) {
     testClassesDirs = sourceSets.uiKitTest.output.classesDirs
     classpath = sourceSets.uiKitTest.runtimeClasspath
     useJUnitPlatform()
+    maxParallelForks = 1
+    minHeapSize = '32m'
+    maxHeapSize = '192m'
+    forkEvery = 0
     testLogging {
         events 'passed', 'skipped', 'failed'
         exceptionFormat = 'short'

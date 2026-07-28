@@ -37,6 +37,9 @@ public final class QuickBuildStyle {
     public static final UiColor DIMENSION_TEXT = new UiColor(0xFFC9D8E8);
     /** 正式模式圆点贴图不额外染色。 */
     public static final UiColor ICON_TINT = new UiColor(0xFFFFFFFF);
+    public static final UiColor TOOLTIP_BACKGROUND = RtsMainlineTheme.TOOLTIP_BACKGROUND;
+    public static final UiColor TOOLTIP_BORDER = RtsMainlineTheme.TOOLTIP_BORDER;
+    public static final UiColor TOOLTIP_TEXT = RtsMainlineTheme.BUTTON_TEXT;
 
     private QuickBuildStyle() {
     }

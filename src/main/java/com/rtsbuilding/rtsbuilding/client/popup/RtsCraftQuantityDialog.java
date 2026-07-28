@@ -2,6 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.popup;
 
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.record.CraftRecipeOption;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityDialogLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftQuantityStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
@@ -159,7 +162,7 @@ public final class RtsCraftQuantityDialog {
         if (this.replaceOnNextDigit) {
             g.fill(textX - 1, layout.inputY() + 2,
                     textX + font.getStringWidth(this.quantityText) + 1,
-                    layout.inputY() + 12, 0xFF2F5D9B);
+                    layout.inputY() + 12, CraftQuantityStyle.INPUT_SELECTION.toArgb());
         }
         g.drawString(font, this.quantityText, textX, layout.inputY() + 3,
                 RtsMainlineTheme.BUTTON_TEXT.toArgb());
@@ -180,8 +183,8 @@ public final class RtsCraftQuantityDialog {
         drawSmallButton(g, font, layout.confirmX(), layout.actionY(), ACTION_W, ACTION_H,
                 "Craft", RtsMainlineTheme.BUTTON_PRIMARY_BACKGROUND);
 
-        if (!this.preview.isEmpty() && inside(mouseX, mouseY,
-                layout.panelX() + 8, layout.panelY() + 21, 16, 16)) {
+        if (!this.preview.isEmpty() && UiRect.contains(
+                layout.panelX() + 8, layout.panelY() + 21, 16, 16, mouseX, mouseY)) {
             g.renderTooltip(this.preview, mouseX, mouseY);
         }
         GL11.glPopAttrib();
@@ -193,7 +196,7 @@ public final class RtsCraftQuantityDialog {
         if (!this.open) return false;
         CraftQuantityDialogLayout.Layout layout = resolveLayout(screenWidth, screenHeight);
         if (button != 0) return true;
-        if (inside(mouseX, mouseY, layout.inputX(), layout.inputY(), INPUT_W, INPUT_H)) {
+        if (UiRect.contains(layout.inputX(), layout.inputY(), INPUT_W, INPUT_H, mouseX, mouseY)) {
             this.replaceOnNextDigit = true;
             return true;
         }
@@ -355,15 +358,9 @@ public final class RtsCraftQuantityDialog {
 
     private static void drawPanelFrame(LegacyGuiGraphics g, int x, int y, int w, int h,
                                        UiColor fill, UiColor light, UiColor dark) {
-        g.fill(x, y, x + w, y + h, fill.toArgb());
-        g.fill(x, y, x + w, y + 1, light.toArgb());
-        g.fill(x, y, x + 1, y + h, light.toArgb());
-        g.fill(x, y + h - 1, x + w, y + h, dark.toArgb());
-        g.fill(x + w - 1, y, x + w, y + h, dark.toArgb());
-    }
-
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
+        UiChromeRenderer.frame(
+                new MinecraftUiCanvas(g, net.minecraft.client.Minecraft.getMinecraft().fontRenderer),
+                new UiRect(x, y, w, h), 1.0D, fill, light, dark);
     }
 
     private static CraftQuantityDialogLayout.Layout resolveLayout(int screenWidth, int screenHeight) {

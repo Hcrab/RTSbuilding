@@ -7,6 +7,8 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 不拥有容器生命周期、JEI 交互、物品绘制或网络动作。</p>
  */
 public final class ContainerOverlayStyle {
+    public static final UiColor INVENTORY_HOME_BACKGROUND = new UiColor(0xCC303030);
+    public static final UiColor INVENTORY_HOME_TEXT = new UiColor(0xFFFFFFFF);
     public static final UiColor SEARCH_IDLE = new UiColor(0xAA202731);
     public static final UiColor SEARCH_FOCUSED = new UiColor(0xAA304153);
     public static final UiColor SEARCH_BORDER_LIGHT = new UiColor(0xFF61758A);
