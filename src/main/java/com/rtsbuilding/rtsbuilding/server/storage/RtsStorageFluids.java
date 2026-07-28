@@ -8,264 +8,283 @@ import com.rtsbuilding.rtsbuilding.server.service.fluids.RtsFluidNetworkOperator
 import com.rtsbuilding.rtsbuilding.server.service.fluids.RtsFluidWorldPlacer;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidRegistry;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import net.minecraftforge.items.IItemHandler;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
  * 拥有 RTS 存储流体变更和链接流体行为。
  *
- * <p>此辅助类负责内部流体缓冲变更、链接流体处理器的填充/排出行为、
- * 流体容器清空、目标容器填充和世界流体放置规则。
- * 它刻意不拥有物品传输、合成、存储页面分发或数据包注册。
- *
- * <p>世界放置逻辑已提取到 {@link RtsFluidWorldPlacer}，
- * 内部缓冲管理到 {@link RtsFluidBufferService}，
- * 网络操作（跨链接处理器和缓冲区的计数/提取/插入）到 {@link RtsFluidNetworkOperator}。
+ * <p>容器排液必须先模拟，再对同一份完整物品栈执行；执行结果的流体、NBT 和容器余物都以
+ * Forge 流体能力返回的真实值为准。本类不把容器降级为物品 ID，也不丢弃 metadata/NBT。
  */
 public final class RtsStorageFluids {
-    private static final int FLUID_TRANSFER_MB = FluidType.BUCKET_VOLUME;
+    private static final int FLUID_TRANSFER_MB = Fluid.BUCKET_VOLUME;
 
     private RtsStorageFluids() {
     }
 
-    // ======================================================================
-    //  公开 API：存储 / 放置 / 查询
-    // ======================================================================
+    public static boolean storeFluidFromContainer(FluidTransferGate gate, EntityPlayerMP player,
+            RtsStorageSession session, List<IItemHandler> extractItemHandlers,
+            List<IItemHandler> insertItemHandlers, List<LinkedFluidHandler> fluidHandlers,
+            byte sourceType, byte toolSlot, String itemId) {
+        if (gate == null || player == null || session == null) {
+            return false;
+        }
+        List<IItemHandler> safeExtract = extractItemHandlers == null
+                ? Collections.<IItemHandler>emptyList() : extractItemHandlers;
+        List<IItemHandler> safeInsert = insertItemHandlers == null
+                ? Collections.<IItemHandler>emptyList() : insertItemHandlers;
+        List<LinkedFluidHandler> safeFluids = fluidHandlers == null
+                ? Collections.<LinkedFluidHandler>emptyList() : fluidHandlers;
 
-    public static boolean storeFluidFromContainer(FluidTransferGate gate, ServerPlayer player, RtsStorageSession session,
-            List<IItemHandler> extractItemHandlers, List<IItemHandler> insertItemHandlers,
-            List<LinkedFluidHandler> fluidHandlers, byte sourceType, byte toolSlot, String itemId) {
-        List<IItemHandler> safeExtractItemHandlers = extractItemHandlers == null ? List.of() : extractItemHandlers;
-        List<IItemHandler> safeInsertItemHandlers = insertItemHandlers == null ? List.of() : insertItemHandlers;
-        List<LinkedFluidHandler> safeFluidHandlers = fluidHandlers == null ? List.of() : fluidHandlers;
-        return switch (sourceType) {
-            case C2SRtsStoreFluidPayload.SOURCE_STORAGE_ITEM, C2SRtsStoreFluidPayload.SOURCE_PIN_ITEM ->
-                storeFluidFromLinkedItem(gate, player, session, safeExtractItemHandlers, safeInsertItemHandlers,
-                        safeFluidHandlers, itemId);
-            case C2SRtsStoreFluidPayload.SOURCE_TOOL_SLOT ->
-                storeFluidFromToolSlot(gate, player, session, safeFluidHandlers, clampHotbarSlot(toolSlot));
-            default -> false;
-        };
-    }
-
-    public static boolean placeFluid(ServerPlayer player, RtsStorageSession session, List<LinkedFluidHandler> fluidHandlers,
-            BlockPos clickedPos, Direction face, double hitX, double hitY, double hitZ, String fluidId) {
-        if (session == null || fluidId == null || fluidId.isBlank()) {
-            return false;
+        if (sourceType == C2SRtsStoreFluidPayload.SOURCE_STORAGE_ITEM
+                || sourceType == C2SRtsStoreFluidPayload.SOURCE_PIN_ITEM) {
+            return storeFluidFromLinkedItem(gate, player, session, safeExtract, safeInsert, safeFluids, itemId);
         }
-        ResourceLocation fluidKey = ResourceLocation.tryParse(fluidId);
-        if (fluidKey == null || !BuiltInRegistries.FLUID.containsKey(fluidKey)) {
-            return false;
-        }
-        Fluid fluid = BuiltInRegistries.FLUID.get(fluidKey);
-        if (fluid == null) {
-            return false;
-        }
-
-        List<LinkedFluidHandler> safeFluidHandlers = fluidHandlers == null ? List.of() : fluidHandlers;
-        if (extractFluidFromNetwork(session, safeFluidHandlers, fluid, FLUID_TRANSFER_MB, false) < FLUID_TRANSFER_MB) {
-            return false;
-        }
-
-        ServerLevel level = player.serverLevel();
-        FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
-        int filledIntoBlock = RtsClaimProtectionService.canInteractBlock(
-                player, clickedPos, face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)
-                ? RtsFluidWorldPlacer.fillFluidHandlerAtTarget(level, clickedPos, face, transfer)
-                : 0;
-        if (filledIntoBlock > 0) {
-            int consumed = extractFluidFromNetwork(session, safeFluidHandlers, fluid, filledIntoBlock, true);
-            if (consumed > 0) {
-                RtsStorageRecentEntries.recordRecentFluid(
-                        session,
-                        fluidId,
-                        S2CRtsStoragePagePayload.RECENT_FLUID_PLACED,
-                        consumed,
-                        FLUID_TRANSFER_MB);
-                return true;
-            }
-            return false;
-        }
-
-        BlockHitResult hit = new BlockHitResult(new Vec3(hitX, hitY, hitZ), face, clickedPos, false);
-        BlockPos placePos = RtsFluidWorldPlacer.resolveFluidPlacementPos(level, player, hit, transfer);
-        if (placePos == null) {
-            return false;
-        }
-        if (!RtsClaimProtectionService.canPlaceBlock(player, placePos)) {
-            return false;
-        }
-        BlockHitResult placementHit = resolveFluidPlacementHit(hit, placePos);
-
-        if (!RtsFluidWorldPlacer.placeFluidBlock(level, player, placePos, transfer, placementHit)) {
-            return false;
-        }
-
-        int extracted = extractFluidFromNetwork(session, safeFluidHandlers, fluid, FLUID_TRANSFER_MB, true);
-        if (extracted > 0) {
-            RtsStorageRecentEntries.recordRecentFluid(
-                    session,
-                    fluidId,
-                    S2CRtsStoragePagePayload.RECENT_FLUID_PLACED,
-                    extracted,
-                    FLUID_TRANSFER_MB);
-            return true;
+        if (sourceType == C2SRtsStoreFluidPayload.SOURCE_TOOL_SLOT) {
+            return storeFluidFromToolSlot(gate, player, session, safeFluids, clampHotbarSlot(toolSlot));
         }
         return false;
     }
 
-    public static long internalFluidCapacityMb(ServerPlayer player) {
+    public static boolean placeFluid(EntityPlayerMP player, RtsStorageSession session,
+            List<LinkedFluidHandler> fluidHandlers, BlockPos clickedPos, EnumFacing face,
+            double hitX, double hitY, double hitZ, String fluidId) {
+        if (player == null || session == null || clickedPos == null || isBlank(fluidId)) {
+            return false;
+        }
+        Fluid fluid = FluidRegistry.getFluid(fluidId);
+        if (fluid == null) {
+            return false;
+        }
+
+        List<LinkedFluidHandler> safeHandlers = fluidHandlers == null
+                ? Collections.<LinkedFluidHandler>emptyList() : fluidHandlers;
+        if (extractFluidFromNetwork(session, safeHandlers, fluid, FLUID_TRANSFER_MB, false)
+                < FLUID_TRANSFER_MB) {
+            return false;
+        }
+
+        WorldServer level = player.getServerWorld();
+        EnumFacing safeFace = face == null ? EnumFacing.UP : face;
+        FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
+        int filledIntoBlock = RtsClaimProtectionService.canInteractBlock(
+                player, clickedPos, safeFace, EnumHand.MAIN_HAND, ItemStack.EMPTY)
+                ? RtsFluidWorldPlacer.fillFluidHandlerAtTarget(level, clickedPos, safeFace, transfer)
+                : 0;
+        if (filledIntoBlock > 0) {
+            int consumed = extractFluidFromNetwork(session, safeHandlers, fluid, filledIntoBlock, true);
+            if (consumed <= 0) {
+                return false;
+            }
+            recordRecentFluid(session, fluid, S2CRtsStoragePagePayload.RECENT_FLUID_PLACED, consumed);
+            return true;
+        }
+
+        RayTraceResult hit = new RayTraceResult(new Vec3d(hitX, hitY, hitZ), safeFace, clickedPos);
+        BlockPos placePos = RtsFluidWorldPlacer.resolveFluidPlacementPos(level, player, hit, transfer);
+        if (placePos == null || !RtsClaimProtectionService.canPlaceBlock(player, placePos)) {
+            return false;
+        }
+        RayTraceResult placementHit = resolveFluidPlacementHit(hit, placePos);
+        if (!RtsFluidWorldPlacer.placeFluidBlock(level, player, placePos, transfer, placementHit)) {
+            return false;
+        }
+
+        int extracted = extractFluidFromNetwork(session, safeHandlers, fluid, FLUID_TRANSFER_MB, true);
+        if (extracted <= 0) {
+            return false;
+        }
+        recordRecentFluid(session, fluid, S2CRtsStoragePagePayload.RECENT_FLUID_PLACED, extracted);
+        return true;
+    }
+
+    public static long internalFluidCapacityMb(EntityPlayerMP player) {
         return RtsFluidBufferService.internalFluidCapacityMb(player);
     }
 
-    // ======================================================================
-    //  网络操作（委托给 RtsFluidNetworkOperator）
-    // ======================================================================
-
-    public static long countFluidInNetwork(RtsStorageSession session, List<LinkedFluidHandler> fluidHandlers, Fluid fluid) {
+    public static long countFluidInNetwork(RtsStorageSession session,
+            List<LinkedFluidHandler> fluidHandlers, Fluid fluid) {
         return RtsFluidNetworkOperator.countFluidInNetwork(session, fluidHandlers, fluid);
     }
 
-    public static int extractFluidFromNetwork(RtsStorageSession session, List<LinkedFluidHandler> fluidHandlers,
-            Fluid fluid, int amount, boolean execute) {
+    public static int extractFluidFromNetwork(RtsStorageSession session,
+            List<LinkedFluidHandler> fluidHandlers, Fluid fluid, int amount, boolean execute) {
         return RtsFluidNetworkOperator.extractFluidFromNetwork(session, fluidHandlers, fluid, amount, execute);
     }
 
-    // ======================================================================
-    //  内部：从物品处理器存储流体
-    // ======================================================================
-
-    private static boolean storeFluidFromLinkedItem(FluidTransferGate gate, ServerPlayer player, RtsStorageSession session,
-            List<IItemHandler> extractItemHandlers, List<IItemHandler> insertItemHandlers,
-            List<LinkedFluidHandler> fluidHandlers, String itemId) {
-        if (itemId == null || itemId.isBlank() || extractItemHandlers.isEmpty()) {
+    private static boolean storeFluidFromLinkedItem(FluidTransferGate gate, EntityPlayerMP player,
+            RtsStorageSession session, List<IItemHandler> extractItemHandlers,
+            List<IItemHandler> insertItemHandlers, List<LinkedFluidHandler> fluidHandlers, String itemId) {
+        if (isBlank(itemId) || extractItemHandlers.isEmpty()) {
             return false;
         }
-        ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        ResourceLocation id = resourceLocation(itemId);
+        Item item = id == null ? null : ForgeRegistries.ITEMS.getValue(id);
+        if (item == null) {
             return false;
         }
 
-        Item item = BuiltInRegistries.ITEM.get(id);
         ItemStack extracted = gate.extractOneFromNetwork(extractItemHandlers, player, item);
         if (extracted.isEmpty()) {
             return false;
         }
 
-        RtsFluidBufferService.DrainOutcome simulated = RtsFluidBufferService.drainContainer(extracted, FLUID_TRANSFER_MB, false);
-        if (simulated.isEmpty() || simulated.fluid().getAmount() < FLUID_TRANSFER_MB) {
+        RtsFluidBufferService.DrainOutcome simulated =
+                RtsFluidBufferService.drainContainer(extracted, FLUID_TRANSFER_MB, false);
+        if (!isFullBucket(simulated)) {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
-        FluidStack targetFluid = simulated.fluid().copy();
-        targetFluid.setAmount(FLUID_TRANSFER_MB);
-        if (RtsFluidNetworkOperator.insertFluidIntoNetwork(player, session, fluidHandlers, targetFluid, false) < FLUID_TRANSFER_MB) {
+        FluidStack targetFluid = copyAmount(simulated.fluid(), FLUID_TRANSFER_MB);
+        if (RtsFluidNetworkOperator.insertFluidIntoNetwork(
+                player, session, fluidHandlers, targetFluid, false) < FLUID_TRANSFER_MB) {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
 
-        RtsFluidBufferService.DrainOutcome executed = RtsFluidBufferService.drainContainer(extracted, FLUID_TRANSFER_MB, true);
-        if (executed.isEmpty() || executed.fluid().getAmount() < FLUID_TRANSFER_MB) {
+        RtsFluidBufferService.DrainOutcome executed =
+                RtsFluidBufferService.drainContainer(extracted, FLUID_TRANSFER_MB, true);
+        if (!isFullBucket(executed) || !sameFluid(simulated.fluid(), executed.fluid())) {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
-        FluidStack insertFluid = executed.fluid().copy();
-        insertFluid.setAmount(FLUID_TRANSFER_MB);
-        int inserted = RtsFluidNetworkOperator.insertFluidIntoNetwork(player, session, fluidHandlers, insertFluid, true);
+        FluidStack insertFluid = copyAmount(executed.fluid(), FLUID_TRANSFER_MB);
+        int inserted = RtsFluidNetworkOperator.insertFluidIntoNetwork(
+                player, session, fluidHandlers, insertFluid, true);
         if (inserted < FLUID_TRANSFER_MB) {
-            gate.refundToLinked(insertItemHandlers, player, extracted);
+            // 处理器在模拟与执行间改变时，只有完整撤回已插入流体后才能退还原满容器。
+            int rolledBack = inserted <= 0 ? 0 : extractFluidFromNetwork(
+                    session, fluidHandlers, insertFluid.getFluid(), inserted, true);
+            if (rolledBack == inserted) {
+                gate.refundToLinked(insertItemHandlers, player, extracted);
+            } else if (!executed.remainder().isEmpty()) {
+                gate.refundToLinked(insertItemHandlers, player, executed.remainder());
+            }
             return false;
         }
 
         if (!executed.remainder().isEmpty()) {
             gate.refundToLinked(insertItemHandlers, player, executed.remainder());
         }
-        ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
-        if (fluidId != null) {
-            RtsStorageRecentEntries.recordRecentFluid(
-                    session,
-                    fluidId.toString(),
-                    S2CRtsStoragePagePayload.RECENT_FLUID_USED,
-                    inserted,
-                    FLUID_TRANSFER_MB);
-        }
+        recordRecentFluid(session, insertFluid.getFluid(),
+                S2CRtsStoragePagePayload.RECENT_FLUID_USED, inserted);
         return true;
     }
 
-    private static boolean storeFluidFromToolSlot(FluidTransferGate gate, ServerPlayer player, RtsStorageSession session,
-            List<LinkedFluidHandler> fluidHandlers, int toolSlot) {
+    private static boolean storeFluidFromToolSlot(FluidTransferGate gate, EntityPlayerMP player,
+            RtsStorageSession session, List<LinkedFluidHandler> fluidHandlers, int toolSlot) {
         int slot = clampHotbarSlot(toolSlot);
-        ItemStack inSlot = player.getInventory().getItem(slot);
+        ItemStack inSlot = player.inventory.getStackInSlot(slot);
         if (inSlot.isEmpty()) {
             return false;
         }
 
-        ItemStack single = inSlot.copyWithCount(1);
-        RtsFluidBufferService.DrainOutcome simulated = RtsFluidBufferService.drainContainer(single, FLUID_TRANSFER_MB, false);
-        if (simulated.isEmpty() || simulated.fluid().getAmount() < FLUID_TRANSFER_MB) {
+        ItemStack single = copyAmount(inSlot, 1);
+        RtsFluidBufferService.DrainOutcome simulated =
+                RtsFluidBufferService.drainContainer(single, FLUID_TRANSFER_MB, false);
+        if (!isFullBucket(simulated)) {
             return false;
         }
-        FluidStack targetFluid = simulated.fluid().copy();
-        targetFluid.setAmount(FLUID_TRANSFER_MB);
-        if (RtsFluidNetworkOperator.insertFluidIntoNetwork(player, session, fluidHandlers, targetFluid, false) < FLUID_TRANSFER_MB) {
+        FluidStack targetFluid = copyAmount(simulated.fluid(), FLUID_TRANSFER_MB);
+        if (RtsFluidNetworkOperator.insertFluidIntoNetwork(
+                player, session, fluidHandlers, targetFluid, false) < FLUID_TRANSFER_MB) {
             return false;
         }
 
-        RtsFluidBufferService.DrainOutcome executed = RtsFluidBufferService.drainContainer(single, FLUID_TRANSFER_MB, true);
-        if (executed.isEmpty() || executed.fluid().getAmount() < FLUID_TRANSFER_MB) {
+        RtsFluidBufferService.DrainOutcome executed =
+                RtsFluidBufferService.drainContainer(single, FLUID_TRANSFER_MB, true);
+        if (!isFullBucket(executed) || !sameFluid(simulated.fluid(), executed.fluid())) {
             return false;
         }
-        FluidStack insertFluid = executed.fluid().copy();
-        insertFluid.setAmount(FLUID_TRANSFER_MB);
-        int inserted = RtsFluidNetworkOperator.insertFluidIntoNetwork(player, session, fluidHandlers, insertFluid, true);
+        FluidStack insertFluid = copyAmount(executed.fluid(), FLUID_TRANSFER_MB);
+        int inserted = RtsFluidNetworkOperator.insertFluidIntoNetwork(
+                player, session, fluidHandlers, insertFluid, true);
         if (inserted < FLUID_TRANSFER_MB) {
+            int rolledBack = inserted <= 0 ? 0 : extractFluidFromNetwork(
+                    session, fluidHandlers, insertFluid.getFluid(), inserted, true);
+            if (rolledBack != inserted) {
+                consumeToolContainer(player, gate, slot, inSlot, executed.remainder());
+            }
             return false;
         }
 
-        ItemStack remainingInSlot = inSlot.copy();
-        remainingInSlot.shrink(1);
-        if (remainingInSlot.isEmpty()) {
-            player.getInventory().setItem(slot, executed.remainder());
-        } else {
-            player.getInventory().setItem(slot, remainingInSlot);
-            moveToPlayerInventoryOrDrop(gate, player, executed.remainder());
-        }
-        player.containerMenu.broadcastChanges();
-        ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
-        if (fluidId != null) {
-            RtsStorageRecentEntries.recordRecentFluid(
-                    session,
-                    fluidId.toString(),
-                    S2CRtsStoragePagePayload.RECENT_FLUID_USED,
-                    inserted,
-                    FLUID_TRANSFER_MB);
-        }
+        consumeToolContainer(player, gate, slot, inSlot, executed.remainder());
+        recordRecentFluid(session, insertFluid.getFluid(),
+                S2CRtsStoragePagePayload.RECENT_FLUID_USED, inserted);
         return true;
     }
 
-    // ======================================================================
-    //  实用方法
-    // ======================================================================
+    private static void consumeToolContainer(EntityPlayerMP player, FluidTransferGate gate, int slot,
+            ItemStack originalSlot, ItemStack containerRemainder) {
+        ItemStack remainingInSlot = originalSlot.copy();
+        remainingInSlot.shrink(1);
+        if (remainingInSlot.isEmpty()) {
+            player.inventory.setInventorySlotContents(slot, containerRemainder);
+        } else {
+            player.inventory.setInventorySlotContents(slot, remainingInSlot);
+            moveToPlayerInventoryOrDrop(gate, player, containerRemainder);
+        }
+        player.inventory.markDirty();
+        if (player.openContainer != null) {
+            player.openContainer.detectAndSendChanges();
+        }
+    }
 
-    private static void moveToPlayerInventoryOrDrop(FluidTransferGate gate, ServerPlayer player, ItemStack stack) {
+    private static void moveToPlayerInventoryOrDrop(FluidTransferGate gate,
+            EntityPlayerMP player, ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return;
+        }
         ItemStack remainder = gate.moveToPlayerInventoryOnly(player, stack);
         if (!remainder.isEmpty()) {
-            player.drop(remainder, false);
+            player.dropItem(remainder, false);
+        }
+    }
+
+    private static boolean isFullBucket(RtsFluidBufferService.DrainOutcome outcome) {
+        return outcome != null && !outcome.isEmpty() && outcome.fluid() != null
+                && outcome.fluid().amount >= FLUID_TRANSFER_MB;
+    }
+
+    private static boolean sameFluid(FluidStack first, FluidStack second) {
+        return first != null && second != null && first.getFluid() == second.getFluid()
+                && FluidStack.areFluidStackTagsEqual(first, second);
+    }
+
+    private static FluidStack copyAmount(FluidStack source, int amount) {
+        FluidStack copy = source.copy();
+        copy.amount = amount;
+        return copy;
+    }
+
+    private static ItemStack copyAmount(ItemStack source, int amount) {
+        ItemStack copy = source.copy();
+        copy.setCount(amount);
+        return copy;
+    }
+
+    private static void recordRecentFluid(RtsStorageSession session, Fluid fluid, byte action, int amount) {
+        String fluidId = fluid == null ? null : FluidRegistry.getFluidName(fluid);
+        if (!isBlank(fluidId)) {
+            RtsStorageRecentEntries.recordRecentFluid(
+                    session, fluidId, action, amount, FLUID_TRANSFER_MB);
         }
     }
 
@@ -273,29 +292,43 @@ public final class RtsStorageFluids {
         return Math.max(0, Math.min(8, slot));
     }
 
-    private static BlockHitResult resolveFluidPlacementHit(BlockHitResult sourceHit, BlockPos targetPos) {
+    private static RayTraceResult resolveFluidPlacementHit(RayTraceResult sourceHit, BlockPos targetPos) {
         if (targetPos == null) {
-            return new BlockHitResult(Vec3.atCenterOf(BlockPos.ZERO), Direction.UP, BlockPos.ZERO, false);
+            return new RayTraceResult(center(BlockPos.ORIGIN), EnumFacing.UP, BlockPos.ORIGIN);
         }
         if (sourceHit == null) {
-            return new BlockHitResult(Vec3.atCenterOf(targetPos), Direction.UP, targetPos, false);
+            return new RayTraceResult(center(targetPos), EnumFacing.UP, targetPos);
         }
 
         BlockPos clicked = sourceHit.getBlockPos();
-        Direction face = sourceHit.getDirection();
+        EnumFacing face = sourceHit.sideHit == null ? EnumFacing.UP : sourceHit.sideHit;
         if (targetPos.equals(clicked)) {
-            return new BlockHitResult(sourceHit.getLocation(), face, targetPos, false);
+            return new RayTraceResult(sourceHit.hitVec, face, targetPos);
         }
-
-        if (targetPos.equals(clicked.relative(face))) {
-            Direction targetFace = face.getOpposite();
-            Vec3 targetLocation = Vec3.atCenterOf(targetPos).add(
-                    targetFace.getStepX() * 0.498D,
-                    targetFace.getStepY() * 0.498D,
-                    targetFace.getStepZ() * 0.498D);
-            return new BlockHitResult(targetLocation, targetFace, targetPos, false);
+        if (targetPos.equals(clicked.offset(face))) {
+            EnumFacing targetFace = face.getOpposite();
+            Vec3d targetLocation = center(targetPos).add(
+                    targetFace.getXOffset() * 0.498D,
+                    targetFace.getYOffset() * 0.498D,
+                    targetFace.getZOffset() * 0.498D);
+            return new RayTraceResult(targetLocation, targetFace, targetPos);
         }
+        return new RayTraceResult(center(targetPos), face, targetPos);
+    }
 
-        return new BlockHitResult(Vec3.atCenterOf(targetPos), face, targetPos, false);
+    private static Vec3d center(BlockPos pos) {
+        return new Vec3d(pos).add(0.5D, 0.5D, 0.5D);
+    }
+
+    private static ResourceLocation resourceLocation(String value) {
+        try {
+            return isBlank(value) ? null : new ResourceLocation(value);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }

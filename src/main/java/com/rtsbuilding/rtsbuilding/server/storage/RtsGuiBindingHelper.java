@@ -6,52 +6,48 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
-import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.MenuProvider;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
+import net.minecraft.inventory.Container;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.IInteractionObject;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
 /**
- * GUI 绑定：设置绑定、远程打开、菜单提供者解析、图标解析。
- * <p>包私有——仅供 {@link RtsStorageBindings} 内部委托。
+ * GUI 绑定：设置绑定、远程打开、目标识别与图标回填。
+ *
+ * <p>1.12.2 没有 MenuProvider；实际打开必须走服务端的方块右键交互，才能保留模组自己的
+ * 权限、事件和容器创建流程。仅在方块没有消费交互时，才对实现 IInteractionObject 的方块实体
+ * 使用原版 displayGui 兜底。</p>
  */
 final class RtsGuiBindingHelper {
 
     private RtsGuiBindingHelper() {
     }
 
-    // ======================================================================
-    //  设置绑定
-    // ======================================================================
-
-    static RtsStorageBindings.UpdateResult setGuiBinding(ServerPlayer player, RtsStorageSession session,
-            byte slotId, boolean clear, BlockPos pos, Direction face, String itemIdHint) {
-        if (player == null || session == null) {
+    static RtsStorageBindings.UpdateResult setGuiBinding(EntityPlayerMP player, RtsStorageSession session,
+            byte slotId, boolean clear, BlockPos pos, EnumFacing face, String itemIdHint) {
+        if (player == null || session == null || !isValidGuiBindingSlot(slotId)) {
             return RtsStorageBindings.UpdateResult.none();
         }
         int slot = slotId;
-        if (!isValidGuiBindingSlot(slot)) {
-            return RtsStorageBindings.UpdateResult.none();
-        }
-
         if (clear) {
             if (session.uiMemory.getGuiBinding(slot) == null) {
                 return RtsStorageBindings.UpdateResult.none();
@@ -60,259 +56,278 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
         }
 
-        if (pos == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
-            return RtsStorageBindings.UpdateResult.none();
-        }
-        if (!RtsClaimProtectionService.canInteractBlock(
-                player, pos, face == null ? Direction.UP : face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+        EnumFacing safeFace = face == null ? EnumFacing.UP : face;
+        if (pos == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)
+                || !RtsClaimProtectionService.canInteractBlock(
+                        player, pos, safeFace, EnumHand.MAIN_HAND, ItemStack.EMPTY)) {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        ServerLevel level = player.serverLevel();
-        MenuProvider provider = resolveBindableMenuProvider(level, pos);
+        WorldServer level = player.getServerWorld();
         if (!canBindGuiTarget(level, pos)) {
-            player.displayClientMessage(Component.translatable(
-                    "message.rtsbuilding.gui_binding.no_bindable_gui"), true);
+            sendStatus(player, "message.rtsbuilding.gui_binding.no_bindable_gui");
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        String label = provider == null || provider.getDisplayName() == null ? "" : provider.getDisplayName().getString();
-        if (label.isBlank()) {
-            label = RtsLinkedStorageResolver.resolveDisplayName(level, pos);
+        IInteractionObject provider = resolveBindableInteractionObject(level, pos);
+        String label = provider == null || provider.getDisplayName() == null
+                ? "" : provider.getDisplayName().getUnformattedText();
+        if (isBlank(label)) {
+            label = resolveDisplayName(level, pos);
         }
-        String iconItemId = resolveGuiBindingIconItemId(level, pos, face, itemIdHint, label);
+        String iconItemId = resolveGuiBindingIconItemId(level, pos, safeFace, itemIdHint, label);
 
         session.uiMemory.setGuiBinding(slot, new GuiBinding(
-                pos.immutable(),
-                level.dimension(),
-                label,
-                iconItemId,
-                face));
+                pos.toImmutable(), level.provider.getDimension(), label, iconItemId, safeFace));
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 
-    // ======================================================================
-    //  远程打开绑定
-    // ======================================================================
-
-    static RtsStorageBindings.UpdateResult openGuiBinding(ServerPlayer player, RtsStorageSession session,
+    static RtsStorageBindings.UpdateResult openGuiBinding(EntityPlayerMP player, RtsStorageSession session,
             byte slotId, double remotePovBlockReach) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_GUI_BINDING)) {
-            return RtsStorageBindings.UpdateResult.none();
-        }
-        if (session == null || !RtsCameraManager.isActive(player)) {
-            return RtsStorageBindings.UpdateResult.none();
-        }
-
-        int slot = slotId;
-        if (!isValidGuiBindingSlot(slot)) {
+        if (player == null || !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_GUI_BINDING)
+                || session == null || !RtsCameraManager.isActive(player)
+                || !isValidGuiBindingSlot(slotId)) {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        GuiBinding binding = session.uiMemory.getGuiBinding(slot);
-        if (binding == null || binding.pos() == null || binding.dimension() == null) {
+        GuiBinding binding = session.uiMemory.getGuiBinding(slotId);
+        if (binding == null || binding.pos() == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
-        if (!player.serverLevel().dimension().equals(binding.dimension())) {
-            player.displayClientMessage(Component.translatable(
-                    "message.rtsbuilding.gui_binding.other_dimension"), true);
-            return RtsStorageBindings.UpdateResult.none();
-        }
-        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, binding.pos())) {
-            return RtsStorageBindings.UpdateResult.none();
-        }
-        if (!RtsClaimProtectionService.canInteractBlock(
-                player, binding.pos(), binding.face() == null ? Direction.UP : binding.face(),
-                InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+        if (player.dimension != binding.dimension()) {
+            sendStatus(player, "message.rtsbuilding.gui_binding.other_dimension");
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        ServerLevel level = player.serverLevel();
         BlockPos pos = binding.pos();
-        RtsRemoteMenuService.sendRemoteMenuOpenHint(player, pos);
-        GuiBindingInteraction interaction = createGuiBindingInteraction(player, pos, binding.face());
-        BlockHitResult hit = interaction.hit();
-        Vec3 hitLocation = hit.getLocation();
-        Vec3 interactionPos = interaction.interactionPos();
+        EnumFacing face = binding.face() == null ? EnumFacing.UP : binding.face();
+        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)
+                || !RtsClaimProtectionService.canInteractBlock(
+                        player, pos, face, EnumHand.MAIN_HAND, ItemStack.EMPTY)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
 
-        AbstractContainerMenu menuBeforeInteract = player.containerMenu;
-        InteractionResult interactResult = interactWithBoundGui(player, level, interactionPos, hitLocation, hit, false, remotePovBlockReach);
-        AbstractContainerMenu menuAfterInteract = player.containerMenu;
-        if (menuAfterInteract != menuBeforeInteract) {
-            RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterInteract, pos);
+        WorldServer level = player.getServerWorld();
+        RtsRemoteMenuService.sendRemoteMenuOpenHint(player, pos);
+        GuiBindingInteraction interaction = createGuiBindingInteraction(player, pos, face);
+        Container before = player.openContainer;
+
+        EnumActionResult result = interactWithBoundGui(
+                player, level, interaction, false, remotePovBlockReach);
+        if (markOpenedMenu(player, session, before, pos)) {
             return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
         }
 
-        if (!interactResult.consumesAction()) {
-            interactResult = interactWithBoundGui(player, level, interactionPos, hitLocation, hit, true, remotePovBlockReach);
-            AbstractContainerMenu menuAfterSecondaryInteract = player.containerMenu;
-            if (menuAfterSecondaryInteract != menuBeforeInteract) {
-                RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterSecondaryInteract, pos);
+        if (result != EnumActionResult.SUCCESS) {
+            result = interactWithBoundGui(player, level, interaction, true, remotePovBlockReach);
+            if (markOpenedMenu(player, session, before, pos)) {
                 return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
             }
         }
 
-        if (!interactResult.consumesAction()) {
-            MenuProvider provider = resolveBindableMenuProvider(level, pos);
-            if (provider == null) {
-                player.displayClientMessage(Component.translatable(
-                        "message.rtsbuilding.gui_binding.open_failed"), true);
-                return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
+        if (result != EnumActionResult.SUCCESS) {
+            IInteractionObject provider = resolveBindableInteractionObject(level, pos);
+            if (provider != null) {
+                player.displayGui(provider);
+                if (markOpenedMenu(player, session, before, pos)) {
+                    return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
+                }
             }
-            player.openMenu(provider);
-            if (player.containerMenu != null && player.containerMenu != menuBeforeInteract) {
-                RtsRemoteMenuService.markRemoteMenuOpen(player, session, player.containerMenu, pos);
-            } else {
-                player.displayClientMessage(Component.translatable(
-                        "message.rtsbuilding.gui_binding.open_failed"), true);
-            }
+            sendStatus(player, "message.rtsbuilding.gui_binding.open_failed");
         }
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
     }
-
-    // ======================================================================
-    //  查询
-    // ======================================================================
 
     static boolean isValidGuiBindingSlot(int slot) {
         return slot >= 0 && slot < RtsStorageBindings.GUI_BINDING_SLOT_COUNT;
     }
 
-    static boolean canBindGuiTarget(ServerLevel level, BlockPos pos) {
-        if (resolveBindableMenuProvider(level, pos) != null) {
-            return true;
+    static boolean canBindGuiTarget(WorldServer level, BlockPos pos) {
+        if (level == null || pos == null || !level.isBlockLoaded(pos)) {
+            return false;
         }
-        return level != null && pos != null && level.hasChunkAt(pos) && level.getBlockEntity(pos) != null;
+        IBlockState state = level.getBlockState(pos);
+        if (state == null || state.getBlock() == Blocks.AIR) {
+            return false;
+        }
+        return level.getTileEntity(pos) != null
+                || state.getBlock() == Blocks.CRAFTING_TABLE
+                || state.getBlock() == Blocks.ANVIL;
     }
 
-    static MenuProvider resolveBindableMenuProvider(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null || !level.hasChunkAt(pos)) {
+    static IInteractionObject resolveBindableInteractionObject(WorldServer level, BlockPos pos) {
+        if (level == null || pos == null || !level.isBlockLoaded(pos)) {
             return null;
         }
-        MenuProvider provider = level.getBlockState(pos).getMenuProvider(level, pos);
-        if (provider != null) {
-            return provider;
-        }
-        return level.getBlockEntity(pos) instanceof MenuProvider menuProvider ? menuProvider : null;
+        TileEntity tile = level.getTileEntity(pos);
+        return tile instanceof IInteractionObject ? (IInteractionObject) tile : null;
     }
 
-    static String resolveGuiBindingIconItemId(ServerLevel level, BlockPos pos, Direction face, String itemIdHint, String label) {
-        if (level == null || pos == null || !level.hasChunkAt(pos)) {
+    static String resolveGuiBindingIconItemId(WorldServer level, BlockPos pos, EnumFacing face,
+            String itemIdHint, String label) {
+        if (level == null || pos == null || !level.isBlockLoaded(pos)) {
             return "";
         }
-        ResourceLocation hintKey = ResourceLocation.tryParse(itemIdHint);
-        if (hintKey != null && BuiltInRegistries.ITEM.containsKey(hintKey)) {
+        ResourceLocation hintKey = resourceLocation(itemIdHint);
+        if (hintKey != null && ForgeRegistries.ITEMS.containsKey(hintKey)) {
             return hintKey.toString();
         }
-        BlockState state = level.getBlockState(pos);
-        if (state.isAir()) {
+
+        IBlockState state = level.getBlockState(pos);
+        if (state == null || state.getBlock() == Blocks.AIR) {
             return "";
         }
-        ItemStack cloneStack = state.getBlock().getCloneItemStack(level, pos, state);
-        Item item = cloneStack.isEmpty() ? state.getBlock().asItem() : cloneStack.getItem();
+        Item item = Item.getItemFromBlock(state.getBlock());
         if (item == null || item == Items.AIR) {
             return RtsAe2IconResolver.resolveGuiBindingIconItemId(level, pos, face, label);
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
-        if (id != null) {
-            return id.toString();
-        }
-        return RtsAe2IconResolver.resolveGuiBindingIconItemId(level, pos, face, label);
+        ResourceLocation id = ForgeRegistries.ITEMS.getKey(item);
+        return id == null ? RtsAe2IconResolver.resolveGuiBindingIconItemId(level, pos, face, label)
+                : id.toString();
     }
 
-    // ======================================================================
-    //  图标回填
-    // ======================================================================
-
-    static boolean refreshMissingGuiBindingIcons(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || player.server == null) {
+    static boolean refreshMissingGuiBindingIcons(EntityPlayerMP player, RtsStorageSession session) {
+        if (player == null || session == null || player.getServer() == null) {
             return false;
         }
 
         boolean changed = false;
         for (int i = 0; i < session.uiMemory.getGuiBindingCount(); i++) {
             GuiBinding binding = session.uiMemory.getGuiBinding(i);
-            if (binding == null || binding.pos() == null || binding.dimension() == null) {
+            if (binding == null || binding.pos() == null || !isBlank(binding.itemId())) {
                 continue;
             }
-            if (binding.itemId() != null && !binding.itemId().isBlank()) {
-                continue;
-            }
-
-            ServerLevel bindingLevel = player.server.getLevel(binding.dimension());
-            if (bindingLevel == null || !bindingLevel.hasChunkAt(binding.pos())) {
+            WorldServer bindingLevel = player.getServer().getWorld(binding.dimension());
+            if (bindingLevel == null || !bindingLevel.isBlockLoaded(binding.pos())) {
                 continue;
             }
 
-            String resolvedItemId = resolveGuiBindingIconItemId(
-                    bindingLevel,
-                    binding.pos(),
-                    binding.face(),
-                    "",
-                    binding.label());
-            if (resolvedItemId.isBlank()) {
+            String resolved = resolveGuiBindingIconItemId(
+                    bindingLevel, binding.pos(), binding.face(), "", binding.label());
+            if (isBlank(resolved)) {
                 continue;
             }
-
             session.uiMemory.setGuiBinding(i, new GuiBinding(
-                    binding.pos(),
-                    binding.dimension(),
-                    binding.label(),
-                    resolvedItemId,
-                    binding.face()));
+                    binding.pos(), binding.dimension(), binding.label(), resolved, binding.face()));
             changed = true;
         }
         return changed;
     }
 
-    // ======================================================================
-    //  GUI 交互辅助
-    // ======================================================================
-
-    private static InteractionResult interactWithBoundGui(ServerPlayer player, ServerLevel level, Vec3 interactionPos,
-            Vec3 hitLocation, BlockHitResult hit, boolean forceSecondaryUse, double remotePovBlockReach) {
+    /** 所有临时玩家状态都由 TemporaryContextSwitcher 的 finally 路径恢复。 */
+    private static EnumActionResult interactWithBoundGui(EntityPlayerMP player, WorldServer level,
+            GuiBindingInteraction interaction, boolean forceSecondaryUse, double remotePovBlockReach) {
+        RayTraceResult hit = interaction.hit();
+        float hitX = (float) (hit.hitVec.x - hit.getBlockPos().getX());
+        float hitY = (float) (hit.hitVec.y - hit.getBlockPos().getY());
+        float hitZ = (float) (hit.hitVec.z - hit.getBlockPos().getZ());
         return TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
-                interactionPos,
-                hitLocation,
+                interaction.interactionPos(),
+                hit.hitVec,
                 remotePovBlockReach,
-                () -> ServiceRegistry.getInstance().mining().withTemporaryMainHandItem(
+                () -> TemporaryContextSwitcher.withTemporaryMainHandItem(
                         player,
                         ItemStack.EMPTY,
-                        () -> TemporaryContextSwitcher.withTemporaryShiftKey(player, forceSecondaryUse, () -> player.gameMode.useItemOn(
+                        () -> TemporaryContextSwitcher.withTemporaryShiftKey(
                                 player,
-                                level,
-                                ItemStack.EMPTY,
-                                InteractionHand.MAIN_HAND,
-                                hit))));
+                                forceSecondaryUse,
+                                () -> player.interactionManager.processRightClickBlock(
+                                        player,
+                                        level,
+                                        ItemStack.EMPTY,
+                                        EnumHand.MAIN_HAND,
+                                        hit.getBlockPos(),
+                                        hit.sideHit,
+                                        hitX,
+                                        hitY,
+                                        hitZ))));
     }
 
-    private static GuiBindingInteraction createGuiBindingInteraction(ServerPlayer player, BlockPos pos, Direction preferredFace) {
-        Direction face = preferredFace == null ? resolveGuiBindingFace(player, pos) : preferredFace;
-        Vec3 faceCenter = Vec3.atCenterOf(pos).add(
-                face.getStepX() * 0.498D,
-                face.getStepY() * 0.498D,
-                face.getStepZ() * 0.498D);
-        Vec3 eyePos = faceCenter.add(
-                face.getStepX() * 2.2D,
-                face.getStepY() * 2.2D,
-                face.getStepZ() * 2.2D);
-        double eyeHeight = player == null ? 1.62D : player.getEyeHeight(player.getPose());
-        Vec3 interactionPos = new Vec3(eyePos.x, eyePos.y - eyeHeight, eyePos.z);
-        return new GuiBindingInteraction(new BlockHitResult(faceCenter, face, pos, false), interactionPos);
+    private static boolean markOpenedMenu(EntityPlayerMP player, RtsStorageSession session,
+            Container before, BlockPos pos) {
+        Container opened = player.openContainer;
+        if (opened == null || opened == before) {
+            return false;
+        }
+        RtsRemoteMenuService.markRemoteMenuOpen(player, session, opened, pos);
+        return true;
     }
 
-    private static Direction resolveGuiBindingFace(ServerPlayer player, BlockPos pos) {
-        Vec3 center = Vec3.atCenterOf(pos);
-        Vec3 playerPos = player == null ? center : player.position();
+    private static GuiBindingInteraction createGuiBindingInteraction(
+            EntityPlayerMP player, BlockPos pos, EnumFacing preferredFace) {
+        EnumFacing face = preferredFace == null ? resolveGuiBindingFace(player, pos) : preferredFace;
+        Vec3d faceCenter = center(pos).add(
+                face.getXOffset() * 0.498D,
+                face.getYOffset() * 0.498D,
+                face.getZOffset() * 0.498D);
+        Vec3d eyePos = faceCenter.add(
+                face.getXOffset() * 2.2D,
+                face.getYOffset() * 2.2D,
+                face.getZOffset() * 2.2D);
+        double eyeHeight = player == null ? 1.62D : player.getEyeHeight();
+        Vec3d interactionPos = new Vec3d(eyePos.x, eyePos.y - eyeHeight, eyePos.z);
+        return new GuiBindingInteraction(
+                new RayTraceResult(faceCenter, face, pos), interactionPos);
+    }
+
+    private static EnumFacing resolveGuiBindingFace(EntityPlayerMP player, BlockPos pos) {
+        Vec3d center = center(pos);
+        Vec3d playerPos = player == null ? center : player.getPositionVector();
         double dx = playerPos.x - center.x;
         double dz = playerPos.z - center.z;
         if (Math.abs(dx) >= Math.abs(dz)) {
-            return dx >= 0.0D ? Direction.EAST : Direction.WEST;
+            return dx >= 0.0D ? EnumFacing.EAST : EnumFacing.WEST;
         }
-        return dz >= 0.0D ? Direction.SOUTH : Direction.NORTH;
+        return dz >= 0.0D ? EnumFacing.SOUTH : EnumFacing.NORTH;
     }
 
-    private record GuiBindingInteraction(BlockHitResult hit, Vec3 interactionPos) {
+    private static String resolveDisplayName(WorldServer level, BlockPos pos) {
+        TileEntity tile = level.getTileEntity(pos);
+        if (tile != null && tile.getDisplayName() != null) {
+            String tileName = tile.getDisplayName().getUnformattedText();
+            if (!isBlank(tileName)) {
+                return tileName;
+            }
+        }
+        return level.getBlockState(pos).getBlock().getLocalizedName();
+    }
+
+    private static Vec3d center(BlockPos pos) {
+        return new Vec3d(pos).add(0.5D, 0.5D, 0.5D);
+    }
+
+    private static ResourceLocation resourceLocation(String value) {
+        try {
+            return isBlank(value) ? null : new ResourceLocation(value);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    private static void sendStatus(EntityPlayerMP player, String key) {
+        player.sendStatusMessage(new TextComponentTranslation(key), true);
+    }
+
+    private static final class GuiBindingInteraction {
+        private final RayTraceResult hit;
+        private final Vec3d interactionPos;
+
+        private GuiBindingInteraction(RayTraceResult hit, Vec3d interactionPos) {
+            this.hit = hit;
+            this.interactionPos = interactionPos;
+        }
+
+        private RayTraceResult hit() {
+            return hit;
+        }
+
+        private Vec3d interactionPos() {
+            return interactionPos;
+        }
     }
 }

@@ -4,11 +4,11 @@ import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingExecutor;
 import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingGridFiller;
 import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsCraftingSearch;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -34,7 +34,7 @@ public final class RtsStorageCrafting {
     private RtsStorageCrafting() {
     }
 
-    public static void recordCraftedOutput(ServerPlayer player, RtsStorageSession session, ItemStack crafted) {
+    public static void recordCraftedOutput(EntityPlayerMP player, RtsStorageSession session, ItemStack crafted) {
         if (player == null || crafted == null || crafted.isEmpty()) {
             return;
         }
@@ -44,60 +44,60 @@ public final class RtsStorageCrafting {
         RtsStorageRecentEntries.recordCraftedOutput(session, crafted);
     }
 
-    public static void openCraftTerminal(ServerPlayer player, RtsStorageSession session) {
+    public static void openCraftTerminal(EntityPlayerMP player, RtsStorageSession session) {
         RtsCraftingExecutor.openCraftTerminal(player, session);
     }
 
-    public static void requestCraftables(ServerPlayer player, RtsStorageSession session, String search,
+    public static void requestCraftables(EntityPlayerMP player, RtsStorageSession session, String search,
             boolean showUnavailable, int offset, int limit,
             boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
         RtsCraftingSearch.requestCraftables(player, session, search, showUnavailable,
                 offset, limit, pinyinSearchEnabled, localizedSearchMatches);
     }
 
-    public static void craftRecipeToLinked(ServerPlayer player, RtsStorageSession session,
+    public static void craftRecipeToLinked(EntityPlayerMP player, RtsStorageSession session,
             String recipeId, int craftCount) {
         RtsCraftingExecutor.craftRecipeToLinked(player, session, recipeId, craftCount);
     }
 
-    public static void refillCraftGridFromLinked(ServerPlayer player, RtsStorageSession session,
-            CraftingMenu craftingMenu, ItemStack[] blueprint) {
+    public static void refillCraftGridFromLinked(EntityPlayerMP player, RtsStorageSession session,
+            ContainerWorkbench craftingMenu, ItemStack[] blueprint) {
         RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, craftingMenu, blueprint);
     }
 
-    public static void refillCraftGridFromLinked(ServerPlayer player, RtsStorageSession session,
-            CraftingMenu craftingMenu, ItemStack[] blueprint, CraftingRecipe recipe) {
+    public static void refillCraftGridFromLinked(EntityPlayerMP player, RtsStorageSession session,
+            ContainerWorkbench craftingMenu, ItemStack[] blueprint, IRecipe recipe) {
         RtsCraftingGridFiller.refillCraftGridFromLinked(player, session, craftingMenu, blueprint, recipe);
     }
 
     public static void refillCurrentCraftGridFromBlueprintIds(
-            ServerPlayer player, RtsStorageSession session,
+            EntityPlayerMP player, RtsStorageSession session,
             List<String> blueprintIds, String craftedItemId, int craftedCount) {
         RtsCraftingGridFiller.refillCurrentCraftGridFromBlueprintIds(
                 player, session, blueprintIds, craftedItemId, craftedCount);
     }
 
     public static void refillCurrentCraftGridFromBlueprintStacks(
-            ServerPlayer player, RtsStorageSession session,
+            EntityPlayerMP player, RtsStorageSession session,
             List<ItemStack> blueprintStacks, String craftedItemId, int craftedCount) {
         RtsCraftingGridFiller.refillCurrentCraftGridFromBlueprintStacks(
                 player, session, blueprintStacks, craftedItemId, craftedCount);
     }
 
     public static void applyJeiTransfer(
-            ServerPlayer player, RtsStorageSession session,
+            EntityPlayerMP player, RtsStorageSession session,
             String recipeId, List<ItemStack> ingredientPrototypes,
             boolean maxTransfer, boolean clearGridFirst) {
         RtsCraftingGridFiller.applyJeiTransfer(
                 player, session, recipeId, ingredientPrototypes, maxTransfer, clearGridFirst);
     }
 
-    public static ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu) {
+    public static ItemStack[] snapshotCraftGridBlueprint(ContainerWorkbench menu) {
         return RtsCraftingExecutor.snapshotCraftGridBlueprint(menu);
     }
 
     public static void refillCraftGridFromBlueprint(
-            CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+            ContainerWorkbench menu, List<IItemHandler> handlers, EntityPlayerMP player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         RtsCraftingGridFiller.refillCraftGridFromBlueprint(
                 menu, handlers, player, blueprint, fillAll, includePlayerFallback);
