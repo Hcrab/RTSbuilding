@@ -14,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
+import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperScenarioCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
@@ -112,6 +113,7 @@ public final class RtsbuildingMod {
     @Mod.EventHandler
     public void onServerStarting(FMLServerStartingEvent event) {
         activeServer = event.getServer();
+        event.registerServerCommand(new RtsDeveloperScenarioCommand());
         try {
             // 必须先于 durable task admission 读取；损坏时拒绝以空仓继续启动。
             TaskPersistenceRuntime.INSTANCE.start(activeServer);
