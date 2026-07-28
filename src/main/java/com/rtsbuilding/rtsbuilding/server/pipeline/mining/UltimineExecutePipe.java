@@ -55,7 +55,9 @@ import java.util.Objects;
  *   <li>{@code "positions"} —— {@code List<BlockPos>} 要破坏的显式位置列表</li>
  * </ul>
  */
-public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<MiningContext> {
+public final class UltimineExecutePipe implements PipelinePipe<MiningContext> {
+
+    private final RtsWorkflowType type;
 
     public static final TypedKey<BlockPos> ARG_POS =
             new TypedKey<>("pos", BlockPos.class);
@@ -98,13 +100,16 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
      *             {@link RtsWorkflowType#AREA_MINE} 或
      *             {@link RtsWorkflowType#AREA_DESTROY}）
      */
-    public UltimineExecutePipe {
+    public UltimineExecutePipe(RtsWorkflowType type) {
         if (type != RtsWorkflowType.ULTIMINE
                 && type != RtsWorkflowType.AREA_MINE
                 && type != RtsWorkflowType.AREA_DESTROY) {
             throw new IllegalArgumentException("UltimineExecutePipe only supports ULTIMINE, AREA_MINE, and AREA_DESTROY");
         }
+        this.type = type;
     }
+
+    public RtsWorkflowType type() { return type; }
 
     @Override
     public PipelineResult execute(MiningContext ctx) {
@@ -297,4 +302,16 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
         session.mining.miningToolLease = RtsToolLease.empty();
         session.mining.miningSelectedToolRequested = false;
     }
+
+    @Override
+    public boolean equals(Object object) {
+        return this == object || object instanceof UltimineExecutePipe
+                && type == ((UltimineExecutePipe) object).type;
+    }
+
+    @Override
+    public int hashCode() { return type.hashCode(); }
+
+    @Override
+    public String toString() { return "UltimineExecutePipe[type=" + type + "]"; }
 }
