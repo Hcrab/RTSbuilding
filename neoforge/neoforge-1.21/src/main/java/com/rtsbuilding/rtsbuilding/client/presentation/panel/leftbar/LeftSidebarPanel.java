@@ -159,7 +159,6 @@ public final class LeftSidebarPanel implements RtsPanelApi {
         renderTooltipOverlays(g, mouseX, mouseY);
     }
 
-    
     private void renderTooltipOverlays(GuiGraphics g, int mouseX, int mouseY) {
         int bx = btnX();
         int baseY = groupBaseY();

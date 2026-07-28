@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.rtsbuilding.rtsbuilding.client.util.render.GuiRenderTypes;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
@@ -124,18 +125,43 @@ public final class GridSlotRenderer {
 
     public static void drawOverlay(GuiGraphics g, int slotX, int slotY,
                                    boolean hovered, boolean selected, int slotThemeOffset) {
+        drawOverlay(g, slotX, slotY, hovered, selected, slotThemeOffset, 1f, 1f);
+    }
+
+    public static void drawOverlay(GuiGraphics g, int slotX, int slotY,
+                                   boolean hovered, boolean selected, int slotThemeOffset,
+                                   float hoverAlpha, float selectedAlpha) {
         RenderSystem.disableDepthTest();
         var pose = g.pose();
         pose.pushPose();
         pose.translate(slotX, slotY, 300);
 
-        if (selected) {
-            SpriteRenderer.drawSprite(g, SLOT_SELECTED, slotThemeOffset, 0, 0, SLOT_SIZE, SLOT_SIZE);
-        } else if (hovered) {
-            SpriteRenderer.drawSprite(g, SLOT_HOVER, slotThemeOffset, 0, 0, SLOT_SIZE, SLOT_SIZE);
+        if (selected && selectedAlpha > 0.001f) {
+            drawOverlaySprite(g, SLOT_SELECTED, slotThemeOffset, 0, 0, SLOT_SIZE, SLOT_SIZE, selectedAlpha);
+        } else if (hovered && hoverAlpha > 0.001f) {
+            drawOverlaySprite(g, SLOT_HOVER, slotThemeOffset, 0, 0, SLOT_SIZE, SLOT_SIZE, hoverAlpha);
         }
 
         pose.popPose();
+    }
+
+    private static void drawOverlaySprite(GuiGraphics g, SpriteRegion region, int themeOffset,
+                                           int dstX, int dstY, int dstW, int dstH, float alpha) {
+        if (dstW <= 0 || dstH <= 0) return;
+        var texInfo = region.texture();
+        int texW = texInfo.fullWidth();
+        int texH = texInfo.fullHeight();
+        var renderType = GuiRenderTypes.fromTextureInfo(texInfo.location(), texInfo.filterMode());
+        var buffer = g.bufferSource().getBuffer(renderType);
+        var matrix = g.pose().last().pose();
+        float u0 = (float) (region.u() + themeOffset) / texW;
+        float v0 = (float) region.v() / texH;
+        float u1 = (float) (region.u() + themeOffset + region.regionWidth()) / texW;
+        float v1 = (float) (region.v() + region.regionHeight()) / texH;
+        buffer.addVertex(matrix, dstX, dstY + dstH, 0).setUv(u0, v1).setColor(1f, 1f, 1f, alpha);
+        buffer.addVertex(matrix, dstX + dstW, dstY + dstH, 0).setUv(u1, v1).setColor(1f, 1f, 1f, alpha);
+        buffer.addVertex(matrix, dstX + dstW, dstY, 0).setUv(u1, v0).setColor(1f, 1f, 1f, alpha);
+        buffer.addVertex(matrix, dstX, dstY, 0).setUv(u0, v0).setColor(1f, 1f, 1f, alpha);
     }
 
     

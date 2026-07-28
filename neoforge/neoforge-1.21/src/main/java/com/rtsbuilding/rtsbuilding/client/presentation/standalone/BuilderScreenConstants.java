@@ -132,9 +132,9 @@ public final class BuilderScreenConstants {
 
     
     
-    public static final int GEAR_MENU_H = 520;
+    public static final int GEAR_MENU_H = 337;
     
-    public static final int GEAR_MENU_MIN_H = 220;
+    public static final int GEAR_MENU_MIN_H = 249;
     
     public static final int GEAR_MENU_CONTENT_H = 724;
 

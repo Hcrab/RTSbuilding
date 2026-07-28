@@ -5,6 +5,8 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.api.RtsPanelAp
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
@@ -14,6 +16,8 @@ import net.minecraft.resources.ResourceLocation;
 public final class ScreenBackgroundPanel implements RtsPanelApi {
 
     private BuilderScreen screen;
+
+    private final AnimFloat hoverAnim = AnimFloat.hover();
 
     
 
@@ -44,15 +48,11 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
 
     
     public static final double CAPTURE_SCALE = 1.24;
-
     @Override
     public void init(BuilderScreen screen) {
         this.screen = screen;
     }
 
-    
-
-    
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (this.screen == null) return;
@@ -134,19 +134,18 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
         if (contentW <= 0 || contentH <= 0) return;
 
         
-        
-        
-        
         int leftW = this.screen.getLeftSidebarWidth();
-        boolean mouseInArea = (this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
+        boolean hovered = (this.screen == null || !this.screen.isMouseOverUI(mouseX, mouseY))
                 && mouseX >= leftW && mouseX < contentW
                 && mouseY >= BACKGROUND_TOP_Y && mouseY < BACKGROUND_TOP_Y + contentH;
-        NineSliceRegion spec = mouseInArea
-                ? SCREEN_NINE_SLICE.withVOffset(ACTIVE_V_OFFSET)
-                : SCREEN_NINE_SLICE;
 
-        SpriteRenderer.drawNineSlice(g, spec.withTheme(),
-                0, BACKGROUND_TOP_Y, contentW, contentH);
+        float t = hoverAnim.track(hovered);
+
+        NineSliceRegion normalSpec = SCREEN_NINE_SLICE.withTheme();
+        NineSliceRegion activeSpec = SCREEN_NINE_SLICE.withVOffset(ACTIVE_V_OFFSET).withTheme();
+        CrossFadeRenderer.render(g, t,
+                () -> SpriteRenderer.drawNineSlice(g, normalSpec, 0, BACKGROUND_TOP_Y, contentW, contentH),
+                () -> SpriteRenderer.drawNineSlice(g, activeSpec, 0, BACKGROUND_TOP_Y, contentW, contentH));
     }
 
     

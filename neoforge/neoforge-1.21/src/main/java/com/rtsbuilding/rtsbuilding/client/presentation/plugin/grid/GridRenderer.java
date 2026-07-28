@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.Scro
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.OverlayContext;
 import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.GridSlotRenderer;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
@@ -190,6 +191,19 @@ public final class GridRenderer {
     private final TooltipController containerButtonTooltip = TooltipController.builder().direction(TooltipController.Direction.ABOVE).build();
     private final TooltipController recentSortButtonTooltip = TooltipController.builder().direction(TooltipController.Direction.ABOVE).build();
 
+    private final AnimFloat currentItemHover = AnimFloat.hover();
+    private final AnimFloat sortBtnHover = AnimFloat.hover();
+    private final AnimFloat orderBtnHover = AnimFloat.hover();
+    private final AnimFloat typeFilterBtnHover = AnimFloat.hover();
+    private final AnimFloat containerBtnHover = AnimFloat.hover();
+    private final AnimFloat recentSortHover = AnimFloat.hover();
+    private final AnimFloat slotHoverAnim = AnimFloat.hover();
+    private final AnimFloat slotSelectedAnim = AnimFloat.hover();
+    private int lastHoveredMain = -1;
+    private int lastHoveredRecent = -1;
+    private int lastSelectedMain = -1;
+    private int lastSelectedRecent = -1;
+
     public GridRenderer(OverlayContext ctx, ScrollBar scrollBar, ScrollBar recentScrollBar,
                  GridState state, TypeFilterPopup typeFilterPopup, ContainerModePopup containerModePopup) {
         this.ctx = ctx;
@@ -232,8 +246,9 @@ public final class GridRenderer {
 
         currentItemTooltip.update(isHoveringOverCurrentSelection, false);
 
-        SpriteRenderer.drawSprite(g, isHoveringOverCurrentSelection ? SORT_BTN_HOVER : SORT_BTN_NORMAL,
-                slotThemeOffset, itemDisplayX, itemDisplayY, itemDisplaySize, itemDisplaySize);
+        CrossFadeRenderer.render(g, currentItemHover.track(isHoveringOverCurrentSelection),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, itemDisplayX, itemDisplayY, itemDisplaySize, itemDisplaySize),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, itemDisplayX, itemDisplayY, itemDisplaySize, itemDisplaySize));
 
         if (!state.currentSelectedItem.isEmpty()) {
             RenderSystem.disableDepthTest();
@@ -261,8 +276,9 @@ public final class GridRenderer {
                 && mouseY >= sortBtnY && mouseY < sortBtnY + BUTTON_SIZE;
         sortButtonTooltip.update(isHoveringOverSortBtn, false);
 
-        SpriteRenderer.drawSprite(g, isHoveringOverSortBtn ? SORT_BTN_HOVER : SORT_BTN_NORMAL,
-                slotThemeOffset, sortBtnX, sortBtnY, BUTTON_SIZE, BUTTON_SIZE);
+        CrossFadeRenderer.render(g, sortBtnHover.track(isHoveringOverSortBtn),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, sortBtnX, sortBtnY, BUTTON_SIZE, BUTTON_SIZE),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, sortBtnX, sortBtnY, BUTTON_SIZE, BUTTON_SIZE));
         SpriteRenderer.drawSprite(g, switch (state.currentSortType) {
             case NAME -> SORT_NAME_ICON;
             case COUNT -> SORT_COUNT_ICON;
@@ -275,8 +291,9 @@ public final class GridRenderer {
                 && mouseY >= orderBtnY && mouseY < orderBtnY + BUTTON_SIZE;
         orderButtonTooltip.update(isHoveringOverOrderBtn, false);
 
-        SpriteRenderer.drawSprite(g, isHoveringOverOrderBtn ? SORT_BTN_HOVER : SORT_BTN_NORMAL,
-                slotThemeOffset, orderBtnX, orderBtnY, BUTTON_SIZE, BUTTON_SIZE);
+        CrossFadeRenderer.render(g, orderBtnHover.track(isHoveringOverOrderBtn),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, orderBtnX, orderBtnY, BUTTON_SIZE, BUTTON_SIZE),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, orderBtnX, orderBtnY, BUTTON_SIZE, BUTTON_SIZE));
         SpriteRenderer.drawSprite(g, state.reverseSortOrder ? ORDER_DESC_ICON : ORDER_ASC_ICON,
                 slotThemeOffset, orderBtnX, orderBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
@@ -286,8 +303,9 @@ public final class GridRenderer {
                 && mouseY >= typeFilterBtnY && mouseY < typeFilterBtnY + BUTTON_SIZE;
         typeFilterButtonTooltip.update(isHoveringOverTypeFilterBtn, false);
 
-        SpriteRenderer.drawSprite(g, isHoveringOverTypeFilterBtn ? SORT_BTN_HOVER : SORT_BTN_NORMAL,
-                slotThemeOffset, typeFilterBtnX, typeFilterBtnY, BUTTON_SIZE, BUTTON_SIZE);
+        CrossFadeRenderer.render(g, typeFilterBtnHover.track(isHoveringOverTypeFilterBtn),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, typeFilterBtnX, typeFilterBtnY, BUTTON_SIZE, BUTTON_SIZE),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, typeFilterBtnX, typeFilterBtnY, BUTTON_SIZE, BUTTON_SIZE));
         SpriteRenderer.drawSprite(g, TYPE_ITEM_ICON,
                 0, typeFilterBtnX, typeFilterBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
@@ -297,8 +315,9 @@ public final class GridRenderer {
                 && mouseY >= containerBtnY && mouseY < containerBtnY + BUTTON_SIZE;
         containerButtonTooltip.update(isHoveringOverContainerBtn, false);
 
-        SpriteRenderer.drawSprite(g, isHoveringOverContainerBtn ? SORT_BTN_HOVER : SORT_BTN_NORMAL,
-                slotThemeOffset, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE);
+        CrossFadeRenderer.render(g, containerBtnHover.track(isHoveringOverContainerBtn),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE));
         SpriteRenderer.drawSprite(g, CONTAINER_EXTRACT_ICON,
                 0, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
@@ -307,8 +326,9 @@ public final class GridRenderer {
         boolean isHoveringRecentSort = mouseX >= recentSortBtnX && mouseX < recentSortBtnX + BUTTON_SIZE
                 && mouseY >= recentSortBtnY && mouseY < recentSortBtnY + BUTTON_SIZE;
         recentSortButtonTooltip.update(isHoveringRecentSort, false);
-        SpriteRenderer.drawSprite(g, isHoveringRecentSort ? SORT_BTN_HOVER : SORT_BTN_NORMAL,
-                slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE);
+        CrossFadeRenderer.render(g, recentSortHover.track(isHoveringRecentSort),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE),
+                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE));
         SpriteRenderer.drawSprite(g, state.recentSortAscending ? ORDER_ASC_ICON : ORDER_DESC_ICON,
                 slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
@@ -439,6 +459,13 @@ public final class GridRenderer {
 
         g.flush();
 
+        boolean anySlotHovered = hoveredSlot >= 0 || hoveredRecent >= 0;
+        float hoverAlpha = slotHoverAnim.track(anySlotHovered);
+        float selectedAlpha = slotSelectedAnim.track(!state.currentSelectedItem.isEmpty());
+
+        boolean nothingHovered = hoveredSlot < 0 && hoveredRecent < 0;
+
+        int foundSelectedRecent = -1;
         for (int i = 0; i < recentList; i++) {
             int col = i % state.recentCols;
             int row = i / state.recentCols;
@@ -447,7 +474,8 @@ public final class GridRenderer {
             if (slotY + SLOT_SIZE < originY || slotY > scissorBottomY) continue;
 
             RecentEntry re = recentItems.get(i);
-            boolean hovered = (i == hoveredRecent);
+            boolean isHovered = (i == hoveredRecent);
+            boolean drawHover = isHovered || (nothingHovered && i == lastHoveredRecent);
 
             RenderSystem.disableDepthTest();
 
@@ -457,9 +485,14 @@ public final class GridRenderer {
             }
 
             boolean recentSelected = !state.currentSelectedItem.isEmpty() && ItemStack.isSameItemSameComponents(stack, state.currentSelectedItem);
-            GridSlotRenderer.drawOverlay(g, slotX, slotY, hovered, recentSelected, slotThemeOffset);
+            if (recentSelected) foundSelectedRecent = i;
+            boolean drawSelected = recentSelected || (state.currentSelectedItem.isEmpty() && i == lastSelectedRecent);
+            GridSlotRenderer.drawOverlay(g, slotX, slotY, drawHover, drawSelected, slotThemeOffset, hoverAlpha, selectedAlpha);
         }
+        if (hoveredRecent >= 0) lastHoveredRecent = hoveredRecent;
+        if (foundSelectedRecent >= 0) lastSelectedRecent = foundSelectedRecent;
 
+        int foundSelectedMain = -1;
         for (int i = 0; i < state.slotEntries.size(); i++) {
             int col = i % mainCols;
             int row = i / mainCols;
@@ -468,7 +501,8 @@ public final class GridRenderer {
             if (slotY + SLOT_SIZE < originY || slotY > scissorBottomY) continue;
 
             SlotEntry entry = state.slotEntries.get(i);
-            boolean hovered = (i == hoveredSlot);
+            boolean isHovered = (i == hoveredSlot);
+            boolean drawHover = isHovered || (nothingHovered && i == lastHoveredMain);
 
             RenderSystem.disableDepthTest();
 
@@ -489,8 +523,12 @@ public final class GridRenderer {
             }
 
             boolean mainSelected = !state.currentSelectedItem.isEmpty() && ItemStack.isSameItemSameComponents(stack, state.currentSelectedItem);
-            GridSlotRenderer.drawOverlay(g, slotX, slotY, hovered, mainSelected, slotThemeOffset);
+            if (mainSelected) foundSelectedMain = i;
+            boolean drawSelected = mainSelected || (state.currentSelectedItem.isEmpty() && i == lastSelectedMain);
+            GridSlotRenderer.drawOverlay(g, slotX, slotY, drawHover, drawSelected, slotThemeOffset, hoverAlpha, selectedAlpha);
         }
+        if (hoveredSlot >= 0) lastHoveredMain = hoveredSlot;
+        if (foundSelectedMain >= 0) lastSelectedMain = foundSelectedMain;
 
         RenderSystem.clear(256, Minecraft.ON_OSX);
 
