@@ -11,10 +11,10 @@ import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 import java.util.function.Function;
@@ -37,7 +37,7 @@ import java.util.function.Supplier;
 public final class RtsMiningServiceImpl implements MiningService {
 
     @Override
-    public void mine(ServerPlayer player, BlockPos pos, Direction face, boolean start, byte toolSlot,
+    public void mine(EntityPlayerMP player, BlockPos pos, EnumFacing face, boolean start, byte toolSlot,
                      String toolItemId, ItemStack toolPrototype, boolean allowPlacedBlockRecovery,
                      boolean toolProtectionEnabled) {
         if (start) {
@@ -66,7 +66,7 @@ public final class RtsMiningServiceImpl implements MiningService {
     }
 
     @Override
-    public void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot,
+    public void startUltimine(EntityPlayerMP player, BlockPos pos, EnumFacing face, byte toolSlot,
                               String toolItemId, ItemStack toolPrototype, int requestedLimit,
                               byte mode, boolean toolProtectionEnabled) {
         PipelineRegistry.execute(RtsWorkflowType.ULTIMINE,
@@ -83,7 +83,7 @@ public final class RtsMiningServiceImpl implements MiningService {
     }
 
     @Override
-    public void areaMine(ServerPlayer player, int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
+    public void areaMine(EntityPlayerMP player, int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
                          byte toolSlot, String toolItemId, ItemStack toolPrototype,
                          byte shapeType, byte fillType, boolean toolProtectionEnabled) {
         PipelineRegistry.execute(RtsWorkflowType.AREA_MINE,
@@ -104,7 +104,7 @@ public final class RtsMiningServiceImpl implements MiningService {
     }
 
     @Override
-    public void areaDestroy(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
+    public void areaDestroy(EntityPlayerMP player, List<BlockPos> positions, byte toolSlot,
                             String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled) {
         PipelineRegistry.execute(RtsWorkflowType.AREA_DESTROY,
                 MiningContext.builder(player)
@@ -117,21 +117,21 @@ public final class RtsMiningServiceImpl implements MiningService {
     }
 
     @Override
-    public int getAreaDestroyTotalBlocks(ServerPlayer player) {
+    public int getAreaDestroyTotalBlocks(EntityPlayerMP player) {
         return getAreaDestroyMetric(player, RtsWorkflowStatus::totalBlocks);
     }
 
     @Override
-    public int getAreaDestroyCompletedBlocks(ServerPlayer player) {
+    public int getAreaDestroyCompletedBlocks(EntityPlayerMP player) {
         return getAreaDestroyMetric(player, RtsWorkflowStatus::completedBlocks);
     }
 
     @Override
-    public int getAreaDestroyRemainingBlocks(ServerPlayer player) {
+    public int getAreaDestroyRemainingBlocks(EntityPlayerMP player) {
         return getAreaDestroyMetric(player, RtsWorkflowStatus::remainingBlocks);
     }
 
-    private static int getAreaDestroyMetric(ServerPlayer player, Function<RtsWorkflowStatus, Integer> metric) {
+    private static int getAreaDestroyMetric(EntityPlayerMP player, Function<RtsWorkflowStatus, Integer> metric) {
         return RtsWorkflowEngine.getInstance().getAllProgress(player).stream()
                 .filter(d -> d.type() == RtsWorkflowType.AREA_DESTROY)
                 .findFirst()
@@ -140,7 +140,7 @@ public final class RtsMiningServiceImpl implements MiningService {
     }
 
     @Override
-    public <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
+    public <T> T withTemporaryMainHandItem(EntityPlayerMP player, ItemStack stack, Supplier<T> action) {
         return TemporaryContextSwitcher.withTemporaryMainHandItem(player, stack, action);
     }
 }
