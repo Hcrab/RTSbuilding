@@ -2,11 +2,14 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.storage.model.RecentEntry;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsUiMemory;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+
+import java.util.Deque;
 
 /**
  * 维护玩家的最近物品/流体历史记录，用于 RTS 存储 UI。
@@ -48,7 +51,7 @@ public final class RtsStorageRecentEntries {
         if (stack == null || stack.isEmpty()) {
             return;
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
         if (id == null) {
             return;
         }
@@ -61,7 +64,7 @@ public final class RtsStorageRecentEntries {
      * 以确保最近历史在语言变更后仍然有效。
      */
     public static void recordRecentItem(RtsStorageSession session, String itemId, byte kind, long amount) {
-        if (itemId == null || itemId.isBlank()) {
+        if (itemId == null || itemId.trim().isEmpty()) {
             return;
         }
         pushRecentEntry(session, new RecentEntry(itemId, amount, 0L, kind));
@@ -73,7 +76,7 @@ public final class RtsStorageRecentEntries {
      * 以确保最近历史在语言变更后仍然有效。
      */
     static void recordRecentFluid(RtsStorageSession session, String fluidId, byte kind, long amount, long capacity) {
-        if (fluidId == null || fluidId.isBlank()) {
+        if (fluidId == null || fluidId.trim().isEmpty()) {
             return;
         }
         pushRecentEntry(session, new RecentEntry(fluidId, amount, Math.max(0L, capacity), kind));
@@ -90,7 +93,7 @@ public final class RtsStorageRecentEntries {
         if (session == null
                 || entry == null
                 || entry.id() == null
-                || entry.id().isBlank()
+                || entry.id().trim().isEmpty()
                 || entry.amount() <= 0L) {
             return;
         }
@@ -100,7 +103,7 @@ public final class RtsStorageRecentEntries {
                 Math.max(0L, entry.capacity()),
                 entry.kind());
         RecentEntry merged = normalized;
-        var recentEntries = session.uiMemory.getRecentEntries();
+        Deque<RecentEntry> recentEntries = session.uiMemory.getRecentEntries();
         for (RecentEntry existing : recentEntries) {
             if (!sameRecentKey(existing, normalized)) {
                 continue;
