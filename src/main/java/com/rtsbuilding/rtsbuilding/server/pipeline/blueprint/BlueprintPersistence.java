@@ -75,7 +75,7 @@ public final class BlueprintPersistence {
         // 蓝图源数据
         RtsBlueprint blueprint = bctx.getBlueprint();
         if (blueprint != null) {
-            data.put(KEY_BLUEPRINT_STRUCTURE, BlueprintWriters.toVanillaStructureTag(blueprint));
+            data.setTag(KEY_BLUEPRINT_STRUCTURE, BlueprintWriters.toVanillaStructureTag(blueprint));
             data.setString(KEY_BP_NAME, blueprint.name() != null ? blueprint.name() : "");
             data.setString(KEY_BP_SOURCE, blueprint.sourceName() != null ? blueprint.sourceName() : "");
             data.setString(KEY_BP_FORMAT, blueprint.format() != null ? blueprint.format().name() : "VANILLA_NBT");

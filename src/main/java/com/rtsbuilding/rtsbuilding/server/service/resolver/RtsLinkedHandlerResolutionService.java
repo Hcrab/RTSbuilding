@@ -114,7 +114,7 @@ public final class RtsLinkedHandlerResolutionService {
         if (session.bdCache.handler != null) {
             LinkedStorageRef bdRef = new LinkedStorageRef(
                     player.dimension,
-                    BlockPos.ZERO);
+                    new BlockPos(0, 0, 0));
             out.add(new LinkedHandler(bdRef, session.bdCache.name, session.bdCache.handler, true, 0));
         }
 
@@ -202,7 +202,7 @@ public final class RtsLinkedHandlerResolutionService {
                     : RtsBdCompat.getNetworkDisplayName(player);
             LinkedStorageRef bdRef = new LinkedStorageRef(
                     player.dimension,
-                    BlockPos.ZERO);
+                    new BlockPos(0, 0, 0));
             out.add(new LinkedFluidHandler(bdRef, bdName, session.bdCache.fluidHandler, true, 0));
         }
 

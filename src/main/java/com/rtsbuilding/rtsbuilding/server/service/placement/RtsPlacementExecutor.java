@@ -24,6 +24,7 @@ import net.minecraft.inventory.Container;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
@@ -143,7 +144,7 @@ public final class RtsPlacementExecutor {
             return false;
         }
 
-        if (emptyUse.result().consumesAction()) {
+        if (consumesAction(emptyUse.result())) {
             RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
             return true;
         }
@@ -161,7 +162,7 @@ public final class RtsPlacementExecutor {
             RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterEmptyFallback, clickedPos);
             return false;
         }
-        if (emptyFallback.result().consumesAction()) {
+        if (consumesAction(emptyFallback.result())) {
             RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
             return true;
         }
@@ -207,7 +208,7 @@ public final class RtsPlacementExecutor {
             return false;
         }
 
-        if (mainHandUse.result().consumesAction()) {
+        if (consumesAction(mainHandUse.result())) {
             recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
                     sourceSnapshot, sourcePlacesBlock);
             RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
@@ -227,7 +228,7 @@ public final class RtsPlacementExecutor {
             RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterUseFallback, clickedPos);
             return false;
         }
-        if (mainHandUseFallback.result().consumesAction()) {
+        if (consumesAction(mainHandUseFallback.result())) {
             if (!sourceSnapshot.isEmpty()) {
                 SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
                 ResourceLocation sourceId = Item.REGISTRY.getNameForObject(sourceSnapshot.getItem());
@@ -257,7 +258,7 @@ public final class RtsPlacementExecutor {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterInteractFallback, clickedPos);
                 return false;
             }
-            if (interactFallback.result().consumesAction()) {
+            if (consumesAction(interactFallback.result())) {
                 recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
                         sourceSnapshot, sourcePlacesBlock);
                 RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
@@ -277,7 +278,7 @@ public final class RtsPlacementExecutor {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterItemInteractFallback, clickedPos);
                 return false;
             }
-            if (itemInteractFallback.result().consumesAction()) {
+            if (consumesAction(itemInteractFallback.result())) {
                 if (!sourceSnapshot.isEmpty()) {
                     SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
                     ResourceLocation sourceId = Item.REGISTRY.getNameForObject(sourceSnapshot.getItem());
@@ -368,7 +369,7 @@ public final class RtsPlacementExecutor {
 
         TemporaryContextSwitcher.UseOnOutcome finalOutcome = selectedOutcome;
         ItemStack lastAttemptStack = extracted.copy();
-        if (!sophisticatedBackpackPlacementOnly && !selectedOutcome.result().consumesAction()) {
+        if (!sophisticatedBackpackPlacementOnly && !consumesAction(selectedOutcome.result())) {
             ItemStack fallbackStack = nextAttemptStack(selectedOutcome, lastAttemptStack);
             lastAttemptStack = fallbackStack.copy();
             Container menuBeforeSelectedFallback = player.openContainer;
@@ -384,7 +385,7 @@ public final class RtsPlacementExecutor {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterSelectedFallback, clickedPos);
             }
         }
-        if (forcePlace && !sophisticatedBackpackPlacementOnly && !finalOutcome.result().consumesAction()) {
+        if (forcePlace && !sophisticatedBackpackPlacementOnly && !consumesAction(finalOutcome.result())) {
             ItemStack storageInteractStack = nextAttemptStack(finalOutcome, lastAttemptStack);
             lastAttemptStack = storageInteractStack.copy();
             Container menuBeforeStorageInteractFallback = player.openContainer;
@@ -400,7 +401,7 @@ public final class RtsPlacementExecutor {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterStorageInteractFallback, clickedPos);
             }
         }
-        if (forcePlace && !sophisticatedBackpackPlacementOnly && !finalOutcome.result().consumesAction()) {
+        if (forcePlace && !sophisticatedBackpackPlacementOnly && !consumesAction(finalOutcome.result())) {
             ItemStack storageItemInteractStack = nextAttemptStack(finalOutcome, lastAttemptStack);
             Container menuBeforeStorageItemInteractFallback = player.openContainer;
             finalOutcome = TemporaryContextSwitcher.withTemporaryUseItemContext(
@@ -419,7 +420,7 @@ public final class RtsPlacementExecutor {
             RtsTransferInserter.refundToLinked(insertHandlers, player, finalOutcome.remainder());
         }
 
-        if (!finalOutcome.result().consumesAction()) {
+        if (!consumesAction(finalOutcome.result())) {
             RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
             return false;
         }
@@ -496,6 +497,11 @@ public final class RtsPlacementExecutor {
         ItemStack copy = stack.copy();
         copy.setCount(1);
         return copy;
+    }
+
+    /** 1.12 的三态结果中，只有 SUCCESS 表示交互已经消费本次动作。 */
+    private static boolean consumesAction(EnumActionResult result) {
+        return result == EnumActionResult.SUCCESS;
     }
 
 
