@@ -16,13 +16,15 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextComponentString;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -43,7 +45,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
-    public void placeSelected(ServerPlayer player, BlockPos clickedPos, Direction face,
+    public void placeSelected(EntityPlayerMP player, BlockPos clickedPos, EnumFacing face,
                               double hitX, double hitY, double hitZ, byte rotateSteps, String statePreset,
                               boolean forcePlace, boolean skipIfOccupied, String itemId,
                               ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
@@ -57,7 +59,9 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         if (player != null && session != null && !forceEmptyHand) {
             PipelineRegistry.execute(quickBuild ? RtsWorkflowType.QUICK_BUILD : RtsWorkflowType.PLACE_SINGLE,
                     PlaceContext.builder(player)
-                            .clickedPositions(clickedPos == null ? List.of() : List.of(clickedPos))
+                            .clickedPositions(clickedPos == null
+                                    ? Collections.<BlockPos>emptyList()
+                                    : Collections.singletonList(clickedPos))
                             .face(face)
                             .hitOffsetX(hitOffsetX)
                             .hitOffsetY(hitOffsetY)
@@ -85,7 +89,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         RtsPlacementBatch.enqueuePlaceBatch(
                 player,
                 session,
-                clickedPos == null ? List.of() : List.of(clickedPos),
+                clickedPos == null ? Collections.<BlockPos>emptyList() : Collections.singletonList(clickedPos),
                 face,
                 hitOffsetX,
                 hitOffsetY,
@@ -109,7 +113,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     }
 
     @Override
-    public void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
+    public void enqueuePlaceBatch(EntityPlayerMP player, List<BlockPos> clickedPositions, EnumFacing face,
                                   double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
                                   boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting, String itemId,
                                   ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
@@ -120,7 +124,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
             List<BlockPos> sanitized = new ArrayList<>(Math.min(clickedPositions.size(), C2SRtsPlaceBatchPayload.MAX_POSITIONS));
             for (BlockPos pos : clickedPositions) {
                 if (pos != null && RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
-                    sanitized.add(pos.immutable());
+                    sanitized.add(pos.toImmutable());
                     if (sanitized.size() >= C2SRtsPlaceBatchPayload.MAX_POSITIONS) {
                         break;
                     }
@@ -185,7 +189,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     }
 
     @Override
-    public int submitPendingPlacement(ServerPlayer player) {
+    public int submitPendingPlacement(EntityPlayerMP player) {
         if (player == null) {
             return 0;
         }
@@ -194,28 +198,28 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         int count = com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService
                 .resumeAllPendingJobs(player, session);
         if (count > 0) {
-            player.displayClientMessage(
-                    Component.literal("Resumed " + count + " pending placement job(s)."), true);
+            player.sendStatusMessage(
+                    new TextComponentString("Resumed " + count + " pending placement job(s)."), true);
         } else {
-            player.displayClientMessage(
-                    Component.literal("No pending placements can be resumed — insufficient items."), true);
+            player.sendStatusMessage(
+                    new TextComponentString("No pending placements can be resumed — insufficient items."), true);
         }
         return count;
     }
 
     @Override
-    public void rotateBlock(ServerPlayer player, BlockPos pos) {
+    public void rotateBlock(EntityPlayerMP player, BlockPos pos) {
         if (!canRotateBlock(player, pos)) {
             return;
         }
-        RtsPlacementHelper.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+        RtsPlacementHelper.rotatePlacedBlock(player.getServerWorld(), pos, (byte) 1);
     }
 
     @Override
     public void rotateBlockStep(
-            ServerPlayer player,
+            EntityPlayerMP player,
             BlockPos pos,
-            Direction axisDirection,
+            EnumFacing axisDirection,
             int quarterTurns) {
         if (!canRotateBlock(player, pos)
                 || axisDirection == null
@@ -223,13 +227,13 @@ public final class RtsPlacementServiceImpl implements PlacementService {
             return;
         }
         RtsPlacementHelper.rotatePlacedBlockStep(
-                player.serverLevel(),
+                player.getServerWorld(),
                 pos,
                 axisDirection,
                 quarterTurns);
     }
 
-    private boolean canRotateBlock(ServerPlayer player, BlockPos pos) {
+    private boolean canRotateBlock(EntityPlayerMP player, BlockPos pos) {
         if (player == null || pos == null
                 || !RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)) {
             return false;
@@ -238,20 +242,20 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         if (session == null
                 || session.mode != com.rtsbuilding.rtsbuilding.common.build.BuilderMode.ROTATE
                 || player.isSpectator()
-                || !player.mayBuild()
+                || !player.capabilities.allowEdit
                 || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return false;
         }
         if (!RtsClaimProtectionService.canInteractBlock(
-                player, pos, Direction.UP, net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+                player, pos, EnumFacing.UP, EnumHand.MAIN_HAND, ItemStack.EMPTY)) {
             return false;
         }
         return true;
     }
 
     @Override
-    public int getPlaceBatchTotalBlocks(ServerPlayer player) {
-        var engine = RtsWorkflowEngine.getInstance();
+    public int getPlaceBatchTotalBlocks(EntityPlayerMP player) {
+        RtsWorkflowEngine engine = RtsWorkflowEngine.getInstance();
         return engine.getAllProgress(player).stream()
                 .filter(d -> d.type() == RtsWorkflowType.PLACE_BATCH || d.type() == RtsWorkflowType.QUICK_BUILD)
                 .mapToInt(RtsWorkflowStatus::totalBlocks)
@@ -259,8 +263,8 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     }
 
     @Override
-    public int getPlaceBatchCompletedBlocks(ServerPlayer player) {
-        var engine = RtsWorkflowEngine.getInstance();
+    public int getPlaceBatchCompletedBlocks(EntityPlayerMP player) {
+        RtsWorkflowEngine engine = RtsWorkflowEngine.getInstance();
         return engine.getAllProgress(player).stream()
                 .filter(d -> d.type() == RtsWorkflowType.PLACE_BATCH || d.type() == RtsWorkflowType.QUICK_BUILD)
                 .mapToInt(RtsWorkflowStatus::completedBlocks)
@@ -268,8 +272,8 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     }
 
     @Override
-    public int getPlaceBatchRemainingBlocks(ServerPlayer player) {
-        var engine = RtsWorkflowEngine.getInstance();
+    public int getPlaceBatchRemainingBlocks(EntityPlayerMP player) {
+        RtsWorkflowEngine engine = RtsWorkflowEngine.getInstance();
         return engine.getAllProgress(player).stream()
                 .filter(d -> d.type() == RtsWorkflowType.PLACE_BATCH || d.type() == RtsWorkflowType.QUICK_BUILD)
                 .mapToInt(RtsWorkflowStatus::remainingBlocks)
@@ -277,7 +281,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     }
 
     @Override
-    public String getPlaceBatchItemId(ServerPlayer player) {
+    public String getPlaceBatchItemId(EntityPlayerMP player) {
         if (player == null) return "";
         return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .firstPlacementItemId(player);
