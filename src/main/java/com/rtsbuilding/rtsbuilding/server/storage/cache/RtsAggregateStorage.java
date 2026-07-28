@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -30,7 +31,7 @@ public final class RtsAggregateStorage {
             (a, b) -> Integer.compare(b, a));
 
     /** 每次挂载/卸载变更后重建的扁平列表。 */
-    private List<CachedHandlerSlot> flatOrdered = List.of();
+    private List<CachedHandlerSlot> flatOrdered = Collections.emptyList();
 
     /** 自上次轮询以来所有处理器累积的变更。 */
     private final Set<String> pendingChanges = new HashSet<>();
@@ -78,7 +79,7 @@ public final class RtsAggregateStorage {
     }
 
     private void doUnmount(IItemHandler handler) {
-        for (var entry : this.priorityMounts.entrySet()) {
+        for (Map.Entry<Integer, List<CachedHandlerSlot>> entry : this.priorityMounts.entrySet()) {
             entry.getValue().removeIf(cs -> cs.handler == handler);
         }
         this.priorityMounts.entrySet().removeIf(e -> e.getValue().isEmpty());
@@ -170,14 +171,14 @@ public final class RtsAggregateStorage {
 
                 if (out.isEmpty()) {
                     out = part;
-                } else if (ItemStack.isSameItemSameComponents(out, part)) {
+                } else if (sameItemAndTag(out, part)) {
                     out.grow(part.getCount());
                 }
                 remaining -= part.getCount();
 
                 // Mark this handler's cache as dirty
                 cs.cache.invalidate();
-                this.pendingChanges.add(targetItem.toString());
+                this.pendingChanges.add(itemId(targetItem));
             }
 
             return out;
@@ -242,7 +243,7 @@ public final class RtsAggregateStorage {
      * 返回是否有任何缓存处理器报告拥有指定物品。
      */
     public boolean hasItem(Item item) {
-        String itemId = item.toString();
+        String itemId = itemId(item);
         for (CachedHandlerSlot cs : this.flatOrdered) {
             if (cs.cache.getCount(itemId) > 0) {
                 return true;
@@ -256,7 +257,7 @@ public final class RtsAggregateStorage {
      */
     public long getTotalCount(Item item) {
         long total = 0L;
-        String itemId = item.toString();
+        String itemId = itemId(item);
         for (CachedHandlerSlot cs : this.flatOrdered) {
             total += cs.cache.getCount(itemId);
         }
@@ -285,7 +286,7 @@ public final class RtsAggregateStorage {
 
     private void rebuildFlatOrder() {
         List<CachedHandlerSlot> list = new ArrayList<>();
-        for (var entry : this.priorityMounts.entrySet()) {
+        for (Map.Entry<Integer, List<CachedHandlerSlot>> entry : this.priorityMounts.entrySet()) {
             list.addAll(entry.getValue());
         }
         this.flatOrdered = Collections.unmodifiableList(list);
@@ -299,8 +300,8 @@ public final class RtsAggregateStorage {
         // 针对 AnySlotInsertItemHandler 的优化（如 AE2 网络）：
         // 跳过槽位迭代，因为插入与槽位无关，
         // 避免在大存储网络（10000+ 槽位）上产生 O(slots) 浪费调用。
-        if (handler instanceof AnySlotInsertItemHandler anySlot) {
-            return anySlot.insertItemAnywhere(stack, simulate);
+        if (handler instanceof AnySlotInsertItemHandler) {
+            return ((AnySlotInsertItemHandler) handler).insertItemAnywhere(stack, simulate);
         }
 
         ItemStack remain = stack.copy();
@@ -318,8 +319,8 @@ public final class RtsAggregateStorage {
         // AnySlotInsertItemHandler 的批量提取快速路径（AE2、BD 等）：
         // 跳过逐槽位扫描，让处理器直接批量提取。
         // 仅当 preferred 为空（无需 NBT 变体）时安全。
-        if ((preferred == null || preferred.isEmpty()) && handler instanceof AnySlotInsertItemHandler anySlot) {
-            return anySlot.extractItemAnywhere(targetItem, limit, false);
+        if ((preferred == null || preferred.isEmpty()) && handler instanceof AnySlotInsertItemHandler) {
+            return ((AnySlotInsertItemHandler) handler).extractItemAnywhere(targetItem, limit, false);
         }
 
         int remaining = limit;
@@ -330,7 +331,7 @@ public final class RtsAggregateStorage {
                 continue;
             }
             if (preferred != null && !preferred.isEmpty()
-                    && !ItemStack.isSameItemSameComponents(slotStack, preferred)) {
+                    && !sameItemAndTag(slotStack, preferred)) {
                 continue;
             }
             ItemStack extracted = handler.extractItem(slot, remaining, false);
@@ -338,7 +339,7 @@ public final class RtsAggregateStorage {
 
             if (out.isEmpty()) {
                 out = extracted;
-            } else if (ItemStack.isSameItemSameComponents(out, extracted)) {
+            } else if (sameItemAndTag(out, extracted)) {
                 out.grow(extracted.getCount());
             } else {
                 // 错误变体——放回去。如果处理器拒绝接收（
@@ -367,7 +368,7 @@ public final class RtsAggregateStorage {
         // 仅在物品实际被插入时（剩余量减少）才标记待处理变更，
         // 避免失败/部分存储的尝试触发虚假的 UI 刷新。
         if (!simulate && remain.getCount() < original.getCount()) {
-            this.pendingChanges.add(originalItem.toString());
+            this.pendingChanges.add(itemId(originalItem));
         }
     }
 
@@ -380,6 +381,40 @@ public final class RtsAggregateStorage {
 
     // ---- 值类型 ------------------------------------------------------------
 
-    record CachedHandlerSlot(int priority, IItemHandler handler, RtsHandlerCache cache) {
+    private static String itemId(Item item) {
+        ResourceLocation id = item == null ? null : Item.REGISTRY.getNameForObject(item);
+        return id == null ? "" : id.toString();
+    }
+
+    private static boolean sameItemAndTag(ItemStack first, ItemStack second) {
+        return ItemStack.areItemsEqual(first, second)
+                && ItemStack.areItemStackTagsEqual(first, second);
+    }
+
+    private static final class CachedHandlerSlot {
+        final int priority;
+        final IItemHandler handler;
+        final RtsHandlerCache cache;
+
+        CachedHandlerSlot(int priority, IItemHandler handler, RtsHandlerCache cache) {
+            this.priority = priority;
+            this.handler = handler;
+            this.cache = cache;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof CachedHandlerSlot)) return false;
+            CachedHandlerSlot value = (CachedHandlerSlot) other;
+            return this.priority == value.priority
+                    && Objects.equals(this.handler, value.handler)
+                    && Objects.equals(this.cache, value.cache);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(this.priority, this.handler, this.cache);
+        }
     }
 }
