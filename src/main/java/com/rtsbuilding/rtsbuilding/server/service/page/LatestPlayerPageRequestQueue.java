@@ -12,7 +12,7 @@ import java.util.function.Consumer;
  * 与玩家生命周期清理由服务端适配层负责。
  */
 public final class LatestPlayerPageRequestQueue<K, V> {
-    private final Map<K, V> pending = new LinkedHashMap<>();
+    private final Map<K, V> pending = new LinkedHashMap<K, V>();
 
     public synchronized void offer(K playerKey, V request) {
         this.pending.put(playerKey, request);
@@ -32,10 +32,10 @@ public final class LatestPlayerPageRequestQueue<K, V> {
             if (this.pending.isEmpty()) {
                 return;
             }
-            snapshot = new LinkedHashMap<>(this.pending);
+            snapshot = new LinkedHashMap<K, V>(this.pending);
             this.pending.clear();
         }
-        snapshot.values().forEach(consumer);
+        for (V value : snapshot.values()) consumer.accept(value);
     }
 
     int size() {

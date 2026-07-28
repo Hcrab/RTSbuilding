@@ -1,71 +1,18 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
-
-import net.minecraft.world.item.ItemStack;
-
-import java.util.List;
-import java.util.Set;
-
-/**
- * page 子包内部共享的数据类型定义。
- *
- * <p>所有类型均为包私有 record 或 enum，不暴露在 {@code page} 包之外。
- * 按用途分为以下几组：
- *
- * <ul>
- *   <li><b>条目类型</b>— {@link Entry}（单个物品条目，含原型、ID、名称、数量）、
- *   {@link FluidEntry}（流体条目，含 ID、名称、容量）</li>
- *   <li><b>链接引用</b>— {@link LinkedRefPayload}（所有链接存储的位置、名称、模式、优先级等元数据）</li>
- *   <li><b>类别选择</b>— {@link CategorySelection}（"全部"、"模组"、"创造标签页"三种过滤模式）、
- *   {@link CategorySelectionType} 枚举</li>
- * </ul>
- */
-// ---- 条目类型 -----------------------------------------------------------
-
-record Entry(ItemStack stack, String itemId, String namespace, String path, String label, long count) {
-}
-
-record FluidEntry(String fluidId, String namespace, String path, long amount, long capacity) {
-}
-
-record LinkedRefPayload(
-        List<Long> positions,
-        List<String> names,
-        List<Byte> modes,
-        List<Integer> priorities,
-        List<String> iconItemIds,
-        List<Boolean> worldAvailable) {
-}
-
-// ---- 类别选择 -----------------------------------------------------
-
-record CategorySelection(CategorySelectionType type, String namespace, String tabKey) {
-    static CategorySelection all() {
-        return new CategorySelection(CategorySelectionType.ALL, "", "");
-    }
-
-    static CategorySelection mod(String namespace) {
-        return new CategorySelection(CategorySelectionType.MOD, namespace, "");
-    }
-
-    static CategorySelection tab(String namespace, String tabKey) {
-        return new CategorySelection(CategorySelectionType.TAB, namespace, tabKey);
-    }
-
-    boolean isCreativeTab() {
-        return this.type == CategorySelectionType.TAB;
-    }
-
-    boolean matches(String namespace, Set<String> tabs) {
-        return switch (this.type) {
-            case ALL -> true;
-            case MOD -> this.namespace.equals(namespace);
-            case TAB -> this.namespace.equals(namespace) && tabs.contains(this.tabKey);
-        };
-    }
-}
-
-enum CategorySelectionType {
-    ALL,
-    MOD,
-    TAB
-}
+import net.minecraft.item.ItemStack;
+import java.util.List; import java.util.Set;
+final class Entry { private final ItemStack stack; private final String itemId,namespace,path,label; private final long count;
+ Entry(ItemStack s,String i,String n,String p,String l,long c){stack=s;itemId=i;namespace=n;path=p;label=l;count=c;}
+ ItemStack stack(){return stack;} String itemId(){return itemId;} String namespace(){return namespace;} String path(){return path;} String label(){return label;} long count(){return count;} }
+final class FluidEntry { private final String fluidId,namespace,path; private final long amount,capacity;
+ FluidEntry(String i,String n,String p,long a,long c){fluidId=i;namespace=n;path=p;amount=a;capacity=c;}
+ String fluidId(){return fluidId;} String namespace(){return namespace;} String path(){return path;} long amount(){return amount;} long capacity(){return capacity;} }
+final class LinkedRefPayload { private final List<Long> positions; private final List<String> names,iconItemIds; private final List<Byte> modes; private final List<Integer> priorities; private final List<Boolean> worldAvailable;
+ LinkedRefPayload(List<Long> p,List<String> n,List<Byte> m,List<Integer> r,List<String> i,List<Boolean>w){positions=p;names=n;modes=m;priorities=r;iconItemIds=i;worldAvailable=w;}
+ List<Long> positions(){return positions;} List<String> names(){return names;} List<Byte> modes(){return modes;} List<Integer> priorities(){return priorities;} List<String> iconItemIds(){return iconItemIds;} List<Boolean> worldAvailable(){return worldAvailable;} }
+final class CategorySelection { private final CategorySelectionType type; private final String namespace,tabKey;
+ private CategorySelection(CategorySelectionType t,String n,String k){type=t;namespace=n;tabKey=k;}
+ static CategorySelection all(){return new CategorySelection(CategorySelectionType.ALL,"","");} static CategorySelection mod(String n){return new CategorySelection(CategorySelectionType.MOD,n,"");} static CategorySelection tab(String n,String k){return new CategorySelection(CategorySelectionType.TAB,n,k);}
+ CategorySelectionType type(){return type;} String namespace(){return namespace;} String tabKey(){return tabKey;}
+ boolean isCreativeTab(){return type==CategorySelectionType.TAB;} boolean matches(String n,Set<String> tabs){if(type==CategorySelectionType.ALL)return true;if(type==CategorySelectionType.MOD)return namespace.equals(n);return namespace.equals(n)&&tabs!=null&&tabs.contains(tabKey);} }
+enum CategorySelectionType { ALL,MOD,TAB }
