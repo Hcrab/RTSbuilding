@@ -33,10 +33,8 @@ final class BlueprintAssetMaintenance {
     BlueprintAssetMaintenance() {
         this(() -> new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
                 new ArrayBlockingQueue<>(64), runnable -> {
-                    Thread thread = Thread.ofPlatform()
-                            .daemon(true)
-                            .name("RTSBuilding-AssetMaintenance")
-                            .unstarted(runnable);
+                    Thread thread = new Thread(runnable, "RTSBuilding-AssetMaintenance");
+                    thread.setDaemon(true);
                     thread.setPriority(Thread.MIN_PRIORITY);
                     return thread;
                 }, new ThreadPoolExecutor.AbortPolicy()));

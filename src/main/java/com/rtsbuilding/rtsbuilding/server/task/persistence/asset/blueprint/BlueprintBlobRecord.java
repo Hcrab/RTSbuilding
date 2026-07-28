@@ -33,7 +33,7 @@ public final class BlueprintBlobRecord {
             throw new IllegalArgumentException("蓝图 blob 文本元数据越界");
         }
         if (!sha256.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("sha256 必须为小写十六进制");
-        if (structure.hasNoTags()) throw new IllegalArgumentException("蓝图 structure 不能为空");
+        if (structure.isEmpty()) throw new IllegalArgumentException("蓝图 structure 不能为空");
         this.blockCount = blockCount;
         this.sha256 = sha256.toLowerCase(Locale.ROOT);
         this.structure = structure.copy();

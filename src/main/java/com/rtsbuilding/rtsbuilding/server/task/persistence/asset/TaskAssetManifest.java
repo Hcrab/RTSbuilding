@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence.asset;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -20,7 +21,8 @@ public final class TaskAssetManifest {
     public static final long MAX_COMPRESSED_BYTES = 4L * 1024L * 1024L * 1024L;
     public static final long MAX_LOGICAL_BYTES = 16L * 1024L * 1024L * 1024L;
 
-    private static final TaskAssetManifest EMPTY = new TaskAssetManifest(Map.of());
+    private static final TaskAssetManifest EMPTY = new TaskAssetManifest(
+            Collections.<TaskAssetId, TaskAssetMetadata>emptyMap());
 
     private final Map<TaskAssetId, TaskAssetMetadata> entries;
     private final Map<TaskId, Set<TaskAssetId>> assetsByTask;
@@ -45,10 +47,10 @@ public final class TaskAssetManifest {
                     "活动资产逻辑总量超过 16 GiB");
         }
         if (copy.size() > MAX_ASSETS) throw new IllegalArgumentException("活动资产数量超过 100000");
-        this.entries = Map.copyOf(copy);
+        this.entries = Collections.unmodifiableMap(copy);
         LinkedHashMap<TaskId, Set<TaskAssetId>> frozenByTask = new LinkedHashMap<>();
         byTask.forEach((taskId, assetIds) -> frozenByTask.put(taskId, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(assetIds)));
-        this.assetsByTask = Map.copyOf(frozenByTask);
+        this.assetsByTask = Collections.unmodifiableMap(frozenByTask);
         this.compressedBytes = compressed;
         this.logicalBytes = logical;
     }
@@ -112,7 +114,9 @@ public final class TaskAssetManifest {
 
     @Override
     public boolean equals(Object other) {
-        return other instanceof TaskAssetManifest manifest && entries.equals(manifest.entries);
+        if (!(other instanceof TaskAssetManifest)) return false;
+        TaskAssetManifest manifest = (TaskAssetManifest) other;
+        return entries.equals(manifest.entries);
     }
 
     @Override
