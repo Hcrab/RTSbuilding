@@ -129,11 +129,6 @@ dependencies {
         }
         // Allow jdk.unsupported classes like sun.misc.Unsafe, workaround for JDK-8206937 and fixes crashes in tests
         patchedMinecraft 'me.eigenraven.java8unsupported:java-8-unsupported-shim:1.0.0'
-        // Include for tests
-        testAnnotationProcessor 'com.github.bsideup.jabel:jabel-javac-plugin:1.0.0'
-        testCompileOnly('com.github.bsideup.jabel:jabel-javac-plugin:1.0.0') {
-            transitive = false // We only care about the 1 annotation class
-        }
     }
     if (propertyBool('use_jetbrains_annotations')) {
         compileOnly 'org.jetbrains:annotations:26.1.0'
@@ -159,6 +154,7 @@ dependencies {
         testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'
         testImplementation 'org.mockito:mockito-core:4.11.0'
         testImplementation 'org.mockito:mockito-junit-jupiter:4.11.0'
+        testImplementation 'com.google.code.gson:gson:2.10.1'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.0'
     }
 }
@@ -280,10 +276,11 @@ idea {
 compileTestJava {
     // 生产代码仍严格输出 Java 8 字节码。测试不打包，允许使用 Path.of、List.of、
     // Stream.toList 等现代测试辅助 API，避免为了旧运行时机械改写数百条断言。
-    sourceCompatibility = targetCompatibility = 17
-    options.release.set(17)
+    sourceCompatibility = targetCompatibility = 21
+    options.release.set(21)
+    options.compilerArgs.addAll(['-Xmaxerrs', '1000'])
     javaCompiler.set(javaToolchains.compilerFor {
-        languageVersion.set(JavaLanguageVersion.of(17))
+        languageVersion.set(JavaLanguageVersion.of(21))
     })
 }
 
@@ -293,13 +290,29 @@ test {
     }
     // 编译阶段由 --release 8 保证 API/字节码底线；Classic Forge 烟测阶段再用真实 Java 8。
     javaLauncher.set(javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(17)
+        languageVersion = JavaLanguageVersion.of(21)
     })
     if (propertyBool('show_testing_output')) {
         testLogging {
             showStandardStreams = true
         }
     }
+}
+
+tasks.register('runPortableGameTests', JavaExec) {
+    group = 'verification'
+    description = '在真实 Java 8 与完整 Forge 运行时类路径上执行可移植服务端契约。'
+    dependsOn tasks.named('classes')
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass.set('com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests')
+    args '--portable'
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    })
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('runPortableGameTests')
 }
 
 String parserChangelog() {
@@ -344,10 +357,10 @@ tasks.withType(JavaCompile).configureEach {
         }
         if (it.name == 'compileTestJava') {
             // 测试 class 不进入模组 JAR；单独使用 Java 17，生产 class 仍由下方 release 8 锁定。
-            sourceCompatibility = 17
-            options.release.set(17)
+            sourceCompatibility = 21
+            options.release.set(21)
             javaCompiler.set(javaToolchains.compilerFor {
-                languageVersion.set(JavaLanguageVersion.of(17))
+                languageVersion.set(JavaLanguageVersion.of(21))
             })
             return
         }
