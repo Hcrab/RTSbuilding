@@ -7,13 +7,13 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.world.WorldServer;
 
 import java.util.*;
 
@@ -55,7 +55,7 @@ public final class RtsProgressRefresher {
      * <p>遍历所有 job（先 pending 再 active），逐个检测实际放置情况。
      * 蓝图工作流部分使用节流控制（每 20 tick 最多扫描一次）。</p>
      */
-    public static void refreshWorkflowProgress(ServerPlayer player, RtsStorageSession session) {
+    public static void refreshWorkflowProgress(EntityPlayerMP player, RtsStorageSession session) {
         if (player == null || session == null) return;
 
         // ── 蓝图工作流进度刷新（节流） ──────────────────────────
@@ -69,27 +69,28 @@ public final class RtsProgressRefresher {
     /**
      * 遍历所有放置作业，扫描世界中的实际已放置方块数，更新工作流进度。
      */
-    private static void refreshBlueprintProgress(ServerPlayer player) {
-        UUID puid = player.getUUID();
-        long currentTick = player.serverLevel().getGameTime();
+    private static void refreshBlueprintProgress(EntityPlayerMP player) {
+        UUID puid = player.getUniqueID();
+        long currentTick = player.getServerWorld().getTotalWorldTime();
         Long lastRefresh = BLUEPRINT_REFRESH_TICK.get(puid);
         boolean shouldScan = lastRefresh == null || (currentTick - lastRefresh) >= BLUEPRINT_REFRESH_INTERVAL;
         if (!shouldScan) return;
         BLUEPRINT_REFRESH_TICK.put(puid, currentTick);
 
-        var engine = RtsWorkflowEngine.getInstance();
-        for (var status : engine.getAllProgress(player)) {
+        RtsWorkflowEngine engine = RtsWorkflowEngine.getInstance();
+        for (RtsWorkflowStatus status : engine.getAllProgress(player)) {
             if (!status.isActive() || status.type() != RtsWorkflowType.BLUEPRINT_BUILD) continue;
             int entryId = status.entryId();
             PipelineContext pipeCtx = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                     .findBlueprintContext(player, entryId);
-            if (!(pipeCtx instanceof BlueprintContext bctx)) continue;
+            if (!(pipeCtx instanceof BlueprintContext)) continue;
+            BlueprintContext bctx = (BlueprintContext) pipeCtx;
 
             List<BlockPlacementPlanner.PlacementPlan> plans = bctx.getPlacementPlans();
             LinkedList<Integer> remaining = bctx.getRemainingQueue();
             if (plans == null || remaining == null || plans.isEmpty()) continue;
 
-            ServerLevel level = player.serverLevel();
+            WorldServer level = player.getServerWorld();
             int total = plans.size();
             Set<Integer> remainingSet = new HashSet<>(remaining);
             LinkedList<Integer> backToQueue = new LinkedList<>();
@@ -99,9 +100,9 @@ public final class RtsProgressRefresher {
                 BlockPlacementPlanner.PlacementPlan plan = plans.get(idx);
                 if (plan == null) continue;
                 if (remainingSet.contains(idx)) continue;
-                if (!level.hasChunkAt(plan.target())) continue;
+                if (!level.isBlockLoaded(plan.target())) continue;
 
-                BlockState current = level.getBlockState(plan.target());
+                IBlockState current = level.getBlockState(plan.target());
                 if (current.getBlock() == plan.state().getBlock()) {
                     actualPlaced++;
                 } else {
@@ -113,7 +114,7 @@ public final class RtsProgressRefresher {
             remaining.removeIf(idx -> {
                 BlockPlacementPlanner.PlacementPlan plan = plans.get(idx);
                 if (plan == null) return false;
-                if (!level.hasChunkAt(plan.target())) return false;
+                if (!level.isBlockLoaded(plan.target())) return false;
                 return level.getBlockState(plan.target()).getBlock() == plan.state().getBlock();
             });
 
@@ -135,7 +136,7 @@ public final class RtsProgressRefresher {
     /**
      * 统计玩家主背包中与模板匹配的物品总量。
      */
-    public static long countItemsInPlayerInventory(ServerPlayer player, ItemStack template) {
+    public static long countItemsInPlayerInventory(EntityPlayerMP player, ItemStack template) {
         if (player == null || template == null || template.isEmpty()) return 0;
         boolean includePlayerInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player,
                 ServiceRegistry.getInstance().session().getIfPresent(player));
@@ -145,8 +146,9 @@ public final class RtsProgressRefresher {
         int end = RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
         long count = 0;
         for (int slot = start; slot < end; slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
-            if (!stack.isEmpty() && ItemStack.isSameItemSameComponents(stack, template)) {
+            ItemStack stack = player.inventory.getStackInSlot(slot);
+            if (!stack.isEmpty() && ItemStack.areItemsEqual(stack, template)
+                    && ItemStack.areItemStackTagsEqual(stack, template)) {
                 count = RtsCountUtil.saturatedAdd(count, stack.getCount());
             }
         }
