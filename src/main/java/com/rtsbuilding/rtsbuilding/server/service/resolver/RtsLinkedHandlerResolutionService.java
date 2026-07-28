@@ -12,13 +12,12 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedFluidHandlerView;
 import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedItemHandlerView;
-import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -52,12 +51,12 @@ public final class RtsLinkedHandlerResolutionService {
      * 解析每个当前可访问的物品端点，包括 BD 网络回退，
      * 转换为已强制执行仅提取存储规则的处理器。
      */
-    public static List<LinkedHandler> resolveLinkedHandlers(ServerPlayer player, RtsStorageSession session) {
+    public static List<LinkedHandler> resolveLinkedHandlers(EntityPlayerMP player, RtsStorageSession session) {
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         List<LinkedHandler> out = new ArrayList<>();
 
         if (!session.linkedStorageInfo.getAll().isEmpty()) {
-            ResourceKey<Level> currentDimension = player.serverLevel().dimension();
+            int currentDimension = player.dimension;
             for (LinkedStorageRef ref : session.linkedStorageInfo.getAll()) {
                 if (ref == null || ref.pos() == null) {
                     continue;
@@ -65,14 +64,14 @@ public final class RtsLinkedHandlerResolutionService {
                 BlockPos pos = ref.pos();
                 UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
                 boolean backpackLink = backpackUuid != null;
-                boolean sameDimension = currentDimension.equals(ref.dimension());
+                boolean sameDimension = currentDimension == ref.dimension();
                 IItemHandler handler = null;
 
                 if (sameDimension && !session.linkedStorageInfo.isDetached(ref)
                         && RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
-                    Object endpointIdentity = player.serverLevel().getBlockEntity(pos);
+                    Object endpointIdentity = player.getServerWorld().getTileEntity(pos);
                     handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
-                            player.getUUID(), currentDimension, pos, backpackUuid, endpointIdentity,
+                            player.getUniqueID(), currentDimension, pos, backpackUuid, endpointIdentity,
                             () -> backpackLink
                                     ? findMatchingBackpackBlockHandler(player, pos, backpackUuid)
                                     : RtsLinkedCapabilities.findLinkedItemHandler(player, pos));
@@ -80,7 +79,7 @@ public final class RtsLinkedHandlerResolutionService {
 
                 if (handler == null && backpackLink) {
                     handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
-                            player.getUUID(), ref.dimension(), pos, backpackUuid, null,
+                            player.getUniqueID(), ref.dimension(), pos, backpackUuid, null,
                             () -> RtsBackpackCompat.openBackpack(backpackUuid,
                                     session.linkedStorageInfo.getBackpackItemId(ref), player).orElse(null));
                 }
@@ -89,7 +88,7 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
-                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), pos));
+                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), pos));
                 boolean allowStore = !RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
                 out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, allowStore), allowStore,
                         linkedPriority(session, ref)));
@@ -114,7 +113,7 @@ public final class RtsLinkedHandlerResolutionService {
         }
         if (session.bdCache.handler != null) {
             LinkedStorageRef bdRef = new LinkedStorageRef(
-                    player.serverLevel().dimension(),
+                    player.dimension,
                     BlockPos.ZERO);
             out.add(new LinkedHandler(bdRef, session.bdCache.name, session.bdCache.handler, true, 0));
         }
@@ -128,10 +127,10 @@ public final class RtsLinkedHandlerResolutionService {
      * 和传输操作可以从槽位缓存中读取，而不是每次操作都在每个处理器上
      * 调用 {@code getStackInSlot()}。
      *
-     * <p>在 {@link #resolveLinkedHandlers(ServerPlayer, RtsStorageSession)}
+     * <p>在 {@link #resolveLinkedHandlers(EntityPlayerMP, RtsStorageSession)}
      * 之后调用此方法，以播种每玩家的聚合存储。
      */
-    public static void registerStorageCaches(ServerPlayer player, List<LinkedHandler> handlers) {
+    public static void registerStorageCaches(EntityPlayerMP player, List<LinkedHandler> handlers) {
         if (player == null) {
             return;
         }
@@ -142,7 +141,8 @@ public final class RtsLinkedHandlerResolutionService {
         List<IItemHandler> rawHandlers = new ArrayList<>(handlers.size());
         for (LinkedHandler lh : handlers) {
             IItemHandler h = lh.handler();
-            if (h instanceof LinkedItemHandlerView view) {
+            if (h instanceof LinkedItemHandlerView) {
+                LinkedItemHandlerView view = (LinkedItemHandlerView) h;
                 rawHandlers.add(view.getRawHandler());
             } else {
                 rawHandlers.add(h);
@@ -159,14 +159,15 @@ public final class RtsLinkedHandlerResolutionService {
      * 在物品端点旁边解析流体端点，以便仅提取链接不能接受存储的流体，
      * 同时仍允许提取。
      */
-    public static List<LinkedFluidHandler> resolveLinkedFluidHandlers(ServerPlayer player, RtsStorageSession session) {
+    public static List<LinkedFluidHandler> resolveLinkedFluidHandlers(
+            EntityPlayerMP player, RtsStorageSession session) {
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         List<LinkedFluidHandler> out = new ArrayList<>();
 
         if (!session.linkedStorageInfo.getAll().isEmpty()) {
-            ResourceKey<Level> currentDimension = player.serverLevel().dimension();
+            int currentDimension = player.dimension;
             for (LinkedStorageRef ref : session.linkedStorageInfo.getAll()) {
-                if (ref == null || ref.pos() == null || !currentDimension.equals(ref.dimension())) {
+                if (ref == null || ref.pos() == null || currentDimension != ref.dimension()) {
                     continue;
                 }
                 BlockPos pos = ref.pos();
@@ -178,7 +179,7 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
-                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), pos));
+                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), pos));
                 boolean allowStore = !RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
                 out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, allowStore), allowStore,
                         linkedPriority(session, ref)));
@@ -200,7 +201,7 @@ public final class RtsLinkedHandlerResolutionService {
                     ? session.bdCache.name
                     : RtsBdCompat.getNetworkDisplayName(player);
             LinkedStorageRef bdRef = new LinkedStorageRef(
-                    player.serverLevel().dimension(),
+                    player.dimension,
                     BlockPos.ZERO);
             out.add(new LinkedFluidHandler(bdRef, bdName, session.bdCache.fluidHandler, true, 0));
         }
@@ -247,24 +248,25 @@ public final class RtsLinkedHandlerResolutionService {
                         session.linkedStorageInfo.getPriority(ref));
     }
 
-    private static IItemHandler findMatchingBackpackBlockHandler(ServerPlayer player, BlockPos pos, UUID expectedUuid) {
-        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.serverLevel(), pos))) {
+    private static IItemHandler findMatchingBackpackBlockHandler(
+            EntityPlayerMP player, BlockPos pos, UUID expectedUuid) {
+        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.getServerWorld(), pos))) {
             return null;
         }
         return RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
     }
 
-    private static UUID readBackpackUuid(net.minecraft.server.level.ServerLevel level, BlockPos pos) {
+    private static UUID readBackpackUuid(WorldServer level, BlockPos pos) {
         if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
             return null;
         }
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+        TileEntity blockEntity = level.getTileEntity(pos);
         return RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
     }
 
     private static List<LinkedHandler> orderedHandlers(List<LinkedHandler> handlers, Comparator<LinkedHandler> comparator) {
         if (handlers == null || handlers.size() <= 1) {
-            return handlers == null ? List.of() : handlers;
+            return handlers == null ? java.util.Collections.<LinkedHandler>emptyList() : handlers;
         }
         List<LinkedHandler> ordered = new ArrayList<>(handlers);
         ordered.sort(comparator);
@@ -273,7 +275,7 @@ public final class RtsLinkedHandlerResolutionService {
 
     private static List<IItemHandler> toItemHandlers(List<LinkedHandler> handlers) {
         if (handlers == null || handlers.isEmpty()) {
-            return List.of();
+            return java.util.Collections.emptyList();
         }
         List<IItemHandler> out = new ArrayList<>(handlers.size());
         for (LinkedHandler linked : handlers) {
@@ -285,7 +287,7 @@ public final class RtsLinkedHandlerResolutionService {
     private static List<LinkedFluidHandler> orderedFluidHandlers(List<LinkedFluidHandler> handlers,
             Comparator<LinkedFluidHandler> comparator) {
         if (handlers == null || handlers.size() <= 1) {
-            return handlers == null ? List.of() : handlers;
+            return handlers == null ? java.util.Collections.<LinkedFluidHandler>emptyList() : handlers;
         }
         List<LinkedFluidHandler> ordered = new ArrayList<>(handlers);
         ordered.sort(comparator);
