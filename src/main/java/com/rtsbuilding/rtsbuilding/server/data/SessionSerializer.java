@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsBrowserState;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.session.SessionFlags;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -63,7 +64,7 @@ public final class SessionSerializer {
         int count = 0;
         for (ItemStack stack : session.miningDropBuffer.stacks) {
             if (stack == null || stack.isEmpty()
-                    || stacks.size() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
+                    || stacks.tagCount() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
                 continue;
             }
             int accepted = Math.min(stack.getCount(),
@@ -72,7 +73,7 @@ public final class SessionSerializer {
             int remaining = accepted;
             int maxStackSize = Math.max(1, stack.getMaxStackSize());
             while (remaining > 0
-                    && stacks.size()
+                    && stacks.tagCount()
                     < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
                 int chunkSize = Math.min(remaining, maxStackSize);
                 stacks.appendTag(copyWithCount(stack, chunkSize).writeToNBT(new NBTTagCompound()));
@@ -91,7 +92,7 @@ public final class SessionSerializer {
         buffer.stacks.clear();
         buffer.bufferedItems = 0;
         NBTTagList stacks = root.getTagList("drop_buffer_stacks", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < stacks.size()
+        for (int i = 0; i < stacks.tagCount()
                 && buffer.stacks.size() < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS;
                 i++) {
             ItemStack stack = new ItemStack(stacks.getCompoundTagAt(i));
@@ -119,7 +120,7 @@ public final class SessionSerializer {
         NBTTagList stacks = new NBTTagList();
         for (ItemStack stack : session.funnel.funnelBuffer) {
             if (stack != null && !stack.isEmpty()
-                    && stacks.size() < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS) {
+                    && stacks.tagCount() < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS) {
                 stacks.appendTag(stack.writeToNBT(new NBTTagCompound()));
             }
         }
@@ -142,7 +143,7 @@ public final class SessionSerializer {
         session.funnel.funnelTickCooldown = Math.max(0, root.getInteger("funnel_cooldown"));
         session.funnel.funnelBuffer.clear();
         NBTTagList stacks = root.getTagList("funnel_buffer", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < stacks.size()
+        for (int i = 0; i < stacks.tagCount()
                 && session.funnel.funnelBuffer.size()
                 < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS; i++) {
             ItemStack stack = new ItemStack(stacks.getCompoundTagAt(i));
@@ -203,7 +204,7 @@ public final class SessionSerializer {
         session.sessionFlags.useBdNetwork = !tag.hasKey("use_bd", Constants.NBT.TAG_BYTE) || tag.getBoolean("use_bd");
         session.sessionFlags.internalFluidMb.clear();
         NBTTagList fluids = tag.getTagList("fluids", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < fluids.size(); i++) {
+        for (int i = 0; i < fluids.tagCount(); i++) {
             NBTTagCompound ft = fluids.getCompoundTagAt(i);
             String id = ft.getString("id");
             long amount = ft.getLong("amount");
@@ -230,7 +231,7 @@ public final class SessionSerializer {
         int[] linkedPriorities = new int[session.linkedStorageInfo.size()];
         for (int i = 0; i < session.linkedStorageInfo.size(); i++) {
             LinkedStorageRef ref = session.linkedStorageInfo.get(i);
-            if (ref == null || ref.pos() == null || ref.dimension() == null) continue;
+            if (ref == null || ref.pos() == null) continue;
 
             byte linkMode = RtsLinkedStorageResolver.sanitizeLinkMode(
                     session.linkedStorageInfo.getMode(ref));
@@ -253,12 +254,12 @@ public final class SessionSerializer {
             linkedEntries.appendTag(linkedTag);
         }
         root.setTag("linked_entries", linkedEntries);
-        root.setLongArray("linked_positions", linkedPacked);
+        NbtCompat.setLongArray(root, "linked_positions", linkedPacked);
         root.setByteArray("linked_modes", linkedModes);
         root.setIntArray("linked_priorities", linkedPriorities);
         if (!session.linkedStorageInfo.isEmpty()) {
             LinkedStorageRef first = session.linkedStorageInfo.get(0);
-            if (first != null && first.dimension() != null) {
+            if (first != null) {
                 root.setString("linked_dimension", dimensionName(first.dimension()));
             }
         }
@@ -283,7 +284,7 @@ public final class SessionSerializer {
 
         WorldServer level = player.getServerWorld();
         int dimension = legacyDimension == null ? level.provider.getDimension() : legacyDimension;
-        long[] linkedPackedPositions = root.getLongArray("linked_positions");
+        long[] linkedPackedPositions = NbtCompat.getLongArray(root, "linked_positions");
         for (int i = 0; i < linkedPackedPositions.length; i++) {
             LinkedStorageRef ref = new LinkedStorageRef(dimension, BlockPos.fromLong(linkedPackedPositions[i]).toImmutable());
             if (!session.linkedStorageInfo.contains(ref)) {
@@ -297,7 +298,7 @@ public final class SessionSerializer {
     }
 
     private static void loadLinkedStorageModern(NBTTagList linkedEntries, RtsStorageSession session) {
-        for (int i = 0; i < linkedEntries.size(); i++) {
+        for (int i = 0; i < linkedEntries.tagCount(); i++) {
             NBTTagCompound linkedTag = linkedEntries.getCompoundTagAt(i);
             if (!linkedTag.hasKey("pos", Constants.NBT.TAG_LONG)) continue;
 
@@ -356,7 +357,7 @@ public final class SessionSerializer {
     private static void loadRecentEntries(RtsStorageSession session, NBTTagCompound root) {
         session.uiMemory.getRecentEntries().clear();
         NBTTagList list = root.getTagList("recent_entries", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
+        for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound tag = list.getCompoundTagAt(i);
             String id = tag.getString("id");
             long amount = tag.getLong("amount");
@@ -397,7 +398,7 @@ public final class SessionSerializer {
         Arrays.fill(session.uiMemory.getQuickSlotItemIds(), "");
         Arrays.fill(session.uiMemory.getQuickSlotPreviews(), ItemStack.EMPTY);
         NBTTagList list = root.getTagList("quick_slots", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
+        for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound tag = list.getCompoundTagAt(i);
             int slot = tag.getInteger("slot");
             String itemId = tag.getString("item_id");
@@ -423,7 +424,7 @@ public final class SessionSerializer {
         NBTTagList list = new NBTTagList();
         for (int i = 0; i < session.uiMemory.getGuiBindingCount(); i++) {
             GuiBinding binding = session.uiMemory.getGuiBinding(i);
-            if (binding == null || binding.pos() == null || binding.dimension() == null) continue;
+            if (binding == null || binding.pos() == null) continue;
 
             NBTTagCompound tag = new NBTTagCompound();
             tag.setInteger("slot", i);
@@ -440,7 +441,7 @@ public final class SessionSerializer {
     private static void loadGuiBindings(RtsStorageSession session, NBTTagCompound root) {
         Arrays.fill(session.uiMemory.getGuiBindings(), null);
         NBTTagList list = root.getTagList("gui_bindings", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < list.size(); i++) {
+        for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound tag = list.getCompoundTagAt(i);
             int slot = tag.getInteger("slot");
             if (slot < 0 || slot >= RtsStorageBindings.GUI_BINDING_SLOT_COUNT
@@ -479,7 +480,7 @@ public final class SessionSerializer {
         for (com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob job
                 : session.placement.recoveryJobs) {
             if (job == null) continue;
-            if (recoveryList.size()
+            if (recoveryList.tagCount()
                     >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_QUEUED_JOBS
                     || serializedClaims
                     >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS) {
@@ -492,7 +493,7 @@ public final class SessionSerializer {
             NBTTagList claims = new NBTTagList();
             for (com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim claim
                     : job.claims()) {
-                if (claims.size()
+                if (claims.tagCount()
                         >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB
                         || serializedClaims
                         >= com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS) {
@@ -516,7 +517,7 @@ public final class SessionSerializer {
         session.placement.recoveryJobs.clear();
         NBTTagList recoveryList = root.getTagList("placed_recovery_jobs", Constants.NBT.TAG_COMPOUND);
         int loadedClaims = 0;
-        for (int i = 0; i < recoveryList.size()
+        for (int i = 0; i < recoveryList.tagCount()
                 && session.placement.recoveryJobs.size()
                 < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_QUEUED_JOBS
                 && loadedClaims
@@ -528,7 +529,7 @@ public final class SessionSerializer {
             java.util.ArrayDeque<com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim>
                     claims = new java.util.ArrayDeque<>();
             NBTTagList encodedClaims = jobTag.getTagList("entities", Constants.NBT.TAG_COMPOUND);
-            for (int j = 0; j < encodedClaims.size()
+            for (int j = 0; j < encodedClaims.tagCount()
                     && claims.size()
                     < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB
                     && loadedClaims

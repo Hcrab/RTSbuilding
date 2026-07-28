@@ -189,7 +189,7 @@ public final class DataCluster {
     private <T> T decodeFromRaw(DataComponent<T> component) {
         if (rawRoot != null && rawRoot.hasKey(component.key(), Constants.NBT.TAG_COMPOUND)) {
             NBTTagCompound slot = rawRoot.getCompoundTag(component.key());
-            if (!slot.hasNoTags()) {
+            if (!slot.isEmpty()) {
                 T decoded = component.codec().decode(slot);
                 if (decoded != null) return decoded;
             }

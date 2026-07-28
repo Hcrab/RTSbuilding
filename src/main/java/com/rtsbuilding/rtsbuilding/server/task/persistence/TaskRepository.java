@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
+import com.github.bsideup.jabel.Desugar;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
@@ -8,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetada
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -36,13 +38,16 @@ public interface TaskRepository {
     AcknowledgeResult acknowledge(WriteCompletion completion);
 
     /** 已持久化的完整逻辑镜像；集合在构造时做防御性复制。 */
+    @Desugar
     record Image(Map<TaskId, TaskSnapshot> tasks,
                  Map<TaskId, TaskTombstone> tombstones,
                  Set<String> completedMigrations,
                  TaskAssetManifest assets) {
         public Image {
-            tasks = Map.copyOf(new LinkedHashMap<>(Objects.requireNonNull(tasks, "tasks")));
-            tombstones = Map.copyOf(new LinkedHashMap<>(Objects.requireNonNull(tombstones, "tombstones")));
+            tasks = Collections.unmodifiableMap(new LinkedHashMap<TaskId, TaskSnapshot>(
+                    Objects.requireNonNull(tasks, "tasks")));
+            tombstones = Collections.unmodifiableMap(new LinkedHashMap<TaskId, TaskTombstone>(
+                    Objects.requireNonNull(tombstones, "tombstones")));
             completedMigrations = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(
                     new LinkedHashSet<>(Objects.requireNonNull(completedMigrations, "completedMigrations")));
             Objects.requireNonNull(assets, "assets");
@@ -51,11 +56,15 @@ public interface TaskRepository {
         }
 
         public static Image empty() {
-            return new Image(Map.of(), Map.of(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), TaskAssetManifest.empty());
+            return new Image(Collections.<TaskId, TaskSnapshot>emptyMap(),
+                    Collections.<TaskId, TaskTombstone>emptyMap(),
+                    com.rtsbuilding.rtsbuilding.server.task.Java8Collections.<String>setOf(),
+                    TaskAssetManifest.empty());
         }
     }
 
     /** 一个必须原子提交的增量批次。 */
+    @Desugar
     record Commit(List<TaskSnapshot> upserts,
                   List<TaskTombstone> tombstones,
                   Set<TaskId> purgedTombstones,
@@ -102,15 +111,18 @@ public interface TaskRepository {
     }
 
     interface LoadResult {
+        @Desugar
         record Found(Image image) implements LoadResult {
             public Found {
                 Objects.requireNonNull(image, "image");
             }
         }
 
+        @Desugar
         record Missing() implements LoadResult {
         }
 
+        @Desugar
         record Failed(Throwable cause) implements LoadResult {
             public Failed {
                 Objects.requireNonNull(cause, "cause");
@@ -119,12 +131,14 @@ public interface TaskRepository {
     }
 
     interface PrepareResult {
+        @Desugar
         record Prepared(PreparedCommit commit) implements PrepareResult {
             public Prepared {
                 Objects.requireNonNull(commit, "commit");
             }
         }
 
+        @Desugar
         record Failed(Throwable cause) implements PrepareResult {
             public Failed {
                 Objects.requireNonNull(cause, "cause");
@@ -132,6 +146,7 @@ public interface TaskRepository {
         }
     }
 
+    @Desugar
     record WriteCompletion(UUID ticketId, boolean successful, long bytesWritten, Throwable failure) {
         public WriteCompletion {
             Objects.requireNonNull(ticketId, "ticketId");
@@ -150,6 +165,7 @@ public interface TaskRepository {
         }
     }
 
+    @Desugar
     record AcknowledgeResult(boolean accepted, boolean durable, Throwable failure) {
         public AcknowledgeResult {
             if (!accepted && durable) throw new IllegalArgumentException("未接受的 ACK 不能是 durable");
@@ -166,18 +182,18 @@ public interface TaskRepository {
             if ("blueprint".equals(metadata.kind()) && task.type() != TaskType.BLUEPRINT) {
                 throw new IllegalArgumentException("blueprint metadata 只能属于 BLUEPRINT task");
             }
-            if (!task.payloadView().hasUUID("asset_id")
-                    || !task.payloadView().getUUID("asset_id").equals(metadata.assetId().value())) {
+            if (!NbtCompat.hasUuid(task.payloadView(), "asset_id")
+                    || !NbtCompat.getUuid(task.payloadView(), "asset_id").equals(metadata.assetId().value())) {
                 throw new IllegalArgumentException("task.payload.asset_id 与 metadata 不一致");
             }
             assetsPerTask.merge(metadata.taskId(), 1, Integer::sum);
         }
         for (TaskSnapshot task : tasks.values()) {
-            if (!task.payloadView().contains("asset_id")) continue;
-            if (!task.payloadView().hasUUID("asset_id")) {
+            if (!task.payloadView().hasKey("asset_id")) continue;
+            if (!NbtCompat.hasUuid(task.payloadView(), "asset_id")) {
                 throw new IllegalArgumentException("task.payload.asset_id 类型损坏");
             }
-            TaskAssetId assetId = new TaskAssetId(task.payloadView().getUUID("asset_id"));
+            TaskAssetId assetId = new TaskAssetId(NbtCompat.getUuid(task.payloadView(), "asset_id"));
             TaskAssetMetadata metadata = manifest.entries().get(assetId);
             if (metadata == null || !metadata.taskId().equals(task.id())
                     || assetsPerTask.getOrDefault(task.id(), 0) != 1) {
@@ -185,4 +201,5 @@ public interface TaskRepository {
             }
         }
     }
+
 }
