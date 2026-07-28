@@ -1,88 +1,118 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint;
 
-import net.minecraft.nbt.ByteArrayTag;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagByte;
+import net.minecraft.nbt.NBTTagByteArray;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.IntArrayTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.LongArrayTag;
-import net.minecraft.nbt.NumericTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NBTTagDouble;
+import net.minecraft.nbt.NBTTagFloat;
+import net.minecraft.nbt.NBTTagInt;
+import net.minecraft.nbt.NBTTagIntArray;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagLong;
+import net.minecraft.nbt.NBTTagShort;
+import net.minecraft.nbt.NBTTagString;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.HexFormat;
+import java.util.Collections;
 import java.util.List;
 
 /**
- * 只负责把 NBT 树转换为跨重启稳定的 canonical SHA-256。
- *
- * <p>本类不理解蓝图 schema，不检查业务限额，也不负责压缩或磁盘 I/O。Compound key 按
- * {@link String#compareTo(String)} 排序，List 保持原顺序，所有数字使用显式大端编码。</p>
+ * 把 1.12.2 NBT 树转换为跨重启稳定的 canonical SHA-256。
+ * Compound key 排序，List 保序，数字使用显式大端编码；不理解蓝图业务 schema。
  */
 final class CanonicalNbtHasher {
     private CanonicalNbtHasher() { }
 
-    static String sha256(String domain, int hashVersion, Tag root) {
+    static String sha256(String domain, int hashVersion, NBTBase root) {
+        if (root == null) throw new IllegalArgumentException("NBT 根不能为空");
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             putCanonicalString(digest, domain, "hash domain");
             putInt(digest, hashVersion);
             hashTag(digest, root);
-            return HexFormat.of().formatHex(digest.digest());
+            return toHex(digest.digest());
         } catch (NoSuchAlgorithmException impossible) {
             throw new IllegalStateException("当前 JVM 不支持 SHA-256", impossible);
         }
     }
 
-    private static void hashTag(MessageDigest digest, Tag tag) {
-        digest.update(tag.getId());
-        switch (tag.getId()) {
-            case Tag.TAG_END -> { }
-            case Tag.TAG_BYTE -> digest.update(((NumericTag) tag).getAsByte());
-            case Tag.TAG_SHORT -> putShort(digest, ((NumericTag) tag).getAsShort());
-            case Tag.TAG_INT -> putInt(digest, ((NumericTag) tag).getAsInt());
-            case Tag.TAG_LONG -> putLong(digest, ((NumericTag) tag).getAsLong());
-            case Tag.TAG_FLOAT -> putInt(digest, Float.floatToIntBits(((NumericTag) tag).getAsFloat()));
-            case Tag.TAG_DOUBLE -> putLong(digest, Double.doubleToLongBits(((NumericTag) tag).getAsDouble()));
-            case Tag.TAG_BYTE_ARRAY -> {
-                byte[] values = ((ByteArrayTag) tag).getAsByteArray();
+    private static void hashTag(MessageDigest digest, NBTBase tag) {
+        byte id = tag.getId();
+        digest.update(id);
+        switch (id) {
+            case 0:
+                return;
+            case 1:
+                digest.update(((NBTTagByte) tag).getByte());
+                return;
+            case 2:
+                putShort(digest, ((NBTTagShort) tag).getShort());
+                return;
+            case 3:
+                putInt(digest, ((NBTTagInt) tag).getInt());
+                return;
+            case 4:
+                putLong(digest, ((NBTTagLong) tag).getLong());
+                return;
+            case 5:
+                putInt(digest, Float.floatToIntBits(((NBTTagFloat) tag).getFloat()));
+                return;
+            case 6:
+                putLong(digest, Double.doubleToLongBits(((NBTTagDouble) tag).getDouble()));
+                return;
+            case 7: {
+                byte[] values = ((NBTTagByteArray) tag).getByteArray();
                 putInt(digest, values.length);
                 digest.update(values);
+                return;
             }
-            case Tag.TAG_STRING -> putCanonicalString(
-                    digest, ((StringTag) tag).getAsString(), "NBT 字符串");
-            case Tag.TAG_LIST -> {
-                ListTag list = (ListTag) tag;
-                putInt(digest, list.size());
-                for (Tag element : list) hashTag(digest, element);
+            case 8:
+                putCanonicalString(digest, ((NBTTagString) tag).getString(), "NBT 字符串");
+                return;
+            case 9: {
+                NBTTagList list = (NBTTagList) tag;
+                putInt(digest, list.tagCount());
+                for (int i = 0; i < list.tagCount(); i++) hashTag(digest, list.get(i));
+                return;
             }
-            case Tag.TAG_COMPOUND -> {
+            case 10: {
                 NBTTagCompound compound = (NBTTagCompound) tag;
-                List<String> keys = new ArrayList<>(compound.getAllKeys());
-                keys.sort(String::compareTo);
+                List<String> keys = new ArrayList<String>(compound.getKeySet());
+                Collections.sort(keys);
                 putInt(digest, keys.size());
                 for (String key : keys) {
                     putCanonicalString(digest, key, "Compound key");
-                    Tag value = compound.get(key);
+                    NBTBase value = compound.getTag(key);
                     if (value == null) throw new IllegalArgumentException("Compound key 缺失值: " + key);
                     hashTag(digest, value);
                 }
+                return;
             }
-            case Tag.TAG_INT_ARRAY -> {
-                int[] values = ((IntArrayTag) tag).getAsIntArray();
+            case 11: {
+                int[] values = ((NBTTagIntArray) tag).getIntArray();
                 putInt(digest, values.length);
                 for (int value : values) putInt(digest, value);
+                return;
             }
-            case Tag.TAG_LONG_ARRAY -> {
-                long[] values = ((LongArrayTag) tag).getAsLongArray();
-                putInt(digest, values.length);
-                for (long value : values) putLong(digest, value);
-            }
-            default -> throw new IllegalArgumentException("不支持参与 canonical hash 的 NBT 类型: " + tag.getId());
+            default:
+                // 1.12.2 原生 NBT 没有 long-array tag；未知扩展不能静默产生不稳定哈希。
+                throw new IllegalArgumentException("不支持参与 canonical hash 的 NBT 类型: " + id);
         }
+    }
+
+    private static String toHex(byte[] bytes) {
+        char[] digits = "0123456789abcdef".toCharArray();
+        char[] out = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int value = bytes[i] & 0xff;
+            out[i * 2] = digits[value >>> 4];
+            out[i * 2 + 1] = digits[value & 0x0f];
+        }
+        return new String(out);
     }
 
     private static void putBytes(MessageDigest digest, byte[] values) {
@@ -91,11 +121,11 @@ final class CanonicalNbtHasher {
     }
 
     private static void putCanonicalString(MessageDigest digest, String value, String field) {
+        if (value == null) throw new IllegalArgumentException(field + " 不能为空");
         requirePairedSurrogates(value, field);
         putBytes(digest, value.getBytes(StandardCharsets.UTF_8));
     }
 
-    /** UTF-8 编码器会把孤立代理项替换成同一个字符，必须在哈希前拒绝这种歧义输入。 */
     private static void requirePairedSurrogates(String value, String field) {
         for (int i = 0; i < value.length(); i++) {
             char current = value.charAt(i);
