@@ -6,18 +6,18 @@ import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.capabilities.BlockCapability;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.items.IItemHandler;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -25,21 +25,13 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /**
- * Optional Refined Storage 2 integration for linked-storage binding.
+ * Refined Storage 1.6.x 的可选网络库存桥。
  *
- * <p>RS disk drives expose their disk/card inventory through the normal
- * NeoForge item-handler capability. Binding that handler makes RTSBuilding see
- * only the storage media, not the network contents. This class deliberately
- * resolves RS's network-node capability first and exposes the network's item
- * resources as the same virtual {@link IItemHandler} shape used by AE2.
- *
- * <p>This class owns only RS reflection and the virtual item view. It does not
- * decide whether a linked row is extract-only, where cache updates are mounted,
- * or how RTS UI pages are built; those responsibilities stay in the storage
- * resolver/cache layers.
+ * <p>1.12.2 的磁盘驱动普通物品能力只暴露磁盘本身，因此这里从方块实体的网络节点能力取得
+ * {@code INetwork}，再把网络库存缓存映射为 RTSBuilding 使用的虚拟 {@link IItemHandler}。
+ * 本类只负责 RS 反射与物品视图，不负责链接生命周期和页面缓存。
  */
 public final class RtsRefinedStorageCompat {
     private static final RsReflection REFLECTION = RsReflection.tryLoad();
@@ -51,54 +43,38 @@ public final class RtsRefinedStorageCompat {
         return REFLECTION != null;
     }
 
-    public static boolean isNetworkNodePosition(ServerPlayer player, BlockPos pos) {
-        if (player == null || pos == null || REFLECTION == null) {
-            return false;
-        }
-        ServerLevel level = player.serverLevel();
-        return level != null && level.hasChunkAt(pos) && REFLECTION.hasNetworkNodeProvider(level, pos);
+    public static boolean isNetworkNodePosition(EntityPlayerMP player, BlockPos pos) {
+        if (player == null || pos == null || REFLECTION == null) return false;
+        WorldServer world = player.getServerWorld();
+        return world != null && world.isBlockLoaded(pos) && REFLECTION.hasNetworkNodeProxy(world, pos);
     }
 
-    public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
-        if (player == null || pos == null || REFLECTION == null) {
-            return null;
-        }
-        ServerLevel level = player.serverLevel();
-        if (level == null || !level.hasChunkAt(pos)) {
-            return null;
-        }
+    public static IItemHandler createNetworkItemHandler(EntityPlayerMP player, BlockPos pos) {
+        if (player == null || pos == null || REFLECTION == null) return null;
+        WorldServer world = player.getServerWorld();
+        if (world == null || !world.isBlockLoaded(pos)) return null;
 
-        RsNetworkRef network = REFLECTION.findNetwork(level, pos);
-        if (network == null || network.storageComponent() == null) {
-            return null;
-        }
-        if (!REFLECTION.isAllowed(player, network.network(), "OPEN")) {
-            return null;
-        }
-        return new RsNetworkItemHandler(player, network.network(), network.storageComponent(), REFLECTION);
+        RsNetworkRef network = REFLECTION.findNetwork(world, pos);
+        if (network == null || network.storageCache() == null) return null;
+        if (!REFLECTION.isAllowed(player, network.network(), "MODIFY")) return null;
+        return new RsNetworkItemHandler(player, network.network(), network.storageCache(), REFLECTION);
     }
 
     private static final class RsNetworkItemHandler implements IItemHandler, ReportedCountItemHandler,
             AnySlotInsertItemHandler, RefreshableSnapshotHandler {
-        private final ServerPlayer player;
+        private final EntityPlayerMP player;
         private final Object network;
-        private final Object storageComponent;
+        private final Object storageCache;
         private final RsReflection reflection;
-        private final List<SlotView> slots = new ArrayList<>();
-
-        /**
-         * Refreshed through {@link RtsHandlerCache}, not from getSlots().
-         * With the current cache tick rates this avoids repeatedly walking a
-         * large RS network during normal mining/building input.
-         */
-        private int refreshCounter = 0;
+        private final List<SlotView> slots = new ArrayList<SlotView>();
+        private int refreshCounter;
         private boolean snapshotStale;
 
-        private RsNetworkItemHandler(ServerPlayer player, Object network, Object storageComponent,
+        private RsNetworkItemHandler(EntityPlayerMP player, Object network, Object storageCache,
                 RsReflection reflection) {
             this.player = player;
             this.network = network;
-            this.storageComponent = storageComponent;
+            this.storageCache = storageCache;
             this.reflection = reflection;
             refreshSnapshot();
         }
@@ -108,6 +84,7 @@ public final class RtsRefinedStorageCompat {
             return this.slots.size();
         }
 
+        /** 昂贵的网络扫描由 {@link RtsHandlerCache} 的刷新周期驱动，而不是由 getSlots() 驱动。 */
         @Override
         public void ensureFreshSnapshot() {
             boolean shouldRefresh = this.snapshotStale;
@@ -115,110 +92,64 @@ public final class RtsRefinedStorageCompat {
                 this.refreshCounter++;
                 shouldRefresh = this.refreshCounter >= Config.refinedStorageNetworkRefreshThrottle();
             }
-            if (shouldRefresh) {
-                refreshSnapshot();
-            }
+            if (shouldRefresh) refreshSnapshot();
         }
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            if (slot < 0 || slot >= this.slots.size()) {
-                return ItemStack.EMPTY;
-            }
+            if (slot < 0 || slot >= this.slots.size()) return ItemStack.EMPTY;
             SlotView view = this.slots.get(slot);
             return view.amount() > 0L ? view.displayStack().copy() : ItemStack.EMPTY;
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            if (slot < 0 || slot >= getSlots()) {
-                return stack.copy();
-            }
+            if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+            if (slot < 0 || slot >= getSlots()) return stack.copy();
             return insertItemAnywhere(stack, simulate);
         }
 
         @Override
         public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) {
-                return ItemStack.EMPTY;
-            }
-            if (!this.reflection.isAllowed(this.player, this.network, "INSERT")) {
-                return stack.copy();
-            }
-            Object resource = this.reflection.toItemResource(stack);
-            if (resource == null) {
-                return stack.copy();
-            }
+            if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+            if (!this.reflection.isAllowed(this.player, this.network, "INSERT")) return stack.copy();
 
-            long inserted = this.reflection.insert(this.storageComponent, resource, stack.getCount(), this.player,
-                    simulate);
-            if (inserted <= 0L) {
-                return stack.copy();
-            }
-
-            if (!simulate) {
-                this.snapshotStale = true;
-            }
-
-            ItemStack remain = stack.copy();
-            remain.shrink((int) Math.min(Integer.MAX_VALUE, inserted));
-            return remain;
+            InsertResult result = this.reflection.insert(this.network, stack, simulate);
+            if (!result.succeeded()) return stack.copy();
+            if (!simulate && result.inserted() > 0) this.snapshotStale = true;
+            return result.remainder();
         }
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot < 0 || slot >= this.slots.size() || amount <= 0) {
-                return ItemStack.EMPTY;
-            }
-            if (!this.reflection.isAllowed(this.player, this.network, "EXTRACT")) {
-                return ItemStack.EMPTY;
-            }
+            if (slot < 0 || slot >= this.slots.size() || amount <= 0) return ItemStack.EMPTY;
+            if (!this.reflection.isAllowed(this.player, this.network, "EXTRACT")) return ItemStack.EMPTY;
 
             SlotView view = this.slots.get(slot);
-            if (view.amount() <= 0L) {
-                return ItemStack.EMPTY;
-            }
-
-            long extracted = this.reflection.extract(this.storageComponent, view.resource(), amount, this.player,
-                    simulate);
-            if (extracted <= 0L) {
-                return ItemStack.EMPTY;
-            }
-
+            if (view.amount() <= 0L) return ItemStack.EMPTY;
+            ItemStack extracted = this.reflection.extract(this.network, view.prototype(), amount, simulate);
+            if (extracted.isEmpty()) return ItemStack.EMPTY;
             if (!simulate) {
-                long nextAmount = Math.max(0L, view.amount() - extracted);
-                this.slots.set(slot, new SlotView(view.resource(), view.displayStack(), nextAmount));
+                long nextAmount = Math.max(0L, view.amount() - extracted.getCount());
+                this.slots.set(slot, new SlotView(view.prototype(), nextAmount));
             }
-            return this.reflection.toStack(view.resource(), extracted);
+            return extracted;
         }
 
         @Override
         public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
-            if (targetItem == null || amount <= 0) {
-                return ItemStack.EMPTY;
-            }
-            if (!this.reflection.isAllowed(this.player, this.network, "EXTRACT")) {
-                return ItemStack.EMPTY;
-            }
-
-            for (int i = 0; i < this.slots.size(); i++) {
-                SlotView view = this.slots.get(i);
-                if (view.amount() <= 0L || view.displayStack().getItem() != targetItem) {
-                    continue;
-                }
-                long extracted = this.reflection.extract(this.storageComponent, view.resource(), amount, this.player,
-                        simulate);
-                if (extracted <= 0L) {
-                    return ItemStack.EMPTY;
-                }
+            if (targetItem == null || amount <= 0) return ItemStack.EMPTY;
+            if (!this.reflection.isAllowed(this.player, this.network, "EXTRACT")) return ItemStack.EMPTY;
+            for (int slot = 0; slot < this.slots.size(); slot++) {
+                SlotView view = this.slots.get(slot);
+                if (view.amount() <= 0L || view.displayStack().getItem() != targetItem) continue;
+                ItemStack extracted = this.reflection.extract(this.network, view.prototype(), amount, simulate);
+                if (extracted.isEmpty()) return ItemStack.EMPTY;
                 if (!simulate) {
-                    long nextAmount = Math.max(0L, view.amount() - extracted);
-                    this.slots.set(i, new SlotView(view.resource(), view.displayStack(), nextAmount));
+                    long nextAmount = Math.max(0L, view.amount() - extracted.getCount());
+                    this.slots.set(slot, new SlotView(view.prototype(), nextAmount));
                 }
-                return this.reflection.toStack(view.resource(), extracted);
+                return extracted;
             }
             return ItemStack.EMPTY;
         }
@@ -230,345 +161,281 @@ public final class RtsRefinedStorageCompat {
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return this.reflection.toItemResource(stack) != null;
+            return stack != null && !stack.isEmpty();
         }
 
         @Override
         public long getReportedCount(int slot) {
-            if (slot < 0 || slot >= this.slots.size()) {
-                return 0L;
-            }
-            return this.slots.get(slot).amount();
+            return slot < 0 || slot >= this.slots.size() ? 0L : this.slots.get(slot).amount();
         }
 
         private void refreshSnapshot() {
             this.slots.clear();
-            for (SlotView slot : this.reflection.snapshot(this.storageComponent)) {
-                if (slot != null && slot.amount() > 0L && !slot.displayStack().isEmpty()) {
-                    this.slots.add(slot);
-                }
-            }
+            this.slots.addAll(this.reflection.snapshot(this.storageCache));
             this.refreshCounter = 0;
             this.snapshotStale = false;
         }
     }
 
-    private record RsNetworkRef(Object network, Object storageComponent) {
+    private static final class RsNetworkRef {
+        private final Object network;
+        private final Object storageCache;
+
+        private RsNetworkRef(Object network, Object storageCache) {
+            this.network = network;
+            this.storageCache = storageCache;
+        }
+
+        private Object network() {
+            return this.network;
+        }
+
+        private Object storageCache() {
+            return this.storageCache;
+        }
     }
 
-    private record SlotView(Object resource, ItemStack displayStack, long amount) {
+    private static final class SlotView {
+        private final ItemStack prototype;
+        private final ItemStack displayStack;
+        private final long amount;
+
+        private SlotView(ItemStack prototype, long amount) {
+            this.prototype = prototype.copy();
+            this.prototype.setCount(1);
+            this.displayStack = this.prototype.copy();
+            this.amount = amount;
+        }
+
+        private ItemStack prototype() {
+            return this.prototype;
+        }
+
+        private ItemStack displayStack() {
+            return this.displayStack;
+        }
+
+        private long amount() {
+            return this.amount;
+        }
     }
 
+    private static final class InsertResult {
+        private final boolean succeeded;
+        private final int inserted;
+        private final ItemStack remainder;
+
+        private InsertResult(boolean succeeded, int inserted, ItemStack remainder) {
+            this.succeeded = succeeded;
+            this.inserted = inserted;
+            this.remainder = remainder;
+        }
+
+        private boolean succeeded() {
+            return this.succeeded;
+        }
+
+        private int inserted() {
+            return this.inserted;
+        }
+
+        private ItemStack remainder() {
+            return this.remainder;
+        }
+    }
+
+    private static final class InvocationResult {
+        private final boolean succeeded;
+        private final Object value;
+
+        private InvocationResult(boolean succeeded, Object value) {
+            this.succeeded = succeeded;
+            this.value = value;
+        }
+    }
+
+    /** 仅解析 RS 1.6.x 的公开能力/API；缺少模组时不会链接任何 RS 类型。 */
     private static final class RsReflection {
-        private final BlockCapability<?, ?> networkNodeContainerProviderCapability;
-        private final Method providerGetContainers;
-        private final Method containerGetNode;
+        private final Capability<?> networkNodeProxyCapability;
+        private final Method proxyGetNode;
         private final Method nodeGetNetwork;
-        private final Class<?> storageNetworkComponentClass;
-        private final Method networkGetComponent;
-        private final Method storageGetAll;
-        private final Method storageInsert;
-        private final Method storageExtract;
-        private final Class<?> itemResourceClass;
-        private final Method itemResourceOfItemStack;
-        private final Method itemResourceToItemStack;
-        private final Method resourceAmountResource;
-        private final Method resourceAmountAmount;
+        private final Method networkGetItemStorageCache;
+        private final Method storageCacheGetList;
+        private final Method stackListGetStacks;
+        private final Method networkInsertItem;
+        private final Method networkExtractItem;
+        private final Method networkGetSecurityManager;
+        private final Method securityHasPermission;
+        private final Class<?> permissionClass;
         private final Object actionSimulate;
-        private final Object actionExecute;
-        private final Field actorEmptyField;
-        private final Constructor<?> playerActorConstructor;
-        private final Method securityIsAllowed;
-        private final Class<?> builtinPermissionClass;
+        private final Object actionPerform;
+        private final int compareFlags;
 
-        private RsReflection(
-                BlockCapability<?, ?> networkNodeContainerProviderCapability,
-                Method providerGetContainers,
-                Method containerGetNode,
-                Method nodeGetNetwork,
-                Class<?> storageNetworkComponentClass,
-                Method networkGetComponent,
-                Method storageGetAll,
-                Method storageInsert,
-                Method storageExtract,
-                Class<?> itemResourceClass,
-                Method itemResourceOfItemStack,
-                Method itemResourceToItemStack,
-                Method resourceAmountResource,
-                Method resourceAmountAmount,
-                Object actionSimulate,
-                Object actionExecute,
-                Field actorEmptyField,
-                Constructor<?> playerActorConstructor,
-                Method securityIsAllowed,
-                Class<?> builtinPermissionClass) {
-            this.networkNodeContainerProviderCapability = networkNodeContainerProviderCapability;
-            this.providerGetContainers = providerGetContainers;
-            this.containerGetNode = containerGetNode;
+        private RsReflection(Capability<?> networkNodeProxyCapability, Method proxyGetNode, Method nodeGetNetwork,
+                Method networkGetItemStorageCache, Method storageCacheGetList, Method stackListGetStacks,
+                Method networkInsertItem, Method networkExtractItem, Method networkGetSecurityManager,
+                Method securityHasPermission, Class<?> permissionClass, Object actionSimulate, Object actionPerform,
+                int compareFlags) {
+            this.networkNodeProxyCapability = networkNodeProxyCapability;
+            this.proxyGetNode = proxyGetNode;
             this.nodeGetNetwork = nodeGetNetwork;
-            this.storageNetworkComponentClass = storageNetworkComponentClass;
-            this.networkGetComponent = networkGetComponent;
-            this.storageGetAll = storageGetAll;
-            this.storageInsert = storageInsert;
-            this.storageExtract = storageExtract;
-            this.itemResourceClass = itemResourceClass;
-            this.itemResourceOfItemStack = itemResourceOfItemStack;
-            this.itemResourceToItemStack = itemResourceToItemStack;
-            this.resourceAmountResource = resourceAmountResource;
-            this.resourceAmountAmount = resourceAmountAmount;
+            this.networkGetItemStorageCache = networkGetItemStorageCache;
+            this.storageCacheGetList = storageCacheGetList;
+            this.stackListGetStacks = stackListGetStacks;
+            this.networkInsertItem = networkInsertItem;
+            this.networkExtractItem = networkExtractItem;
+            this.networkGetSecurityManager = networkGetSecurityManager;
+            this.securityHasPermission = securityHasPermission;
+            this.permissionClass = permissionClass;
             this.actionSimulate = actionSimulate;
-            this.actionExecute = actionExecute;
-            this.actorEmptyField = actorEmptyField;
-            this.playerActorConstructor = playerActorConstructor;
-            this.securityIsAllowed = securityIsAllowed;
-            this.builtinPermissionClass = builtinPermissionClass;
+            this.actionPerform = actionPerform;
+            this.compareFlags = compareFlags;
         }
 
+        @SuppressWarnings({"unchecked", "rawtypes"})
         private static RsReflection tryLoad() {
-            if (!ModList.get().isLoaded("refinedstorage")) {
-                return null;
-            }
-
+            if (!Loader.isModLoaded("refinedstorage")) return null;
             try {
-                Class<?> apiClass = Class.forName("com.refinedmods.refinedstorage.neoforge.api.RefinedStorageNeoForgeApi");
-                Field instanceField = apiClass.getField("INSTANCE");
-                Object api = instanceField.get(null);
-                Method getNetworkCapability = apiClass.getMethod("getNetworkNodeContainerProviderCapability");
-                BlockCapability<?, ?> networkCapability = (BlockCapability<?, ?>) getNetworkCapability.invoke(api);
+                Class<?> capabilityHolder = Class.forName(
+                        "com.raoulvdberge.refinedstorage.capability.CapabilityNetworkNodeProxy");
+                Capability<?> capability = (Capability<?>) capabilityHolder
+                        .getField("NETWORK_NODE_PROXY_CAPABILITY").get(null);
+                if (capability == null) return null;
 
-                Class<?> providerClass = Class.forName(
-                        "com.refinedmods.refinedstorage.common.api.support.network.NetworkNodeContainerProvider");
-                Method providerGetContainers = providerClass.getMethod("getContainers");
-
-                Class<?> containerClass = Class.forName(
-                        "com.refinedmods.refinedstorage.api.network.node.container.NetworkNodeContainer");
-                Method containerGetNode = containerClass.getMethod("getNode");
-
-                Class<?> nodeClass = Class.forName("com.refinedmods.refinedstorage.api.network.node.NetworkNode");
-                Method nodeGetNetwork = nodeClass.getMethod("getNetwork");
-
-                Class<?> networkClass = Class.forName("com.refinedmods.refinedstorage.api.network.Network");
-                Method networkGetComponent = networkClass.getMethod("getComponent", Class.class);
-
-                Class<?> storageNetworkComponentClass = Class.forName(
-                        "com.refinedmods.refinedstorage.api.network.storage.StorageNetworkComponent");
-                Class<?> storageViewClass = Class.forName("com.refinedmods.refinedstorage.api.storage.StorageView");
-                Method storageGetAll = storageViewClass.getMethod("getAll");
-
-                Class<?> resourceKeyClass = Class.forName("com.refinedmods.refinedstorage.api.resource.ResourceKey");
-                Class<?> actionClass = Class.forName("com.refinedmods.refinedstorage.api.core.Action");
-                Class<?> actorClass = Class.forName("com.refinedmods.refinedstorage.api.storage.Actor");
-                Class<?> insertableStorageClass = Class.forName(
-                        "com.refinedmods.refinedstorage.api.storage.InsertableStorage");
-                Class<?> extractableStorageClass = Class.forName(
-                        "com.refinedmods.refinedstorage.api.storage.ExtractableStorage");
-                Method storageInsert = insertableStorageClass.getMethod("insert",
-                        resourceKeyClass, long.class, actionClass, actorClass);
-                Method storageExtract = extractableStorageClass.getMethod("extract",
-                        resourceKeyClass, long.class, actionClass, actorClass);
-
-                Object actionSimulate = Enum.valueOf((Class<? extends Enum>) actionClass.asSubclass(Enum.class),
-                        "SIMULATE");
-                Object actionExecute = Enum.valueOf((Class<? extends Enum>) actionClass.asSubclass(Enum.class),
-                        "EXECUTE");
-
-                Field actorEmptyField = actorClass.getField("EMPTY");
-                Class<?> playerActorClass = Class.forName(
-                        "com.refinedmods.refinedstorage.common.api.storage.PlayerActor");
-                Constructor<?> playerActorConstructor = playerActorClass.getConstructor(Player.class);
-
-                Class<?> itemResourceClass = Class.forName(
-                        "com.refinedmods.refinedstorage.common.support.resource.ItemResource");
-                Method itemResourceOfItemStack = itemResourceClass.getMethod("ofItemStack", ItemStack.class);
-                Method itemResourceToItemStack = itemResourceClass.getMethod("toItemStack", long.class);
-
-                Class<?> resourceAmountClass = Class.forName(
-                        "com.refinedmods.refinedstorage.api.resource.ResourceAmount");
-                Method resourceAmountResource = resourceAmountClass.getMethod("resource");
-                Method resourceAmountAmount = resourceAmountClass.getMethod("amount");
-
-                Class<?> securityHelperClass = Class.forName(
-                        "com.refinedmods.refinedstorage.common.api.security.SecurityHelper");
+                Class<?> proxyClass = Class.forName(
+                        "com.raoulvdberge.refinedstorage.api.network.node.INetworkNodeProxy");
+                Class<?> nodeClass = Class.forName(
+                        "com.raoulvdberge.refinedstorage.api.network.node.INetworkNode");
+                Class<?> networkClass = Class.forName("com.raoulvdberge.refinedstorage.api.network.INetwork");
+                Class<?> storageCacheClass = Class.forName(
+                        "com.raoulvdberge.refinedstorage.api.storage.IStorageCache");
+                Class<?> stackListClass = Class.forName("com.raoulvdberge.refinedstorage.api.util.IStackList");
+                Class<?> actionClass = Class.forName("com.raoulvdberge.refinedstorage.api.util.Action");
+                Class<?> comparerClass = Class.forName("com.raoulvdberge.refinedstorage.api.util.IComparer");
+                Class<?> securityClass = Class.forName(
+                        "com.raoulvdberge.refinedstorage.api.network.security.ISecurityManager");
                 Class<?> permissionClass = Class.forName(
-                        "com.refinedmods.refinedstorage.api.network.security.Permission");
-                Method securityIsAllowed = securityHelperClass.getMethod("isAllowed",
-                        ServerPlayer.class, permissionClass, networkClass);
-                Class<?> builtinPermissionClass = Class.forName(
-                        "com.refinedmods.refinedstorage.common.security.BuiltinPermission");
+                        "com.raoulvdberge.refinedstorage.api.network.security.Permission");
 
-                return new RsReflection(
-                        networkCapability,
-                        providerGetContainers,
-                        containerGetNode,
-                        nodeGetNetwork,
-                        storageNetworkComponentClass,
-                        networkGetComponent,
-                        storageGetAll,
-                        storageInsert,
-                        storageExtract,
-                        itemResourceClass,
-                        itemResourceOfItemStack,
-                        itemResourceToItemStack,
-                        resourceAmountResource,
-                        resourceAmountAmount,
-                        actionSimulate,
-                        actionExecute,
-                        actorEmptyField,
-                        playerActorConstructor,
-                        securityIsAllowed,
-                        builtinPermissionClass);
-            } catch (ReflectiveOperationException | LinkageError ignored) {
+                Method proxyGetNode = proxyClass.getMethod("getNode");
+                Method nodeGetNetwork = nodeClass.getMethod("getNetwork");
+                Method getCache = networkClass.getMethod("getItemStorageCache");
+                Method cacheGetList = storageCacheClass.getMethod("getList");
+                Method listGetStacks = stackListClass.getMethod("getStacks");
+                Method insertItem = networkClass.getMethod(
+                        "insertItem", ItemStack.class, int.class, actionClass);
+                Method extractItem = networkClass.getMethod(
+                        "extractItem", ItemStack.class, int.class, int.class, actionClass);
+                Method getSecurityManager = networkClass.getMethod("getSecurityManager");
+                Method hasPermission = securityClass.getMethod(
+                        "hasPermission", permissionClass, EntityPlayer.class);
+                Object simulate = Enum.valueOf((Class<? extends Enum>) actionClass.asSubclass(Enum.class), "SIMULATE");
+                Object perform = Enum.valueOf((Class<? extends Enum>) actionClass.asSubclass(Enum.class), "PERFORM");
+                int flags = comparerClass.getField("COMPARE_DAMAGE").getInt(null)
+                        | comparerClass.getField("COMPARE_NBT").getInt(null);
+                return new RsReflection(capability, proxyGetNode, nodeGetNetwork, getCache, cacheGetList,
+                        listGetStacks, insertItem, extractItem, getSecurityManager, hasPermission, permissionClass,
+                        simulate, perform, flags);
+            } catch (ReflectiveOperationException | LinkageError | ClassCastException ignored) {
                 return null;
             }
         }
 
-        private RsNetworkRef findNetwork(ServerLevel level, BlockPos pos) {
-            Object provider = findProvider(level, pos);
-            if (provider == null) {
-                return null;
-            }
+        private RsNetworkRef findNetwork(WorldServer world, BlockPos pos) {
+            Object proxy = findProxy(world, pos);
+            Object node = invoke(this.proxyGetNode, proxy);
+            Object network = invoke(this.nodeGetNetwork, node);
+            Object storageCache = invoke(this.networkGetItemStorageCache, network);
+            return network == null || storageCache == null ? null : new RsNetworkRef(network, storageCache);
+        }
 
-            Object containersObject = invoke(this.providerGetContainers, provider);
-            if (!(containersObject instanceof Set<?> containers)) {
-                return null;
-            }
-            for (Object container : containers) {
-                Object node = invoke(this.containerGetNode, container);
-                Object network = invoke(this.nodeGetNetwork, node);
-                Object storageComponent = resolveStorageComponent(network);
-                if (storageComponent != null) {
-                    return new RsNetworkRef(network, storageComponent);
-                }
+        private boolean hasNetworkNodeProxy(WorldServer world, BlockPos pos) {
+            return findProxy(world, pos) != null;
+        }
+
+        private Object findProxy(WorldServer world, BlockPos pos) {
+            if (world == null || pos == null || this.networkNodeProxyCapability == null) return null;
+            TileEntity tile = world.getTileEntity(pos);
+            if (tile == null) return null;
+            Object proxy = getCapability(tile, null);
+            if (proxy != null) return proxy;
+            for (EnumFacing facing : EnumFacing.VALUES) {
+                proxy = getCapability(tile, facing);
+                if (proxy != null) return proxy;
             }
             return null;
         }
 
-        private boolean hasNetworkNodeProvider(ServerLevel level, BlockPos pos) {
-            return findProvider(level, pos) != null;
-        }
-
-        private Object findProvider(ServerLevel level, BlockPos pos) {
-            if (level == null || pos == null) {
-                return null;
-            }
-            return level.getCapability(
-                    (BlockCapability<Object, Direction>) this.networkNodeContainerProviderCapability, pos, null);
-        }
-
-        private Object resolveStorageComponent(Object network) {
-            if (network == null) {
-                return null;
-            }
-            Object component = invoke(this.networkGetComponent, network, this.storageNetworkComponentClass);
-            return this.storageNetworkComponentClass.isInstance(component) ? component : null;
-        }
-
-        private List<SlotView> snapshot(Object storageComponent) {
-            List<SlotView> out = new ArrayList<>();
-            Object all = invoke(this.storageGetAll, storageComponent);
-            if (!(all instanceof Collection<?> resources)) {
-                return out;
-            }
-            for (Object resourceAmount : resources) {
-                Object resource = invoke(this.resourceAmountResource, resourceAmount);
-                if (resource == null || !this.itemResourceClass.isInstance(resource)) {
-                    continue;
-                }
-                long amount = asLong(invoke(this.resourceAmountAmount, resourceAmount));
-                if (amount <= 0L) {
-                    continue;
-                }
-                ItemStack display = toStack(resource, 1);
-                if (display.isEmpty()) {
-                    continue;
-                }
-                display.setCount(1);
-                out.add(new SlotView(resource, display, amount));
-            }
-            return out;
-        }
-
-        private Object toItemResource(ItemStack stack) {
-            if (stack == null || stack.isEmpty()) {
-                return null;
-            }
-            Object resource = invoke(this.itemResourceOfItemStack, null, stack);
-            return this.itemResourceClass.isInstance(resource) ? resource : null;
-        }
-
-        private ItemStack toStack(Object resource, long count) {
-            if (resource == null || !this.itemResourceClass.isInstance(resource) || count <= 0L) {
-                return ItemStack.EMPTY;
-            }
-            long boundedCount = Math.min(Integer.MAX_VALUE, count);
-            Object stack = invoke(this.itemResourceToItemStack, resource, boundedCount);
-            return stack instanceof ItemStack itemStack ? itemStack : ItemStack.EMPTY;
-        }
-
-        private long insert(Object storageComponent, Object resource, long amount, ServerPlayer player,
-                boolean simulate) {
-            if (storageComponent == null || resource == null || amount <= 0L) {
-                return 0L;
-            }
-            return asLong(invoke(this.storageInsert, storageComponent, resource, amount,
-                    simulate ? this.actionSimulate : this.actionExecute, actorFor(player)));
-        }
-
-        private long extract(Object storageComponent, Object resource, long amount, ServerPlayer player,
-                boolean simulate) {
-            if (storageComponent == null || resource == null || amount <= 0L) {
-                return 0L;
-            }
-            return asLong(invoke(this.storageExtract, storageComponent, resource, amount,
-                    simulate ? this.actionSimulate : this.actionExecute, actorFor(player)));
-        }
-
-        private boolean isAllowed(ServerPlayer player, Object network, String permissionName) {
-            if (player == null || network == null || this.securityIsAllowed == null
-                    || this.builtinPermissionClass == null) {
-                return true;
-            }
-            Object permission;
+        @SuppressWarnings("unchecked")
+        private Object getCapability(TileEntity tile, EnumFacing facing) {
             try {
-                permission = Enum.valueOf((Class<? extends Enum>) this.builtinPermissionClass.asSubclass(Enum.class),
-                        permissionName);
-            } catch (IllegalArgumentException ex) {
-                return true;
-            }
-            Object allowed = invoke(this.securityIsAllowed, null, player, permission, network);
-            return !(allowed instanceof Boolean value) || value;
-        }
-
-        private Object actorFor(ServerPlayer player) {
-            if (player != null && this.playerActorConstructor != null) {
-                try {
-                    return this.playerActorConstructor.newInstance(player);
-                } catch (ReflectiveOperationException ignored) {
-                }
-            }
-            try {
-                return this.actorEmptyField.get(null);
-            } catch (IllegalAccessException ignored) {
+                Capability<Object> capability = (Capability<Object>) this.networkNodeProxyCapability;
+                return tile.hasCapability(capability, facing) ? tile.getCapability(capability, facing) : null;
+            } catch (RuntimeException | LinkageError ignored) {
                 return null;
             }
         }
 
-        private static long asLong(Object value) {
-            return value instanceof Number number ? number.longValue() : 0L;
+        private List<SlotView> snapshot(Object storageCache) {
+            List<SlotView> result = new ArrayList<SlotView>();
+            Object stackList = invoke(this.storageCacheGetList, storageCache);
+            Object stacks = invoke(this.stackListGetStacks, stackList);
+            if (!(stacks instanceof Collection<?>)) return result;
+            for (Object value : (Collection<?>) stacks) {
+                if (!(value instanceof ItemStack)) continue;
+                ItemStack stack = (ItemStack) value;
+                if (stack.isEmpty() || stack.getCount() <= 0) continue;
+                result.add(new SlotView(stack, stack.getCount()));
+            }
+            return result;
+        }
+
+        private InsertResult insert(Object network, ItemStack stack, boolean simulate) {
+            int requested = stack.getCount();
+            InvocationResult call = invokeResult(this.networkInsertItem, network, stack, requested,
+                    simulate ? this.actionSimulate : this.actionPerform);
+            if (!call.succeeded) return new InsertResult(false, 0, stack.copy());
+            ItemStack remainder = call.value instanceof ItemStack ? ((ItemStack) call.value).copy() : ItemStack.EMPTY;
+            int remainderCount = remainder.isEmpty() ? 0 : Math.max(0, Math.min(requested, remainder.getCount()));
+            return new InsertResult(true, requested - remainderCount, remainder);
+        }
+
+        private ItemStack extract(Object network, ItemStack prototype, int amount, boolean simulate) {
+            InvocationResult call = invokeResult(this.networkExtractItem, network, prototype, amount,
+                    this.compareFlags, simulate ? this.actionSimulate : this.actionPerform);
+            return call.succeeded && call.value instanceof ItemStack
+                    ? ((ItemStack) call.value).copy() : ItemStack.EMPTY;
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private boolean isAllowed(EntityPlayerMP player, Object network, String permissionName) {
+            if (player == null || network == null) return false;
+            Object manager = invoke(this.networkGetSecurityManager, network);
+            if (manager == null) return true;
+            try {
+                Object permission = Enum.valueOf(
+                        (Class<? extends Enum>) this.permissionClass.asSubclass(Enum.class), permissionName);
+                InvocationResult call = invokeResult(this.securityHasPermission, manager, permission, player);
+                return call.succeeded && Boolean.TRUE.equals(call.value);
+            } catch (IllegalArgumentException ignored) {
+                return false;
+            }
         }
 
         private static Object invoke(Method method, Object target, Object... args) {
-            if (method == null) {
-                return null;
-            }
-            if (target == null && !Modifier.isStatic(method.getModifiers())) {
-                return null;
+            InvocationResult result = invokeResult(method, target, args);
+            return result.succeeded ? result.value : null;
+        }
+
+        private static InvocationResult invokeResult(Method method, Object target, Object... args) {
+            if (method == null || (target == null && !Modifier.isStatic(method.getModifiers()))) {
+                return new InvocationResult(false, null);
             }
             try {
-                return method.invoke(target, args);
-            } catch (IllegalAccessException | InvocationTargetException | IllegalArgumentException e) {
-                RtsbuildingMod.LOGGER.debug("Refined Storage reflective call failed", e);
-                return null;
+                return new InvocationResult(true, method.invoke(target, args));
+            } catch (IllegalAccessException | InvocationTargetException | IllegalArgumentException exception) {
+                RtsbuildingMod.LOGGER.debug("Refined Storage 1.12 reflective call failed", exception);
+                return new InvocationResult(false, null);
             }
         }
     }
