@@ -184,15 +184,77 @@ public final class RtsCreativeSearchCache<T> {
         return false;
     }
 
-    public record IndexedEntry(String categoryToken, String itemId, String label, String mod, String name,
-                               String searchText, boolean hasHanLabel) {
+    public static final class IndexedEntry {
+        private final String categoryToken, itemId, label, mod, name, searchText;
+        private final boolean hasHanLabel;
+        public IndexedEntry(String categoryToken, String itemId, String label, String mod, String name,
+                String searchText, boolean hasHanLabel) {
+            this.categoryToken = categoryToken; this.itemId = itemId; this.label = label;
+            this.mod = mod; this.name = name; this.searchText = searchText; this.hasHanLabel = hasHanLabel;
+        }
+        public String categoryToken() { return categoryToken; }
+        public String itemId() { return itemId; }
+        public String label() { return label; }
+        public String mod() { return mod; }
+        public String name() { return name; }
+        public String searchText() { return searchText; }
+        public boolean hasHanLabel() { return hasHanLabel; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof IndexedEntry)) return false;
+            IndexedEntry that = (IndexedEntry) other;
+            return hasHanLabel == that.hasHanLabel && Objects.equals(categoryToken, that.categoryToken)
+                    && Objects.equals(itemId, that.itemId) && Objects.equals(label, that.label)
+                    && Objects.equals(mod, that.mod) && Objects.equals(name, that.name)
+                    && Objects.equals(searchText, that.searchText);
+        }
+        @Override public int hashCode() {
+            return Objects.hash(categoryToken, itemId, label, mod, name, searchText, hasHanLabel);
+        }
+        @Override public String toString() {
+            return "IndexedEntry[categoryToken=" + categoryToken + ", itemId=" + itemId
+                    + ", label=" + label + ", mod=" + mod + ", name=" + name
+                    + ", searchText=" + searchText + ", hasHanLabel=" + hasHanLabel + "]";
+        }
     }
 
-    private record SearchToken(boolean modOnly, String value) {
+    private static final class SearchToken {
+        private final boolean modOnly;
+        private final String value;
+        private SearchToken(boolean modOnly, String value) { this.modOnly = modOnly; this.value = value; }
+        boolean modOnly() { return modOnly; }
+        String value() { return value; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof SearchToken)) return false;
+            SearchToken that = (SearchToken) other;
+            return modOnly == that.modOnly && Objects.equals(value, that.value);
+        }
+        @Override public int hashCode() { return Objects.hash(modOnly, value); }
+        @Override public String toString() { return "SearchToken[modOnly=" + modOnly + ", value=" + value + "]"; }
     }
 
-    private record MatchResult(boolean matched, int pinyinChecks) {
+    private static final class MatchResult {
+        private final boolean matched;
+        private final int pinyinChecks;
         private static final MatchResult YES = new MatchResult(true, 0);
         private static final MatchResult NO = new MatchResult(false, 0);
+
+        private MatchResult(boolean matched, int pinyinChecks) {
+            this.matched = matched;
+            this.pinyinChecks = pinyinChecks;
+        }
+        boolean matched() { return matched; }
+        int pinyinChecks() { return pinyinChecks; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof MatchResult)) return false;
+            MatchResult that = (MatchResult) other;
+            return matched == that.matched && pinyinChecks == that.pinyinChecks;
+        }
+        @Override public int hashCode() { return Objects.hash(matched, pinyinChecks); }
+        @Override public String toString() {
+            return "MatchResult[matched=" + matched + ", pinyinChecks=" + pinyinChecks + "]";
+        }
     }
 }
