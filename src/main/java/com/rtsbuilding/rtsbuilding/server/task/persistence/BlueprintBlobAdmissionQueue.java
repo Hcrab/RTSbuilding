@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.AtomicBlueprintBlobRepository;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.BlueprintBlobCodec;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.BlueprintBlobRecord;
 import net.minecraft.nbt.NBTTagCompound;
 
 import java.time.Duration;
@@ -189,11 +190,12 @@ final class BlueprintBlobAdmissionQueue {
             if (write.future != null) continue;
             try {
                 write.future = CompletableFuture.supplyAsync(() -> {
-                    var record = codec.freeze(
+                    BlueprintBlobRecord record = codec.freeze(
                             write.snapshot.id(), write.request.blockCount(),
                             write.request.name(), write.request.sourceName(),
                             write.request.format(), write.request.structureView());
-                    var receipt = repository.writeDurably(record);
+                    AtomicBlueprintBlobRepository.DurableBlueprintBlobReceipt receipt =
+                            repository.writeDurably(record);
                     return repository.verifyForAdmission(receipt);
                 }, writer);
                 scheduled++;
@@ -221,10 +223,11 @@ final class BlueprintBlobAdmissionQueue {
 
     private static ExecutorService newWriter() {
         return new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
-                new ArrayBlockingQueue<>(MAX_SCHEDULED - 1), Thread.ofPlatform()
-                        .daemon(true)
-                        .name("RTSBuilding-BlueprintBlobWriter")
-                        .factory(), new ThreadPoolExecutor.AbortPolicy());
+                new ArrayBlockingQueue<Runnable>(MAX_SCHEDULED - 1), runnable -> {
+                    Thread thread = new Thread(runnable, "RTSBuilding-BlueprintBlobWriter");
+                    thread.setDaemon(true);
+                    return thread;
+                }, new ThreadPoolExecutor.AbortPolicy());
     }
 
     enum EnqueueOutcome {
@@ -239,39 +242,78 @@ final class BlueprintBlobAdmissionQueue {
         RETRY_LATER
     }
 
-    record Ready(
-            TaskSnapshot snapshot,
-            AtomicBlueprintBlobRepository.DurableBlueprintAdmissionProof proof) {
-        Ready {
-            Objects.requireNonNull(snapshot, "snapshot");
-            Objects.requireNonNull(proof, "proof");
+    static final class Ready {
+        private final TaskSnapshot snapshot;
+        private final AtomicBlueprintBlobRepository.DurableBlueprintAdmissionProof proof;
+
+        Ready(TaskSnapshot snapshot,
+                AtomicBlueprintBlobRepository.DurableBlueprintAdmissionProof proof) {
+            this.snapshot = Objects.requireNonNull(snapshot, "snapshot");
+            this.proof = Objects.requireNonNull(proof, "proof");
+        }
+
+        TaskSnapshot snapshot() { return snapshot; }
+        AtomicBlueprintBlobRepository.DurableBlueprintAdmissionProof proof() { return proof; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Ready)) return false;
+            Ready that = (Ready) other;
+            return Objects.equals(snapshot, that.snapshot) && Objects.equals(proof, that.proof);
+        }
+        @Override public int hashCode() { return Objects.hash(snapshot, proof); }
+        @Override public String toString() {
+            return "Ready[snapshot=" + snapshot + ", proof=" + proof + "]";
         }
     }
 
-    record Failed(TaskId taskId, Throwable failure) {
-        Failed {
-            Objects.requireNonNull(taskId, "taskId");
-            Objects.requireNonNull(failure, "failure");
+    static final class Failed {
+        private final TaskId taskId;
+        private final Throwable failure;
+
+        Failed(TaskId taskId, Throwable failure) {
+            this.taskId = Objects.requireNonNull(taskId, "taskId");
+            this.failure = Objects.requireNonNull(failure, "failure");
+        }
+
+        TaskId taskId() { return taskId; }
+        Throwable failure() { return failure; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Failed)) return false;
+            Failed that = (Failed) other;
+            return Objects.equals(taskId, that.taskId) && Objects.equals(failure, that.failure);
+        }
+        @Override public int hashCode() { return Objects.hash(taskId, failure); }
+        @Override public String toString() {
+            return "Failed[taskId=" + taskId + ", failure=" + failure + "]";
         }
     }
 
-    record FreezeRequest(
-            TaskId taskId,
-            int blockCount,
-            String name,
-            String sourceName,
-            String format,
-            NBTTagCompound structure) {
-        FreezeRequest {
-            Objects.requireNonNull(taskId, "taskId");
-            Objects.requireNonNull(name, "name");
-            Objects.requireNonNull(sourceName, "sourceName");
-            Objects.requireNonNull(format, "format");
-            Objects.requireNonNull(structure, "structure");
+    static final class FreezeRequest {
+        private final TaskId taskId;
+        private final int blockCount;
+        private final String name;
+        private final String sourceName;
+        private final String format;
+        private final NBTTagCompound structure;
+
+        FreezeRequest(TaskId taskId, int blockCount, String name, String sourceName,
+                String format, NBTTagCompound structure) {
+            this.taskId = Objects.requireNonNull(taskId, "taskId");
+            this.blockCount = blockCount;
+            this.name = Objects.requireNonNull(name, "name");
+            this.sourceName = Objects.requireNonNull(sourceName, "sourceName");
+            this.format = Objects.requireNonNull(format, "format");
+            this.structure = Objects.requireNonNull(structure, "structure");
             if (blockCount <= 0) throw new IllegalArgumentException("blockCount 必须为正数");
         }
 
-        @Override
+        TaskId taskId() { return taskId; }
+        int blockCount() { return blockCount; }
+        String name() { return name; }
+        String sourceName() { return sourceName; }
+        String format() { return format; }
+
         public NBTTagCompound structure() {
             return structure.copy();
         }
@@ -282,6 +324,23 @@ final class BlueprintBlobAdmissionQueue {
 
         FreezeRequest frozenCopy() {
             return new FreezeRequest(taskId, blockCount, name, sourceName, format, structure.copy());
+        }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof FreezeRequest)) return false;
+            FreezeRequest that = (FreezeRequest) other;
+            return blockCount == that.blockCount && Objects.equals(taskId, that.taskId)
+                    && Objects.equals(name, that.name) && Objects.equals(sourceName, that.sourceName)
+                    && Objects.equals(format, that.format) && Objects.equals(structure, that.structure);
+        }
+        @Override public int hashCode() {
+            return Objects.hash(taskId, blockCount, name, sourceName, format, structure);
+        }
+        @Override public String toString() {
+            return "FreezeRequest[taskId=" + taskId + ", blockCount=" + blockCount
+                    + ", name=" + name + ", sourceName=" + sourceName + ", format=" + format
+                    + ", structure=" + structure + "]";
         }
     }
 
