@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -94,8 +94,8 @@ public final class RtsOperationDiagnostics {
         }
 
         boolean skipped = result instanceof PipelineResult.Skip;
-        String detail = result instanceof PipelineResult.Failure failure
-                ? failure.message()
+        String detail = result instanceof PipelineResult.Failure
+                ? ((PipelineResult.Failure) result).message()
                 : ((PipelineResult.Skip) result).reason();
         RtsDiagnosticReason reason =
                 RtsDiagnosticReason.classify(stage, detail, skipped, exception);
@@ -121,7 +121,7 @@ public final class RtsOperationDiagnostics {
      * 记录批量目标筛选中的聚合拒绝。调用方必须先聚合数量；本方法不得从逐方块循环调用。
      */
     public static void filteredTargets(
-            ServerPlayer player,
+            EntityPlayerMP player,
             int workflowId,
             String mode,
             RtsWorkflowType type,
@@ -133,7 +133,7 @@ public final class RtsOperationDiagnostics {
                         + "outcome=REJECTED reason={} stage=TARGET_FILTER",
                 workflowValue(workflowId),
                 player.getGameProfile().getName(),
-                mode == null || mode.isBlank() ? "-" : mode,
+                mode == null || mode.trim().isEmpty() ? "-" : mode,
                 type == null ? "-" : type,
                 rejectedTargets,
                 reason);
@@ -187,11 +187,20 @@ public final class RtsOperationDiagnostics {
 
     private static boolean isKeyOperation(RtsWorkflowType type, int targets) {
         if (targets > 1) return true;
-        return switch (type) {
-            case ULTIMINE, AREA_MINE, AREA_DESTROY, PLACE_BATCH,
-                    QUICK_BUILD, BLUEPRINT_BUILD -> true;
-            case MINE_SINGLE, PLACE_SINGLE, STOP_MINING -> false;
-        };
+        switch (type) {
+            case ULTIMINE:
+            case AREA_MINE:
+            case AREA_DESTROY:
+            case PLACE_BATCH:
+            case QUICK_BUILD:
+            case BLUEPRINT_BUILD:
+                return true;
+            case MINE_SINGLE:
+            case PLACE_SINGLE:
+            case STOP_MINING:
+            default:
+                return false;
+        }
     }
 
     private static String workflowValue(int workflowId) {
@@ -200,7 +209,7 @@ public final class RtsOperationDiagnostics {
 
     /** 保持结构化日志单行，避免外部文本破坏字段边界。 */
     private static String safeDetail(String detail) {
-        if (detail == null || detail.isBlank()) return "-";
+        if (detail == null || detail.trim().isEmpty()) return "-";
         return detail.replace('\r', ' ')
                 .replace('\n', ' ')
                 .replace('"', '\'');
