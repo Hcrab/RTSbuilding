@@ -2,12 +2,15 @@ package com.rtsbuilding.rtsbuilding.client.screen.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uikit.layout.LeftDockedTooltipLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraftforge.fml.client.config.GuiUtils;
+
+import java.util.Collections;
 
 /**
  * 左侧固定 Tooltip 的 Minecraft 绘制适配器。
@@ -28,20 +31,24 @@ public final class LeftDockedTooltipRenderer {
         this.bottomPanel = bottomPanel;
     }
 
-    public void render(GuiGraphics graphics, ItemStack stack) {
+    public void render(LegacyGuiGraphics graphics, ItemStack stack) {
         LeftDockedTooltipLayout.Geometry geometry = geometry();
-        graphics.renderTooltip(this.screen.font(), stack,
-                geometry.anchorX(), geometry.anchorY());
+        graphics.renderTooltip(stack, geometry.anchorX(), geometry.anchorY());
     }
 
-    public void render(GuiGraphics graphics, Component text) {
+    public void render(LegacyGuiGraphics graphics, ITextComponent text) {
+        if (text == null) {
+            return;
+        }
         LeftDockedTooltipLayout.Geometry geometry = geometry();
-        graphics.renderTooltip(this.screen.font(), text,
-                geometry.anchorX(), geometry.anchorY());
+        GuiUtils.drawHoveringText(
+                Collections.singletonList(text.getFormattedText()),
+                geometry.anchorX(), geometry.anchorY(),
+                this.screen.width, this.screen.height, 300, this.screen.font());
     }
 
-    public void renderDetail(GuiGraphics graphics, String detail, UiColor color) {
-        if (detail == null || detail.isBlank() || color == null) {
+    public void renderDetail(LegacyGuiGraphics graphics, String detail, UiColor color) {
+        if (detail == null || detail.trim().isEmpty() || color == null) {
             return;
         }
         LeftDockedTooltipLayout.Geometry geometry = geometry();

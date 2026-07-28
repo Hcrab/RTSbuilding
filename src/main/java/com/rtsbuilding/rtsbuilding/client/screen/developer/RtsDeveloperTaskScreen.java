@@ -1,70 +1,102 @@
 package com.rtsbuilding.rtsbuilding.client.screen.developer;
 
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uikit.theme.DeveloperScreenStyle;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.resources.I18n;
+import org.lwjgl.input.Keyboard;
+
+import java.io.IOException;
 
 /** 开发者作业入口；任务只能由真实操作事件推进，没有手动“通过”按钮。 */
-public final class RtsDeveloperTaskScreen extends Screen {
-    private final Screen parent;
+public final class RtsDeveloperTaskScreen extends GuiScreen {
+    private static final int TASK_BUTTON_BASE = 100;
+    private static final int BACK_BUTTON = 1;
 
-    public RtsDeveloperTaskScreen(Screen parent) {
-        super(Component.translatable("screen.rtsbuilding.developer.title"));
+    private final GuiScreen parent;
+
+    public RtsDeveloperTaskScreen(GuiScreen parent) {
         this.parent = parent;
     }
 
     @Override
-    protected void init() {
-        var scenarios = RtsDeveloperScenarioTracker.Scenario.values();
-        var layout = RtsDeveloperTaskLayout.resolve(this.width, this.height, scenarios.length);
+    public void initGui() {
+        this.buttonList.clear();
+        RtsDeveloperScenarioTracker.Scenario[] scenarios =
+                RtsDeveloperScenarioTracker.Scenario.values();
+        RtsDeveloperTaskLayout.Layout layout =
+                RtsDeveloperTaskLayout.resolve(this.width, this.height, scenarios.length);
         for (int index = 0; index < scenarios.length; index++) {
             RtsDeveloperScenarioTracker.Scenario scenario = scenarios[index];
-            var bounds = layout.taskButtons().get(index);
-            addRenderableWidget(Button.builder(Component.translatable(scenario.translationKey()), button -> {
-                RtsDeveloperScenarioTracker.getInstance().start(scenario);
-                this.minecraft.setScreen(parent);
-            }).bounds(bounds.x(), bounds.y(), bounds.width(), bounds.height()).build());
+            RtsDeveloperTaskLayout.Bounds bounds = layout.taskButtons().get(index);
+            this.buttonList.add(new GuiButton(
+                    TASK_BUTTON_BASE + index,
+                    bounds.x(), bounds.y(), bounds.width(), bounds.height(),
+                    I18n.format(scenario.translationKey())));
         }
-        var back = layout.backButton();
-        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), button ->
-                this.minecraft.setScreen(parent))
-                .bounds(back.x(), back.y(), back.width(), back.height()).build());
+        RtsDeveloperTaskLayout.Bounds back = layout.backButton();
+        this.buttonList.add(new GuiButton(
+                BACK_BUTTON, back.x(), back.y(), back.width(), back.height(),
+                I18n.format("gui.rtsbuilding.back")));
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        graphics.fill(0, 0, this.width, this.height,
-                DeveloperScreenStyle.BACKGROUND.toArgb());
-        var layout = RtsDeveloperTaskLayout.resolve(this.width, this.height,
-                RtsDeveloperScenarioTracker.Scenario.values().length);
+    protected void actionPerformed(GuiButton button) throws IOException {
+        if (button == null || !button.enabled) {
+            return;
+        }
+        if (button.id == BACK_BUTTON) {
+            this.mc.displayGuiScreen(this.parent);
+            return;
+        }
+        int index = button.id - TASK_BUTTON_BASE;
+        RtsDeveloperScenarioTracker.Scenario[] scenarios =
+                RtsDeveloperScenarioTracker.Scenario.values();
+        if (index >= 0 && index < scenarios.length) {
+            RtsDeveloperScenarioTracker.getInstance().start(scenarios[index]);
+            this.mc.displayGuiScreen(this.parent);
+        }
+    }
+
+    @Override
+    protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            this.mc.displayGuiScreen(this.parent);
+            return;
+        }
+        super.keyTyped(typedChar, keyCode);
+    }
+
+    @Override
+    public void drawScreen(int mouseX, int mouseY, float partialTicks) {
+        LegacyGuiGraphics graphics = new LegacyGuiGraphics(this.mc, this.width, this.height);
+        graphics.fill(0, 0, this.width, this.height, DeveloperScreenStyle.BACKGROUND.toArgb());
+        RtsDeveloperTaskLayout.Layout layout = RtsDeveloperTaskLayout.resolve(
+                this.width, this.height, RtsDeveloperScenarioTracker.Scenario.values().length);
         RtsClientUiUtil.drawCenteredStringNoShadow(
-                graphics, this.font, this.title, layout.centerX(), layout.titleY(),
-                DeveloperScreenStyle.TITLE.toArgb());
-        var tracker = RtsDeveloperScenarioTracker.getInstance();
+                graphics, this.fontRenderer,
+                I18n.format("screen.rtsbuilding.developer.title"),
+                layout.centerX(), layout.titleY(), DeveloperScreenStyle.TITLE.toArgb());
+
+        RtsDeveloperScenarioTracker tracker = RtsDeveloperScenarioTracker.getInstance();
         if (tracker.activeScenario() != null) {
-            RtsClientUiUtil.drawCenteredStringNoShadow(graphics, this.font,
-                    Component.translatable("screen.rtsbuilding.developer.active",
-                            Component.translatable(tracker.activeScenario().translationKey()),
-                            tracker.currentStep() + "/" + tracker.requiredSteps()),
+            String active = I18n.format(
+                    "screen.rtsbuilding.developer.active",
+                    I18n.format(tracker.activeScenario().translationKey()),
+                    tracker.currentStep() + "/" + tracker.requiredSteps());
+            RtsClientUiUtil.drawCenteredStringNoShadow(
+                    graphics, this.fontRenderer, active,
                     layout.centerX(), layout.activeStatusY(),
                     DeveloperScreenStyle.ACTIVE_STATUS.toArgb());
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.drawScreen(mouseX, mouseY, partialTicks);
     }
 
     @Override
-    public boolean isPauseScreen() {
+    public boolean doesGuiPauseGame() {
         return false;
-    }
-
-    @Override
-    public void onClose() {
-        if (this.minecraft != null) {
-            this.minecraft.setScreen(parent);
-        }
     }
 }

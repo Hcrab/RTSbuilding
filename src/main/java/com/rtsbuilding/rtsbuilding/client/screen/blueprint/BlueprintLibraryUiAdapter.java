@@ -7,10 +7,13 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiTransition;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -25,7 +28,7 @@ final class BlueprintLibraryUiAdapter {
     }
 
     static BlueprintLibraryUiState snapshot(ClientRtsController controller) {
-        return snapshot(controller, Set.of());
+        return snapshot(controller, Collections.<String>emptySet());
     }
 
     /**
@@ -45,7 +48,8 @@ final class BlueprintLibraryUiAdapter {
         for (int index = window.fromIndex; index < window.toIndex; index++) {
             detailedFiles.add(filtered.get(index).fileName);
         }
-        if (!lightweight.selectedFileName.isBlank()) {
+        if (lightweight.selectedFileName != null
+                && !lightweight.selectedFileName.trim().isEmpty()) {
             detailedFiles.add(lightweight.selectedFileName);
         }
         return snapshot(controller, detailedFiles);
@@ -63,7 +67,10 @@ final class BlueprintLibraryUiAdapter {
             if (detailed) {
                 for (ItemStack stack : entry.previewItems()) {
                     if (!stack.isEmpty()) {
-                        previewIds.add(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+                        ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+                        if (id != null) {
+                            previewIds.add(id.toString());
+                        }
                     }
                 }
             }
@@ -74,10 +81,11 @@ final class BlueprintLibraryUiAdapter {
                     entry.error(), previewIds));
         }
         BlueprintEntry selected = BlueprintPanel.librarySelectedEntry();
+        ITextComponent status = BlueprintPanel.statusText();
         return new BlueprintLibraryUiState(rows, BlueprintPanel.libraryQuery(),
                 BlueprintPanel.librarySearchFocused(), BlueprintPanel.libraryScrollRows(),
                 selected == null ? "" : selected.fileName(), BlueprintPanel.isCaptureModeActive(),
-                BlueprintPanel.isCaptureSaving(), BlueprintPanel.statusText().getString(),
+                BlueprintPanel.isCaptureSaving(), status == null ? "" : status.getUnformattedText(),
                 BlueprintPanel.statusColor());
     }
 

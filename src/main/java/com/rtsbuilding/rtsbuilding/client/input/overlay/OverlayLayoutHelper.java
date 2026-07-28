@@ -77,7 +77,23 @@ public final class OverlayLayoutHelper {
     //  Records
     // =========================================================================
 
-    public record JeiOverlayIngredient(net.minecraft.item.ItemStack stack, Rectangle area) {
+    /** JEI 4 查询覆盖层物品时使用的不可变值对象。 */
+    public static final class JeiOverlayIngredient {
+        private final net.minecraft.item.ItemStack stack;
+        private final Rectangle area;
+
+        public JeiOverlayIngredient(net.minecraft.item.ItemStack stack, Rectangle area) {
+            this.stack = stack == null ? net.minecraft.item.ItemStack.EMPTY : stack.copy();
+            this.area = area == null ? null : new Rectangle(area);
+        }
+
+        public net.minecraft.item.ItemStack stack() {
+            return this.stack.isEmpty() ? net.minecraft.item.ItemStack.EMPTY : this.stack.copy();
+        }
+
+        public Rectangle area() {
+            return this.area == null ? null : new Rectangle(this.area);
+        }
     }
 
     public record ButtonLayout(int x, int y, int w, int h) {

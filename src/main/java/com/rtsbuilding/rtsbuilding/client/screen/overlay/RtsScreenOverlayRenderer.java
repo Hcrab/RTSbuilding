@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.BottomPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
@@ -18,23 +19,26 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiBevelOutlineRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.OverlayStyle;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.BlockHitResult;
-import org.lwjgl.glfw.GLFW;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.RayTraceResult;
+import org.lwjgl.BufferUtils;
+import org.lwjgl.LWJGLException;
+import org.lwjgl.input.Cursor;
+import org.lwjgl.input.Mouse;
+
+import java.nio.IntBuffer;
+import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
 /**
- * Renders lightweight overlays owned by the RTS builder screen.
+ * 绘制 BuilderScreen 所有轻量顶层覆盖物，并管理不参与业务状态的原生鼠标样式。
  *
- * <p>This class owns transient visual overlay state such as the damage flash and
- * native cursor visibility, plus small top-level popups. It intentionally does
- * not own the main panel render order, modal dialogs, input routing, storage
- * overlay behavior, or gameplay mutation. Those remain in their existing
- * mainline owners while PR #71's renderer-split direction is absorbed safely.
+ * <p>1.12 使用 LWJGL2，没有 GLFW 的标准缩放光标。本类惰性创建等价的本地像素光标；
+ * 隐藏预览光标时使用透明 native cursor，不调用 {@link Mouse#setGrabbed(boolean)}，因此
+ * 不会改变鼠标坐标、抓取状态或 RTS 拖拽语义。
  */
 public final class RtsScreenOverlayRenderer {
     private final BuilderScreen screen;
@@ -44,12 +48,13 @@ public final class RtsScreenOverlayRenderer {
 
     private final UiFloatAnimation damageFlash =
             new UiFloatAnimation(SystemUiClock.INSTANCE, 0.0D);
-    private boolean nativeCursorHidden = false;
+    private boolean nativeCursorHidden;
     private RtsWindowPanel.ResizeCursor nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
-    private long resizeEwCursor;
-    private long resizeNsCursor;
-    private long resizeNwseCursor;
-    private long resizeNeswCursor;
+    private Cursor hiddenCursor;
+    private Cursor resizeEwCursor;
+    private Cursor resizeNsCursor;
+    private Cursor resizeNwseCursor;
+    private Cursor resizeNeswCursor;
 
     public RtsScreenOverlayRenderer(
             BuilderScreen screen,
@@ -67,152 +72,210 @@ public final class RtsScreenOverlayRenderer {
         this.damageFlash.animateTo(0.0D, DAMAGE_FLASH_DURATION_MS, UiEasing.LINEAR);
     }
 
-    public void renderDamageFlash(GuiGraphics g) {
+    public void renderDamageFlash(LegacyGuiGraphics graphics) {
         double visibility = this.damageFlash.value();
-        if (visibility <= 0.0D) {
-            return;
+        if (visibility > 0.0D) {
+            graphics.fill(0, 0, this.screen.width, this.screen.height,
+                    OverlayStyle.damageFlash(visibility).toArgb());
         }
-        g.fill(0, 0, this.screen.width, this.screen.height,
-                OverlayStyle.damageFlash(visibility).toArgb());
     }
 
     public void updateNativeCursorVisibility(boolean hide) {
-        Minecraft minecraft = this.screen.getMinecraft();
-        if (minecraft == null) {
-            this.nativeCursorHidden = false;
-            this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
+        if (!canSetNativeCursor()) {
+            resetCursorState();
             return;
         }
-        long window = minecraft.getWindow().getWindow();
         if (hide) {
-            if (this.nativeCursorStyle != RtsWindowPanel.ResizeCursor.DEFAULT) {
-                GLFW.glfwSetCursor(window, 0L);
-                this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
-            }
             if (this.nativeCursorHidden) {
                 return;
             }
-            GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_HIDDEN);
-            this.nativeCursorHidden = true;
+            Cursor cursor = hiddenCursor();
+            if (cursor != null && setNativeCursor(cursor)) {
+                this.nativeCursorHidden = true;
+                this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
+            }
             return;
         }
         updateNativeCursor(RtsWindowPanel.ResizeCursor.DEFAULT);
     }
 
     public void updateNativeCursor(RtsWindowPanel.ResizeCursor cursor) {
-        Minecraft minecraft = this.screen.getMinecraft();
-        if (minecraft == null) {
-            this.nativeCursorHidden = false;
-            this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
+        if (!canSetNativeCursor()) {
+            resetCursorState();
             return;
-        }
-        long window = minecraft.getWindow().getWindow();
-        if (this.nativeCursorHidden) {
-            GLFW.glfwSetInputMode(window, GLFW.GLFW_CURSOR, GLFW.GLFW_CURSOR_NORMAL);
-            this.nativeCursorHidden = false;
         }
         RtsWindowPanel.ResizeCursor safeCursor = cursor == null
-                ? RtsWindowPanel.ResizeCursor.DEFAULT
-                : cursor;
-        if (safeCursor == this.nativeCursorStyle) {
+                ? RtsWindowPanel.ResizeCursor.DEFAULT : cursor;
+        if (!this.nativeCursorHidden && safeCursor == this.nativeCursorStyle) {
             return;
         }
-        GLFW.glfwSetCursor(window, cursorHandle(safeCursor));
-        this.nativeCursorStyle = safeCursor;
+        Cursor nativeCursor = safeCursor == RtsWindowPanel.ResizeCursor.DEFAULT
+                ? null : resizeCursor(safeCursor);
+        if (safeCursor != RtsWindowPanel.ResizeCursor.DEFAULT && nativeCursor == null) {
+            return;
+        }
+        if (setNativeCursor(nativeCursor)) {
+            this.nativeCursorHidden = false;
+            this.nativeCursorStyle = safeCursor;
+        }
     }
 
-    private long cursorHandle(RtsWindowPanel.ResizeCursor cursor) {
-        return switch (cursor) {
-            case RESIZE_EW -> {
-                if (this.resizeEwCursor == 0L) {
-                    this.resizeEwCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_EW_CURSOR);
-                }
-                yield this.resizeEwCursor;
-            }
-            case RESIZE_NS -> {
-                if (this.resizeNsCursor == 0L) {
-                    this.resizeNsCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NS_CURSOR);
-                }
-                yield this.resizeNsCursor;
-            }
-            case RESIZE_NWSE -> {
-                if (this.resizeNwseCursor == 0L) {
-                    this.resizeNwseCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NWSE_CURSOR);
-                }
-                yield this.resizeNwseCursor;
-            }
-            case RESIZE_NESW -> {
-                if (this.resizeNeswCursor == 0L) {
-                    this.resizeNeswCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_RESIZE_NESW_CURSOR);
-                }
-                yield this.resizeNeswCursor;
-            }
-            case DEFAULT -> 0L;
-        };
+    private boolean canSetNativeCursor() {
+        Minecraft minecraft = this.screen.getMinecraft();
+        return minecraft != null && Mouse.isCreated();
     }
 
-    public void renderHomeSelectionOverlay(GuiGraphics g, int mouseX, int mouseY) {
+    private void resetCursorState() {
+        this.nativeCursorHidden = false;
+        this.nativeCursorStyle = RtsWindowPanel.ResizeCursor.DEFAULT;
+    }
+
+    private static boolean setNativeCursor(Cursor cursor) {
+        try {
+            Mouse.setNativeCursor(cursor);
+            return true;
+        } catch (LWJGLException | RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    private Cursor hiddenCursor() {
+        if (this.hiddenCursor == null) {
+            this.hiddenCursor = createCursor(null);
+        }
+        return this.hiddenCursor;
+    }
+
+    private Cursor resizeCursor(RtsWindowPanel.ResizeCursor style) {
+        switch (style) {
+            case RESIZE_EW:
+                if (this.resizeEwCursor == null) this.resizeEwCursor = createCursor(style);
+                return this.resizeEwCursor;
+            case RESIZE_NS:
+                if (this.resizeNsCursor == null) this.resizeNsCursor = createCursor(style);
+                return this.resizeNsCursor;
+            case RESIZE_NWSE:
+                if (this.resizeNwseCursor == null) this.resizeNwseCursor = createCursor(style);
+                return this.resizeNwseCursor;
+            case RESIZE_NESW:
+                if (this.resizeNeswCursor == null) this.resizeNeswCursor = createCursor(style);
+                return this.resizeNeswCursor;
+            case DEFAULT:
+            default:
+                return null;
+        }
+    }
+
+    private static Cursor createCursor(RtsWindowPanel.ResizeCursor style) {
+        try {
+            int minimum = Math.max(1, Cursor.getMinCursorSize());
+            int maximum = Math.max(minimum, Cursor.getMaxCursorSize());
+            int size = Math.min(maximum, Math.max(minimum, 16));
+            IntBuffer pixels = BufferUtils.createIntBuffer(size * size);
+            int center = size / 2;
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
+                    pixels.put(cursorPixel(style, x, y, center, size));
+                }
+            }
+            pixels.flip();
+            return new Cursor(size, size, center, center, 1, pixels, null);
+        } catch (LWJGLException | RuntimeException unavailable) {
+            return null;
+        }
+    }
+
+    private static int cursorPixel(
+            RtsWindowPanel.ResizeCursor style, int x, int y, int center, int size) {
+        if (style == null) {
+            return 0x00000000;
+        }
+        int dx = x - center;
+        int dy = y - center;
+        boolean line;
+        switch (style) {
+            case RESIZE_EW:
+                line = dy == 0 && Math.abs(dx) <= center - 2;
+                line |= Math.abs(dx) >= center - 4 && Math.abs(dx) <= center - 2
+                        && Math.abs(dy) == center - 2 - Math.abs(dx);
+                break;
+            case RESIZE_NS:
+                line = dx == 0 && Math.abs(dy) <= center - 2;
+                line |= Math.abs(dy) >= center - 4 && Math.abs(dy) <= center - 2
+                        && Math.abs(dx) == center - 2 - Math.abs(dy);
+                break;
+            case RESIZE_NWSE:
+                line = dx == dy && Math.abs(dx) <= center - 2;
+                break;
+            case RESIZE_NESW:
+                line = dx == -dy && Math.abs(dx) <= center - 2;
+                break;
+            default:
+                line = false;
+        }
+        return line ? 0xFFFFFFFF : 0x00000000;
+    }
+
+    public void renderHomeSelectionOverlay(LegacyGuiGraphics graphics, int mouseX, int mouseY) {
         updateNativeCursorVisibility(false);
-        int panelW = Math.min(360, this.screen.width - 24);
+        int panelW = Math.max(1, Math.min(360, this.screen.width - 24));
         int panelX = (this.screen.width - panelW) / 2;
         int panelY = 12;
-        Component cooldown = Component.translatable("screen.rtsbuilding.home_select.cooldown");
-        var cooldownLines = this.screen.font().split(cooldown, panelW - 20);
+        List<String> cooldownLines = this.screen.font().listFormattedStringToWidth(
+                text("screen.rtsbuilding.home_select.cooldown"), panelW - 20);
         int panelH = 58 + Math.max(1, cooldownLines.size()) * 10;
         UiChromeRenderer.frame(
-                new MinecraftUiCanvas(g, this.screen.font(), this.screen),
-                new UiRect(panelX, panelY, panelW, panelH),
-                1.0D,
+                new MinecraftUiCanvas(graphics, this.screen.font(), this.screen),
+                new UiRect(panelX, panelY, panelW, panelH), 1.0D,
                 OverlayStyle.HOME_BACKGROUND,
                 OverlayStyle.HOME_BORDER_LIGHT,
                 OverlayStyle.HOME_BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(
-                g, this.screen.font(),
-                Component.translatable("screen.rtsbuilding.home_select.title").getString(),
+                graphics, this.screen.font(), text("screen.rtsbuilding.home_select.title"),
                 panelX + panelW / 2, panelY + 8, OverlayStyle.HOME_TITLE.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(
-                g, this.screen.font(),
-                Component.translatable("screen.rtsbuilding.home_select.area").getString(),
+                graphics, this.screen.font(), text("screen.rtsbuilding.home_select.area"),
                 panelX + panelW / 2, panelY + 22, OverlayStyle.HOME_AREA.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(
-                g, this.screen.font(),
-                Component.translatable("screen.rtsbuilding.home_select.confirm").getString(),
+                graphics, this.screen.font(), text("screen.rtsbuilding.home_select.confirm"),
                 panelX + panelW / 2, panelY + 34, OverlayStyle.HOME_CONFIRM.toArgb());
         int cooldownY = panelY + 46;
-        for (var line : cooldownLines) {
-            g.drawString(this.screen.font(), line,
-                    panelX + (panelW - this.screen.font().width(line)) / 2,
+        for (String line : cooldownLines) {
+            graphics.drawString(this.screen.font(), line,
+                    panelX + (panelW - this.screen.font().getStringWidth(line)) / 2,
                     cooldownY, OverlayStyle.HOME_GUIDE.toArgb(), false);
             cooldownY += 10;
         }
-        BlockHitResult hit = this.screen.isWorldArea(mouseX, mouseY) ? this.cursorPicker.pickBlockHit() : null;
+        RayTraceResult hit = this.screen.isWorldArea(mouseX, mouseY)
+                ? this.cursorPicker.pickBlockHit() : null;
         if (hit != null) {
             BlockPos pos = hit.getBlockPos();
             RtsClientUiUtil.drawCenteredStringNoShadow(
-                    g, this.screen.font(),
-                    Component.translatable("screen.rtsbuilding.home_select.target",
-                            pos.getX(), pos.getY(), pos.getZ()).getString(),
+                    graphics, this.screen.font(),
+                    text("screen.rtsbuilding.home_select.target", pos.getX(), pos.getY(), pos.getZ()),
                     this.screen.width / 2, panelY + panelH + 14,
                     OverlayStyle.HOME_GUIDE.toArgb());
         }
     }
 
-    public void renderQuestDetectPopup(GuiGraphics g) {
+    public void renderQuestDetectPopup(LegacyGuiGraphics graphics) {
         if (!this.controller.isQuestDetectPopupVisible()) {
             return;
         }
-        int x = Mth.clamp((this.screen.width - QUEST_DETECT_POPUP_W) / 2, 8, Math.max(8, this.screen.width - QUEST_DETECT_POPUP_W - 8));
+        int x = MathHelper.clamp((this.screen.width - QUEST_DETECT_POPUP_W) / 2,
+                8, Math.max(8, this.screen.width - QUEST_DETECT_POPUP_W - 8));
         int y = TOP_H + 8;
-        drawPopupFrame(g, x, y, QUEST_DETECT_POPUP_W, QUEST_DETECT_POPUP_H);
-        g.drawString(this.screen.font(),
-                Component.translatable("screen.rtsbuilding.quest_scan.title"),
+        drawPopupFrame(graphics, x, y, QUEST_DETECT_POPUP_W, QUEST_DETECT_POPUP_H);
+        graphics.drawString(this.screen.font(), text("screen.rtsbuilding.quest_scan.title"),
                 x + 9, y + 7, OverlayStyle.POPUP_TITLE.toArgb(), false);
         byte phase = this.controller.getQuestDetectPhase();
-        String status = questDetectStatusText(phase).getString();
+        String status = questDetectStatusText(phase);
         int statusColor = OverlayStyle.questStatus(
                 phase == S2CRtsQuestDetectStatusPayload.PHASE_ERROR,
                 phase == S2CRtsQuestDetectStatusPayload.PHASE_UNAVAILABLE).toArgb();
-        g.drawString(this.screen.font(), this.screen.trimToWidth(status, QUEST_DETECT_POPUP_W - 18), x + 9, y + 19, statusColor, false);
+        graphics.drawString(this.screen.font(),
+                this.screen.trimToWidth(status, QUEST_DETECT_POPUP_W - 18),
+                x + 9, y + 19, statusColor, false);
         int barX = x + 9;
         int barY = y + 34;
         int barW = QUEST_DETECT_POPUP_W - 18;
@@ -222,92 +285,97 @@ public final class RtsScreenOverlayRenderer {
         int progressColor = OverlayStyle.questProgress(
                 phase == S2CRtsQuestDetectStatusPayload.PHASE_ERROR,
                 phase == S2CRtsQuestDetectStatusPayload.PHASE_COMPLETE).toArgb();
-        g.fill(barX, barY, barX + barW, barY + barH,
+        graphics.fill(barX, barY, barX + barW, barY + barH,
                 OverlayStyle.PROGRESS_TRACK.toArgb());
         if (fillW > 0) {
-            g.fill(barX, barY, barX + fillW, barY + barH, progressColor);
+            graphics.fill(barX, barY, barX + fillW, barY + barH, progressColor);
         }
-        drawProgressBorder(g, barX, barY, barW, barH);
+        drawProgressBorder(graphics, barX, barY, barW, barH);
     }
 
-    public void renderStorageScanPopup(GuiGraphics g) {
+    public void renderStorageScanPopup(LegacyGuiGraphics graphics) {
         if (!this.controller.isStorageScanPopupVisible()) {
             return;
         }
-        if (!this.controller.isStorageScanRunning() && !RtsClientUiStateStore.isShowStorageReadyPopupEnabled()) {
+        if (!this.controller.isStorageScanRunning()
+                && !RtsClientUiStateStore.isShowStorageReadyPopupEnabled()) {
             return;
         }
-        BottomPanelLayoutTypes.BottomPanelLayout layout = this.bottomPanel.resolveBottomPanelLayout();
+        BottomPanelLayoutTypes.BottomPanelLayout layout =
+                this.bottomPanel.resolveBottomPanelLayout();
         int popupW = Math.min(STORAGE_SCAN_POPUP_W, Math.max(96, this.screen.width - 16));
-        int x = Mth.clamp(
+        int x = MathHelper.clamp(
                 layout.panelX() + (layout.panelW() - popupW) / 2,
-                8,
-                Math.max(8, this.screen.width - popupW - 8));
+                8, Math.max(8, this.screen.width - popupW - 8));
         int y = Math.max(TOP_H + 8, layout.panelY() - STORAGE_SCAN_POPUP_H - 6);
-        drawPopupFrame(g, x, y, popupW, STORAGE_SCAN_POPUP_H);
-        Component label = Component.translatable(this.controller.isStorageScanRunning()
+        drawPopupFrame(graphics, x, y, popupW, STORAGE_SCAN_POPUP_H);
+        String label = text(this.controller.isStorageScanRunning()
                 ? "screen.rtsbuilding.storage_scan.scanning"
                 : "screen.rtsbuilding.storage_scan.ready");
-        g.drawString(this.screen.font(),
-                this.screen.trimToWidth(label.getString(), popupW - 18),
+        graphics.drawString(this.screen.font(),
+                this.screen.trimToWidth(label, popupW - 18),
                 x + 9, y + 6, OverlayStyle.POPUP_TITLE.toArgb(), false);
         int barX = x + 9;
         int barY = y + 20;
         int barW = popupW - 18;
         int barH = 5;
-        int fillW = Math.max(0, Math.min(barW, Math.round(barW * this.controller.getStorageScanProgress())));
-        g.fill(barX, barY, barX + barW, barY + barH,
+        int fillW = Math.max(0, Math.min(barW,
+                Math.round(barW * this.controller.getStorageScanProgress())));
+        graphics.fill(barX, barY, barX + barW, barY + barH,
                 OverlayStyle.PROGRESS_TRACK.toArgb());
         if (fillW > 0) {
-            g.fill(barX, barY, barX + fillW, barY + barH,
-                    OverlayStyle.storageProgress(
-                            this.controller.isStorageScanRunning()).toArgb());
+            graphics.fill(barX, barY, barX + fillW, barY + barH,
+                    OverlayStyle.storageProgress(this.controller.isStorageScanRunning()).toArgb());
         }
-        drawProgressBorder(g, barX, barY, barW, barH);
+        drawProgressBorder(graphics, barX, barY, barW, barH);
     }
 
-    private void drawPopupFrame(GuiGraphics g, int x, int y, int width, int height) {
+    private void drawPopupFrame(
+            LegacyGuiGraphics graphics, int x, int y, int width, int height) {
         UiChromeRenderer.frame(
-                new MinecraftUiCanvas(g, this.screen.font(), this.screen),
-                new UiRect(x, y, width, height),
-                1.0D,
+                new MinecraftUiCanvas(graphics, this.screen.font(), this.screen),
+                new UiRect(x, y, width, height), 1.0D,
                 OverlayStyle.POPUP_BACKGROUND,
                 OverlayStyle.POPUP_BORDER_LIGHT,
                 OverlayStyle.POPUP_BORDER_DARK);
     }
 
     private void drawProgressBorder(
-            GuiGraphics g, int x, int y, int width, int height) {
+            LegacyGuiGraphics graphics, int x, int y, int width, int height) {
         UiBevelOutlineRenderer.outline(
-                new MinecraftUiCanvas(g, this.screen.font(), this.screen),
+                new MinecraftUiCanvas(graphics, this.screen.font(), this.screen),
                 new UiRect(x, y, width, height),
                 OverlayStyle.PROGRESS_BORDER_LIGHT,
                 OverlayStyle.PROGRESS_BORDER_DARK);
     }
 
-    private Component questDetectStatusText(byte phase) {
+    private String questDetectStatusText(byte phase) {
         int scanned = this.controller.getQuestDetectScannedTasks();
         int total = Math.max(scanned, this.controller.getQuestDetectTotalTasks());
         int completed = this.controller.getQuestDetectCompletedTasks();
         if (phase == S2CRtsQuestDetectStatusPayload.PHASE_STARTED) {
-            return Component.translatable("screen.rtsbuilding.quest_scan.scanning");
+            return text("screen.rtsbuilding.quest_scan.scanning");
         }
         if (phase == S2CRtsQuestDetectStatusPayload.PHASE_COMPLETE) {
             if (completed > 0) {
-                return completed == 1
-                        ? Component.translatable("screen.rtsbuilding.quest_scan.completed_one")
-                        : Component.translatable("screen.rtsbuilding.quest_scan.completed_many", completed);
+                return text(completed == 1
+                        ? "screen.rtsbuilding.quest_scan.completed_one"
+                        : "screen.rtsbuilding.quest_scan.completed_many", completed);
             }
-            return total > 0
-                    ? Component.translatable("screen.rtsbuilding.quest_scan.none_completed")
-                    : Component.translatable("screen.rtsbuilding.quest_scan.no_item_tasks");
+            return text(total > 0
+                    ? "screen.rtsbuilding.quest_scan.none_completed"
+                    : "screen.rtsbuilding.quest_scan.no_item_tasks");
         }
         if (phase == S2CRtsQuestDetectStatusPayload.PHASE_UNAVAILABLE) {
-            return Component.translatable("screen.rtsbuilding.quest_scan.unavailable");
+            return text("screen.rtsbuilding.quest_scan.unavailable");
         }
         if (phase == S2CRtsQuestDetectStatusPayload.PHASE_ERROR) {
-            return Component.translatable("screen.rtsbuilding.quest_scan.failed");
+            return text("screen.rtsbuilding.quest_scan.failed");
         }
-        return Component.translatable("screen.rtsbuilding.quest_scan.ready");
+        return text("screen.rtsbuilding.quest_scan.ready");
+    }
+
+    private static String text(String key, Object... args) {
+        return I18n.format(key, args);
     }
 }
