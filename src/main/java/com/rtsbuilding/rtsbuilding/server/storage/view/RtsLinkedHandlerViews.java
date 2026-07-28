@@ -1,8 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.storage.view;
 
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.handler.RtsLinkedCapabilities;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.IItemHandler;
 
 /**
  * 处理器包装视图和链接存储解析的物品插入辅助方法。
@@ -30,11 +33,12 @@ public final class RtsLinkedHandlerViews {
         if (handler == null || stack == null || stack.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        if (handler instanceof LinkedItemHandlerView linkedView && linkedView.supportsAnySlotInsert()) {
-            return linkedView.insertItemAnywhere(stack, simulate);
+        if (handler instanceof LinkedItemHandlerView
+                && ((LinkedItemHandlerView) handler).supportsAnySlotInsert()) {
+            return ((LinkedItemHandlerView) handler).insertItemAnywhere(stack, simulate);
         }
-        if (handler instanceof AnySlotInsertItemHandler anySlot) {
-            return anySlot.insertItemAnywhere(stack, simulate);
+        if (handler instanceof AnySlotInsertItemHandler) {
+            return ((AnySlotInsertItemHandler) handler).insertItemAnywhere(stack, simulate);
         }
         return null;
     }

@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage.view;
 
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidTankProperties;
 
 /**
  * 包装 {@link IFluidHandler} 以强制执行仅提取存储规则。
@@ -19,37 +20,22 @@ public final class LinkedFluidHandlerView implements IFluidHandler {
     }
 
     @Override
-    public int getTanks() {
-        return this.delegate.getTanks();
+    public IFluidTankProperties[] getTankProperties() {
+        return this.delegate.getTankProperties();
     }
 
     @Override
-    public FluidStack getFluidInTank(int tank) {
-        return this.delegate.getFluidInTank(tank);
+    public int fill(FluidStack resource, boolean doFill) {
+        return this.allowStore ? this.delegate.fill(resource, doFill) : 0;
     }
 
     @Override
-    public int getTankCapacity(int tank) {
-        return this.delegate.getTankCapacity(tank);
+    public FluidStack drain(FluidStack resource, boolean doDrain) {
+        return this.delegate.drain(resource, doDrain);
     }
 
     @Override
-    public boolean isFluidValid(int tank, FluidStack stack) {
-        return this.delegate.isFluidValid(tank, stack);
-    }
-
-    @Override
-    public int fill(FluidStack resource, FluidAction action) {
-        return this.allowStore ? this.delegate.fill(resource, action) : 0;
-    }
-
-    @Override
-    public FluidStack drain(FluidStack resource, FluidAction action) {
-        return this.delegate.drain(resource, action);
-    }
-
-    @Override
-    public FluidStack drain(int maxDrain, FluidAction action) {
-        return this.delegate.drain(maxDrain, action);
+    public FluidStack drain(int maxDrain, boolean doDrain) {
+        return this.delegate.drain(maxDrain, doDrain);
     }
 }

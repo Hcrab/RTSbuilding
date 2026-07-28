@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.server.storage.view;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
 /**
  * 包装 {@link IItemHandler} 以强制执行仅提取存储规则。
@@ -51,8 +51,8 @@ public final class LinkedItemHandlerView implements IItemHandler, ReportedCountI
         if (!this.allowStore) {
             return stack == null ? ItemStack.EMPTY : stack.copy();
         }
-        if (this.delegate instanceof AnySlotInsertItemHandler anySlot) {
-            return anySlot.insertItemAnywhere(stack, simulate);
+        if (this.delegate instanceof AnySlotInsertItemHandler) {
+            return ((AnySlotInsertItemHandler) this.delegate).insertItemAnywhere(stack, simulate);
         }
         ItemStack remain = stack == null ? ItemStack.EMPTY : stack.copy();
         for (int slot = 0; slot < this.delegate.getSlots() && !remain.isEmpty(); slot++) {
