@@ -6,12 +6,14 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.CraftingService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageCrafting;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.ContainerWorkbench;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraftforge.items.IItemHandler;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -27,12 +29,12 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
-    public void openCraftTerminal(ServerPlayer player) {
+    public void openCraftTerminal(EntityPlayerMP player) {
         RtsStorageCrafting.openCraftTerminal(player, registry.session().getIfPresent(player));
     }
 
     @Override
-    public void requestCraftables(ServerPlayer player, String search, boolean showUnavailable,
+    public void requestCraftables(EntityPlayerMP player, String search, boolean showUnavailable,
                                   int offset, int limit, boolean pinyinSearchEnabled,
                                   List<String> localizedSearchMatches) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
@@ -50,19 +52,19 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     }
 
     @Override
-    public void requestCraftables(ServerPlayer player, String search, boolean showUnavailable,
+    public void requestCraftables(EntityPlayerMP player, String search, boolean showUnavailable,
                                   int offset, int limit, boolean pinyinSearchEnabled) {
         requestCraftables(player, search, showUnavailable, offset, limit, pinyinSearchEnabled, currentCraftLocalizedSearchMatches(player));
     }
 
     @Override
-    public void requestCraftables(ServerPlayer player, String search, boolean showUnavailable,
+    public void requestCraftables(EntityPlayerMP player, String search, boolean showUnavailable,
                                   int offset, int limit) {
         requestCraftables(player, search, showUnavailable, offset, limit, currentCraftPinyinSearchEnabled(player));
     }
 
     @Override
-    public void craftRecipeToLinked(ServerPlayer player, String recipeId, int craftCount) {
+    public void craftRecipeToLinked(EntityPlayerMP player, String recipeId, int craftCount) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
             return;
         }
@@ -70,7 +72,7 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     }
 
     @Override
-    public void refillCurrentCraftGridFromBlueprintIds(ServerPlayer player, List<String> blueprintIds,
+    public void refillCurrentCraftGridFromBlueprintIds(EntityPlayerMP player, List<String> blueprintIds,
                                                        String craftedItemId, int craftedCount) {
         RtsStorageCrafting.refillCurrentCraftGridFromBlueprintIds(
                 player,
@@ -81,7 +83,7 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     }
 
     @Override
-    public void refillCurrentCraftGridFromBlueprintStacks(ServerPlayer player, List<ItemStack> blueprintStacks,
+    public void refillCurrentCraftGridFromBlueprintStacks(EntityPlayerMP player, List<ItemStack> blueprintStacks,
                                                           String craftedItemId, int craftedCount) {
         RtsStorageCrafting.refillCurrentCraftGridFromBlueprintStacks(
                 player,
@@ -92,7 +94,7 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     }
 
     @Override
-    public void applyJeiTransfer(ServerPlayer player, String recipeId, List<ItemStack> ingredientPrototypes,
+    public void applyJeiTransfer(EntityPlayerMP player, String recipeId, List<ItemStack> ingredientPrototypes,
                                  boolean maxTransfer, boolean clearGridFirst) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.JEI_TRANSFER)) {
             return;
@@ -107,24 +109,24 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     }
 
     @Override
-    public ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu) {
+    public ItemStack[] snapshotCraftGridBlueprint(ContainerWorkbench menu) {
         return RtsStorageCrafting.snapshotCraftGridBlueprint(menu);
     }
 
     @Override
-    public void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+    public void refillCraftGridFromBlueprint(ContainerWorkbench menu, List<IItemHandler> handlers, EntityPlayerMP player,
                                              ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         RtsStorageCrafting.refillCraftGridFromBlueprint(menu, handlers, player, blueprint, fillAll, includePlayerFallback);
     }
 
     @Override
-    public void refillCraftGridFromLinked(ServerPlayer player, CraftingMenu craftingMenu,
-                                          ItemStack[] blueprint, CraftingRecipe recipe) {
+    public void refillCraftGridFromLinked(EntityPlayerMP player, ContainerWorkbench craftingMenu,
+                                          ItemStack[] blueprint, IRecipe recipe) {
         RtsStorageCrafting.refillCraftGridFromLinked(player, registry.session().getIfPresent(player), craftingMenu, blueprint, recipe);
     }
 
     @Override
-    public void recordCraftedOutput(ServerPlayer player, ItemStack crafted) {
+    public void recordCraftedOutput(EntityPlayerMP player, ItemStack crafted) {
         RtsStorageCrafting.recordCraftedOutput(player, registry.session().getIfPresent(player), crafted);
     }
 
@@ -132,13 +134,15 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     //  Internal helpers
     // ────────────────────────────────────────────────────────────────
 
-    private boolean currentCraftPinyinSearchEnabled(ServerPlayer player) {
+    private boolean currentCraftPinyinSearchEnabled(EntityPlayerMP player) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
         return session != null && session.browser.craftPinyinSearchEnabled;
     }
 
-    private List<String> currentCraftLocalizedSearchMatches(ServerPlayer player) {
+    private List<String> currentCraftLocalizedSearchMatches(EntityPlayerMP player) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
-        return session == null ? List.of() : List.copyOf(session.browser.craftLocalizedSearchMatches);
+        return session == null
+                ? Collections.<String>emptyList()
+                : Collections.unmodifiableList(new ArrayList<String>(session.browser.craftLocalizedSearchMatches));
     }
 }
