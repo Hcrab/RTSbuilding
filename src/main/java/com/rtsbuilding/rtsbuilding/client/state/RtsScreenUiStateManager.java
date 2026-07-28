@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.BiConsumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -304,7 +305,7 @@ public final class RtsScreenUiStateManager {
         this.applyingStoredState = true;
         try {
             applyPanelProperties(state);
-            for (var bind : this.ctrlBindings) {
+            for (CtrlBind bind : this.ctrlBindings) {
                 bind.apply.accept(state);
             }
         } finally {
@@ -325,7 +326,7 @@ public final class RtsScreenUiStateManager {
         }
         RtsClientUiStateStore.UiState state = this.cache.get();
         // 遍历控制器绑定（收集运行时值到 UiState）
-        for (var bind : this.ctrlBindings) {
+        for (CtrlBind bind : this.ctrlBindings) {
             bind.collect.accept(state);
         }
         // 遍历面板自声明属性（收集边界及其他面板专属状态）
@@ -434,10 +435,35 @@ public final class RtsScreenUiStateManager {
      * 以及从 UiState 恢复到运行时的 {@link #apply} 操作。
      * 由 {@link #ctrlBindings} 列表统一管理，取代旧式逐行 hardcode。
      */
-    private record CtrlBind(
-            Consumer<RtsClientUiStateStore.UiState> collect,
-            Consumer<RtsClientUiStateStore.UiState> apply
-    ) {
+    private static final class CtrlBind {
+        private final Consumer<RtsClientUiStateStore.UiState> collect;
+        private final Consumer<RtsClientUiStateStore.UiState> apply;
+
+        private CtrlBind(Consumer<RtsClientUiStateStore.UiState> collect,
+                Consumer<RtsClientUiStateStore.UiState> apply) {
+            this.collect = collect;
+            this.apply = apply;
+        }
+
+        Consumer<RtsClientUiStateStore.UiState> collect() { return collect; }
+        Consumer<RtsClientUiStateStore.UiState> apply() { return apply; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof CtrlBind)) return false;
+            CtrlBind that = (CtrlBind) other;
+            return Objects.equals(collect, that.collect) && Objects.equals(apply, that.apply);
+        }
+
+        @Override
+        public int hashCode() { return Objects.hash(collect, apply); }
+
+        @Override
+        public String toString() {
+            return "CtrlBind[collect=" + collect + ", apply=" + apply + "]";
+        }
+
         /**
          * 创建简单的布尔字段绑定。
          *
