@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -36,7 +36,7 @@ public final class FluidOperation {
 
     private final FluidTransferGate gate;
     private final List<IItemHandler> insertHandlers;
-    private final ServerPlayer player;
+    private final EntityPlayerMP player;
     @Nullable
     private ItemStack extracted;
     private boolean finalized;
@@ -46,7 +46,7 @@ public final class FluidOperation {
      * @param insertHandlers 失败时退回已提取物品的处理器
      * @param player         执行操作的玩家
      */
-    public FluidOperation(FluidTransferGate gate, List<IItemHandler> insertHandlers, ServerPlayer player) {
+    public FluidOperation(FluidTransferGate gate, List<IItemHandler> insertHandlers, EntityPlayerMP player) {
         this.gate = Objects.requireNonNull(gate, "gate");
         this.insertHandlers = Objects.requireNonNull(insertHandlers, "insertHandlers");
         this.player = Objects.requireNonNull(player, "player");
