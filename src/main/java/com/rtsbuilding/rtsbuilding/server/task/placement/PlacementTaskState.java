@@ -29,7 +29,7 @@ public final class PlacementTaskState {
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(placedPositions, "placedPositions");
         Objects.requireNonNull(resumePolicy, "resumePolicy");
-        if (definition.hasNoTags()) throw new IllegalArgumentException("definition 不能为空");
+        if (definition.isEmpty()) throw new IllegalArgumentException("definition 不能为空");
         if (workflowEntryId < -1) throw new IllegalArgumentException("workflowEntryId 不能小于 -1");
         if (totalUnits < 0 || cursorUnits < 0 || succeededUnits < 0 || failedUnits < 0) {
             throw new IllegalArgumentException("placement 计数不能为负数");

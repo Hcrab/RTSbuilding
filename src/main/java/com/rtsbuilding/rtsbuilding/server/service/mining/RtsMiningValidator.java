@@ -18,7 +18,7 @@ import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 
 /**
  * 挖掘系统验证谓词中心仓库，提供所有无状态且幂等的检查和限制常量。
@@ -133,7 +133,7 @@ public final class RtsMiningValidator {
      * 如果方块具有正的破坏速度，返回 {@code true}。
      * 不可破坏的方块（基岩、末地传送门框架等）返回 false。
      */
-    public static boolean hasValidDestroySpeed(IBlockState state, IBlockAccess level, BlockPos pos) {
+    public static boolean hasValidDestroySpeed(IBlockState state, World level, BlockPos pos) {
         return state.getBlockHardness(level, pos) >= 0.0F;
     }
 

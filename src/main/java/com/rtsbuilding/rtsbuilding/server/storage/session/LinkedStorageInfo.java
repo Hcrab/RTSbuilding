@@ -141,7 +141,7 @@ public final class LinkedStorageInfo {
     }
 
     public void setBackpackItemId(LinkedStorageRef ref, String itemId) {
-        if (itemId == null || itemId.isBlank()) {
+        if (itemId == null || itemId.trim().isEmpty()) {
             linkedBackpackItemIds.remove(ref);
         } else {
             linkedBackpackItemIds.put(ref, itemId);
@@ -193,7 +193,7 @@ public final class LinkedStorageInfo {
         if (backpackUuid != null) {
             linkedBackpackUuids.put(ref, backpackUuid);
         }
-        if (backpackItemId != null && !backpackItemId.isBlank()) {
+        if (backpackItemId != null && !backpackItemId.trim().isEmpty()) {
             linkedBackpackItemIds.put(ref, backpackItemId);
         }
     }
@@ -273,7 +273,8 @@ public final class LinkedStorageInfo {
      * 移除满足给定条件的引用。
      */
     public boolean removeIf(java.util.function.Predicate<LinkedStorageRef> filter) {
-        List<LinkedStorageRef> toRemove = linkedStorages.stream().filter(filter).toList();
+        List<LinkedStorageRef> toRemove = linkedStorages.stream().filter(filter)
+                .collect(java.util.stream.Collectors.toList());
         if (toRemove.isEmpty()) return false;
         for (LinkedStorageRef ref : toRemove) {
             remove(ref);

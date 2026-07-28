@@ -225,7 +225,7 @@ public enum SaveScheduler {
             if (readResult instanceof RtsNbtStore.ReadResult.Missing) return;
             NBTTagCompound root = ((RtsNbtStore.ReadResult.Found) readResult).root();
             NBTTagCompound players = root.getCompoundTag("players");
-            if (players.hasNoTags()) {
+            if (players.isEmpty()) {
                 Files.delete(path);
                 Path tempPath = path.resolveSibling(fileName + ".tmp");
                 Files.deleteIfExists(tempPath);

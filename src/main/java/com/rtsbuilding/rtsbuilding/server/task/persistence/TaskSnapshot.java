@@ -97,7 +97,6 @@ public final class TaskSnapshot {
     public int failedUnits() { return failedUnits; }
 
     /** 防止调用方通过 NBT 引用绕过 revision 与脏标记。 */
-    @Override
     public NBTTagCompound payload() {
         return payload.copy();
     }

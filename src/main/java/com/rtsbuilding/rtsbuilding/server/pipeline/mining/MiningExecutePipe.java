@@ -78,10 +78,10 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
 
         // ── 1. 验证世界目标访问 ──────────────────────────────
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
-            return PipelineResult.failure("Cannot access world target at " + pos.toShortString());
+            return PipelineResult.failure("Cannot access world target at " + pos);
         }
         if (!RtsClaimProtectionService.canBreakBlock(player, pos, face == null ? EnumFacing.DOWN : face)) {
-            return PipelineResult.failure("Claim protection denied block break at " + pos.toShortString());
+            return PipelineResult.failure("Claim protection denied block break at " + pos);
         }
 
         // ── 2. 已放置方块恢复 ─────────────────────────────────────

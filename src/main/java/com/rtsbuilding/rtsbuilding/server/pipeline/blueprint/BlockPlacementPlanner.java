@@ -141,7 +141,7 @@ public final class BlockPlacementPlanner {
             int ySteps, int xSteps, int zSteps) {
         if (block == null || block.isMissingBlock()) return null;
 
-        BlockPos target = anchor.offset(BlueprintTransform.rotateAroundCenter(
+        BlockPos target = anchor.add(BlueprintTransform.rotateAroundCenter(
                 block.relativePos(), ySteps, xSteps, zSteps, centerOffset));
         IBlockState state = BlueprintTransform.rotateState(block.state(), ySteps, xSteps, zSteps);
         List<Item> items = materialItems(block, state);

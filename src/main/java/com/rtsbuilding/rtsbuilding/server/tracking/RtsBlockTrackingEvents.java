@@ -65,7 +65,7 @@ public final class RtsBlockTrackingEvents {
      * @param event 多方块放置事件
      */
     @SubscribeEvent
-    public static void onEntityMultiPlace(BlockEvent.EntityMultiPlaceEvent event) {
+    public static void onEntityMultiPlace(BlockEvent.MultiPlaceEvent event) {
         if (!(event.getPlayer() instanceof EntityPlayerMP)) {
             return;
         }

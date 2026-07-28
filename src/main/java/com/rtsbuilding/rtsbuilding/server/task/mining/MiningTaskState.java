@@ -88,7 +88,7 @@ public final class MiningTaskState {
         } else {
             List<NBTTagCompound> copiedHistory = new ArrayList<>(historyRecords.size());
             for (NBTTagCompound history : historyRecords) {
-                if (history == null || history.hasNoTags()) throw new IllegalArgumentException("history record 不能为空");
+                if (history == null || history.isEmpty()) throw new IllegalArgumentException("history record 不能为空");
                 copiedHistory.add(history.copy());
             }
             this.historyRecords = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(copiedHistory);

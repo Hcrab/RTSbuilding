@@ -195,7 +195,7 @@ public final class RtsSessionServiceImpl implements SessionService {
         root.merge(cluster.get(SessionComponents.DROP_BUFFER));
         root.merge(cluster.get(SessionComponents.FUNNEL));
 
-        if (!root.hasNoTags()) {
+        if (!root.isEmpty()) {
             SessionSerializer.loadAll(player, session, root);
         }
 

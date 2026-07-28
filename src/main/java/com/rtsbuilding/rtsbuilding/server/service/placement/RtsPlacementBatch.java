@@ -604,7 +604,7 @@ public final class RtsPlacementBatch {
             for (int i = 0; i < encodedPositions.tagCount(); i++) {
                 positions.add(BlockPos.fromLong(((NBTTagLong) encodedPositions.get(i)).getLong()));
             }
-            EnumFacing face = EnumFacing.getFront(tag.getByte(NBT_FACE));
+            EnumFacing face = EnumFacing.byIndex(tag.getByte(NBT_FACE));
             double hitOffsetX = tag.getDouble(NBT_HIT_OFFSET_X);
             double hitOffsetY = tag.getDouble(NBT_HIT_OFFSET_Y);
             double hitOffsetZ = tag.getDouble(NBT_HIT_OFFSET_Z);

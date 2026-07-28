@@ -155,13 +155,13 @@ public final class BlueprintTaskPayload implements TaskPayload {
             return;
         }
 
-        BlockPos center = context.getAnchor().offset(context.getData(BlueprintContext.KEY_CENTER_OFFSET));
+        BlockPos center = context.getAnchor().add(context.getData(BlueprintContext.KEY_CENTER_OFFSET));
         Comparator<Integer> comparator = Comparator.<Integer, Integer>comparing(i -> {
             PlacementPlan plan = plans.get(i);
             return plan == null ? Integer.MAX_VALUE : plan.target().getY();
         }).thenComparingDouble(i -> {
             PlacementPlan plan = plans.get(i);
-            return plan == null ? Double.MAX_VALUE : plan.target().distSqr(center);
+            return plan == null ? Double.MAX_VALUE : plan.target().distanceSq(center);
         }).thenComparingInt(Integer::intValue);
         orderedIndices = new PriorityQueue<>(Math.max(1, plans.size()), comparator);
         context.setRemainingQueue(new LinkedList<>());
