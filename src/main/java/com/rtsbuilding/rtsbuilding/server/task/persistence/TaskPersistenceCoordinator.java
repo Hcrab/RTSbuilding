@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
+import com.github.bsideup.jabel.Desugar;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
@@ -9,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetada
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -18,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * TaskStore 与 durable Repository 之间的主线程协调器。
@@ -119,7 +122,7 @@ public final class TaskPersistenceCoordinator {
     private synchronized TaskAdmissionResult reserveAssetAdmission(TaskSnapshot snapshot) {
         Objects.requireNonNull(snapshot, "snapshot");
         requireMigrationSettled();
-        if (snapshot.type() != TaskType.BLUEPRINT || snapshotAssetId(snapshot).isEmpty()) {
+        if (snapshot.type() != TaskType.BLUEPRINT || !snapshotAssetId(snapshot).isPresent()) {
             throw new IllegalArgumentException("阶段 A 只允许预留带 asset_id 的 BLUEPRINT 任务");
         }
 
@@ -236,7 +239,7 @@ public final class TaskPersistenceCoordinator {
                 || inFlight.kind() != CommitKind.ASSET_ADMISSION
                 || !inFlight.prepared().ticketId().equals(ticketId)
                 || inFlight.postAckSnapshots().size() != 1
-                || !inFlight.postAckSnapshots().getFirst().id().equals(taskId)) {
+                || !inFlight.postAckSnapshots().get(0).id().equals(taskId)) {
             throw new IllegalStateException("拒绝撤销不匹配的 asset admission ticket");
         }
         inFlight = null;
@@ -263,7 +266,8 @@ public final class TaskPersistenceCoordinator {
     }
 
     synchronized List<TaskId> pendingAssetTaskIds() {
-        return assetReservations.snapshots().stream().map(TaskSnapshot::id).toList();
+        return assetReservations.snapshots().stream().map(TaskSnapshot::id)
+                .collect(Collectors.toList());
     }
 
     /** 主线程精确清理 blob 前的保护事实：同一 assetId 只要已 active 或 pending 就绝不能删除。 */
@@ -421,7 +425,7 @@ public final class TaskPersistenceCoordinator {
         List<TaskId> expired = store.receipts().stream()
                 .filter(receipt -> receipt.expiredAt(gameTime))
                 .map(TaskTombstone::taskId)
-                .toList();
+                .collect(Collectors.toList());
         if (expired.isEmpty()) return PreparationResult.idle();
         Set<TaskId> selected = new LinkedHashSet<>(expired.subList(0, Math.min(maxRecords, expired.size())));
         List<TaskId> deferred = expired.subList(selected.size(), expired.size());
@@ -509,7 +513,8 @@ public final class TaskPersistenceCoordinator {
             durableRevisions.remove(purged);
         }
         assets = assets.apply(pending.assetUpserts(),
-                pending.removedAssets().stream().map(TaskAssetMetadata::assetId).toList());
+                pending.removedAssets().stream().map(TaskAssetMetadata::assetId)
+                        .collect(Collectors.toList()));
         if (pending.kind() == CommitKind.MIGRATION || pending.kind() == CommitKind.ASSET_ADMISSION) {
             for (TaskSnapshot snapshot : pending.postAckSnapshots()) {
                 TaskAdmissionResult restored = store.submit(snapshot);
@@ -567,7 +572,7 @@ public final class TaskPersistenceCoordinator {
 
     /** 返回稳定排序的脏任务 ID 快照，避免生命周期层持有协调器内部集合。 */
     public synchronized List<TaskId> dirtyTaskIds() {
-        return allDirtyTaskIds().stream().sorted().toList();
+        return allDirtyTaskIds().stream().sorted().collect(Collectors.toList());
     }
 
     private PreparationResult prepare(TaskRepository.Commit commit, CommitKind kind,
@@ -577,18 +582,18 @@ public final class TaskPersistenceCoordinator {
         List<TaskAssetMetadata> removedAssetMetadata = commit.removedAssets().stream()
                 .map(assets.entries()::get)
                 .filter(Objects::nonNull)
-                .toList();
+                .collect(Collectors.toList());
         TaskRepository.PrepareResult result = repository.prepare(commit);
         if (result instanceof TaskRepository.PrepareResult.Failed) {
             TaskRepository.PrepareResult.Failed failed =
                     (TaskRepository.PrepareResult.Failed) result;
-            deferred.addAll(commit.upserts().stream().map(TaskSnapshot::id).toList());
-            deferred.addAll(commit.tombstones().stream().map(TaskTombstone::taskId).toList());
+            deferred.addAll(commit.upserts().stream().map(TaskSnapshot::id).collect(Collectors.toList()));
+            deferred.addAll(commit.tombstones().stream().map(TaskTombstone::taskId).collect(Collectors.toList()));
             return PreparationResult.failed(com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(deferred), failed.cause());
         }
         if (!(result instanceof TaskRepository.PrepareResult.Prepared)) {
-            deferred.addAll(commit.upserts().stream().map(TaskSnapshot::id).toList());
-            deferred.addAll(commit.tombstones().stream().map(TaskTombstone::taskId).toList());
+            deferred.addAll(commit.upserts().stream().map(TaskSnapshot::id).collect(Collectors.toList()));
+            deferred.addAll(commit.tombstones().stream().map(TaskTombstone::taskId).collect(Collectors.toList()));
             return PreparationResult.failed(
                     com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(deferred),
                     new IllegalStateException("未知的 repository prepare 结果: " + result));
@@ -667,6 +672,7 @@ public final class TaskPersistenceCoordinator {
         return right > Long.MAX_VALUE - left ? Long.MAX_VALUE : left + right;
     }
 
+    @Desugar
     public record PreparationResult(PreparationOutcome outcome,
                                     TaskRepository.PreparedCommit preparedCommit,
                                     long estimatedBytes,
@@ -714,12 +720,14 @@ public final class TaskPersistenceCoordinator {
         FAILED
     }
 
+    @Desugar
     public record CommitAckResult(AckOutcome outcome, Map<TaskId, Long> acknowledgedRevisions,
                                   Set<TaskId> purgedReceipts,
                                   List<TaskAssetMetadata> removedAssets,
                                   long bytesWritten, Throwable failure) {
         public CommitAckResult {
-            acknowledgedRevisions = Map.copyOf(acknowledgedRevisions);
+            acknowledgedRevisions = Collections.unmodifiableMap(
+                    new LinkedHashMap<TaskId, Long>(acknowledgedRevisions));
             purgedReceipts = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copySet(purgedReceipts);
             removedAssets = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(removedAssets);
         }
@@ -732,11 +740,13 @@ public final class TaskPersistenceCoordinator {
         }
 
         static CommitAckResult failed(Throwable failure) {
-            return new CommitAckResult(AckOutcome.FAILED, Map.of(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), -1L, failure);
+            return new CommitAckResult(AckOutcome.FAILED,
+                    Collections.<TaskId, Long>emptyMap(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), -1L, failure);
         }
 
         static CommitAckResult rejected(Throwable failure) {
-            return new CommitAckResult(AckOutcome.REJECTED, Map.of(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), -1L, failure);
+            return new CommitAckResult(AckOutcome.REJECTED,
+                    Collections.<TaskId, Long>emptyMap(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.setOf(), com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(), -1L, failure);
         }
     }
 
@@ -754,9 +764,11 @@ public final class TaskPersistenceCoordinator {
         COMPACTION
     }
 
+    @Desugar
     private record PendingSnapshot(TaskSnapshot snapshot, long estimatedBytes) {
     }
 
+    @Desugar
     private record Candidate(TaskId taskId, TaskSnapshot snapshot,
                              TaskTombstone tombstone, Set<TaskAssetId> removedAssets,
                              long estimatedBytes) {
@@ -769,6 +781,7 @@ public final class TaskPersistenceCoordinator {
         }
     }
 
+    @Desugar
     private record PendingCommit(TaskRepository.PreparedCommit prepared, CommitKind kind,
                                  List<TaskSnapshot> snapshots, List<TaskTombstone> tombstones,
                                  Set<TaskId> purgedReceipts, String migrationId,
@@ -780,9 +793,9 @@ public final class TaskPersistenceCoordinator {
     private void requireExistingAssetReference(TaskSnapshot snapshot) {
         Optional<TaskAssetId> referenced = snapshotAssetId(snapshot);
         Set<TaskAssetId> owned = assets.assetIdsForTask(snapshot.id());
-        if (owned.isEmpty() && referenced.isEmpty()) return;
+        if (owned.isEmpty() && !referenced.isPresent()) return;
         if (snapshot.type() != TaskType.BLUEPRINT || owned.size() != 1
-                || referenced.isEmpty() || !owned.contains(referenced.get())) {
+                || !referenced.isPresent() || !owned.contains(referenced.get())) {
             throw new IllegalArgumentException("task 与 durable asset manifest 的双向引用不一致: " + snapshot.id());
         }
         TaskAssetMetadata metadata = assets.entries().get(referenced.get());
@@ -796,18 +809,18 @@ public final class TaskPersistenceCoordinator {
             throw new IllegalArgumentException("阶段 A 只允许 BLUEPRINT + blueprint 外置资产");
         }
         Optional<TaskAssetId> referenced = snapshotAssetId(snapshot);
-        if (referenced.isEmpty() || !referenced.get().equals(metadata.assetId())
+        if (!referenced.isPresent() || !referenced.get().equals(metadata.assetId())
                 || !metadata.taskId().equals(snapshot.id())) {
             throw new IllegalArgumentException("snapshot.asset_id 与 metadata/taskId 不一致");
         }
     }
 
     private static Optional<TaskAssetId> snapshotAssetId(TaskSnapshot snapshot) {
-        if (!snapshot.payloadView().contains("asset_id")) return Optional.empty();
-        if (!snapshot.payloadView().hasUUID("asset_id")) {
+        if (!snapshot.payloadView().hasKey("asset_id")) return Optional.empty();
+        if (!NbtCompat.hasUuid(snapshot.payloadView(), "asset_id")) {
             throw new IllegalArgumentException("payload.asset_id 必须是 UUID int-array");
         }
-        return Optional.of(new TaskAssetId(snapshot.payloadView().getUUID("asset_id")));
+        return Optional.of(new TaskAssetId(NbtCompat.getUuid(snapshot.payloadView(), "asset_id")));
     }
 
     private static final class ReadOnlyTaskQuery implements TaskQuery {
