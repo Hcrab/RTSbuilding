@@ -6,6 +6,8 @@ import net.minecraft.client.Minecraft;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -19,13 +21,15 @@ import java.util.UUID;
 public final class RtsDeveloperScenarioTracker {
     public enum Scenario {
         BIND_STORAGE("screen.rtsbuilding.developer.task.bind",
-                Map.of("storage_link_request", 1, "storage_page_received", 1)),
+                requirements("storage_link_request", 1, "storage_page_received", 1)),
         CONTINUOUS_PLACE("screen.rtsbuilding.developer.task.place",
-                Map.of("place_request", 20, "place_confirmed", 20)),
+                requirements("place_request", 20, "place_confirmed", 20)),
         SMALL_MINING("screen.rtsbuilding.developer.task.mine",
-                Map.of("mine_request", 1, "break_confirmed", 1, "storage_page_received", 1)),
+                requirements("mine_request", 1, "break_confirmed", 1,
+                        "storage_page_received", 1)),
         LARGE_BATCH("screen.rtsbuilding.developer.task.batch",
-                Map.of("place_batch_request", 1, "place_confirmed", 1, "workflow_update_received", 1));
+                requirements("place_batch_request", 1, "place_confirmed", 1,
+                        "workflow_update_received", 1));
 
         private final String translationKey;
         private final Map<String, Integer> expectedEvents;
@@ -91,11 +95,11 @@ public final class RtsDeveloperScenarioTracker {
     }
 
     private void append(String event, String detail) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft == null || minecraft.gameDirectory == null || runId == null) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft == null || minecraft.gameDir == null || runId == null) {
             return;
         }
-        Path file = minecraft.gameDirectory.toPath().resolve("logs").resolve("rtsbuilding-dev")
+        Path file = minecraft.gameDir.toPath().resolve("logs").resolve("rtsbuilding-dev")
                 .resolve("scenario-" + runId + ".jsonl");
         long elapsedMillis = Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
         String line = "{\"time\":\"" + Instant.now() + "\",\"runId\":\"" + runId
@@ -105,10 +109,28 @@ public final class RtsDeveloperScenarioTracker {
     }
 
     private void sendServerCheckpoint(String action) {
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.getConnection() == null || active == null || runId == null) return;
-        minecraft.getConnection().sendCommand("rtsbuilding_dev " + action + " "
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft == null || minecraft.player == null || minecraft.getConnection() == null
+                || active == null || runId == null) return;
+        minecraft.player.sendChatMessage("/rtsbuilding_dev " + action + " "
                 + active.name().toLowerCase(Locale.ROOT) + " " + runId);
+    }
+
+    /** Java 8 下构造保持声明顺序的不可变事件阈值表。 */
+    private static Map<String, Integer> requirements(Object... entries) {
+        if (entries == null || (entries.length & 1) != 0) {
+            throw new IllegalArgumentException("event requirements must be key/count pairs");
+        }
+        Map<String, Integer> values = new LinkedHashMap<String, Integer>();
+        for (int index = 0; index < entries.length; index += 2) {
+            String event = (String) entries[index];
+            Integer count = (Integer) entries[index + 1];
+            if (event == null || count == null || values.containsKey(event)) {
+                throw new IllegalArgumentException("invalid event requirement");
+            }
+            values.put(event, count);
+        }
+        return Collections.unmodifiableMap(values);
     }
 
     private static String escape(String value) {

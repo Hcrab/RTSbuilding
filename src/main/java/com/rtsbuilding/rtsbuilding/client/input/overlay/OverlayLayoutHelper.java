@@ -14,6 +14,7 @@ import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.util.math.MathHelper;
 
 import java.awt.Rectangle;
+import java.util.Objects;
 
 import static com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate.overlayCollapsed;
 import static com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate.overlayCraftCollapsed;
@@ -96,51 +97,227 @@ public final class OverlayLayoutHelper {
         }
     }
 
-    public record ButtonLayout(int x, int y, int w, int h) {
+    public static final class ButtonLayout {
+        private final int x, y, w, h;
+        public ButtonLayout(int x, int y, int w, int h) {
+            this.x = x; this.y = y; this.w = w; this.h = h;
+        }
+        public int x() { return x; }
+        public int y() { return y; }
+        public int w() { return w; }
+        public int h() { return h; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof ButtonLayout)) return false;
+            ButtonLayout value = (ButtonLayout) other;
+            return x == value.x && y == value.y && w == value.w && h == value.h;
+        }
+        @Override public int hashCode() { return Objects.hash(x, y, w, h); }
+        @Override public String toString() {
+            return "ButtonLayout[x=" + x + ", y=" + y + ", w=" + w + ", h=" + h + ']';
+        }
     }
 
-    public record OverlayProfile(double guiScale, double renderScale, int storageRows, boolean stackCraftBelow) {
+    public static final class OverlayProfile {
+        private final double guiScale, renderScale;
+        private final int storageRows;
+        private final boolean stackCraftBelow;
+        public OverlayProfile(double guiScale, double renderScale, int storageRows, boolean stackCraftBelow) {
+            this.guiScale = guiScale; this.renderScale = renderScale;
+            this.storageRows = storageRows; this.stackCraftBelow = stackCraftBelow;
+        }
+        public double guiScale() { return guiScale; }
+        public double renderScale() { return renderScale; }
+        public int storageRows() { return storageRows; }
+        public boolean stackCraftBelow() { return stackCraftBelow; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof OverlayProfile)) return false;
+            OverlayProfile value = (OverlayProfile) other;
+            return Double.compare(guiScale, value.guiScale) == 0
+                    && Double.compare(renderScale, value.renderScale) == 0
+                    && storageRows == value.storageRows
+                    && stackCraftBelow == value.stackCraftBelow;
+        }
+        @Override public int hashCode() {
+            return Objects.hash(guiScale, renderScale, storageRows, stackCraftBelow);
+        }
+        @Override public String toString() {
+            return "OverlayProfile[guiScale=" + guiScale + ", renderScale=" + renderScale
+                    + ", storageRows=" + storageRows + ", stackCraftBelow=" + stackCraftBelow + ']';
+        }
     }
 
-    public record VisibleOverlayLayout(OverlayProfile profile, OverlayLayout layout) {
+    public static final class VisibleOverlayLayout {
+        private final OverlayProfile profile;
+        private final OverlayLayout layout;
+        public VisibleOverlayLayout(OverlayProfile profile, OverlayLayout layout) {
+            this.profile = profile; this.layout = layout;
+        }
+        public OverlayProfile profile() { return profile; }
+        public OverlayLayout layout() { return layout; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof VisibleOverlayLayout)) return false;
+            VisibleOverlayLayout value = (VisibleOverlayLayout) other;
+            return Objects.equals(profile, value.profile) && Objects.equals(layout, value.layout);
+        }
+        @Override public int hashCode() { return Objects.hash(profile, layout); }
+        @Override public String toString() {
+            return "VisibleOverlayLayout[profile=" + profile + ", layout=" + layout + ']';
+        }
     }
 
-    public record OverlayInfoRect(int x, int y, int w, int h, int closeX, int closeY) {
+    public static final class OverlayInfoRect {
+        private final int x, y, w, h, closeX, closeY;
+        public OverlayInfoRect(int x, int y, int w, int h, int closeX, int closeY) {
+            this.x = x; this.y = y; this.w = w; this.h = h;
+            this.closeX = closeX; this.closeY = closeY;
+        }
+        public int x() { return x; }
+        public int y() { return y; }
+        public int w() { return w; }
+        public int h() { return h; }
+        public int closeX() { return closeX; }
+        public int closeY() { return closeY; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof OverlayInfoRect)) return false;
+            OverlayInfoRect value = (OverlayInfoRect) other;
+            return x == value.x && y == value.y && w == value.w && h == value.h
+                    && closeX == value.closeX && closeY == value.closeY;
+        }
+        @Override public int hashCode() { return Objects.hash(x, y, w, h, closeX, closeY); }
+        @Override public String toString() {
+            return "OverlayInfoRect[x=" + x + ", y=" + y + ", w=" + w + ", h=" + h
+                    + ", closeX=" + closeX + ", closeY=" + closeY + ']';
+        }
     }
 
-    public record OverlayLayout(
-            int screenW,
-            int screenH,
-            int panelX,
-            int panelY,
-            int panelW,
-            int panelH,
-            boolean overlayCollapsed,
-            boolean stackCraftBelow,
-            int craftPanelX,
-            int craftPanelY,
-            int craftPanelW,
-            int craftPanelH,
-            boolean craftCollapsed,
-            int storageRows,
-            int storagePanelX,
-            int storagePanelY,
-            int storagePanelH,
-            int headerY,
-            int pageX,
-            int pagePrevY,
-            int pageTextY,
-            int pageNextY,
-            int searchX,
-            int searchW,
-            int clearX,
-            int craftSearchX,
-            int craftSearchY,
-            int craftSearchW,
-            int craftApplyX,
-            int craftToggleX,
-            int craftGridY,
-            int craftVisibleRows) {
+    public static final class OverlayLayout {
+        private final int screenW, screenH, panelX, panelY, panelW, panelH;
+        private final boolean overlayCollapsed, stackCraftBelow;
+        private final int craftPanelX, craftPanelY, craftPanelW, craftPanelH;
+        private final boolean craftCollapsed;
+        private final int storageRows, storagePanelX, storagePanelY, storagePanelH;
+        private final int headerY, pageX, pagePrevY, pageTextY, pageNextY;
+        private final int searchX, searchW, clearX;
+        private final int craftSearchX, craftSearchY, craftSearchW, craftApplyX, craftToggleX;
+        private final int craftGridY, craftVisibleRows;
+
+        public OverlayLayout(
+                int screenW, int screenH, int panelX, int panelY, int panelW, int panelH,
+                boolean overlayCollapsed, boolean stackCraftBelow,
+                int craftPanelX, int craftPanelY, int craftPanelW, int craftPanelH,
+                boolean craftCollapsed, int storageRows,
+                int storagePanelX, int storagePanelY, int storagePanelH,
+                int headerY, int pageX, int pagePrevY, int pageTextY, int pageNextY,
+                int searchX, int searchW, int clearX,
+                int craftSearchX, int craftSearchY, int craftSearchW,
+                int craftApplyX, int craftToggleX, int craftGridY, int craftVisibleRows) {
+            this.screenW = screenW; this.screenH = screenH;
+            this.panelX = panelX; this.panelY = panelY; this.panelW = panelW; this.panelH = panelH;
+            this.overlayCollapsed = overlayCollapsed; this.stackCraftBelow = stackCraftBelow;
+            this.craftPanelX = craftPanelX; this.craftPanelY = craftPanelY;
+            this.craftPanelW = craftPanelW; this.craftPanelH = craftPanelH;
+            this.craftCollapsed = craftCollapsed; this.storageRows = storageRows;
+            this.storagePanelX = storagePanelX; this.storagePanelY = storagePanelY;
+            this.storagePanelH = storagePanelH; this.headerY = headerY;
+            this.pageX = pageX; this.pagePrevY = pagePrevY;
+            this.pageTextY = pageTextY; this.pageNextY = pageNextY;
+            this.searchX = searchX; this.searchW = searchW; this.clearX = clearX;
+            this.craftSearchX = craftSearchX; this.craftSearchY = craftSearchY;
+            this.craftSearchW = craftSearchW; this.craftApplyX = craftApplyX;
+            this.craftToggleX = craftToggleX; this.craftGridY = craftGridY;
+            this.craftVisibleRows = craftVisibleRows;
+        }
+
+        public int screenW() { return screenW; }
+        public int screenH() { return screenH; }
+        public int panelX() { return panelX; }
+        public int panelY() { return panelY; }
+        public int panelW() { return panelW; }
+        public int panelH() { return panelH; }
+        public boolean overlayCollapsed() { return overlayCollapsed; }
+        public boolean stackCraftBelow() { return stackCraftBelow; }
+        public int craftPanelX() { return craftPanelX; }
+        public int craftPanelY() { return craftPanelY; }
+        public int craftPanelW() { return craftPanelW; }
+        public int craftPanelH() { return craftPanelH; }
+        public boolean craftCollapsed() { return craftCollapsed; }
+        public int storageRows() { return storageRows; }
+        public int storagePanelX() { return storagePanelX; }
+        public int storagePanelY() { return storagePanelY; }
+        public int storagePanelH() { return storagePanelH; }
+        public int headerY() { return headerY; }
+        public int pageX() { return pageX; }
+        public int pagePrevY() { return pagePrevY; }
+        public int pageTextY() { return pageTextY; }
+        public int pageNextY() { return pageNextY; }
+        public int searchX() { return searchX; }
+        public int searchW() { return searchW; }
+        public int clearX() { return clearX; }
+        public int craftSearchX() { return craftSearchX; }
+        public int craftSearchY() { return craftSearchY; }
+        public int craftSearchW() { return craftSearchW; }
+        public int craftApplyX() { return craftApplyX; }
+        public int craftToggleX() { return craftToggleX; }
+        public int craftGridY() { return craftGridY; }
+        public int craftVisibleRows() { return craftVisibleRows; }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof OverlayLayout)) return false;
+            OverlayLayout value = (OverlayLayout) other;
+            return screenW == value.screenW && screenH == value.screenH
+                    && panelX == value.panelX && panelY == value.panelY
+                    && panelW == value.panelW && panelH == value.panelH
+                    && overlayCollapsed == value.overlayCollapsed
+                    && stackCraftBelow == value.stackCraftBelow
+                    && craftPanelX == value.craftPanelX && craftPanelY == value.craftPanelY
+                    && craftPanelW == value.craftPanelW && craftPanelH == value.craftPanelH
+                    && craftCollapsed == value.craftCollapsed && storageRows == value.storageRows
+                    && storagePanelX == value.storagePanelX && storagePanelY == value.storagePanelY
+                    && storagePanelH == value.storagePanelH && headerY == value.headerY
+                    && pageX == value.pageX && pagePrevY == value.pagePrevY
+                    && pageTextY == value.pageTextY && pageNextY == value.pageNextY
+                    && searchX == value.searchX && searchW == value.searchW && clearX == value.clearX
+                    && craftSearchX == value.craftSearchX && craftSearchY == value.craftSearchY
+                    && craftSearchW == value.craftSearchW && craftApplyX == value.craftApplyX
+                    && craftToggleX == value.craftToggleX && craftGridY == value.craftGridY
+                    && craftVisibleRows == value.craftVisibleRows;
+        }
+
+        @Override public int hashCode() {
+            return Objects.hash(screenW, screenH, panelX, panelY, panelW, panelH,
+                    overlayCollapsed, stackCraftBelow,
+                    craftPanelX, craftPanelY, craftPanelW, craftPanelH, craftCollapsed,
+                    storageRows, storagePanelX, storagePanelY, storagePanelH,
+                    headerY, pageX, pagePrevY, pageTextY, pageNextY,
+                    searchX, searchW, clearX,
+                    craftSearchX, craftSearchY, craftSearchW, craftApplyX, craftToggleX,
+                    craftGridY, craftVisibleRows);
+        }
+
+        @Override public String toString() {
+            return "OverlayLayout[screenW=" + screenW + ", screenH=" + screenH
+                    + ", panelX=" + panelX + ", panelY=" + panelY
+                    + ", panelW=" + panelW + ", panelH=" + panelH
+                    + ", overlayCollapsed=" + overlayCollapsed
+                    + ", stackCraftBelow=" + stackCraftBelow
+                    + ", craftPanelX=" + craftPanelX + ", craftPanelY=" + craftPanelY
+                    + ", craftPanelW=" + craftPanelW + ", craftPanelH=" + craftPanelH
+                    + ", craftCollapsed=" + craftCollapsed + ", storageRows=" + storageRows
+                    + ", storagePanelX=" + storagePanelX + ", storagePanelY=" + storagePanelY
+                    + ", storagePanelH=" + storagePanelH + ", headerY=" + headerY
+                    + ", pageX=" + pageX + ", pagePrevY=" + pagePrevY
+                    + ", pageTextY=" + pageTextY + ", pageNextY=" + pageNextY
+                    + ", searchX=" + searchX + ", searchW=" + searchW
+                    + ", clearX=" + clearX + ", craftSearchX=" + craftSearchX
+                    + ", craftSearchY=" + craftSearchY + ", craftSearchW=" + craftSearchW
+                    + ", craftApplyX=" + craftApplyX + ", craftToggleX=" + craftToggleX
+                    + ", craftGridY=" + craftGridY + ", craftVisibleRows=" + craftVisibleRows + ']';
+        }
 
         public int dragX() {
             return this.storagePanelX + 6;
@@ -440,11 +617,9 @@ public final class OverlayLayoutHelper {
     }
 
     public static String sortShort(com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort sort) {
-        return switch (sort) {
-            case QUANTITY -> "Q";
-            case MOD -> "M";
-            case NAME -> "N";
-        };
+        if (sort == com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort.QUANTITY) return "Q";
+        if (sort == com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort.MOD) return "M";
+        return "N";
     }
 
     public static String trimToWidth(FontRenderer font, String text, int maxWidth) {
