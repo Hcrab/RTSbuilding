@@ -7,9 +7,9 @@ import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageSharedHelpers;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 import java.util.Map;
@@ -35,7 +35,7 @@ public final class RtsStoragePageBuilder {
     }
 
     public static PageResult build(
-            ServerPlayer player, RtsStorageSession session,
+            EntityPlayerMP player, RtsStorageSession session,
             int requestedPage, int requestedPageSize,
             List<LinkedHandler> activeHandlers,
             List<LinkedFluidHandler> activeFluidHandlers) {
@@ -67,23 +67,23 @@ public final class RtsStoragePageBuilder {
         return RtsPageCore.getHandlerReportedCount(handler, slot, stack);
     }
 
-    public static long internalFluidCapacityMb(ServerPlayer player) {
+    public static long internalFluidCapacityMb(EntityPlayerMP player) {
         return RtsStorageFluids.internalFluidCapacityMb(player);
     }
 
-    public static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player, RtsStorageSession session) {
+    public static boolean shouldIncludePlayerMainInventoryInStorageView(EntityPlayerMP player, RtsStorageSession session) {
         return RtsPageSharedHelpers.shouldIncludePlayerMainInventoryInStorageView(player, session);
     }
 
-    public static int getPlayerMainInventoryStart(ServerPlayer player) {
+    public static int getPlayerMainInventoryStart(EntityPlayerMP player) {
         return RtsPageSharedHelpers.getPlayerMainInventoryStart(player);
     }
 
-    public static int getPlayerMainInventoryEndExclusive(ServerPlayer player) {
+    public static int getPlayerMainInventoryEndExclusive(EntityPlayerMP player) {
         return RtsPageSharedHelpers.getPlayerMainInventoryEndExclusive(player);
     }
 
-    public static void accumulatePlayerMainInventoryCounts(ServerPlayer player, Map<String, Long> counts,
+    public static void accumulatePlayerMainInventoryCounts(EntityPlayerMP player, Map<String, Long> counts,
             Map<String, Long> namespaceTotals) {
         RtsPageCore.accumulatePlayerMainInventoryCounts(player, counts, namespaceTotals);
     }
