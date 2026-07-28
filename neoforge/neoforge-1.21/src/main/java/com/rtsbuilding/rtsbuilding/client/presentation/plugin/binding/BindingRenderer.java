@@ -129,13 +129,11 @@ public final class BindingRenderer {
         var priorities = sm.getLinkedPriorities();
         int count = Math.min(entries.size(), Math.min(names.size(),
                 Math.min(iconIds.size(), priorities.size())));
-        if (count == 0) {
-            renderEmptyHint(g);
-            return;
-        }
 
-        editController.tick(count);
-        animController.tick(count);
+        if (count > 0) {
+            editController.tick(count);
+            animController.tick(count);
+        }
 
         int x = ctx.getX(), y = ctx.getY(), w = ctx.getWidth(), h = ctx.getHeight();
         int mouseX = ctx.getLastMouseX(), mouseY = ctx.getLastMouseY();
@@ -147,27 +145,35 @@ public final class BindingRenderer {
 
         renderBackgroundRows(g, x, y, w, count, scroll, visibleH, mouseX, mouseY);
 
-        List<Integer> sortedIndices = buildSortedIndices(count, priorities);
+        if (count > 0) {
+            List<Integer> sortedIndices = buildSortedIndices(count, priorities);
 
-        RowLayout.ButtonBar btnBar = new RowLayout.ButtonBar(mc, scrollBar.isVisible(), x, w);
-        int fontColor = ThemeManager.getTextColor();
+            RowLayout.ButtonBar btnBar = new RowLayout.ButtonBar(mc, scrollBar.isVisible(), x, w);
+            int fontColor = ThemeManager.getTextColor();
 
-        NineSliceRegion themedBtnNormal = BTN_NINE_SLICE.withTheme();
-        NineSliceRegion themedBtnHover = BTN_NINE_SLICE.withTheme().withVOffset(BTN_STATE_H);
-        NineSliceRegion themedInputNormal = INPUT_BOX_NINE_SLICE.withTheme();
-        NineSliceRegion themedInputFocus = INPUT_BOX_NINE_SLICE.withTheme().withVOffset(INPUT_BOX_STATE_H);
+            NineSliceRegion themedBtnNormal = BTN_NINE_SLICE.withTheme();
+            NineSliceRegion themedBtnHover = BTN_NINE_SLICE.withTheme().withVOffset(BTN_STATE_H);
+            NineSliceRegion themedInputNormal = INPUT_BOX_NINE_SLICE.withTheme();
+            NineSliceRegion themedInputFocus = INPUT_BOX_NINE_SLICE.withTheme().withVOffset(INPUT_BOX_STATE_H);
 
-        rowLayouts.clear();
-        int clipY = y + TOP_PAD;
-        for (int vi = 0; vi < count; vi++) {
-            int origIdx = sortedIndices.get(vi);
-            RowLayout rl = new RowLayout();
-            rl.originalIndex = origIdx;
-            rowLayouts.add(rl);
+            rowLayouts.clear();
+            int clipY = y + TOP_PAD;
+            for (int vi = 0; vi < count; vi++) {
+                int origIdx = sortedIndices.get(vi);
+                RowLayout rl = new RowLayout();
+                rl.originalIndex = origIdx;
+                rowLayouts.add(rl);
 
-            renderSingleRow(g, x, y, scroll, vi, origIdx, rl, entries, names, iconIds, priorities,
-                    btnBar, fontColor, mc, mouseX, mouseY, clipY, visibleH,
-                    themedBtnNormal, themedBtnHover, themedInputNormal, themedInputFocus);
+                renderSingleRow(g, x, y, scroll, vi, origIdx, rl, entries, names, iconIds, priorities,
+                        btnBar, fontColor, mc, mouseX, mouseY, clipY, visibleH,
+                        themedBtnNormal, themedBtnHover, themedInputNormal, themedInputFocus);
+            }
+        } else {
+            String hint = "No linked";
+            int textColor = ThemeManager.getTextColor() & 0xFFFFFF | 0x60000000;
+            int lineH = Minecraft.getInstance().font.lineHeight;
+            TextRenderer.drawCentered(g, Minecraft.getInstance().font, hint,
+                    ctx.getX() + ctx.getWidth() / 2, ctx.getY() + (ctx.getHeight() - lineH) / 2, textColor);
         }
 
         renderScrollbar(g, x, y, h);
@@ -372,14 +378,6 @@ public final class BindingRenderer {
             int centeredTextX = boxX + (boxW - textWidth) / 2;
             TextRenderer.draw(g, priorityStr, centeredTextX, textY, textColor);
         }
-    }
-
-    private void renderEmptyHint(GuiGraphics g) {
-        String hint = "No linked";
-        int textColor = ThemeManager.getTextColor() & 0xFFFFFF | 0x60000000;
-        int lineH = Minecraft.getInstance().font.lineHeight;
-        TextRenderer.drawCentered(g, Minecraft.getInstance().font, hint,
-                ctx.getX() + ctx.getWidth() / 2, ctx.getY() + (ctx.getHeight() - lineH) / 2, textColor);
     }
 
     private void renderItemIcon(GuiGraphics g, ItemStack stack, int centerX, int centerY) {

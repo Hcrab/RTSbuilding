@@ -120,8 +120,8 @@ public final class ServerActionHandler {
                 var status = engine.getProgress(p, entryId);
                 if (!status.isActive()) return;
                 engine.from(p, entryId).ifPresent(token -> {
-                    if (status.suspended()) { token.resume(); p.displayClientMessage(Component.literal("§7[工作流] §a▶ 已恢复"), true); }
-                    else if (token.isPaused()) { token.unpause(); p.displayClientMessage(Component.literal("§7[工作流] §a▶ 已恢复"), true); }
+                    if (token.isPaused()) { token.unpause(); p.displayClientMessage(Component.literal("§7[工作流] §a▶ 已恢复"), true); }
+                    else if (token.isSuspended()) { token.resume(); p.displayClientMessage(Component.literal("§7[工作流] §a▶ 已恢复"), true); }
                     else { token.pause(); p.displayClientMessage(Component.literal("§7[工作流] §e⏸ 已暂停"), true); }
                 });
             }

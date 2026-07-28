@@ -122,6 +122,7 @@ public final class RtsClientNetworkHandlers {
         ctx.enqueueWork(() -> {
             WorkflowModule wm = kernel().module(WorkflowModule.class);
             if (wm != null) {
+                wm.resetProgress();
                 for (var entry : payload.entries()) {
                     wm.applyWorkflowProgress(entry);
                 }

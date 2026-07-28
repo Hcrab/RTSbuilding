@@ -97,6 +97,7 @@ public final class WindowFrameRenderer {
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(r, gr, b, a);
         SpriteRenderer.drawNineSlicePanel(g, wx, wy, ww, wh, hovered);
+        g.flush();
         RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
     }
 

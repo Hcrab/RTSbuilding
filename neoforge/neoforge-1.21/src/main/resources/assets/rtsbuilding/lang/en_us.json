@@ -92,5 +92,7 @@
 
   "tooltip.rtsbuilding.rightdown.search_placeholder": "Search items...",
 
-  "tooltip.rtsbuilding.rightdown.no_search_results": "No matching items"
+  "tooltip.rtsbuilding.rightdown.no_search_results": "No matching items",
+
+  "screen.rtsbuilding.workflow.none": "No active workflows"
 }

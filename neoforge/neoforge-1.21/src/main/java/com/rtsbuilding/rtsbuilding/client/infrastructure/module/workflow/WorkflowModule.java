@@ -42,12 +42,15 @@ public final class WorkflowModule implements FeatureModule {
                     ? RtsWorkflowPriority.values()[pri] : RtsWorkflowPriority.NORMAL;
             arr[idx] = RtsWorkflowStatus.fromRaw(type, priority, payload.totalBlocks(),
                     payload.completedBlocks(), payload.failedBlocks(), payload.missingItems(),
-                    payload.detailMessage(), payload.suspended() != 0, payload.paused() != 0,
-                    payload.workflowEntryId());
+                    payload.detailMessage(), payload.onHold() != 0, payload.workflowEntryId());
         } else {
             arr[idx] = RtsWorkflowStatus.idle();
         }
         this.progress = new WorkflowProgress(arr, payload.workflowCount() & 0xFF, this.progress.hasPendingJobs());
+    }
+
+    public void resetProgress() {
+        this.progress = WorkflowProgress.empty();
     }
 
     public WorkflowProgress getProgress() {

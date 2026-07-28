@@ -155,7 +155,7 @@ public final class RtsWorkflowEntry {
         }
         return RtsWorkflowStatus.fromRaw(
                 type, priority, totalBlocks, completedBlocks, failedBlocks,
-                List.copyOf(missingItems), detailMessage, suspended, paused, id);
+                List.copyOf(missingItems), detailMessage, suspended || paused, id);
     }
 
     // ──────────────────────────────────────────────────────────────────

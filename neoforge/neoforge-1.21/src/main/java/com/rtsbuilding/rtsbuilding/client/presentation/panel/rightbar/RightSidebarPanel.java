@@ -150,6 +150,7 @@ public final class RightSidebarPanel implements RtsPanelApi {
         int upperH = resolveUpperOverlayHeight();
 
         
+        upperLayer.setLastMousePos(mouseX, mouseY);
         upperLayer.setBounds(ox, sb.y(), ow, upperH);
         upperLayer.render(g, isDraggingOverlayDivider || isMouseInLayer(upperLayer, mouseX, mouseY));
 
@@ -157,6 +158,7 @@ public final class RightSidebarPanel implements RtsPanelApi {
         int bottomY = sb.y() + upperH + gap;
         int lowerH = totalH - upperH - gap;
         if (lowerH > 0) {
+            lowerLayer.setLastMousePos(mouseX, mouseY);
             lowerLayer.setBounds(ox, bottomY, ow, lowerH);
             lowerLayer.render(g, isDraggingOverlayDivider || isMouseInLayer(lowerLayer, mouseX, mouseY));
         }
@@ -201,6 +203,13 @@ public final class RightSidebarPanel implements RtsPanelApi {
         if (button != 0) return false;
         int mx = (int) mouseX;
         int my = (int) mouseY;
+        
+        if (upperLayer.contains(mx, my) && upperLayer.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
+        if (lowerLayer.contains(mx, my) && lowerLayer.mouseClicked(mouseX, mouseY, button)) {
+            return true;
+        }
         
         if (isMouseOverRightOverlayDivider(mx, my)) {
             isDraggingOverlayDivider = true;

@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/addons/addon-refinedstorage/neoforge-1.21" />
             <option value="$PROJECT_DIR$/addons/addon-sophisticatedbackpacks/neoforge-1.21" />
             <option value="$PROJECT_DIR$/common" />
+            <option value="$PROJECT_DIR$/experiments/ui-experiment" />
             <option value="$PROJECT_DIR$/neoforge/neoforge-1.21" />
             <option value="$PROJECT_DIR$/rtsbuilding-api" />
           </set>

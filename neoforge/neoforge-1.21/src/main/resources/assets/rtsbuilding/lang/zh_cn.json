@@ -92,5 +92,7 @@
 
   "tooltip.rtsbuilding.rightdown.search_placeholder": "搜索物品...",
 
-  "tooltip.rtsbuilding.rightdown.no_search_results": "未找到匹配物品"
+  "tooltip.rtsbuilding.rightdown.no_search_results": "未找到匹配物品",
+
+  "screen.rtsbuilding.workflow.none": "没有活跃的工作流"
 }

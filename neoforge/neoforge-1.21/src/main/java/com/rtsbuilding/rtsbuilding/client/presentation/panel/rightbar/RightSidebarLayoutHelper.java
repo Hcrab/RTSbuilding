@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayout
 
 public final class RightSidebarLayoutHelper {
 
-    public static final int SIDEBAR_WIDTH = 90;
+    public static final int SIDEBAR_WIDTH = 180;
 
     public static final int SIDEBAR_TOP_Y = TopBarLayoutHelper.TOP_BAR_HEIGHT;
 

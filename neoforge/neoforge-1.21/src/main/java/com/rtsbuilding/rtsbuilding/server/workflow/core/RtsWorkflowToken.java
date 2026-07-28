@@ -213,6 +213,11 @@ public record RtsWorkflowToken(
         return entry != null && entry.paused();
     }
 
+    public boolean isSuspended() {
+        RtsWorkflowEntry entry = resolveEntry();
+        return entry != null && entry.suspended();
+    }
+
     /**
      * Resume this workflow if it has been suspended.
      *
