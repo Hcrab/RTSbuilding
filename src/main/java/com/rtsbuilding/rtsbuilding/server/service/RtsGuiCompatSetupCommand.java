@@ -1,25 +1,21 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import net.minecraft.block.Block;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fml.common.registry.ForgeRegistries;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID)
-public final class RtsGuiCompatSetupCommand {
+/** 只在 GUI 自动探针启用时注册的 1.12.2 测试场地命令。 */
+public final class RtsGuiCompatSetupCommand extends CommandBase {
     private static final String PROBE_REPORT_PROPERTY = "rtsbuilding.guiCompatProbeReport";
     private static final String PROBE_REPORT_ENV = "RTSBUILDING_GUI_COMPAT_PROBE_REPORT";
     private static final String TARGET_BLOCK_PROPERTY = "rtsbuilding.guiCompatTargetBlock";
@@ -29,117 +25,98 @@ public final class RtsGuiCompatSetupCommand {
     private static final String COMMAND_NAME = "rtsbuilding_gui_compat_setup";
     private static final int DEFAULT_TARGET_DISTANCE = 20;
 
-    private RtsGuiCompatSetupCommand() {
+    @Override public String getName() { return COMMAND_NAME; }
+    @Override public String getUsage(ICommandSender sender) { return "/" + COMMAND_NAME + " <caseId>"; }
+    @Override public int getRequiredPermissionLevel() { return 2; }
+
+    @Override
+    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 1) throw new CommandException(getUsage(sender));
+        setupCase(getCommandSenderAsPlayer(sender), args[0]);
     }
 
-    @SubscribeEvent
-    public static void register(RegisterCommandsEvent event) {
-        if (!isProbeEnabled()) {
-            return;
-        }
-        register(event.getDispatcher());
-    }
-
-    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
-        dispatcher.register(Commands.literal(COMMAND_NAME)
-                .then(Commands.argument("caseId", StringArgumentType.word())
-                        .executes(context -> setupCase(context.getSource(),
-                                StringArgumentType.getString(context, "caseId")))));
-    }
-
-    private static int setupCase(CommandSourceStack source, String caseId) {
+    private static void setupCase(EntityPlayerMP player, String caseId) throws CommandException {
         String targetBlock = resolveTargetBlock(caseId);
-        if (targetBlock == null || targetBlock.isBlank()) {
-            source.sendFailure(Component.literal("RTS GUI compat: no target block configured for " + caseId));
-            return 0;
+        if (isBlank(targetBlock)) {
+            throw new CommandException("RTS GUI compat: no target block configured for " + caseId);
         }
-        return setupSingleBlock(source, caseId, targetBlock);
+        setupSingleBlock(player, caseId, targetBlock);
     }
 
-    private static int setupSingleBlock(CommandSourceStack source, String caseId, String targetBlockId) {
+    private static void setupSingleBlock(EntityPlayerMP player, String caseId, String targetBlockId)
+            throws CommandException {
         try {
-            ResourceLocation blockId = ResourceLocation.parse(targetBlockId);
-            Block block = BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
+            ResourceLocation blockId = new ResourceLocation(targetBlockId);
+            Block block = ForgeRegistries.BLOCKS.getValue(blockId);
             if (block == null || block == Blocks.AIR) {
-                source.sendFailure(Component.literal("RTS GUI compat: target block is not registered: "
-                        + targetBlockId));
-                return 0;
+                throw new CommandException("RTS GUI compat: target block is not registered: " + targetBlockId);
             }
 
-            ServerPlayer player = source.getPlayerOrException();
-            ServerLevel level = player.serverLevel();
-            BlockPos base = player.blockPosition();
+            WorldServer level = player.getServerWorld();
+            BlockPos base = player.getPosition();
             int distance = resolveInt(TARGET_DISTANCE_PROPERTY, TARGET_DISTANCE_ENV, DEFAULT_TARGET_DISTANCE);
-            BlockPos targetPos = base.offset(0, 0, Math.max(2, distance));
+            BlockPos targetPos = base.add(0, 0, Math.max(2, distance));
 
-            for (BlockPos pos : BlockPos.betweenClosed(base.offset(-2, -1, 1), targetPos.offset(2, 3, 2))) {
-                level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            for (BlockPos pos : BlockPos.getAllInBox(base.add(-2, -1, 1), targetPos.add(2, 3, 2))) {
+                level.setBlockState(pos, Blocks.AIR.getDefaultState(), 3);
             }
             for (int x = -2; x <= 2; x++) {
                 for (int z = 1; z <= Math.max(4, distance + 2); z++) {
-                    level.setBlock(base.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 3);
+                    level.setBlockState(base.add(x, -1, z), Blocks.STONE.getDefaultState(), 3);
                 }
             }
-            level.setBlock(targetPos, block.defaultBlockState(), 3);
-
-            source.sendSuccess(() -> Component.literal("RTS GUI compat: " + caseId + " ready at "
-                    + targetPos.toShortString() + " block=" + targetBlockId), false);
-            return Command.SINGLE_SUCCESS;
+            level.setBlockState(targetPos, block.getDefaultState(), 3);
+            player.sendMessage(new TextComponentString("RTS GUI compat: " + caseId + " ready at "
+                    + targetPos.getX() + "," + targetPos.getY() + "," + targetPos.getZ()
+                    + " block=" + targetBlockId));
+        } catch (CommandException exception) {
+            throw exception;
         } catch (Exception exception) {
             RtsbuildingMod.LOGGER.warn("Failed to prepare GUI compat setup for {}", caseId, exception);
-            source.sendFailure(Component.literal("RTS GUI compat setup failed: " + exception.getMessage()));
-            return 0;
+            throw new CommandException("RTS GUI compat setup failed: " + exception.getMessage());
         }
     }
 
     private static String resolveTargetBlock(String caseId) {
         String configured = resolveConfig(TARGET_BLOCK_PROPERTY, TARGET_BLOCK_ENV, "");
-        if (configured != null && !configured.isBlank()) {
-            return configured;
-        }
-        return switch (caseId) {
-            case "vanilla_chest" -> "minecraft:chest";
-            case "sophisticated_chest" -> "sophisticatedstorage:chest";
-            case "sophisticated_barrel" -> "sophisticatedstorage:barrel";
-            case "iron_furnace" -> "ironfurnaces:iron_furnace";
-            case "mek_metallurgic_infuser" -> "mekanism:metallurgic_infuser";
-            case "mek_enrichment_chamber" -> "mekanism:enrichment_chamber";
-            case "if_resourceful_furnace" -> "industrialforegoing:resourceful_furnace";
-            case "rs_grid" -> "refinedstorage:grid";
-            case "rs_controller" -> "refinedstorage:controller";
-            case "create_schematic_table" -> "create:schematic_table";
-            case "create_schematicannon" -> "create:schematicannon";
-            case "ie_coke_oven" -> "immersiveengineering:coke_oven";
-            default -> "";
-        };
+        if (!isBlank(configured)) return configured;
+        if ("vanilla_chest".equals(caseId)) return "minecraft:chest";
+        if ("sophisticated_chest".equals(caseId)) return "sophisticatedstorage:chest";
+        if ("sophisticated_barrel".equals(caseId)) return "sophisticatedstorage:barrel";
+        if ("iron_furnace".equals(caseId)) return "ironfurnaces:iron_furnace";
+        if ("mek_metallurgic_infuser".equals(caseId)) return "mekanism:metallurgic_infuser";
+        if ("mek_enrichment_chamber".equals(caseId)) return "mekanism:enrichment_chamber";
+        if ("if_resourceful_furnace".equals(caseId)) return "industrialforegoing:resourceful_furnace";
+        if ("rs_grid".equals(caseId)) return "refinedstorage:grid";
+        if ("rs_controller".equals(caseId)) return "refinedstorage:controller";
+        if ("create_schematic_table".equals(caseId)) return "create:schematic_table";
+        if ("create_schematicannon".equals(caseId)) return "create:schematicannon";
+        if ("ie_coke_oven".equals(caseId)) return "immersiveengineering:coke_oven";
+        return "";
     }
 
-    private static boolean isProbeEnabled() {
-        String property = System.getProperty(PROBE_REPORT_PROPERTY);
-        if (property != null && !property.isBlank()) {
-            return true;
-        }
-        String env = System.getenv(PROBE_REPORT_ENV);
-        return env != null && !env.isBlank();
+    public static boolean isProbeEnabled() {
+        return !isBlank(System.getProperty(PROBE_REPORT_PROPERTY))
+                || !isBlank(System.getenv(PROBE_REPORT_ENV));
     }
 
     private static String resolveConfig(String propertyName, String environmentName, String fallback) {
         String configured = System.getProperty(propertyName);
-        if (configured == null || configured.isBlank()) {
-            configured = System.getenv(environmentName);
-        }
-        return configured == null || configured.isBlank() ? fallback : configured;
+        if (isBlank(configured)) configured = System.getenv(environmentName);
+        return isBlank(configured) ? fallback : configured;
     }
 
     private static int resolveInt(String propertyName, String environmentName, int fallback) {
         String configured = resolveConfig(propertyName, environmentName, "");
-        if (configured == null || configured.isBlank()) {
-            return fallback;
-        }
+        if (isBlank(configured)) return fallback;
         try {
             return Math.max(1, Integer.parseInt(configured));
         } catch (NumberFormatException ignored) {
             return fallback;
         }
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 }
