@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
+import com.rtsbuilding.rtsbuilding.server.data.DataCluster;
 import com.rtsbuilding.rtsbuilding.server.data.SessionSerializer;
 import com.rtsbuilding.rtsbuilding.server.data.SessionComponents;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
@@ -14,12 +15,13 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageCore;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.util.Collections;
 import java.util.Map;
@@ -45,8 +47,8 @@ public final class RtsSessionServiceImpl implements SessionService {
     private final PageService pageService = registry.page();
 
     @Override
-    public RtsStorageSession getOrCreate(ServerPlayer player) {
-        return sessions.computeIfAbsent(player.getUUID(), uuid -> {
+    public RtsStorageSession getOrCreate(EntityPlayerMP player) {
+        return sessions.computeIfAbsent(player.getUniqueID(), uuid -> {
             RtsStorageSession session = new RtsStorageSession();
             loadFromPersistentStorage(player, session);
             return session;
@@ -54,8 +56,8 @@ public final class RtsSessionServiceImpl implements SessionService {
     }
 
     @Override
-    public RtsStorageSession getIfPresent(ServerPlayer player) {
-        return sessions.get(player.getUUID());
+    public RtsStorageSession getIfPresent(EntityPlayerMP player) {
+        return sessions.get(player.getUniqueID());
     }
 
     @Override
@@ -64,8 +66,8 @@ public final class RtsSessionServiceImpl implements SessionService {
     }
 
     @Override
-    public void saveToPlayerNbt(ServerPlayer player, RtsStorageSession session) {
-        var cluster = SaveScheduler.INSTANCE.player(player);
+    public void saveToPlayerNbt(EntityPlayerMP player, RtsStorageSession session) {
+        DataCluster cluster = SaveScheduler.INSTANCE.player(player);
 
         // 纯细粒度组件写入——每个组件独立编码、独立脏标记
         cluster.set(SessionComponents.BROWSER, SessionSerializer.serializeBrowser(session.browser));
@@ -80,34 +82,34 @@ public final class RtsSessionServiceImpl implements SessionService {
     }
 
     @Override
-    public void saveFunnelToPlayerNbt(ServerPlayer player, RtsStorageSession session) {
+    public void saveFunnelToPlayerNbt(EntityPlayerMP player, RtsStorageSession session) {
         SaveScheduler.INSTANCE.player(player).set(
                 SessionComponents.FUNNEL, SessionSerializer.serializeFunnel(player, session));
     }
 
     @Override
-    public long savePlacementToPlayerNbt(ServerPlayer player, RtsStorageSession session) {
+    public long savePlacementToPlayerNbt(EntityPlayerMP player, RtsStorageSession session) {
         return SaveScheduler.INSTANCE.player(player).set(
                 SessionComponents.PLACEMENT, SessionSerializer.serializePlacement(player, session));
     }
 
     @Override
-    public long placementRevision(ServerPlayer player) {
+    public long placementRevision(EntityPlayerMP player) {
         return SaveScheduler.INSTANCE.player(player).revision(SessionComponents.PLACEMENT);
     }
 
     @Override
-    public long persistedPlacementRevision(ServerPlayer player) {
+    public long persistedPlacementRevision(EntityPlayerMP player) {
         return SaveScheduler.INSTANCE.player(player).persistedRevision(SessionComponents.PLACEMENT);
     }
 
     @Override
-    public void saveModeToPlayerNbt(ServerPlayer player, RtsStorageSession session) {
+    public void saveModeToPlayerNbt(EntityPlayerMP player, RtsStorageSession session) {
         SaveScheduler.INSTANCE.player(player).set(SessionComponents.MODE, session.mode);
     }
 
     @Override
-    public void onRtsEnabled(ServerPlayer player) {
+    public void onRtsEnabled(EntityPlayerMP player) {
         RtsStorageSession session = getOrCreate(player);
         // 从 DataCluster 加载最新 mode（确保跨模式切换后状态一致）
         session.mode = SaveScheduler.INSTANCE.player(player).get(SessionComponents.MODE);
@@ -118,38 +120,38 @@ public final class RtsSessionServiceImpl implements SessionService {
     }
 
     @Override
-    public void onRtsDisabled(ServerPlayer player) {
+    public void onRtsDisabled(EntityPlayerMP player) {
         RtsStorageSession session = getOrCreate(player);
         RtsTaskEngine.INSTANCE.preparePlayerDetach(player);
         cleanupSession(player, session, true);
         RtsTaskEngine.INSTANCE.pauseAllWorkflowTasks(player);
-        RtsWorkflowEngine.getInstance().pauseAllActive(player.getUUID(), true);
+        RtsWorkflowEngine.getInstance().pauseAllActive(player.getUniqueID(), true);
         saveToPlayerNbt(player, session);
         cleanupPlayerCaches(player);
-        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUniqueID());
     }
 
     @Override
-    public void onPlayerLogout(ServerPlayer player) {
+    public void onPlayerLogout(EntityPlayerMP player) {
         // 网络会话结束只摘除在线执行载荷；durable task 由 TaskStore 保留，不能误记为取消。
-        RtsTaskEngine.INSTANCE.detachPlayer(player.getUUID());
+        RtsTaskEngine.INSTANCE.detachPlayer(player.getUniqueID());
         registry.pathfinding().cancel(player);
-        RtsStorageSession session = sessions.get(player.getUUID());
+        RtsStorageSession session = sessions.get(player.getUniqueID());
 
         if (session != null) {
             cleanupSession(player, session, false);
             saveToPlayerNbt(player, session);
         }
 
-        sessions.remove(player.getUUID());
+        sessions.remove(player.getUniqueID());
         cleanupPlayerCaches(player);
-        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUniqueID());
         RtsWorkflowEngine.getInstance().saveAll(player.getServer());
     }
 
     @Override
-    public BuilderMode getMode(ServerPlayer player) {
-        RtsStorageSession session = sessions.get(player.getUUID());
+    public BuilderMode getMode(EntityPlayerMP player) {
+        RtsStorageSession session = sessions.get(player.getUniqueID());
         return session == null ? BuilderMode.INTERACT : session.mode;
     }
 
@@ -161,7 +163,7 @@ public final class RtsSessionServiceImpl implements SessionService {
      * 清理会话资源——释放挖掘、路径规划、漏斗、远程菜单和 BD 缓存。
      * 注意：不会保存会话或清除玩家缓存。
      */
-    private void cleanupSession(ServerPlayer player, RtsStorageSession session, boolean notify) {
+    private void cleanupSession(EntityPlayerMP player, RtsStorageSession session, boolean notify) {
         RtsDropAbsorber.flushDropBufferToPlayer(player, session);
         RtsMiningStateMachine.releaseMiningResources(player, session);
         registry.pathfinding().cancel(player);
@@ -174,16 +176,16 @@ public final class RtsSessionServiceImpl implements SessionService {
     /**
      * 清理玩家级别的缓存——存储 tick 服务和页面缓存。
      */
-    private void cleanupPlayerCaches(ServerPlayer player) {
+    private void cleanupPlayerCaches(EntityPlayerMP player) {
         RtsStorageTickService.INSTANCE.unregisterPlayer(player);
-        RtsPageCore.clearCache(player.getUUID());
+        RtsPageCore.clearCache(player.getUniqueID());
     }
 
-    private void loadFromPersistentStorage(ServerPlayer player, RtsStorageSession session) {
-        var cluster = SaveScheduler.INSTANCE.player(player);
+    private void loadFromPersistentStorage(EntityPlayerMP player, RtsStorageSession session) {
+        DataCluster cluster = SaveScheduler.INSTANCE.player(player);
 
         // 合并所有桥接组件的 NBT，统一反序列化
-        CompoundTag root = new CompoundTag();
+        NBTTagCompound root = new NBTTagCompound();
         root.merge(cluster.get(SessionComponents.BROWSER));
         root.merge(cluster.get(SessionComponents.FLAGS));
         root.merge(cluster.get(SessionComponents.LINKED_STORAGE));
@@ -193,7 +195,7 @@ public final class RtsSessionServiceImpl implements SessionService {
         root.merge(cluster.get(SessionComponents.DROP_BUFFER));
         root.merge(cluster.get(SessionComponents.FUNNEL));
 
-        if (!root.isEmpty()) {
+        if (!root.hasNoTags()) {
             SessionSerializer.loadAll(player, session, root);
         }
 
@@ -202,7 +204,7 @@ public final class RtsSessionServiceImpl implements SessionService {
         long placementRevision = cluster.revision(SessionComponents.PLACEMENT);
         long persistedPlacementRevision = cluster.persistedRevision(SessionComponents.PLACEMENT);
         if (persistedPlacementRevision < placementRevision) {
-            for (var recoveryJob : session.placement.recoveryJobs) {
+            for (PlacedRecoveryJob recoveryJob : session.placement.recoveryJobs) {
                 recoveryJob.requirePersistedRevision(placementRevision);
             }
         }
