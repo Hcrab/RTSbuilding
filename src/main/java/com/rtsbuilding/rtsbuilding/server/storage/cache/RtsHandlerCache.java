@@ -2,11 +2,10 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.*;
 
@@ -54,12 +53,13 @@ public final class RtsHandlerCache {
 
         // 给予基于快照的处理器（如 AE2）在每个更新周期刷新其内部缓存的机会。
         // 这将昂贵扫描与热路径 getSlots() 调用解耦。
-        if (handler instanceof RefreshableSnapshotHandler refreshable) {
+        if (handler instanceof RefreshableSnapshotHandler) {
             try {
+                RefreshableSnapshotHandler refreshable = (RefreshableSnapshotHandler) handler;
                 refreshable.ensureFreshSnapshot();
             } catch (RuntimeException ignored) {
                 // 外部网络可能在维度/网格切换的同一 Tick 失效；保留旧快照，下个周期重试。
-                return Set.of();
+                return Collections.emptySet();
             }
         }
 
@@ -130,7 +130,8 @@ public final class RtsHandlerCache {
 
     /** 返回指定物品在所有缓存槽位中的总数量。 */
     public long getCount(Item item) {
-        return this.countsByItem.getOrDefault(item.toString(), 0L);
+        ResourceLocation id = item == null ? null : Item.REGISTRY.getNameForObject(item);
+        return id == null ? 0L : this.countsByItem.getOrDefault(id.toString(), 0L);
     }
 
     /** 按物品注册字符串 ID 返回总数量。 */
@@ -142,7 +143,7 @@ public final class RtsHandlerCache {
      * 将所有缓存计数倾倒入提供的映射中，与现有值累加。
      */
     public void getAvailableItems(Map<String, Long> out) {
-        for (var entry : this.countsByItem.entrySet()) {
+        for (Map.Entry<String, Long> entry : this.countsByItem.entrySet()) {
             out.merge(entry.getKey(), entry.getValue(), Long::sum);
         }
     }
@@ -229,10 +230,11 @@ public final class RtsHandlerCache {
             if (stack == null || stack.isEmpty()) {
                 return CachedSlot.EMPTY;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+            if (id == null) return CachedSlot.EMPTY;
             // 对返回代表性堆叠的 AE2/BD 等使用真实报告计数
-            long count = (handler instanceof ReportedCountItemHandler rc)
-                    ? Math.max(0L, rc.getReportedCount(slot))
+            long count = (handler instanceof ReportedCountItemHandler)
+                    ? Math.max(0L, ((ReportedCountItemHandler) handler).getReportedCount(slot))
                     : stack.getCount();
             // ReportedCount 处理器（如 AE2 网络）通过 getStackInSlot() 返回原型的全新副本——
             // 可直接保留引用。原版处理器返回槽位 ItemStack 的活动引用，
@@ -254,7 +256,8 @@ public final class RtsHandlerCache {
         // 对于 ReportedCountItemHandler（如 AE2 网络），显示堆叠是原型且 NBT 不随槽位变化——
         // 跳过昂贵的 isSameItemSameComponents() 检查以避免 10000+ 次 NBT 比较。
         if (!skipNbtCompare && oldEntry.count > 0 && newEntry.count > 0) {
-            if (!ItemStack.isSameItemSameComponents(oldEntry.fullStack, newEntry.fullStack)) return true;
+            if (!ItemStack.areItemsEqual(oldEntry.fullStack, newEntry.fullStack)
+                    || !ItemStack.areItemStackTagsEqual(oldEntry.fullStack, newEntry.fullStack)) return true;
         }
         return false;
     }
@@ -293,8 +296,25 @@ public final class RtsHandlerCache {
     /**
      * 缓存的槽位快照。同时存储逻辑数量和完整的 ItemStack，用于保持 NBT 的比较。
      */
-    public record CachedSlot(String itemId, Item item, long count, ItemStack fullStack) {
+    public static final class CachedSlot {
         public static final CachedSlot EMPTY = new CachedSlot("", null, 0, ItemStack.EMPTY);
+
+        private final String itemId;
+        private final Item item;
+        private final long count;
+        private final ItemStack fullStack;
+
+        public CachedSlot(String itemId, Item item, long count, ItemStack fullStack) {
+            this.itemId = itemId;
+            this.item = item;
+            this.count = count;
+            this.fullStack = fullStack;
+        }
+
+        public String itemId() { return this.itemId; }
+        public Item item() { return this.item; }
+        public long count() { return this.count; }
+        public ItemStack fullStack() { return this.fullStack; }
 
         boolean isEmpty() {
             return this == EMPTY || itemId.isEmpty();
@@ -312,6 +332,28 @@ public final class RtsHandlerCache {
             ItemStack proto = fullStack.copy();
             proto.setCount(1);
             return proto;
+        }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof CachedSlot)) return false;
+            CachedSlot value = (CachedSlot) other;
+            return this.count == value.count
+                    && Objects.equals(this.itemId, value.itemId)
+                    && Objects.equals(this.item, value.item)
+                    && Objects.equals(this.fullStack, value.fullStack);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(this.itemId, this.item, this.count, this.fullStack);
+        }
+
+        @Override
+        public String toString() {
+            return "CachedSlot[itemId=" + this.itemId + ", item=" + this.item
+                    + ", count=" + this.count + ", fullStack=" + this.fullStack + "]";
         }
     }
 }
