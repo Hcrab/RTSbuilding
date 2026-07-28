@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
+import net.minecraft.item.ItemStack;
+import net.minecraft.init.Bootstrap;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -9,20 +11,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsMiningDropBufferStackSplitTest {
     static {
-        if (net.neoforged.fml.loading.LoadingModList.get() == null) {
-            net.neoforged.fml.loading.LoadingModList.of(
-                    java.util.List.of(), java.util.List.of(),
-                    java.util.List.of(), java.util.List.of(), java.util.Map.of());
-        }
-        net.minecraft.SharedConstants.tryDetectVersion();
-        net.minecraft.server.Bootstrap.bootStrap();
+        Bootstrap.register();
     }
+
+    private static final Item COBBLESTONE = Item.getItemFromBlock(Blocks.COBBLESTONE);
 
     @Test
     void oversizedLogicalStackIsSplitIntoLegalVanillaStacks() {
         RtsMiningDropBufferState buffer = new RtsMiningDropBufferState();
 
-        int accepted = buffer.enqueueMerged(new ItemStack(Items.COBBLESTONE), 130);
+        int accepted = buffer.enqueueMerged(new ItemStack(COBBLESTONE), 130);
 
         assertEquals(130, accepted);
         assertEquals(130, buffer.bufferedItems);
@@ -35,10 +33,10 @@ class RtsMiningDropBufferStackSplitTest {
     @Test
     void fragmentedExistingStackMergesBeforeCreatingLegalNewStacks() {
         RtsMiningDropBufferState buffer = new RtsMiningDropBufferState();
-        buffer.stacks.add(new ItemStack(Items.COBBLESTONE, 63));
+        buffer.stacks.add(new ItemStack(COBBLESTONE, 63));
         buffer.bufferedItems = 63;
 
-        int accepted = buffer.enqueueMerged(new ItemStack(Items.COBBLESTONE), 130);
+        int accepted = buffer.enqueueMerged(new ItemStack(COBBLESTONE), 130);
 
         assertEquals(130, accepted);
         assertEquals(java.util.List.of(64, 64, 64, 1),

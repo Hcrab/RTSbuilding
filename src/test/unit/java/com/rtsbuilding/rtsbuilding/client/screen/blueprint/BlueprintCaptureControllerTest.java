@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.Vec3d;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -62,19 +62,19 @@ class BlueprintCaptureControllerTest {
                 new BlockPos(12, 66, 12));
         RecordingStatus status = new RecordingStatus();
 
-        controller.adjustSelectionFromHandle(Direction.WEST, 2, status::set);
+        controller.adjustSelectionFromHandle(EnumFacing.WEST, 2, status::set);
 
         assertEquals(new BlockPos(8, 64, 10), controller.selectionBox().min());
         assertEquals(new BlockPos(12, 66, 12), controller.selectionBox().max());
         assertEquals("5x3x3", controller.sizeText());
 
-        controller.adjustSelectionFromHandle(Direction.WEST, -99, status::set);
+        controller.adjustSelectionFromHandle(EnumFacing.WEST, -99, status::set);
 
         assertEquals(new BlockPos(12, 64, 10), controller.selectionBox().min());
         assertEquals(new BlockPos(12, 66, 12), controller.selectionBox().max());
         assertEquals("1x3x3", controller.sizeText());
 
-        controller.adjustSelectionFromHandle(Direction.WEST, -99, status::set);
+        controller.adjustSelectionFromHandle(EnumFacing.WEST, -99, status::set);
 
         assertEquals(new BlockPos(12, 64, 10), controller.selectionBox().min());
         assertEquals(new BlockPos(12, 66, 12), controller.selectionBox().max());
@@ -89,25 +89,25 @@ class BlueprintCaptureControllerTest {
 
         assertTrue(controller.handleWorldAction(
                 null,
-                new Vec3(15.0D, 65.5D, 11.5D),
-                new Vec3(-1.0D, 0.0D, 0.0D),
+                new Vec3d(15.0D, 65.5D, 11.5D),
+                new Vec3d(-1.0D, 0.0D, 0.0D),
                 status::set));
-        assertEquals(Direction.EAST, controller.activeHandleDirection());
+        assertEquals(EnumFacing.EAST, controller.activeHandleDirection());
 
         assertTrue(controller.handleWorldAction(
                 null,
-                new Vec3(15.0D, 65.5D, 11.5D),
-                new Vec3(-1.0D, 0.0D, 0.0D),
+                new Vec3d(15.0D, 65.5D, 11.5D),
+                new Vec3d(-1.0D, 0.0D, 0.0D),
                 status::set));
         assertNull(controller.activeHandleDirection());
         assertFalse(controller.handleScroll(1.0D, false, status::set));
 
         assertTrue(controller.handleWorldAction(
                 null,
-                new Vec3(15.0D, 65.5D, 11.5D),
-                new Vec3(-1.0D, 0.0D, 0.0D),
+                new Vec3d(15.0D, 65.5D, 11.5D),
+                new Vec3d(-1.0D, 0.0D, 0.0D),
                 status::set));
-        assertEquals(Direction.EAST, controller.activeHandleDirection());
+        assertEquals(EnumFacing.EAST, controller.activeHandleDirection());
         assertTrue(controller.handleScroll(1.0D, false, status::set));
         assertEquals(new BlockPos(10, 64, 10), controller.selectionBox().min());
         assertEquals(new BlockPos(13, 66, 12), controller.selectionBox().max());
@@ -125,10 +125,10 @@ class BlueprintCaptureControllerTest {
 
         assertTrue(controller.handleWorldAction(
                 null,
-                new Vec3(15.0D, 65.5D, 11.5D),
-                new Vec3(-1.0D, 0.0D, 0.0D),
+                new Vec3d(15.0D, 65.5D, 11.5D),
+                new Vec3d(-1.0D, 0.0D, 0.0D),
                 status::set));
-        assertEquals(Direction.EAST, controller.activeHandleDirection());
+        assertEquals(EnumFacing.EAST, controller.activeHandleDirection());
 
         assertTrue(controller.handleDrag(18.0D, 0.0D, 1.0D, 0.0D, status::set));
         assertEquals(new BlockPos(10, 64, 10), controller.selectionBox().min());
@@ -153,7 +153,7 @@ class BlueprintCaptureControllerTest {
         assertTrue(controller.toggleBlockExclusion(excluded, status::set));
         assertEquals(List.of(excluded), controller.excludedBlocksForRender(10));
 
-        controller.adjustSelectionFromHandle(Direction.EAST, -2, status::set);
+        controller.adjustSelectionFromHandle(EnumFacing.EAST, -2, status::set);
 
         assertEquals(List.of(), controller.excludedBlocksForRender(10));
     }

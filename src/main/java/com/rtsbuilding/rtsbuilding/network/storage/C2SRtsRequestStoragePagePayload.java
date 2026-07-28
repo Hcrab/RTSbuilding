@@ -26,7 +26,7 @@ public final class C2SRtsRequestStoragePagePayload implements IMessage {
         this.category = category == null ? "" : category; this.sort = sort;
         this.ascending = ascending; this.pageSize = pageSize;
         this.pinyinSearchEnabled = pinyinSearchEnabled;
-        this.localizedSearchMatches = immutableStrings(matches);
+        this.localizedSearchMatches = limitLocalizedSearchMatches(matches);
     }
 
     @Override public void fromBytes(ByteBuf b) {
@@ -70,6 +70,13 @@ public final class C2SRtsRequestStoragePagePayload implements IMessage {
     private static List<String> immutableStrings(List<String> values) {
         if (values == null || values.isEmpty()) return Collections.emptyList();
         return Collections.unmodifiableList(new ArrayList<String>(values));
+    }
+
+    /** 在编码前截断本地化搜索候选，避免一次按键刷新制造超限网络包。 */
+    public static List<String> limitLocalizedSearchMatches(List<String> values) {
+        if (values == null || values.isEmpty()) return Collections.emptyList();
+        int end = Math.min(values.size(), MAX_LOCALIZED_SEARCH_MATCHES);
+        return immutableStrings(values.subList(0, end));
     }
 
     public int page(){return page;} public String search(){return search;}

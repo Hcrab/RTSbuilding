@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetManifest;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -387,13 +387,13 @@ class TaskPersistenceCoordinatorTest {
             TaskSnapshot snapshot = assetTask(TaskLifecycleState.QUEUED);
             if (first == null) first = snapshot;
             TaskAssetMetadata metadata = new TaskAssetMetadata(
-                    new TaskAssetId(snapshot.payloadView().getUUID("asset_id")), snapshot.id(),
+                    new TaskAssetId(snapshot.payloadView().getUniqueId("asset_id")), snapshot.id(),
                     "blueprint", "e".repeat(64), slice, 1L);
             coordinator.reserveVerifiedAssetAdmission(snapshot, metadata);
         }
         TaskSnapshot overflow = assetTask(TaskLifecycleState.QUEUED);
         TaskAssetMetadata overflowMetadata = new TaskAssetMetadata(
-                new TaskAssetId(overflow.payloadView().getUUID("asset_id")), overflow.id(),
+                new TaskAssetId(overflow.payloadView().getUniqueId("asset_id")), overflow.id(),
                 "blueprint", "f".repeat(64), 1L, 1L);
 
         assertThrows(IllegalArgumentException.class,
@@ -418,7 +418,7 @@ class TaskPersistenceCoordinatorTest {
                 snapshot.type(), snapshot.state(), snapshot.workflowEntryId(), snapshot.waitKey(),
                 snapshot.revision() + 1L, snapshot.createdGameTime(), snapshot.updatedGameTime() + 1L,
                 snapshot.totalUnits(), snapshot.cursorUnits(), snapshot.succeededUnits(),
-                snapshot.failedUnits(), snapshot.payload()), new CompoundTag());
+                snapshot.failedUnits(), snapshot.payload()), new NBTTagCompound());
 
         assertThrows(IllegalArgumentException.class, () -> coordinator.replace(detached));
 
@@ -439,13 +439,13 @@ class TaskPersistenceCoordinatorTest {
                 state, null, 1L, "minecraft:overworld");
     }
 
-    private static CompoundTag bytePayload(int bytes) {
-        CompoundTag payload = new CompoundTag();
-        payload.putByteArray("blob", new byte[bytes]);
+    private static NBTTagCompound bytePayload(int bytes) {
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setByteArray("blob", new byte[bytes]);
         return payload;
     }
 
-    private static TaskSnapshot withPayload(TaskSnapshot source, CompoundTag payload) {
+    private static TaskSnapshot withPayload(TaskSnapshot source, NBTTagCompound payload) {
         return new TaskSnapshot(source.id(), source.submissionId(), source.ownerId(), source.dimensionId(),
                 source.type(), source.state(), source.workflowEntryId(), source.waitKey(), source.revision(),
                 source.createdGameTime(), source.updatedGameTime(), source.totalUnits(), source.cursorUnits(),
@@ -459,8 +459,8 @@ class TaskPersistenceCoordinatorTest {
     private static TaskSnapshot assetTask(TaskLifecycleState state, int workflowEntryId) {
         TaskId taskId = TaskId.create();
         TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");
-        CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", assetId.value());
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setUniqueId("asset_id", assetId.value());
         int cursor = state.terminal() ? 1 : 0;
         return new TaskSnapshot(taskId, SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 TaskType.BLUEPRINT, state, workflowEntryId, null, 1L, 0L, 0L,
@@ -469,15 +469,15 @@ class TaskPersistenceCoordinatorTest {
 
     private static TaskSnapshot normalTaskWithIdentity(TaskId id, SubmissionId submissionId,
             UUID ownerId, int workflowEntryId, String dimensionId) {
-        CompoundTag payload = new CompoundTag();
-        payload.putString("plan_ref", "reservation-conflict");
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setString("plan_ref", "reservation-conflict");
         return new TaskSnapshot(id, submissionId, ownerId, dimensionId, TaskType.PLACEMENT,
                 TaskLifecycleState.QUEUED, workflowEntryId, null, 1L, 0L, 0L,
                 1, 0, 0, 0, payload);
     }
 
     private static TaskAssetMetadata metadata(TaskSnapshot task) {
-        TaskAssetId assetId = new TaskAssetId(task.payload().getUUID("asset_id"));
+        TaskAssetId assetId = new TaskAssetId(task.payload().getUniqueId("asset_id"));
         return new TaskAssetMetadata(assetId, task.id(), "blueprint", "a".repeat(64), 512L, 4_096L);
     }
 

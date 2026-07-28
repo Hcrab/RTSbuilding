@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,9 +12,9 @@ class ShapeSelectionLimiterTest {
     void rectilinearSelectionIsShrunkBeforeGeometryWhenVolumeIsTooLarge() {
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.BOX,
-                Direction.UP,
-                Direction.UP,
-                BlockPos.ZERO,
+                EnumFacing.UP,
+                EnumFacing.UP,
+                BlockPos.ORIGIN,
                 new BlockPos(255, 0, 255),
                 255,
                 false);
@@ -29,9 +29,9 @@ class ShapeSelectionLimiterTest {
     void centeredRoundSelectionNeverExceedsConfiguredAxisLength() {
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.CIRCLE,
-                Direction.UP,
-                Direction.UP,
-                BlockPos.ZERO,
+                EnumFacing.UP,
+                EnumFacing.UP,
+                BlockPos.ORIGIN,
                 new BlockPos(100, 0, 0),
                 0,
                 false);

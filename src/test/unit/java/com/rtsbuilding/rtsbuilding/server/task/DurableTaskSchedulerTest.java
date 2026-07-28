@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskRepository;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -106,7 +106,7 @@ class DurableTaskSchedulerTest {
         SubmissionId submission = SubmissionId.create();
         return new TaskSnapshot(TaskId.fromSubmission(owner, submission), submission, owner,
                 "minecraft:overworld", TaskType.PLACEMENT, TaskLifecycleState.QUEUED,
-                -1, null, 1L, 0L, 0L, 1, 0, 0, 0, new CompoundTag());
+                -1, null, 1L, 0L, 0L, 1, 0, 0, 0, new NBTTagCompound());
     }
 
     private static final class MissingRepository implements TaskRepository {

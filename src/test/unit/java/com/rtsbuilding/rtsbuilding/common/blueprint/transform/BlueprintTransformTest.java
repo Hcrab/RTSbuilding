@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.transform;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Vec3i;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -36,8 +36,8 @@ class BlueprintTransformTest {
 
     @Test
     void invalidCenterOffsetFallsBackToZero() {
-        assertEquals(BlockPos.ZERO, BlueprintTransform.centerRotationOffset(Vec3i.ZERO, 1, 1, 1));
-        assertEquals(BlockPos.ZERO, BlueprintTransform.centerRotationOffset(new Vec3i(3, -1, 2), 1, 1, 1));
+        assertEquals(BlockPos.ORIGIN, BlueprintTransform.centerRotationOffset(Vec3i.NULL_VECTOR, 1, 1, 1));
+        assertEquals(BlockPos.ORIGIN, BlueprintTransform.centerRotationOffset(new Vec3i(3, -1, 2), 1, 1, 1));
     }
 
     private static Bounds boundsAfterRotation(Vec3i size, int ySteps, int xSteps, int zSteps) {

@@ -2,10 +2,9 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -36,13 +35,13 @@ class RtsEndpointLeaseCacheTest {
         IItemHandler first = mock(IItemHandler.class);
         IItemHandler second = mock(IItemHandler.class);
 
-        IItemHandler a = cache.resolveItem(playerId, Level.OVERWORLD,
-                BlockPos.ZERO, null, firstBlockEntity, () -> {
+        IItemHandler a = cache.resolveItem(playerId, 0,
+                BlockPos.ORIGIN, null, firstBlockEntity, () -> {
                     resolves.incrementAndGet();
                     return first;
                 });
-        IItemHandler b = cache.resolveItem(playerId, Level.OVERWORLD,
-                BlockPos.ZERO, null, firstBlockEntity, () -> {
+        IItemHandler b = cache.resolveItem(playerId, 0,
+                BlockPos.ORIGIN, null, firstBlockEntity, () -> {
                     resolves.incrementAndGet();
                     return second;
                 });
@@ -50,8 +49,8 @@ class RtsEndpointLeaseCacheTest {
         assertSame(a, b);
         assertEquals(1, resolves.get());
 
-        IItemHandler c = cache.resolveItem(playerId, Level.OVERWORLD,
-                BlockPos.ZERO, null, new Object(), () -> {
+        IItemHandler c = cache.resolveItem(playerId, 0,
+                BlockPos.ORIGIN, null, new Object(), () -> {
                     resolves.incrementAndGet();
                     return second;
                 });
@@ -73,7 +72,7 @@ class RtsEndpointLeaseCacheTest {
         });
 
         try {
-            ownedCache.resolveItem(playerId, Level.OVERWORLD, BlockPos.ZERO,
+            ownedCache.resolveItem(playerId, 0, BlockPos.ORIGIN,
                     null, new Object(), () -> handler);
             RtsStorageTickService.INSTANCE.registerPlayer(playerId, List.of(handler));
 
@@ -100,13 +99,13 @@ class RtsEndpointLeaseCacheTest {
         });
 
         try {
-            IItemHandler first = ownedCache.resolveItem(playerId, Level.OVERWORLD, BlockPos.ZERO,
+            IItemHandler first = ownedCache.resolveItem(playerId, 0, BlockPos.ORIGIN,
                     null, endpointIdentity, () -> handler);
             RtsStorageTickService.INSTANCE.registerPlayer(playerId, List.of(handler));
 
             // 模拟页面解析暂时得到空 Handler 列表：只清快照，端点租约仍应保持可复用。
             RtsStorageTickService.INSTANCE.unregisterPlayer(playerId);
-            IItemHandler reused = ownedCache.resolveItem(playerId, Level.OVERWORLD, BlockPos.ZERO,
+            IItemHandler reused = ownedCache.resolveItem(playerId, 0, BlockPos.ORIGIN,
                     null, endpointIdentity, () -> new ReleasableHandler());
 
             assertSame(first, reused);

@@ -21,6 +21,11 @@ public final class NbtCompat {
         return tag.hasUniqueId(key);
     }
 
+    /** 判断 UUID 字段是否被声明过，包括缺半边或错误类型等损坏形态。 */
+    public static boolean containsUuidField(NBTTagCompound tag, String key) {
+        return tag.hasKey(key) || tag.hasKey(key + "Most") || tag.hasKey(key + "Least");
+    }
+
     public static UUID getUuid(NBTTagCompound tag, String key) {
         return tag.getUniqueId(key);
     }

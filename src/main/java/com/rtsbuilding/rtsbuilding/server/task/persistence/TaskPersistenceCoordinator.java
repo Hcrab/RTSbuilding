@@ -816,7 +816,7 @@ public final class TaskPersistenceCoordinator {
     }
 
     private static Optional<TaskAssetId> snapshotAssetId(TaskSnapshot snapshot) {
-        if (!snapshot.payloadView().hasKey("asset_id")) return Optional.empty();
+        if (!NbtCompat.containsUuidField(snapshot.payloadView(), "asset_id")) return Optional.empty();
         if (!NbtCompat.hasUuid(snapshot.payloadView(), "asset_id")) {
             throw new IllegalArgumentException("payload.asset_id 必须是 UUID int-array");
         }

@@ -67,6 +67,11 @@ final class FtbTeamReflection {
 
     String teamLabel(Object team) throws ReflectiveOperationException {
         Object title = team == null ? null : this.teamGetTitleMethod.invoke(team);
+        return plainTeamLabel(title);
+    }
+
+    /** 把 FTB Legacy 队伍标题压平为玩家可见文本，不把样式调试结构写入队伍标签。 */
+    static String plainTeamLabel(Object title) throws ReflectiveOperationException {
         if (title == null) {
             return "";
         }

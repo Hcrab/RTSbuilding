@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -21,19 +21,19 @@ class RtsCullingWorldInputTest {
 
         boolean handled = RtsCullingWorldInput.handleWorldAction(manager, new RtsCullingWorldInput.Cursor() {
             @Override
-            public Vec3 currentRayOrigin() {
-                return new Vec3(0.0D, 64.0D, 0.0D);
+            public Vec3d currentRayOrigin() {
+                return new Vec3d(0.0D, 64.0D, 0.0D);
             }
 
             @Override
-            public Vec3 computeCursorRayDirection() {
-                return new Vec3(1.0D, 0.0D, 1.0D).normalize();
+            public Vec3d computeCursorRayDirection() {
+                return new Vec3d(1.0D, 0.0D, 1.0D).normalize();
             }
 
             @Override
-            public BlockHitResult pickCullingAwareBlockHit() {
+            public RayTraceResult pickCullingAwareBlockHit() {
                 pickedCullingAwareHit.set(true);
-                return new BlockHitResult(Vec3.atCenterOf(firstPoint), Direction.UP, firstPoint, false);
+                return new RayTraceResult(new Vec3d(firstPoint).add(0.5D, 0.5D, 0.5D), EnumFacing.UP, firstPoint);
             }
         });
 

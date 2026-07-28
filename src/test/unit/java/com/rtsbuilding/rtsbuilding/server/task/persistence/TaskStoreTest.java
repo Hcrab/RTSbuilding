@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
@@ -99,8 +99,8 @@ class TaskStoreTest {
 
     static TaskSnapshot snapshot(TaskId id, SubmissionId submission, UUID owner, int workflow,
             TaskLifecycleState state, TaskWaitKey waitKey, long revision, String dimension) {
-        CompoundTag payload = new CompoundTag();
-        payload.putString("plan_ref", "fixture-plan");
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setString("plan_ref", "fixture-plan");
         return new TaskSnapshot(id, submission, owner, dimension, TaskType.PLACEMENT,
                 state, workflow, waitKey, revision, 10L, 10L + revision,
                 20, 2, 2, 0, payload);

@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ class RangeDestroySelectionLimiterTest {
         BlockPos anchor = new BlockPos(3, 3, 3);
         RtsCullingBox source = new RtsCullingBox(
                 7,
-                BlockPos.ZERO,
+                BlockPos.ORIGIN,
                 new BlockPos(9, 9, 9));
 
         RtsCullingBox limited =
@@ -45,8 +45,8 @@ class RangeDestroySelectionLimiterTest {
                 new RangeDestroySelectionLimiter.Limits(3, 2, 2, 12);
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.BOX,
-                Direction.UP,
-                Direction.UP,
+                EnumFacing.UP,
+                EnumFacing.UP,
                 new BlockPos(2, 1, 1),
                 new BlockPos(5, 3, 3),
                 2,
@@ -75,7 +75,7 @@ class RangeDestroySelectionLimiterTest {
     void roundPositionsStayUnchangedWhenEnvelopeAlreadyFits() {
         List<BlockPos> positions = List.of(
                 new BlockPos(-1, 0, 0),
-                BlockPos.ZERO,
+                BlockPos.ORIGIN,
                 new BlockPos(1, 0, 0));
         RangeDestroySelectionLimiter.Limits limits =
                 new RangeDestroySelectionLimiter.Limits(3, 1, 1, 3);
@@ -100,7 +100,7 @@ class RangeDestroySelectionLimiterTest {
         assertEquals(1, limits.maxDepth());
         assertEquals(1, limits.maxVolume());
         assertFalse(RangeDestroySelectionLimiter.contains(null, limits));
-        assertNull(RangeDestroySelectionLimiter.clampBox(null, BlockPos.ZERO, limits));
+        assertNull(RangeDestroySelectionLimiter.clampBox(null, BlockPos.ORIGIN, limits));
         assertEquals(List.of(), RangeDestroySelectionLimiter.clampPositions(
                 null,
                 null,

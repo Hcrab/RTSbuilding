@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -28,7 +29,7 @@ final class SkeletonEdgeInspector {
         try {
             ShapeDataRecords.GhostPreview preview = new ShapeDataRecords.GhostPreview(
                     blocks, true, true, List.of(), true, true);
-            Object skeleton = BUILD_MERGED_SKELETON.invoke(null, preview, 1);
+            Object skeleton = BUILD_MERGED_SKELETON.invoke(null, preview);
             return edgeSet(skeleton);
         } catch (ReflectiveOperationException e) {
             throw new AssertionError("Unable to inspect merged skeleton geometry", e);
@@ -53,12 +54,8 @@ final class SkeletonEdgeInspector {
     }
 
     private static Set<SkeletonEdgeKey> edgeSet(Object skeleton) throws ReflectiveOperationException {
-        Method edgesMethod = skeleton.getClass().getDeclaredMethod("edges");
-        edgesMethod.setAccessible(true);
-
         @SuppressWarnings("unchecked")
-        List<UltimineBlockMerger.EdgeLine> lines =
-                (List<UltimineBlockMerger.EdgeLine>) edgesMethod.invoke(skeleton);
+        List<UltimineBlockMerger.EdgeLine> lines = (List<UltimineBlockMerger.EdgeLine>) readEdges(skeleton);
 
         Set<SkeletonEdgeKey> result = new HashSet<>(lines.size() * 2);
         for (UltimineBlockMerger.EdgeLine line : lines) {
@@ -67,10 +64,22 @@ final class SkeletonEdgeInspector {
         return result;
     }
 
+    private static Object readEdges(Object skeleton) throws ReflectiveOperationException {
+        try {
+            Method edgesMethod = skeleton.getClass().getDeclaredMethod("edges");
+            edgesMethod.setAccessible(true);
+            return edgesMethod.invoke(skeleton);
+        } catch (NoSuchMethodException ignored) {
+            Field edgesField = skeleton.getClass().getDeclaredField("edges");
+            edgesField.setAccessible(true);
+            return edgesField.get(skeleton);
+        }
+    }
+
     private static Method findBuildMergedSkeleton() {
         try {
             Method method = MergedSkeletonRenderer.class.getDeclaredMethod(
-                    "buildMergedSkeleton", ShapeDataRecords.GhostPreview.class, int.class);
+                    "build", ShapeDataRecords.GhostPreview.class);
             method.setAccessible(true);
             return method;
         } catch (ReflectiveOperationException e) {

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.*;
 
@@ -61,7 +61,7 @@ final class SkeletonTickSequenceOracle {
             this.remainingKeys = new HashSet<>(blocks.size() * 2);
             for (BlockPos pos : blocks) {
                 if (pos != null) {
-                    this.remainingKeys.add(pos.asLong());
+                    this.remainingKeys.add(pos.toLong());
                 }
             }
         }
@@ -75,15 +75,15 @@ final class SkeletonTickSequenceOracle {
         }
 
         boolean contains(BlockPos pos) {
-            return pos != null && this.remainingKeys.contains(pos.asLong());
+            return pos != null && this.remainingKeys.contains(pos.toLong());
         }
 
         void applyTick(List<BlockPos> destroyedThisTick) {
             for (BlockPos pos : destroyedThisTick) {
-                if (pos == null || !this.remainingKeys.contains(pos.asLong())) {
+                if (pos == null || !this.remainingKeys.contains(pos.toLong())) {
                     continue;
                 }
-                if (this.remainingKeys.remove(pos.asLong())) {
+                if (this.remainingKeys.remove(pos.toLong())) {
                     this.destroyed++;
                 }
             }
@@ -107,7 +107,7 @@ final class SkeletonTickSequenceOracle {
             List<BlockPos> blocks = new ArrayList<>(this.remainingKeys.size());
             for (Long key : this.remainingKeys) {
                 if (key != null) {
-                    blocks.add(BlockPos.of(key));
+                    blocks.add(BlockPos.fromLong(key));
                 }
             }
             return blocks;
@@ -116,12 +116,12 @@ final class SkeletonTickSequenceOracle {
 
     private static void addBlockSurfaceContributions(Map<EdgeKey, EdgeAccumulator> edges, int x, int y, int z,
             Set<Long> blockKeys) {
-        if (!blockKeys.contains(BlockPos.asLong(x + 1, y, z))) addFaceEdges(edges, x, y, z, FaceSide.EAST);
-        if (!blockKeys.contains(BlockPos.asLong(x - 1, y, z))) addFaceEdges(edges, x, y, z, FaceSide.WEST);
-        if (!blockKeys.contains(BlockPos.asLong(x, y + 1, z))) addFaceEdges(edges, x, y, z, FaceSide.UP);
-        if (!blockKeys.contains(BlockPos.asLong(x, y - 1, z))) addFaceEdges(edges, x, y, z, FaceSide.DOWN);
-        if (!blockKeys.contains(BlockPos.asLong(x, y, z + 1))) addFaceEdges(edges, x, y, z, FaceSide.SOUTH);
-        if (!blockKeys.contains(BlockPos.asLong(x, y, z - 1))) addFaceEdges(edges, x, y, z, FaceSide.NORTH);
+        if (!blockKeys.contains(new BlockPos(x + 1, y, z).toLong())) addFaceEdges(edges, x, y, z, FaceSide.EAST);
+        if (!blockKeys.contains(new BlockPos(x - 1, y, z).toLong())) addFaceEdges(edges, x, y, z, FaceSide.WEST);
+        if (!blockKeys.contains(new BlockPos(x, y + 1, z).toLong())) addFaceEdges(edges, x, y, z, FaceSide.UP);
+        if (!blockKeys.contains(new BlockPos(x, y - 1, z).toLong())) addFaceEdges(edges, x, y, z, FaceSide.DOWN);
+        if (!blockKeys.contains(new BlockPos(x, y, z + 1).toLong())) addFaceEdges(edges, x, y, z, FaceSide.SOUTH);
+        if (!blockKeys.contains(new BlockPos(x, y, z - 1).toLong())) addFaceEdges(edges, x, y, z, FaceSide.NORTH);
     }
 
     private static void removeBlockSurfaceContributions(Map<EdgeKey, EdgeAccumulator> edges, BlockPos pos,
@@ -129,12 +129,12 @@ final class SkeletonTickSequenceOracle {
         int x = pos.getX();
         int y = pos.getY();
         int z = pos.getZ();
-        if (!blockKeys.contains(BlockPos.asLong(x + 1, y, z))) removeFaceEdges(edges, x, y, z, FaceSide.EAST);
-        if (!blockKeys.contains(BlockPos.asLong(x - 1, y, z))) removeFaceEdges(edges, x, y, z, FaceSide.WEST);
-        if (!blockKeys.contains(BlockPos.asLong(x, y + 1, z))) removeFaceEdges(edges, x, y, z, FaceSide.UP);
-        if (!blockKeys.contains(BlockPos.asLong(x, y - 1, z))) removeFaceEdges(edges, x, y, z, FaceSide.DOWN);
-        if (!blockKeys.contains(BlockPos.asLong(x, y, z + 1))) removeFaceEdges(edges, x, y, z, FaceSide.SOUTH);
-        if (!blockKeys.contains(BlockPos.asLong(x, y, z - 1))) removeFaceEdges(edges, x, y, z, FaceSide.NORTH);
+        if (!blockKeys.contains(new BlockPos(x + 1, y, z).toLong())) removeFaceEdges(edges, x, y, z, FaceSide.EAST);
+        if (!blockKeys.contains(new BlockPos(x - 1, y, z).toLong())) removeFaceEdges(edges, x, y, z, FaceSide.WEST);
+        if (!blockKeys.contains(new BlockPos(x, y + 1, z).toLong())) removeFaceEdges(edges, x, y, z, FaceSide.UP);
+        if (!blockKeys.contains(new BlockPos(x, y - 1, z).toLong())) removeFaceEdges(edges, x, y, z, FaceSide.DOWN);
+        if (!blockKeys.contains(new BlockPos(x, y, z + 1).toLong())) removeFaceEdges(edges, x, y, z, FaceSide.SOUTH);
+        if (!blockKeys.contains(new BlockPos(x, y, z - 1).toLong())) removeFaceEdges(edges, x, y, z, FaceSide.NORTH);
     }
 
     private static void addFaceEdges(Map<EdgeKey, EdgeAccumulator> edges, int x, int y, int z, FaceSide side) {

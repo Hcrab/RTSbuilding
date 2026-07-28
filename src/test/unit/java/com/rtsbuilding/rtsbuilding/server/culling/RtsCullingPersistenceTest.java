@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.culling;
 
 import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingBoxSnapshot;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,13 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RtsCullingPersistenceTest {
     @Test
     void savesAndDimensionsKeepIndependentCullingRecords() {
-        CompoundTag saveA = new CompoundTag();
-        CompoundTag saveB = new CompoundTag();
+        NBTTagCompound saveA = new NBTTagCompound();
+        NBTTagCompound saveB = new NBTTagCompound();
         RtsCullingBoxSnapshot overworldA = box(1, 64, 1);
         RtsCullingBoxSnapshot netherA = box(2, 70, 2);
         RtsCullingBoxSnapshot overworldB = box(99, 80, 99);
 
-        RtsCullingPersistence.encode(saveA, "minecraft:overworld", List.of(overworldA), List.of(BlockPos.ZERO));
+        RtsCullingPersistence.encode(saveA, "minecraft:overworld", List.of(overworldA), List.of(BlockPos.ORIGIN));
         RtsCullingPersistence.encode(saveA, "minecraft:the_nether", List.of(netherA), List.of());
         RtsCullingPersistence.encode(saveB, "minecraft:overworld", List.of(overworldB), List.of());
 
@@ -30,7 +30,7 @@ class RtsCullingPersistenceTest {
         assertEquals(List.of(overworldB),
                 RtsCullingPersistence.decode(saveB, "minecraft:overworld").boxes());
         assertTrue(RtsCullingPersistence.decode(saveB, "minecraft:the_nether").boxes().isEmpty());
-        assertEquals(List.of(BlockPos.ZERO),
+        assertEquals(List.of(BlockPos.ORIGIN),
                 RtsCullingPersistence.decode(saveA, "minecraft:overworld").revealed());
     }
 

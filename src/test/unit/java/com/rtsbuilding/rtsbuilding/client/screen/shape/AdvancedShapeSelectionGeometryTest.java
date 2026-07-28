@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -16,7 +16,7 @@ class AdvancedShapeSelectionGeometryTest {
     void circleStartsFromCenteredPlaneRadius() {
         ShapeBuildTypes.Session session = session(
                 BuildShape.CIRCLE,
-                Direction.UP,
+                EnumFacing.UP,
                 new BlockPos(10, 64, 10),
                 new BlockPos(13, 64, 14),
                 0);
@@ -31,7 +31,7 @@ class AdvancedShapeSelectionGeometryTest {
     void cylinderUsesPlaneNormalForHeightAndRoundTripsThroughSession() {
         ShapeBuildTypes.Session session = session(
                 BuildShape.CYLINDER,
-                Direction.EAST,
+                EnumFacing.EAST,
                 new BlockPos(10, 64, 10),
                 new BlockPos(10, 67, 14),
                 2);
@@ -53,7 +53,7 @@ class AdvancedShapeSelectionGeometryTest {
     void ballStartsFromCenteredSpatialRadius() {
         ShapeBuildTypes.Session session = session(
                 BuildShape.BALL,
-                Direction.UP,
+                EnumFacing.UP,
                 new BlockPos(10, 64, 10),
                 new BlockPos(13, 68, 10),
                 0);
@@ -68,7 +68,7 @@ class AdvancedShapeSelectionGeometryTest {
     void rectilinearSessionKeepsVerticalHeightAndMouseReference() {
         ShapeBuildTypes.Session previous = session(
                 BuildShape.BOX,
-                Direction.UP,
+                EnumFacing.UP,
                 new BlockPos(2, 8, 4),
                 new BlockPos(6, 8, 9),
                 3);
@@ -115,14 +115,14 @@ class AdvancedShapeSelectionGeometryTest {
 
     private static ShapeBuildTypes.Session session(
             BuildShape shape,
-            Direction planeFace,
+            EnumFacing planeFace,
             BlockPos pointA,
             BlockPos pointB,
             int heightOffset) {
         return new ShapeBuildTypes.Session(
                 shape,
                 planeFace,
-                Direction.UP,
+                EnumFacing.UP,
                 pointA,
                 pointB,
                 ShapeBuildTypes.Phase.READY_CONFIRM,

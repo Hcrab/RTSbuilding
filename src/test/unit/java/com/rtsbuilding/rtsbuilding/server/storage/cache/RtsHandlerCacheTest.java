@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;

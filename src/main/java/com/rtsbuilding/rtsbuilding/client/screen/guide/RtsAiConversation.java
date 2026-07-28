@@ -46,7 +46,7 @@ public final class RtsAiConversation {
     public static final class Exchange {
         private final String question;
         private final String answer;
-        private Exchange(String question, String answer) {
+        public Exchange(String question, String answer) {
             this.question = question;
             this.answer = answer;
         }

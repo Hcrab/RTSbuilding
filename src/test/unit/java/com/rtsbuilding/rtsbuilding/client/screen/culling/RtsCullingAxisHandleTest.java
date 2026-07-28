@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.Vec3d;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -19,17 +19,17 @@ class RtsCullingAxisHandleTest {
                 new BlockPos(10, 64, 10),
                 new BlockPos(12, 66, 14));
 
-        Set<Direction> directions = RtsCullingAxisHandle.handles(box).stream()
+        Set<EnumFacing> directions = RtsCullingAxisHandle.handles(box).stream()
                 .map(RtsCullingAxisHandle.Handle::direction)
                 .collect(Collectors.toSet());
 
         assertEquals(Set.of(
-                Direction.EAST,
-                Direction.WEST,
-                Direction.UP,
-                Direction.DOWN,
-                Direction.SOUTH,
-                Direction.NORTH), directions);
+                EnumFacing.EAST,
+                EnumFacing.WEST,
+                EnumFacing.UP,
+                EnumFacing.DOWN,
+                EnumFacing.SOUTH,
+                EnumFacing.NORTH), directions);
     }
 
     @Test
@@ -39,20 +39,20 @@ class RtsCullingAxisHandleTest {
                 new BlockPos(10, 64, 10),
                 new BlockPos(12, 66, 14));
 
-        assertEquals(Direction.WEST, RtsCullingAxisHandle.nearestHit(
+        assertEquals(EnumFacing.WEST, RtsCullingAxisHandle.nearestHit(
                 box,
-                new Vec3(8.0D, 65.5D, 12.5D),
-                new Vec3(1.0D, 0.0D, 0.0D),
+                new Vec3d(8.0D, 65.5D, 12.5D),
+                new Vec3d(1.0D, 0.0D, 0.0D),
                 8.0D).orElseThrow().direction());
-        assertEquals(Direction.NORTH, RtsCullingAxisHandle.nearestHit(
+        assertEquals(EnumFacing.NORTH, RtsCullingAxisHandle.nearestHit(
                 box,
-                new Vec3(11.5D, 65.5D, 8.0D),
-                new Vec3(0.0D, 0.0D, 1.0D),
+                new Vec3d(11.5D, 65.5D, 8.0D),
+                new Vec3d(0.0D, 0.0D, 1.0D),
                 8.0D).orElseThrow().direction());
-        assertEquals(Direction.DOWN, RtsCullingAxisHandle.nearestHit(
+        assertEquals(EnumFacing.DOWN, RtsCullingAxisHandle.nearestHit(
                 box,
-                new Vec3(11.5D, 62.0D, 12.5D),
-                new Vec3(0.0D, 1.0D, 0.0D),
+                new Vec3d(11.5D, 62.0D, 12.5D),
+                new Vec3d(0.0D, 1.0D, 0.0D),
                 8.0D).orElseThrow().direction());
     }
 
@@ -62,17 +62,17 @@ class RtsCullingAxisHandleTest {
                 1,
                 new BlockPos(10, 64, 10),
                 new BlockPos(12, 66, 14));
-        Set<Direction> allowed = Set.of(Direction.EAST, Direction.WEST);
+        Set<EnumFacing> allowed = Set.of(EnumFacing.EAST, EnumFacing.WEST);
 
-        Set<Direction> directions = RtsCullingAxisHandle.handles(box.asAabb(), allowed).stream()
+        Set<EnumFacing> directions = RtsCullingAxisHandle.handles(box.asAabb(), allowed).stream()
                 .map(RtsCullingAxisHandle.Handle::direction)
                 .collect(Collectors.toSet());
 
         assertEquals(allowed, directions);
         assertTrue(RtsCullingAxisHandle.nearestHit(
                 box,
-                new Vec3(11.5D, 68.0D, 12.5D),
-                new Vec3(0.0D, -1.0D, 0.0D),
+                new Vec3d(11.5D, 68.0D, 12.5D),
+                new Vec3d(0.0D, -1.0D, 0.0D),
                 8.0D,
                 allowed).isEmpty());
     }

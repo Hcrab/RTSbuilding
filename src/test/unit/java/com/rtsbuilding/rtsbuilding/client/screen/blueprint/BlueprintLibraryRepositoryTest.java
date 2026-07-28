@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
-import net.minecraft.core.Vec3i;
+import net.minecraft.util.math.Vec3i;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -61,7 +61,7 @@ class BlueprintLibraryRepositoryTest {
                 name,
                 name + ".nbt",
                 BlueprintFormat.VANILLA_NBT,
-                Vec3i.ZERO,
+                Vec3i.NULL_VECTOR,
                 List.of());
     }
 }

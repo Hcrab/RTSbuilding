@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;

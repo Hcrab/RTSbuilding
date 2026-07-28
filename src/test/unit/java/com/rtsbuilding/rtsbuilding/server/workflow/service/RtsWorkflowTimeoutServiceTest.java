@@ -5,10 +5,8 @@ import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -59,8 +57,8 @@ class RtsWorkflowTimeoutServiceTest {
 
         assertEquals(List.of(WorkflowEventType.TIMEOUT), eventTypes(fixture.events));
         assertEquals(-1, fixture.slots.findIndexByEntryId(12));
-        assertEquals(List.of(new DirtyMark(fixture.playerId, Level.OVERWORLD)), fixture.dirtyMarks);
-        assertEquals(List.of(new CancelMark(fixture.playerId, Level.OVERWORLD, 12)),
+        assertEquals(List.of(new DirtyMark(fixture.playerId, 0)), fixture.dirtyMarks);
+        assertEquals(List.of(new CancelMark(fixture.playerId, 0, 12)),
                 fixture.cancelMarks);
     }
 
@@ -162,8 +160,8 @@ class RtsWorkflowTimeoutServiceTest {
             boolean taskBacked) {
         UUID playerId = UUID.randomUUID();
         RtsWorkflowSlotManager slots = staleSlots(entryId, terminal);
-        Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> allSlots = new HashMap<>();
-        allSlots.put(playerId, new HashMap<>(Map.of(Level.OVERWORLD, slots)));
+        Map<UUID, Map<Integer, RtsWorkflowSlotManager>> allSlots = new HashMap<>();
+        allSlots.put(playerId, new HashMap<>(Map.of(0, slots)));
 
         RtsWorkflowEventBus eventBus = new RtsWorkflowEventBus();
         List<WorkflowEvent> events = new ArrayList<>();
@@ -188,20 +186,20 @@ class RtsWorkflowTimeoutServiceTest {
     }
 
     private static RtsWorkflowSlotManager staleSlots(int entryId, boolean terminal) {
-        CompoundTag entry = new CompoundTag();
-        entry.putInt("id", entryId);
-        entry.putString("type", RtsWorkflowType.PLACE_BATCH.name());
-        entry.putInt("priority", RtsWorkflowPriority.NORMAL.rank());
-        entry.putInt("total_blocks", 1);
-        entry.putLong("created_at", 0L);
-        entry.putLong("last_updated_at", 0L);
-        entry.putBoolean("terminal", terminal);
+        NBTTagCompound entry = new NBTTagCompound();
+        entry.setInteger("id", entryId);
+        entry.setString("type", RtsWorkflowType.PLACE_BATCH.name());
+        entry.setInteger("priority", RtsWorkflowPriority.NORMAL.rank());
+        entry.setInteger("total_blocks", 1);
+        entry.setLong("created_at", 0L);
+        entry.setLong("last_updated_at", 0L);
+        entry.setBoolean("terminal", terminal);
 
-        ListTag entries = new ListTag();
-        entries.add(entry);
-        CompoundTag root = new CompoundTag();
-        root.putInt("next_id", entryId + 1);
-        root.put("entries", entries);
+        NBTTagList entries = new NBTTagList();
+        entries.appendTag(entry);
+        NBTTagCompound root = new NBTTagCompound();
+        root.setInteger("next_id", entryId + 1);
+        root.setTag("entries", entries);
         return RtsWorkflowSlotManager.loadFromNbt(root);
     }
 
@@ -209,10 +207,10 @@ class RtsWorkflowTimeoutServiceTest {
         return events.stream().map(WorkflowEvent::type).toList();
     }
 
-    private record DirtyMark(UUID playerId, ResourceKey<Level> dimension) {
+    private record DirtyMark(UUID playerId, int dimension) {
     }
 
-    private record CancelMark(UUID playerId, ResourceKey<Level> dimension, int entryId) {
+    private record CancelMark(UUID playerId, int dimension, int entryId) {
     }
 
     private record Fixture(

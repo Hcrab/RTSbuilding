@@ -6,8 +6,9 @@ import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetManifest;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.util.Constants;
+import net.minecraft.nbt.NBTBase;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -50,38 +51,38 @@ class TaskCodecTest {
                 Map.of(taskId, task), Map.of(), Set.of(),
                 new TaskAssetManifest(Map.of(assetId, metadata)));
 
-        CompoundTag encoded = codec.encodeImage(source);
+        NBTTagCompound encoded = codec.encodeImage(source);
         TaskRepository.Image decoded = codec.decodeImage(encoded);
 
-        assertEquals(TaskCodec.CURRENT_SCHEMA, encoded.getInt("schema"));
-        assertTrue(encoded.contains("assets", Tag.TAG_LIST));
+        assertEquals(TaskCodec.CURRENT_SCHEMA, encoded.getInteger("schema"));
+        assertTrue(NbtCompat.hasType(encoded, "assets", Constants.NBT.TAG_LIST));
         assertEquals(source, decoded);
     }
 
     @Test
     void schemaV1ExplicitlyLoadsWithEmptyManifestButV2RequiresAssets() {
-        CompoundTag legacy = codec.encodeImage(TaskRepository.Image.empty());
-        legacy.putInt("schema", TaskCodec.LEGACY_SCHEMA);
-        legacy.remove("assets");
+        NBTTagCompound legacy = codec.encodeImage(TaskRepository.Image.empty());
+        legacy.setInteger("schema", TaskCodec.LEGACY_SCHEMA);
+        legacy.removeTag("assets");
 
         TaskRepository.Image decodedLegacy = codec.decodeImage(legacy);
 
         assertTrue(decodedLegacy.assets().entries().isEmpty());
-        assertEquals(TaskCodec.CURRENT_SCHEMA, codec.encodeImage(decodedLegacy).getInt("schema"));
+        assertEquals(TaskCodec.CURRENT_SCHEMA, codec.encodeImage(decodedLegacy).getInteger("schema"));
 
-        CompoundTag missingV2Assets = codec.encodeImage(TaskRepository.Image.empty());
-        missingV2Assets.remove("assets");
+        NBTTagCompound missingV2Assets = codec.encodeImage(TaskRepository.Image.empty());
+        missingV2Assets.removeTag("assets");
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(missingV2Assets));
     }
 
     @Test
     void unknownSchemaUnknownRootFieldAndCrossRecordAssetMismatchFailClosed() {
-        CompoundTag unknownSchema = codec.encodeImage(TaskRepository.Image.empty());
-        unknownSchema.putInt("schema", TaskCodec.CURRENT_SCHEMA + 1);
+        NBTTagCompound unknownSchema = codec.encodeImage(TaskRepository.Image.empty());
+        unknownSchema.setInteger("schema", TaskCodec.CURRENT_SCHEMA + 1);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(unknownSchema));
 
-        CompoundTag unknownField = codec.encodeImage(TaskRepository.Image.empty());
-        unknownField.putInt("queue_sequence", 1);
+        NBTTagCompound unknownField = codec.encodeImage(TaskRepository.Image.empty());
+        unknownField.setInteger("queue_sequence", 1);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(unknownField));
 
         TaskId taskId = TaskId.create();
@@ -89,86 +90,87 @@ class TaskCodecTest {
         TaskRepository.Image valid = new TaskRepository.Image(
                 Map.of(taskId, blueprintTask(taskId, assetId)), Map.of(), Set.of(),
                 new TaskAssetManifest(Map.of(assetId, metadata(taskId))));
-        CompoundTag mismatched = codec.encodeImage(valid);
-        mismatched.getList("tasks", Tag.TAG_COMPOUND).getCompound(0)
-                .getCompound("payload").putUUID("asset_id", UUID.randomUUID());
+        NBTTagCompound mismatched = codec.encodeImage(valid);
+        mismatched.getTagList("tasks", Constants.NBT.TAG_COMPOUND).getCompoundTagAt(0)
+                .getCompoundTag("payload").setUniqueId("asset_id", UUID.randomUUID());
 
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(mismatched));
 
-        CompoundTag uppercaseSha = codec.encodeImage(valid);
-        CompoundTag asset = uppercaseSha.getList("assets", Tag.TAG_COMPOUND).getCompound(0);
-        asset.putString("sha256", asset.getString("sha256").toUpperCase(java.util.Locale.ROOT));
+        NBTTagCompound uppercaseSha = codec.encodeImage(valid);
+        NBTTagCompound asset = uppercaseSha.getTagList("assets", Constants.NBT.TAG_COMPOUND)
+                .getCompoundTagAt(0);
+        asset.setString("sha256", asset.getString("sha256").toUpperCase(java.util.Locale.ROOT));
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(uppercaseSha));
     }
 
     @Test
     void payloadIsDeepCopiedAtConstructionAndReadBoundary() {
-        CompoundTag sourcePayload = new CompoundTag();
-        sourcePayload.putInt("cursor_blob", 4);
+        NBTTagCompound sourcePayload = new NBTTagCompound();
+        sourcePayload.setInteger("cursor_blob", 4);
         TaskSnapshot task = new TaskSnapshot(
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 com.rtsbuilding.rtsbuilding.server.task.TaskType.MINING,
                 TaskLifecycleState.RUNNING, -1, null, 1L, 0L, 0L,
                 10, 0, 0, 0, sourcePayload);
 
-        sourcePayload.putInt("cursor_blob", 99);
-        CompoundTag exposed = task.payload();
-        exposed.putInt("cursor_blob", 77);
+        sourcePayload.setInteger("cursor_blob", 99);
+        NBTTagCompound exposed = task.payload();
+        exposed.setInteger("cursor_blob", 77);
 
-        assertEquals(4, task.payload().getInt("cursor_blob"));
+        assertEquals(4, task.payload().getInteger("cursor_blob"));
     }
 
     @Test
     void unknownOrCorruptSchemaCannotBecomeEmptyRepository() {
-        CompoundTag unknown = new CompoundTag();
-        unknown.putInt("schema", TaskCodec.CURRENT_SCHEMA + 1);
+        NBTTagCompound unknown = new NBTTagCompound();
+        unknown.setInteger("schema", TaskCodec.CURRENT_SCHEMA + 1);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(unknown));
 
-        CompoundTag corrupt = new CompoundTag();
-        corrupt.putInt("schema", TaskCodec.CURRENT_SCHEMA);
-        net.minecraft.nbt.ListTag tasks = new net.minecraft.nbt.ListTag();
-        CompoundTag missingIdentity = new CompoundTag();
-        missingIdentity.putString("type", "PLACEMENT");
-        tasks.add(missingIdentity);
-        corrupt.put("tasks", tasks);
-        corrupt.put("tombstones", new net.minecraft.nbt.ListTag());
-        corrupt.put("completed_migrations", new net.minecraft.nbt.ListTag());
-        corrupt.put("assets", new net.minecraft.nbt.ListTag());
+        NBTTagCompound corrupt = new NBTTagCompound();
+        corrupt.setInteger("schema", TaskCodec.CURRENT_SCHEMA);
+        net.minecraft.nbt.NBTTagList tasks = new net.minecraft.nbt.NBTTagList();
+        NBTTagCompound missingIdentity = new NBTTagCompound();
+        missingIdentity.setString("type", "PLACEMENT");
+        tasks.appendTag(missingIdentity);
+        corrupt.setTag("tasks", tasks);
+        corrupt.setTag("tombstones", new net.minecraft.nbt.NBTTagList());
+        corrupt.setTag("completed_migrations", new net.minecraft.nbt.NBTTagList());
+        corrupt.setTag("assets", new net.minecraft.nbt.NBTTagList());
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(corrupt));
     }
 
     @Test
     void rootListsAndPayloadRequireExactNbtTypes() {
-        CompoundTag wrongRootList = new CompoundTag();
-        wrongRootList.putInt("schema", TaskCodec.CURRENT_SCHEMA);
-        wrongRootList.putString("tasks", "not-a-list");
-        wrongRootList.put("tombstones", new net.minecraft.nbt.ListTag());
-        wrongRootList.put("completed_migrations", new net.minecraft.nbt.ListTag());
-        wrongRootList.put("assets", new net.minecraft.nbt.ListTag());
+        NBTTagCompound wrongRootList = new NBTTagCompound();
+        wrongRootList.setInteger("schema", TaskCodec.CURRENT_SCHEMA);
+        wrongRootList.setString("tasks", "not-a-list");
+        wrongRootList.setTag("tombstones", new net.minecraft.nbt.NBTTagList());
+        wrongRootList.setTag("completed_migrations", new net.minecraft.nbt.NBTTagList());
+        wrongRootList.setTag("assets", new net.minecraft.nbt.NBTTagList());
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(wrongRootList));
 
-        CompoundTag wrongElementType = new CompoundTag();
-        wrongElementType.putInt("schema", TaskCodec.CURRENT_SCHEMA);
-        net.minecraft.nbt.ListTag stringTasks = new net.minecraft.nbt.ListTag();
-        stringTasks.add(net.minecraft.nbt.StringTag.valueOf("not-a-task"));
-        wrongElementType.put("tasks", stringTasks);
-        wrongElementType.put("tombstones", new net.minecraft.nbt.ListTag());
-        wrongElementType.put("completed_migrations", new net.minecraft.nbt.ListTag());
-        wrongElementType.put("assets", new net.minecraft.nbt.ListTag());
+        NBTTagCompound wrongElementType = new NBTTagCompound();
+        wrongElementType.setInteger("schema", TaskCodec.CURRENT_SCHEMA);
+        net.minecraft.nbt.NBTTagList stringTasks = new net.minecraft.nbt.NBTTagList();
+        stringTasks.appendTag(new net.minecraft.nbt.NBTTagString("not-a-task"));
+        wrongElementType.setTag("tasks", stringTasks);
+        wrongElementType.setTag("tombstones", new net.minecraft.nbt.NBTTagList());
+        wrongElementType.setTag("completed_migrations", new net.minecraft.nbt.NBTTagList());
+        wrongElementType.setTag("assets", new net.minecraft.nbt.NBTTagList());
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(wrongElementType));
 
         TaskSnapshot task = TaskStoreTest.snapshot(
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), 55,
                 TaskLifecycleState.QUEUED, null, 1L, "minecraft:overworld");
-        CompoundTag encoded = codec.encodeSnapshot(task);
-        encoded.putInt("payload", 7);
+        NBTTagCompound encoded = codec.encodeSnapshot(task);
+        encoded.setInteger("payload", 7);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeSnapshot(encoded));
     }
 
     @Test
     void modifiedUtfLimitRejectsStringsThatFitCharCountButNotNbtBytes() {
-        CompoundTag payload = new CompoundTag();
-        payload.putString("text", "界".repeat(22_000));
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setString("text", "界".repeat(22_000));
         TaskSnapshot task = new TaskSnapshot(
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 com.rtsbuilding.rtsbuilding.server.task.TaskType.PLACEMENT,
@@ -180,16 +182,16 @@ class TaskCodecTest {
 
     @Test
     void migrationLedgerCapacityIsBounded() {
-        CompoundTag root = new CompoundTag();
-        root.putInt("schema", TaskCodec.CURRENT_SCHEMA);
-        root.put("tasks", new net.minecraft.nbt.ListTag());
-        root.put("tombstones", new net.minecraft.nbt.ListTag());
-        net.minecraft.nbt.ListTag migrations = new net.minecraft.nbt.ListTag();
+        NBTTagCompound root = new NBTTagCompound();
+        root.setInteger("schema", TaskCodec.CURRENT_SCHEMA);
+        root.setTag("tasks", new net.minecraft.nbt.NBTTagList());
+        root.setTag("tombstones", new net.minecraft.nbt.NBTTagList());
+        net.minecraft.nbt.NBTTagList migrations = new net.minecraft.nbt.NBTTagList();
         for (int i = 0; i <= TaskCodec.MAX_MIGRATIONS; i++) {
-            migrations.add(net.minecraft.nbt.StringTag.valueOf("migration-" + i));
+            migrations.appendTag(new net.minecraft.nbt.NBTTagString("migration-" + i));
         }
-        root.put("completed_migrations", migrations);
-        root.put("assets", new net.minecraft.nbt.ListTag());
+        root.setTag("completed_migrations", migrations);
+        root.setTag("assets", new net.minecraft.nbt.NBTTagList());
 
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(root));
     }
@@ -200,11 +202,11 @@ class TaskCodecTest {
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 com.rtsbuilding.rtsbuilding.server.task.TaskType.PLACEMENT,
                 TaskLifecycleState.QUEUED, -1, null, 1L, 0L, 0L,
-                1, 0, 0, 0, new CompoundTag());
-        CompoundTag absent = codec.encodeSnapshot(task);
+                1, 0, 0, 0, new NBTTagCompound());
+        NBTTagCompound absent = codec.encodeSnapshot(task);
         assertEquals(-1, codec.decodeSnapshot(absent).workflowEntryId());
 
-        absent.putString("workflow", "wrong-type");
+        absent.setString("workflow", "wrong-type");
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeSnapshot(absent));
     }
 
@@ -214,11 +216,11 @@ class TaskCodecTest {
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 com.rtsbuilding.rtsbuilding.server.task.TaskType.MINING,
                 TaskLifecycleState.QUEUED, -1, null, 1L, 0L, 0L,
-                1, 0, 0, 0, new CompoundTag());
-        CompoundTag absent = codec.encodeSnapshot(task);
+                1, 0, 0, 0, new NBTTagCompound());
+        NBTTagCompound absent = codec.encodeSnapshot(task);
         assertNull(codec.decodeSnapshot(absent).waitKey());
 
-        absent.putString("wait", "wrong-type");
+        absent.setString("wait", "wrong-type");
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeSnapshot(absent));
     }
 
@@ -228,12 +230,12 @@ class TaskCodecTest {
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), 88,
                 TaskLifecycleState.WAITING_RESOURCE,
                 new TaskWaitKey("item", "minecraft:stone"), 1L, "minecraft:overworld");
-        CompoundTag snapshot = codec.encodeSnapshot(task);
-        snapshot.putInt("future_field", 1);
+        NBTTagCompound snapshot = codec.encodeSnapshot(task);
+        snapshot.setInteger("future_field", 1);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeSnapshot(snapshot));
 
-        CompoundTag wait = codec.encodeSnapshot(task);
-        wait.getCompound("wait").putInt("future_field", 1);
+        NBTTagCompound wait = codec.encodeSnapshot(task);
+        wait.getCompoundTag("wait").setInteger("future_field", 1);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeSnapshot(wait));
 
         TaskTombstone tombstone = new TaskTombstone(
@@ -241,17 +243,19 @@ class TaskCodecTest {
                 2L, TaskLifecycleState.COMPLETED, 20L, 40L);
         TaskRepository.Image image = new TaskRepository.Image(
                 Map.of(), Map.of(tombstone.taskId(), tombstone), Set.of(), TaskAssetManifest.empty());
-        CompoundTag root = codec.encodeImage(image);
-        root.getList("tombstones", Tag.TAG_COMPOUND).getCompound(0).putInt("future_field", 1);
+        NBTTagCompound root = codec.encodeImage(image);
+        root.getTagList("tombstones", Constants.NBT.TAG_COMPOUND)
+                .getCompoundTagAt(0).setInteger("future_field", 1);
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(root));
     }
 
     @Test
     void duplicateMigrationLedgerEntryFailsClosed() {
-        CompoundTag root = codec.encodeImage(TaskRepository.Image.empty());
-        net.minecraft.nbt.ListTag migrations = root.getList("completed_migrations", Tag.TAG_STRING);
-        migrations.add(net.minecraft.nbt.StringTag.valueOf("same"));
-        migrations.add(net.minecraft.nbt.StringTag.valueOf("same"));
+        NBTTagCompound root = codec.encodeImage(TaskRepository.Image.empty());
+        net.minecraft.nbt.NBTTagList migrations = root.getTagList(
+                "completed_migrations", Constants.NBT.TAG_STRING);
+        migrations.appendTag(new net.minecraft.nbt.NBTTagString("same"));
+        migrations.appendTag(new net.minecraft.nbt.NBTTagString("same"));
 
         assertThrows(TaskCodec.TaskCodecException.class, () -> codec.decodeImage(root));
     }
@@ -277,19 +281,19 @@ class TaskCodecTest {
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), "Bad Dimension",
                 com.rtsbuilding.rtsbuilding.server.task.TaskType.MINING,
                 TaskLifecycleState.QUEUED, -1, null, 1L, 0L, 0L,
-                1, 0, 0, 0, new CompoundTag()));
+                1, 0, 0, 0, new NBTTagCompound()));
 
         TaskSnapshot plain = new TaskSnapshot(
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 com.rtsbuilding.rtsbuilding.server.task.TaskType.MINING,
                 TaskLifecycleState.QUEUED, -1, null, 1L, 0L, 0L,
-                1, 0, 0, 0, new CompoundTag());
+                1, 0, 0, 0, new NBTTagCompound());
         TaskSnapshot waiting = new TaskSnapshot(
                 TaskId.create(), SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 com.rtsbuilding.rtsbuilding.server.task.TaskType.MINING,
                 TaskLifecycleState.WAITING_RESOURCE, -1,
                 new TaskWaitKey("item", "minecraft:oak_log"), 1L, 0L, 0L,
-                1, 0, 0, 0, new CompoundTag());
+                1, 0, 0, 0, new NBTTagCompound());
         assertTrue(codec.estimateSnapshotBytes(waiting) > codec.estimateSnapshotBytes(plain));
     }
 
@@ -299,8 +303,8 @@ class TaskCodecTest {
     }
 
     private static TaskSnapshot blueprintTask(TaskId taskId, TaskAssetId assetId) {
-        CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", assetId.value());
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setUniqueId("asset_id", assetId.value());
         return new TaskSnapshot(taskId, SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 TaskType.BLUEPRINT, TaskLifecycleState.QUEUED, -1, null,
                 1L, 0L, 0L, 12, 0, 0, 0, payload);

@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.task.placement;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
+
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -15,16 +17,16 @@ class PlacementTaskStateTest {
 
     @Test
     void stateDefensivelyCopiesDefinitionAndHistory() {
-        CompoundTag definition = definition();
+        NBTTagCompound definition = definition();
         List<BlockPos> placed = new java.util.ArrayList<>(List.of(new BlockPos(1, 2, 3)));
         PlacementTaskState state = new PlacementTaskState(definition, 7, 4, 2, 1, 0, placed);
 
-        definition.putString("mutated", "outside");
+        definition.setString("mutated", "outside");
         placed.clear();
-        CompoundTag leaked = state.definition();
-        leaked.putString("mutated", "accessor");
+        NBTTagCompound leaked = state.definition();
+        leaked.setString("mutated", "accessor");
 
-        assertFalse(state.definition().contains("mutated"));
+        assertFalse(state.definition().hasKey("mutated"));
         assertEquals(List.of(new BlockPos(1, 2, 3)), state.placedPositions());
         assertFalse(state.complete());
     }
@@ -69,9 +71,9 @@ class PlacementTaskStateTest {
         assertTrue(state.complete());
     }
 
-    private static CompoundTag definition() {
-        CompoundTag definition = new CompoundTag();
-        definition.putLongArray("positions", new long[]{1L, 2L, 3L, 4L});
+    private static NBTTagCompound definition() {
+        NBTTagCompound definition = new NBTTagCompound();
+        NbtCompat.setLongArray(definition, "positions", new long[]{1L, 2L, 3L, 4L});
         return definition;
     }
 }

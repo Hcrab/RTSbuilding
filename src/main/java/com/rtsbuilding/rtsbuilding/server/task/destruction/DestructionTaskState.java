@@ -102,6 +102,30 @@ public final class DestructionTaskState {
                 nextCursor, nextSucceeded, nextFailed, nextDestroyedPositions, nextHistoryRecords);
     }
 
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof DestructionTaskState)) return false;
+        DestructionTaskState that = (DestructionTaskState) other;
+        return toolSlot == that.toolSlot
+                && toolProtectionEnabled == that.toolProtectionEnabled
+                && selectedToolRequested == that.selectedToolRequested
+                && workflowEntryId == that.workflowEntryId
+                && cursorUnits == that.cursorUnits
+                && succeededUnits == that.succeededUnits
+                && failedUnits == that.failedUnits
+                && targets.equals(that.targets)
+                && destroyedPositions.equals(that.destroyedPositions)
+                && historyRecords.equals(that.historyRecords);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(targets, toolSlot, toolProtectionEnabled, selectedToolRequested,
+                workflowEntryId, cursorUnits, succeededUnits, failedUnits,
+                destroyedPositions, historyRecords);
+    }
+
     private static List<BlockPos> immutableUniquePositions(List<BlockPos> positions, String field) {
         List<BlockPos> copy = new ArrayList<>(positions.size());
         Set<BlockPos> unique = new HashSet<>();

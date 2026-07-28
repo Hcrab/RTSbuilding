@@ -67,7 +67,11 @@ public final class DestructionTaskCodec {
         if (targets.isEmpty()) throw new IllegalArgumentException("destruction targets 不能为空");
         List<BlockPos> destroyed = decodePositions(NbtCompat.getLongArray(tag, "destroyed"),
                 targets.size(), "destroyed");
-        NBTTagList encodedHistory = tag.getTagList("history", Constants.NBT.TAG_COMPOUND);
+        NBTTagList encodedHistory = (NBTTagList) tag.getTag("history");
+        if (encodedHistory.tagCount() > 0
+                && encodedHistory.getTagType() != Constants.NBT.TAG_COMPOUND) {
+            throw new IllegalArgumentException("destruction history 元素类型无效");
+        }
         long maxHistory = (long) targets.size() * DestructionTaskState.MAX_HISTORY_RECORDS_PER_TARGET;
         if (encodedHistory.tagCount() > maxHistory) {
             throw new IllegalArgumentException("destruction history 超过有界上限");

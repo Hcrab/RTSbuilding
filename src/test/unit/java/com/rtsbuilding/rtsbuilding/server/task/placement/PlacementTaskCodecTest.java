@@ -1,12 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.task.placement;
 
 import com.rtsbuilding.rtsbuilding.server.task.PlacementTaskPayload;
-import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.Level;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -20,10 +17,9 @@ class PlacementTaskCodecTest {
     @Test
     void roundTripPreservesPurePlacementSnapshot() {
         UUID owner = UUID.randomUUID();
-        ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
-        CompoundTag definition = new CompoundTag();
-        definition.putLongArray("positions", new long[]{new BlockPos(1, 2, 3).asLong(), 9L});
+        int dimension = 0;
+        NBTTagCompound definition = new NBTTagCompound();
+        NbtCompat.setLongArray(definition, "positions", new long[]{new BlockPos(1, 2, 3).toLong(), 9L});
         PlacementTaskState state = new PlacementTaskState(
                 definition, 12, 2, 1, 1, 0, List.of(new BlockPos(1, 2, 3)),
                 PlacementResumePolicy.OVERWRITE_CONFLICTS);
@@ -41,9 +37,9 @@ class PlacementTaskCodecTest {
 
     @Test
     void schemaOneDefaultsToSafeDefaultResumePolicy() {
-        CompoundTag legacy = validTag();
-        legacy.putInt("schema", 1);
-        legacy.remove("resumePolicy");
+        NBTTagCompound legacy = validTag();
+        legacy.setInteger("schema", 1);
+        legacy.removeTag("resumePolicy");
 
         assertEquals(PlacementResumePolicy.DEFAULT,
                 PlacementTaskCodec.decode(legacy).state().resumePolicy());
@@ -51,44 +47,43 @@ class PlacementTaskCodecTest {
 
     @Test
     void decodeFailsClosedForUnknownSchemaAndOversizedTargetCount() {
-        CompoundTag unknown = validTag();
-        unknown.putInt("schema", 99);
+        NBTTagCompound unknown = validTag();
+        unknown.setInteger("schema", 99);
         assertThrows(IllegalArgumentException.class, () -> PlacementTaskCodec.decode(unknown));
 
-        CompoundTag oversized = validTag();
-        oversized.putInt("total", PlacementTaskCodec.MAX_TARGETS + 1);
+        NBTTagCompound oversized = validTag();
+        oversized.setInteger("total", PlacementTaskCodec.MAX_TARGETS + 1);
         assertThrows(IllegalArgumentException.class, () -> PlacementTaskCodec.decode(oversized));
     }
 
     @Test
     void payloadRejectsWorkflowIdentityDrift() {
-        ResourceKey<Level> dimension = ResourceKey.create(
-                Registries.DIMENSION, ResourceLocation.parse("minecraft:overworld"));
+        int dimension = 0;
         PlacementTaskState state = new PlacementTaskState(
                 definition(), 3, 1, 0, 0, 0, List.of());
         assertThrows(IllegalArgumentException.class,
                 () -> new PlacementTaskPayload(UUID.randomUUID(), dimension, 4, state));
     }
 
-    private static CompoundTag validTag() {
-        CompoundTag tag = new CompoundTag();
-        tag.putInt("schema", PlacementTaskCodec.SCHEMA_VERSION);
-        tag.putUUID("owner", UUID.randomUUID());
-        tag.putString("dimension", "minecraft:overworld");
-        tag.putInt("workflow", -1);
-        tag.put("definition", definition());
-        tag.putInt("total", 1);
-        tag.putInt("cursor", 0);
-        tag.putInt("succeeded", 0);
-        tag.putInt("failed", 0);
-        tag.putString("resumePolicy", PlacementResumePolicy.DEFAULT.name());
-        tag.putLongArray("placed", new long[0]);
+    private static NBTTagCompound validTag() {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("schema", PlacementTaskCodec.SCHEMA_VERSION);
+        tag.setUniqueId("owner", UUID.randomUUID());
+        tag.setString("dimension", "minecraft:overworld");
+        tag.setInteger("workflow", -1);
+        tag.setTag("definition", definition());
+        tag.setInteger("total", 1);
+        tag.setInteger("cursor", 0);
+        tag.setInteger("succeeded", 0);
+        tag.setInteger("failed", 0);
+        tag.setString("resumePolicy", PlacementResumePolicy.DEFAULT.name());
+        NbtCompat.setLongArray(tag, "placed", new long[0]);
         return tag;
     }
 
-    private static CompoundTag definition() {
-        CompoundTag definition = new CompoundTag();
-        definition.putLongArray("positions", new long[]{1L});
+    private static NBTTagCompound definition() {
+        NBTTagCompound definition = new NBTTagCompound();
+        NbtCompat.setLongArray(definition, "positions", new long[]{1L});
         return definition;
     }
 }

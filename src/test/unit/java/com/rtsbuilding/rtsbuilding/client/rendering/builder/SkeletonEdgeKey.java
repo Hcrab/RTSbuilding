@@ -28,7 +28,9 @@ record SkeletonEdgeKey(int x1, int y1, int z1, int x2, int y2, int z2) {
 
     private static int exactGrid(double value) {
         int rounded = (int) Math.round(value);
-        if (Math.abs(value - rounded) > 0.000001D) {
+        // 1.12.2 渲染器为避免 Z-fighting 会把轮廓向外扩 0.005 格；
+        // 拓扑断言应归一化这个纯视觉偏移，而不是把它当作另一条边。
+        if (Math.abs(value - rounded) > 0.005001D) {
             throw new IllegalArgumentException("Expected integer-grid skeleton edge coordinate, got " + value);
         }
         return rounded;

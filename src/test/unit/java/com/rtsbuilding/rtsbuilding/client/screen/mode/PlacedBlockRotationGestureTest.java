@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.mode;
 
-import net.minecraft.core.Direction;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
-import org.lwjgl.glfw.GLFW;
+import org.lwjgl.input.Keyboard;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -16,26 +16,26 @@ class PlacedBlockRotationGestureTest {
     @Test
     void verticalGestureUsesCameraRightAsItsSignedAxis() {
         assertEquals(
-                Direction.EAST,
-                PlacedBlockRotationGesture.VERTICAL_UP.axisDirection(Direction.NORTH));
+                EnumFacing.EAST,
+                PlacedBlockRotationGesture.VERTICAL_UP.axisDirection(EnumFacing.NORTH));
         assertEquals(
-                Direction.SOUTH,
-                PlacedBlockRotationGesture.VERTICAL_UP.axisDirection(Direction.EAST));
+                EnumFacing.SOUTH,
+                PlacedBlockRotationGesture.VERTICAL_UP.axisDirection(EnumFacing.EAST));
     }
 
     @Test
     void arrowsAndNumpadShareTheSameFourGestures() {
         assertEquals(
                 PlacedBlockRotationGesture.HORIZONTAL_LEFT,
-                PlacedBlockRotationGesture.fromKey(GLFW.GLFW_KEY_LEFT));
+                PlacedBlockRotationGesture.fromKey(Keyboard.KEY_LEFT));
         assertEquals(
                 PlacedBlockRotationGesture.HORIZONTAL_RIGHT,
-                PlacedBlockRotationGesture.fromKey(GLFW.GLFW_KEY_KP_6));
+                PlacedBlockRotationGesture.fromKey(Keyboard.KEY_NUMPAD6));
         assertEquals(
                 PlacedBlockRotationGesture.VERTICAL_UP,
-                PlacedBlockRotationGesture.fromKey(GLFW.GLFW_KEY_KP_8));
+                PlacedBlockRotationGesture.fromKey(Keyboard.KEY_NUMPAD8));
         assertEquals(
                 PlacedBlockRotationGesture.VERTICAL_DOWN,
-                PlacedBlockRotationGesture.fromKey(GLFW.GLFW_KEY_DOWN));
+                PlacedBlockRotationGesture.fromKey(Keyboard.KEY_DOWN));
     }
 }

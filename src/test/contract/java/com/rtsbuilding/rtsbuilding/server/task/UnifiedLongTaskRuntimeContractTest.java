@@ -49,7 +49,7 @@ class UnifiedLongTaskRuntimeContractTest {
         assertTrue(state.contains("int ordinal"));
         assertTrue(state.contains("ItemStack expectedStack"));
         assertTrue(state.contains("ItemStack.isSameItemSameComponents(actual, expectedStack)"));
-        assertTrue(service.contains("droppedEntity.getUUID()"));
+        assertTrue(service.contains("droppedEntity.getUniqueId()"));
         assertTrue(service.contains("claim.matches(droppedStack)"));
         assertTrue(serializer.contains("putUUID(\"operation_id\""));
         assertTrue(serializer.contains("putInt(\"ordinal\""));

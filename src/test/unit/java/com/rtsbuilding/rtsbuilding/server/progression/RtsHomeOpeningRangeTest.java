@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.progression;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;

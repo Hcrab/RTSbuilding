@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -21,15 +21,15 @@ class ShapePlacementTargetResolverTest {
         FakeWorld world = new FakeWorld(
                 true,
                 pos -> true,
-                (pos, face) -> pos.equals(BlockPos.ZERO));
+                (pos, face) -> pos.equals(BlockPos.ORIGIN));
 
-        assertEquals(BlockPos.ZERO, ShapePlacementTargetResolver.resolveClickedTarget(
-                BlockPos.ZERO,
-                Direction.UP,
+        assertEquals(BlockPos.ORIGIN, ShapePlacementTargetResolver.resolveClickedTarget(
+                BlockPos.ORIGIN,
+                EnumFacing.UP,
                 world));
         assertEquals(new BlockPos(1, 1, 0), ShapePlacementTargetResolver.resolveClickedTarget(
                 new BlockPos(1, 0, 0),
-                Direction.UP,
+                EnumFacing.UP,
                 world));
     }
 
@@ -43,7 +43,7 @@ class ShapePlacementTargetResolverTest {
 
         assertEquals(clicked, ShapePlacementTargetResolver.resolveClickedTarget(
                 clicked,
-                Direction.NORTH,
+                EnumFacing.NORTH,
                 world));
     }
 
@@ -51,7 +51,7 @@ class ShapePlacementTargetResolverTest {
     void uniformPlanePlacementUsesAnchorOffsetAcrossEveryCell() {
         ShapeBuildTypes.Input input = input(BuildShape.LINE);
         List<BlockPos> targets = List.of(
-                BlockPos.ZERO,
+                BlockPos.ORIGIN,
                 new BlockPos(1, 0, 0),
                 new BlockPos(2, 0, 0));
         FakeWorld world = new FakeWorld(
@@ -69,14 +69,14 @@ class ShapePlacementTargetResolverTest {
     @Test
     void nonUniformPlacementResolvesEachCellAgainstLocalReplacement() {
         ShapeBuildTypes.Input input = input(BuildShape.CIRCLE);
-        BlockPos replaceable = BlockPos.ZERO;
+        BlockPos replaceable = BlockPos.ORIGIN;
         BlockPos occupied = new BlockPos(1, 0, 0);
         FakeWorld world = new FakeWorld(
                 true,
                 pos -> true,
                 (pos, face) -> pos.equals(replaceable));
 
-        assertEquals(List.of(replaceable, occupied.above()),
+        assertEquals(List.of(replaceable, occupied.up()),
                 ShapePlacementTargetResolver.resolveTargets(
                         input,
                         List.of(replaceable, occupied),
@@ -87,7 +87,7 @@ class ShapePlacementTargetResolverTest {
     @Test
     void strictEmptyLockFiltersResolvedOccupiedTargets() {
         ShapeBuildTypes.Input input = input(BuildShape.CIRCLE);
-        BlockPos keep = BlockPos.ZERO;
+        BlockPos keep = BlockPos.ORIGIN;
         BlockPos skip = new BlockPos(1, 0, 0);
         Set<BlockPos> replaceable = Set.of(keep);
         FakeWorld world = new FakeWorld(
@@ -112,12 +112,12 @@ class ShapePlacementTargetResolverTest {
 
         assertEquals(List.of(), ShapePlacementTargetResolver.resolveTargets(
                 input(BuildShape.LINE),
-                List.of(BlockPos.ZERO),
+                List.of(BlockPos.ORIGIN),
                 false,
                 world));
         assertNull(ShapePlacementTargetResolver.resolveClickedTarget(
-                BlockPos.ZERO,
-                Direction.UP,
+                BlockPos.ORIGIN,
+                EnumFacing.UP,
                 world));
     }
 
@@ -126,24 +126,24 @@ class ShapePlacementTargetResolverTest {
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos(2, 0, 0);
         List<BlockPos> resolved = ShapePlacementTargetResolver.resolveTargets(
                 null,
-                List.of(BlockPos.ZERO, mutable, BlockPos.ZERO, mutable),
+                List.of(BlockPos.ORIGIN, mutable, BlockPos.ORIGIN, mutable),
                 false,
                 null);
 
-        assertEquals(List.of(BlockPos.ZERO, new BlockPos(2, 0, 0)), resolved);
-        mutable.set(9, 9, 9);
+        assertEquals(List.of(BlockPos.ORIGIN, new BlockPos(2, 0, 0)), resolved);
+        mutable.setPos(9, 9, 9);
         assertEquals(new BlockPos(2, 0, 0), resolved.get(1));
-        assertThrows(UnsupportedOperationException.class, () -> resolved.add(BlockPos.ZERO));
+        assertThrows(UnsupportedOperationException.class, () -> resolved.add(BlockPos.ORIGIN));
     }
 
     @Test
     void overwriteKeepsExactGeometryCoordinatesWithoutAdjacentFaceShift() {
         BlockPos.MutableBlockPos mutable = new BlockPos.MutableBlockPos(1, 0, 0);
         List<BlockPos> resolved = ShapePlacementTargetResolver.resolveOverwriteTargets(
-                List.of(BlockPos.ZERO, mutable, BlockPos.ZERO));
+                List.of(BlockPos.ORIGIN, mutable, BlockPos.ORIGIN));
 
-        assertEquals(List.of(BlockPos.ZERO, new BlockPos(1, 0, 0)), resolved);
-        mutable.set(8, 8, 8);
+        assertEquals(List.of(BlockPos.ORIGIN, new BlockPos(1, 0, 0)), resolved);
+        mutable.setPos(8, 8, 8);
         assertEquals(new BlockPos(1, 0, 0), resolved.get(1));
     }
 
@@ -164,9 +164,9 @@ class ShapePlacementTargetResolverTest {
     private static ShapeBuildTypes.Input input(BuildShape shape) {
         return new ShapeBuildTypes.Input(
                 shape,
-                Direction.UP,
-                Direction.UP,
-                BlockPos.ZERO,
+                EnumFacing.UP,
+                EnumFacing.UP,
+                BlockPos.ORIGIN,
                 new BlockPos(2, 0, 0),
                 0,
                 false);
@@ -175,7 +175,7 @@ class ShapePlacementTargetResolverTest {
     private record FakeWorld(
             boolean available,
             Predicate<BlockPos> loaded,
-            BiPredicate<BlockPos, Direction> replaceable)
+            BiPredicate<BlockPos, EnumFacing> replaceable)
             implements ShapePlacementTargetResolver.PlacementWorld {
         @Override
         public boolean hasChunkAt(BlockPos pos) {
@@ -183,7 +183,7 @@ class ShapePlacementTargetResolverTest {
         }
 
         @Override
-        public boolean canReplace(BlockPos pos, Direction face) {
+        public boolean canReplace(BlockPos pos, EnumFacing face) {
             return replaceable.test(pos, face);
         }
     }

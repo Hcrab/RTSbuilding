@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

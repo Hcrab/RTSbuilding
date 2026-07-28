@@ -55,4 +55,25 @@ public final class TaskTombstone {
     public boolean expiredAt(long gameTime) {
         return gameTime >= retainedUntilGameTime;
     }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof TaskTombstone)) return false;
+        TaskTombstone that = (TaskTombstone) other;
+        return revision == that.revision
+                && completedGameTime == that.completedGameTime
+                && retainedUntilGameTime == that.retainedUntilGameTime
+                && taskId.equals(that.taskId)
+                && submissionId.equals(that.submissionId)
+                && ownerId.equals(that.ownerId)
+                && dimensionId.equals(that.dimensionId)
+                && terminalState == that.terminalState;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(taskId, submissionId, ownerId, dimensionId, revision,
+                terminalState, completedGameTime, retainedUntilGameTime);
+    }
 }

@@ -44,4 +44,22 @@ public final class TaskAssetMetadata {
     public String sha256() { return sha256; }
     public long compressedBytes() { return compressedBytes; }
     public long logicalBytes() { return logicalBytes; }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof TaskAssetMetadata)) return false;
+        TaskAssetMetadata that = (TaskAssetMetadata) other;
+        return compressedBytes == that.compressedBytes
+                && logicalBytes == that.logicalBytes
+                && assetId.equals(that.assetId)
+                && taskId.equals(that.taskId)
+                && kind.equals(that.kind)
+                && sha256.equals(that.sha256);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(assetId, taskId, kind, sha256, compressedBytes, logicalBytes);
+    }
 }

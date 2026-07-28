@@ -152,10 +152,14 @@ dependencies {
         // 测试产物不会进入发布 JAR，可以在 Java 17 测试 JVM 上保留现代测试源码写法。
         // Mockito 5 已经要求 Java 11；4.11 是仍支持 Java 8 生产类的最后一条稳定线。
         testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'
-        testImplementation 'org.mockito:mockito-core:4.11.0'
+        // 持久化仓库是 final 类；inline mock maker 让移植前的隔离测试保持原有边界。
+        testImplementation 'org.mockito:mockito-inline:4.11.0'
         testImplementation 'org.mockito:mockito-junit-jupiter:4.11.0'
         testImplementation 'com.google.code.gson:gson:2.10.1'
         testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.0'
+        // Forge 1.12.2 的客户端键位和渲染类会在测试类加载阶段引用 LWJGL 2。
+        testRuntimeOnly 'org.lwjgl.lwjgl:lwjgl:2.9.4-nightly-20150209'
+        testRuntimeOnly 'org.lwjgl.lwjgl:lwjgl_util:2.9.4-nightly-20150209'
     }
 }
 
@@ -292,6 +296,9 @@ test {
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(21)
     })
+    // Mockito 4 的 inline mock maker 所带 Byte Buddy 尚未正式标注 Java 21，
+    // 但其转换路径可兼容；仅对测试 JVM 开启官方提供的实验开关。
+    jvmArgs '-Dnet.bytebuddy.experimental=true'
     if (propertyBool('show_testing_output')) {
         testLogging {
             showStandardStreams = true

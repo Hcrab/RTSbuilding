@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,7 +54,7 @@ class RtsCullingBoxTest {
                 new BlockPos(10, 64, 10),
                 0);
 
-        RtsCullingBox resized = box.resizeFromHandle(Direction.UP, -1);
+        RtsCullingBox resized = box.resizeFromHandle(EnumFacing.UP, -1);
 
         assertEquals(64, resized.min().getY());
         assertEquals(64, resized.max().getY());
@@ -68,7 +68,7 @@ class RtsCullingBoxTest {
                 new BlockPos(10, 64, 10),
                 new BlockPos(12, 64, 10));
 
-        RtsCullingBox resized = box.resizeFromHandle(Direction.EAST, -3);
+        RtsCullingBox resized = box.resizeFromHandle(EnumFacing.EAST, -3);
 
         assertEquals(10, resized.min().getX());
         assertEquals(10, resized.max().getX());
@@ -82,7 +82,7 @@ class RtsCullingBoxTest {
                 new BlockPos(10, 64, 10),
                 new BlockPos(12, 64, 10));
 
-        RtsCullingBox resized = box.resizeFromHandle(Direction.WEST, 2);
+        RtsCullingBox resized = box.resizeFromHandle(EnumFacing.WEST, 2);
 
         assertEquals(8, resized.min().getX());
         assertEquals(12, resized.max().getX());
@@ -96,7 +96,7 @@ class RtsCullingBoxTest {
                 new BlockPos(8, 64, 10),
                 new BlockPos(12, 64, 10));
 
-        RtsCullingBox resized = box.resizeFromHandle(Direction.WEST, -2);
+        RtsCullingBox resized = box.resizeFromHandle(EnumFacing.WEST, -2);
 
         assertEquals(10, resized.min().getX());
         assertEquals(12, resized.max().getX());
@@ -110,7 +110,7 @@ class RtsCullingBoxTest {
                 new BlockPos(10, 64, 10),
                 new BlockPos(10, 64, 10));
 
-        RtsCullingBox resized = box.resizeFromHandle(Direction.NORTH, -2);
+        RtsCullingBox resized = box.resizeFromHandle(EnumFacing.NORTH, -2);
 
         assertEquals(10, resized.min().getZ());
         assertEquals(10, resized.max().getZ());
@@ -124,27 +124,27 @@ class RtsCullingBoxTest {
                 new BlockPos(10, 64, 20),
                 new BlockPos(14, 68, 24));
 
-        RtsCullingBox east = box.resizeFromHandle(Direction.EAST, -20);
+        RtsCullingBox east = box.resizeFromHandle(EnumFacing.EAST, -20);
         assertEquals(10, east.min().getX());
         assertEquals(10, east.max().getX());
 
-        RtsCullingBox west = box.resizeFromHandle(Direction.WEST, -20);
+        RtsCullingBox west = box.resizeFromHandle(EnumFacing.WEST, -20);
         assertEquals(14, west.min().getX());
         assertEquals(14, west.max().getX());
 
-        RtsCullingBox up = box.resizeFromHandle(Direction.UP, -20);
+        RtsCullingBox up = box.resizeFromHandle(EnumFacing.UP, -20);
         assertEquals(64, up.min().getY());
         assertEquals(64, up.max().getY());
 
-        RtsCullingBox down = box.resizeFromHandle(Direction.DOWN, -20);
+        RtsCullingBox down = box.resizeFromHandle(EnumFacing.DOWN, -20);
         assertEquals(68, down.min().getY());
         assertEquals(68, down.max().getY());
 
-        RtsCullingBox south = box.resizeFromHandle(Direction.SOUTH, -20);
+        RtsCullingBox south = box.resizeFromHandle(EnumFacing.SOUTH, -20);
         assertEquals(20, south.min().getZ());
         assertEquals(20, south.max().getZ());
 
-        RtsCullingBox north = box.resizeFromHandle(Direction.NORTH, -20);
+        RtsCullingBox north = box.resizeFromHandle(EnumFacing.NORTH, -20);
         assertEquals(24, north.min().getZ());
         assertEquals(24, north.max().getZ());
     }

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.*;
 
@@ -25,7 +25,7 @@ final class SkeletonEdgeOracle {
         Set<Long> blockKeys = new HashSet<>(blocks.size() * 2);
         for (BlockPos pos : blocks) {
             if (pos != null) {
-                blockKeys.add(pos.asLong());
+                blockKeys.add(pos.toLong());
             }
         }
 
@@ -37,12 +37,12 @@ final class SkeletonEdgeOracle {
             int x = pos.getX();
             int y = pos.getY();
             int z = pos.getZ();
-            if (!blockKeys.contains(BlockPos.asLong(x + 1, y, z))) addFace(edges, x, y, z, FaceSide.EAST);
-            if (!blockKeys.contains(BlockPos.asLong(x - 1, y, z))) addFace(edges, x, y, z, FaceSide.WEST);
-            if (!blockKeys.contains(BlockPos.asLong(x, y + 1, z))) addFace(edges, x, y, z, FaceSide.UP);
-            if (!blockKeys.contains(BlockPos.asLong(x, y - 1, z))) addFace(edges, x, y, z, FaceSide.DOWN);
-            if (!blockKeys.contains(BlockPos.asLong(x, y, z + 1))) addFace(edges, x, y, z, FaceSide.SOUTH);
-            if (!blockKeys.contains(BlockPos.asLong(x, y, z - 1))) addFace(edges, x, y, z, FaceSide.NORTH);
+            if (!blockKeys.contains(new BlockPos(x + 1, y, z).toLong())) addFace(edges, x, y, z, FaceSide.EAST);
+            if (!blockKeys.contains(new BlockPos(x - 1, y, z).toLong())) addFace(edges, x, y, z, FaceSide.WEST);
+            if (!blockKeys.contains(new BlockPos(x, y + 1, z).toLong())) addFace(edges, x, y, z, FaceSide.UP);
+            if (!blockKeys.contains(new BlockPos(x, y - 1, z).toLong())) addFace(edges, x, y, z, FaceSide.DOWN);
+            if (!blockKeys.contains(new BlockPos(x, y, z + 1).toLong())) addFace(edges, x, y, z, FaceSide.SOUTH);
+            if (!blockKeys.contains(new BlockPos(x, y, z - 1).toLong())) addFace(edges, x, y, z, FaceSide.NORTH);
         }
 
         Set<SkeletonEdgeKey> visible = new HashSet<>();

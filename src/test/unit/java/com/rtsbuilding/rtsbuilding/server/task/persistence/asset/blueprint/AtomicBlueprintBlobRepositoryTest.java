@@ -2,10 +2,11 @@ package com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint;
 
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.IntTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.util.Constants;
+import net.minecraft.nbt.NBTTagInt;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTBase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -252,12 +253,12 @@ class AtomicBlueprintBlobRepositoryTest {
     void canonicalHashIgnoresCompoundInsertionOrderAndSurvivesRoundTrip() {
         BlueprintBlobCodec codec = new BlueprintBlobCodec();
         TaskId taskId = TaskId.create();
-        CompoundTag first = new CompoundTag();
-        first.putInt("z", 9);
-        first.putString("a", "stable");
-        CompoundTag second = new CompoundTag();
-        second.putString("a", "stable");
-        second.putInt("z", 9);
+        NBTTagCompound first = new NBTTagCompound();
+        first.setInteger("z", 9);
+        first.setString("a", "stable");
+        NBTTagCompound second = new NBTTagCompound();
+        second.setString("a", "stable");
+        second.setInteger("z", 9);
 
         BlueprintBlobRecord firstRecord = codec.freeze(
                 taskId, 2, "ordered", "test", "VANILLA_NBT", first);
@@ -273,12 +274,12 @@ class AtomicBlueprintBlobRepositoryTest {
     void canonicalHashNormalizesNanAndRejectsAmbiguousUtf16() {
         BlueprintBlobCodec codec = new BlueprintBlobCodec();
         TaskId taskId = TaskId.create();
-        CompoundTag first = new CompoundTag();
-        first.putFloat("float_nan", Float.intBitsToFloat(0x7fc00001));
-        first.putDouble("double_nan", Double.longBitsToDouble(0x7ff8000000000001L));
-        CompoundTag second = new CompoundTag();
-        second.putFloat("float_nan", Float.intBitsToFloat(0x7fc12345));
-        second.putDouble("double_nan", Double.longBitsToDouble(0x7ff8123456789abCL));
+        NBTTagCompound first = new NBTTagCompound();
+        first.setFloat("float_nan", Float.intBitsToFloat(0x7fc00001));
+        first.setDouble("double_nan", Double.longBitsToDouble(0x7ff8000000000001L));
+        NBTTagCompound second = new NBTTagCompound();
+        second.setFloat("float_nan", Float.intBitsToFloat(0x7fc12345));
+        second.setDouble("double_nan", Double.longBitsToDouble(0x7ff8123456789abCL));
 
         BlueprintBlobRecord firstRecord = codec.freeze(
                 taskId, 1, "nan", "test", "VANILLA_NBT", first);
@@ -286,13 +287,13 @@ class AtomicBlueprintBlobRepositoryTest {
                 taskId, 1, "nan", "test", "VANILLA_NBT", second);
         assertEquals(firstRecord.sha256(), secondRecord.sha256());
 
-        CompoundTag invalid = new CompoundTag();
-        invalid.putString("text", "broken-\uD800");
+        NBTTagCompound invalid = new NBTTagCompound();
+        invalid.setString("text", "broken-\uD800");
         assertThrows(IllegalArgumentException.class,
                 () -> codec.freeze(TaskId.create(), 1, "utf", "test", "VANILLA_NBT", invalid));
 
-        CompoundTag valid = new CompoundTag();
-        valid.putString("text", "paired-\uD83D\uDE80");
+        NBTTagCompound valid = new NBTTagCompound();
+        valid.setString("text", "paired-\uD83D\uDE80");
         BlueprintBlobRecord validRecord = codec.freeze(
                 TaskId.create(), 1, "utf", "test", "VANILLA_NBT", valid);
         assertEquals(validRecord.sha256(),
@@ -302,17 +303,17 @@ class AtomicBlueprintBlobRepositoryTest {
     @Test
     void denseNbtUsesLogicalLimitAndDecodeAccountingHeadroomConsistently() {
         BlueprintBlobCodec codec = new BlueprintBlobCodec();
-        CompoundTag structure = new CompoundTag();
-        ListTag nodes = new ListTag();
-        for (int i = 0; i < 50_000; i++) nodes.add(IntTag.valueOf(i));
-        structure.put("nodes", nodes);
+        NBTTagCompound structure = new NBTTagCompound();
+        NBTTagList nodes = new NBTTagList();
+        for (int i = 0; i < 50_000; i++) nodes.appendTag(new NBTTagInt(i));
+        structure.setTag("nodes", nodes);
         BlueprintBlobRecord record = codec.freeze(
                 TaskId.create(), 1, "dense", "test", "VANILLA_NBT", structure);
 
         BlueprintBlobRecord decoded = codec.decodeCompressed(codec.encodeCompressed(record));
 
         assertEquals(record.sha256(), decoded.sha256());
-        assertEquals(50_000, decoded.structure().getList("nodes", Tag.TAG_INT).size());
+        assertEquals(50_000, decoded.structure().getTagList("nodes", Constants.NBT.TAG_INT).tagCount());
         assertTrue(BlueprintBlobCodec.MAX_DECODE_ACCOUNTING_BYTES > BlueprintBlobCodec.MAX_LOGICAL_BYTES);
     }
 
@@ -543,7 +544,7 @@ class AtomicBlueprintBlobRepositoryTest {
     @Test
     void unsupportedBlueprintFormatFailsBeforeWrite() {
         BlueprintBlobCodec codec = new BlueprintBlobCodec();
-        CompoundTag structure = structure(new byte[]{1});
+        NBTTagCompound structure = structure(new byte[]{1});
         TaskId taskId = TaskId.create();
         BlueprintBlobRecord invalid = new BlueprintBlobRecord(
                 TaskAssetId.forTask(taskId, "blueprint"), taskId, 1,
@@ -611,9 +612,9 @@ class AtomicBlueprintBlobRepositoryTest {
         return new AtomicBlueprintBlobRepository(temporaryDirectory, codec);
     }
 
-    private static CompoundTag structure(byte[] payload) {
-        CompoundTag structure = new CompoundTag();
-        structure.putByteArray("payload", payload);
+    private static NBTTagCompound structure(byte[] payload) {
+        NBTTagCompound structure = new NBTTagCompound();
+        structure.setByteArray("payload", payload);
         return structure;
     }
 }

@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -19,13 +19,13 @@ class RtsCullingRayClipperTest {
                 new BlockPos(1, 64, 0),
                 new BlockPos(2, 64, 0),
                 1);
-        Vec3 origin = new Vec3(0.5D, 64.5D, 0.5D);
-        Vec3 direction = new Vec3(1.0D, 0.0D, 0.0D);
-        BlockHitResult hiddenHit = hit(new BlockPos(1, 64, 0));
-        BlockHitResult visibleBehindHit = hit(new BlockPos(4, 64, 0));
-        List<Vec3> clipStarts = new ArrayList<>();
+        Vec3d origin = new Vec3d(0.5D, 64.5D, 0.5D);
+        Vec3d direction = new Vec3d(1.0D, 0.0D, 0.0D);
+        RayTraceResult hiddenHit = hit(new BlockPos(1, 64, 0));
+        RayTraceResult visibleBehindHit = hit(new BlockPos(4, 64, 0));
+        List<Vec3d> clipStarts = new ArrayList<>();
 
-        BlockHitResult result = RtsCullingRayClipper.clip(
+        RayTraceResult result = RtsCullingRayClipper.clip(
                 origin,
                 direction,
                 16.0D,
@@ -47,12 +47,12 @@ class RtsCullingRayClipperTest {
                 new BlockPos(1, 64, 0),
                 new BlockPos(2, 64, 0),
                 1);
-        BlockHitResult visibleHit = hit(new BlockPos(4, 64, 0));
-        List<Vec3> clipStarts = new ArrayList<>();
+        RayTraceResult visibleHit = hit(new BlockPos(4, 64, 0));
+        List<Vec3d> clipStarts = new ArrayList<>();
 
-        BlockHitResult result = RtsCullingRayClipper.clip(
-                new Vec3(0.5D, 64.5D, 0.5D),
-                new Vec3(1.0D, 0.0D, 0.0D),
+        RayTraceResult result = RtsCullingRayClipper.clip(
+                new Vec3d(0.5D, 64.5D, 0.5D),
+                new Vec3d(1.0D, 0.0D, 0.0D),
                 16.0D,
                 (start, end) -> {
                     clipStarts.add(start);
@@ -72,7 +72,7 @@ class RtsCullingRayClipperTest {
             }
 
             @Override
-            public double distanceAfterCulledBlock(Vec3 origin, Vec3 direction, BlockPos pos, double maxDistance) {
+            public double distanceAfterCulledBlock(Vec3d origin, Vec3d direction, BlockPos pos, double maxDistance) {
                 return manager.distanceAfterCulledBlock(origin, direction, pos, maxDistance);
             }
         };
@@ -91,10 +91,10 @@ class RtsCullingRayClipperTest {
     }
 
     private static void clickBlock(RtsCullingManager manager, BlockPos pos) {
-        manager.handleWorldAction(hit(pos), Vec3.ZERO, new Vec3(1.0D, 0.0D, 0.0D));
+        manager.handleWorldAction(hit(pos), Vec3d.ZERO, new Vec3d(1.0D, 0.0D, 0.0D));
     }
 
-    private static BlockHitResult hit(BlockPos pos) {
-        return new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false);
+    private static RayTraceResult hit(BlockPos pos) {
+        return new RayTraceResult(new Vec3d(pos).add(0.5D, 0.5D, 0.5D), EnumFacing.UP, pos);
     }
 }

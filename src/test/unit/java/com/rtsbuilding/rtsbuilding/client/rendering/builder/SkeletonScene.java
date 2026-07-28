@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.List;
 import java.util.Map;
@@ -25,6 +25,6 @@ record SkeletonScene(String name, String source, List<BlockPos> blocks, Map<Long
         if (pos == null) {
             return "minecraft:unknown";
         }
-        return this.blockIds.getOrDefault(pos.asLong(), "minecraft:unknown");
+        return this.blockIds.getOrDefault(pos.toLong(), "minecraft:unknown");
     }
 }

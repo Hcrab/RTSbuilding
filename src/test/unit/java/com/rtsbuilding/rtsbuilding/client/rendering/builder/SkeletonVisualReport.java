@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -79,7 +79,7 @@ public final class SkeletonVisualReport {
                 for (int x = 0; x < 3; x++) {
                     BlockPos pos = new BlockPos(x, y, z);
                     blocks.add(pos);
-                    ids.put(pos.asLong(), "minecraft:stone");
+                    ids.put(pos.toLong(), "minecraft:stone");
                 }
             }
         }

@@ -61,6 +61,23 @@ public interface TaskRepository {
                     com.rtsbuilding.rtsbuilding.server.task.Java8Collections.<String>setOf(),
                     TaskAssetManifest.empty());
         }
+
+        // Jabel 在 Java 8 目标下不会替 record 生成可靠的值语义，必须显式保留。
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Image)) return false;
+            Image that = (Image) other;
+            return tasks.equals(that.tasks)
+                    && tombstones.equals(that.tombstones)
+                    && completedMigrations.equals(that.completedMigrations)
+                    && assets.equals(that.assets);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(tasks, tombstones, completedMigrations, assets);
+        }
     }
 
     /** 一个必须原子提交的增量批次。 */
@@ -189,7 +206,7 @@ public interface TaskRepository {
             assetsPerTask.merge(metadata.taskId(), 1, Integer::sum);
         }
         for (TaskSnapshot task : tasks.values()) {
-            if (!task.payloadView().hasKey("asset_id")) continue;
+            if (!NbtCompat.containsUuidField(task.payloadView(), "asset_id")) continue;
             if (!NbtCompat.hasUuid(task.payloadView(), "asset_id")) {
                 throw new IllegalArgumentException("task.payload.asset_id 类型损坏");
             }

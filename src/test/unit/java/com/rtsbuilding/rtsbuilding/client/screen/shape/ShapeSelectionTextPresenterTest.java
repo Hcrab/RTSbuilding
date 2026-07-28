@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -186,8 +186,8 @@ class ShapeSelectionTextPresenterTest {
             BlockPos pointA) {
         return new ShapeBuildTypes.Session(
                 shape,
-                Direction.UP,
-                Direction.UP,
+                EnumFacing.UP,
+                EnumFacing.UP,
                 pointA,
                 new BlockPos(4, 5, 6),
                 phase,

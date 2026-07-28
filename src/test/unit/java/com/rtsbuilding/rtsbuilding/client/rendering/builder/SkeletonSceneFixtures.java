@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -180,9 +180,9 @@ final class SkeletonSceneFixtures {
     }
 
     private static void add(List<BlockPos> blocks, Map<Long, String> ids, BlockPos pos, String blockId) {
-        if (!ids.containsKey(pos.asLong())) {
+        if (!ids.containsKey(pos.toLong())) {
             blocks.add(pos);
         }
-        ids.put(pos.asLong(), blockId);
+        ids.put(pos.toLong(), blockId);
     }
 }

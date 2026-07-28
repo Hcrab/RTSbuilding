@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.task.mining;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -18,19 +18,19 @@ class MiningTaskStateTest {
     @Test
     void stateDefensivelyCopiesTargetsAndHistoryNbt() {
         List<BlockPos> targets = new ArrayList<>(List.of(new BlockPos(1, 2, 3)));
-        CompoundTag history = historyTag();
-        List<CompoundTag> histories = new ArrayList<>(List.of(history));
+        NBTTagCompound history = historyTag();
+        List<NBTTagCompound> histories = new ArrayList<>(List.of(history));
         MiningTaskState state = state(MiningTaskState.Mode.BATCH, targets, 2, 1, 1, 0, histories);
 
         targets.clear();
-        history.putString("outside", "mutated");
+        history.setString("outside", "mutated");
         histories.clear();
-        CompoundTag leaked = state.historyRecords().getFirst();
-        leaked.putString("accessor", "mutated");
+        NBTTagCompound leaked = state.historyRecords().getFirst();
+        leaked.setString("accessor", "mutated");
 
         assertEquals(List.of(new BlockPos(1, 2, 3)), state.remainingTargets());
-        assertFalse(state.historyRecords().getFirst().contains("outside"));
-        assertFalse(state.historyRecords().getFirst().contains("accessor"));
+        assertFalse(state.historyRecords().getFirst().hasKey("outside"));
+        assertFalse(state.historyRecords().getFirst().hasKey("accessor"));
     }
 
     @Test
@@ -78,26 +78,26 @@ class MiningTaskStateTest {
         assertThrows(IllegalArgumentException.class,
                 () -> new MiningTaskState(
                         MiningTaskState.Mode.PROGRESSIVE_SINGLE, -1, List.of(),
-                        1, 0, 0, 0, Direction.DOWN, 0,
+                        1, 0, 0, 0, EnumFacing.DOWN, 0,
                         false, true, 0.0F, -1, List.of()));
         assertThrows(IllegalArgumentException.class,
                 () -> new MiningTaskState(
                         MiningTaskState.Mode.BATCH, -1, List.of(new BlockPos(0, 0, 0)),
-                        1, 0, 0, 0, Direction.DOWN, 0,
+                        1, 0, 0, 0, EnumFacing.DOWN, 0,
                         false, true, 1.0F, -1, List.of()));
     }
 
     private static MiningTaskState state(
             MiningTaskState.Mode mode, List<BlockPos> targets,
-            int total, int cursor, int succeeded, int failed, List<CompoundTag> history) {
+            int total, int cursor, int succeeded, int failed, List<NBTTagCompound> history) {
         return new MiningTaskState(mode, -1, targets, total, cursor, succeeded, failed,
-                Direction.DOWN, 0, false, true, 0.0F, -1, history);
+                EnumFacing.DOWN, 0, false, true, 0.0F, -1, history);
     }
 
-    private static CompoundTag historyTag() {
-        CompoundTag history = new CompoundTag();
-        history.putLong("pos", 1L);
-        history.put("state", new CompoundTag());
+    private static NBTTagCompound historyTag() {
+        NBTTagCompound history = new NBTTagCompound();
+        history.setLong("pos", 1L);
+        history.setTag("state", new NBTTagCompound());
         return history;
     }
 }

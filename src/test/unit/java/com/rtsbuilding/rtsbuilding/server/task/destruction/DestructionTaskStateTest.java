@@ -1,13 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.task.destruction;
 
 import com.rtsbuilding.rtsbuilding.server.task.DestructionTaskPayload;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Blocks;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.init.Blocks;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -25,13 +23,13 @@ class DestructionTaskStateTest {
         UUID owner = UUID.randomUUID();
         DestructionTaskState state = stateWithOneDestroyedTarget();
         DestructionTaskPayload payload = new DestructionTaskPayload(
-                owner, Level.OVERWORLD, 17, state);
+                owner, 0, 17, state);
 
         DestructionTaskPayload decoded = DestructionTaskCodec.decode(
                 DestructionTaskCodec.encode(payload));
 
         assertEquals(owner, decoded.ownerId());
-        assertEquals(Level.OVERWORLD, decoded.dimension());
+        assertEquals(0, decoded.dimension());
         assertEquals(17, decoded.workflowEntryId());
         assertEquals(state, decoded.state());
         assertTrue(decoded.state().complete());
@@ -40,23 +38,23 @@ class DestructionTaskStateTest {
     @Test
     void constructorDefensivelyCopiesPositionsAndHistoryNbt() {
         List<BlockPos> targets = new ArrayList<>(List.of(new BlockPos(1, 2, 3)));
-        CompoundTag history = history(new BlockPos(1, 2, 3));
-        List<CompoundTag> histories = new ArrayList<>(List.of(history));
+        NBTTagCompound history = history(new BlockPos(1, 2, 3));
+        List<NBTTagCompound> histories = new ArrayList<>(List.of(history));
         DestructionTaskState state = new DestructionTaskState(
                 targets, (byte) 2, true, false, 3,
                 1, 1, 0, targets, histories);
 
         targets.clear();
         histories.clear();
-        history.putString("mutated", "outside");
-        CompoundTag exposed = state.historyRecords().getFirst();
-        exposed.putString("mutated", "getter");
+        history.setString("mutated", "outside");
+        NBTTagCompound exposed = state.historyRecords().getFirst();
+        exposed.setString("mutated", "getter");
 
         assertEquals(1, state.targets().size());
         assertEquals(1, state.destroyedPositions().size());
-        assertFalse(state.historyRecords().getFirst().contains("mutated"));
+        assertFalse(state.historyRecords().getFirst().hasKey("mutated"));
         assertThrows(UnsupportedOperationException.class,
-                () -> state.targets().add(BlockPos.ZERO));
+                () -> state.targets().add(BlockPos.ORIGIN));
     }
 
     @Test
@@ -77,16 +75,16 @@ class DestructionTaskStateTest {
     @Test
     void codecRejectsWrongHistoryElementTypeAndNonCanonicalDimension() {
         DestructionTaskPayload payload = new DestructionTaskPayload(
-                UUID.randomUUID(), Level.OVERWORLD, 17, stateWithOneDestroyedTarget());
-        CompoundTag wrongHistory = DestructionTaskCodec.encode(payload);
-        ListTag strings = new ListTag();
-        strings.add(StringTag.valueOf("not-a-history-record"));
-        wrongHistory.put("history", strings);
+                UUID.randomUUID(), 0, 17, stateWithOneDestroyedTarget());
+        NBTTagCompound wrongHistory = DestructionTaskCodec.encode(payload);
+        NBTTagList strings = new NBTTagList();
+        strings.appendTag(new NBTTagString("not-a-history-record"));
+        wrongHistory.setTag("history", strings);
         assertThrows(IllegalArgumentException.class,
                 () -> DestructionTaskCodec.decode(wrongHistory));
 
-        CompoundTag wrongDimension = DestructionTaskCodec.encode(payload);
-        wrongDimension.putString("dimension", "Minecraft:Overworld");
+        NBTTagCompound wrongDimension = DestructionTaskCodec.encode(payload);
+        wrongDimension.setString("dimension", "Minecraft:Overworld");
         assertThrows(IllegalArgumentException.class,
                 () -> DestructionTaskCodec.decode(wrongDimension));
     }
@@ -98,12 +96,12 @@ class DestructionTaskStateTest {
                 1, 1, 0, List.of(target), List.of(history(target)));
     }
 
-    private static CompoundTag history(BlockPos pos) {
-        CompoundTag tag = new CompoundTag();
-        tag.putLong("pos", pos.asLong());
-        CompoundTag state = new CompoundTag();
-        state.putString("Name", "minecraft:stone");
-        tag.put("state", state);
+    private static NBTTagCompound history(BlockPos pos) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setLong("pos", pos.toLong());
+        NBTTagCompound state = new NBTTagCompound();
+        state.setString("Name", "minecraft:stone");
+        tag.setTag("state", state);
         return tag;
     }
 }

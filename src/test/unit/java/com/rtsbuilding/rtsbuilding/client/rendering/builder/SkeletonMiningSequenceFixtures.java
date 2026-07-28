@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningTargetQueue;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -32,7 +32,7 @@ final class SkeletonMiningSequenceFixtures {
                 seed,
                 RtsMiningValidator.ULTIMINE_MAX_BLOCKS,
                 RtsUltimineCollector.DEFAULT_MAX_RADIUS,
-                pos -> blockKeys.contains(pos.asLong()),
+                pos -> blockKeys.contains(pos.toLong()),
                 (pos, present, seedPresent) -> Boolean.TRUE.equals(present));
     }
 
@@ -48,7 +48,7 @@ final class SkeletonMiningSequenceFixtures {
         return List.copyOf(RtsMiningTargetQueue.collectExplicitDestroyTargets(
                 rawPositions,
                 pos -> true,
-                pos -> blockKeys.contains(pos.asLong())));
+                pos -> blockKeys.contains(pos.toLong())));
     }
 
     static List<List<BlockPos>> actualTickBatches(List<BlockPos> lockedTargets) {
@@ -76,7 +76,7 @@ final class SkeletonMiningSequenceFixtures {
     private static Set<Long> blockKeys(SkeletonScene scene) {
         Set<Long> keys = new HashSet<>(scene.blocks().size() * 2);
         for (BlockPos pos : scene.blocks()) {
-            keys.add(pos.asLong());
+            keys.add(pos.toLong());
         }
         return keys;
     }

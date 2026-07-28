@@ -21,12 +21,12 @@ class TaskPersistenceLifecycleContractTest {
 
         assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.start(event.getServer())"));
         assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.tick()"));
-        assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUUID())"));
+        assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUniqueId())"));
         assertTrue(source.contains("onServerStopping(ServerStoppingEvent event)"));
         assertEquals(1, occurrences(source, "TaskPersistenceRuntime.INSTANCE.stop()"),
                 "writer 只能关闭一次");
 
-        int ownerFlush = source.indexOf("TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUUID())");
+        int ownerFlush = source.indexOf("TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUniqueId())");
         int sessionCleanup = source.indexOf("ServiceRegistry.getInstance().session().onPlayerLogout(serverPlayer)");
         assertTrue(ownerFlush >= 0 && sessionCleanup > ownerFlush,
                 "durable owner flush 必须发生在 Session 清理之前");

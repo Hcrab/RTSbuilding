@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -22,9 +22,9 @@ class DataClusterPersistenceTest {
 
     private static final DataComponent<Integer> ALPHA = integerComponent("alpha");
     private static final DataComponent<Integer> BETA = integerComponent("beta");
-    private static final DataComponent<CompoundTag> MUTABLE = new DataComponent<>("mutable", NbtCodec.of(
-            CompoundTag::copy,
-            CompoundTag::merge), CompoundTag::new);
+    private static final DataComponent<NBTTagCompound> MUTABLE = new DataComponent<>("mutable", NbtCodec.of(
+            NBTTagCompound::copy,
+            NBTTagCompound::merge), NBTTagCompound::new);
 
     @TempDir
     Path tempDir;
@@ -62,7 +62,7 @@ class DataClusterPersistenceTest {
 
     @Test
     void failedWriteKeepsRevisionDirtyForRetry() {
-        FakeStore store = new FakeStore(new CompoundTag());
+        FakeStore store = new FakeStore(new NBTTagCompound());
         store.failWrites = true;
         DataCluster cluster = new DataCluster(store);
         cluster.set(ALPHA, 21);
@@ -81,7 +81,7 @@ class DataClusterPersistenceTest {
 
     @Test
     void persistedRevisionAdvancesOnlyAfterSuccessfulAtomicWrite() {
-        FakeStore store = new FakeStore(new CompoundTag());
+        FakeStore store = new FakeStore(new NBTTagCompound());
         DataCluster cluster = new DataCluster(store);
 
         long revision = cluster.set(ALPHA, 22);
@@ -101,7 +101,7 @@ class DataClusterPersistenceTest {
 
     @Test
     void failedFlushAndCloseKeepsCacheOpenUntilRetrySucceeds() {
-        FakeStore store = new FakeStore(new CompoundTag());
+        FakeStore store = new FakeStore(new NBTTagCompound());
         store.failWrites = true;
         DataCluster cluster = new DataCluster(store);
         cluster.set(ALPHA, 31);
@@ -120,10 +120,10 @@ class DataClusterPersistenceTest {
         FakeStore store = new FakeStore(rootWith(1, 2));
         DataCluster cluster = new DataCluster(store);
 
-        cluster.get(MUTABLE).putInt("changed", 71);
+        cluster.get(MUTABLE).setInteger("changed", 71);
 
         assertTrue(cluster.flushAndClose());
-        assertEquals(71, store.lastWritten.getCompound("mutable").getInt("changed"));
+        assertEquals(71, store.lastWritten.getCompoundTag("mutable").getInteger("changed"));
         assertEquals(2, valueOf(store.lastWritten, "beta"));
     }
 
@@ -173,32 +173,32 @@ class DataClusterPersistenceTest {
     }
 
     private static FakeStore failingStore() {
-        FakeStore store = new FakeStore(new CompoundTag());
+        FakeStore store = new FakeStore(new NBTTagCompound());
         store.failWrites = true;
         return store;
     }
 
     private static DataComponent<Integer> integerComponent(String key) {
         return new DataComponent<>(key, NbtCodec.of(
-                tag -> tag.getInt("value"),
-                (tag, value) -> tag.putInt("value", value)), () -> 0);
+                tag -> tag.getInteger("value"),
+                (tag, value) -> tag.setInteger("value", value)), () -> 0);
     }
 
-    private static CompoundTag rootWith(int alpha, int beta) {
-        CompoundTag root = new CompoundTag();
-        root.put("alpha", slot(alpha));
-        root.put("beta", slot(beta));
+    private static NBTTagCompound rootWith(int alpha, int beta) {
+        NBTTagCompound root = new NBTTagCompound();
+        root.setTag("alpha", slot(alpha));
+        root.setTag("beta", slot(beta));
         return root;
     }
 
-    private static CompoundTag slot(int value) {
-        CompoundTag slot = new CompoundTag();
-        slot.putInt("value", value);
+    private static NBTTagCompound slot(int value) {
+        NBTTagCompound slot = new NBTTagCompound();
+        slot.setInteger("value", value);
         return slot;
     }
 
-    private static int valueOf(CompoundTag root, String key) {
-        return root.getCompound(key).getInt("value");
+    private static int valueOf(NBTTagCompound root, String key) {
+        return root.getCompoundTag(key).getInteger("value");
     }
 
     @SuppressWarnings("unchecked")
@@ -209,12 +209,12 @@ class DataClusterPersistenceTest {
     }
 
     private static final class FakeStore implements RtsNbtStore {
-        private final CompoundTag initialRoot;
+        private final NBTTagCompound initialRoot;
         private boolean failWrites;
         private int writeAttempts;
-        private CompoundTag lastWritten;
+        private NBTTagCompound lastWritten;
 
-        private FakeStore(CompoundTag initialRoot) {
+        private FakeStore(NBTTagCompound initialRoot) {
             this.initialRoot = initialRoot.copy();
         }
 
@@ -224,7 +224,7 @@ class DataClusterPersistenceTest {
         }
 
         @Override
-        public boolean write(CompoundTag tag) {
+        public boolean write(NBTTagCompound tag) {
             writeAttempts++;
             if (failWrites) return false;
             lastWritten = tag.copy();

@@ -82,7 +82,7 @@ class RtsRemoteBlockSoundContractTest {
                 "新的配置键应默认允许每 tick 最多 16 声，避免旧默认值 1 延续到已有运行目录。");
         assertFalse(modSource.contains("RtsPlacementSound.tickPlayer(serverPlayer)"),
                 "玩家 tick 不应再驱动任何声音队列。");
-        assertTrue(modSource.contains("RtsPlacementSound.forgetPlayer(serverPlayer.getUUID())"),
+        assertTrue(modSource.contains("RtsPlacementSound.forgetPlayer(serverPlayer.getUniqueId())"),
                 "玩家离线时仍应清理限流计数状态。");
         assertTrue(clientSource.contains("0.0D,\n                true"),
                 "声音实例必须相对监听器播放，跟随当前 RTS 相机。");

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -26,8 +26,8 @@ class RtsStrictAtomicNbtStoreTest {
         RtsStrictAtomicNbtStore store = new RtsStrictAtomicNbtStore(file, "test/root");
         byte[] payload = new byte[5 * 1024 * 1024];
         new Random(0x525453L).nextBytes(payload);
-        CompoundTag root = new CompoundTag();
-        root.putByteArray("payload", payload);
+        NBTTagCompound root = new NBTTagCompound();
+        root.setByteArray("payload", payload);
 
         assertTrue(store.write(root));
         var found = assertInstanceOf(
@@ -45,8 +45,8 @@ class RtsStrictAtomicNbtStoreTest {
                     throw new AtomicMoveNotSupportedException(
                             source.toString(), target.toString(), "test");
                 }, ignored -> { }, ignored -> { });
-        CompoundTag root = new CompoundTag();
-        root.putInt("schema", 2);
+        NBTTagCompound root = new NBTTagCompound();
+        root.setInteger("schema", 2);
 
         assertFalse(store.write(root));
         assertArrayEquals(new byte[]{1, 2, 3}, Files.readAllBytes(file));
@@ -60,8 +60,8 @@ class RtsStrictAtomicNbtStoreTest {
                 (source, target) -> Files.move(source, target,
                         StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE),
                 ignored -> { }, ignored -> { throw new IOException("simulated disk failure"); });
-        CompoundTag root = new CompoundTag();
-        root.putInt("schema", 2);
+        NBTTagCompound root = new NBTTagCompound();
+        root.setInteger("schema", 2);
 
         assertFalse(store.write(root));
     }
@@ -74,8 +74,8 @@ class RtsStrictAtomicNbtStoreTest {
                 (source, target) -> Files.move(source, target,
                         StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE),
                 ignored -> { throw new IOException("simulated force failure"); }, ignored -> { });
-        CompoundTag root = new CompoundTag();
-        root.putInt("schema", 2);
+        NBTTagCompound root = new NBTTagCompound();
+        root.setInteger("schema", 2);
 
         assertFalse(store.write(root));
     }

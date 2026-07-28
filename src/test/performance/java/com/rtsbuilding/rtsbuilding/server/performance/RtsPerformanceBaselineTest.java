@@ -1,18 +1,16 @@
 package com.rtsbuilding.rtsbuilding.server.performance;
 
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
-import net.minecraft.SharedConstants;
-import net.minecraft.server.Bootstrap;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.neoforged.fml.loading.LoadingModList;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.init.Bootstrap;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -25,17 +23,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * 测试只约束工作量和结果正确性，不用不稳定的墙钟时间阻断构建；耗时用于人工观察和后续版本对比。
  */
 class RtsPerformanceBaselineTest {
+    private static Item stone;
 
     private static final int LARGE_ENTRY_COUNT = 50_000;
     private static final int MULTIPLAYER_COUNT = 20;
 
     @BeforeAll
     static void bootstrapMinecraftRegistries() {
-        if (LoadingModList.get() == null) {
-            LoadingModList.of(List.of(), List.of(), List.of(), List.of(), Map.of());
-        }
-        SharedConstants.tryDetectVersion();
-        Bootstrap.bootStrap();
+        Bootstrap.register();
+        stone = Item.getItemFromBlock(Blocks.STONE);
     }
 
     @Test
@@ -123,7 +119,7 @@ class RtsPerformanceBaselineTest {
         @Override
         public ItemStack getStackInSlot(int slot) {
             stackReads++;
-            return new ItemStack(Items.STONE, 64);
+            return new ItemStack(stone, 64);
         }
 
         @Override

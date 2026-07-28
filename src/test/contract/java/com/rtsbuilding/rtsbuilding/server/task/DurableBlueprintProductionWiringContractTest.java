@@ -40,7 +40,7 @@ class DurableBlueprintProductionWiringContractTest {
         String stopping = between(mod, "static void onServerStopping(", "static void onServerStopped(");
         String stopped = mod.substring(mod.indexOf("static void onServerStopped("));
 
-        assertTrue(bridge.contains("TaskId.fromSubmission(player.getUUID(), submissionId)"));
+        assertTrue(bridge.contains("TaskId.fromSubmission(player.getUniqueId(), submissionId)"));
         assertTrue(engine.contains("new TaskRecord(taskId.value()"));
         assertTrue(bridge.contains("persistence.coordinator().replace(next)"));
         assertTrue(bridge.contains("requestTombstone(entry.getKey(), gameTime)"));
@@ -78,7 +78,7 @@ class DurableBlueprintProductionWiringContractTest {
         assertTrue(persistence.contains("if (!preparing) ctx.setRemainingQueue(remaining)"));
         assertTrue(bridge.contains("root ACK 可能先于 legacy heavy→thin 投影"));
         assertTrue(bridge.contains("ProjectionClaimDecision.DEFER_UNCLAIMED_HEAVY) return false"));
-        assertTrue(bridge.contains("projection.putUUID(WORKFLOW_TASK_ID, taskId.value())"));
+        assertTrue(bridge.contains("projection.setUniqueId(WORKFLOW_TASK_ID, taskId.value())"));
     }
 
     @Test
@@ -96,8 +96,8 @@ class DurableBlueprintProductionWiringContractTest {
     void duplicateSubmissionComparesEveryPlacementChangingField() throws IOException {
         String bridge = read("server/task/DurableBlueprintTaskBridge.java");
         assertTrue(bridge.contains("durableBlob.structure().equals(frozen.structure())"));
-        assertTrue(bridge.contains("PAYLOAD_ANCHOR) != frozen.anchor().asLong()"));
-        assertTrue(bridge.contains("PAYLOAD_CENTER) != frozen.center().asLong()"));
+        assertTrue(bridge.contains("PAYLOAD_ANCHOR) != frozen.anchor().toLong()"));
+        assertTrue(bridge.contains("PAYLOAD_CENTER) != frozen.center().toLong()"));
         assertTrue(bridge.contains("PAYLOAD_Y) != frozen.ySteps()"));
         assertTrue(bridge.contains("PAYLOAD_X) != frozen.xSteps()"));
         assertTrue(bridge.contains("PAYLOAD_Z) != frozen.zSteps()"));

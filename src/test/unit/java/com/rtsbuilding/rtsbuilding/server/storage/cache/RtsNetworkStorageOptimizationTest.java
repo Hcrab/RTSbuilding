@@ -8,14 +8,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.SharedConstants;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.server.Bootstrap;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.neoforged.fml.loading.LoadingModList;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.init.Bootstrap;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.init.Items;
+import net.minecraftforge.items.IItemHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -24,13 +22,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class RtsNetworkStorageOptimizationTest {
+    private static Item STONE;
+    private static Item COBBLESTONE;
+
     @BeforeAll
     static void bootstrapMinecraftRegistries() {
-        if (LoadingModList.get() == null) {
-            LoadingModList.of(List.of(), List.of(), List.of(), List.of(), Map.of());
-        }
-        SharedConstants.tryDetectVersion();
-        Bootstrap.bootStrap();
+        Bootstrap.register();
+        STONE = Item.getItemFromBlock(Blocks.STONE);
+        COBBLESTONE = Item.getItemFromBlock(Blocks.COBBLESTONE);
     }
 
     @Test
@@ -40,18 +39,18 @@ class RtsNetworkStorageOptimizationTest {
             MountedNetwork mounted = mount(handler);
 
             int readsAfterInitialRefresh = handler.stackReads;
-            ItemStack remainder = mounted.storage.insert(new ItemStack(Items.STONE, 64), false);
+            ItemStack remainder = mounted.storage.insert(new ItemStack(STONE, 64), false);
 
             assertTrue(remainder.isEmpty(), kind + " should accept the whole inserted stack");
             assertEquals(1, handler.insertAnywhereCalls, kind + " should use the bulk insert path");
             assertEquals(0, handler.perSlotInsertCalls, kind + " should not scan slots while inserting");
             assertEquals(readsAfterInitialRefresh, handler.stackReads,
                     kind + " insert should not read storage slots after the cache is warm");
-            assertTrue(mounted.storage.drainPendingChanges().contains(itemId(Items.STONE)),
+            assertTrue(mounted.storage.drainPendingChanges().contains(itemId(STONE)),
                     kind + " insert should mark the stored item dirty");
 
             mounted.storage.tickUpdate();
-            assertEquals(64L, mounted.storage.getTotalCount(Items.STONE),
+            assertEquals(64L, mounted.storage.getTotalCount(STONE),
                     kind + " cache should see the stored stack after refresh");
         }
     }
@@ -84,7 +83,7 @@ class RtsNetworkStorageOptimizationTest {
             FakeNetworkHandler handler = FakeNetworkHandler.seeded(kind, Map.of(
                     Items.DIAMOND, 512L,
                     Items.EMERALD, 128L,
-                    Items.HONEYCOMB, 11L));
+                    Items.REDSTONE, 11L));
             MountedNetwork mounted = mount(handler);
             int readsAfterInitialRefresh = handler.stackReads;
 
@@ -110,13 +109,13 @@ class RtsNetworkStorageOptimizationTest {
     @Test
     void batchMiningDropsAutoStoreThroughBulkInsertPath() {
         List<ItemStack> minedDrops = List.of(
-                new ItemStack(Items.COBBLESTONE, 64),
-                new ItemStack(Items.COBBLESTONE, 64),
-                new ItemStack(Items.COBBLESTONE, 17),
+                new ItemStack(COBBLESTONE, 64),
+                new ItemStack(COBBLESTONE, 64),
+                new ItemStack(COBBLESTONE, 17),
                 new ItemStack(Items.DIAMOND, 3));
 
         for (NetworkKind kind : NetworkKind.values()) {
-            FakeNetworkHandler handler = FakeNetworkHandler.seeded(kind, Map.of(Items.STONE, 2048L));
+            FakeNetworkHandler handler = FakeNetworkHandler.seeded(kind, Map.of(STONE, 2048L));
             MountedNetwork mounted = mount(handler);
             int readsAfterInitialRefresh = handler.stackReads;
 
@@ -132,12 +131,12 @@ class RtsNetworkStorageOptimizationTest {
             assertEquals(readsAfterInitialRefresh, handler.stackReads,
                     kind + " batch mining auto-store should not read slots during insertion");
             assertTrue(mounted.storage.drainPendingChanges().containsAll(Set.of(
-                            itemId(Items.COBBLESTONE),
+                            itemId(COBBLESTONE),
                             itemId(Items.DIAMOND))),
                     kind + " batch mining auto-store should mark all stored drop types dirty");
 
             mounted.storage.tickUpdate();
-            assertEquals(145L, mounted.storage.getTotalCount(Items.COBBLESTONE),
+            assertEquals(145L, mounted.storage.getTotalCount(COBBLESTONE),
                     kind + " cache should include all cobblestone drops after refresh");
             assertEquals(3L, mounted.storage.getTotalCount(Items.DIAMOND),
                     kind + " cache should include all diamond drops after refresh");
@@ -167,7 +166,7 @@ class RtsNetworkStorageOptimizationTest {
     }
 
     private static String itemId(Item item) {
-        return BuiltInRegistries.ITEM.getKey(item).toString();
+        return Item.REGISTRY.getNameForObject(item).toString();
     }
 
     private record MountedNetwork(RtsAggregateStorage storage, RtsHandlerCache cache) {

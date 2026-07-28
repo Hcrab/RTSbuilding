@@ -34,7 +34,7 @@ class RtsUltimineStorageBatchingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsDropAbsorber.java"));
         String drainBody = methodBody(dropAbsorber, "public static int drainDropBuffer");
 
-        assertTrue(dropAbsorber.contains("RtsStorageTickService.INSTANCE.alert(player.getUUID())"),
+        assertTrue(dropAbsorber.contains("RtsStorageTickService.INSTANCE.alert(player.getUniqueId())"),
                 "缓存写入储存后只应唤醒下一次储存 tick。");
         assertFalse(drainBody.contains("forceRefresh("),
                 "缓存写回热路径不得同步刷新全部 linked storage。");

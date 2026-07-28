@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskTombstone;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -40,7 +40,7 @@ class AtomicNbtTaskRepositoryTest {
         assertInstanceOf(TaskRepository.LoadResult.Missing.class, missing.load());
 
         Path emptyPath = tempDir.resolve("found-empty.dat");
-        assertTrue(new RtsAtomicNbtStore(emptyPath, "test/found-empty").write(new CompoundTag()));
+        assertTrue(new RtsAtomicNbtStore(emptyPath, "test/found-empty").write(new NBTTagCompound()));
         AtomicNbtTaskRepository foundEmpty = repository(emptyPath);
         assertInstanceOf(TaskRepository.LoadResult.Failed.class, foundEmpty.load(),
                 "存在但缺 schema 的空 Root 不能降级为 Missing");
@@ -88,8 +88,8 @@ class AtomicNbtTaskRepositoryTest {
         assertInstanceOf(TaskRepository.LoadResult.Missing.class, repository.load());
         TaskId taskId = TaskId.create();
         TaskAssetId assetId = TaskAssetId.forTask(taskId, "blueprint");
-        CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", assetId.value());
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setUniqueId("asset_id", assetId.value());
         TaskSnapshot task = new TaskSnapshot(taskId, SubmissionId.create(), UUID.randomUUID(),
                 "minecraft:overworld", TaskType.BLUEPRINT, TaskLifecycleState.QUEUED,
                 -1, null, 1L, 0L, 0L, 1, 0, 0, 0, payload);
@@ -171,8 +171,8 @@ class AtomicNbtTaskRepositoryTest {
     }
 
     private static TaskSnapshot snapshot(TaskLifecycleState state) {
-        CompoundTag payload = new CompoundTag();
-        payload.putString("plan_ref", "test");
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setString("plan_ref", "test");
         return new TaskSnapshot(TaskId.create(), SubmissionId.create(), UUID.randomUUID(),
                 "minecraft:overworld", TaskType.PLACEMENT, state,
                 1, null, 1L, 10L, 10L, 4, 0, 0, 0, payload);

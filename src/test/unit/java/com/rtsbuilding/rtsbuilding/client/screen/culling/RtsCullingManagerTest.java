@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -112,21 +112,21 @@ class RtsCullingManagerTest {
         clickBlock(manager, new BlockPos(10, 64, 10));
         manager.confirmDraft();
 
-        Vec3 origin = new Vec3(10.5D, 67.0D, 10.5D);
-        Vec3 direction = new Vec3(0.0D, -1.0D, 0.0D);
+        Vec3d origin = new Vec3d(10.5D, 67.0D, 10.5D);
+        Vec3d direction = new Vec3d(0.0D, -1.0D, 0.0D);
         manager.updateHover(origin, direction);
-        assertEquals(Direction.UP, manager.hoveredHandleDirection());
+        assertEquals(EnumFacing.UP, manager.hoveredHandleDirection());
         assertFalse(manager.handleScroll(-1.0D, false), "hover alone must not steal the wheel");
 
         manager.handleWorldAction(null, origin, direction);
-        assertEquals(Direction.UP, manager.activeHandleDirection());
+        assertEquals(EnumFacing.UP, manager.activeHandleDirection());
 
         manager.handleWorldAction(null, origin, direction);
         assertNull(manager.activeHandleDirection());
         assertFalse(manager.handleScroll(1.0D, false), "clicking the gold handle again should release the wheel");
 
         manager.handleWorldAction(null, origin, direction);
-        assertEquals(Direction.UP, manager.activeHandleDirection());
+        assertEquals(EnumFacing.UP, manager.activeHandleDirection());
         assertTrue(manager.handleScroll(1.0D, false));
 
         RtsCullingBox box = manager.boxes().get(0);
@@ -150,13 +150,13 @@ class RtsCullingManagerTest {
         clickBlock(manager, new BlockPos(10, 64, 10));
         manager.confirmDraft();
 
-        Vec3 origin = new Vec3(10.5D, 62.0D, 10.5D);
-        Vec3 direction = new Vec3(0.0D, 1.0D, 0.0D);
+        Vec3d origin = new Vec3d(10.5D, 62.0D, 10.5D);
+        Vec3d direction = new Vec3d(0.0D, 1.0D, 0.0D);
         manager.updateHover(origin, direction);
-        assertEquals(Direction.DOWN, manager.hoveredHandleDirection());
+        assertEquals(EnumFacing.DOWN, manager.hoveredHandleDirection());
 
         manager.handleWorldAction(null, origin, direction);
-        assertEquals(Direction.DOWN, manager.activeHandleDirection());
+        assertEquals(EnumFacing.DOWN, manager.activeHandleDirection());
         assertTrue(manager.handleScroll(1.0D, false));
 
         RtsCullingBox box = manager.boxes().get(0);
@@ -173,11 +173,11 @@ class RtsCullingManagerTest {
         clickBlock(manager, new BlockPos(10, 64, 10));
         manager.confirmDraft();
 
-        Vec3 origin = new Vec3(10.5D, 67.0D, 10.5D);
-        Vec3 direction = new Vec3(0.0D, -1.0D, 0.0D);
+        Vec3d origin = new Vec3d(10.5D, 67.0D, 10.5D);
+        Vec3d direction = new Vec3d(0.0D, -1.0D, 0.0D);
         manager.handleWorldAction(null, origin, direction);
 
-        assertEquals(Direction.UP, manager.activeHandleDirection());
+        assertEquals(EnumFacing.UP, manager.activeHandleDirection());
         assertTrue(manager.handleActiveHandleDrag(0.0D, -18.0D, 0.0D, -1.0D));
 
         RtsCullingBox box = manager.boxes().get(0);
@@ -199,14 +199,14 @@ class RtsCullingManagerTest {
         clickBlock(manager, new BlockPos(10, 64, 10));
         manager.confirmDraft();
 
-        Vec3 origin = new Vec3(10.5D, 67.0D, 10.5D);
-        Vec3 direction = new Vec3(0.0D, -1.0D, 0.0D);
+        Vec3d origin = new Vec3d(10.5D, 67.0D, 10.5D);
+        Vec3d direction = new Vec3d(0.0D, -1.0D, 0.0D);
         manager.handleWorldAction(null, origin, direction);
 
-        assertEquals(Direction.UP, manager.activeHandleDirection());
+        assertEquals(EnumFacing.UP, manager.activeHandleDirection());
         assertFalse(manager.releaseActiveHandleIfDragged(),
                 "普通点击锁定仍要保留滚轮调整能力");
-        assertEquals(Direction.UP, manager.activeHandleDirection());
+        assertEquals(EnumFacing.UP, manager.activeHandleDirection());
 
         assertTrue(manager.handleActiveHandleDrag(0.0D, -4.0D, 0.0D, -1.0D));
         assertTrue(manager.releaseActiveHandleIfDragged());
@@ -221,14 +221,14 @@ class RtsCullingManagerTest {
         clickBlock(manager, new BlockPos(10, 64, 10));
         manager.confirmDraft();
 
-        Vec3 hoverOrigin = new Vec3(10.5D, 64.5D, 8.0D);
-        Vec3 hoverDirection = new Vec3(0.0D, 0.0D, 1.0D);
+        Vec3d hoverOrigin = new Vec3d(10.5D, 64.5D, 8.0D);
+        Vec3d hoverDirection = new Vec3d(0.0D, 0.0D, 1.0D);
         manager.updateHover(hoverOrigin, hoverDirection);
         assertEquals(1, manager.hoveredId());
 
         BlockPos behind = new BlockPos(10, 64, 12);
         assertTrue(manager.handleWorldAction(
-                new BlockHitResult(Vec3.atCenterOf(behind), Direction.UP, behind, false),
+                new RayTraceResult(new Vec3d(behind).add(0.5D, 0.5D, 0.5D), EnumFacing.UP, behind),
                 null,
                 null));
 
@@ -283,8 +283,8 @@ class RtsCullingManagerTest {
 
     private static void clickBlock(RtsCullingManager manager, BlockPos pos) {
         manager.handleWorldAction(
-                new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false),
-                Vec3.ZERO,
-                new Vec3(0.0D, 0.0D, 1.0D));
+                new RayTraceResult(new Vec3d(pos).add(0.5D, 0.5D, 0.5D), EnumFacing.UP, pos),
+                Vec3d.ZERO,
+                new Vec3d(0.0D, 0.0D, 1.0D));
     }
 }

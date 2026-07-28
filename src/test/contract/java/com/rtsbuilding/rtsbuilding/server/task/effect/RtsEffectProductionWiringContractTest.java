@@ -41,7 +41,7 @@ class RtsEffectProductionWiringContractTest {
     @Test
     void ordinaryServiceTemplateOnlyMarksStorageDirty() throws IOException {
         String template = read("server/service/ServiceOperationTemplate.java");
-        assertTrue(template.contains("RtsStorageTickService.INSTANCE.alert(player.getUUID())"));
+        assertTrue(template.contains("RtsStorageTickService.INSTANCE.alert(player.getUniqueId())"));
         assertFalse(template.contains("RtsStorageTickService.INSTANCE.forceRefresh("));
     }
 
@@ -51,11 +51,11 @@ class RtsEffectProductionWiringContractTest {
         String plugin = read("server/plugin/RtsPluginService.java");
         String progression = read("server/progression/RtsProgressionManager.java");
 
-        assertTrue(history.contains("markHistory(player.getUUID())"));
+        assertTrue(history.contains("markHistory(player.getUniqueId())"));
         assertTrue(history.contains("sendSyncNow(ServerPlayer player)"));
-        assertTrue(plugin.contains("markPluginState(player.getUUID())"));
+        assertTrue(plugin.contains("markPluginState(player.getUniqueId())"));
         assertTrue(plugin.contains("syncToPlayerNow(ServerPlayer player)"));
-        assertTrue(progression.contains("markProgressionState(player.getUUID())"));
+        assertTrue(progression.contains("markProgressionState(player.getUniqueId())"));
         assertTrue(progression.contains("syncToPlayerNow(ServerPlayer player)"));
     }
 

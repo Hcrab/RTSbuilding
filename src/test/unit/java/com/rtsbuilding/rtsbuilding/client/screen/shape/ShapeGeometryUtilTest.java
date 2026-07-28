@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashSet;
@@ -19,9 +19,9 @@ class ShapeGeometryUtilTest {
     void rangeDestroyUsesConfiguredSpanWithoutExpandingNormalBuildCap() {
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.LINE,
-                Direction.UP,
-                Direction.UP,
-                BlockPos.ZERO,
+                EnumFacing.UP,
+                EnumFacing.UP,
+                BlockPos.ORIGIN,
                 new BlockPos(35, 0, 0),
                 0,
                 false);
@@ -39,8 +39,8 @@ class ShapeGeometryUtilTest {
         BlockPos start = new BlockPos(0, 64, 0);
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.CYLINDER,
-                Direction.UP,
-                Direction.UP,
+                EnumFacing.UP,
+                EnumFacing.UP,
                 start,
                 new BlockPos(2, 64, 0),
                 2,
@@ -60,16 +60,16 @@ class ShapeGeometryUtilTest {
         BlockPos start = new BlockPos(0, 64, 0);
         ShapeBuildTypes.Input circleInput = new ShapeBuildTypes.Input(
                 BuildShape.CIRCLE,
-                Direction.UP,
-                Direction.UP,
+                EnumFacing.UP,
+                EnumFacing.UP,
                 start,
                 new BlockPos(3, 64, 0),
                 0,
                 false);
         ShapeBuildTypes.Input cylinderInput = new ShapeBuildTypes.Input(
                 BuildShape.CYLINDER,
-                Direction.UP,
-                Direction.UP,
+                EnumFacing.UP,
+                EnumFacing.UP,
                 start,
                 new BlockPos(3, 64, 0),
                 0,
@@ -88,8 +88,8 @@ class ShapeGeometryUtilTest {
         BlockPos start = new BlockPos(0, 64, 0);
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.CYLINDER,
-                Direction.EAST,
-                Direction.UP,
+                EnumFacing.EAST,
+                EnumFacing.UP,
                 start,
                 new BlockPos(0, 66, 0),
                 2,
@@ -107,8 +107,8 @@ class ShapeGeometryUtilTest {
         BlockPos start = new BlockPos(0, 64, 0);
         ShapeBuildTypes.Input input = new ShapeBuildTypes.Input(
                 BuildShape.BALL,
-                Direction.UP,
-                Direction.UP,
+                EnumFacing.UP,
+                EnumFacing.UP,
                 start,
                 new BlockPos(1, 64, 0),
                 0,
@@ -117,8 +117,8 @@ class ShapeGeometryUtilTest {
         List<BlockPos> fill = ShapeGeometryUtil.buildShapePositions(input, ShapeFillMode.FILL);
 
         assertEquals(7, new HashSet<>(fill).size());
-        assertTrue(fill.contains(start.above()));
-        assertTrue(fill.contains(start.below()));
+        assertTrue(fill.contains(start.up()));
+        assertTrue(fill.contains(start.down()));
     }
 
     @Test
@@ -144,7 +144,7 @@ class ShapeGeometryUtilTest {
                 new BlockPos(0, 66, 1));
 
         List<BlockPos> fill = ShapeGeometryUtil.buildAdvancedShapePositions(
-                BuildShape.CIRCLE, box, ShapeFillMode.FILL, Direction.EAST);
+                BuildShape.CIRCLE, box, ShapeFillMode.FILL, EnumFacing.EAST);
 
         assertTrue(fill.contains(new BlockPos(0, 64, 0)));
         assertTrue(fill.contains(new BlockPos(0, 66, 0)));

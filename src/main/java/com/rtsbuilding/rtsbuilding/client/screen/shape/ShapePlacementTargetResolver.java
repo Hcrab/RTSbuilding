@@ -177,7 +177,8 @@ public final class ShapePlacementTargetResolver {
         LinkedHashSet<BlockPos> distinct = new LinkedHashSet<>();
         for (BlockPos pos : positions) {
             if (pos != null) {
-                distinct.add(pos);
+                // MutableBlockPos 不能穿过解析边界，否则鼠标下一帧会改写已锁定预览。
+                distinct.add(new BlockPos(pos.getX(), pos.getY(), pos.getZ()));
             }
         }
         return java.util.Collections.unmodifiableList(new java.util.ArrayList<>(distinct));

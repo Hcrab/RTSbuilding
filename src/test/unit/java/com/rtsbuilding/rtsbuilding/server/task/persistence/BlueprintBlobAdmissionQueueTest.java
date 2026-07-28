@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.AtomicBlueprintBlobRepository;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint.BlueprintBlobCodec;
-import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NBTTagCompound;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -72,8 +72,8 @@ class BlueprintBlobAdmissionQueueTest {
                 repository, new BlueprintBlobCodec(),
                 java.util.concurrent.Executors::newSingleThreadExecutor, 512L);
         TaskSnapshot snapshot = snapshot(TaskId.create());
-        CompoundTag structure = new CompoundTag();
-        structure.putByteArray("payload", new byte[1_024]);
+        NBTTagCompound structure = new NBTTagCompound();
+        structure.setByteArray("payload", new byte[1_024]);
         var request = new BlueprintBlobAdmissionQueue.FreezeRequest(
                 snapshot.id(), snapshot.totalUnits(), "test", "test", "VANILLA_NBT", structure);
 
@@ -207,8 +207,8 @@ class BlueprintBlobAdmissionQueueTest {
     }
 
     private static TaskSnapshot snapshot(TaskId taskId) {
-        CompoundTag payload = new CompoundTag();
-        payload.putUUID("asset_id", TaskAssetId.forTask(taskId, "blueprint").value());
+        NBTTagCompound payload = new NBTTagCompound();
+        payload.setUniqueId("asset_id", TaskAssetId.forTask(taskId, "blueprint").value());
         return new TaskSnapshot(
                 taskId, SubmissionId.create(), UUID.randomUUID(), "minecraft:overworld",
                 TaskType.BLUEPRINT, TaskLifecycleState.QUEUED, -1, null,
@@ -216,8 +216,8 @@ class BlueprintBlobAdmissionQueueTest {
     }
 
     private static BlueprintBlobAdmissionQueue.FreezeRequest request(TaskSnapshot snapshot) {
-        CompoundTag structure = new CompoundTag();
-        structure.putInt("value", 1);
+        NBTTagCompound structure = new NBTTagCompound();
+        structure.setInteger("value", 1);
         return new BlueprintBlobAdmissionQueue.FreezeRequest(
                 snapshot.id(), snapshot.totalUnits(), "test", "test", "VANILLA_NBT", structure);
     }

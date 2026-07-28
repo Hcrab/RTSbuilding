@@ -112,4 +112,34 @@ public final class TaskSnapshot {
                 workflowEntryId, nextWaitKey, revision + 1L, createdGameTime, gameTime,
                 totalUnits, nextCursor, nextSucceeded, nextFailed, nextPayload);
     }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof TaskSnapshot)) return false;
+        TaskSnapshot that = (TaskSnapshot) other;
+        return workflowEntryId == that.workflowEntryId
+                && revision == that.revision
+                && createdGameTime == that.createdGameTime
+                && updatedGameTime == that.updatedGameTime
+                && totalUnits == that.totalUnits
+                && cursorUnits == that.cursorUnits
+                && succeededUnits == that.succeededUnits
+                && failedUnits == that.failedUnits
+                && id.equals(that.id)
+                && submissionId.equals(that.submissionId)
+                && ownerId.equals(that.ownerId)
+                && dimensionId.equals(that.dimensionId)
+                && type == that.type
+                && state == that.state
+                && Objects.equals(waitKey, that.waitKey)
+                && payload.equals(that.payload);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, submissionId, ownerId, dimensionId, type, state,
+                workflowEntryId, waitKey, revision, createdGameTime, updatedGameTime,
+                totalUnits, cursorUnits, succeededUnits, failedUnits, payload);
+    }
 }

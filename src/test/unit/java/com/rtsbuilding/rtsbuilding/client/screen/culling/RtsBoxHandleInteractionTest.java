@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.Vec3d;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -19,16 +19,16 @@ class RtsBoxHandleInteractionTest {
     void clickingActiveHandleAgainReleasesWheelOwnership() {
         RtsBoxHandleInteraction interaction = new RtsBoxHandleInteraction();
         RtsCullingBox box = singleBlockBox();
-        Vec3 origin = new Vec3(10.5D, 67.0D, 10.5D);
-        Vec3 direction = new Vec3(0.0D, -1.0D, 0.0D);
+        Vec3d origin = new Vec3d(10.5D, 67.0D, 10.5D);
+        Vec3d direction = new Vec3d(0.0D, -1.0D, 0.0D);
 
         RtsBoxHandleInteraction.ClickResult first = interaction.clickHandle(box, origin, direction);
         assertEquals(RtsBoxHandleInteraction.ClickKind.SELECTED, first.kind());
-        assertEquals(Direction.UP, interaction.activeDirection());
+        assertEquals(EnumFacing.UP, interaction.activeDirection());
 
         RtsBoxHandleInteraction.ClickResult second = interaction.clickHandle(box, origin, direction);
         assertEquals(RtsBoxHandleInteraction.ClickKind.RELEASED, second.kind());
-        assertEquals(Direction.UP, second.direction());
+        assertEquals(EnumFacing.UP, second.direction());
         assertNull(interaction.activeDirection());
         assertFalse(interaction.handleScroll(1.0D, false, (handle, delta) -> true));
     }
@@ -37,8 +37,8 @@ class RtsBoxHandleInteractionTest {
     void draggingAlongProjectedAxisEmitsAccumulatedResizeSteps() {
         RtsBoxHandleInteraction interaction = new RtsBoxHandleInteraction();
         RtsCullingBox box = singleBlockBox();
-        Vec3 origin = new Vec3(10.5D, 67.0D, 10.5D);
-        Vec3 direction = new Vec3(0.0D, -1.0D, 0.0D);
+        Vec3d origin = new Vec3d(10.5D, 67.0D, 10.5D);
+        Vec3d direction = new Vec3d(0.0D, -1.0D, 0.0D);
         List<Integer> deltas = new ArrayList<>();
 
         interaction.clickHandle(box, origin, direction);
@@ -69,14 +69,14 @@ class RtsBoxHandleInteractionTest {
     void releaseAfterDragClearsHandleButPlainClickKeepsWheelLock() {
         RtsBoxHandleInteraction interaction = new RtsBoxHandleInteraction();
         RtsCullingBox box = singleBlockBox();
-        Vec3 origin = new Vec3(10.5D, 67.0D, 10.5D);
-        Vec3 direction = new Vec3(0.0D, -1.0D, 0.0D);
+        Vec3d origin = new Vec3d(10.5D, 67.0D, 10.5D);
+        Vec3d direction = new Vec3d(0.0D, -1.0D, 0.0D);
 
         interaction.clickHandle(box, origin, direction);
 
         assertFalse(interaction.releaseActiveHandleIfDragged(),
                 "只点击箭头时仍应保留滚轮锁定");
-        assertEquals(Direction.UP, interaction.activeDirection());
+        assertEquals(EnumFacing.UP, interaction.activeDirection());
 
         assertTrue(interaction.handleDrag(0.0D, -4.0D, 0.0D, -1.0D,
                 (handle, delta) -> true));
@@ -89,11 +89,11 @@ class RtsBoxHandleInteractionTest {
     void hiddenHandleDirectionCannotCaptureWheelLock() {
         RtsBoxHandleInteraction interaction = new RtsBoxHandleInteraction();
         RtsCullingBox box = singleBlockBox();
-        Vec3 origin = new Vec3(10.5D, 67.0D, 10.5D);
-        Vec3 direction = new Vec3(0.0D, -1.0D, 0.0D);
+        Vec3d origin = new Vec3d(10.5D, 67.0D, 10.5D);
+        Vec3d direction = new Vec3d(0.0D, -1.0D, 0.0D);
 
         RtsBoxHandleInteraction.ClickResult result = interaction.clickHandle(
-                box, origin, direction, Set.of(Direction.EAST, Direction.WEST));
+                box, origin, direction, Set.of(EnumFacing.EAST, EnumFacing.WEST));
 
         assertEquals(RtsBoxHandleInteraction.ClickKind.NONE, result.kind());
         assertNull(interaction.activeDirection());

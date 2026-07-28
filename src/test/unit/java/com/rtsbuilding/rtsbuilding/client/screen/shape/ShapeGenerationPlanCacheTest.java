@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -69,7 +69,7 @@ class ShapeGenerationPlanCacheTest {
         ShapeGenerationPlanCache cache = new ShapeGenerationPlanCache();
         ShapeBuildTypes.Input input = input(BuildShape.BOX, new BlockPos(1, 0, 1), 1);
         RtsCullingBox firstBox =
-                new RtsCullingBox(0, BlockPos.ZERO, new BlockPos(2, 2, 2));
+                new RtsCullingBox(0, BlockPos.ORIGIN, new BlockPos(2, 2, 2));
 
         List<BlockPos> fill = cache.positions(request(
                 input,
@@ -88,7 +88,7 @@ class ShapeGenerationPlanCacheTest {
         List<BlockPos> moved = cache.positions(request(
                 input,
                 ShapeFillMode.HOLLOW,
-                new RtsCullingBox(0, BlockPos.ZERO, new BlockPos(3, 2, 2)),
+                new RtsCullingBox(0, BlockPos.ORIGIN, new BlockPos(3, 2, 2)),
                 false,
                 limits(64, 64, 64, 262_144),
                 8));
@@ -163,9 +163,9 @@ class ShapeGenerationPlanCacheTest {
             int heightOffset) {
         return new ShapeBuildTypes.Input(
                 shape,
-                Direction.UP,
-                Direction.UP,
-                BlockPos.ZERO,
+                EnumFacing.UP,
+                EnumFacing.UP,
+                BlockPos.ORIGIN,
                 pointB,
                 heightOffset,
                 false);
