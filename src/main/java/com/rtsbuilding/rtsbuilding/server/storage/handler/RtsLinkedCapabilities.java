@@ -2,12 +2,14 @@ package com.rtsbuilding.rtsbuilding.server.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.CapabilityItemHandler;
+import net.minecraftforge.items.IItemHandler;
 
 /**
  * 在链接存储坐标处探测方块容纳物的物品和流体处理器（Capability）。
@@ -27,16 +29,20 @@ public final class RtsLinkedCapabilities {
     /**
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
-    public static IItemHandler findHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+    public static IItemHandler findHandler(EntityPlayerMP player, BlockPos pos) {
+        if (player == null || pos == null || !player.getServerWorld().isBlockLoaded(pos)) {
             return null;
         }
-        IItemHandler direct = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+        TileEntity tile = player.getServerWorld().getTileEntity(pos);
+        if (tile == null) {
+            return null;
+        }
+        IItemHandler direct = tile.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
         if (direct != null) {
             return direct;
         }
-        for (Direction direction : Direction.values()) {
-            IItemHandler sided = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, direction);
+        for (EnumFacing direction : EnumFacing.values()) {
+            IItemHandler sided = tile.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, direction);
             if (sided != null) {
                 return sided;
             }
@@ -48,7 +54,7 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，优先使用 AE2 / Refined Storage 虚拟网络处理器，
      * 再回退到直接/侧面能力扫描。
      */
-    public static IItemHandler findLinkedItemHandler(ServerPlayer player, BlockPos pos) {
+    public static IItemHandler findLinkedItemHandler(EntityPlayerMP player, BlockPos pos) {
         IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, pos);
         if (ae2Network != null) {
             return ae2Network;
@@ -63,16 +69,20 @@ public final class RtsLinkedCapabilities {
     /**
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
-    public static IFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+    public static IFluidHandler findFluidHandler(EntityPlayerMP player, BlockPos pos) {
+        if (player == null || pos == null || !player.getServerWorld().isBlockLoaded(pos)) {
             return null;
         }
-        IFluidHandler direct = player.serverLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
+        TileEntity tile = player.getServerWorld().getTileEntity(pos);
+        if (tile == null) {
+            return null;
+        }
+        IFluidHandler direct = tile.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, null);
         if (direct != null) {
             return direct;
         }
-        for (Direction direction : Direction.values()) {
-            IFluidHandler sided = player.serverLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, direction);
+        for (EnumFacing direction : EnumFacing.values()) {
+            IFluidHandler sided = tile.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, direction);
             if (sided != null) {
                 return sided;
             }

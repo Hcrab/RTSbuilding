@@ -9,10 +9,10 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 import java.util.UUID;
@@ -46,8 +46,8 @@ public final class RtsLinkedStorageResolver {
      * 链接显示标签是引用的缓存呈现，因此解析器拥有
      * 摘要和 UI 数据包使用的回退方块名称查询。
      */
-    public static String resolveDisplayName(ServerLevel level, BlockPos pos) {
-        return level.getBlockState(pos).getBlock().getName().getString();
+    public static String resolveDisplayName(WorldServer level, BlockPos pos) {
+        return level.getBlockState(pos).getBlock().getLocalizedName();
     }
 
     // ======================================================================
@@ -58,7 +58,7 @@ public final class RtsLinkedStorageResolver {
      * 将当前所有可访问的物品端点（包括 BD 网络回退）
      * 解析为已强制执行仅提取存储规则的处理器。
      */
-    public static List<LinkedHandler> resolveLinkedHandlers(ServerPlayer player, RtsStorageSession session) {
+    public static List<LinkedHandler> resolveLinkedHandlers(EntityPlayerMP player, RtsStorageSession session) {
         return RtsLinkedHandlerResolutionService.resolveLinkedHandlers(player, session);
     }
 
@@ -66,7 +66,7 @@ public final class RtsLinkedStorageResolver {
      * 同时解析流体端点和物品端点，确保仅提取链接
      * 不能接受存储的流体，同时仍允许提取。
      */
-    public static List<LinkedFluidHandler> resolveLinkedFluidHandlers(ServerPlayer player, RtsStorageSession session) {
+    public static List<LinkedFluidHandler> resolveLinkedFluidHandlers(EntityPlayerMP player, RtsStorageSession session) {
         return RtsLinkedHandlerResolutionService.resolveLinkedFluidHandlers(player, session);
     }
 
@@ -126,7 +126,7 @@ public final class RtsLinkedStorageResolver {
      * 存储可用性包括普通链接引用和 BD 网络回退，
      * 因为两者都通过此边界解析。
      */
-    public static boolean hasAnyStorage(ServerPlayer player, RtsStorageSession session) {
+    public static boolean hasAnyStorage(EntityPlayerMP player, RtsStorageSession session) {
         if (session == null) {
             return false;
         }
@@ -140,7 +140,7 @@ public final class RtsLinkedStorageResolver {
      * UI 摘要描述当前可解析的链接存储源，
      * 因此它与可用性检查保持配对。
      */
-    public static String buildAnyStorageSummary(ServerPlayer player, RtsStorageSession session) {
+    public static String buildAnyStorageSummary(EntityPlayerMP player, RtsStorageSession session) {
         if (session == null) {
             return "No Storage";
         }
@@ -187,26 +187,26 @@ public final class RtsLinkedStorageResolver {
      * 引用清理属于解析器，这样每次查询都从相同的有效身份集合开始，
      * 而不会触及无关的会话状态。
      */
-    public static void sanitizeSessionDimension(ServerPlayer player, RtsStorageSession session) {
+    public static void sanitizeSessionDimension(EntityPlayerMP player, RtsStorageSession session) {
         if (session == null || session.linkedStorageInfo.isEmpty()) {
             return;
         }
-        session.linkedStorageInfo.removeIf(ref -> ref == null || ref.dimension() == null || ref.pos() == null);
+        session.linkedStorageInfo.removeIf(ref -> ref == null || ref.pos() == null);
         session.linkedStorageInfo.cleanupOrphans();
     }
 
-    public static boolean isLinkedRefWorldVisible(ServerPlayer player, RtsStorageSession session, LinkedStorageRef ref) {
+    public static boolean isLinkedRefWorldVisible(EntityPlayerMP player, RtsStorageSession session, LinkedStorageRef ref) {
         if (player == null || session == null || ref == null || ref.pos() == null
-                || !player.serverLevel().dimension().equals(ref.dimension())
+                || player.dimension != ref.dimension()
                 || session.linkedStorageInfo.isDetached(ref)
-                || !player.serverLevel().hasChunkAt(ref.pos())) {
+                || !player.getServerWorld().isBlockLoaded(ref.pos())) {
             return false;
         }
         UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
         if (backpackUuid != null) {
-            return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(player.serverLevel(), ref.pos()));
+            return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(player.getServerWorld(), ref.pos()));
         }
-        return !player.serverLevel().getBlockState(ref.pos()).isAir();
+        return !player.getServerWorld().isAirBlock(ref.pos());
     }
 
     // ======================================================================
@@ -231,7 +231,7 @@ public final class RtsLinkedStorageResolver {
     }
 
     public static int sanitizeLinkedStoragePriority(int priority) {
-        return net.minecraft.util.Mth.clamp(priority, -9999, 9999);
+        return net.minecraft.util.math.MathHelper.clamp(priority, -9999, 9999);
     }
 
 }

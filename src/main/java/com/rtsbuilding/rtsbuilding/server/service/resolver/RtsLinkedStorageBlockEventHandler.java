@@ -6,14 +6,13 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
-import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
-import java.util.List;
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -43,19 +42,20 @@ public final class RtsLinkedStorageBlockEventHandler {
      * 当链接存储方块被破坏时调用。从所有受影响的会话中移除引用
      * 并刷新其存储页面。
      */
-    public static void onLinkedStorageBlockBroken(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null || level.getServer() == null) {
+    public static void onLinkedStorageBlockBroken(WorldServer level, BlockPos pos) {
+        if (level == null || pos == null || level.getMinecraftServer() == null) {
             return;
         }
-        ResourceKey<Level> dimension = level.dimension();
-        for (var entry : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
-            ServerPlayer player = level.getServer().getPlayerList().getPlayer(entry.getKey());
+        int dimension = level.provider.getDimension();
+        for (Map.Entry<UUID, RtsStorageSession> entry
+                : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
+            EntityPlayerMP player = level.getMinecraftServer().getPlayerList().getPlayerByUUID(entry.getKey());
             if (player == null) {
                 continue;
             }
             RtsStorageSession session = entry.getValue();
             if (markOrRemoveBrokenLinkedStorageRef(session, level, dimension, pos)) {
-                RtsEndpointLeaseCache.INSTANCE.invalidate(player.getUUID(), dimension, pos);
+                RtsEndpointLeaseCache.INSTANCE.invalidate(player.getUniqueID(), dimension, pos);
                 ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             }
         }
@@ -64,26 +64,27 @@ public final class RtsLinkedStorageBlockEventHandler {
     /**
      * 当背包存储方块被放置时调用。更新所有拥有该背包的会话的新位置。
      */
-    public static void onLinkedStorageBlockPlaced(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null || level.getServer() == null || !RtsBackpackCompat.isAvailable()) {
+    public static void onLinkedStorageBlockPlaced(WorldServer level, BlockPos pos) {
+        if (level == null || pos == null || level.getMinecraftServer() == null || !RtsBackpackCompat.isAvailable()) {
             return;
         }
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+        TileEntity blockEntity = level.getTileEntity(pos);
         UUID backpackUuid = RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
         if (backpackUuid == null) {
             return;
         }
         String backpackItemId = RtsBackpackCompat.getBackpackItemId(blockEntity).orElse("");
-        LinkedStorageRef newRef = new LinkedStorageRef(level.dimension(), pos.immutable());
+        LinkedStorageRef newRef = new LinkedStorageRef(level.provider.getDimension(), pos.toImmutable());
         String displayName = RtsLinkedStorageResolver.resolveDisplayName(level, pos);
-        for (var entry : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
-            ServerPlayer player = level.getServer().getPlayerList().getPlayer(entry.getKey());
+        for (Map.Entry<UUID, RtsStorageSession> entry
+                : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
+            EntityPlayerMP player = level.getMinecraftServer().getPlayerList().getPlayerByUUID(entry.getKey());
             if (player == null) {
                 continue;
             }
             RtsStorageSession session = entry.getValue();
             if (moveBackpackLinkedStorageRef(session, backpackUuid, backpackItemId, newRef, displayName)) {
-                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUniqueID());
                 ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             }
         }
@@ -93,19 +94,19 @@ public final class RtsLinkedStorageBlockEventHandler {
     //  Private helpers
     // ======================================================================
 
-    private static boolean markOrRemoveBrokenLinkedStorageRef(RtsStorageSession session, ServerLevel level,
-            ResourceKey<Level> dimension, BlockPos pos) {
-        if (session == null || dimension == null || pos == null || session.linkedStorageInfo.isEmpty()) {
+    private static boolean markOrRemoveBrokenLinkedStorageRef(RtsStorageSession session, WorldServer level,
+            int dimension, BlockPos pos) {
+        if (session == null || pos == null || session.linkedStorageInfo.isEmpty()) {
             return false;
         }
-        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.immutable());
+        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.toImmutable());
         if (!session.linkedStorageInfo.contains(ref)) {
             return false;
         }
         UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
         if (backpackUuid != null) {
             UUID breakingUuid = level == null ? null
-                    : RtsBackpackCompat.getBackpackUuid(level.getBlockEntity(pos)).orElse(null);
+                    : RtsBackpackCompat.getBackpackUuid(level.getTileEntity(pos)).orElse(null);
             if (!backpackUuid.equals(breakingUuid)) {
                 return false;
             }
@@ -120,14 +121,14 @@ public final class RtsLinkedStorageBlockEventHandler {
             return false;
         }
         boolean changed = false;
-        for (LinkedStorageRef oldRef : List.copyOf(session.linkedStorageInfo.getAll())) {
+        for (LinkedStorageRef oldRef : new ArrayList<LinkedStorageRef>(session.linkedStorageInfo.getAll())) {
             if (!backpackUuid.equals(session.linkedStorageInfo.getBackpackUuid(oldRef))) {
                 continue;
             }
             if (oldRef.equals(newRef)) {
                 session.linkedStorageInfo.removeDetached(oldRef);
                 session.linkedStorageInfo.setName(oldRef, displayName);
-                if (backpackItemId != null && !backpackItemId.isBlank()) {
+                if (backpackItemId != null && !backpackItemId.trim().isEmpty()) {
                     session.linkedStorageInfo.setBackpackItemId(oldRef, backpackItemId);
                 }
                 changed = true;
@@ -152,7 +153,7 @@ public final class RtsLinkedStorageBlockEventHandler {
             session.linkedStorageInfo.setMode(newRef, mode);
             session.linkedStorageInfo.setPriority(newRef, priority);
             session.linkedStorageInfo.setBackpackUuid(newRef, backpackUuid);
-            if (backpackItemId != null && !backpackItemId.isBlank()) {
+            if (backpackItemId != null && !backpackItemId.trim().isEmpty()) {
                 session.linkedStorageInfo.setBackpackItemId(newRef, backpackItemId);
             }
             session.linkedStorageInfo.removeDetached(newRef);
@@ -161,13 +162,13 @@ public final class RtsLinkedStorageBlockEventHandler {
         return changed;
     }
 
-    private static boolean removeLinkedStorageRef(RtsStorageSession session, ResourceKey<Level> dimension, BlockPos pos) {
-        if (session == null || dimension == null || pos == null || session.linkedStorageInfo.isEmpty()) {
+    private static boolean removeLinkedStorageRef(RtsStorageSession session, int dimension, BlockPos pos) {
+        if (session == null || pos == null || session.linkedStorageInfo.isEmpty()) {
             return false;
         }
         boolean removed = false;
-        for (LinkedStorageRef ref : List.copyOf(session.linkedStorageInfo.getAll())) {
-            if (ref != null && dimension.equals(ref.dimension()) && pos.equals(ref.pos())) {
+        for (LinkedStorageRef ref : new ArrayList<LinkedStorageRef>(session.linkedStorageInfo.getAll())) {
+            if (ref != null && dimension == ref.dimension() && pos.equals(ref.pos())) {
                 session.linkedStorageInfo.remove(ref);
                 removed = true;
             }
@@ -178,11 +179,11 @@ public final class RtsLinkedStorageBlockEventHandler {
         return removed;
     }
 
-    public static UUID readBackpackUuid(ServerLevel level, BlockPos pos) {
+    public static UUID readBackpackUuid(WorldServer level, BlockPos pos) {
         if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
             return null;
         }
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+        TileEntity blockEntity = level.getTileEntity(pos);
         return RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
     }
 
