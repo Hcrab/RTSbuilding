@@ -2,10 +2,10 @@ package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.ContainerPlayer;
+import net.minecraft.inventory.ContainerWorkbench;
 
 /**
  * transfer 子包的共享常量和辅助工具方法。
@@ -49,41 +49,41 @@ final class RtsTransferUtils {
     /**
      * 返回玩家的主背包是否应作为可见的源/接收器包含在存储浏览器视图中。
      */
-    static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || player.containerMenu instanceof RtsCraftTerminalMenu) {
+    static boolean shouldIncludePlayerMainInventoryInStorageView(EntityPlayerMP player, RtsStorageSession session) {
+        if (player == null || player.openContainer instanceof RtsCraftTerminalMenu) {
             return false;
         }
         if (session != null && session.linkedStorageInfo.isEmpty() && !hasPrimaryBdNetwork(player)) {
             return true;
         }
-        return player.containerMenu == player.inventoryMenu;
+        return player.openContainer == player.inventoryContainer;
     }
 
     /**
      * 检查从链接存储的快速移动是否应针对玩家的主背包
      * （而不是当前打开菜单的槽位）。
      */
-    static boolean movesLinkedQuickMoveToPlayerInventory(AbstractContainerMenu menu) {
-        return menu instanceof InventoryMenu
-                || (menu instanceof CraftingMenu && !(menu instanceof RtsCraftTerminalMenu));
+    static boolean movesLinkedQuickMoveToPlayerInventory(Container menu) {
+        return menu instanceof ContainerPlayer
+                || (menu instanceof ContainerWorkbench && !(menu instanceof RtsCraftTerminalMenu));
     }
 
     static int clampHotbarSlot(int slot) {
         return Math.max(0, Math.min(PLAYER_HOTBAR_SLOT_COUNT - 1, slot));
     }
 
-    static int getPlayerMainInventoryStart(ServerPlayer player) {
+    static int getPlayerMainInventoryStart(EntityPlayerMP player) {
         return 0;
     }
 
-    static int getPlayerMainInventoryEndExclusive(ServerPlayer player) {
+    static int getPlayerMainInventoryEndExclusive(EntityPlayerMP player) {
         if (player == null) {
             return 0;
         }
-        return Math.min(PLAYER_MAIN_INVENTORY_END_EXCLUSIVE, player.getInventory().getContainerSize());
+        return Math.min(PLAYER_MAIN_INVENTORY_END_EXCLUSIVE, player.inventory.getSizeInventory());
     }
 
-    private static boolean hasPrimaryBdNetwork(ServerPlayer player) {
+    private static boolean hasPrimaryBdNetwork(EntityPlayerMP player) {
         return com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat.hasPrimaryNetwork(player);
     }
 }
