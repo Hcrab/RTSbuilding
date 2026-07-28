@@ -12,10 +12,11 @@ plugins {
     id 'maven-publish'
     id 'org.jetbrains.gradle.plugin.idea-ext' version '1.4.1'
     id 'com.gtnewhorizons.retrofuturagradle' version '2.0.2'
-    id 'net.darkhax.curseforgegradle' version '1.2.+' apply false
-    id 'com.modrinth.minotaur' version '2.+' apply false
+    // 发布插件也必须固定版本；即使 apply false，Gradle 配置阶段仍会解析它们。
+    id 'net.darkhax.curseforgegradle' version '1.2.31' apply false
+    id 'com.modrinth.minotaur' version '2.9.0' apply false
     id 'org.jetbrains.changelog' version '2.5.0'
-    id 'com.gradleup.shadow' version '9.4.+'
+    id 'com.gradleup.shadow' version '9.4.3'
 }
 
 apply from: 'gradle/scripts/helpers.gradle'
@@ -326,6 +327,20 @@ tasks.register('runPortableGameTests', JavaExec) {
         // 旧版 Java 8 不会按当前可用分页文件可靠推导默认堆，服务端烟测使用明确的小堆。
         minHeapSize = '128m'
         maxHeapSize = '768m'
+        javaLauncher.set(javaToolchains.launcherFor {
+            languageVersion.set(JavaLanguageVersion.of(8))
+        })
+    }
+}
+
+tasks.named('runClient', JavaExec).configure {
+    // 与整合包和 obfuscated smoke test 隔离，保证随时启动的都是仅含本模组的开发实例。
+    workingDir file('run/clean-client')
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    })
+    doFirst {
+        workingDir.mkdirs()
     }
 }
 

@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsBlocks;
 import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
@@ -70,6 +71,8 @@ public final class RtsbuildingMod {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         Config.initialize(event.getModConfigurationDirectory(), event.getSide().isClient());
+        // SimpleNetworkWrapper 必须在公共 pre-init 注册；客户端输入和专服登录都会依赖它。
+        RtsPayloadRegistrar.register();
         if (Config.migrateLegacyServerDefaults()) {
             LOGGER.info("已迁移 RTSBuilding 旧版服务端吞吐默认值。");
         }
