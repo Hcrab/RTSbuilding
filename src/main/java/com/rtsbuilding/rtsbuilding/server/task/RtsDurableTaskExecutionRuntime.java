@@ -425,17 +425,69 @@ final class RtsDurableTaskExecutionRuntime {
                 .coordinator().hasAcknowledged(snapshot.id(), snapshot.revision());
     }
 
-    private record MiningProgressOverlay(
-            long baseRevision,
-            MiningTaskPayload payload,
-            int uncheckpointedUnits,
-            long lastCheckpointGameTime) {
+    private static final class MiningProgressOverlay {
+        private final long baseRevision;
+        private final MiningTaskPayload payload;
+        private final int uncheckpointedUnits;
+        private final long lastCheckpointGameTime;
+
+        private MiningProgressOverlay(long baseRevision, MiningTaskPayload payload,
+                int uncheckpointedUnits, long lastCheckpointGameTime) {
+            this.baseRevision = baseRevision;
+            this.payload = payload;
+            this.uncheckpointedUnits = uncheckpointedUnits;
+            this.lastCheckpointGameTime = lastCheckpointGameTime;
+        }
+        long baseRevision() { return baseRevision; }
+        MiningTaskPayload payload() { return payload; }
+        int uncheckpointedUnits() { return uncheckpointedUnits; }
+        long lastCheckpointGameTime() { return lastCheckpointGameTime; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof MiningProgressOverlay)) return false;
+            MiningProgressOverlay that = (MiningProgressOverlay) other;
+            return baseRevision == that.baseRevision && uncheckpointedUnits == that.uncheckpointedUnits
+                    && lastCheckpointGameTime == that.lastCheckpointGameTime
+                    && java.util.Objects.equals(payload, that.payload);
+        }
+        @Override public int hashCode() {
+            return java.util.Objects.hash(baseRevision, payload, uncheckpointedUnits, lastCheckpointGameTime);
+        }
+        @Override public String toString() {
+            return "MiningProgressOverlay[baseRevision=" + baseRevision + ", payload=" + payload
+                    + ", uncheckpointedUnits=" + uncheckpointedUnits
+                    + ", lastCheckpointGameTime=" + lastCheckpointGameTime + "]";
+        }
     }
 
-    private record DestructionProgressOverlay(
-            long baseRevision,
-            DestructionTaskPayload payload,
-            int uncheckpointedUnits) {
+    private static final class DestructionProgressOverlay {
+        private final long baseRevision;
+        private final DestructionTaskPayload payload;
+        private final int uncheckpointedUnits;
+
+        private DestructionProgressOverlay(long baseRevision, DestructionTaskPayload payload,
+                int uncheckpointedUnits) {
+            this.baseRevision = baseRevision;
+            this.payload = payload;
+            this.uncheckpointedUnits = uncheckpointedUnits;
+        }
+        long baseRevision() { return baseRevision; }
+        DestructionTaskPayload payload() { return payload; }
+        int uncheckpointedUnits() { return uncheckpointedUnits; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof DestructionProgressOverlay)) return false;
+            DestructionProgressOverlay that = (DestructionProgressOverlay) other;
+            return baseRevision == that.baseRevision && uncheckpointedUnits == that.uncheckpointedUnits
+                    && java.util.Objects.equals(payload, that.payload);
+        }
+        @Override public int hashCode() {
+            return java.util.Objects.hash(baseRevision, payload, uncheckpointedUnits);
+        }
+        @Override public String toString() {
+            return "DestructionProgressOverlay[baseRevision=" + baseRevision + ", payload=" + payload
+                    + ", uncheckpointedUnits=" + uncheckpointedUnits + "]";
+        }
     }
 
 
