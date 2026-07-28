@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task;
 
+import com.github.bsideup.jabel.Desugar;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.VanillaStructureNbtReader;
@@ -139,7 +140,7 @@ public final class DurableBlueprintTaskBridge {
             } else {
                 FrozenSubmission failed = pending.remove(completion.taskId());
                 if (failed != null) {
-                    EntityPlayerMP player = server.getPlayerList().getPlayer(failed.ownerId());
+                    EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(failed.ownerId());
                     if (player != null) {
                         BlueprintNetworkHandlers.send(player, S2CBlueprintStatusPayload.ERROR,
                                 "screen.rtsbuilding.blueprints.status.admission_failed", "");
@@ -174,7 +175,7 @@ public final class DurableBlueprintTaskBridge {
                 FrozenSubmission failed = pending.remove(taskId);
                 UUID ownerId = failed == null && snapshot != null ? snapshot.ownerId()
                         : failed == null ? null : failed.ownerId();
-                EntityPlayerMP player = ownerId == null ? null : server.getPlayerList().getPlayer(ownerId);
+                EntityPlayerMP player = ownerId == null ? null : server.getPlayerList().getPlayerByUUID(ownerId);
                 if (player != null) {
                     if (snapshot != null && snapshot.workflowEntryId() >= 0) {
                         RtsWorkflowEngine.getInstance().from(player, snapshot.workflowEntryId())
@@ -270,7 +271,7 @@ public final class DurableBlueprintTaskBridge {
         EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(snapshot.ownerId());
         if (player == null) return false;
         int dimension = parseDimension(snapshot.dimensionId());
-        if (!player.dimension.equals(dimension)) return false;
+        if (player.dimension != dimension) return false;
 
         BlueprintContext context;
         FrozenSubmission frozen = pending.get(taskId);
@@ -364,7 +365,7 @@ public final class DurableBlueprintTaskBridge {
     private BlueprintContext materializeFromDurableRoot(EntityPlayerMP player, TaskSnapshot snapshot) {
         var blob = persistence.loadDurableBlueprint(snapshot.id());
         RtsBlueprint blueprint = VanillaStructureNbtReader.parse(
-                blob.structure(), blob.name(), blob.sourceName(), player.registryAccess());
+                blob.structure(), blob.name(), blob.sourceName());
         if (blueprint.blockCount() != snapshot.totalUnits()) {
             throw new IllegalStateException("恢复蓝图方块数与 durable root 不一致");
         }
@@ -487,6 +488,7 @@ public final class DurableBlueprintTaskBridge {
         return new InitialProgress(cursor, boundedSucceeded, boundedFailed);
     }
 
+    @Desugar
     record InitialProgress(int cursor, int succeeded, int failed) {
     }
 
@@ -530,10 +532,12 @@ public final class DurableBlueprintTaskBridge {
         MEMORY_BUDGET_FULL
     }
 
+    @Desugar
     private record ActiveBinding(TaskRecord record, BlueprintContext context,
             TaskSnapshot snapshot, long lastCheckpointTick) {
     }
 
+    @Desugar
     private record FrozenSubmission(TaskId taskId, SubmissionId submissionId, UUID ownerId,
             int dimension, RtsBlueprint blueprint, BlockPos anchor,
             BlockPos center, int ySteps, int xSteps, int zSteps,
@@ -596,7 +600,7 @@ public final class DurableBlueprintTaskBridge {
         }
 
         boolean sameRequest(FrozenSubmission other) {
-            return ownerId.equals(other.ownerId) && dimension.equals(other.dimension)
+            return ownerId.equals(other.ownerId) && dimension == other.dimension
                     && structure.equals(other.structure) && anchor.equals(other.anchor)
                     && center.equals(other.center) && ySteps == other.ySteps
                     && xSteps == other.xSteps && zSteps == other.zSteps
