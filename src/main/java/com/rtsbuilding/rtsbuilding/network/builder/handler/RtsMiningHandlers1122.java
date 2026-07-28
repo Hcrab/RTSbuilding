@@ -41,7 +41,7 @@ public final class RtsMiningHandlers1122 {
                     invokeMining("mine", new Class<?>[]{
                                     EntityPlayerMP.class, BlockPos.class, EnumFacing.class, boolean.class,
                                     byte.class, String.class, ItemStack.class, boolean.class, boolean.class},
-                            player, message.pos(), EnumFacing.getFront(message.face()), message.start(),
+                            player, message.pos(), EnumFacing.byIndex(message.face()), message.start(),
                             message.toolSlot(), message.toolItemId(), message.toolPrototype().copy(),
                             message.allowPlacedBlockRecovery(), message.toolProtectionEnabled());
                 }
@@ -60,7 +60,7 @@ public final class RtsMiningHandlers1122 {
                     invokeMining("startUltimine", new Class<?>[]{
                                     EntityPlayerMP.class, BlockPos.class, EnumFacing.class, byte.class,
                                     String.class, ItemStack.class, int.class, byte.class, boolean.class},
-                            player, message.pos(), EnumFacing.getFront(message.face()), message.toolSlot(),
+                            player, message.pos(), EnumFacing.byIndex(message.face()), message.toolSlot(),
                             message.toolItemId(), message.toolPrototype().copy(), message.limit(),
                             message.mode(), message.toolProtectionEnabled());
                 }

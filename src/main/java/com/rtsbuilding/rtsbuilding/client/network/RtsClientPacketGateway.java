@@ -261,7 +261,7 @@ public final class RtsClientPacketGateway {
 
     private static boolean matchesLocalizedSearch(ResourceLocation id, String label, String[] tokens) {
         String rawId = id.toString().toLowerCase(Locale.ROOT);
-        String namespace = id.getResourceDomain().toLowerCase(Locale.ROOT);
+        String namespace = id.getNamespace().toLowerCase(Locale.ROOT);
         String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
         boolean matchedAnyToken = false;
         for (String token : tokens) {
@@ -500,7 +500,7 @@ public final class RtsClientPacketGateway {
     public static void sendInteractEntityWithToolSlot(int entityId, Vec3d hitLocation, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) {
         send(new C2SRtsInteractPayload(
                 entityId,
-                BlockPos.containing(hitLocation),
+                new BlockPos(hitLocation),
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,
@@ -519,7 +519,7 @@ public final class RtsClientPacketGateway {
     public static void sendInteractEntityEmptyHand(int entityId, Vec3d hitLocation, Vec3d rayOrigin, Vec3d rayDir) {
         send(new C2SRtsInteractPayload(
                 entityId,
-                BlockPos.containing(hitLocation),
+                new BlockPos(hitLocation),
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,
@@ -538,7 +538,7 @@ public final class RtsClientPacketGateway {
     public static void sendInteractEntityWithPinnedItem(int entityId, Vec3d hitLocation, String itemId, Vec3d rayOrigin, Vec3d rayDir) {
         send(new C2SRtsInteractPayload(
                 entityId,
-                BlockPos.containing(hitLocation),
+                new BlockPos(hitLocation),
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,

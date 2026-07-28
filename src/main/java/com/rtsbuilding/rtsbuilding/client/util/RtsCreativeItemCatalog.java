@@ -151,8 +151,8 @@ public final class RtsCreativeItemCatalog {
         if (!seenItems.add(uniqueKey)) {
             return;
         }
-        String mod = itemId.getResourceDomain();
-        String name = itemId.getResourcePath();
+        String mod = itemId.getNamespace();
+        String name = itemId.getPath();
         this.entries.add(new CreativeEntry(preview, itemKey, categoryToken, label, mod, name,
                 RtsCreativeSearchCache.index(categoryToken, itemKey, label, mod, name)));
     }
@@ -180,7 +180,7 @@ public final class RtsCreativeItemCatalog {
         try {
             ItemStack icon = tab.getIcon();
             ResourceLocation id = icon.isEmpty() ? null : Item.REGISTRY.getNameForObject(icon.getItem());
-            return id == null ? "minecraft" : id.getResourceDomain();
+            return id == null ? "minecraft" : id.getNamespace();
         } catch (RuntimeException | LinkageError ignored) {
             return "minecraft";
         }
@@ -244,7 +244,7 @@ public final class RtsCreativeItemCatalog {
         } catch (RuntimeException ex) {
             key = null;
         }
-        return humanizeToken(key == null ? tabKey : key.getResourcePath());
+        return humanizeToken(key == null ? tabKey : key.getPath());
     }
 
     private static String humanizeToken(String token) {

@@ -151,7 +151,7 @@ public final class RtsTransferPlayerIntegration {
         dropped.motionX = 0.0D;
         dropped.motionY = 0.0D;
         dropped.motionZ = 0.0D;
-        dropped.setPickUpDelay(10);
+        dropped.setPickupDelay(10);
         player.getServerWorld().spawnEntity(dropped);
         ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
     }

@@ -45,8 +45,8 @@ public final class ProgressionGatePipe implements PipelinePipe<PipelineContext> 
             ResourceLocation pluginId = BuiltInRtsPluginCatalog.requiredPluginFor(feature);
             ITextComponent pluginName = pluginId == null
                     ? new TextComponentString(feature.name())
-                    : new TextComponentTranslation("item." + pluginId.getResourceDomain()
-                            + "." + pluginId.getResourcePath());
+                    : new TextComponentTranslation("item." + pluginId.getNamespace()
+                            + "." + pluginId.getPath());
             ctx.player().sendStatusMessage(
                     new TextComponentTranslation("message.rtsbuilding.plugin_required", pluginName), true);
             return PipelineResult.failure("Feature not unlocked: " + feature.name());

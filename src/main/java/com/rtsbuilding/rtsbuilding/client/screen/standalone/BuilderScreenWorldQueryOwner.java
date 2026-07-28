@@ -140,7 +140,7 @@ final class BuilderScreenWorldQueryOwner {
             }
             IBlockState state = screen.getMinecraft().world.getBlockState(pos);
             ItemStack preview = state.getBlock().getPickBlock(
-                    hit, screen.getMinecraft().world, pos, screen.getMinecraft().player);
+                    state, hit, screen.getMinecraft().world, pos, screen.getMinecraft().player);
             if (preview.isEmpty()) {
                 preview = new ItemStack(Item.getItemFromBlock(state.getBlock()));
             }

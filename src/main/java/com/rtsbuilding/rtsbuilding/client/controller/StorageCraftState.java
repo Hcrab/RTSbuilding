@@ -121,7 +121,7 @@ final class StorageCraftState {
             }
             entries.add(new CraftableEntry(stack, payload.recipeIds().get(i), payload.resultItemIds().get(i), resultCount,
                     payload.craftable().get(i), payload.missingSummaries().get(i),
-                    id.getResourceDomain(), id.getResourcePath(), immutable(options)));
+                    id.getNamespace(), id.getPath(), immutable(options)));
         }
         search = payloadSearch;
         showUnavailable = payload.showUnavailable();

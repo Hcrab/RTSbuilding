@@ -72,7 +72,7 @@ public final class RtsPlacementControlHandlers {
                         Object placement = service("placement");
                         invoke(placement, "rotateBlockStep",
                                 new Class<?>[]{EntityPlayerMP.class, BlockPos.class, EnumFacing.class, int.class},
-                                player, message.pos(), EnumFacing.getFront(message.axisDirection()),
+                                player, message.pos(), EnumFacing.byIndex(message.axisDirection()),
                                 (int) message.quarterTurns());
                     }
                 }

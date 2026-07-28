@@ -180,7 +180,7 @@ final class BuilderScreenModeSessionOwner {
         }
 
     double[] screenAxisForDirection(EnumFacing direction) {
-            if (direction == null || screen.getMinecraft() == null || screen.getMinecraft().gameRenderer == null) {
+            if (direction == null || screen.getMinecraft() == null || screen.getMinecraft().entityRenderer == null) {
                 return new double[] {0.0D, -1.0D};
             }
             net.minecraft.entity.Entity camera = screen.getMinecraft().getRenderViewEntity();

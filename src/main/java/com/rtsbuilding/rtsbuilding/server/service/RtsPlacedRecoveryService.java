@@ -139,7 +139,7 @@ public final class RtsPlacedRecoveryService {
         if (recoveredEntity == null) {
             ItemStack remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, recoveredBlock.copy());
             if (!remainder.isEmpty()) {
-                player.drop(remainder, false);
+                player.dropItem(remainder, false);
             }
         }
 

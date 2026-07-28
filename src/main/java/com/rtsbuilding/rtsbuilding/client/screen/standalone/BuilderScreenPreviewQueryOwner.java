@@ -152,7 +152,7 @@ final class BuilderScreenPreviewQueryOwner {
     String selectedItemStatusLabel() {
             ItemStack preview = screen.controller.getSelectedItemPreview();
             String label = screen.controller.getSelectedItemLabel();
-            if (preview != null && !preview.isEmpty() && preview.isDamageableItem()) {
+            if (preview != null && !preview.isEmpty() && preview.isItemStackDamageable()) {
                 int max = preview.getMaxDamage();
                 int durability = Math.max(0, max - preview.getItemDamage());
                 return label + " " + durability + "/" + max;

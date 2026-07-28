@@ -369,11 +369,11 @@ public final class OverlayInteraction {
         List<ItemStack> blueprint = new ArrayList<>(9);
         for (int i = 0; i < 9; i++) {
             Slot slot = menu.getSlot(1 + i);
-            ItemStack stack = slot == null ? ItemStack.EMPTY : slot.getItem();
+            ItemStack stack = slot == null ? ItemStack.EMPTY : slot.getStack();
             blueprint.add(stack.isEmpty() ? ItemStack.EMPTY : copyOne(stack));
         }
         Slot resultSlot = menu.getSlot(0);
-        ItemStack result = resultSlot == null ? ItemStack.EMPTY : resultSlot.getItem();
+        ItemStack result = resultSlot == null ? ItemStack.EMPTY : resultSlot.getStack();
         ResourceLocation resultId = result.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(result.getItem());
         pendingCraftRefillScreen = screen;
         pendingCraftRefillButton = button;

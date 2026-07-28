@@ -18,7 +18,7 @@ public final class RtsCraftablesUiHelper {
             return;
         }
         dialog.open(
-                entry.stack().getHoverName().getString(),
+                entry.stack().getDisplayName(),
                 entry.stack(),
                 entry.recipeOptions(),
                 1);

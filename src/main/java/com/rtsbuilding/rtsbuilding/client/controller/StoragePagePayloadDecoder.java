@@ -52,7 +52,7 @@ final class StoragePagePayloadDecoder {
             preview.setCount(1);
             ResourceLocation id = preview.getItem().getRegistryName();
             if (id != null) items.add(new StorageEntry(preview, id.toString(), payload.counts().get(i),
-                    id.getResourceDomain(), id.getResourcePath()));
+                    id.getNamespace(), id.getPath()));
         }
 
         Map<String, Long> totals = new LinkedHashMap<>();
@@ -77,7 +77,7 @@ final class StoragePagePayloadDecoder {
             FluidStack stack = new FluidStack(fluid, Fluid.BUCKET_VOLUME);
             fluids.add(new FluidEntry(fluidId, fluid.getLocalizedName(stack),
                     payload.fluidAmounts().get(i), payload.fluidCapacities().get(i),
-                    id.getResourceDomain(), id.getResourcePath(),
+                    id.getNamespace(), id.getPath(),
                     FluidUtil.getFilledBucket(stack)));
         }
 
