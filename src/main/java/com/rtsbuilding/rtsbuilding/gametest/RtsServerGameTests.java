@@ -14,7 +14,9 @@ import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -27,6 +29,8 @@ import java.util.UUID;
  * <p>示例：{@code java -cp <forge+mod classpath> com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests --portable}</p>
  */
 public final class RtsServerGameTests {
+    private static final int EXPECTED_PORTABLE_SCENARIOS = 5;
+    private static final int EXPECTED_WORLD_SCENARIOS = 33;
     private static final String WORLD_FIXTURE =
             "需要 Forge 1.12.2 专用服务器世界、假玩家 tick 驱动及对应生产包完成移植";
 
@@ -125,6 +129,35 @@ public final class RtsServerGameTests {
         return Collections.unmodifiableList(results);
     }
 
+    /**
+     * 执行一个具名契约，供 1.12 专用服务器测试命令使用。
+     *
+     * <p>尚未接上真实世界夹具的场景必须返回 {@link Outcome#BLOCKED}，不能因为命令入口存在
+     * 就伪装成通过。未知名称则作为调用错误抛出，便于自动化脚本判定拼写或清单漂移。</p>
+     */
+    public static Result runScenario(String id) {
+        Scenario selected = null;
+        for (Scenario scenario : scenarios()) {
+            if (scenario.id.equals(id)) {
+                selected = scenario;
+                break;
+            }
+        }
+        if (selected == null) {
+            throw new IllegalArgumentException("Unknown RTS 1.12.2 test scenario: " + id);
+        }
+        if (selected.check == null) {
+            return new Result(selected, Outcome.BLOCKED, selected.requirement);
+        }
+        try {
+            selected.check.run();
+            return new Result(selected, Outcome.PASS, "ok");
+        } catch (Throwable failure) {
+            return new Result(selected, Outcome.FAILED,
+                    failure.getClass().getSimpleName() + ": " + String.valueOf(failure.getMessage()));
+        }
+    }
+
     public static List<Scenario> scenarios() {
         List<Scenario> list = new ArrayList<Scenario>();
         list.add(portable("portable.task_identity", "identity",
@@ -142,6 +175,10 @@ public final class RtsServerGameTests {
         list.add(portable("portable.nbt_round_trip", "persistence",
                 "1.12 NBT 压缩往返保留 UUID、维度和提交标识", new Check() {
                     @Override public void run() throws Exception { checkNbtRoundTrip(); }
+                }));
+        list.add(portable("portable.scenario_inventory", "harness",
+                "原 1.21 世界 GameTest 清单完整且名称唯一", new Check() {
+                    @Override public void run() { checkScenarioInventory(); }
                 }));
 
         addWorld(list, "installedPluginIsDurableBeforeAutomaticSaveTick", "plugin",
@@ -281,6 +318,23 @@ public final class RtsServerGameTests {
         require(restored.getInteger("dimension") == -1, "dimension was lost");
         require(restored.getCompoundTag("payload").getInteger("metadata") == 3, "metadata was lost");
         SubmissionId.parse(restored.getString("submission"));
+    }
+
+    /** 防止移植过程中通过遗漏场景缩小严格模式的失败面。 */
+    private static void checkScenarioInventory() {
+        List<Scenario> inventory = scenarios();
+        int portable = 0;
+        int world = 0;
+        Set<String> ids = new HashSet<String>();
+        for (Scenario scenario : inventory) {
+            require(ids.add(scenario.id), "duplicate scenario id: " + scenario.id);
+            if (scenario.isPortable()) portable++;
+            else world++;
+        }
+        require(portable == EXPECTED_PORTABLE_SCENARIOS,
+                "portable scenario inventory changed: " + portable);
+        require(world == EXPECTED_WORLD_SCENARIOS,
+                "world scenario inventory changed: " + world);
     }
 
     private static void require(boolean condition, String message) {
