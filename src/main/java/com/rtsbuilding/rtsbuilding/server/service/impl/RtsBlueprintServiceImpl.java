@@ -11,14 +11,16 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.items.IItemHandler;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -37,7 +39,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
-    public long countMaterial(ServerPlayer player, Item item) {
+    public long countMaterial(EntityPlayerMP player, Item item) {
         if (player == null || item == null || item == Items.AIR) {
             return 0L;
         }
@@ -60,7 +62,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
         int start = RtsStoragePageBuilder.getPlayerMainInventoryStart(player);
         int end = RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
         for (int slot = start; slot < end; slot++) {
-            ItemStack stack = player.getInventory().getItem(slot);
+            ItemStack stack = player.inventory.getStackInSlot(slot);
             if (!stack.isEmpty() && stack.getItem() == item) {
                 total = RtsCountUtil.saturatedAdd(total, stack.getCount());
             }
@@ -69,7 +71,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
-    public ItemStack extractMaterial(ServerPlayer player, Item item, int count) {
+    public ItemStack extractMaterial(EntityPlayerMP player, Item item, int count) {
         if (player == null || item == null || item == Items.AIR || count <= 0) {
             return ItemStack.EMPTY;
         }
@@ -83,7 +85,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
-    public long countFluidMb(ServerPlayer player, Fluid fluid) {
+    public long countFluidMb(EntityPlayerMP player, Fluid fluid) {
         if (player == null || fluid == null) {
             return 0L;
         }
@@ -95,7 +97,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
-    public boolean extractFluid(ServerPlayer player, Fluid fluid, int amountMb) {
+    public boolean extractFluid(EntityPlayerMP player, Fluid fluid, int amountMb) {
         if (player == null || fluid == null || amountMb <= 0) {
             return false;
         }
@@ -112,19 +114,25 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
     }
 
     @Override
-    public void refundMaterial(ServerPlayer player, ItemStack stack) {
+    public void refundMaterial(EntityPlayerMP player, ItemStack stack) {
         if (player == null || stack == null || stack.isEmpty()) {
             return;
         }
         RtsStorageSession session = registry.session().getIfPresent(player);
-        List<IItemHandler> handlers = session == null
-                ? List.of()
-                : RtsLinkedStorageResolver.resolveLinkedHandlers(player, session).stream().map(LinkedHandler::handler).toList();
+        List<IItemHandler> handlers;
+        if (session == null) {
+            handlers = Collections.emptyList();
+        } else {
+            handlers = new ArrayList<IItemHandler>();
+            for (LinkedHandler linked : RtsLinkedStorageResolver.resolveLinkedHandlers(player, session)) {
+                handlers.add(linked.handler());
+            }
+        }
         RtsTransferInserter.refundToLinked(handlers, player, stack);
     }
 
     @Override
-    public void noteBlockPlaced(ServerPlayer player, BlockPos pos, String itemId) {
+    public void noteBlockPlaced(EntityPlayerMP player, BlockPos pos, String itemId) {
         if (player == null || pos == null) {
             return;
         }
@@ -132,12 +140,12 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
         if (session == null) {
             return;
         }
-        RtsPlacementSound.playRemotePlacedBlockSound(player, player.serverLevel(), pos);
+        RtsPlacementSound.playRemotePlacedBlockSound(player, player.getServerWorld(), pos);
         registry.page().recordRecentItem(session, itemId, (byte) 1, 1L);
     }
 
     @Override
-    public void refreshPage(ServerPlayer player) {
+    public void refreshPage(EntityPlayerMP player) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
         if (session == null) {
             return;
