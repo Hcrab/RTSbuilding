@@ -8,9 +8,9 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 import java.util.function.Predicate;
@@ -27,7 +27,7 @@ public final class RtsTransferServiceImpl implements TransferService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
-    public long countLinkedItemsMatching(ServerPlayer player, Predicate<ItemStack> predicate) {
+    public long countLinkedItemsMatching(EntityPlayerMP player, Predicate<ItemStack> predicate) {
         if (player == null || predicate == null) {
             return 0L;
         }
@@ -59,33 +59,33 @@ public final class RtsTransferServiceImpl implements TransferService {
     }
 
     @Override
-    public void returnCarriedToLinked(ServerPlayer player, String itemId, int amount) {
+    public void returnCarriedToLinked(EntityPlayerMP player, String itemId, int amount) {
         RtsTransferPlayerIntegration.returnCarriedToLinked(player, registry.session().getIfPresent(player), itemId, amount);
     }
 
     @Override
-    public void quickDropLinkedItem(ServerPlayer player, String itemId, byte amount,
+    public void quickDropLinkedItem(EntityPlayerMP player, String itemId, byte amount,
                                     double dropX, double dropY, double dropZ) {
         RtsTransferPlayerIntegration.quickDropLinkedItem(player, registry.session().getIfPresent(player), itemId, amount, dropX, dropY, dropZ);
     }
 
     @Override
-    public void importMenuSlotToLinked(ServerPlayer player, int menuSlot) {
+    public void importMenuSlotToLinked(EntityPlayerMP player, int menuSlot) {
         RtsTransferPlayerIntegration.importMenuSlotToLinked(player, registry.session().getIfPresent(player), menuSlot);
     }
 
     @Override
-    public void pickupLinkedToCarried(ServerPlayer player, ItemStack prototype, int amount) {
+    public void pickupLinkedToCarried(EntityPlayerMP player, ItemStack prototype, int amount) {
         RtsTransferPlayerIntegration.pickupLinkedToCarried(player, registry.session().getIfPresent(player), prototype, amount);
     }
 
     @Override
-    public void quickMoveLinkedItem(ServerPlayer player, ItemStack prototype) {
+    public void quickMoveLinkedItem(EntityPlayerMP player, ItemStack prototype) {
         RtsTransferPlayerIntegration.quickMoveLinkedItem(player, registry.session().getIfPresent(player), prototype);
     }
 
     @Override
-    public void fillPlayerInventoryFromLinked(ServerPlayer player) {
+    public void fillPlayerInventoryFromLinked(EntityPlayerMP player) {
         RtsTransferPlayerIntegration.fillPlayerInventoryFromLinked(player, registry.session().getIfPresent(player));
     }
 }
