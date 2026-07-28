@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.history;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.block.state.IBlockState;
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
 import java.util.Objects;
 
