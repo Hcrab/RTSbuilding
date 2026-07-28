@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.List;
 
@@ -20,16 +20,16 @@ public interface FluidTransferGate {
     /**
      * 从网络中提取一个匹配的物品（链接存储，玩家物品栏作为回退）。
      */
-    ItemStack extractOneFromNetwork(List<IItemHandler> handlers, ServerPlayer player, Item targetItem);
+    ItemStack extractOneFromNetwork(List<IItemHandler> handlers, EntityPlayerMP player, Item targetItem);
 
     /**
      * 将物品堆叠退回到链接存储，玩家物品栏作为回退。
      */
-    void refundToLinked(List<IItemHandler> handlers, ServerPlayer player, ItemStack stack);
+    void refundToLinked(List<IItemHandler> handlers, EntityPlayerMP player, ItemStack stack);
 
     /**
      * 尝试将堆叠仅移入玩家物品栏（无链接存储回退）。
      * 返回任何无法存储的剩余物品。
      */
-    ItemStack moveToPlayerInventoryOnly(ServerPlayer player, ItemStack stack);
+    ItemStack moveToPlayerInventoryOnly(EntityPlayerMP player, ItemStack stack);
 }
