@@ -3,12 +3,11 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
-import net.minecraft.core.BlockPos;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -36,9 +35,9 @@ public final class RtsEndpointLeaseCache {
         this.releaser = Objects.requireNonNull(releaser, "releaser");
     }
 
-    public synchronized IItemHandler resolveItem(UUID playerId, ResourceKey<Level> dimension,
+    public synchronized IItemHandler resolveItem(UUID playerId, int dimension,
             BlockPos pos, UUID backpackId, Object blockEntityIdentity, Supplier<IItemHandler> resolver) {
-        EndpointKey key = new EndpointKey(playerId, dimension, pos.immutable(), backpackId);
+        EndpointKey key = new EndpointKey(playerId, dimension, new BlockPos(pos), backpackId);
         ItemLease current = itemLeases.get(key);
         if (current != null && current.blockEntityIdentity() == blockEntityIdentity) {
             RtsDeveloperMetrics.recordEndpointReuse(playerId);
@@ -57,10 +56,10 @@ public final class RtsEndpointLeaseCache {
         return resolved;
     }
 
-    public synchronized void invalidate(UUID playerId, ResourceKey<Level> dimension, BlockPos pos) {
-        if (playerId == null || dimension == null || pos == null) return;
+    public synchronized void invalidate(UUID playerId, int dimension, BlockPos pos) {
+        if (playerId == null || pos == null) return;
         removeAndRelease(key -> key.playerId().equals(playerId)
-                && key.dimension().equals(dimension) && key.pos().equals(pos));
+                && key.dimension() == dimension && key.pos().equals(pos));
     }
 
     public synchronized void invalidatePlayer(UUID playerId) {
@@ -73,9 +72,9 @@ public final class RtsEndpointLeaseCache {
     }
 
     private void removeAndRelease(java.util.function.Predicate<EndpointKey> predicate) {
-        var iterator = itemLeases.entrySet().iterator();
+        Iterator<Map.Entry<EndpointKey, ItemLease>> iterator = itemLeases.entrySet().iterator();
         while (iterator.hasNext()) {
-            var entry = iterator.next();
+            Map.Entry<EndpointKey, ItemLease> entry = iterator.next();
             if (!predicate.test(entry.getKey())) continue;
             ItemLease lease = entry.getValue();
             iterator.remove();
@@ -89,14 +88,50 @@ public final class RtsEndpointLeaseCache {
         }
     }
 
-    record EndpointKey(UUID playerId, ResourceKey<Level> dimension, BlockPos pos, UUID backpackId) {
-        EndpointKey {
-            Objects.requireNonNull(playerId, "playerId");
-            Objects.requireNonNull(dimension, "dimension");
-            Objects.requireNonNull(pos, "pos");
+    static final class EndpointKey {
+        private final UUID playerId;
+        private final int dimension;
+        private final BlockPos pos;
+        private final UUID backpackId;
+
+        EndpointKey(UUID playerId, int dimension, BlockPos pos, UUID backpackId) {
+            this.playerId = Objects.requireNonNull(playerId, "playerId");
+            this.dimension = dimension;
+            this.pos = Objects.requireNonNull(pos, "pos");
+            this.backpackId = backpackId;
+        }
+
+        UUID playerId() { return playerId; }
+        int dimension() { return dimension; }
+        BlockPos pos() { return pos; }
+        UUID backpackId() { return backpackId; }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof EndpointKey)) return false;
+            EndpointKey value = (EndpointKey) other;
+            return dimension == value.dimension && Objects.equals(playerId, value.playerId)
+                    && Objects.equals(pos, value.pos) && Objects.equals(backpackId, value.backpackId);
+        }
+
+        @Override public int hashCode() {
+            return Objects.hash(playerId, dimension, pos, backpackId);
         }
     }
 
-    private record ItemLease(UUID playerId, Object blockEntityIdentity, IItemHandler handler) {
+    private static final class ItemLease {
+        private final UUID playerId;
+        private final Object blockEntityIdentity;
+        private final IItemHandler handler;
+
+        ItemLease(UUID playerId, Object blockEntityIdentity, IItemHandler handler) {
+            this.playerId = playerId;
+            this.blockEntityIdentity = blockEntityIdentity;
+            this.handler = handler;
+        }
+
+        UUID playerId() { return playerId; }
+        Object blockEntityIdentity() { return blockEntityIdentity; }
+        IItemHandler handler() { return handler; }
     }
 }
