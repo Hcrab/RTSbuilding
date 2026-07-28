@@ -9,17 +9,19 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BindingService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.items.IItemHandler;
+
+import java.util.List;
 
 /**
  * {@link BindingService} 的默认实现——处理所有存储绑定相关的服务端逻辑。
@@ -39,7 +41,7 @@ public final class RtsBindingServiceImpl implements BindingService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
-    public void setMode(ServerPlayer player, BuilderMode mode) {
+    public void setMode(EntityPlayerMP player, BuilderMode mode) {
         RtsStorageSession session = registry.session().getOrCreate(player);
         BuilderMode previous = session.mode;
         boolean shouldFlushFunnel = RtsStorageBindings.setMode(session, mode);
@@ -53,7 +55,7 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
-    public void linkStorage(ServerPlayer player, BlockPos pos, byte linkMode) {
+    public void linkStorage(EntityPlayerMP player, BlockPos pos, byte linkMode) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.LINK_STORAGE)) return;
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
@@ -61,26 +63,26 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
-    public void unlinkStorage(ServerPlayer player, BlockPos pos) {
+    public void unlinkStorage(EntityPlayerMP player, BlockPos pos) {
         if (player == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
-        if (removeLinkedRef(session, player.serverLevel().dimension(), pos)) {
+        if (removeLinkedRef(session, player.dimension, pos)) {
             RtsEndpointLeaseCache.INSTANCE.invalidate(
-                    player.getUUID(), player.serverLevel().dimension(), pos);
+                    player.getUniqueID(), player.dimension, pos);
             registry.serviceOp().afterModification(player, session);
         }
     }
 
-    private boolean removeLinkedRef(RtsStorageSession session, ResourceKey<Level> dimension, BlockPos pos) {
-        if (session == null || dimension == null || pos == null || session.linkedStorageInfo.isEmpty()) {
+    private boolean removeLinkedRef(RtsStorageSession session, int dimension, BlockPos pos) {
+        if (session == null || pos == null || session.linkedStorageInfo.isEmpty()) {
             return false;
         }
-        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.immutable());
+        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.toImmutable());
         return session.linkedStorageInfo.remove(ref);
     }
 
     @Override
-    public void updateLinkedStorageSettings(ServerPlayer player, BlockPos pos, byte linkMode, int priority) {
+    public void updateLinkedStorageSettings(EntityPlayerMP player, BlockPos pos, byte linkMode, int priority) {
         if (player == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         applyUpdate(player, session,
@@ -88,7 +90,7 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
-    public void setFunnelEnabled(ServerPlayer player, boolean enabled) {
+    public void setFunnelEnabled(EntityPlayerMP player, boolean enabled) {
         if (enabled && !RtsProgressionManager.canUse(player, RtsFeature.FUNNEL)) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         if (session.funnel.funnelEnabled == enabled) return;
@@ -102,14 +104,14 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
-    public void updateFunnelTarget(ServerPlayer player, BlockPos target) {
+    public void updateFunnelTarget(EntityPlayerMP player, BlockPos target) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.FUNNEL)) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         registry.funnel().updateTarget(player, session, target);
     }
 
     @Override
-    public void setAutoStoreMinedDrops(ServerPlayer player, boolean enabled) {
+    public void setAutoStoreMinedDrops(EntityPlayerMP player, boolean enabled) {
         if (enabled && !RtsProgressionManager.canUse(player, RtsFeature.AUTO_STORE_MINED_DROPS)) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         session.sessionFlags.autoStoreMinedDrops = enabled;
@@ -117,7 +119,7 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
-    public void setBdNetworkEnabled(ServerPlayer player, boolean enabled) {
+    public void setBdNetworkEnabled(EntityPlayerMP player, boolean enabled) {
         RtsStorageSession session = registry.session().getOrCreate(player);
         if (session.sessionFlags.useBdNetwork == enabled) return;
         session.sessionFlags.useBdNetwork = enabled;
@@ -127,20 +129,20 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
-    public void setQuickSlot(ServerPlayer player, byte slotId, String itemId, ItemStack previewStack) {
+    public void setQuickSlot(EntityPlayerMP player, byte slotId, String itemId, ItemStack previewStack) {
         RtsStorageSession session = registry.session().getOrCreate(player);
         applyUpdate(player, session, RtsStorageBindings.setQuickSlot(session, slotId, itemId, previewStack));
     }
 
     @Override
-    public void setGuiBinding(ServerPlayer player, byte slotId, boolean clear, BlockPos pos, Direction face, String itemIdHint) {
+    public void setGuiBinding(EntityPlayerMP player, byte slotId, boolean clear, BlockPos pos, EnumFacing face, String itemIdHint) {
         if (!clear && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_GUI_BINDING)) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         applyUpdate(player, session, RtsStorageBindings.setGuiBinding(player, session, slotId, clear, pos, face, itemIdHint));
     }
 
     @Override
-    public void openGuiBinding(ServerPlayer player, byte slotId) {
+    public void openGuiBinding(EntityPlayerMP player, byte slotId) {
         RtsStorageSession session = registry.session().getIfPresent(player);
         if (session == null) return;
         RtsStorageBindings.UpdateResult result = RtsStorageBindings.openGuiBinding(
@@ -151,30 +153,30 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
-    public void storeHotbarSlot(ServerPlayer player, byte slotId) {
+    public void storeHotbarSlot(EntityPlayerMP player, byte slotId) {
         RtsStorageSession session = registry.session().getIfPresent(player);
         if (session == null) return;
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         if (!RtsLinkedStorageResolver.hasAnyStorage(player, session)) return;
-        var activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         if (activeLinked.isEmpty()) return;
-        var handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         int slot = Math.max(0, Math.min(8, slotId));
-        ItemStack inSlot = player.getInventory().getItem(slot);
+        ItemStack inSlot = player.inventory.getStackInSlot(slot);
         if (inSlot.isEmpty()) return;
 
         ItemStack remaining = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, inSlot.copy());
         if (remaining.getCount() == inSlot.getCount()) return;
 
-        player.getInventory().setItem(slot, remaining.isEmpty() ? ItemStack.EMPTY : remaining);
-        player.containerMenu.broadcastChanges();
+        player.inventory.setInventorySlotContents(slot, remaining.isEmpty() ? ItemStack.EMPTY : remaining);
+        player.inventoryContainer.detectAndSendChanges();
         registry.serviceOp().afterModification(player, session);
         QuestService.runQuestDetect(player, session, false);
     }
 
     @Override
-    public void closeRemoteMenu(ServerPlayer player) {
+    public void closeRemoteMenu(EntityPlayerMP player) {
         RtsStorageSession session = registry.session().getIfPresent(player);
         if (session == null || session.transfer.remoteMenuContainerId < 0) return;
         RtsRemoteMenuService.closeTracked(player, session);
@@ -185,10 +187,10 @@ public final class RtsBindingServiceImpl implements BindingService {
     //  Internal helpers
     // ────────────────────────────────────────────────────────────────
 
-    private void applyUpdate(ServerPlayer player, RtsStorageSession session, RtsStorageBindings.UpdateResult update) {
+    private void applyUpdate(EntityPlayerMP player, RtsStorageSession session, RtsStorageBindings.UpdateResult update) {
         if (player == null || session == null || update == null) return;
         if (update.saveSession()) {
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
         }
         if (update.refreshPage()) {
             registry.serviceOp().markDirty(player, session);
