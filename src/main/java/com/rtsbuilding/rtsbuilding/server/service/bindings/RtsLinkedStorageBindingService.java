@@ -8,16 +8,15 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.ChestBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.block.BlockChest;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 import java.util.UUID;
 
@@ -50,7 +49,7 @@ public final class RtsLinkedStorageBindingService {
      * 切换或重定向链接存储引用，同时保留现有的仅提取模式行为。
      * 没有物品或流体端点的目标会要求 UI 返回第零页而不保存会话数据。
      */
-    public static RtsStorageBindings.UpdateResult linkStorage(ServerPlayer player, RtsStorageSession session,
+    public static RtsStorageBindings.UpdateResult linkStorage(EntityPlayerMP player, RtsStorageSession session,
             BlockPos pos, byte linkMode) {
         if (player == null || session == null || pos == null) {
             return RtsStorageBindings.UpdateResult.none();
@@ -58,19 +57,19 @@ public final class RtsLinkedStorageBindingService {
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         if (!RtsClaimProtectionService.canInteractBlock(
-                player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+                player, pos, EnumFacing.UP, EnumHand.MAIN_HAND, ItemStack.EMPTY)) {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        LinkedStorageRef ref = new LinkedStorageRef(player.dimension, pos.toImmutable());
         Object itemHandler = RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
         Object fluidHandler = RtsLinkedCapabilities.findFluidHandler(player, pos);
         if (itemHandler == null && fluidHandler == null) {
             return RtsStorageBindings.UpdateResult.refreshFirst(false);
         }
 
-        UUID backpackUuid = readBackpackUuid(player.serverLevel(), pos);
-        String backpackItemId = readBackpackItemId(player.serverLevel(), pos);
+        UUID backpackUuid = readBackpackUuid(player.getServerWorld(), pos);
+        String backpackItemId = readBackpackItemId(player.getServerWorld(), pos);
         byte normalizedMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
 
         if (session.linkedStorageInfo.contains(ref)) {
@@ -79,7 +78,7 @@ public final class RtsLinkedStorageBindingService {
                 session.linkedStorageInfo.remove(ref);
             } else {
                 session.linkedStorageInfo.setMode(ref, normalizedMode);
-                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), ref.pos()));
                 applyBackpackMetadata(session, ref, backpackUuid, backpackItemId);
             }
         } else {
@@ -92,7 +91,7 @@ public final class RtsLinkedStorageBindingService {
                     return RtsStorageBindings.UpdateResult.none();
                 }
                 session.linkedStorageInfo.add(ref, normalizedMode, 0, backpackUuid, backpackItemId);
-                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), ref.pos()));
             }
         }
         // Mark BD network caches as stale so the resolver re-resolves them
@@ -101,7 +100,7 @@ public final class RtsLinkedStorageBindingService {
         session.bdCache.handlerStale = true;
         session.bdCache.fluidHandlerStale = true;
         // 包括 identity=null 的远程背包租约：绑定关系变化是其明确失效来源。
-        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUniqueID());
         return RtsStorageBindings.UpdateResult.refreshFirst(true);
     }
 
@@ -110,13 +109,13 @@ public final class RtsLinkedStorageBindingService {
      * 详情面板可以编辑模式和 AE 式优先级，但服务器仍然要求
      * 引用已经属于玩家的会话。
      */
-    public static RtsStorageBindings.UpdateResult updateSettings(ServerPlayer player, RtsStorageSession session,
+    public static RtsStorageBindings.UpdateResult updateSettings(EntityPlayerMP player, RtsStorageSession session,
             BlockPos pos, byte linkMode, int priority) {
         if (player == null || session == null || pos == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        LinkedStorageRef ref = new LinkedStorageRef(player.dimension, pos.toImmutable());
         if (!session.linkedStorageInfo.contains(ref)) {
             return RtsStorageBindings.UpdateResult.none();
         }
@@ -129,7 +128,7 @@ public final class RtsLinkedStorageBindingService {
         }
         session.linkedStorageInfo.setMode(ref, normalizedMode);
         session.linkedStorageInfo.setPriority(ref, normalizedPriority);
-        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), ref.pos()));
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 
@@ -154,72 +153,74 @@ public final class RtsLinkedStorageBindingService {
         session.linkedStorageInfo.removeDetached(ref);
     }
 
-    private static UUID readBackpackUuid(ServerLevel level, BlockPos pos) {
+    private static UUID readBackpackUuid(WorldServer level, BlockPos pos) {
         if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
             return null;
         }
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+        TileEntity blockEntity = level.getTileEntity(pos);
         return RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
     }
 
-    private static String readBackpackItemId(ServerLevel level, BlockPos pos) {
+    private static String readBackpackItemId(WorldServer level, BlockPos pos) {
         if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
             return "";
         }
-        BlockEntity blockEntity = level.getBlockEntity(pos);
+        TileEntity blockEntity = level.getTileEntity(pos);
         return RtsBackpackCompat.getBackpackItemId(blockEntity).orElse("");
     }
 
     /**
      * 检查给定的方块位置是否属于双箱子，且其另一半已在会话中链接。
      */
-    private static boolean isDoubleChestHalfAlreadyLinked(ServerPlayer player, RtsStorageSession session, BlockPos pos) {
+    private static boolean isDoubleChestHalfAlreadyLinked(EntityPlayerMP player, RtsStorageSession session, BlockPos pos) {
         if (player == null || session == null || pos == null) {
             return false;
         }
-        ServerLevel level = player.serverLevel();
-        if (!level.hasChunkAt(pos)) {
+        WorldServer level = player.getServerWorld();
+        if (!level.isBlockLoaded(pos)) {
             return false;
         }
-        BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof ChestBlock)) {
+        IBlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof BlockChest)) {
             return false;
         }
-        ChestType chestType = state.getValue(ChestBlock.TYPE);
-        if (chestType == ChestType.SINGLE) {
-            return false;
-        }
-        Direction connectedDirection = ChestBlock.getConnectedDirection(state);
-        BlockPos connectedPos = pos.relative(connectedDirection);
-        LinkedStorageRef connectedRef = new LinkedStorageRef(level.dimension(), connectedPos);
-        return session.linkedStorageInfo.contains(connectedRef);
+        return findAdjacentChestLinkedRef(level, session, pos, state) != null;
     }
 
     /**
      * 查找已链接的相邻箱子半边的引用，如果目标不是双箱子的一部分
      * 或另一半未链接，则返回 null。
      */
-    private static LinkedStorageRef findDoubleChestLinkedRef(ServerPlayer player, RtsStorageSession session, BlockPos pos) {
+    private static LinkedStorageRef findDoubleChestLinkedRef(EntityPlayerMP player, RtsStorageSession session, BlockPos pos) {
         if (player == null || session == null || pos == null) {
             return null;
         }
-        ServerLevel level = player.serverLevel();
-        if (!level.hasChunkAt(pos)) {
+        WorldServer level = player.getServerWorld();
+        if (!level.isBlockLoaded(pos)) {
             return null;
         }
-        BlockState state = level.getBlockState(pos);
-        if (!(state.getBlock() instanceof ChestBlock)) {
+        IBlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof BlockChest)) {
             return null;
         }
-        ChestType chestType = state.getValue(ChestBlock.TYPE);
-        if (chestType == ChestType.SINGLE) {
-            return null;
-        }
-        Direction connectedDirection = ChestBlock.getConnectedDirection(state);
-        BlockPos connectedPos = pos.relative(connectedDirection);
-        LinkedStorageRef connectedRef = new LinkedStorageRef(level.dimension(), connectedPos);
-        if (session.linkedStorageInfo.contains(connectedRef)) {
-            return connectedRef;
+        return findAdjacentChestLinkedRef(level, session, pos, state);
+    }
+
+    /**
+     * 1.12.2 没有现代版 ChestType 属性；合法双箱子只会有一个同种箱子水平相邻。
+     * 直接扫描四个水平面既保留普通/陷阱箱子的类型隔离，也不会依赖客户端容器合并逻辑。
+     */
+    private static LinkedStorageRef findAdjacentChestLinkedRef(WorldServer level, RtsStorageSession session,
+            BlockPos pos, IBlockState state) {
+        for (EnumFacing facing : EnumFacing.HORIZONTALS) {
+            BlockPos connectedPos = pos.offset(facing);
+            if (level.getBlockState(connectedPos).getBlock() != state.getBlock()) {
+                continue;
+            }
+            LinkedStorageRef connectedRef = new LinkedStorageRef(level.provider.getDimension(), connectedPos);
+            if (session.linkedStorageInfo.contains(connectedRef)) {
+                return connectedRef;
+            }
         }
         return null;
     }

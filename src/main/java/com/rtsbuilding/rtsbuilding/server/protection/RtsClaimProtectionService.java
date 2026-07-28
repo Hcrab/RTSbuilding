@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.protection;
 
 import com.rtsbuilding.rtsbuilding.compat.openpac.RtsOpenPacCompat;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
 
 /**
  * RTS 世界修改的统一区块保护入口。
@@ -19,21 +19,21 @@ public final class RtsClaimProtectionService {
     private RtsClaimProtectionService() {
     }
 
-    public static boolean canBreakBlock(ServerPlayer player, BlockPos pos, Direction face) {
+    public static boolean canBreakBlock(EntityPlayerMP player, BlockPos pos, EnumFacing face) {
         return player != null && pos != null && RtsOpenPacCompat.canBreakBlock(player, pos, face);
     }
 
-    public static boolean canPlaceBlock(ServerPlayer player, BlockPos pos) {
+    public static boolean canPlaceBlock(EntityPlayerMP player, BlockPos pos) {
         return player != null && pos != null && RtsOpenPacCompat.canPlaceBlock(player, pos);
     }
 
-    public static boolean canInteractBlock(ServerPlayer player, BlockPos pos, Direction face,
-            InteractionHand hand, ItemStack heldItem) {
+    public static boolean canInteractBlock(EntityPlayerMP player, BlockPos pos, EnumFacing face,
+            EnumHand hand, ItemStack heldItem) {
         return player != null && pos != null
                 && RtsOpenPacCompat.canInteractBlock(player, pos, face, hand, heldItem);
     }
 
-    public static boolean canInteractEntity(ServerPlayer player, Entity target, InteractionHand hand,
+    public static boolean canInteractEntity(EntityPlayerMP player, Entity target, EnumHand hand,
             ItemStack heldItem, boolean attack) {
         return player != null && target != null
                 && RtsOpenPacCompat.canInteractEntity(player, target, hand, heldItem, attack);
