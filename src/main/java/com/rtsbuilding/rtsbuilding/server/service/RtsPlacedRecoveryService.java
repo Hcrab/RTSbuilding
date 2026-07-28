@@ -17,18 +17,20 @@ import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.Placed
 import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
 import com.rtsbuilding.rtsbuilding.server.task.BoundedQueueSelector;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.level.entity.EntityTypeTest;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.common.CommonHooks;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.items.IItemHandler;
 
 import java.util.*;
 
@@ -41,10 +43,10 @@ import java.util.*;
  *
  * <p><b>核心流程：</b>
  * <ul>
- *   <li>{@link #breakPlaced(ServerPlayer, BlockPos, Direction, boolean)} —
- *       远程破坏已放置方块：检查权限和追踪状态、模拟下界合金镐+精准采集破坏、
+ *   <li>{@link #breakPlaced(EntityPlayerMP, BlockPos, EnumFacing, boolean)} —
+ *       远程破坏已放置方块：检查权限和追踪状态、冻结方块物品表示并触发 Forge 破坏门禁、
  *       收集新增掉落物入队、从链接存储引用中移除已破坏方块、刷新工作流进度</li>
- *   <li>{@link #tick(ServerPlayer, RtsStorageSession)} —
+ *   <li>{@link #tick(EntityPlayerMP, RtsStorageSession)} —
  *       每 tick 处理恢复作业队列，将掉落物栈依次存入链接存储；
  *       每 tick 最多处理 {@code PLACED_RECOVERY_MAX_JOBS_PER_TICK} 个作业
  *       和 {@code PLACED_RECOVERY_MAX_STACKS_PER_TICK} 个栈</li>
@@ -52,10 +54,8 @@ import java.util.*;
  *
  * <p><b>内部方法：</b>
  * <ul>
- *   <li>{@link #snapshotNearbyDrops(ServerLevel, BlockPos)} — 有界快照破坏前的附近掉落物</li>
- *   <li>{@link #collectNewNearbyDrops(ServerLevel, BlockPos, Set)} — 有界收集破坏后的新增掉落物</li>
- *   <li>{@link #breakWithSimulatedSilkTouch(ServerPlayer, ServerLevel, BlockPos)} —
- *       使用模拟精准采集工具破坏方块</li>
+ *   <li>{@link #snapshotNearbyDrops(WorldServer, BlockPos)} — 有界快照破坏前的附近掉落物</li>
+ *   <li>{@link #collectNewNearbyDrops(WorldServer, BlockPos, Set)} — 有界收集破坏后的新增掉落物</li>
  *   <li>{@link #recoveryHandlersExcluding(List, BlockPos)} — 获取恢复用的处理器列表，排除刚破坏的方块自身</li>
  * </ul>
  *
@@ -87,7 +87,7 @@ public final class RtsPlacedRecoveryService {
         if (!undoRecovery && !RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
             return;
         }
-        ServerLevel level = player.serverLevel();
+        WorldServer level = player.getServerWorld();
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(level);
         BlockPos targetPos = pos.toImmutable();
         if (!tracker.isPlaced(targetPos)) {
@@ -102,8 +102,8 @@ public final class RtsPlacedRecoveryService {
             targetPos = adjacent;
         }
 
-        BlockState state = level.getBlockState(targetPos);
-        if (state.isAir()) {
+        IBlockState state = level.getBlockState(targetPos);
+        if (isAir(state)) {
             tracker.clear(targetPos);
             return;
         }
@@ -125,14 +125,14 @@ public final class RtsPlacedRecoveryService {
             return;
         }
         boolean removed = recoverTrackedBlock(player, level, targetPos, state);
-        if (!removed || !level.getBlockState(targetPos).isAir()) {
+        if (!removed || !isAir(level.getBlockState(targetPos))) {
             tracker.mark(targetPos);
             return;
         }
 
         RtsPlacementSound.playRemoteBlockBreakSound(player, level, targetPos, state);
         tracker.clear(targetPos);
-        ItemEntity recoveredEntity = materializeRecoveredBlock(level, targetPos, recoveredBlock);
+        EntityItem recoveredEntity = materializeRecoveredBlock(level, targetPos, recoveredBlock);
         NearbyDropCollection afterBreak = collectNewNearbyDrops(level, targetPos, beforeBreak.entityIds());
         PlacedRecoveryJob queuedRecovery = afterBreak.saturated() ? null
                 : enqueueRecoveryJob(player, session, targetPos, afterBreak.entities());
@@ -143,7 +143,7 @@ public final class RtsPlacedRecoveryService {
             }
         }
 
-        LinkedStorageRef targetRef = new LinkedStorageRef(player.serverLevel().dimension(), targetPos);
+        LinkedStorageRef targetRef = new LinkedStorageRef(player.dimension, targetPos);
         boolean removedLinkedRef = session.linkedStorageInfo.remove(targetRef);
         if (removedLinkedRef) {
             // linkedStorageInfo 与 recovery claim 属于不同组件；两者同时变化时只做一次完整冻结。
@@ -205,8 +205,8 @@ public final class RtsPlacedRecoveryService {
                     jobs,
                     candidate -> candidate.claims().isEmpty()
                             || (candidate.requiredPersistedRevision() <= persistedPlacementRevision
-                            && player.serverLevel().dimension().equals(candidate.dimension())
-                            && player.serverLevel().hasChunkAt(candidate.targetPos())),
+                            && player.dimension == candidate.dimension()
+                            && player.getServerWorld().isBlockLoaded(candidate.targetPos())),
                     inspectionBudget);
             inspectedJobs += selection.inspected();
             if (!selection.found()) {
@@ -217,7 +217,7 @@ public final class RtsPlacedRecoveryService {
                 jobs.removeFirst();
                 continue;
             }
-            ServerLevel jobLevel = player.serverLevel();
+            WorldServer jobLevel = player.getServerWorld();
 
             // durability ACK、维度和区块门禁通过后才解析外部网络，避免等待落盘期间每 tick 探测 AE/RS。
             if (orderedLinked == null) {
@@ -231,12 +231,12 @@ public final class RtsPlacedRecoveryService {
                     && processedStacks < Math.max(1, maxUnits)
                     && System.nanoTime() < deadlineNanos) {
                 PlacedRecoveryClaim claim = job.claims().peekFirst();
-                net.minecraft.world.entity.Entity entity = jobLevel.getEntity(claim.entityId());
-                if (!(entity instanceof ItemEntity) || !entity.isAlive()) {
+                Entity entity = jobLevel.getEntityFromUuid(claim.entityId());
+                if (!(entity instanceof EntityItem) || entity.isDead) {
                     claimBlocked = true;
                     break;
                 }
-                ItemEntity droppedEntity = (ItemEntity) entity;
+                EntityItem droppedEntity = (EntityItem) entity;
                 ItemStack droppedStack = droppedEntity.getItem();
                 if (!claim.matches(droppedStack)) {
                     claimBlocked = true;
@@ -247,7 +247,7 @@ public final class RtsPlacedRecoveryService {
                     overflow = overflow.merge(RtsTransferInserter.storeToLinkedWithFallback(handlers, player, remain));
                 }
                 // 单个实体的插入与源实体释放在同一服务端主线程调度片内完成。
-                droppedEntity.discard();
+                droppedEntity.setDead();
                 job.claims().removeFirst();
                 mutatedJobs.add(job);
                 processedStacks++;
@@ -266,8 +266,8 @@ public final class RtsPlacedRecoveryService {
             if (hasLinkedRecoveryTarget) {
                 RtsTransferInserter.sendStorageOverflowHint(player, "Absorb", overflow);
             } else if (overflow.dropped() > 0) {
-                player.displayClientMessage(
-                        Component.literal("Inventory full, dropped " + overflow.dropped() + "."), true);
+                player.sendStatusMessage(
+                        new TextComponentString("Inventory full, dropped " + overflow.dropped() + "."), true);
             }
         }
         if (processedAny) {
@@ -304,43 +304,41 @@ public final class RtsPlacedRecoveryService {
 
     // ---- 内部方法 ----
 
-    static NearbyDropSnapshot snapshotNearbyDrops(ServerLevel level, BlockPos pos) {
+    static NearbyDropSnapshot snapshotNearbyDrops(WorldServer level, BlockPos pos) {
         if (level == null || pos == null) return new NearbyDropSnapshot(Collections.<UUID>emptySet(), false);
-        AABB box = new AABB(pos).inflate(0.5D);
+        AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.5D);
         int safeLimit = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
-        List<ItemEntity> nearby = new ArrayList<>(safeLimit + 1);
-        level.getEntities(EntityTypeTest.forClass(ItemEntity.class), box,
-                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), nearby, safeLimit + 1);
+        List<EntityItem> nearby = level.getEntitiesWithinAABB(EntityItem.class, box,
+                entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty());
         if (nearby.size() > safeLimit) {
             return new NearbyDropSnapshot(Collections.<UUID>emptySet(), true);
         }
         Set<UUID> ids = new HashSet<>(nearby.size());
-        for (ItemEntity entity : nearby) {
-            ids.add(entity.getUUID());
+        for (EntityItem entity : nearby) {
+            ids.add(entity.getUniqueID());
         }
         return new NearbyDropSnapshot(Collections.unmodifiableSet(new HashSet<>(ids)), false);
     }
 
     static NearbyDropCollection collectNewNearbyDrops(
-            ServerLevel level, BlockPos pos, Set<UUID> existingIds) {
-        if (level == null || pos == null) return new NearbyDropCollection(Collections.<ItemEntity>emptyList(), false);
+            WorldServer level, BlockPos pos, Set<UUID> existingIds) {
+        if (level == null || pos == null) return new NearbyDropCollection(Collections.<EntityItem>emptyList(), false);
         Set<UUID> safeExistingIds = existingIds == null ? Collections.<UUID>emptySet() : existingIds;
-        AABB box = new AABB(pos).inflate(0.5D);
+        AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.5D);
         int maxNewDrops = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
         int queryLimit = safeExistingIds.size() + maxNewDrops + 1;
-        List<ItemEntity> all = new ArrayList<>(queryLimit);
-        level.getEntities(EntityTypeTest.forClass(ItemEntity.class), box,
-                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), all, queryLimit);
-        List<ItemEntity> fresh = new ArrayList<>();
-        for (ItemEntity entity : all) {
-            if (!safeExistingIds.contains(entity.getUUID())) {
+        List<EntityItem> all = level.getEntitiesWithinAABB(EntityItem.class, box,
+                entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty());
+        List<EntityItem> fresh = new ArrayList<>();
+        for (EntityItem entity : all) {
+            if (!safeExistingIds.contains(entity.getUniqueID())) {
                 fresh.add(entity);
                 if (fresh.size() > maxNewDrops) {
-                    return new NearbyDropCollection(Collections.<ItemEntity>emptyList(), true);
+                    return new NearbyDropCollection(Collections.<EntityItem>emptyList(), true);
                 }
             }
         }
-        if (all.size() >= queryLimit) return new NearbyDropCollection(Collections.<ItemEntity>emptyList(), true);
+        if (all.size() >= queryLimit) return new NearbyDropCollection(Collections.<EntityItem>emptyList(), true);
         return new NearbyDropCollection(Collections.unmodifiableList(new ArrayList<>(fresh)), false);
     }
 
@@ -363,15 +361,15 @@ public final class RtsPlacedRecoveryService {
     }
 
     static final class NearbyDropCollection {
-        private final List<ItemEntity> entities;
+        private final List<EntityItem> entities;
         private final boolean saturated;
 
-        NearbyDropCollection(List<ItemEntity> entities, boolean saturated) {
+        NearbyDropCollection(List<EntityItem> entities, boolean saturated) {
             this.entities = entities;
             this.saturated = saturated;
         }
 
-        List<ItemEntity> entities() {
+        List<EntityItem> entities() {
             return entities;
         }
 
@@ -380,43 +378,41 @@ public final class RtsPlacedRecoveryService {
         }
     }
 
-    static ItemStack recoveryStack(ServerLevel level, BlockPos pos, BlockState state) {
-        if (level == null || pos == null || state == null || state.isAir()) return ItemStack.EMPTY;
-        ItemStack stack = state.getBlock().getCloneItemStack(level, pos, state);
+    static ItemStack recoveryStack(WorldServer level, BlockPos pos, IBlockState state) {
+        if (level == null || pos == null || state == null || isAir(state)) return ItemStack.EMPTY;
+        ItemStack stack = state.getBlock().getItem(level, pos, state);
         if (stack.isEmpty()) {
-            stack = new ItemStack(state.getBlock().asItem());
+            Block block = state.getBlock();
+            stack = new ItemStack(block, 1, block.damageDropped(state));
         }
         return stack;
     }
 
     static boolean recoverTrackedBlock(
-            EntityPlayerMP player, ServerLevel level, BlockPos pos, BlockState state) {
-        if (player == null || level == null || pos == null || state == null || state.isAir()) return false;
-        net.neoforged.neoforge.event.level.BlockEvent.BreakEvent breakEvent =
-                TemporaryContextSwitcher.withTemporaryMainHandItem(
+            EntityPlayerMP player, WorldServer level, BlockPos pos, IBlockState state) {
+        if (player == null || level == null || pos == null || state == null || isAir(state)) return false;
+        Integer breakExperience = TemporaryContextSwitcher.withTemporaryMainHandItem(
                 player, ItemStack.EMPTY,
-                () -> CommonHooks.fireBlockBreak(
-                        level, player.gameMode.getGameModeForPlayer(), player, pos, state));
-        if (breakEvent.isCanceled()) {
-            return false;
-        }
-        return level.destroyBlock(pos, false, player);
+                () -> ForgeHooks.onBlockBreakEvent(
+                        level, player.interactionManager.getGameType(), player, pos));
+        if (breakExperience == null || breakExperience.intValue() < 0) return false;
+        return level.destroyBlock(pos, false);
     }
 
-    private static ItemEntity materializeRecoveredBlock(
-            ServerLevel level, BlockPos pos, ItemStack recoveredBlock) {
-        ItemEntity entity = new ItemEntity(
+    private static EntityItem materializeRecoveredBlock(
+            WorldServer level, BlockPos pos, ItemStack recoveredBlock) {
+        EntityItem entity = new EntityItem(
                 level,
                 pos.getX() + 0.5D,
                 pos.getY() + 0.5D,
                 pos.getZ() + 0.5D,
                 recoveredBlock.copy());
-        return level.addFreshEntity(entity) ? entity : null;
+        return level.spawnEntity(entity) ? entity : null;
     }
 
     private static PlacedRecoveryJob enqueueRecoveryJob(
             EntityPlayerMP player, RtsStorageSession session, BlockPos targetPos,
-            List<ItemEntity> droppedEntities) {
+            List<EntityItem> droppedEntities) {
         if (player == null || droppedEntities == null || droppedEntities.isEmpty()) {
             return null;
         }
@@ -434,18 +430,18 @@ public final class RtsPlacedRecoveryService {
                 RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS - claimed);
         Deque<PlacedRecoveryClaim> claims = new ArrayDeque<>();
         int ordinal = 0;
-        for (ItemEntity droppedEntity : droppedEntities) {
+        for (EntityItem droppedEntity : droppedEntities) {
             if (claims.size() >= availableClaims) break;
             if (droppedEntity == null) continue;
             ItemStack droppedStack = droppedEntity.getItem();
             if (droppedStack.isEmpty()) continue;
-            droppedEntity.setUnlimitedLifetime();
+            droppedEntity.setNoDespawn();
             claims.addLast(new PlacedRecoveryClaim(
-                    droppedEntity.getUUID(), ordinal++, droppedStack));
+                    droppedEntity.getUniqueID(), ordinal++, droppedStack));
         }
         if (claims.isEmpty()) return null;
         PlacedRecoveryJob job = new PlacedRecoveryJob(
-                UUID.randomUUID(), player.serverLevel().dimension(), targetPos.toImmutable(), claims);
+                UUID.randomUUID(), player.dimension, targetPos.toImmutable(), claims);
         session.placement.recoveryJobs.addLast(job);
         return job;
     }
@@ -464,6 +460,10 @@ public final class RtsPlacedRecoveryService {
             if (h != null) handlers.add(h);
         }
         return handlers;
+    }
+
+    private static boolean isAir(IBlockState state) {
+        return state == null || state.getBlock() == Blocks.AIR;
     }
 
 }
