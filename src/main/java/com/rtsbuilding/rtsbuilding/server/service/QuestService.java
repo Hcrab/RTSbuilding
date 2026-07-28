@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPa
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 /**
  * FTB 任务（Quests）检测服务，与 FTB Quests 模组集成。
@@ -16,12 +16,12 @@ import net.minecraft.server.level.ServerPlayer;
  *
  * <p><b>核心方法：</b>
  * <ul>
- *   <li>{@link #detectQuests(ServerPlayer, byte)} — 外部触发的任务检测入口，
+ *   <li>{@link #detectQuests(EntityPlayerMP, byte)} — 外部触发的任务检测入口，
  *       获取或创建会话后调用 {@link #runQuestDetect}</li>
- *   <li>{@link #runQuestDetect(ServerPlayer, RtsStorageSession, boolean)} —
+ *   <li>{@link #runQuestDetect(EntityPlayerMP, RtsStorageSession, boolean)} —
  *       运行实际检测扫描，受冷却时间 {@value #QUEST_DETECT_COOLDOWN_TICKS} tick 限制；
  *       {@code force=true} 时无视冷却并推送完整检测状态</li>
- *   <li>{@link #sendQuestDetectStatus(ServerPlayer, byte, int, int, int)} —
+ *   <li>{@link #sendQuestDetectStatus(EntityPlayerMP, byte, int, int, int)} —
  *       向客户端发送检测状态数据包，包含相位、已扫描数、总数和新增完成数</li>
  * </ul>
  *
@@ -40,7 +40,7 @@ public final class QuestService {
     private QuestService() {
     }
 
-    public static void detectQuests(ServerPlayer player, byte mode) {
+    public static void detectQuests(EntityPlayerMP player, byte mode) {
         RtsStorageSession session = ServiceRegistry.getInstance().session().getOrCreate(player);
         if (session == null) {
             return;
@@ -56,7 +56,7 @@ public final class QuestService {
      * @param session 当前 RTS 会话
      * @param force   强制扫描（无视冷却）
      */
-    public static void runQuestDetect(ServerPlayer player, RtsStorageSession session, boolean force) {
+    public static void runQuestDetect(EntityPlayerMP player, RtsStorageSession session, boolean force) {
         if (player == null || session == null) {
             return;
         }
@@ -66,7 +66,7 @@ public final class QuestService {
             }
             return;
         }
-        long now = player.serverLevel().getGameTime();
+        long now = player.getServerWorld().getTotalWorldTime();
         if (!force && now < session.transfer.nextQuestDetectTick) {
             return;
         }
@@ -90,7 +90,7 @@ public final class QuestService {
         }
     }
 
-    public static void sendQuestDetectStatus(ServerPlayer player, byte phase,
+    public static void sendQuestDetectStatus(EntityPlayerMP player, byte phase,
             int scannedTasks, int totalTasks, int completedTasks) {
         RtsClientboundPackets.sendToPlayer(
                 player,
