@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
+import java.util.Objects;
+
 /**
  * 生产分类注册表整理阶段使用的行模型容器。
  *
@@ -19,13 +21,46 @@ public final class CategoryTypes {
      * @param expanded 当前是否展开
      * @param modNamespace 所属模组命名空间；“全部”行为空
      */
-    public record CategoryRow(
-            String token,
-            String label,
-            int depth,
-            boolean expandable,
-            boolean expanded,
-            String modNamespace) {}
+    public static final class CategoryRow {
+        private final String token;
+        private final String label;
+        private final int depth;
+        private final boolean expandable;
+        private final boolean expanded;
+        private final String modNamespace;
+
+        public CategoryRow(String token, String label, int depth, boolean expandable,
+                boolean expanded, String modNamespace) {
+            this.token = token;
+            this.label = label;
+            this.depth = depth;
+            this.expandable = expandable;
+            this.expanded = expanded;
+            this.modNamespace = modNamespace;
+        }
+        public String token() { return token; }
+        public String label() { return label; }
+        public int depth() { return depth; }
+        public boolean expandable() { return expandable; }
+        public boolean expanded() { return expanded; }
+        public String modNamespace() { return modNamespace; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof CategoryRow)) return false;
+            CategoryRow that = (CategoryRow) other;
+            return depth == that.depth && expandable == that.expandable && expanded == that.expanded
+                    && Objects.equals(token, that.token) && Objects.equals(label, that.label)
+                    && Objects.equals(modNamespace, that.modNamespace);
+        }
+        @Override public int hashCode() {
+            return Objects.hash(token, label, depth, expandable, expanded, modNamespace);
+        }
+        @Override public String toString() {
+            return "CategoryRow[token=" + token + ", label=" + label + ", depth=" + depth
+                    + ", expandable=" + expandable + ", expanded=" + expanded
+                    + ", modNamespace=" + modNamespace + "]";
+        }
+    }
 
     private CategoryTypes() {}
 }

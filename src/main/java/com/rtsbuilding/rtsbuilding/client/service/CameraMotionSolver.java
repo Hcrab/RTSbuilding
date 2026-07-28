@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.service;
 
 import net.minecraft.util.math.MathHelper;
 
+import java.util.Objects;
+
 /**
  * 相机单步运动与边界钳制的纯数学 owner。
  *
@@ -50,8 +52,84 @@ final class CameraMotionSolver {
         return new Pose(x, y, z, y - bounds.anchorY, yaw, pitch);
     }
 
-    record Pose(double x, double y, double z, double heightOffset, float yawDeg, float pitchDeg) {}
-    record Bounds(double anchorX, double anchorY, double anchorZ, double maxRadius) {}
-    record Input(float forward, float strafe, float vertical, float panX, float panY,
-                 float rotateX, float rotateY, float scroll, int rotateSteps, boolean fast) {}
+    static final class Pose {
+        private final double x, y, z, heightOffset;
+        private final float yawDeg, pitchDeg;
+        Pose(double x, double y, double z, double heightOffset, float yawDeg, float pitchDeg) {
+            this.x = x; this.y = y; this.z = z; this.heightOffset = heightOffset;
+            this.yawDeg = yawDeg; this.pitchDeg = pitchDeg;
+        }
+        double x() { return x; } double y() { return y; } double z() { return z; }
+        double heightOffset() { return heightOffset; }
+        float yawDeg() { return yawDeg; } float pitchDeg() { return pitchDeg; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Pose)) return false;
+            Pose that = (Pose) other;
+            return Double.compare(x, that.x) == 0 && Double.compare(y, that.y) == 0
+                    && Double.compare(z, that.z) == 0 && Double.compare(heightOffset, that.heightOffset) == 0
+                    && Float.compare(yawDeg, that.yawDeg) == 0 && Float.compare(pitchDeg, that.pitchDeg) == 0;
+        }
+        @Override public int hashCode() { return Objects.hash(x, y, z, heightOffset, yawDeg, pitchDeg); }
+        @Override public String toString() {
+            return "Pose[x=" + x + ", y=" + y + ", z=" + z + ", heightOffset=" + heightOffset
+                    + ", yawDeg=" + yawDeg + ", pitchDeg=" + pitchDeg + "]";
+        }
+    }
+
+    static final class Bounds {
+        private final double anchorX, anchorY, anchorZ, maxRadius;
+        Bounds(double anchorX, double anchorY, double anchorZ, double maxRadius) {
+            this.anchorX = anchorX; this.anchorY = anchorY; this.anchorZ = anchorZ; this.maxRadius = maxRadius;
+        }
+        double anchorX() { return anchorX; } double anchorY() { return anchorY; }
+        double anchorZ() { return anchorZ; } double maxRadius() { return maxRadius; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Bounds)) return false;
+            Bounds that = (Bounds) other;
+            return Double.compare(anchorX, that.anchorX) == 0 && Double.compare(anchorY, that.anchorY) == 0
+                    && Double.compare(anchorZ, that.anchorZ) == 0 && Double.compare(maxRadius, that.maxRadius) == 0;
+        }
+        @Override public int hashCode() { return Objects.hash(anchorX, anchorY, anchorZ, maxRadius); }
+        @Override public String toString() {
+            return "Bounds[anchorX=" + anchorX + ", anchorY=" + anchorY + ", anchorZ=" + anchorZ
+                    + ", maxRadius=" + maxRadius + "]";
+        }
+    }
+
+    static final class Input {
+        private final float forward, strafe, vertical, panX, panY, rotateX, rotateY, scroll;
+        private final int rotateSteps;
+        private final boolean fast;
+        Input(float forward, float strafe, float vertical, float panX, float panY,
+                float rotateX, float rotateY, float scroll, int rotateSteps, boolean fast) {
+            this.forward = forward; this.strafe = strafe; this.vertical = vertical;
+            this.panX = panX; this.panY = panY; this.rotateX = rotateX; this.rotateY = rotateY;
+            this.scroll = scroll; this.rotateSteps = rotateSteps; this.fast = fast;
+        }
+        float forward() { return forward; } float strafe() { return strafe; }
+        float vertical() { return vertical; } float panX() { return panX; } float panY() { return panY; }
+        float rotateX() { return rotateX; } float rotateY() { return rotateY; } float scroll() { return scroll; }
+        int rotateSteps() { return rotateSteps; } boolean fast() { return fast; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Input)) return false;
+            Input that = (Input) other;
+            return Float.compare(forward, that.forward) == 0 && Float.compare(strafe, that.strafe) == 0
+                    && Float.compare(vertical, that.vertical) == 0 && Float.compare(panX, that.panX) == 0
+                    && Float.compare(panY, that.panY) == 0 && Float.compare(rotateX, that.rotateX) == 0
+                    && Float.compare(rotateY, that.rotateY) == 0 && Float.compare(scroll, that.scroll) == 0
+                    && rotateSteps == that.rotateSteps && fast == that.fast;
+        }
+        @Override public int hashCode() {
+            return Objects.hash(forward, strafe, vertical, panX, panY, rotateX, rotateY, scroll, rotateSteps, fast);
+        }
+        @Override public String toString() {
+            return "Input[forward=" + forward + ", strafe=" + strafe + ", vertical=" + vertical
+                    + ", panX=" + panX + ", panY=" + panY + ", rotateX=" + rotateX
+                    + ", rotateY=" + rotateY + ", scroll=" + scroll + ", rotateSteps=" + rotateSteps
+                    + ", fast=" + fast + "]";
+        }
+    }
 }

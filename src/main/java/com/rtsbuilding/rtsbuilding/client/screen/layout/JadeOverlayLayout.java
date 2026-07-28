@@ -93,6 +93,23 @@ public final class JadeOverlayLayout {
     }
 
     /** Jade 面板左上角的 Minecraft GUI 坐标。 */
-    public record Position(int x, int y) {
+    public static final class Position {
+        private final int x;
+        private final int y;
+
+        public Position(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+        public int x() { return x; }
+        public int y() { return y; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Position)) return false;
+            Position that = (Position) other;
+            return x == that.x && y == that.y;
+        }
+        @Override public int hashCode() { return 31 * Integer.hashCode(x) + Integer.hashCode(y); }
+        @Override public String toString() { return "Position[x=" + x + ", y=" + y + "]"; }
     }
 }
