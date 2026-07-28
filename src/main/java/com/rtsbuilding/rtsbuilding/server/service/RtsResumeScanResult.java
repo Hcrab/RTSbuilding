@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import java.util.Objects;
+
 /**
  * 搁置（挂起）放置作业的世界扫描结果 record。
  *
@@ -24,16 +26,40 @@ package com.rtsbuilding.rtsbuilding.server.service;
  *   <li>{@link #effectivePlaceCount()} — 实际需要放置的数量（{@code totalRemaining - alreadyPlacedCount}）</li>
  * </ul>
  */
-public record RtsResumeScanResult(
-        String itemId,
-        String itemLabel,
-        int totalRemaining,
-        int alreadyPlacedCount,
-        int conflictCount,
-        long availableItems,
-        int neededItems,
-        long missingItems,
-        int workflowEntryId) {
+public final class RtsResumeScanResult {
+    private final String itemId;
+    private final String itemLabel;
+    private final int totalRemaining;
+    private final int alreadyPlacedCount;
+    private final int conflictCount;
+    private final long availableItems;
+    private final int neededItems;
+    private final long missingItems;
+    private final int workflowEntryId;
+
+    public RtsResumeScanResult(String itemId, String itemLabel, int totalRemaining,
+            int alreadyPlacedCount, int conflictCount, long availableItems,
+            int neededItems, long missingItems, int workflowEntryId) {
+        this.itemId = itemId;
+        this.itemLabel = itemLabel;
+        this.totalRemaining = totalRemaining;
+        this.alreadyPlacedCount = alreadyPlacedCount;
+        this.conflictCount = conflictCount;
+        this.availableItems = availableItems;
+        this.neededItems = neededItems;
+        this.missingItems = missingItems;
+        this.workflowEntryId = workflowEntryId;
+    }
+
+    public String itemId() { return itemId; }
+    public String itemLabel() { return itemLabel; }
+    public int totalRemaining() { return totalRemaining; }
+    public int alreadyPlacedCount() { return alreadyPlacedCount; }
+    public int conflictCount() { return conflictCount; }
+    public long availableItems() { return availableItems; }
+    public int neededItems() { return neededItems; }
+    public long missingItems() { return missingItems; }
+    public int workflowEntryId() { return workflowEntryId; }
 
     /**
      * 返回是否物品充足（没有缺少）。
@@ -54,5 +80,35 @@ public record RtsResumeScanResult(
      */
     public int effectivePlaceCount() {
         return totalRemaining - alreadyPlacedCount;
+    }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) return true;
+        if (!(object instanceof RtsResumeScanResult)) return false;
+        RtsResumeScanResult other = (RtsResumeScanResult) object;
+        return totalRemaining == other.totalRemaining
+                && alreadyPlacedCount == other.alreadyPlacedCount
+                && conflictCount == other.conflictCount
+                && availableItems == other.availableItems
+                && neededItems == other.neededItems
+                && missingItems == other.missingItems
+                && workflowEntryId == other.workflowEntryId
+                && Objects.equals(itemId, other.itemId)
+                && Objects.equals(itemLabel, other.itemLabel);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(itemId, itemLabel, totalRemaining, alreadyPlacedCount,
+                conflictCount, availableItems, neededItems, missingItems, workflowEntryId);
+    }
+
+    @Override
+    public String toString() {
+        return "RtsResumeScanResult{itemId=" + itemId + ", remaining=" + totalRemaining
+                + ", placed=" + alreadyPlacedCount + ", conflicts=" + conflictCount
+                + ", available=" + availableItems + ", needed=" + neededItems
+                + ", missing=" + missingItems + ", workflowEntryId=" + workflowEntryId + "}";
     }
 }
