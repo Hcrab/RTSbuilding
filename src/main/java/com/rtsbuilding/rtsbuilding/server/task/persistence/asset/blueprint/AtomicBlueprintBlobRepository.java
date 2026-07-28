@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence.asset.blueprint;
 
+import com.github.bsideup.jabel.Desugar;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -19,11 +19,13 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 /**
  * 每任务独占蓝图 blob 的原子 write-once 仓库。
@@ -49,7 +51,8 @@ public final class AtomicBlueprintBlobRepository {
     private volatile Set<TaskAssetId> maintenanceLiveAssetIds;
 
     public AtomicBlueprintBlobRepository(MinecraftServer server, BlueprintBlobCodec codec) {
-        this(Objects.requireNonNull(server, "server").getWorldPath(LevelResource.ROOT)
+        this(Objects.requireNonNull(server, "server").getEntityWorld().getSaveHandler()
+                .getWorldDirectory().toPath()
                 .resolve("rtsbuilding/task_blobs/blueprint"), codec, AtomicBlueprintBlobRepository::atomicMove);
     }
 
@@ -209,7 +212,7 @@ public final class AtomicBlueprintBlobRepository {
             if (compressedBytes <= 0L || compressedBytes > BlueprintBlobCodec.MAX_COMPRESSED_BYTES) {
                 throw new IOException("blob 压缩文件大小越界: " + compressedBytes);
             }
-            try (var input = new BufferedInputStream(Files.newInputStream(temporary))) {
+            try (BufferedInputStream input = new BufferedInputStream(Files.newInputStream(temporary))) {
                 requireSame(codec.decodeCompressed(input, compressedBytes), record);
             }
             if (!moveNew(temporary, target, atomicMover)) {
@@ -245,7 +248,7 @@ public final class AtomicBlueprintBlobRepository {
                 throw new IOException("blob 压缩文件大小越界: " + compressedBytes);
             }
             BlueprintBlobRecord record;
-            try (var input = new BufferedInputStream(Files.newInputStream(file))) {
+            try (BufferedInputStream input = new BufferedInputStream(Files.newInputStream(file))) {
                 record = codec.decodeCompressed(input, compressedBytes);
             }
             if (!record.assetId().equals(assetId)) throw new IOException("blob 文件名与内容 ID 不一致");
@@ -333,8 +336,8 @@ public final class AtomicBlueprintBlobRepository {
         int visited = 0;
         int deleted = 0;
         boolean complete = true;
-        try (var files = Files.list(directory)) {
-            var iterator = files.iterator();
+        try (Stream<Path> files = Files.list(directory)) {
+            Iterator<Path> iterator = files.iterator();
             while (iterator.hasNext()) {
                 if (visited >= MAX_RECONCILE_ENTRIES) {
                     complete = false;
@@ -404,8 +407,8 @@ public final class AtomicBlueprintBlobRepository {
         int removedTemps = 0;
         boolean complete = true;
         boolean quotaExceeded = false;
-        try (var files = Files.list(directory)) {
-            var iterator = files.iterator();
+        try (Stream<Path> files = Files.list(directory)) {
+            Iterator<Path> iterator = files.iterator();
             while (iterator.hasNext()) {
                 if (visited >= maxEntries) {
                     complete = false;
@@ -580,6 +583,7 @@ public final class AtomicBlueprintBlobRepository {
     private enum ProofRelease { CONSUME, PROMOTE_TO_ROOT, REJECT }
 
     /** receipt 经当前仓库回读后的事实，供 root admission 同时校验任务规模。 */
+    @Desugar
     public record VerifiedDurableBlueprintBlob(TaskAssetMetadata metadata, int blockCount) {
         public VerifiedDurableBlueprintBlob {
             Objects.requireNonNull(metadata, "metadata");
@@ -625,13 +629,17 @@ public final class AtomicBlueprintBlobRepository {
     }
 
     public interface LoadResult {
+        @Desugar
         record Found(BlueprintBlobRecord record, long compressedBytes) implements LoadResult { }
+        @Desugar
         record Missing() implements LoadResult { }
+        @Desugar
         record Failed(Throwable cause) implements LoadResult {
             public Failed { Objects.requireNonNull(cause, "cause"); }
         }
     }
 
+    @Desugar
     public record ScanResult(
             List<TaskAssetId> assetIds,
             long compressedBytes,
@@ -641,6 +649,7 @@ public final class AtomicBlueprintBlobRepository {
         public ScanResult { assetIds = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(assetIds); }
     }
 
+    @Desugar
     public record ReconcileResult(
             int visitedEntries, int deletedOrphans, boolean complete, boolean failed) {
     }

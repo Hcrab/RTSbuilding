@@ -7,18 +7,21 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskCodec;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NbtAccounter;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTSizeTracker;
+import net.minecraftforge.common.util.Constants;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.FilterOutputStream;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
+import java.util.zip.GZIPInputStream;
 
 /** 蓝图独立 blob 的精确 schema、硬上限和内容哈希校验。 */
 public final class BlueprintBlobCodec {
@@ -57,8 +60,8 @@ public final class BlueprintBlobCodec {
             throw new BlobCodecException("蓝图 blob 内容与 sha256 不一致");
         }
         NBTTagCompound root = contentTag(record);
-        root.putInt("schema", CURRENT_SCHEMA);
-        root.putString("sha256", record.sha256());
+        root.setInteger("schema", CURRENT_SCHEMA);
+        root.setString("sha256", record.sha256());
         return root;
     }
 
@@ -76,30 +79,30 @@ public final class BlueprintBlobCodec {
 
     public BlueprintBlobRecord decode(NBTTagCompound root) {
         try {
-            if (!root.getAllKeys().equals(EXACT_FIELDS)) {
+            if (!root.getKeySet().equals(EXACT_FIELDS)) {
                 throw new BlobCodecException("蓝图 blob 包含缺失或未知字段");
             }
-            require(root, "schema", Tag.TAG_INT);
-            if (root.getInt("schema") != CURRENT_SCHEMA) {
-                throw new BlobCodecException("不支持的蓝图 blob schema: " + root.getInt("schema"));
+            require(root, "schema", Constants.NBT.TAG_INT);
+            if (root.getInteger("schema") != CURRENT_SCHEMA) {
+                throw new BlobCodecException("不支持的蓝图 blob schema: " + root.getInteger("schema"));
             }
-            require(root, "asset_id", Tag.TAG_INT_ARRAY);
-            require(root, "task_id", Tag.TAG_INT_ARRAY);
-            if (!root.hasUUID("asset_id") || !root.hasUUID("task_id")) {
+            require(root, "asset_id", Constants.NBT.TAG_INT_ARRAY);
+            require(root, "task_id", Constants.NBT.TAG_INT_ARRAY);
+            if (!hasUuid(root, "asset_id") || !hasUuid(root, "task_id")) {
                 throw new BlobCodecException("蓝图 blob UUID 字段损坏");
             }
-            require(root, "block_count", Tag.TAG_INT);
-            require(root, "name", Tag.TAG_STRING);
-            require(root, "source_name", Tag.TAG_STRING);
-            require(root, "format", Tag.TAG_STRING);
-            require(root, "sha256", Tag.TAG_STRING);
-            require(root, "structure", Tag.TAG_COMPOUND);
+            require(root, "block_count", Constants.NBT.TAG_INT);
+            require(root, "name", Constants.NBT.TAG_STRING);
+            require(root, "source_name", Constants.NBT.TAG_STRING);
+            require(root, "format", Constants.NBT.TAG_STRING);
+            require(root, "sha256", Constants.NBT.TAG_STRING);
+            require(root, "structure", Constants.NBT.TAG_COMPOUND);
             BlueprintBlobRecord record = new BlueprintBlobRecord(
-                    new TaskAssetId(root.getUUID("asset_id")),
-                    new TaskId(root.getUUID("task_id")),
-                    root.getInt("block_count"),
+                    new TaskAssetId(getUuid(root, "asset_id")),
+                    new TaskId(getUuid(root, "task_id")),
+                    root.getInteger("block_count"),
                     root.getString("name"), root.getString("source_name"), root.getString("format"),
-                    root.getString("sha256"), root.getCompound("structure"));
+                    root.getString("sha256"), root.getCompoundTag("structure"));
             validateLogical(record);
             if (!hashContent(record).equals(record.sha256())) {
                 throw new BlobCodecException("蓝图 blob sha256 校验失败");
@@ -127,7 +130,7 @@ public final class BlueprintBlobCodec {
     /** 后台磁盘写入入口；不关闭调用方持有的流，也不在内存中构造第二份压缩数组。 */
     public void writeCompressed(BlueprintBlobRecord record, OutputStream output) throws IOException {
         Objects.requireNonNull(output, "output");
-        NbtIo.writeCompressed(encode(record), new FilterOutputStream(output) {
+        CompressedStreamTools.writeCompressed(encode(record), new FilterOutputStream(output) {
             @Override
             public void close() throws IOException {
                 flush();
@@ -148,7 +151,10 @@ public final class BlueprintBlobCodec {
             throw new BlobCodecException("蓝图 blob 压缩文件大小越界: " + compressedBytes);
         }
         try {
-            NBTTagCompound root = NbtIo.readCompressed(input, NbtAccounter.create(MAX_DECODE_ACCOUNTING_BYTES));
+            // 1.12 的 compressed 便捷入口没有大小跟踪参数，显式解开 gzip 后走受限 DataInput。
+            DataInputStream data = new DataInputStream(new GZIPInputStream(input));
+            NBTTagCompound root = CompressedStreamTools.read(
+                    data, new NBTSizeTracker(MAX_DECODE_ACCOUNTING_BYTES));
             if (root == null) throw new BlobCodecException("蓝图 blob NBT 根标签为空");
             return decode(root);
         } catch (IOException failure) {
@@ -185,13 +191,13 @@ public final class BlueprintBlobCodec {
 
     private static NBTTagCompound contentTag(BlueprintBlobRecord record) {
         NBTTagCompound content = new NBTTagCompound();
-        content.putUUID("asset_id", record.assetId().value());
-        content.putUUID("task_id", record.taskId().value());
-        content.putInt("block_count", record.blockCount());
-        content.putString("name", record.name());
-        content.putString("source_name", record.sourceName());
-        content.putString("format", record.format());
-        content.put("structure", record.structureView());
+        setUuid(content, "asset_id", record.assetId().value());
+        setUuid(content, "task_id", record.taskId().value());
+        content.setInteger("block_count", record.blockCount());
+        content.setString("name", record.name());
+        content.setString("source_name", record.sourceName());
+        content.setString("format", record.format());
+        content.setTag("structure", record.structureView());
         return content;
     }
 
@@ -203,18 +209,39 @@ public final class BlueprintBlobCodec {
     private static String hashContent(TaskAssetId assetId, TaskId taskId, int blockCount, String name,
             String sourceName, String format, NBTTagCompound structure) {
         NBTTagCompound content = new NBTTagCompound();
-        content.putUUID("asset_id", assetId.value());
-        content.putUUID("task_id", taskId.value());
-        content.putInt("block_count", blockCount);
-        content.putString("name", name);
-        content.putString("source_name", sourceName);
-        content.putString("format", format);
-        content.put("structure", structure);
+        setUuid(content, "asset_id", assetId.value());
+        setUuid(content, "task_id", taskId.value());
+        content.setInteger("block_count", blockCount);
+        content.setString("name", name);
+        content.setString("source_name", sourceName);
+        content.setString("format", format);
+        content.setTag("structure", structure);
         return CanonicalNbtHasher.sha256(HASH_DOMAIN, HASH_VERSION, content);
     }
 
     private static void require(NBTTagCompound root, String key, int type) {
-        if (!root.contains(key, type)) throw new BlobCodecException("缺少或错误的 blob 字段: " + key);
+        if (!root.hasKey(key, type)) throw new BlobCodecException("缺少或错误的 blob 字段: " + key);
+    }
+
+    /** 与主线现代 NBT UUID 的单字段 int-array 表示保持一致，避免 1.12 Most/Least 展开改变 schema/hash。 */
+    private static void setUuid(NBTTagCompound tag, String key, UUID value) {
+        long most = value.getMostSignificantBits();
+        long least = value.getLeastSignificantBits();
+        tag.setIntArray(key, new int[] {
+                (int) (most >>> 32), (int) most, (int) (least >>> 32), (int) least
+        });
+    }
+
+    private static boolean hasUuid(NBTTagCompound tag, String key) {
+        return tag.hasKey(key, Constants.NBT.TAG_INT_ARRAY) && tag.getIntArray(key).length == 4;
+    }
+
+    private static UUID getUuid(NBTTagCompound tag, String key) {
+        if (!hasUuid(tag, key)) throw new BlobCodecException("蓝图 blob UUID 字段损坏: " + key);
+        int[] values = tag.getIntArray(key);
+        long most = ((long) values[0] << 32) | (values[1] & 0xffffffffL);
+        long least = ((long) values[2] << 32) | (values[3] & 0xffffffffL);
+        return new UUID(most, least);
     }
 
     private static String safe(String value) {

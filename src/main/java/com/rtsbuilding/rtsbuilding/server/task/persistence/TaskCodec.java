@@ -7,18 +7,19 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetManifest;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.ByteArrayTag;
-import net.minecraft.nbt.IntArrayTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.LongArrayTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagByteArray;
+import net.minecraft.nbt.NBTTagIntArray;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraftforge.common.util.Constants;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 
 /** 版本化 durable task NBT 编解码器；未知版本或损坏字段必须 fail closed。 */
 public final class TaskCodec {
@@ -59,62 +60,61 @@ public final class TaskCodec {
         }
         requireImageBudget(image, MAX_IMAGE_ESTIMATED_BYTES);
         NBTTagCompound root = new NBTTagCompound();
-        root.putInt("schema", CURRENT_SCHEMA);
-        ListTag tasks = new ListTag();
+        root.setInteger("schema", CURRENT_SCHEMA);
+        NBTTagList tasks = new NBTTagList();
         image.tasks().values().stream()
                 .sorted(Comparator.comparing(TaskSnapshot::id))
                 .map(this::encodeSnapshotUnchecked)
-                .forEach(tasks::add);
-        root.put(TASKS, tasks);
+                .forEach(tasks::appendTag);
+        root.setTag(TASKS, tasks);
 
-        ListTag tombstones = new ListTag();
+        NBTTagList tombstones = new NBTTagList();
         image.tombstones().values().stream()
                 .sorted(Comparator.comparing(TaskTombstone::taskId))
                 .map(this::encodeTombstone)
-                .forEach(tombstones::add);
-        root.put(TOMBSTONES, tombstones);
+                .forEach(tombstones::appendTag);
+        root.setTag(TOMBSTONES, tombstones);
 
-        ListTag migrations = new ListTag();
+        NBTTagList migrations = new NBTTagList();
         image.completedMigrations().stream().sorted().forEach(migration -> {
             if (migration.trim().isEmpty() || migration.length() > 128) {
                 throw new TaskCodecException("迁移标识无效");
             }
             NbtStringLimits.requireWritable(migration, "migrationId");
-            migrations.add(StringTag.valueOf(migration));
+            migrations.appendTag(new NBTTagString(migration));
         });
-        root.put(MIGRATIONS, migrations);
+        root.setTag(MIGRATIONS, migrations);
 
-        ListTag assets = new ListTag();
+        NBTTagList assets = new NBTTagList();
         image.assets().entries().values().stream()
                 .sorted(Comparator.comparing(TaskAssetMetadata::assetId))
                 .map(TaskCodec::encodeAsset)
-                .forEach(assets::add);
-        root.put(ASSETS, assets);
+                .forEach(assets::appendTag);
+        root.setTag(ASSETS, assets);
         return root;
     }
 
     public TaskRepository.Image decodeImage(NBTTagCompound root) {
         try {
             int schema = requireInt(root, "schema");
-            Set<String> expectedRootFields = switch (schema) {
-                case 1 -> ROOT_V1_FIELDS;
-                case 2 -> ROOT_V2_FIELDS;
-                default -> throw new TaskCodecException("不支持的 task schema: " + schema);
-            };
-            if (!root.getAllKeys().equals(expectedRootFields)) {
+            Set<String> expectedRootFields;
+            if (schema == LEGACY_SCHEMA) expectedRootFields = ROOT_V1_FIELDS;
+            else if (schema == CURRENT_SCHEMA) expectedRootFields = ROOT_V2_FIELDS;
+            else throw new TaskCodecException("不支持的 task schema: " + schema);
+            if (!root.getKeySet().equals(expectedRootFields)) {
                 throw new TaskCodecException("task root 缺少字段或包含当前 schema 未知字段");
             }
 
-            ListTag encodedTasks = requireList(root, TASKS, Tag.TAG_COMPOUND);
-            ListTag encodedTombstones = requireList(root, TOMBSTONES, Tag.TAG_COMPOUND);
-            if ((long) encodedTasks.size() + encodedTombstones.size() > MAX_TASKS) {
+            NBTTagList encodedTasks = requireList(root, TASKS, Constants.NBT.TAG_COMPOUND);
+            NBTTagList encodedTombstones = requireList(root, TOMBSTONES, Constants.NBT.TAG_COMPOUND);
+            if ((long) encodedTasks.tagCount() + encodedTombstones.tagCount() > MAX_TASKS) {
                 throw new TaskCodecException("task 存档超过数量上限");
             }
 
             Map<TaskId, TaskSnapshot> tasks = new LinkedHashMap<>();
             long imageBytes = 0L;
-            for (int i = 0; i < encodedTasks.size(); i++) {
-                TaskSnapshot snapshot = decodeSnapshot(encodedTasks.getCompound(i));
+            for (int i = 0; i < encodedTasks.tagCount(); i++) {
+                TaskSnapshot snapshot = decodeSnapshot(encodedTasks.getCompoundTagAt(i));
                 imageBytes = addSaturated(imageBytes, estimateSnapshotBytes(snapshot));
                 if (imageBytes > MAX_IMAGE_ESTIMATED_BYTES) {
                     throw new TaskCodecException("task 存档超过总量上限");
@@ -125,8 +125,8 @@ public final class TaskCodec {
             }
 
             Map<TaskId, TaskTombstone> tombstones = new LinkedHashMap<>();
-            for (int i = 0; i < encodedTombstones.size(); i++) {
-                TaskTombstone tombstone = decodeTombstone(encodedTombstones.getCompound(i));
+            for (int i = 0; i < encodedTombstones.tagCount(); i++) {
+                TaskTombstone tombstone = decodeTombstone(encodedTombstones.getCompoundTagAt(i));
                 if (tombstones.putIfAbsent(tombstone.taskId(), tombstone) != null) {
                     throw new TaskCodecException("重复墓碑: " + tombstone.taskId());
                 }
@@ -135,15 +135,15 @@ public final class TaskCodec {
                     throw new TaskCodecException("墓碑与仍存活任务冲突: " + tombstone.taskId());
                 }
             }
-            imageBytes = addSaturated(imageBytes, encodedTombstones.size() * 256L);
+            imageBytes = addSaturated(imageBytes, encodedTombstones.tagCount() * 256L);
 
             Set<String> migrations = new LinkedHashSet<>();
-            ListTag encodedMigrations = requireList(root, MIGRATIONS, Tag.TAG_STRING);
-            if (encodedMigrations.size() > MAX_MIGRATIONS) {
+            NBTTagList encodedMigrations = requireList(root, MIGRATIONS, Constants.NBT.TAG_STRING);
+            if (encodedMigrations.tagCount() > MAX_MIGRATIONS) {
                 throw new TaskCodecException("迁移台账超过数量上限");
             }
-            for (int i = 0; i < encodedMigrations.size(); i++) {
-                String migration = encodedMigrations.getString(i);
+            for (int i = 0; i < encodedMigrations.tagCount(); i++) {
+                String migration = encodedMigrations.getStringTagAt(i);
                 if (migration.trim().isEmpty()) throw new TaskCodecException("迁移标识不能为空");
                 if (migration.length() > 128) throw new TaskCodecException("迁移标识过长");
                 NbtStringLimits.requireWritable(migration, "migrationId");
@@ -158,13 +158,13 @@ public final class TaskCodec {
             }
             TaskAssetManifest assets = TaskAssetManifest.empty();
             if (schema == 2) {
-                ListTag encodedAssets = requireList(root, ASSETS, Tag.TAG_COMPOUND);
-                if (encodedAssets.size() > TaskAssetManifest.MAX_ASSETS) {
+                NBTTagList encodedAssets = requireList(root, ASSETS, Constants.NBT.TAG_COMPOUND);
+                if (encodedAssets.tagCount() > TaskAssetManifest.MAX_ASSETS) {
                     throw new TaskCodecException("活动资产数量超过上限");
                 }
                 Map<TaskAssetId, TaskAssetMetadata> decodedAssets = new LinkedHashMap<>();
-                for (int i = 0; i < encodedAssets.size(); i++) {
-                    TaskAssetMetadata metadata = decodeAsset(encodedAssets.getCompound(i));
+                for (int i = 0; i < encodedAssets.tagCount(); i++) {
+                    TaskAssetMetadata metadata = decodeAsset(encodedAssets.getCompoundTagAt(i));
                     if (decodedAssets.putIfAbsent(metadata.assetId(), metadata) != null) {
                         throw new TaskCodecException("重复 assetId: " + metadata.assetId());
                     }
@@ -184,17 +184,17 @@ public final class TaskCodec {
 
     private static NBTTagCompound encodeAsset(TaskAssetMetadata metadata) {
         NBTTagCompound tag = new NBTTagCompound();
-        tag.putUUID("asset_id", metadata.assetId().value());
-        tag.putUUID("task_id", metadata.taskId().value());
-        tag.putString("kind", metadata.kind());
-        tag.putString("sha256", metadata.sha256());
-        tag.putLong("compressed_bytes", metadata.compressedBytes());
-        tag.putLong("logical_bytes", metadata.logicalBytes());
+        setUuid(tag, "asset_id", metadata.assetId().value());
+        setUuid(tag, "task_id", metadata.taskId().value());
+        tag.setString("kind", metadata.kind());
+        tag.setString("sha256", metadata.sha256());
+        tag.setLong("compressed_bytes", metadata.compressedBytes());
+        tag.setLong("logical_bytes", metadata.logicalBytes());
         return tag;
     }
 
     private static TaskAssetMetadata decodeAsset(NBTTagCompound tag) {
-        if (!tag.getAllKeys().equals(ASSET_FIELDS)) {
+        if (!tag.getKeySet().equals(ASSET_FIELDS)) {
             throw new TaskCodecException("asset metadata 缺少字段或包含未知字段");
         }
         requireUuid(tag, "asset_id");
@@ -204,8 +204,8 @@ public final class TaskCodec {
             throw new TaskCodecException("asset sha256 必须是 canonical 小写十六进制");
         }
         return new TaskAssetMetadata(
-                new TaskAssetId(tag.getUUID("asset_id")),
-                new TaskId(tag.getUUID("task_id")),
+                new TaskAssetId(getUuid(tag, "asset_id")),
+                new TaskId(getUuid(tag, "task_id")),
                 requireString(tag, "kind"),
                 sha256,
                 requireLong(tag, "compressed_bytes"),
@@ -219,35 +219,35 @@ public final class TaskCodec {
 
     private NBTTagCompound encodeSnapshotUnchecked(TaskSnapshot snapshot) {
         NBTTagCompound tag = new NBTTagCompound();
-        tag.putUUID("id", snapshot.id().value());
-        tag.putUUID("submission", snapshot.submissionId().value());
-        tag.putUUID("owner", snapshot.ownerId());
-        tag.putString("dimension", snapshot.dimensionId());
-        tag.putString("type", snapshot.type().name());
-        tag.putString("state", snapshot.state().name());
-        if (snapshot.workflowEntryId() >= 0) tag.putInt("workflow", snapshot.workflowEntryId());
+        setUuid(tag, "id", snapshot.id().value());
+        setUuid(tag, "submission", snapshot.submissionId().value());
+        setUuid(tag, "owner", snapshot.ownerId());
+        tag.setString("dimension", snapshot.dimensionId());
+        tag.setString("type", snapshot.type().name());
+        tag.setString("state", snapshot.state().name());
+        if (snapshot.workflowEntryId() >= 0) tag.setInteger("workflow", snapshot.workflowEntryId());
         if (snapshot.waitKey() != null) {
             NBTTagCompound wait = new NBTTagCompound();
-            wait.putString("kind", snapshot.waitKey().kind());
-            wait.putString("value", snapshot.waitKey().value());
-            tag.put("wait", wait);
+            wait.setString("kind", snapshot.waitKey().kind());
+            wait.setString("value", snapshot.waitKey().value());
+            tag.setTag("wait", wait);
         }
-        tag.putLong("revision", snapshot.revision());
-        tag.putLong("created_game_time", snapshot.createdGameTime());
-        tag.putLong("updated_game_time", snapshot.updatedGameTime());
-        tag.putInt("total", snapshot.totalUnits());
-        tag.putInt("cursor", snapshot.cursorUnits());
-        tag.putInt("succeeded", snapshot.succeededUnits());
-        tag.putInt("failed", snapshot.failedUnits());
-        tag.put("payload", snapshot.payload());
+        tag.setLong("revision", snapshot.revision());
+        tag.setLong("created_game_time", snapshot.createdGameTime());
+        tag.setLong("updated_game_time", snapshot.updatedGameTime());
+        tag.setInteger("total", snapshot.totalUnits());
+        tag.setInteger("cursor", snapshot.cursorUnits());
+        tag.setInteger("succeeded", snapshot.succeededUnits());
+        tag.setInteger("failed", snapshot.failedUnits());
+        tag.setTag("payload", snapshot.payload());
         return tag;
     }
 
     public TaskSnapshot decodeSnapshot(NBTTagCompound tag) {
         Set<String> expected = new LinkedHashSet<>(SNAPSHOT_REQUIRED_FIELDS);
-        if (tag.contains("workflow")) expected.add("workflow");
-        if (tag.contains("wait")) expected.add("wait");
-        if (!tag.getAllKeys().equals(expected)) {
+        if (tag.hasKey("workflow")) expected.add("workflow");
+        if (tag.hasKey("wait")) expected.add("wait");
+        if (!tag.getKeySet().equals(expected)) {
             throw new TaskCodecException("task snapshot 缺少字段或包含未知字段");
         }
         requireUuid(tag, "id");
@@ -258,31 +258,31 @@ public final class TaskCodec {
         TaskLifecycleState state = parseEnum(
                 TaskLifecycleState.class, requireString(tag, "state"), "state");
         TaskWaitKey waitKey = null;
-        if (tag.contains("wait")) {
-            if (!tag.contains("wait", Tag.TAG_COMPOUND)) {
+        if (tag.hasKey("wait")) {
+            if (!tag.hasKey("wait", Constants.NBT.TAG_COMPOUND)) {
                 throw new TaskCodecException("可选字段 wait 的 NBT 类型错误");
             }
-            NBTTagCompound wait = tag.getCompound("wait");
-            if (!wait.getAllKeys().equals(WAIT_FIELDS)) {
+            NBTTagCompound wait = tag.getCompoundTag("wait");
+            if (!wait.getKeySet().equals(WAIT_FIELDS)) {
                 throw new TaskCodecException("wait envelope 缺少字段或包含未知字段");
             }
             waitKey = new TaskWaitKey(requireString(wait, "kind"), requireString(wait, "value"));
         }
         int workflowEntryId = -1;
-        if (tag.contains("workflow")) {
-            if (!tag.contains("workflow", Tag.TAG_INT)) {
+        if (tag.hasKey("workflow")) {
+            if (!tag.hasKey("workflow", Constants.NBT.TAG_INT)) {
                 throw new TaskCodecException("可选字段 workflow 的 NBT 类型错误");
             }
-            workflowEntryId = tag.getInt("workflow");
+            workflowEntryId = tag.getInteger("workflow");
         }
-        if (!tag.contains("payload", Tag.TAG_COMPOUND)) {
+        if (!tag.hasKey("payload", Constants.NBT.TAG_COMPOUND)) {
             throw new TaskCodecException("缺少 NBTTagCompound 字段: payload");
         }
-        NBTTagCompound payload = tag.getCompound("payload").copy();
+        NBTTagCompound payload = tag.getCompoundTag("payload").copy();
         return new TaskSnapshot(
-                new TaskId(tag.getUUID("id")),
-                new SubmissionId(tag.getUUID("submission")),
-                tag.getUUID("owner"),
+                new TaskId(getUuid(tag, "id")),
+                new SubmissionId(getUuid(tag, "submission")),
+                getUuid(tag, "owner"),
                 dimension,
                 type,
                 state,
@@ -359,42 +359,52 @@ public final class TaskCodec {
         return counter.bytes;
     }
 
-    private static void measureTag(Tag tag, SizeCounter counter, int depth) {
+    private static void measureTag(NBTBase tag, SizeCounter counter, int depth) {
         if (tag == null || counter.exceeded()) return;
         if (depth > MAX_NBT_DEPTH) throw new TaskCodecException("task payload NBT 嵌套过深");
         counter.node();
         switch (tag.getId()) {
-            case Tag.TAG_END -> counter.add(1L);
-            case Tag.TAG_BYTE -> counter.add(1L);
-            case Tag.TAG_SHORT -> counter.add(2L);
-            case Tag.TAG_INT, Tag.TAG_FLOAT -> counter.add(4L);
-            case Tag.TAG_LONG, Tag.TAG_DOUBLE -> counter.add(8L);
-            case Tag.TAG_BYTE_ARRAY -> counter.add(((ByteArrayTag) tag).getAsByteArray().length);
-            case Tag.TAG_STRING -> {
-                String value = ((StringTag) tag).getAsString();
+            case Constants.NBT.TAG_END: counter.add(1L); break;
+            case Constants.NBT.TAG_BYTE: counter.add(1L); break;
+            case Constants.NBT.TAG_SHORT: counter.add(2L); break;
+            case Constants.NBT.TAG_INT:
+            case Constants.NBT.TAG_FLOAT: counter.add(4L); break;
+            case Constants.NBT.TAG_LONG:
+            case Constants.NBT.TAG_DOUBLE: counter.add(8L); break;
+            case Constants.NBT.TAG_BYTE_ARRAY:
+                counter.add(((NBTTagByteArray) tag).getByteArray().length);
+                break;
+            case Constants.NBT.TAG_STRING: {
+                String value = ((NBTTagString) tag).getString();
                 int bytes = NbtStringLimits.requireWritable(value, "payload string");
                 counter.add(2L + bytes);
+                break;
             }
-            case Tag.TAG_LIST -> {
-                ListTag list = (ListTag) tag;
+            case Constants.NBT.TAG_LIST: {
+                NBTTagList list = (NBTTagList) tag;
                 counter.add(8L);
-                for (int i = 0; i < list.size() && !counter.exceeded(); i++) {
+                for (int i = 0; i < list.tagCount() && !counter.exceeded(); i++) {
                     measureTag(list.get(i), counter, depth + 1);
                 }
+                break;
             }
-            case Tag.TAG_COMPOUND -> {
+            case Constants.NBT.TAG_COMPOUND: {
                 NBTTagCompound compound = (NBTTagCompound) tag;
                 counter.add(8L);
-                for (String key : compound.getAllKeys()) {
+                for (String key : compound.getKeySet()) {
                     int keyBytes = NbtStringLimits.requireWritable(key, "payload key");
                     counter.add(3L + keyBytes);
-                    measureTag(compound.get(key), counter, depth + 1);
+                    measureTag(compound.getTag(key), counter, depth + 1);
                     if (counter.exceeded()) break;
                 }
+                break;
             }
-            case Tag.TAG_INT_ARRAY -> counter.add(((IntArrayTag) tag).getAsIntArray().length * 4L);
-            case Tag.TAG_LONG_ARRAY -> counter.add(((LongArrayTag) tag).getAsLongArray().length * 8L);
-            default -> throw new TaskCodecException("未知 NBT 类型: " + tag.getId());
+            case Constants.NBT.TAG_INT_ARRAY:
+                counter.add(((NBTTagIntArray) tag).getIntArray().length * 4L);
+                break;
+            default:
+                // 原生 1.12.2 只有 0..11；尤其没有 long-array。未知扩展必须 fail closed。
+                throw new TaskCodecException("未知 NBT 类型: " + tag.getId());
         }
     }
 
@@ -429,28 +439,28 @@ public final class TaskCodec {
 
     private NBTTagCompound encodeTombstone(TaskTombstone tombstone) {
         NBTTagCompound tag = new NBTTagCompound();
-        tag.putUUID("id", tombstone.taskId().value());
-        tag.putUUID("submission", tombstone.submissionId().value());
-        tag.putUUID("owner", tombstone.ownerId());
-        tag.putString("dimension", tombstone.dimensionId());
-        tag.putLong("revision", tombstone.revision());
-        tag.putString("state", tombstone.terminalState().name());
-        tag.putLong("completed_game_time", tombstone.completedGameTime());
-        tag.putLong("retained_until", tombstone.retainedUntilGameTime());
+        setUuid(tag, "id", tombstone.taskId().value());
+        setUuid(tag, "submission", tombstone.submissionId().value());
+        setUuid(tag, "owner", tombstone.ownerId());
+        tag.setString("dimension", tombstone.dimensionId());
+        tag.setLong("revision", tombstone.revision());
+        tag.setString("state", tombstone.terminalState().name());
+        tag.setLong("completed_game_time", tombstone.completedGameTime());
+        tag.setLong("retained_until", tombstone.retainedUntilGameTime());
         return tag;
     }
 
     private TaskTombstone decodeTombstone(NBTTagCompound tag) {
-        if (!tag.getAllKeys().equals(TOMBSTONE_FIELDS)) {
+        if (!tag.getKeySet().equals(TOMBSTONE_FIELDS)) {
             throw new TaskCodecException("tombstone 缺少字段或包含未知字段");
         }
         requireUuid(tag, "id");
         requireUuid(tag, "submission");
         requireUuid(tag, "owner");
         return new TaskTombstone(
-                new TaskId(tag.getUUID("id")),
-                new SubmissionId(tag.getUUID("submission")),
-                tag.getUUID("owner"),
+                new TaskId(getUuid(tag, "id")),
+                new SubmissionId(getUuid(tag, "submission")),
+                getUuid(tag, "owner"),
                 requireString(tag, "dimension"),
                 requireLong(tag, "revision"),
                 parseEnum(TaskLifecycleState.class, requireString(tag, "state"), "state"),
@@ -458,35 +468,57 @@ public final class TaskCodec {
                 requireLong(tag, "retained_until"));
     }
 
-    private static ListTag requireList(NBTTagCompound root, String key, int elementType) {
-        Tag value = root.get(key);
-        if (!(value instanceof ListTag list)) {
+    private static NBTTagList requireList(NBTTagCompound root, String key, int elementType) {
+        NBTBase value = root.getTag(key);
+        if (!(value instanceof NBTTagList)) {
             throw new TaskCodecException("缺少 ListTag 字段: " + key);
         }
-        if (!list.isEmpty() && list.getElementType() != elementType) {
+        NBTTagList list = (NBTTagList) value;
+        if (!list.isEmpty() && list.getTagType() != elementType) {
             throw new TaskCodecException("ListTag 元素类型错误: " + key);
         }
         return list;
     }
 
     private static void requireUuid(NBTTagCompound tag, String key) {
-        if (!tag.hasUUID(key)) throw new TaskCodecException("缺少 UUID 字段: " + key);
+        if (!hasUuid(tag, key)) throw new TaskCodecException("缺少 UUID 字段: " + key);
+    }
+
+    /** 保持主线 schema 的单字段 4-int UUID；不能使用 1.12 会展开 Most/Least 字段的 setUniqueId。 */
+    private static void setUuid(NBTTagCompound tag, String key, UUID value) {
+        long most = value.getMostSignificantBits();
+        long least = value.getLeastSignificantBits();
+        tag.setIntArray(key, new int[] {
+                (int) (most >>> 32), (int) most, (int) (least >>> 32), (int) least
+        });
+    }
+
+    private static boolean hasUuid(NBTTagCompound tag, String key) {
+        return tag.hasKey(key, Constants.NBT.TAG_INT_ARRAY) && tag.getIntArray(key).length == 4;
+    }
+
+    private static UUID getUuid(NBTTagCompound tag, String key) {
+        if (!hasUuid(tag, key)) throw new TaskCodecException("UUID 字段损坏: " + key);
+        int[] values = tag.getIntArray(key);
+        long most = ((long) values[0] << 32) | (values[1] & 0xffffffffL);
+        long least = ((long) values[2] << 32) | (values[3] & 0xffffffffL);
+        return new UUID(most, least);
     }
 
     private static String requireString(NBTTagCompound tag, String key) {
-        if (!tag.contains(key, Tag.TAG_STRING)) throw new TaskCodecException("缺少字符串字段: " + key);
+        if (!tag.hasKey(key, Constants.NBT.TAG_STRING)) throw new TaskCodecException("缺少字符串字段: " + key);
         String value = tag.getString(key);
         if (value.trim().isEmpty()) throw new TaskCodecException("字符串字段为空: " + key);
         return value;
     }
 
     private static int requireInt(NBTTagCompound tag, String key) {
-        if (!tag.contains(key, Tag.TAG_INT)) throw new TaskCodecException("缺少整数值字段: " + key);
-        return tag.getInt(key);
+        if (!tag.hasKey(key, Constants.NBT.TAG_INT)) throw new TaskCodecException("缺少整数值字段: " + key);
+        return tag.getInteger(key);
     }
 
     private static long requireLong(NBTTagCompound tag, String key) {
-        if (!tag.contains(key, Tag.TAG_LONG)) throw new TaskCodecException("缺少长整数值字段: " + key);
+        if (!tag.hasKey(key, Constants.NBT.TAG_LONG)) throw new TaskCodecException("缺少长整数值字段: " + key);
         return tag.getLong(key);
     }
 
