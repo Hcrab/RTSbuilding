@@ -4,9 +4,10 @@ import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.task.TaskScheduler;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import com.rtsbuilding.rtsbuilding.server.task.effect.RtsEffectCommitBarrier;
+import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
 
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
@@ -25,8 +26,8 @@ public final class RtsDeveloperMetrics {
     private RtsDeveloperMetrics() {
     }
 
-    public static boolean begin(ServerPlayer player, String runId, String task) {
-        return player != null && begin(player.getUUID(), runId, task);
+    public static boolean begin(EntityPlayerMP player, String runId, String task) {
+        return player != null && begin(player.getUniqueID(), runId, task);
     }
 
     static boolean begin(UUID playerId, String runId, String task) {
@@ -36,8 +37,8 @@ public final class RtsDeveloperMetrics {
         return existing == null || (existing.runId().equals(runId) && existing.task().equals(task));
     }
 
-    public static FinishResult finish(ServerPlayer player, String runId, String task) {
-        return finish(player == null ? null : player.getUUID(), runId, task);
+    public static FinishResult finish(EntityPlayerMP player, String runId, String task) {
+        return finish(player == null ? null : player.getUniqueID(), runId, task);
     }
 
     static FinishResult finish(UUID playerId, String runId, String task) {
@@ -60,16 +61,18 @@ public final class RtsDeveloperMetrics {
 
     public static void recordTaskTick(MinecraftServer server, TaskScheduler.TickStats stats) {
         if (server == null || stats == null || ACTIVE.isEmpty()) return;
-        for (var entry : ACTIVE.entrySet()) {
-            ServerPlayer player = server.getPlayerList().getPlayer(entry.getKey());
+        for (Map.Entry<UUID, ActiveRun> entry : ACTIVE.entrySet()) {
+            EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(entry.getKey());
             if (player == null) continue;
-            var tasks = RtsTaskEngine.INSTANCE.diagnostics(player.getUUID());
-            var session = ServiceRegistry.getInstance().session().getIfPresent(player);
+            RtsTaskEngine.TaskDiagnostics tasks = RtsTaskEngine.INSTANCE.diagnostics(player.getUniqueID());
+            com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session =
+                    ServiceRegistry.getInstance().session().getIfPresent(player);
             BufferSample bufferSample = BufferSample.EMPTY;
             if (session != null) {
-                var buffer = session.miningDropBuffer;
+                com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer =
+                        session.miningDropBuffer;
                 long age = buffer.firstQueuedGameTime < 0L ? 0L
-                        : Math.max(0L, player.serverLevel().getGameTime() - buffer.firstQueuedGameTime);
+                        : Math.max(0L, player.getServerWorld().getTotalWorldTime() - buffer.firstQueuedGameTime);
                 bufferSample = new BufferSample(buffer.bufferedItems, buffer.stacks.size(), age);
             }
             recordTaskSample(entry.getKey(), stats, tasks, bufferSample);
@@ -98,16 +101,16 @@ public final class RtsDeveloperMetrics {
         metrics.maxBufferAgeTicks = Math.max(metrics.maxBufferAgeTicks, metrics.bufferAgeTicks);
     }
 
-    public static void recordPageBuild(ServerPlayer player) { mutate(player, m -> m.pageBuilds++); }
-    public static void recordPageSend(ServerPlayer player) { mutate(player, m -> m.pageSends++); }
+    public static void recordPageBuild(EntityPlayerMP player) { mutate(player, m -> m.pageBuilds++); }
+    public static void recordPageSend(EntityPlayerMP player) { mutate(player, m -> m.pageSends++); }
     public static void recordEndpointRebuild(UUID playerId) { mutate(playerId, m -> m.endpointRebuilds++); }
     public static void recordEndpointReuse(UUID playerId) { mutate(playerId, m -> m.endpointReuses++); }
-    public static void recordBufferFallback(ServerPlayer player) { mutate(player, m -> m.bufferFallbacks++); }
-    public static void recordSessionSnapshot(ServerPlayer player) { mutate(player, m -> m.sessionSnapshots++); }
-    public static void recordWorkflowSnapshot(ServerPlayer player) { mutate(player, m -> m.workflowSnapshots++); }
-    public static void recordHistorySnapshot(ServerPlayer player) { mutate(player, m -> m.historySnapshots++); }
-    public static void recordPluginSnapshot(ServerPlayer player) { mutate(player, m -> m.pluginSnapshots++); }
-    public static void recordProgressionSnapshot(ServerPlayer player) { mutate(player, m -> m.progressionSnapshots++); }
+    public static void recordBufferFallback(EntityPlayerMP player) { mutate(player, m -> m.bufferFallbacks++); }
+    public static void recordSessionSnapshot(EntityPlayerMP player) { mutate(player, m -> m.sessionSnapshots++); }
+    public static void recordWorkflowSnapshot(EntityPlayerMP player) { mutate(player, m -> m.workflowSnapshots++); }
+    public static void recordHistorySnapshot(EntityPlayerMP player) { mutate(player, m -> m.historySnapshots++); }
+    public static void recordPluginSnapshot(EntityPlayerMP player) { mutate(player, m -> m.pluginSnapshots++); }
+    public static void recordProgressionSnapshot(EntityPlayerMP player) { mutate(player, m -> m.progressionSnapshots++); }
 
     /** Effect Barrier 自身也是增量计数器，不扫描任务或副作用对象图。 */
     public static void recordEffectCommit(RtsEffectCommitBarrier.CommitReport report) {
@@ -131,8 +134,8 @@ public final class RtsDeveloperMetrics {
     static void recordPluginSnapshot(UUID playerId) { mutate(playerId, m -> m.pluginSnapshots++); }
     static void recordProgressionSnapshot(UUID playerId) { mutate(playerId, m -> m.progressionSnapshots++); }
 
-    private static void mutate(ServerPlayer player, Consumer<MutableMetrics> action) {
-        if (player != null) mutate(player.getUUID(), action);
+    private static void mutate(EntityPlayerMP player, Consumer<MutableMetrics> action) {
+        if (player != null) mutate(player.getUniqueID(), action);
     }
 
     private static void mutate(UUID playerId, Consumer<MutableMetrics> action) {
@@ -142,36 +145,179 @@ public final class RtsDeveloperMetrics {
         if (metrics != null) action.accept(metrics);
     }
 
-    public record Snapshot(
-            long tickSamples, long tickNanos, long maxTickNanos,
-            long processedUnits, long slices, long timeBudgetExhausted, long unitBudgetExhausted,
-            Map<TaskType, Integer> maxActive, Map<TaskType, Integer> maxWaiting,
-            int bufferItems, int bufferStacks, int maxBufferItems, int maxBufferStacks,
-            long bufferAgeTicks, long maxBufferAgeTicks, long bufferFallbacks,
-            long pageBuilds, long pageSends, long endpointRebuilds, long endpointReuses,
-            long sessionSnapshots, long workflowSnapshots, long historySnapshots,
-            long pluginSnapshots, long progressionSnapshots,
-            long effectAttemptedTargets, long effectCommittedKinds, long effectRetryTargets,
-            long effectDeferredTargets, long effectFailedTargets) {
+    public static final class Snapshot {
         private static final Snapshot EMPTY = new Snapshot(
-                0, 0, 0, 0, 0, 0, 0, Map.of(), Map.of(),
+                0, 0, 0, 0, 0, 0, 0, Collections.<TaskType, Integer>emptyMap(),
+                Collections.<TaskType, Integer>emptyMap(),
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
                 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        private final long tickSamples, tickNanos, maxTickNanos;
+        private final long processedUnits, slices, timeBudgetExhausted, unitBudgetExhausted;
+        private final Map<TaskType, Integer> maxActive, maxWaiting;
+        private final int bufferItems, bufferStacks, maxBufferItems, maxBufferStacks;
+        private final long bufferAgeTicks, maxBufferAgeTicks, bufferFallbacks;
+        private final long pageBuilds, pageSends, endpointRebuilds, endpointReuses;
+        private final long sessionSnapshots, workflowSnapshots, historySnapshots;
+        private final long pluginSnapshots, progressionSnapshots;
+        private final long effectAttemptedTargets, effectCommittedKinds, effectRetryTargets;
+        private final long effectDeferredTargets, effectFailedTargets;
+
+        public Snapshot(long tickSamples, long tickNanos, long maxTickNanos,
+                long processedUnits, long slices, long timeBudgetExhausted, long unitBudgetExhausted,
+                Map<TaskType, Integer> maxActive, Map<TaskType, Integer> maxWaiting,
+                int bufferItems, int bufferStacks, int maxBufferItems, int maxBufferStacks,
+                long bufferAgeTicks, long maxBufferAgeTicks, long bufferFallbacks,
+                long pageBuilds, long pageSends, long endpointRebuilds, long endpointReuses,
+                long sessionSnapshots, long workflowSnapshots, long historySnapshots,
+                long pluginSnapshots, long progressionSnapshots,
+                long effectAttemptedTargets, long effectCommittedKinds, long effectRetryTargets,
+                long effectDeferredTargets, long effectFailedTargets) {
+            this.tickSamples = tickSamples; this.tickNanos = tickNanos; this.maxTickNanos = maxTickNanos;
+            this.processedUnits = processedUnits; this.slices = slices;
+            this.timeBudgetExhausted = timeBudgetExhausted; this.unitBudgetExhausted = unitBudgetExhausted;
+            this.maxActive = immutableTaskMap(maxActive); this.maxWaiting = immutableTaskMap(maxWaiting);
+            this.bufferItems = bufferItems; this.bufferStacks = bufferStacks;
+            this.maxBufferItems = maxBufferItems; this.maxBufferStacks = maxBufferStacks;
+            this.bufferAgeTicks = bufferAgeTicks; this.maxBufferAgeTicks = maxBufferAgeTicks;
+            this.bufferFallbacks = bufferFallbacks; this.pageBuilds = pageBuilds; this.pageSends = pageSends;
+            this.endpointRebuilds = endpointRebuilds; this.endpointReuses = endpointReuses;
+            this.sessionSnapshots = sessionSnapshots; this.workflowSnapshots = workflowSnapshots;
+            this.historySnapshots = historySnapshots; this.pluginSnapshots = pluginSnapshots;
+            this.progressionSnapshots = progressionSnapshots; this.effectAttemptedTargets = effectAttemptedTargets;
+            this.effectCommittedKinds = effectCommittedKinds; this.effectRetryTargets = effectRetryTargets;
+            this.effectDeferredTargets = effectDeferredTargets; this.effectFailedTargets = effectFailedTargets;
+        }
+
+        private static Map<TaskType, Integer> immutableTaskMap(Map<TaskType, Integer> source) {
+            EnumMap<TaskType, Integer> copy = new EnumMap<TaskType, Integer>(TaskType.class);
+            if (source != null) copy.putAll(source);
+            return Collections.unmodifiableMap(copy);
+        }
+
+        public long tickSamples() { return tickSamples; }
+        public long tickNanos() { return tickNanos; }
+        public long maxTickNanos() { return maxTickNanos; }
+        public long processedUnits() { return processedUnits; }
+        public long slices() { return slices; }
+        public long timeBudgetExhausted() { return timeBudgetExhausted; }
+        public long unitBudgetExhausted() { return unitBudgetExhausted; }
+        public Map<TaskType, Integer> maxActive() { return maxActive; }
+        public Map<TaskType, Integer> maxWaiting() { return maxWaiting; }
+        public int bufferItems() { return bufferItems; }
+        public int bufferStacks() { return bufferStacks; }
+        public int maxBufferItems() { return maxBufferItems; }
+        public int maxBufferStacks() { return maxBufferStacks; }
+        public long bufferAgeTicks() { return bufferAgeTicks; }
+        public long maxBufferAgeTicks() { return maxBufferAgeTicks; }
+        public long bufferFallbacks() { return bufferFallbacks; }
+        public long pageBuilds() { return pageBuilds; }
+        public long pageSends() { return pageSends; }
+        public long endpointRebuilds() { return endpointRebuilds; }
+        public long endpointReuses() { return endpointReuses; }
+        public long sessionSnapshots() { return sessionSnapshots; }
+        public long workflowSnapshots() { return workflowSnapshots; }
+        public long historySnapshots() { return historySnapshots; }
+        public long pluginSnapshots() { return pluginSnapshots; }
+        public long progressionSnapshots() { return progressionSnapshots; }
+        public long effectAttemptedTargets() { return effectAttemptedTargets; }
+        public long effectCommittedKinds() { return effectCommittedKinds; }
+        public long effectRetryTargets() { return effectRetryTargets; }
+        public long effectDeferredTargets() { return effectDeferredTargets; }
+        public long effectFailedTargets() { return effectFailedTargets; }
 
         public long averageTickNanos() {
             return tickSamples == 0 ? 0L : tickNanos / tickSamples;
         }
+
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof Snapshot)) return false;
+            Snapshot s = (Snapshot) other;
+            return tickSamples == s.tickSamples && tickNanos == s.tickNanos && maxTickNanos == s.maxTickNanos
+                    && processedUnits == s.processedUnits && slices == s.slices
+                    && timeBudgetExhausted == s.timeBudgetExhausted && unitBudgetExhausted == s.unitBudgetExhausted
+                    && bufferItems == s.bufferItems && bufferStacks == s.bufferStacks
+                    && maxBufferItems == s.maxBufferItems && maxBufferStacks == s.maxBufferStacks
+                    && bufferAgeTicks == s.bufferAgeTicks && maxBufferAgeTicks == s.maxBufferAgeTicks
+                    && bufferFallbacks == s.bufferFallbacks && pageBuilds == s.pageBuilds && pageSends == s.pageSends
+                    && endpointRebuilds == s.endpointRebuilds && endpointReuses == s.endpointReuses
+                    && sessionSnapshots == s.sessionSnapshots && workflowSnapshots == s.workflowSnapshots
+                    && historySnapshots == s.historySnapshots && pluginSnapshots == s.pluginSnapshots
+                    && progressionSnapshots == s.progressionSnapshots
+                    && effectAttemptedTargets == s.effectAttemptedTargets
+                    && effectCommittedKinds == s.effectCommittedKinds && effectRetryTargets == s.effectRetryTargets
+                    && effectDeferredTargets == s.effectDeferredTargets && effectFailedTargets == s.effectFailedTargets
+                    && java.util.Objects.equals(maxActive, s.maxActive)
+                    && java.util.Objects.equals(maxWaiting, s.maxWaiting);
+        }
+        @Override public int hashCode() {
+            return java.util.Objects.hash(tickSamples, tickNanos, maxTickNanos, processedUnits, slices,
+                    timeBudgetExhausted, unitBudgetExhausted, maxActive, maxWaiting, bufferItems, bufferStacks,
+                    maxBufferItems, maxBufferStacks, bufferAgeTicks, maxBufferAgeTicks, bufferFallbacks,
+                    pageBuilds, pageSends, endpointRebuilds, endpointReuses, sessionSnapshots, workflowSnapshots,
+                    historySnapshots, pluginSnapshots, progressionSnapshots, effectAttemptedTargets,
+                    effectCommittedKinds, effectRetryTargets, effectDeferredTargets, effectFailedTargets);
+        }
     }
 
-    record BufferSample(int items, int stacks, long ageTicks) {
+    static final class BufferSample {
         private static final BufferSample EMPTY = new BufferSample(0, 0, 0);
+        private final int items;
+        private final int stacks;
+        private final long ageTicks;
+        BufferSample(int items, int stacks, long ageTicks) {
+            this.items = items; this.stacks = stacks; this.ageTicks = ageTicks;
+        }
+        int items() { return items; }
+        int stacks() { return stacks; }
+        long ageTicks() { return ageTicks; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof BufferSample)) return false;
+            BufferSample that = (BufferSample) other;
+            return items == that.items && stacks == that.stacks && ageTicks == that.ageTicks;
+        }
+        @Override public int hashCode() { return java.util.Objects.hash(items, stacks, ageTicks); }
     }
 
-    public record FinishResult(boolean accepted, Snapshot snapshot) {
+    public static final class FinishResult {
         private static final FinishResult REJECTED = new FinishResult(false, Snapshot.EMPTY);
+        private final boolean accepted;
+        private final Snapshot snapshot;
+        public FinishResult(boolean accepted, Snapshot snapshot) {
+            this.accepted = accepted; this.snapshot = snapshot;
+        }
+        public boolean accepted() { return accepted; }
+        public Snapshot snapshot() { return snapshot; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof FinishResult)) return false;
+            FinishResult that = (FinishResult) other;
+            return accepted == that.accepted && java.util.Objects.equals(snapshot, that.snapshot);
+        }
+        @Override public int hashCode() { return java.util.Objects.hash(accepted, snapshot); }
     }
 
-    private record ActiveRun(String runId, String task, MutableMetrics metrics) {
+    private static final class ActiveRun {
+        private final String runId;
+        private final String task;
+        private final MutableMetrics metrics;
+        private ActiveRun(String runId, String task, MutableMetrics metrics) {
+            this.runId = runId; this.task = task; this.metrics = metrics;
+        }
+        private String runId() { return runId; }
+        private String task() { return task; }
+        private MutableMetrics metrics() { return metrics; }
+        @Override public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof ActiveRun)) return false;
+            ActiveRun that = (ActiveRun) other;
+            return java.util.Objects.equals(runId, that.runId)
+                    && java.util.Objects.equals(task, that.task)
+                    && java.util.Objects.equals(metrics, that.metrics);
+        }
+        @Override public int hashCode() { return java.util.Objects.hash(runId, task, metrics); }
     }
 
     private static final class MutableMetrics {
@@ -209,7 +355,7 @@ public final class RtsDeveloperMetrics {
         Snapshot snapshot() {
             return new Snapshot(tickSamples, tickNanos, maxTickNanos,
                     processedUnits, slices, timeBudgetExhausted, unitBudgetExhausted,
-                    Map.copyOf(maxActive), Map.copyOf(maxWaiting),
+                    maxActive, maxWaiting,
                     bufferItems, bufferStacks, maxBufferItems, maxBufferStacks,
                     bufferAgeTicks, maxBufferAgeTicks, bufferFallbacks,
                     pageBuilds, pageSends, endpointRebuilds, endpointReuses,
