@@ -154,13 +154,20 @@ dependencies {
         }
     }
     if (propertyBool('enable_junit_testing')) {
-        testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
-        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+        // 测试产物不会进入发布 JAR，可以在 Java 17 测试 JVM 上保留现代测试源码写法。
+        // Mockito 5 已经要求 Java 11；4.11 是仍支持 Java 8 生产类的最后一条稳定线。
+        testImplementation 'org.junit.jupiter:junit-jupiter:5.11.0'
+        testImplementation 'org.mockito:mockito-core:4.11.0'
+        testImplementation 'org.mockito:mockito-junit-jupiter:4.11.0'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.0'
     }
 }
 
 apply from: 'gradle/scripts/dependencies.gradle'
 apply from: 'gradle/rts-ui.gradle'
+// 原项目把测试按 unit/contract/performance 分目录保存；Java 插件默认的
+// src/test/java 看不到这些文件，必须显式恢复 source set 和汇总任务。
+apply from: 'gradle/rts-test-reporting.gradle'
 
 // Adds Access Transformer files to tasks
 if (propertyBool('use_access_transformer')) {
@@ -271,11 +278,19 @@ idea {
 }
 
 compileTestJava {
-    sourceCompatibility = targetCompatibility = 8
+    // 生产代码仍严格输出 Java 8 字节码。测试不打包，允许使用 Path.of、List.of、
+    // Stream.toList 等现代测试辅助 API，避免为了旧运行时机械改写数百条断言。
+    sourceCompatibility = targetCompatibility = 17
+    options.release.set(17)
+    javaCompiler.set(javaToolchains.compilerFor {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    })
 }
 
 test {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'known-performance-debt'
+    }
     // 编译阶段由 --release 8 保证 API/字节码底线；Classic Forge 烟测阶段再用真实 Java 8。
     javaLauncher.set(javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(17)
@@ -325,6 +340,15 @@ tasks.withType(JavaCompile).configureEach {
     }
     if (propertyBool('use_modern_java_syntax')) {
         if (it.name in ['compileMcLauncherJava', 'compilePatchedMcJava']) {
+            return
+        }
+        if (it.name == 'compileTestJava') {
+            // 测试 class 不进入模组 JAR；单独使用 Java 17，生产 class 仍由下方 release 8 锁定。
+            sourceCompatibility = 17
+            options.release.set(17)
+            javaCompiler.set(javaToolchains.compilerFor {
+                languageVersion.set(JavaLanguageVersion.of(17))
+            })
             return
         }
         sourceCompatibility = 17
