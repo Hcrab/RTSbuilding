@@ -281,9 +281,68 @@ final class TaskStore {
         return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(result);
     }
 
-    private record SubmissionKey(UUID ownerId, SubmissionId submissionId) {
+    private static final class SubmissionKey {
+        private final UUID ownerId;
+        private final SubmissionId submissionId;
+
+        private SubmissionKey(UUID ownerId, SubmissionId submissionId) {
+            this.ownerId = ownerId;
+            this.submissionId = submissionId;
+        }
+
+        UUID ownerId() { return ownerId; }
+        SubmissionId submissionId() { return submissionId; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof SubmissionKey)) return false;
+            SubmissionKey that = (SubmissionKey) other;
+            return Objects.equals(ownerId, that.ownerId)
+                    && Objects.equals(submissionId, that.submissionId);
+        }
+
+        @Override
+        public int hashCode() { return Objects.hash(ownerId, submissionId); }
+
+        @Override
+        public String toString() {
+            return "SubmissionKey[ownerId=" + ownerId + ", submissionId=" + submissionId + "]";
+        }
     }
 
-    private record WorkflowKey(UUID ownerId, String dimensionId, int workflowEntryId) {
+    private static final class WorkflowKey {
+        private final UUID ownerId;
+        private final String dimensionId;
+        private final int workflowEntryId;
+
+        private WorkflowKey(UUID ownerId, String dimensionId, int workflowEntryId) {
+            this.ownerId = ownerId;
+            this.dimensionId = dimensionId;
+            this.workflowEntryId = workflowEntryId;
+        }
+
+        UUID ownerId() { return ownerId; }
+        String dimensionId() { return dimensionId; }
+        int workflowEntryId() { return workflowEntryId; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof WorkflowKey)) return false;
+            WorkflowKey that = (WorkflowKey) other;
+            return workflowEntryId == that.workflowEntryId
+                    && Objects.equals(ownerId, that.ownerId)
+                    && Objects.equals(dimensionId, that.dimensionId);
+        }
+
+        @Override
+        public int hashCode() { return Objects.hash(ownerId, dimensionId, workflowEntryId); }
+
+        @Override
+        public String toString() {
+            return "WorkflowKey[ownerId=" + ownerId + ", dimensionId=" + dimensionId
+                    + ", workflowEntryId=" + workflowEntryId + "]";
+        }
     }
 }
