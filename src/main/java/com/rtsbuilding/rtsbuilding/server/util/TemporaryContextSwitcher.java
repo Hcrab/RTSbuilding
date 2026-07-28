@@ -1,11 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.util;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.Vec3;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.Vec3d;
 
+import java.util.Objects;
 import java.util.function.Supplier;
 
 /**
@@ -38,11 +39,11 @@ public final class TemporaryContextSwitcher {
                 || !Double.isFinite(dirX) || !Double.isFinite(dirY) || !Double.isFinite(dirZ)) {
             return null;
         }
-        Vec3 dir = new Vec3(dirX, dirY, dirZ);
-        if (dir.lengthSqr() < 1.0e-6D) {
+        Vec3d dir = new Vec3d(dirX, dirY, dirZ);
+        if (dir.lengthSquared() < 1.0e-6D) {
             return null;
         }
-        return new RayContext(new Vec3(originX, originY, originZ), dir.normalize());
+        return new RayContext(new Vec3d(originX, originY, originZ), dir.normalize());
     }
 
     // ======================================================================
@@ -53,27 +54,27 @@ public final class TemporaryContextSwitcher {
      * 基于客户端射线方向构造虚拟交互上下文（位置 + 注视方向），
      * 执行 {@code action} 后自动恢复玩家的原始位置和朝向。
      */
-    public static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
+    public static <T> T withTemporaryUseItemContext(EntityPlayerMP player, Vec3d fallbackPos, Vec3d fallbackLookAt,
             RayContext rayContext, double reach, Supplier<T> action) {
         if (rayContext == null) {
             return withTemporaryInteractionPosition(player, fallbackPos, fallbackLookAt, action);
         }
-        Vec3 rayDir = rayContext.dir();
+        Vec3d rayDir = rayContext.dir();
         if (!Double.isFinite(rayDir.x) || !Double.isFinite(rayDir.y) || !Double.isFinite(rayDir.z)
-                || rayDir.lengthSqr() < 1.0e-6D) {
+                || rayDir.lengthSquared() < 1.0e-6D) {
             return withTemporaryInteractionPosition(player, fallbackPos, fallbackLookAt, action);
         }
         double clampedReach = Math.max(2.0D, Math.min(8.0D, reach));
         double offset = Math.max(0.5D, clampedReach - 0.1D);
-        Vec3 normalizedDir = rayDir.normalize();
-        Vec3 virtualEye = fallbackLookAt.subtract(normalizedDir.scale(offset));
-        double eyeHeight = player.getEyeHeight(player.getPose());
-        Vec3 virtualFeet = new Vec3(virtualEye.x, virtualEye.y - eyeHeight, virtualEye.z);
-        Vec3 lookAt = virtualEye.add(normalizedDir.scale(clampedReach));
+        Vec3d normalizedDir = rayDir.normalize();
+        Vec3d virtualEye = fallbackLookAt.subtract(normalizedDir.scale(offset));
+        double eyeHeight = player.getEyeHeight();
+        Vec3d virtualFeet = new Vec3d(virtualEye.x, virtualEye.y - eyeHeight, virtualEye.z);
+        Vec3d lookAt = virtualEye.add(normalizedDir.scale(clampedReach));
         return withTemporaryInteractionPosition(player, virtualFeet, lookAt, action);
     }
 
-    public static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
+    public static <T> T withTemporaryUseItemContext(EntityPlayerMP player, Vec3d fallbackPos, Vec3d fallbackLookAt,
             double reach, Supplier<T> action) {
         return withTemporaryUseItemContext(player, fallbackPos, fallbackLookAt, null, reach, action);
     }
@@ -85,16 +86,16 @@ public final class TemporaryContextSwitcher {
     /**
      * 临时设置玩家的潜行状态，执行 {@code action} 后恢复。
      */
-    public static <T> T withTemporaryShiftKey(ServerPlayer player, boolean active, Supplier<T> action) {
-        boolean previous = player.isShiftKeyDown();
+    public static <T> T withTemporaryShiftKey(EntityPlayerMP player, boolean active, Supplier<T> action) {
+        boolean previous = player.isSneaking();
         if (previous == active) {
             return action.get();
         }
-        player.setShiftKeyDown(active);
+        player.setSneaking(active);
         try {
             return action.get();
         } finally {
-            player.setShiftKeyDown(previous);
+            player.setSneaking(previous);
         }
     }
 
@@ -105,13 +106,13 @@ public final class TemporaryContextSwitcher {
     /**
      * 临时替换玩家的主手物品，执行 {@code action} 后恢复。
      */
-    public static <T> T withTemporaryMainHandItem(ServerPlayer player, ItemStack stack, Supplier<T> action) {
-        ItemStack previousMainHand = player.getMainHandItem();
-        player.setItemInHand(InteractionHand.MAIN_HAND, stack);
+    public static <T> T withTemporaryMainHandItem(EntityPlayerMP player, ItemStack stack, Supplier<T> action) {
+        ItemStack previousMainHand = player.getHeldItemMainhand();
+        player.setHeldItem(EnumHand.MAIN_HAND, stack);
         try {
             return action.get();
         } finally {
-            player.setItemInHand(InteractionHand.MAIN_HAND, previousMainHand);
+            player.setHeldItem(EnumHand.MAIN_HAND, previousMainHand);
         }
     }
 
@@ -122,13 +123,13 @@ public final class TemporaryContextSwitcher {
     /**
      * 临时设置玩家的 onGround 状态（影响挖掘速度计算），执行后恢复。
      */
-    public static <T> T withTemporaryOnGround(ServerPlayer player, boolean onGround, Supplier<T> action) {
-        boolean previous = player.onGround();
-        player.setOnGround(onGround);
+    public static <T> T withTemporaryOnGround(EntityPlayerMP player, boolean onGround, Supplier<T> action) {
+        boolean previous = player.onGround;
+        player.onGround = onGround;
         try {
             return action.get();
         } finally {
-            player.setOnGround(previous);
+            player.onGround = previous;
         }
     }
 
@@ -139,14 +140,14 @@ public final class TemporaryContextSwitcher {
     /**
      * 临时切换玩家的选中快捷栏格，执行 {@code action} 后恢复。
      */
-    public static <T> T withTemporarySelectedSlot(ServerPlayer player, int toolSlot, Supplier<T> action) {
+    public static <T> T withTemporarySelectedSlot(EntityPlayerMP player, int toolSlot, Supplier<T> action) {
         int slot = Math.max(0, Math.min(8, toolSlot));
-        int prevSelected = player.getInventory().selected;
-        player.getInventory().selected = slot;
+        int prevSelected = player.inventory.currentItem;
+        player.inventory.currentItem = slot;
         try {
             return action.get();
         } finally {
-            player.getInventory().selected = prevSelected;
+            player.inventory.currentItem = prevSelected;
         }
     }
 
@@ -154,34 +155,35 @@ public final class TemporaryContextSwitcher {
     //  内部：位置 + 视角目标
     // ======================================================================
 
-    private static <T> T withTemporaryInteractionPosition(ServerPlayer player, Vec3 position, Vec3 lookAt, Supplier<T> action) {
-        Vec3 prevPos = player.position();
-        float prevYRot = player.getYRot();
-        float prevXRot = player.getXRot();
-        float prevYHeadRot = player.getYHeadRot();
-        float prevYBodyRot = player.yBodyRot;
+    private static <T> T withTemporaryInteractionPosition(EntityPlayerMP player, Vec3d position,
+            Vec3d lookAt, Supplier<T> action) {
+        Vec3d prevPos = new Vec3d(player.posX, player.posY, player.posZ);
+        float prevYRot = player.rotationYaw;
+        float prevXRot = player.rotationPitch;
+        float prevYHeadRot = player.rotationYawHead;
+        float prevYBodyRot = player.renderYawOffset;
 
-        player.setPos(position.x, position.y, position.z);
-        double eyeHeight = player.getEyeHeight(player.getPose());
-        Vec3 eyePos = new Vec3(position.x, position.y + eyeHeight, position.z);
+        player.setPosition(position.x, position.y, position.z);
+        double eyeHeight = player.getEyeHeight();
+        Vec3d eyePos = new Vec3d(position.x, position.y + eyeHeight, position.z);
         float[] look = yawPitchTo(eyePos, lookAt);
-        player.setYRot(look[0]);
-        player.setXRot(look[1]);
-        player.setYHeadRot(look[0]);
-        player.yBodyRot = look[0];
+        player.rotationYaw = look[0];
+        player.rotationPitch = look[1];
+        player.rotationYawHead = look[0];
+        player.renderYawOffset = look[0];
         try {
             return action.get();
         } finally {
-            player.setPos(prevPos.x, prevPos.y, prevPos.z);
-            player.setYRot(prevYRot);
-            player.setXRot(prevXRot);
-            player.setYHeadRot(prevYHeadRot);
-            player.yBodyRot = prevYBodyRot;
+            player.setPosition(prevPos.x, prevPos.y, prevPos.z);
+            player.rotationYaw = prevYRot;
+            player.rotationPitch = prevXRot;
+            player.rotationYawHead = prevYHeadRot;
+            player.renderYawOffset = prevYBodyRot;
         }
     }
 
-    private static float[] yawPitchTo(Vec3 from, Vec3 to) {
-        Vec3 d = to.subtract(from);
+    private static float[] yawPitchTo(Vec3d from, Vec3d to) {
+        Vec3d d = to.subtract(from);
         double xz = Math.sqrt(d.x * d.x + d.z * d.z);
         float yaw = (float) (Math.toDegrees(Math.atan2(-d.x, d.z)));
         float pitch = (float) (-Math.toDegrees(Math.atan2(d.y, xz)));
@@ -195,12 +197,60 @@ public final class TemporaryContextSwitcher {
     /**
      * 从客户端射线数据解析出的原点和方向向量。
      */
-    public record RayContext(Vec3 origin, Vec3 dir) {
+    public static final class RayContext {
+        private final Vec3d origin;
+        private final Vec3d dir;
+
+        public RayContext(Vec3d origin, Vec3d dir) {
+            this.origin = origin;
+            this.dir = dir;
+        }
+
+        public Vec3d origin() { return this.origin; }
+        public Vec3d dir() { return this.dir; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof RayContext)) return false;
+            RayContext that = (RayContext) other;
+            return Objects.equals(this.origin, that.origin) && Objects.equals(this.dir, that.dir);
+        }
+
+        @Override
+        public int hashCode() { return Objects.hash(this.origin, this.dir); }
+
+        @Override
+        public String toString() { return "RayContext[origin=" + this.origin + ", dir=" + this.dir + "]"; }
     }
 
     /**
      * 远程使用物品的结果：操作结果 + 剩余物品（可能被消耗或改变）。
      */
-    public record UseOnOutcome(InteractionResult result, ItemStack remainder) {
+    public static final class UseOnOutcome {
+        private final EnumActionResult result;
+        private final ItemStack remainder;
+
+        public UseOnOutcome(EnumActionResult result, ItemStack remainder) {
+            this.result = result;
+            this.remainder = remainder;
+        }
+
+        public EnumActionResult result() { return this.result; }
+        public ItemStack remainder() { return this.remainder; }
+
+        @Override
+        public boolean equals(Object other) {
+            if (this == other) return true;
+            if (!(other instanceof UseOnOutcome)) return false;
+            UseOnOutcome that = (UseOnOutcome) other;
+            return this.result == that.result && Objects.equals(this.remainder, that.remainder);
+        }
+
+        @Override
+        public int hashCode() { return Objects.hash(this.result, this.remainder); }
+
+        @Override
+        public String toString() { return "UseOnOutcome[result=" + this.result + ", remainder=" + this.remainder + "]"; }
     }
 }
