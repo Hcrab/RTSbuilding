@@ -1,7 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.developer;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * 开发者场景的纯事件计数器。
@@ -14,27 +17,43 @@ final class RtsDeveloperScenarioProgress {
     private final Map<String, Integer> observed = new HashMap<>();
 
     RtsDeveloperScenarioProgress(Map<String, Integer> required) {
-        this.required = Map.copyOf(required);
+        Objects.requireNonNull(required, "required");
+        Map<String, Integer> snapshot = new LinkedHashMap<String, Integer>();
+        for (Map.Entry<String, Integer> entry : required.entrySet()) {
+            snapshot.put(
+                    Objects.requireNonNull(entry.getKey(), "required event"),
+                    Objects.requireNonNull(entry.getValue(), "required count"));
+        }
+        this.required = Collections.unmodifiableMap(snapshot);
     }
 
-    void record(String event) {
+    synchronized void record(String event) {
         if (required.containsKey(event)) {
-            observed.merge(event, 1, Integer::sum);
+            Integer previous = observed.get(event);
+            observed.put(event, previous == null ? 1 : previous + 1);
         }
     }
 
-    boolean isComplete() {
-        return required.entrySet().stream()
-                .allMatch(entry -> observed.getOrDefault(entry.getKey(), 0) >= entry.getValue());
+    synchronized boolean isComplete() {
+        for (Map.Entry<String, Integer> entry : required.entrySet()) {
+            Integer count = observed.get(entry.getKey());
+            if ((count == null ? 0 : count) < entry.getValue()) return false;
+        }
+        return true;
     }
 
-    int completedEvents() {
-        return required.entrySet().stream()
-                .mapToInt(entry -> Math.min(entry.getValue(), observed.getOrDefault(entry.getKey(), 0)))
-                .sum();
+    synchronized int completedEvents() {
+        int completed = 0;
+        for (Map.Entry<String, Integer> entry : required.entrySet()) {
+            Integer count = observed.get(entry.getKey());
+            completed += Math.min(entry.getValue(), count == null ? 0 : count);
+        }
+        return completed;
     }
 
     int requiredEvents() {
-        return required.values().stream().mapToInt(Integer::intValue).sum();
+        int total = 0;
+        for (Integer count : required.values()) total += count;
+        return total;
     }
 }

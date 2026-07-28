@@ -39,7 +39,7 @@ public final class RtsAsyncJsonlWriter {
         try {
             Path parent = file.getParent();
             if (parent != null) Files.createDirectories(parent);
-            Files.writeString(file, line, StandardCharsets.UTF_8,
+            Files.write(file, line.getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.CREATE, StandardOpenOption.APPEND);
         } catch (IOException ignored) {
             // 诊断日志失败不能改变游戏状态，也不能递归制造更多日志。
