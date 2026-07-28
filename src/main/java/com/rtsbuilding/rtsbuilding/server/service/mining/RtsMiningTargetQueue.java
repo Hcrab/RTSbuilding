@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -30,15 +30,15 @@ public final class RtsMiningTargetQueue {
             Predicate<BlockPos> canAccessTarget,
             Predicate<BlockPos> acceptsTarget) {
         if (positions == null || positions.isEmpty() || canAccessTarget == null || acceptsTarget == null) {
-            return new ArrayDeque<>();
+            return new ArrayDeque<BlockPos>();
         }
-        LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
+        LinkedHashSet<BlockPos> unique = new LinkedHashSet<BlockPos>();
         int maxTargets = RtsMiningValidator.areaDestroyMaxTargets();
         for (BlockPos raw : positions) {
             if (raw == null || unique.size() >= maxTargets) {
                 continue;
             }
-            BlockPos pos = raw.immutable();
+            BlockPos pos = raw.toImmutable();
             if (!canAccessTarget.test(pos)) {
                 continue;
             }
@@ -47,7 +47,7 @@ public final class RtsMiningTargetQueue {
             }
             unique.add(pos);
         }
-        return new ArrayDeque<>(unique);
+        return new ArrayDeque<BlockPos>(unique);
     }
 
     /** Returns true when the current server tick may process another queued target. */

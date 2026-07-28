@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -47,7 +47,8 @@ public final class RtsMiningDropBufferState {
 
         for (ItemStack existing : stacks) {
             if (remaining <= 0) break;
-            if (!ItemStack.isSameItemSameComponents(existing, prototype)) continue;
+            if (!ItemStack.areItemsEqual(existing, prototype)
+                    || !ItemStack.areItemStackTagsEqual(existing, prototype)) continue;
             int free = Math.max(0, Math.min(maxStackSize, existing.getMaxStackSize()) - existing.getCount());
             if (free <= 0) continue;
             int moved = Math.min(free, remaining);
@@ -57,7 +58,9 @@ public final class RtsMiningDropBufferState {
 
         while (remaining > 0 && stacks.size() < MAX_STACKS) {
             int chunkSize = Math.min(remaining, maxStackSize);
-            stacks.addLast(prototype.copyWithCount(chunkSize));
+            ItemStack chunk = prototype.copy();
+            chunk.setCount(chunkSize);
+            stacks.addLast(chunk);
             remaining -= chunkSize;
         }
 

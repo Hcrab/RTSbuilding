@@ -13,12 +13,12 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.world.WorldServer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.block.state.IBlockState;
 
 import java.util.*;
 
@@ -63,8 +63,8 @@ public final class RtsUltimineProcessor {
      * 之前的挖掘已停止、工具已借用（存储在 {@code session.mining.miningToolLease} 中）、
      * 工作流已启动（{@code ctx data: workflowEntryId}）。</p>
      */
-    public static boolean startUltimine(ServerPlayer player, RtsStorageSession session,
-            BlockPos pos, Direction face, byte toolSlot, int requestedLimit,
+    public static boolean startUltimine(EntityPlayerMP player, RtsStorageSession session,
+            BlockPos pos, EnumFacing face, byte toolSlot, int requestedLimit,
             byte mode, boolean toolProtectionEnabled) {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
         int progressionLimit = RtsProgressionManager.getUltimineLimit(player);
@@ -115,7 +115,7 @@ public final class RtsUltimineProcessor {
      * 之前的挖掘已停止、工具已借用（{@code session.mining.miningToolLease}）、
      * 工作流已启动（通过 pipeline 上下文追踪）。</p>
      */
-    public static boolean areaMine(ServerPlayer player, RtsStorageSession session,
+    public static boolean areaMine(EntityPlayerMP player, RtsStorageSession session,
             int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
             byte toolSlot, byte shapeType, byte fillType, boolean toolProtectionEnabled) {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
@@ -142,7 +142,7 @@ public final class RtsUltimineProcessor {
 
         // 使用共享形状系统
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                player.serverLevel(),
+                player.getServerWorld(),
                 clampedMinX, clampedMaxX,
                 clampedMinY, clampedMaxY,
                 clampedMinZ, clampedMaxZ,
@@ -165,7 +165,7 @@ public final class RtsUltimineProcessor {
         int workflowEntryId = session.mining.workflowEntryId;
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .submitMiningTargets(player, workflowEntryId, targets,
-                        Direction.DOWN, slot, session.mining.miningSelectedToolRequested,
+                        EnumFacing.DOWN, slot, session.mining.miningSelectedToolRequested,
                         toolProtectionEnabled, true);
         if (submitted) session.mining.workflowEntryId = -1;
         return submitted;
@@ -183,7 +183,7 @@ public final class RtsUltimineProcessor {
      * 之前的挖掘已停止、工具已借用（{@code session.mining.miningToolLease}）、
      * 工作流已启动（通过 pipeline 上下文追踪）。</p>
      */
-    public static void areaDestroy(ServerPlayer player, RtsStorageSession session, List<BlockPos> positions,
+    public static void areaDestroy(EntityPlayerMP player, RtsStorageSession session, List<BlockPos> positions,
             byte toolSlot, boolean toolProtectionEnabled) {
         if (positions == null || positions.isEmpty()) {
             return;
@@ -215,7 +215,7 @@ public final class RtsUltimineProcessor {
         int workflowEntryId = session.mining.workflowEntryId;
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .submitMiningTargets(player, workflowEntryId, targets,
-                        Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
+                        EnumFacing.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
         if (submitted) session.mining.workflowEntryId = -1;
     }
 
@@ -234,7 +234,7 @@ public final class RtsUltimineProcessor {
      * @param workflowEntryId  WorkflowStartPipe 创建的工作流条目
      * @return 排队的（或创造模式立即破坏的）目标数，如果没有有效目标则返回 0
      */
-    public static int queueAreaDestroy(ServerPlayer player, RtsStorageSession session, List<BlockPos> positions,
+    public static int queueAreaDestroy(EntityPlayerMP player, RtsStorageSession session, List<BlockPos> positions,
             byte toolSlot, boolean toolProtectionEnabled, int workflowEntryId) {
         if (positions == null || positions.isEmpty()) {
             return 0;
@@ -280,7 +280,7 @@ public final class RtsUltimineProcessor {
 
         boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningTargets(
                 player, workflowEntryId, targets,
-                Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
+                EnumFacing.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true);
         RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] queueAreaDestroy: submitted {} targets for {}",
                 targets.size(), player.getGameProfile().getName());
         return submitted ? targets.size() : 0;
@@ -292,8 +292,8 @@ public final class RtsUltimineProcessor {
      * @param workflowEntryId  the workflow entry created by WorkflowStartPipe
      * @return number of targets queued, or 0 if no valid targets
      */
-    public static int queueStartUltimine(ServerPlayer player, RtsStorageSession session,
-            BlockPos pos, Direction face, byte toolSlot, int requestedLimit,
+    public static int queueStartUltimine(EntityPlayerMP player, RtsStorageSession session,
+            BlockPos pos, EnumFacing face, byte toolSlot, int requestedLimit,
             byte mode, boolean toolProtectionEnabled, int workflowEntryId) {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
         int progressionLimit = RtsProgressionManager.getUltimineLimit(player);
@@ -352,7 +352,7 @@ public final class RtsUltimineProcessor {
      * @param workflowEntryId  the workflow entry created by WorkflowStartPipe
      * @return number of targets queued, or 0 if no valid targets
      */
-    public static int queueAreaMine(ServerPlayer player, RtsStorageSession session,
+    public static int queueAreaMine(EntityPlayerMP player, RtsStorageSession session,
             int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
             byte toolSlot, byte shapeType, byte fillType, boolean toolProtectionEnabled, int workflowEntryId) {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
@@ -372,7 +372,7 @@ public final class RtsUltimineProcessor {
         // Creative mode: break immediately
         if (player.isCreative()) {
             List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                    player.serverLevel(),
+                    player.getServerWorld(),
                     clampedMinX, clampedMaxX,
                     clampedMinY, clampedMaxY,
                     clampedMinZ, clampedMaxZ,
@@ -405,7 +405,7 @@ public final class RtsUltimineProcessor {
         }
 
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                player.serverLevel(),
+                player.getServerWorld(),
                 clampedMinX, clampedMaxX,
                 clampedMinY, clampedMaxY,
                 clampedMinZ, clampedMaxZ,
@@ -421,7 +421,7 @@ public final class RtsUltimineProcessor {
 
         return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE.submitMiningTargets(
                 player, workflowEntryId, targets,
-                Direction.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true)
+                EnumFacing.DOWN, slot, selectedToolRequested, toolProtectionEnabled, true)
                 ? targets.size() : 0;
     }
 
@@ -459,19 +459,24 @@ public final class RtsUltimineProcessor {
                 safeMinZ + depth - 1);
     }
 
-    record AreaMineLimitBox(int minX, int maxX, int minY, int maxY, int minZ, int maxZ) {
+    static final class AreaMineLimitBox {
+        private final int minX,maxX,minY,maxY,minZ,maxZ;
+        AreaMineLimitBox(int minX,int maxX,int minY,int maxY,int minZ,int maxZ){this.minX=minX;this.maxX=maxX;
+            this.minY=minY;this.maxY=maxY;this.minZ=minZ;this.maxZ=maxZ;}
+        int minX(){return minX;} int maxX(){return maxX;} int minY(){return minY;}
+        int maxY(){return maxY;} int minZ(){return minZ;} int maxZ(){return maxZ;}
     }
 
     /**
      * Filters a list of explicit positions to valid, breakable targets.
      * Unlike the original, waterlogged blocks are <b>not</b> excluded.
      */
-    private static Deque<BlockPos> collectAreaDestroyTargets(ServerPlayer player, List<BlockPos> positions,
+    private static Deque<BlockPos> collectAreaDestroyTargets(EntityPlayerMP player, List<BlockPos> positions,
             int toolSlot, ItemStack linkedTool, boolean selectedToolRequested, boolean creative) {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
-        ServerLevel level = player.serverLevel();
+        WorldServer level = player.getServerWorld();
         // 从上往下逐层破坏：按Y降序排列
         List<BlockPos> sortedPositions = new ArrayList<>(positions);
         sortedPositions.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).reversed());
@@ -496,7 +501,7 @@ public final class RtsUltimineProcessor {
             if (raw == null || unique.size() >= maxExplicitTargets) {
                 continue;
             }
-            BlockPos pos = raw.immutable();
+            BlockPos pos = raw.toImmutable();
             if (explicitLimit != null && !contains(explicitLimit, pos)) {
                 continue;
             }
@@ -508,10 +513,10 @@ public final class RtsUltimineProcessor {
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
                 continue;
             }
-            if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.DOWN)) {
                 continue;
             }
-            BlockState state = level.getBlockState(pos);
+            IBlockState state = level.getBlockState(pos);
             // FIXED: No longer incorrectly excludes waterlogged blocks
             if (!RtsMiningValidator.isBreakableBlock(state)
                     || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
@@ -542,7 +547,7 @@ public final class RtsUltimineProcessor {
     }
 
     private static Deque<BlockPos> filterRangeMiningTargets(
-            ServerPlayer player,
+            EntityPlayerMP player,
             List<BlockPos> candidatePositions,
             ItemStack actualTool,
             boolean creative,
@@ -551,14 +556,14 @@ public final class RtsUltimineProcessor {
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
         int toolBlockedTargets = 0;
         for (BlockPos pos : candidatePositions) {
-            BlockState state = player.serverLevel().getBlockState(pos);
+            IBlockState state = player.getServerWorld().getBlockState(pos);
             if (RtsMiningValidator.canRangeMineWithTool(state, actualTool, creative, maxRequiredLevel)) {
                 targets.addLast(pos);
                 continue;
             }
             if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
                     state, actualTool, creative, maxRequiredLevel)) {
-                harvestTierBlockedPositions.add(pos.immutable());
+                harvestTierBlockedPositions.add(pos.toImmutable());
             } else {
                 toolBlockedTargets++;
             }
@@ -571,7 +576,7 @@ public final class RtsUltimineProcessor {
     }
 
     private static void notifyRangeMiningHarvestTierLimit(
-            ServerPlayer player,
+            EntityPlayerMP player,
             List<BlockPos> skippedPositions) {
         RtsMiningNetworkHelper.notifyHarvestTierLimit(player, skippedPositions);
         logFilteredTargets(
@@ -579,7 +584,7 @@ public final class RtsUltimineProcessor {
     }
 
     private static void logFilteredTargets(
-            ServerPlayer player, RtsDiagnosticReason reason, int targetCount) {
+            EntityPlayerMP player, RtsDiagnosticReason reason, int targetCount) {
         if (player == null || targetCount <= 0) return;
         RtsStorageSession session =
                 com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry.getInstance()
@@ -673,12 +678,12 @@ public final class RtsUltimineProcessor {
      * 处理最多 {@link RtsMiningValidator#ULTIMINE_BLOCKS_PER_TICK}
      * 个排队的连锁挖掘目标。
      */
-    static void processUltimineTargets(ServerPlayer player, RtsStorageSession session) {
+    static void processUltimineTargets(EntityPlayerMP player, RtsStorageSession session) {
         processUltimineTargets(player, session, RtsMiningValidator.ultimineBlocksPerTick(), Long.MAX_VALUE);
     }
 
     /** 在统一任务引擎分配的数量与时间预算内推进连锁挖掘。 */
-    static RtsMiningStateMachine.MiningAdvance processUltimineTargets(ServerPlayer player, RtsStorageSession session,
+    static RtsMiningStateMachine.MiningAdvance processUltimineTargets(EntityPlayerMP player, RtsStorageSession session,
             int maxUnits, long deadlineNanos) {
         if (session.mining.ultimineTargets.isEmpty()) {
             RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] processUltimineTargets: no remaining targets, finishing batch for {}",
@@ -687,7 +692,7 @@ public final class RtsUltimineProcessor {
             return RtsMiningStateMachine.MiningAdvance.ended(0, 0, 0);
         }
 
-        ServerLevel level = player.serverLevel();
+        WorldServer level = player.getServerWorld();
         int processedThisTick = 0;
         int brokenBeforeThisTick = session.mining.ultimineBrokenTargets;
         boolean autoStoreDrops = RtsMiningValidator.canAutoStoreDrops(player, session);
@@ -715,7 +720,7 @@ public final class RtsUltimineProcessor {
             if (!RtsClaimProtectionService.canBreakBlock(player, target, session.mining.miningFace)) {
                 continue;
             }
-            BlockState targetState = level.getBlockState(target);
+            IBlockState targetState = level.getBlockState(target);
             if (!RtsMiningValidator.isBreakableBlock(targetState)
                     || !RtsMiningValidator.hasValidDestroySpeed(targetState, level, target)) {
                 continue;
@@ -726,7 +731,7 @@ public final class RtsUltimineProcessor {
             }
 
             // Capture before state for history (including neighbors for multi-block tracking)
-            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.serverLevel(), target);
+            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.getServerWorld(), target);
             List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(level, target);
 
             RtsMiningStateMachine.MiningBreakResult result = RtsMiningStateMachine.destroyMinedBlock(
@@ -741,7 +746,7 @@ public final class RtsUltimineProcessor {
                 MultiBlockTracker.recordCollateralBlocks(level, session, neighborRecords, target);
             }
             if (result.broken() && autoStoreDrops) {
-                dropsToAbsorb.add(target.immutable());
+                dropsToAbsorb.add(target.toImmutable());
             }
             if (result.broken() && RtsMiningValidator.isToolNearBreak(player, session)) {
                 finishAfterThisTick = true;
@@ -777,7 +782,7 @@ public final class RtsUltimineProcessor {
     }
 
     /** 成功与失败分别投影到工作流；网络快照由 Tick 末 EffectAccumulator 合并。 */
-    private static void reportWorkflowDelta(ServerPlayer player, RtsStorageSession session,
+    private static void reportWorkflowDelta(EntityPlayerMP player, RtsStorageSession session,
             int succeeded, int failed) {
         int entryId = session.mining.workflowEntryId;
         if (entryId < 0 || (succeeded <= 0 && failed <= 0)) return;
@@ -791,7 +796,7 @@ public final class RtsUltimineProcessor {
     /**
      * 完成连锁挖掘批次：清除进度、归还借用的工具、标记储存页面为脏并重置挖掘状态。
      */
-    static void finishUltimineBatch(ServerPlayer player, RtsStorageSession session) {
+    static void finishUltimineBatch(EntityPlayerMP player, RtsStorageSession session) {
         RtsbuildingMod.LOGGER.debug("[RtsUltimineProcessor] finishUltimineBatch: {} broken / {} processed / {} total for {}",
                 session.mining.ultimineBrokenTargets, session.mining.ultimineProcessedTargets,
                 session.mining.ultimineTotalTargets, player.getGameProfile().getName());
@@ -808,18 +813,18 @@ public final class RtsUltimineProcessor {
     /**
      * 为创造模式玩家立即破坏所有排队的连锁挖掘目标。
      */
-    static void breakCreativeUltimineTargets(ServerPlayer player, RtsStorageSession session, Deque<BlockPos> targets,
+    static void breakCreativeUltimineTargets(EntityPlayerMP player, RtsStorageSession session, Deque<BlockPos> targets,
             int toolSlot) {
         if (!targets.isEmpty()) {
             List<BlockPos> validTargets = new ArrayList<>();
             for (BlockPos target : targets) {
                 if (RtsLinkedStorageResolver.canAccessWorldTarget(player, target)
-                        && RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
+                        && RtsClaimProtectionService.canBreakBlock(player, target, EnumFacing.DOWN)) {
                     validTargets.add(target);
                 }
             }
             if (!validTargets.isEmpty()) {
-                Direction face = session != null && session.mining.miningFace != null ? session.mining.miningFace : Direction.DOWN;
+                EnumFacing face = session != null && session.mining.miningFace != null ? session.mining.miningFace : EnumFacing.DOWN;
                 ServerHistoryManager.recordBreak(player, validTargets, face);
             }
         }
@@ -828,7 +833,7 @@ public final class RtsUltimineProcessor {
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
                 continue;
             }
-            if (!RtsClaimProtectionService.canBreakBlock(player, target, Direction.DOWN)) {
+            if (!RtsClaimProtectionService.canBreakBlock(player, target, EnumFacing.DOWN)) {
                 continue;
             }
             RtsMiningStateMachine.destroyMinedBlock(player, session, target, toolSlot);

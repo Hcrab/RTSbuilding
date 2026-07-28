@@ -11,12 +11,14 @@ import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
 
 /**
  * 挖掘系统验证谓词中心仓库，提供所有无状态且幂等的检查和限制常量。
@@ -114,10 +116,10 @@ public final class RtsMiningValidator {
      * 与旧代码不同，<b>含水方块是允许的</b>——仅排除纯流体
      * （方块本身实际上为空气的状态）。
      */
-    public static boolean isBreakableBlock(BlockState state) {
+    public static boolean isBreakableBlock(IBlockState state) {
         // 先检查 isAir——这也能捕获纯流体，因为
         // FluidState.isAir() 与 BlockState.isAir() 不同。
-        if (state.isAir()) {
+        if (state == null || state.getBlock() == Blocks.AIR) {
             return false;
         }
         // 注意：我们不在此处检查 state.getFluidState().isEmpty()。
@@ -131,18 +133,16 @@ public final class RtsMiningValidator {
      * 如果方块具有正的破坏速度，返回 {@code true}。
      * 不可破坏的方块（基岩、末地传送门框架等）返回 false。
      */
-    public static boolean hasValidDestroySpeed(BlockState state, net.minecraft.world.level.BlockGetter level, BlockPos pos) {
-        return state.getDestroySpeed(level, pos) >= 0.0F;
+    public static boolean hasValidDestroySpeed(IBlockState state, IBlockAccess level, BlockPos pos) {
+        return state.getBlockHardness(level, pos) >= 0.0F;
     }
 
     /**
      * 实际工具保护：需要正确工具掉落的方块，必须由当前真正参与挖掘的工具正确采集。
      */
-    public static boolean canHarvestWithTool(BlockState state, ItemStack tool, boolean creative) {
-        return creative
-                || state == null
-                || !state.requiresCorrectToolForDrops()
-                || (tool != null && !tool.isEmpty() && tool.isCorrectToolForDrops(state));
+    public static boolean canHarvestWithTool(IBlockState state, ItemStack tool, boolean creative) {
+        return creative || state == null || RtsMiningRules.requiredLevel(state) <= 0
+                || (tool != null && !tool.isEmpty() && tool.canHarvestBlock(state));
     }
 
     /**
@@ -152,7 +152,7 @@ public final class RtsMiningValidator {
      * 若直接使用 {@link #canHarvestWithTool}，拿着镐选中雪层时，连锁收集会在种子
      * 方块处得到零目标。这里仅放宽 0 级方块；石头及更高等级方块仍然要求真实工具。</p>
      */
-    private static boolean canUltimineWithTool(BlockState state, ItemStack tool, boolean creative) {
+    private static boolean canUltimineWithTool(IBlockState state, ItemStack tool, boolean creative) {
         return creative
                 || RtsMiningRules.requiredLevel(state) <= 0
                 || canHarvestWithTool(state, tool, false);
@@ -161,7 +161,7 @@ public final class RtsMiningValidator {
     /**
      * 非连锁范围挖掘的生存平衡上限。关闭生存平衡时只保留实际工具保护。
      */
-    public static int rangeMiningMaxRequiredLevel(ServerPlayer player, boolean creative) {
+    public static int rangeMiningMaxRequiredLevel(EntityPlayerMP player, boolean creative) {
         if (creative || !Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean()) {
             return Integer.MAX_VALUE;
         }
@@ -180,7 +180,7 @@ public final class RtsMiningValidator {
     }
 
     public static boolean canRangeMineWithTool(
-            BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
+            IBlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
         return canRangeMineRequiredLevel(
                 canHarvestWithTool(state, tool, creative),
                 creative,
@@ -207,7 +207,7 @@ public final class RtsMiningValidator {
      * 它们分别由工具检查、创造绕过和功能门提示负责。</p>
      */
     public static boolean isBlockedByRangeMiningHarvestTier(
-            BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
+            IBlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
         return isBlockedByRangeMiningHarvestTier(
                 canHarvestWithTool(state, tool, false),
                 creative,
@@ -223,7 +223,7 @@ public final class RtsMiningValidator {
     }
 
     public static ItemStack resolveMiningTool(
-            ServerPlayer player, int toolSlot, ItemStack linkedTool) {
+            EntityPlayerMP player, int toolSlot, ItemStack linkedTool) {
         if (linkedTool != null && !linkedTool.isEmpty()) {
             return linkedTool;
         }
@@ -231,8 +231,8 @@ public final class RtsMiningValidator {
             return ItemStack.EMPTY;
         }
         int slot = clampHotbarSlot(toolSlot);
-        return slot < player.getInventory().getContainerSize()
-                ? player.getInventory().getItem(slot)
+        return slot < player.inventory.getSizeInventory()
+                ? player.inventory.getStackInSlot(slot)
                 : ItemStack.EMPTY;
     }
 
@@ -254,10 +254,10 @@ public final class RtsMiningValidator {
      * </ol>
      */
     public static boolean isUltimineCandidate(
-            ServerPlayer player,
+            EntityPlayerMP player,
             BlockPos pos,
-            BlockState state,
-            BlockState seedState,
+            IBlockState state,
+            IBlockState seedState,
             int toolSlot,
             ItemStack linkedTool,
             boolean selectedToolRequested,
@@ -272,21 +272,21 @@ public final class RtsMiningValidator {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return false;
         }
-        if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
+        if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.DOWN)) {
             return false;
         }
         if (creative) {
             return true;
         }
-        if (!hasValidDestroySpeed(state, player.serverLevel(), pos)) {
+        if (!hasValidDestroySpeed(state, player.getServerWorld(), pos)) {
             return false;
         }
         ItemStack actualTool = resolveMiningTool(player, toolSlot, linkedTool);
         if (!canUltimineWithTool(state, actualTool, false)) {
             return false;
         }
-        float seedDestroySpeed = seedState.getDestroySpeed(player.serverLevel(), pos);
-        float candidateDestroySpeed = state.getDestroySpeed(player.serverLevel(), pos);
+        float seedDestroySpeed = seedState.getBlockHardness(player.getServerWorld(), pos);
+        float candidateDestroySpeed = state.getBlockHardness(player.getServerWorld(), pos);
         if (seedDestroySpeed >= 0.0F && candidateDestroySpeed > seedDestroySpeed * 1.5F) {
             return false;
         }
@@ -300,7 +300,7 @@ public final class RtsMiningValidator {
     /**
      * 如果自动储存挖掘掉落物功能在会话中启用且被玩家的进度解锁，返回 {@code true}。
      */
-    public static boolean canAutoStoreDrops(ServerPlayer player, RtsStorageSession session) {
+    public static boolean canAutoStoreDrops(EntityPlayerMP player, RtsStorageSession session) {
         return session.sessionFlags.autoStoreMinedDrops
                 && RtsProgressionManager.canUse(player, RtsFeature.AUTO_STORE_MINED_DROPS);
     }
@@ -316,7 +316,7 @@ public final class RtsMiningValidator {
      * 检查活跃工具（来自租赁或选中槽位）是否在其最大耐久度的 5% 以内。
      * 当保护启用时，挖掘系统应停止以避免破坏工具。
      */
-    public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session) {
+    public static boolean isToolNearBreak(EntityPlayerMP player, RtsStorageSession session) {
         int toolSlot = session == null ? 0 : session.mining.miningToolSlot;
         return isToolNearBreak(player, session, toolSlot);
     }
@@ -327,19 +327,19 @@ public final class RtsMiningValidator {
      * <p>范围破坏由独立 Task 跨 Tick 执行，其槽位属于 Task 快照，不保证与
      * Session 中最近一次连锁挖掘的槽位相同。</p>
      */
-    public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session, int toolSlot) {
+    public static boolean isToolNearBreak(EntityPlayerMP player, RtsStorageSession session, int toolSlot) {
         if (session == null || !session.mining.miningToolProtectionEnabled) {
             return false;
         }
         ItemStack tool = activeMiningTool(player, session, toolSlot);
-        if (tool.isEmpty() || !tool.isDamageableItem()) {
+        if (tool.isEmpty() || !tool.isItemStackDamageable()) {
             return false;
         }
         int maxDamage = tool.getMaxDamage();
         if (maxDamage <= 0) {
             return false;
         }
-        int remaining = maxDamage - tool.getDamageValue();
+        int remaining = maxDamage - tool.getItemDamage();
         int threshold = Math.max(1, (int) Math.ceil(maxDamage * 0.05D));
         return remaining <= threshold;
     }
@@ -348,7 +348,7 @@ public final class RtsMiningValidator {
      * 返回活跃挖掘工具的堆叠，优先使用工具租赁（如果存在），
      * 否则回退到玩家的选中快捷栏槽位。
      */
-    public static ItemStack activeMiningTool(ServerPlayer player, RtsStorageSession session) {
+    public static ItemStack activeMiningTool(EntityPlayerMP player, RtsStorageSession session) {
         if (session == null) {
             return ItemStack.EMPTY;
         }
@@ -359,7 +359,7 @@ public final class RtsMiningValidator {
      * 返回当前租约工具；没有租约时，使用调用方提供的作业快捷栏槽位。
      * 该重载用于范围破坏等把槽位冻结在 Task 中的异步操作。
      */
-    public static ItemStack activeMiningTool(ServerPlayer player, RtsStorageSession session, int toolSlot) {
+    public static ItemStack activeMiningTool(EntityPlayerMP player, RtsStorageSession session, int toolSlot) {
         if (session == null) {
             return ItemStack.EMPTY;
         }
@@ -370,10 +370,10 @@ public final class RtsMiningValidator {
             return ItemStack.EMPTY;
         }
         int slot = clampHotbarSlot(toolSlot);
-        if (slot < 0 || slot >= player.getInventory().getContainerSize()) {
+        if (slot < 0 || slot >= player.inventory.getSizeInventory()) {
             return ItemStack.EMPTY;
         }
-        return player.getInventory().getItem(slot);
+        return player.inventory.getStackInSlot(slot);
     }
 
     /**
@@ -382,10 +382,10 @@ public final class RtsMiningValidator {
      */
     public static boolean isSelectedMiningToolRequested(String toolItemId, ItemStack toolPrototype) {
         return toolItemId != null
-                && !toolItemId.isBlank()
+                && !toolItemId.trim().isEmpty()
                 && toolPrototype != null
                 && !toolPrototype.isEmpty()
-                && !(toolPrototype.getItem() instanceof BlockItem)
+                && !(toolPrototype.getItem() instanceof ItemBlock)
                 && !RtsPluginService.isPluginItem(toolPrototype);
     }
 
@@ -409,36 +409,36 @@ public final class RtsMiningValidator {
      * 谓词进行每方块验证。
      */
     public static java.util.Deque<BlockPos> collectUltimineTargets(
-            ServerPlayer player, BlockPos seed, int toolSlot, ItemStack linkedTool,
+            EntityPlayerMP player, BlockPos seed, int toolSlot, ItemStack linkedTool,
             boolean selectedToolRequested, int limit, boolean creative, byte mode) {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, seed)) {
-            return new java.util.ArrayDeque<>();
+            return new java.util.ArrayDeque<BlockPos>();
         }
-        if (!RtsClaimProtectionService.canBreakBlock(player, seed, Direction.DOWN)) {
-            return new java.util.ArrayDeque<>();
+        if (!RtsClaimProtectionService.canBreakBlock(player, seed, EnumFacing.DOWN)) {
+            return new java.util.ArrayDeque<BlockPos>();
         }
-        BlockState seedState = player.serverLevel().getBlockState(seed);
+        IBlockState seedState = player.getServerWorld().getBlockState(seed);
         if (!isBreakableBlock(seedState)) {
-            return new java.util.ArrayDeque<>();
+            return new java.util.ArrayDeque<BlockPos>();
         }
         if (!creative) {
-            if (!hasValidDestroySpeed(seedState, player.serverLevel(), seed)) {
-                return new java.util.ArrayDeque<>();
+            if (!hasValidDestroySpeed(seedState, player.getServerWorld(), seed)) {
+                return new java.util.ArrayDeque<BlockPos>();
             }
             // 连锁收集阶段只验证种子块能开挖；后续候选的工具判定留给批处理，
             // 避免铺开一片候选时重复计算整批工具速度。
             if (MiningSpeedCalculator.computeRemoteDestroyStep(player, seedState, seed, toolSlot, linkedTool,
                     selectedToolRequested) <= 0.0F) {
-                return new java.util.ArrayDeque<>();
+                return new java.util.ArrayDeque<BlockPos>();
             }
             if (!canUltimineWithTool(
                     seedState, resolveMiningTool(player, toolSlot, linkedTool), false)) {
-                return new java.util.ArrayDeque<>();
+                return new java.util.ArrayDeque<BlockPos>();
             }
         }
 
         java.util.List<BlockPos> targets = RtsUltimineCollector.collect(
-                player.serverLevel(),
+                player.getServerWorld(),
                 seed,
                 limit,
                 (candidatePos, state, seedBlockState) -> isUltimineCandidate(
@@ -451,7 +451,7 @@ public final class RtsMiningValidator {
                         selectedToolRequested,
                         creative,
                         mode));
-        return new java.util.ArrayDeque<>(targets);
+        return new java.util.ArrayDeque<BlockPos>(targets);
     }
 
     // =========================================================================
@@ -462,12 +462,12 @@ public final class RtsMiningValidator {
      * 尝试恢复给定位置的 RTS 已放置方块。如果该方块由 RTS 放置且破坏后消失，
      * 返回 {@code true} 指示挖掘应停止（恢复成功）。
      */
-    public static boolean tryRecoverPlacedBlock(ServerPlayer player, RtsStorageSession session, BlockPos pos, Direction face) {
-        if (PlacedBlockTrackerData.get(player.serverLevel()).isPlaced(pos)
+    public static boolean tryRecoverPlacedBlock(EntityPlayerMP player, RtsStorageSession session, BlockPos pos, EnumFacing face) {
+        if (PlacedBlockTrackerData.get(player.getServerWorld()).isPlaced(pos)
                 && RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
-            BlockState before = player.serverLevel().getBlockState(pos);
+            IBlockState before = player.getServerWorld().getBlockState(pos);
             RtsPlacedRecoveryService.breakPlaced(player, pos, face, false);
-            BlockState after = player.serverLevel().getBlockState(pos);
+            IBlockState after = player.getServerWorld().getBlockState(pos);
             return !before.equals(after);
         }
         return false;
