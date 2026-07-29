@@ -69,6 +69,7 @@ public final class RtsProgressionManager {
 
     public static boolean canStartNormalRts(ServerPlayer player) {
         return !isEnabled()
+                || canUse(player, RtsFeature.CROSS_DIMENSION_HOME)
                 || (RtsHomeManager.hasHome(player)
                 && RtsHomeManager.canOpenRtsNearHome(player));
     }
