@@ -141,23 +141,6 @@ dependencies {
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
     compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
     compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
-    implementation "curse.maven:beyond-dimensions-1222890:8133342"
-
-    implementation "curse.maven:geckolib-388172:7707149"
-    implementation "curse.maven:sodium-394468:6382651"
-    implementation "curse.maven:cloth-config-348521:5729127"
-    implementation "curse.maven:curios-309927:6529130"
-    implementation "curse.maven:kotlin-for-forge-351264:7471280"
-    implementation "curse.maven:jei-238222:7420587"
-    implementation "curse.maven:sophisticated-core-618298:8140101"
-    implementation "curse.maven:sophisticated-storage-619320:8136817"
-    implementation "curse.maven:create-328085:7963363"
-    implementation "curse.maven:patchouli-306770:7730942"
-    implementation "curse.maven:limitless-vehicle-1446269:8068686"
-    implementation "curse.maven:touhou-little-maid-355044:8061852"
-    implementation "curse.maven:superb-warfare-1218165:8104860"
-    implementation "curse.maven:tacz-1-21-1-1353462:8127849"
-    implementation "curse.maven:jade-324717:7545219"
     // Jade HUD 兼容仅在玩家安装 Jade 时加载。
     compileOnly "curse.maven:jade-${jade_curseforge_project_id}:${jade_curseforge_file_id}"
     if (providers.gradleProperty('rts_create_gametest_jar').isPresent()) {
