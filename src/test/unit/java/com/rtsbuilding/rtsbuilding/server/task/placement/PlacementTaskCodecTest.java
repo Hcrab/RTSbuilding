@@ -6,6 +6,7 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.world.level.Level;
 import org.junit.jupiter.api.Test;
 
@@ -24,9 +25,10 @@ class PlacementTaskCodecTest {
                 RtsDimensionKeys.create(new ResourceLocation("minecraft", "overworld"));
         CompoundTag definition = new CompoundTag();
         definition.putLongArray("positions", new long[]{new BlockPos(1, 2, 3).asLong(), 9L});
+        CompoundTag history = placementHistory(new BlockPos(1, 2, 3));
         PlacementTaskState state = new PlacementTaskState(
                 definition, 12, 2, 1, 1, 0, List.of(new BlockPos(1, 2, 3)),
-                PlacementResumePolicy.OVERWRITE_CONFLICTS);
+                PlacementResumePolicy.OVERWRITE_CONFLICTS, true, List.of(history));
         PlacementTaskPayload payload = new PlacementTaskPayload(owner, dimension, 12, state);
 
         PlacementTaskPayload decoded = PlacementTaskCodec.decode(PlacementTaskCodec.encode(payload));
@@ -37,6 +39,8 @@ class PlacementTaskCodecTest {
         assertEquals(1, decoded.state().cursorUnits());
         assertEquals(List.of(new BlockPos(1, 2, 3)), decoded.state().placedPositions());
         assertEquals(PlacementResumePolicy.OVERWRITE_CONFLICTS, decoded.state().resumePolicy());
+        assertEquals(true, decoded.state().creativeOperation());
+        assertEquals(history, decoded.state().historyRecords().get(0));
     }
 
     @Test
@@ -82,7 +86,9 @@ class PlacementTaskCodecTest {
         tag.putInt("succeeded", 0);
         tag.putInt("failed", 0);
         tag.putString("resumePolicy", PlacementResumePolicy.DEFAULT.name());
+        tag.putBoolean("creativeOperation", false);
         tag.putLongArray("placed", new long[0]);
+        tag.put("history", new ListTag());
         return tag;
     }
 
@@ -90,5 +96,20 @@ class PlacementTaskCodecTest {
         CompoundTag definition = new CompoundTag();
         definition.putLongArray("positions", new long[]{1L});
         return definition;
+    }
+
+    private static CompoundTag placementHistory(BlockPos pos) {
+        CompoundTag history = new CompoundTag();
+        history.putLong("pos", pos.asLong());
+        CompoundTag before = new CompoundTag();
+        before.putString("Name", "minecraft:chest");
+        history.put("before", before);
+        CompoundTag after = new CompoundTag();
+        after.putString("Name", "minecraft:stone");
+        history.put("after", after);
+        CompoundTag blockEntity = new CompoundTag();
+        blockEntity.putString("id", "minecraft:chest");
+        history.put("blockEntity", blockEntity);
+        return history;
     }
 }

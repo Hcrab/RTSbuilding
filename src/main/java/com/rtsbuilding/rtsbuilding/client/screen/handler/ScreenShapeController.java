@@ -180,6 +180,10 @@ public final class ScreenShapeController {
         return this.placementHistory.getUndoSize();
     }
 
+    public int getShapeRedoSize() {
+        return this.placementHistory.getRedoSize();
+    }
+
     // ===== Shape session management =====
 
     public void clearShapeBuildSession() {
@@ -1126,6 +1130,10 @@ public final class ScreenShapeController {
 
     public boolean undoLastPlacementBatch() {
         return this.placementHistory.undo();
+    }
+
+    public boolean redoLastPlacementBatch() {
+        return this.placementHistory.redo();
     }
 
     /**

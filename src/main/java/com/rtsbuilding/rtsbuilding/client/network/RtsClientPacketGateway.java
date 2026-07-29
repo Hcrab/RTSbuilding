@@ -54,6 +54,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsStoreHotbarSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsRedoPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
@@ -662,5 +663,9 @@ public final class RtsClientPacketGateway {
 
     public static void sendUndo() {
         PacketDistributor.sendToServer(new C2SRtsUndoPayload());
+    }
+
+    public static void sendRedo() {
+        PacketDistributor.sendToServer(new C2SRtsRedoPayload());
     }
 }

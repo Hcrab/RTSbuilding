@@ -26,7 +26,8 @@ class PilotPatchContractTest {
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
-        assertTrue(properties.contains("mod_version="), "Forge 构建必须声明 mod_version");
+        assertTrue(properties.lines().anyMatch("mod_version=1.1.6-patch1"::equals),
+                "Forge 构建必须声明精确发布版本");
         assertTrue(config.contains(".define(\"useBlockGhostPreview\", false)"));
         assertTrue(camera.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(camera.contains("\"item.rtsbuilding.rts_control_core\""));

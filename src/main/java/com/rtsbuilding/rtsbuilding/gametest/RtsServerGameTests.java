@@ -18,6 +18,8 @@ import com.rtsbuilding.rtsbuilding.server.data.DataCluster;
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.RtsAtomicNbtStore;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
+import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
+import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
@@ -1552,6 +1554,261 @@ public final class RtsServerGameTests {
                     "Second player's durable roots must never contain the first player's task");
             stopPlayers(players);
         });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void creativeBreakUndoRestoresBlockEntityNbt(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(3, 1, 3);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        setChestStack(helper, chestRel, 0, new ItemStack(Items.DIAMOND, 7));
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos chest = helper.absolutePos(chestRel);
+        HistoryBlockRecord before = ServerHistoryManager.captureBlock(helper.getLevel(), chest, true);
+        helper.setBlock(chestRel, Blocks.AIR);
+
+        ServerHistoryManager.recordBreakWithRecords(
+                player, List.of(before), Direction.DOWN, 0, true);
+        assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
+                "Creative break undo should restore one block");
+        helper.assertBlockPresent(Blocks.CHEST, chestRel);
+        assertValueEqual(helper, 7, countChestItem(helper, chestRel, Items.DIAMOND),
+                "Creative break undo must restore the complete chest NBT");
+        assertValueEqual(helper, 1, ServerHistoryManager.executeRedo(player),
+                "Creative break redo should remove the restored block again");
+        helper.assertBlockPresent(Blocks.AIR, chestRel);
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void creativePlacementUndoRestoresOverwrittenBlock(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(3, 1, 3);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        setChestStack(helper, chestRel, 0, new ItemStack(Items.EMERALD, 5));
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos chest = helper.absolutePos(chestRel);
+        HistoryBlockRecord before = ServerHistoryManager.capturePlacementBefore(
+                helper.getLevel(), chest, true);
+        helper.setBlock(chestRel, Blocks.STONE);
+        HistoryBlockRecord placement = HistoryBlockRecord.placement(
+                chest, before.state(), before.blockEntityData(),
+                helper.getLevel().getBlockState(chest));
+
+        ServerHistoryManager.recordPlacementWithRecords(
+                player, List.of(placement), Direction.UP, true);
+        assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
+                "Creative placement undo should restore one overwritten block");
+        helper.assertBlockPresent(Blocks.CHEST, chestRel);
+        assertValueEqual(helper, 5, countChestItem(helper, chestRel, Items.EMERALD),
+                "Creative placement undo must restore overwritten block-entity NBT");
+        assertValueEqual(helper, 1, ServerHistoryManager.executeRedo(player),
+                "Creative placement redo should restore the placed stone");
+        helper.assertBlockPresent(Blocks.STONE, chestRel);
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120, batch = "history")
+    public static void creativeQuickBuildPipelineRecordsOverwrittenBlock(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(4, 1, 4);
+        helper.setBlock(targetRel, Blocks.CHEST);
+        setChestStack(helper, targetRel, 0, new ItemStack(Items.GOLD_INGOT, 6));
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        ServerHistoryManager.clear(player.getUUID());
+        BlockPos target = helper.absolutePos(targetRel);
+        Vec3 rayOrigin = player.getEyePosition();
+        Vec3 rayDir = Vec3.atCenterOf(target).subtract(rayOrigin).normalize();
+
+        ServiceRegistry.getInstance().placement().enqueuePlaceBatch(
+                player, List.of(target), Direction.UP,
+                0.5D, 0.5D, 0.5D, (byte) 0, "",
+                false, false, true,
+                "minecraft:stone", new ItemStack(Items.STONE),
+                rayOrigin.x, rayOrigin.y, rayOrigin.z,
+                rayDir.x, rayDir.y, rayDir.z);
+        helper.assertTrue(hasActiveTask(player, TaskType.PLACEMENT),
+                "Creative overwrite fixture must enter the durable placement pipeline");
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+                    "Creative overwrite placement did not reach its terminal history commit");
+            helper.assertBlockPresent(Blocks.STONE, targetRel);
+            assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
+                    "Pipeline-created creative placement history should undo exactly one block");
+            helper.assertBlockPresent(Blocks.CHEST, targetRel);
+            assertValueEqual(helper, 6, countChestItem(helper, targetRel, Items.GOLD_INGOT),
+                    "Real placement pipeline must restore the overwritten chest NBT");
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void survivalPlacementUndoRefundsLinkedStorage(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(2, 1, 2);
+        BlockPos targetRel = new BlockPos(5, 1, 5);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        helper.setBlock(targetRel, Blocks.DIRT);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        BlockPos target = helper.absolutePos(targetRel);
+        HistoryBlockRecord placement = HistoryBlockRecord.placement(
+                target, Blocks.AIR.defaultBlockState(), null,
+                helper.getLevel().getBlockState(target));
+
+        ServerHistoryManager.recordPlacementWithRecords(
+                player, List.of(placement), Direction.UP, false);
+        assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
+                "Survival placement undo should remove one placed block");
+        helper.assertBlockPresent(Blocks.AIR, targetRel);
+        assertValueEqual(helper, 1, countChestItem(helper, chestRel, Items.DIRT),
+                "Survival placement undo should refund linked storage first");
+        assertValueEqual(helper, 0, ServerHistoryManager.getRedoSize(player.getUUID()),
+                "Survival undo must never create a redo entry");
+        assertValueEqual(helper, 0, ServerHistoryManager.executeRedo(player),
+                "Survival redo must have no side effects");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void survivalBreakUndoConsumesLinkedThenRecordedSlot(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(2, 1, 2);
+        BlockPos firstRel = new BlockPos(5, 1, 5);
+        BlockPos secondRel = new BlockPos(6, 1, 5);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        setChestStack(helper, chestRel, 0, new ItemStack(Items.STONE));
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        player.getInventory().setItem(2, new ItemStack(Items.STONE));
+        RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        List<HistoryBlockRecord> records = List.of(
+                new HistoryBlockRecord(helper.absolutePos(firstRel), Blocks.STONE.defaultBlockState()),
+                new HistoryBlockRecord(helper.absolutePos(secondRel), Blocks.STONE.defaultBlockState()));
+
+        ServerHistoryManager.recordBreakWithRecords(
+                player, records, Direction.DOWN, 2, false);
+        assertValueEqual(helper, 2, ServerHistoryManager.executeUndo(player),
+                "Survival break undo should restore both paid blocks");
+        helper.assertBlockPresent(Blocks.STONE, firstRel);
+        helper.assertBlockPresent(Blocks.STONE, secondRel);
+        assertValueEqual(helper, 0, countChestItem(helper, chestRel, Items.STONE),
+                "Undo should consume the linked stone first");
+        helper.assertTrue(player.getInventory().getItem(2).isEmpty(),
+                "Undo should consume the recorded slot after linked storage is empty");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void undoStackKeepsOnlyLatestThreeOperations(GameTestHelper helper) {
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        ServerHistoryManager.clear(player.getUUID());
+        for (int i = 0; i < 4; i++) {
+            BlockPos rel = new BlockPos(2 + i, 1, 3);
+            ServerHistoryManager.recordBreakWithRecords(player,
+                    List.of(new HistoryBlockRecord(
+                            helper.absolutePos(rel), Blocks.STONE.defaultBlockState())),
+                    Direction.DOWN, 0, true);
+        }
+        assertValueEqual(helper, 3, ServerHistoryManager.getUndoSize(player.getUUID()),
+                "Only the latest three complete operations may remain undoable");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void creativeRedoRestoresBothBlockEntitySnapshots(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(4, 1, 4);
+        helper.setBlock(targetRel, Blocks.CHEST);
+        setChestStack(helper, targetRel, 0, new ItemStack(Items.EMERALD, 3));
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos target = helper.absolutePos(targetRel);
+        HistoryBlockRecord before = ServerHistoryManager.capturePlacementBefore(
+                helper.getLevel(), target, true);
+
+        helper.setBlock(targetRel, Blocks.AIR);
+        helper.setBlock(targetRel, Blocks.CHEST);
+        setChestStack(helper, targetRel, 0, new ItemStack(Items.DIAMOND, 9));
+        HistoryBlockRecord placement = HistoryBlockRecord.placement(
+                target, before.state(), before.blockEntityData(),
+                helper.getLevel().getBlockState(target),
+                ServerHistoryManager.captureBlockEntityData(helper.getLevel(), target));
+        ServerHistoryManager.recordPlacementWithRecords(
+                player, List.of(placement), Direction.UP, true);
+
+        assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
+                "Undo should restore the before chest snapshot");
+        assertValueEqual(helper, 3, countChestItem(helper, targetRel, Items.EMERALD),
+                "Undo must restore the before NBT");
+        assertValueEqual(helper, 1, ServerHistoryManager.executeRedo(player),
+                "Redo should restore the after chest snapshot");
+        assertValueEqual(helper, 9, countChestItem(helper, targetRel, Items.DIAMOND),
+                "Redo must restore the after NBT");
+        assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
+                "A redone operation must return to the undo stack");
+        assertValueEqual(helper, 3, countChestItem(helper, targetRel, Items.EMERALD),
+                "Undo after redo must still restore the original NBT");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void creativeRedoMovesOnlySuccessfulPositions(GameTestHelper helper) {
+        BlockPos firstRel = new BlockPos(3, 1, 3);
+        BlockPos secondRel = new BlockPos(4, 1, 3);
+        helper.setBlock(firstRel, Blocks.STONE);
+        helper.setBlock(secondRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        List<HistoryBlockRecord> records = List.of(
+                HistoryBlockRecord.placement(helper.absolutePos(firstRel),
+                        Blocks.AIR.defaultBlockState(), null, Blocks.STONE.defaultBlockState()),
+                HistoryBlockRecord.placement(helper.absolutePos(secondRel),
+                        Blocks.AIR.defaultBlockState(), null, Blocks.STONE.defaultBlockState()));
+        ServerHistoryManager.recordPlacementWithRecords(player, records, Direction.UP, true);
+        assertValueEqual(helper, 2, ServerHistoryManager.executeUndo(player),
+                "Fixture should undo both creative placements");
+        helper.setBlock(secondRel, Blocks.DIRT);
+
+        assertValueEqual(helper, 1, ServerHistoryManager.executeRedo(player),
+                "Redo should skip the position changed after undo");
+        helper.assertBlockPresent(Blocks.STONE, firstRel);
+        helper.assertBlockPresent(Blocks.DIRT, secondRel);
+        assertValueEqual(helper, 1, ServerHistoryManager.getRedoSize(player.getUUID()),
+                "The failed redo subset must remain redoable");
+        assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
+                "Only the successful redo subset should return to undo");
+        helper.assertBlockPresent(Blocks.AIR, firstRel);
+        helper.assertBlockPresent(Blocks.DIRT, secondRel);
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void newOperationClearsCreativeRedoBranch(GameTestHelper helper) {
+        BlockPos firstRel = new BlockPos(3, 1, 3);
+        helper.setBlock(firstRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        HistoryBlockRecord broken = ServerHistoryManager.captureBlock(
+                helper.getLevel(), helper.absolutePos(firstRel), true);
+        helper.setBlock(firstRel, Blocks.AIR);
+        ServerHistoryManager.recordBreakWithRecords(
+                player, List.of(broken), Direction.DOWN, 0, true);
+        assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
+                "Fixture should create one redo entry");
+        assertValueEqual(helper, 1, ServerHistoryManager.getRedoSize(player.getUUID()),
+                "Creative undo should expose one redo entry");
+
+        BlockPos secondRel = new BlockPos(5, 1, 3);
+        helper.setBlock(secondRel, Blocks.DIRT);
+        ServerHistoryManager.recordPlacementWithRecords(player, List.of(
+                HistoryBlockRecord.placement(helper.absolutePos(secondRel),
+                        Blocks.AIR.defaultBlockState(), null, Blocks.DIRT.defaultBlockState())),
+                Direction.UP, true);
+        assertValueEqual(helper, 0, ServerHistoryManager.getRedoSize(player.getUUID()),
+                "A new operation must clear the old redo branch");
+        stopPlayers(player);
+        helper.succeed();
     }
 
     static boolean hasActiveTask(ServerPlayer player, TaskType type) {

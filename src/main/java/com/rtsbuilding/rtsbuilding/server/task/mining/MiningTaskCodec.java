@@ -21,7 +21,7 @@ import java.util.List;
 
 /** MiningTaskPayload 的版本化纯 NBT codec，并集中保存历史方块快照格式。 */
 public final class MiningTaskCodec {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
     public static final int MAX_TARGETS = 32_768;
 
     private MiningTaskCodec() {
@@ -48,6 +48,7 @@ public final class MiningTaskCodec {
         tag.putInt("tool_slot", state.toolSlot());
         tag.putBoolean("selected_tool", state.selectedToolRequested());
         tag.putBoolean("protect_tool", state.toolProtectionEnabled());
+        tag.putBoolean("creative_operation", state.creativeOperation());
         tag.putFloat("progress", state.blockProgress());
         tag.putInt("stage", state.visibleStage());
         ListTag history = new ListTag();
@@ -85,7 +86,8 @@ public final class MiningTaskCodec {
                 tag.getInt("cursor"), tag.getInt("succeeded"), tag.getInt("failed"),
                 Direction.from3DDataValue(tag.getByte("face")), tag.getInt("tool_slot"),
                 tag.getBoolean("selected_tool"), tag.getBoolean("protect_tool"),
-                tag.getFloat("progress"), tag.getInt("stage"), history);
+                tag.getFloat("progress"), tag.getInt("stage"), history,
+                tag.getInt("schema") >= 2 && tag.getBoolean("creative_operation"));
         ResourceKey<Level> dimension = RtsDimensionKeys.create(dimensionId);
         return new MiningTaskPayload(tag.getUUID("owner"), dimension, workflow, state);
     }
@@ -113,7 +115,8 @@ public final class MiningTaskCodec {
 
     private static void requireFields(CompoundTag tag) {
         if (tag == null || !tag.contains("schema", Tag.TAG_INT)
-                || tag.getInt("schema") != SCHEMA_VERSION || !tag.hasUUID("owner")
+                || tag.getInt("schema") < 1 || tag.getInt("schema") > SCHEMA_VERSION
+                || !tag.hasUUID("owner")
                 || !tag.contains("dimension", Tag.TAG_STRING) || !tag.contains("workflow", Tag.TAG_INT)
                 || !tag.contains("mode", Tag.TAG_STRING) || !tag.contains("remaining", Tag.TAG_LONG_ARRAY)
                 || !tag.contains("total", Tag.TAG_INT) || !tag.contains("cursor", Tag.TAG_INT)
@@ -123,6 +126,9 @@ public final class MiningTaskCodec {
                 || !tag.contains("progress", Tag.TAG_FLOAT) || !tag.contains("stage", Tag.TAG_INT)
                 || !tag.contains("history", Tag.TAG_LIST)) {
             throw new IllegalArgumentException("不支持或不完整的 mining task payload");
+        }
+        if (tag.getInt("schema") >= 2 && !tag.contains("creative_operation", Tag.TAG_BYTE)) {
+            throw new IllegalArgumentException("mining task 缺少 creative_operation");
         }
     }
 }

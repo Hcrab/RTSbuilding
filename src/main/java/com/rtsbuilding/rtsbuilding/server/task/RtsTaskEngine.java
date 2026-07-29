@@ -180,6 +180,9 @@ public final class RtsTaskEngine {
 
     /** ServerStopping 的 persistence.stop 前置 barrier。 */
     public void checkpointAllDurableExecutions(MinecraftServer server) {
+        durableRuntime.checkpointPlacementExecutions(
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.coordinator(),
+                server.overworld().getGameTime());
         durableRuntime.checkpointMiningExecutions(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.coordinator(),
                 server.overworld().getGameTime());
@@ -226,15 +229,14 @@ public final class RtsTaskEngine {
             var state = paused
                     ? com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.PAUSED
                     : com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED;
-            var next = durable.type() == TaskType.MINING
-                    ? durableRuntime.transitionMiningSnapshot(
+            var next = durable.type() == TaskType.PLACEMENT
+                    ? durableRuntime.transitionPlacementSnapshot(
                             durable, state, player.serverLevel().getGameTime())
-                    : durable.type() == TaskType.DESTRUCTION
-                            ? durableRuntime.transitionDestructionSnapshot(
+                    : durable.type() == TaskType.MINING
+                            ? durableRuntime.transitionMiningSnapshot(
                                     durable, state, player.serverLevel().getGameTime())
-                            : durable.nextRevision(state, null,
-                                    player.serverLevel().getGameTime(), durable.cursorUnits(),
-                                    durable.succeededUnits(), durable.failedUnits(), durable.payload());
+                            : durableRuntime.transitionDestructionSnapshot(
+                                    durable, state, player.serverLevel().getGameTime());
             coordinator.replace(next);
         }
         TaskRecord record = findWorkflowTask(key);
@@ -289,8 +291,7 @@ public final class RtsTaskEngine {
                 try {
                     if (durable.type() == TaskType.PLACEMENT) {
                         RtsPlacementBatch.recordDetachedHistory(player,
-                                com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
-                                        .decode(durable.payload()).state());
+                                durableRuntime.currentPlacementState(durable));
                     } else if (durable.type() == TaskType.DESTRUCTION) {
                         RtsDestructionBatch.recordDetachedHistory(player,
                                 durableRuntime.currentDestructionState(durable));
@@ -307,14 +308,17 @@ public final class RtsTaskEngine {
             }
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot cancelled;
             try {
-                cancelled = durable.type() == TaskType.MINING
-                        ? durableRuntime.transitionMiningSnapshot(durable,
+                cancelled = durable.type() == TaskType.PLACEMENT
+                        ? durableRuntime.transitionPlacementSnapshot(durable,
                                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
                                 player.serverLevel().getGameTime())
-                        : durable.nextRevision(
-                                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                                null, player.serverLevel().getGameTime(), durable.cursorUnits(),
-                                durable.succeededUnits(), durable.failedUnits(), durable.payload());
+                        : durable.type() == TaskType.MINING
+                                ? durableRuntime.transitionMiningSnapshot(durable,
+                                        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
+                                        player.serverLevel().getGameTime())
+                                : durableRuntime.transitionDestructionSnapshot(durable,
+                                        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
+                                        player.serverLevel().getGameTime());
             } catch (RuntimeException malformedMining) {
                 cancelled = durable.nextRevision(
                         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
@@ -696,7 +700,7 @@ public final class RtsTaskEngine {
         }
         PlacementTaskPayload payload = new PlacementTaskPayload(
                 player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
-                RtsPlacementBatch.snapshotDetachedState(job, player.serverLevel().registryAccess()));
+                RtsPlacementBatch.snapshotDetachedState(job, player));
         /*
          * workflowEntryId 只属于当前工作流存档代次。玩家每次新放置都必须获得新的
          * submission，否则旧世界中相同编号的终态回执会把合法操作误判为任务重放。
@@ -823,7 +827,7 @@ public final class RtsTaskEngine {
                 RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS, ignored -> true)) return false;
         DestructionTaskPayload payload = new DestructionTaskPayload(
                 player.getUUID(), player.serverLevel().dimension(), job.workflowEntryId(),
-                RtsDestructionBatch.snapshotDetachedState(job));
+                RtsDestructionBatch.snapshotDetachedState(job, player.isCreative()));
         // 与放置、挖掘一致：新操作不能复用历史 workflow 编号作为 durable submission。
         var submission = com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId.create();
         var taskId = com.rtsbuilding.rtsbuilding.server.task.identity.TaskId
@@ -861,7 +865,7 @@ public final class RtsTaskEngine {
                         : com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState.Mode.BATCH,
                 workflowEntryId, immutableTargets, immutableTargets.size(), 0, 0, 0,
                 face, toolSlot, selectedToolRequested, toolProtectionEnabled,
-                0.0F, -1, java.util.List.of());
+                0.0F, -1, java.util.List.of(), player.isCreative());
         return submitMiningState(player, state);
     }
 
@@ -870,7 +874,8 @@ public final class RtsTaskEngine {
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
             RtsMiningStateMachine.MiningJob job) {
         if (player == null || session == null || job == null) return false;
-        return submitMiningState(player, RtsMiningStateMachine.snapshotDetachedQueued(session, job));
+        return submitMiningState(player,
+                RtsMiningStateMachine.snapshotDetachedQueued(session, job, player.isCreative()));
     }
 
     private boolean submitMiningState(net.minecraft.server.level.ServerPlayer player,

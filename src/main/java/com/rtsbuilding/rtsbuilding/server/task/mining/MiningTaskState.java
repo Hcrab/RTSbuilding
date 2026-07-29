@@ -31,6 +31,7 @@ public final class MiningTaskState {
     private final float blockProgress;
     private final int visibleStage;
     private final List<CompoundTag> historyRecords;
+    private final boolean creativeOperation;
 
     public MiningTaskState(
             Mode mode, int workflowEntryId, List<BlockPos> remainingTargets,
@@ -40,7 +41,19 @@ public final class MiningTaskState {
             List<CompoundTag> historyRecords) {
         this(mode, workflowEntryId, remainingTargets, totalUnits, cursorUnits,
                 succeededUnits, failedUnits, face, toolSlot, selectedToolRequested,
-                toolProtectionEnabled, blockProgress, visibleStage, historyRecords, false);
+                toolProtectionEnabled, blockProgress, visibleStage, historyRecords, false, false);
+    }
+
+    public MiningTaskState(
+            Mode mode, int workflowEntryId, List<BlockPos> remainingTargets,
+            int totalUnits, int cursorUnits, int succeededUnits, int failedUnits,
+            Direction face, int toolSlot, boolean selectedToolRequested,
+            boolean toolProtectionEnabled, float blockProgress, int visibleStage,
+            List<CompoundTag> historyRecords, boolean creativeOperation) {
+        this(mode, workflowEntryId, remainingTargets, totalUnits, cursorUnits,
+                succeededUnits, failedUnits, face, toolSlot, selectedToolRequested,
+                toolProtectionEnabled, blockProgress, visibleStage, historyRecords,
+                creativeOperation, false);
     }
 
     private MiningTaskState(
@@ -48,7 +61,8 @@ public final class MiningTaskState {
             int totalUnits, int cursorUnits, int succeededUnits, int failedUnits,
             Direction face, int toolSlot, boolean selectedToolRequested,
             boolean toolProtectionEnabled, float blockProgress, int visibleStage,
-            List<CompoundTag> historyRecords, boolean trustedTransition) {
+            List<CompoundTag> historyRecords, boolean creativeOperation,
+            boolean trustedTransition) {
         this.mode = Objects.requireNonNull(mode, "mode");
         if (workflowEntryId < -1) throw new IllegalArgumentException("workflowEntryId 不能小于 -1");
         Objects.requireNonNull(remainingTargets, "remainingTargets");
@@ -83,6 +97,7 @@ public final class MiningTaskState {
         this.toolProtectionEnabled = toolProtectionEnabled;
         this.blockProgress = blockProgress;
         this.visibleStage = visibleStage;
+        this.creativeOperation = creativeOperation;
         if (trustedTransition) {
             this.historyRecords = List.copyOf(historyRecords);
         } else {
@@ -108,6 +123,7 @@ public final class MiningTaskState {
     public boolean toolProtectionEnabled() { return toolProtectionEnabled; }
     public float blockProgress() { return blockProgress; }
     public int visibleStage() { return visibleStage; }
+    public boolean creativeOperation() { return creativeOperation; }
 
     public List<CompoundTag> historyRecords() {
         return historyRecords.stream().map(CompoundTag::copy).toList();
@@ -138,6 +154,6 @@ public final class MiningTaskState {
         return new MiningTaskState(nextMode, workflowEntryId, nextTargets,
                 totalUnits, nextCursor, nextSucceeded, nextFailed,
                 face, toolSlot, selectedToolRequested, toolProtectionEnabled,
-                nextProgress, nextStage, nextHistory, true);
+                nextProgress, nextStage, nextHistory, creativeOperation, true);
     }
 }

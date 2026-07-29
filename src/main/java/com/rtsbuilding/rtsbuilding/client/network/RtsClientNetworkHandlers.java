@@ -159,7 +159,8 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize()));
+        context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(
+                payload.undoSize(), payload.redoSize()));
     }
 
     public static void handleBlueprintStatus(S2CBlueprintStatusPayload payload, IPayloadContext context) {

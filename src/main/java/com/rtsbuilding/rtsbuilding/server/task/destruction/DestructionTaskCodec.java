@@ -16,7 +16,7 @@ import java.util.List;
 
 /** DestructionTaskPayload 的有界、版本化 NBT 编解码器。 */
 public final class DestructionTaskCodec {
-    public static final int SCHEMA_VERSION = 1;
+    public static final int SCHEMA_VERSION = 2;
 
     private DestructionTaskCodec() {
     }
@@ -33,6 +33,7 @@ public final class DestructionTaskCodec {
         tag.putByte("toolSlot", state.toolSlot());
         tag.putBoolean("toolProtection", state.toolProtectionEnabled());
         tag.putBoolean("selectedTool", state.selectedToolRequested());
+        tag.putBoolean("creativeOperation", state.creativeOperation());
         tag.putInt("cursor", state.cursorUnits());
         tag.putInt("succeeded", state.succeededUnits());
         tag.putInt("failed", state.failedUnits());
@@ -45,7 +46,8 @@ public final class DestructionTaskCodec {
     }
 
     public static DestructionTaskPayload decode(CompoundTag tag) {
-        if (tag == null || tag.getInt("schema") != SCHEMA_VERSION || !tag.hasUUID("owner")) {
+        if (tag == null || tag.getInt("schema") < 1
+                || tag.getInt("schema") > SCHEMA_VERSION || !tag.hasUUID("owner")) {
             throw new IllegalArgumentException("不支持或不完整的 destruction task payload");
         }
         requireType(tag, "dimension", Tag.TAG_STRING);
@@ -54,6 +56,7 @@ public final class DestructionTaskCodec {
         requireType(tag, "toolSlot", Tag.TAG_BYTE);
         requireType(tag, "toolProtection", Tag.TAG_BYTE);
         requireType(tag, "selectedTool", Tag.TAG_BYTE);
+        if (tag.getInt("schema") >= 2) requireType(tag, "creativeOperation", Tag.TAG_BYTE);
         requireType(tag, "cursor", Tag.TAG_INT);
         requireType(tag, "succeeded", Tag.TAG_INT);
         requireType(tag, "failed", Tag.TAG_INT);
@@ -91,6 +94,8 @@ public final class DestructionTaskCodec {
         }
 
         int workflow = tag.getInt("workflow");
+        boolean creativeOperation = tag.getInt("schema") >= 2
+                && tag.getBoolean("creativeOperation");
         DestructionTaskState state = new DestructionTaskState(
                 targets,
                 tag.getByte("toolSlot"),
@@ -101,7 +106,8 @@ public final class DestructionTaskCodec {
                 tag.getInt("succeeded"),
                 tag.getInt("failed"),
                 destroyed,
-                history);
+                history,
+                creativeOperation);
         return new DestructionTaskPayload(tag.getUUID("owner"), dimension, workflow, state);
     }
 

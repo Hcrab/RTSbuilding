@@ -1525,8 +1525,11 @@ public class BuilderScreen extends Screen {
             this.pendingGuiBindSlot = -1;
             return true;
         }
-        if (hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
+        if (!isSearchFocused() && hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
             return this.shapeController.undoLastPlacementBatch();
+        }
+        if (!isSearchFocused() && hasControlDown() && keyCode == GLFW.GLFW_KEY_Y) {
+            return this.shapeController.redoLastPlacementBatch();
         }
         // Alt+Space: toggle creative flight for the player entity in RTS mode
         if (!isSearchFocused() && (modifiers & GLFW.GLFW_MOD_ALT) != 0 && keyCode == GLFW.GLFW_KEY_SPACE) {

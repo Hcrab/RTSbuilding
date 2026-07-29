@@ -25,7 +25,8 @@ public record DestructionTaskState(
         int succeededUnits,
         int failedUnits,
         List<BlockPos> destroyedPositions,
-        List<CompoundTag> historyRecords) {
+        List<CompoundTag> historyRecords,
+        boolean creativeOperation) {
 
     public static final int MAX_TARGETS = 98_304;
     public static final int MAX_HISTORY_RECORDS_PER_TARGET = 7;
@@ -68,6 +69,15 @@ public record DestructionTaskState(
         return copyTags(historyRecords);
     }
 
+    public DestructionTaskState(
+            List<BlockPos> targets, byte toolSlot, boolean toolProtectionEnabled,
+            boolean selectedToolRequested, int workflowEntryId, int cursorUnits,
+            int succeededUnits, int failedUnits, List<BlockPos> destroyedPositions,
+            List<CompoundTag> historyRecords) {
+        this(targets, toolSlot, toolProtectionEnabled, selectedToolRequested, workflowEntryId,
+                cursorUnits, succeededUnits, failedUnits, destroyedPositions, historyRecords, false);
+    }
+
     public int totalUnits() {
         return targets.size();
     }
@@ -80,7 +90,8 @@ public record DestructionTaskState(
             List<BlockPos> nextDestroyedPositions, List<CompoundTag> nextHistoryRecords) {
         return new DestructionTaskState(
                 targets, toolSlot, toolProtectionEnabled, selectedToolRequested, workflowEntryId,
-                nextCursor, nextSucceeded, nextFailed, nextDestroyedPositions, nextHistoryRecords);
+                nextCursor, nextSucceeded, nextFailed, nextDestroyedPositions, nextHistoryRecords,
+                creativeOperation);
     }
 
     private static List<BlockPos> immutableUniquePositions(List<BlockPos> positions, String field) {

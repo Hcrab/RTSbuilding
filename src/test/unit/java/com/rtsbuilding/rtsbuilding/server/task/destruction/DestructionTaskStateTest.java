@@ -23,7 +23,7 @@ class DestructionTaskStateTest {
     @Test
     void payloadRoundTripPreservesPureDetachedState() {
         UUID owner = UUID.randomUUID();
-        DestructionTaskState state = stateWithOneDestroyedTarget();
+        DestructionTaskState state = stateWithOneDestroyedTarget(true);
         DestructionTaskPayload payload = new DestructionTaskPayload(
                 owner, Level.OVERWORLD, 17, state);
 
@@ -35,6 +35,7 @@ class DestructionTaskStateTest {
         assertEquals(17, decoded.workflowEntryId());
         assertEquals(state, decoded.state());
         assertTrue(decoded.state().complete());
+        assertTrue(decoded.state().creativeOperation());
     }
 
     @Test
@@ -77,7 +78,7 @@ class DestructionTaskStateTest {
     @Test
     void codecRejectsWrongHistoryElementTypeAndNonCanonicalDimension() {
         DestructionTaskPayload payload = new DestructionTaskPayload(
-                UUID.randomUUID(), Level.OVERWORLD, 17, stateWithOneDestroyedTarget());
+                UUID.randomUUID(), Level.OVERWORLD, 17, stateWithOneDestroyedTarget(false));
         CompoundTag wrongHistory = DestructionTaskCodec.encode(payload);
         ListTag strings = new ListTag();
         strings.add(StringTag.valueOf("not-a-history-record"));
@@ -91,11 +92,11 @@ class DestructionTaskStateTest {
                 () -> DestructionTaskCodec.decode(wrongDimension));
     }
 
-    private static DestructionTaskState stateWithOneDestroyedTarget() {
+    private static DestructionTaskState stateWithOneDestroyedTarget(boolean creativeOperation) {
         BlockPos target = new BlockPos(1, 2, 3);
         return new DestructionTaskState(
                 List.of(target), (byte) 2, true, false, 17,
-                1, 1, 0, List.of(target), List.of(history(target)));
+                1, 1, 0, List.of(target), List.of(history(target)), creativeOperation);
     }
 
     private static CompoundTag history(BlockPos pos) {
