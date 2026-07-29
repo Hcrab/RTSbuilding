@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.task.PlacementTaskPayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -14,7 +15,7 @@ import java.util.List;
 
 /** PlacementTaskPayload 的有界、版本化 NBT 编解码器。 */
 public final class PlacementTaskCodec {
-    public static final int SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION = 3;
     public static final int MAX_TARGETS = 32_768;
 
     private PlacementTaskCodec() {
@@ -34,14 +35,18 @@ public final class PlacementTaskCodec {
         tag.putInt("succeeded", state.succeededUnits());
         tag.putInt("failed", state.failedUnits());
         tag.putString("resumePolicy", state.resumePolicy().name());
+        tag.putBoolean("creativeOperation", state.creativeOperation());
         tag.putLongArray("placed", state.placedPositions().stream().mapToLong(BlockPos::asLong).toArray());
+        ListTag history = new ListTag();
+        state.historyRecords().forEach(history::add);
+        tag.put("history", history);
         return tag;
     }
 
     public static PlacementTaskPayload decode(CompoundTag tag) {
         if (tag == null
                 || !tag.contains("schema", Tag.TAG_INT)
-                || (tag.getInt("schema") != 1 && tag.getInt("schema") != SCHEMA_VERSION)
+                || (tag.getInt("schema") < 1 || tag.getInt("schema") > SCHEMA_VERSION)
                 || !tag.hasUUID("owner")
                 || !tag.contains("dimension", Tag.TAG_STRING)
                 || !tag.contains("workflow", Tag.TAG_INT)
@@ -80,10 +85,34 @@ public final class PlacementTaskCodec {
                 throw new IllegalArgumentException("placement task resumePolicy 无效", invalidPolicy);
             }
         }
+        boolean creativeOperation = false;
+        List<CompoundTag> history = List.of();
+        if (tag.getInt("schema") >= 3) {
+            if (!tag.contains("creativeOperation", Tag.TAG_BYTE)
+                    || !tag.contains("history", Tag.TAG_LIST)) {
+                throw new IllegalArgumentException("placement task 缺少历史模式或快照");
+            }
+            creativeOperation = tag.getBoolean("creativeOperation");
+            ListTag encodedHistory = tag.getList("history", Tag.TAG_COMPOUND);
+            if (encodedHistory.size() != positions.size()) {
+                throw new IllegalArgumentException("placement history 数量与成功位置不一致");
+            }
+            List<CompoundTag> decodedHistory = new ArrayList<>(encodedHistory.size());
+            for (int i = 0; i < encodedHistory.size(); i++) {
+                CompoundTag record = encodedHistory.getCompound(i);
+                if (!record.contains("pos", Tag.TAG_LONG)
+                        || !record.contains("before", Tag.TAG_COMPOUND)
+                        || !record.contains("after", Tag.TAG_COMPOUND)) {
+                    throw new IllegalArgumentException("placement history record 不完整");
+                }
+                decodedHistory.add(record.copy());
+            }
+            history = List.copyOf(decodedHistory);
+        }
         PlacementTaskState state = new PlacementTaskState(
                 definition, workflow, total,
                 tag.getInt("cursor"), tag.getInt("succeeded"), tag.getInt("failed"), positions,
-                resumePolicy);
+                resumePolicy, creativeOperation, history);
         return new PlacementTaskPayload(tag.getUUID("owner"), dimension, workflow, state);
     }
 

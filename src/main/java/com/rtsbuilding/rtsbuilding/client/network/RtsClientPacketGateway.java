@@ -608,6 +608,10 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(new C2SRtsUndoPayload());
     }
 
+    public static void sendRedo() {
+        PacketDistributor.sendToServer(new C2SRtsRedoPayload());
+    }
+
     public static void sendPathfindingGoTo(BlockPos target) {
         PacketDistributor.sendToServer(new C2SRtsPathfindingPayload(target));
     }

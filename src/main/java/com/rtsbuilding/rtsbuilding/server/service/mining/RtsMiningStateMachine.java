@@ -189,9 +189,11 @@ public final class RtsMiningStateMachine {
         // --- Progress complete: break the block ---
 
         // Capture before-state for history (must be done before destroy)
-        HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.serverLevel(), pos);
+        HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(
+                player.serverLevel(), pos, player.isCreative());
         // Also capture neighbor states for multi-block tracking
-        List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(player.serverLevel(), pos);
+        List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(
+                player.serverLevel(), pos, player.isCreative());
 
         MiningBreakResult result = destroyMinedBlock(player, session, pos, session.mining.miningToolSlot);
         level.destroyBlockProgress(player.getId(), pos, -1);
@@ -272,7 +274,7 @@ public final class RtsMiningStateMachine {
 
     /** 将旧队列中的一个 MiningJob 冻结成独立 BATCH task。 */
     public static MiningTaskState snapshotDetachedQueued(
-            RtsStorageSession session, MiningJob job) {
+            RtsStorageSession session, MiningJob job, boolean creativeOperation) {
         if (session == null || job == null || job.targets() == null || job.targets().isEmpty()) {
             throw new IllegalArgumentException("session/job 不能为空且必须包含目标");
         }
@@ -286,7 +288,7 @@ public final class RtsMiningStateMachine {
                 session.mining.miningToolSlot,
                 session.mining.miningSelectedToolRequested,
                 session.mining.miningToolProtectionEnabled,
-                0.0F, -1, List.of());
+                0.0F, -1, List.of(), creativeOperation);
     }
 
     /**
@@ -376,7 +378,8 @@ public final class RtsMiningStateMachine {
                             stage = nextStage;
                         }
                     } else {
-                        boolean broken = destroyDetachedTarget(player, session, target, history);
+                        boolean broken = destroyDetachedTarget(
+                                player, session, target, history, state.creativeOperation());
                         clearDetachedProgress(player, target);
                         remaining.removeFirst();
                         processed++;
@@ -422,7 +425,8 @@ public final class RtsMiningStateMachine {
                 waitHint = MiningWaitHint.tool();
                 break;
             }
-            boolean broken = destroyDetachedTarget(player, session, target, history);
+            boolean broken = destroyDetachedTarget(
+                    player, session, target, history, state.creativeOperation());
             remaining.removeFirst();
             processed++;
             if (broken) {
@@ -445,7 +449,8 @@ public final class RtsMiningStateMachine {
         else if (deferUntilNextTick) outcome = MiningSliceResult.Outcome.NEXT_TICK;
         else outcome = MiningSliceResult.Outcome.CONTINUE;
         if (outcome == MiningSliceResult.Outcome.COMPLETE) {
-            finalizeDetachedMining(player, session, decodeDetachedHistory(player, history), state.face());
+            finalizeDetachedMining(player, session, decodeDetachedHistory(player, history),
+                    state.face(), state.toolSlot(), state.creativeOperation());
         }
         return new MiningSliceResult(next, processed, processed, succeeded, failed, outcome, waitHint);
     }
@@ -460,9 +465,11 @@ public final class RtsMiningStateMachine {
 
     private static boolean destroyDetachedTarget(
             ServerPlayer player, RtsStorageSession session, BlockPos target,
-            List<net.minecraft.nbt.CompoundTag> history) {
-        HistoryBlockRecord before = ServerHistoryManager.captureBlock(player.serverLevel(), target);
-        List<HistoryBlockRecord> neighbors = MultiBlockTracker.captureNeighborRecords(player.serverLevel(), target);
+            List<net.minecraft.nbt.CompoundTag> history, boolean creativeOperation) {
+        HistoryBlockRecord before = ServerHistoryManager.captureBlock(
+                player.serverLevel(), target, creativeOperation);
+        List<HistoryBlockRecord> neighbors = MultiBlockTracker.captureNeighborRecords(
+                player.serverLevel(), target, creativeOperation);
         MiningBreakResult result = destroyMinedBlock(player, session, target, session.mining.miningToolSlot);
         if (!result.broken()) return false;
         if (before != null) history.add(MiningTaskCodec.encodeHistory(before));
@@ -483,8 +490,12 @@ public final class RtsMiningStateMachine {
 
     private static void finalizeDetachedMining(
             ServerPlayer player, RtsStorageSession session,
-            List<HistoryBlockRecord> history, Direction face) {
-        if (!history.isEmpty()) ServerHistoryManager.recordBreakWithRecords(player, history, face);
+            List<HistoryBlockRecord> history, Direction face,
+            int toolSlot, boolean creativeOperation) {
+        if (!history.isEmpty()) {
+            ServerHistoryManager.recordBreakWithRecords(
+                    player, history, face, toolSlot, creativeOperation);
+        }
         if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
             RtsToolLeaseManager.returnMiningTool(player, session, session.mining.miningToolLease);
             session.mining.miningToolLease = RtsToolLease.empty();
@@ -509,7 +520,8 @@ public final class RtsMiningStateMachine {
             clearDetachedProgress(player, state.remainingTargets().getFirst());
         }
         List<HistoryBlockRecord> history = decodeDetachedHistory(player, state.historyRecords());
-        finalizeDetachedMining(player, session, history, state.face());
+        finalizeDetachedMining(player, session, history, state.face(),
+                state.toolSlot(), state.creativeOperation());
     }
 
     /** 将真实成功/失败投影到工作流，网络发送由 Tick 末合并。 */
@@ -611,7 +623,9 @@ public final class RtsMiningStateMachine {
             }
             List<HistoryBlockRecord> records = new ArrayList<>(session.mining.ultimineProcessedPositions);
             if (!records.isEmpty()) {
-                ServerHistoryManager.recordBreakWithRecords(player, records, session.mining.miningFace);
+                ServerHistoryManager.recordBreakWithRecords(
+                        player, records, session.mining.miningFace,
+                        session.mining.miningToolSlot, player.isCreative());
             }
             session.mining.workflowEntryId = -1;
             if (session.mining.miningToolLease != null
@@ -832,6 +846,8 @@ public final class RtsMiningStateMachine {
         if (!records.isEmpty()) {
             ctx.setData(HistoryRecordPipe.ARG_HISTORY_RECORDS, records);
             ctx.setData(HistoryRecordPipe.ARG_HISTORY_FACE, face != null ? face : Direction.DOWN);
+            ctx.setData(HistoryRecordPipe.ARG_HISTORY_SOURCE_SLOT, session.mining.miningToolSlot);
+            ctx.setData(HistoryRecordPipe.ARG_HISTORY_CREATIVE, player.isCreative());
         }
 
         // ── Execute cleanup sequence via WorkflowPipeline ───────────

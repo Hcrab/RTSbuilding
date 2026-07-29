@@ -14,15 +14,18 @@ import net.minecraft.resources.ResourceLocation;
  * @param undoSize 当前可撤回的步数
  */
 public record S2CRtsHistorySyncPayload(
-        int undoSize) implements CustomPacketPayload {
+        int undoSize,
+        int redoSize) implements CustomPacketPayload {
     public static final Type<S2CRtsHistorySyncPayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_history_sync"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, S2CRtsHistorySyncPayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
                 buf.writeVarInt(payload.undoSize());
+                buf.writeVarInt(payload.redoSize());
             },
             (buf) -> new S2CRtsHistorySyncPayload(
+                    buf.readVarInt(),
                     buf.readVarInt()));
 
     @Override

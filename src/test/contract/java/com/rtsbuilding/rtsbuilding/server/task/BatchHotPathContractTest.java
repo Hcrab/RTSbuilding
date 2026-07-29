@@ -39,6 +39,24 @@ class BatchHotPathContractTest {
     }
 
     @Test
+    void placementUsesWriteBehindCheckpointsAndDoesNotCopyAllHistoryPerSlice() throws IOException {
+        String runtime = readMain("server/task/RtsDurableTaskExecutionRuntime.java");
+        String placement = readMain("server/service/placement/RtsPlacementBatch.java");
+        int start = runtime.indexOf("private DurableTaskScheduler.SliceResult executeDurablePlacement");
+        int end = runtime.indexOf("private DurableTaskScheduler.SliceResult executeDurableDestruction", start);
+        String executor = runtime.substring(start, end);
+
+        assertTrue(executor.contains("PlacementProgressOverlay"));
+        assertTrue(executor.contains("pendingUnits >= 256"));
+        assertTrue(executor.contains(
+                "return new DurableTaskScheduler.SliceResult(snapshot, result.processedUnits())"));
+        assertTrue(runtime.contains("checkpointPlacementExecutions"));
+        assertTrue(runtime.contains("transitionPlacementSnapshot"));
+        assertTrue(placement.contains("state.appendFrozenProgressTo("));
+        assertFalse(placement.contains("job.historyRecords.addAll(state.historyRecords())"));
+    }
+
+    @Test
     void destructionHasARealTaskExecutor() throws IOException {
         String runtime = readMain("server/task/RtsDurableTaskExecutionRuntime.java");
         assertTrue(runtime.contains("scheduler.register(TaskType.DESTRUCTION"));

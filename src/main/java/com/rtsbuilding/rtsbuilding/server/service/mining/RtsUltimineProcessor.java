@@ -726,8 +726,10 @@ public final class RtsUltimineProcessor {
             }
 
             // Capture before state for history (including neighbors for multi-block tracking)
-            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.serverLevel(), target);
-            List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(level, target);
+            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(
+                    player.serverLevel(), target, player.isCreative());
+            List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(
+                    level, target, player.isCreative());
 
             RtsMiningStateMachine.MiningBreakResult result = RtsMiningStateMachine.destroyMinedBlock(
                     player, session, target, session.mining.miningToolSlot);

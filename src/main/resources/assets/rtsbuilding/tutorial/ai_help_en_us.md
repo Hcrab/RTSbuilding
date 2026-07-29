@@ -268,6 +268,12 @@ Area destruction freezes the selected tool slot when the task is submitted. A re
 
 Drops follow normal break logic, then optionally transfer to linked storage. A failed or partial insertion needs an explicit fallback and must never silently delete items.
 
+### Undo and redo history
+
+Ctrl+Z uses server-authoritative history and executes with the creative/survival mode frozen when the original operation occurred; changing game mode before undo cannot change its resource or NBT rules. Each player keeps only the latest three complete placement or destruction operations. If one operation exceeds the block-count or compressed-NBT limit, the whole history entry is rejected with player feedback instead of retaining an incomplete snapshot.
+
+Creative history stores complete before/after BlockState and block-entity NBT snapshots. Ctrl+Z restores the pre-operation snapshot, while Ctrl+Y redoes only a successfully undone creative operation; any new world modification clears the old redo branch. Survival placement undo removes successfully placed blocks and refunds material to linked storage or player inventory. Survival destruction undo stores only positions and BlockStates, never block-entity NBT, and pays for restored blocks from linked storage, the recorded hotbar slot, or an explicit fallback source. Partial success must trim history by exact positions rather than treating an unprocessed list prefix as completed.
+
 ### Blueprints
 
 The client owns the local library, parsing UI, capture selection, naming, rotation, anchor, material preview, and ghost. The server revalidates format, non-air count, missing blocks, plugin, range, materials, claims, and placement legality. Large jobs use durable workflows and the Task Engine; large blueprint data is persisted separately from lightweight task metadata.

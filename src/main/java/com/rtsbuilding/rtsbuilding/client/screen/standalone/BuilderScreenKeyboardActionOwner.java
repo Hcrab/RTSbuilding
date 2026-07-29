@@ -154,8 +154,11 @@ final class BuilderScreenKeyboardActionOwner {
                 screen.pendingGuiBindSlot = -1;
                 return true;
             }
-            if (screen.hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
+            if (!screen.isSearchFocused() && screen.hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
                 return screen.shapeController.undoLastPlacementBatch();
+            }
+            if (!screen.isSearchFocused() && screen.hasControlDown() && keyCode == GLFW.GLFW_KEY_Y) {
+                return screen.shapeController.redoLastPlacementBatch();
             }
             // Alt+Space: toggle creative flight for the player entity in RTS mode
             if (!screen.isSearchFocused() && (modifiers & GLFW.GLFW_MOD_ALT) != 0 && keyCode == GLFW.GLFW_KEY_SPACE) {

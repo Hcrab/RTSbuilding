@@ -103,6 +103,15 @@ public final class RtsInteractionHandlers {
         });
     }
 
+    public static void handleRedo(C2SRtsRedoPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                if (!RtsCameraManager.isActive(serverPlayer)) return;
+                ServerHistoryManager.executeRedo(serverPlayer);
+            }
+        });
+    }
+
     public static void handleSetWorkflowProtected(C2SRtsSetWorkflowProtectedPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
