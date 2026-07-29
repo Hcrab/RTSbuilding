@@ -57,6 +57,8 @@ public enum SettingsId {
 
     RTS_SOUNDS(SettingsSectionId.SOUND, SettingsRowKind.HINT_TOGGLE,
             "screen.rtsbuilding.settings.rts_sounds", "screen.rtsbuilding.settings.rts_sounds.hint"),
+    PLACEMENT_SOUNDS(SettingsSectionId.SOUND, SettingsRowKind.HINT_TOGGLE,
+            "screen.rtsbuilding.settings.placement_sounds", "screen.rtsbuilding.settings.placement_sounds.hint"),
     BREAK_SOUNDS(SettingsSectionId.SOUND, SettingsRowKind.HINT_TOGGLE,
             "screen.rtsbuilding.settings.break_sounds", "screen.rtsbuilding.settings.break_sounds.hint"),
     DAMAGE_SOUND(SettingsSectionId.SOUND, SettingsRowKind.HINT_TOGGLE,
@@ -64,6 +66,8 @@ public enum SettingsId {
     BLOCK_SOUNDS_PER_TICK(SettingsSectionId.SOUND, SettingsRowKind.STEP_VALUE,
             "screen.rtsbuilding.settings.block_sounds_per_tick", "screen.rtsbuilding.settings.block_sounds_per_tick.hint"),
 
+    UI_ANIMATIONS(SettingsSectionId.ANIMATION, SettingsRowKind.HINT_TOGGLE,
+            "screen.rtsbuilding.settings.ui_animations", "screen.rtsbuilding.settings.ui_animations.hint"),
     SMOOTH_CAMERA(SettingsSectionId.ANIMATION, SettingsRowKind.HINT_TOGGLE,
             "screen.rtsbuilding.settings.smooth_camera", "screen.rtsbuilding.settings.smooth_camera.hint"),
     PLACEMENT_BLOCK_GHOST_PREVIEW(SettingsSectionId.ANIMATION, SettingsRowKind.HINT_TOGGLE,

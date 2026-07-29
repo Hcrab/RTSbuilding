@@ -27,7 +27,7 @@ class MiningTaskCodecTest {
                 MiningTaskState.Mode.BATCH, 9,
                 List.of(new BlockPos(4, 5, 6)),
                 3, 2, 1, 1, Direction.NORTH, 4,
-                true, false, 0.0F, -1, List.of(historyTag()));
+                true, false, 0.0F, -1, List.of(historyTag()), true);
         MiningTaskPayload payload = new MiningTaskPayload(owner, dimension, 9, state);
 
         MiningTaskPayload decoded = MiningTaskCodec.decode(MiningTaskCodec.encode(payload));
@@ -38,6 +38,7 @@ class MiningTaskCodecTest {
         assertEquals(2, decoded.state().cursorUnits());
         assertEquals(Direction.NORTH, decoded.state().face());
         assertEquals(List.of(new BlockPos(4, 5, 6)), decoded.state().remainingTargets());
+        assertEquals(true, decoded.state().creativeOperation());
     }
 
     @Test

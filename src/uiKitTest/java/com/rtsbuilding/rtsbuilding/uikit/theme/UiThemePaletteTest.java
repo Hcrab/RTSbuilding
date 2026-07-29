@@ -65,6 +65,11 @@ class UiThemePaletteTest {
                 () -> UiColor.interpolate(UiColor.opaque(0, 0, 0), UiColor.opaque(1, 1, 1), Double.NaN));
     }
 
+    @Test
+    void 数量覆盖层背景属于共享主线主题() {
+        assertEquals(0xB0000000, RtsMainlineTheme.SLOT_COUNT_BACKGROUND.toArgb());
+    }
+
     private static UiThemeTokens theme(String id, int base) {
         UiColor background = UiColor.opaque(base, base, base);
         return new UiThemeTokens(id, background, background, background, UiColor.opaque(90, 90, 90),

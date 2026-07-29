@@ -17,6 +17,9 @@ import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.DataCluster;
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.RtsAtomicNbtStore;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
+import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
+import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
@@ -74,6 +77,8 @@ import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -333,6 +338,111 @@ public final class RtsServerGameTests {
         });
     }
 
+    /**
+     * 回归范围破坏与连锁挖掘的工具槽位差异：玩家只把镐拿在主手、没有从
+     * RTS 物品面板额外选中工具时，请求不会创建工具租约。范围破坏交给异步
+     * Task 后仍必须使用该作业冻结的快捷栏槽位，不能误读 Session 中的旧槽位。
+     */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 400)
+    public static void areaDestroyUsesHeldNetheritePickaxeWithoutToolLease(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        List<BlockPos> targetsRel = linePositions(4, 1, 4, 6);
+        for (BlockPos targetRel : targetsRel) {
+            helper.setBlock(targetRel, Blocks.STONE);
+        }
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        ItemStack tool = new ItemStack(Items.NETHERITE_PICKAXE);
+        tool.setDamageValue(37);
+        int heldToolSlot = 4;
+        player.getInventory().setItem(heldToolSlot, tool.copy());
+        player.getInventory().selected = heldToolSlot;
+
+        RtsStorageSession session = requireSession(helper, player);
+        session.mining.miningToolSlot = 0;
+
+        helper.assertTrue(tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
+                "Netherite pickaxe must be able to harvest stone before the RTS request");
+        RtsAPI.get().mining().areaDestroy(
+                player,
+                asApiPositions(helper, targetsRel),
+                (byte) heldToolSlot,
+                "",
+                ItemStack.EMPTY,
+                false);
+        helper.assertTrue(session.mining.miningToolLease.isEmpty(),
+                "Held-tool range destroy must exercise the no-lease hotbar path");
+
+        helper.succeedWhen(() -> {
+            for (BlockPos targetRel : targetsRel) {
+                helper.assertBlockPresent(Blocks.AIR, targetRel);
+            }
+            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                    "Hotbar-tool range destroy should finish without a durable task");
+            ItemStack returned = player.getInventory().getItem(heldToolSlot);
+            helper.assertTrue(returned.is(Items.NETHERITE_PICKAXE),
+                    "Held hotbar pickaxe must remain in its original slot");
+            helper.assertTrue(returned.getDamageValue() > tool.getDamageValue(),
+                    "Held hotbar pickaxe must preserve durability damage");
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 200, batch = "survival_progression")
+    public static void chainMineSnowWithoutHarvestTierStillWorks(GameTestHelper helper) {
+        Config.setSurvivalProgressionEnabled(false);
+        List<BlockPos> snowLayersRel = new ArrayList<>();
+        for (int z = 4; z < 7; z++) {
+            for (int x = 4; x < 7; x++) {
+                BlockPos supportRel = new BlockPos(x, 1, z);
+                helper.setBlock(supportRel, Blocks.DIRT);
+                BlockPos snowRel = supportRel.above();
+                helper.setBlock(snowRel, Blocks.SNOW);
+                snowLayersRel.add(snowRel);
+            }
+        }
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        player.getInventory().setItem(0, new ItemStack(RtsItems.RTS_CONTROL_CORE.get()));
+        player.getInventory().setItem(1, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
+        player.getInventory().setItem(2, new ItemStack(RtsItems.CHAIN_BREAK_PLUGIN.get()));
+        for (int slot = 0; slot < 3; slot++) {
+            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+                    "Required non-harvest plugins should install");
+        }
+
+        ItemStack diamondPickaxe = new ItemStack(Items.DIAMOND_PICKAXE);
+        player.getInventory().setItem(0, diamondPickaxe.copy());
+        player.getInventory().selected = 0;
+        Config.setSurvivalProgressionEnabled(true);
+        RtsProgressionManager.beginHomeSelection(player);
+        helper.assertTrue(RtsProgressionManager.commitHome(player, helper.absolutePos(snowLayersRel.getFirst())),
+                "GameTest player should be able to set RTS home near the snow targets");
+
+        RtsAPI.get().mining().startUltimine(
+                player,
+                helper.absolutePos(snowLayersRel.getFirst()),
+                Direction.UP,
+                (byte) 0,
+                BuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
+                diamondPickaxe,
+                snowLayersRel.size(),
+                (byte) 0,
+                false);
+        TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
+
+        helper.succeedWhen(() -> {
+            for (BlockPos snowRel : snowLayersRel) {
+                helper.assertBlockPresent(Blocks.AIR, snowRel);
+            }
+            helper.assertTrue(!hasActiveTask(player, TaskType.MINING),
+                    "Snow chain mining should finish without an active mining task");
+            Config.setSurvivalProgressionEnabled(false);
+            stopPlayers(player);
+        });
+    }
+
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
     public static void rtsEmptyHandRightClickOpensChest(GameTestHelper helper) {
         BlockPos chestRel = new BlockPos(3, 1, 3);
@@ -499,6 +609,37 @@ public final class RtsServerGameTests {
                         "Completed area destroy should not leave an active durable task");
             }
             stopPlayers(players);
+        });
+    }
+
+    /**
+     * 连续提交相同规模的范围破坏时，每一轮都必须在相同的固定窗口内结束。
+     * 这个回归测试专门防止旧终态、旧队列或累计扫描成本让后续批次越来越慢。
+     */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 280)
+    public static void repeatedAreaDestroyBatchesDoNotAccumulateDelay(GameTestHelper helper) {
+        List<BlockPos> targetsRel = new ArrayList<>();
+        for (int x = 2; x < 8; x++) {
+            for (int z = 2; z < 8; z++) {
+                targetsRel.add(new BlockPos(x, 1, z));
+            }
+        }
+
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        submitAreaDestroyRound(helper, player, targetsRel);
+
+        helper.runAfterDelay(80, () -> {
+            assertAreaDestroyRoundFinished(helper, player, targetsRel, "first");
+            submitAreaDestroyRound(helper, player, targetsRel);
+        });
+        helper.runAfterDelay(160, () -> {
+            assertAreaDestroyRoundFinished(helper, player, targetsRel, "second");
+            submitAreaDestroyRound(helper, player, targetsRel);
+        });
+        helper.runAfterDelay(240, () -> {
+            assertAreaDestroyRoundFinished(helper, player, targetsRel, "third");
+            stopPlayers(player);
+            helper.succeed();
         });
     }
 
@@ -801,6 +942,88 @@ public final class RtsServerGameTests {
         });
     }
 
+    /** 创造覆盖会替换不可替换方块，并忽略目标格内的实体占位。 */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
+    public static void creativeQuickBuildOverwriteReplacesOccupiedBlock(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(2, 1, 2);
+        helper.setBlock(targetRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos targetAbs = helper.absolutePos(targetRel);
+
+        ArmorStand stand = EntityType.ARMOR_STAND.create(helper.getLevel());
+        helper.assertTrue(stand != null, "Armor stand fixture should be created");
+        stand.moveTo(Vec3.atCenterOf(targetAbs));
+        helper.getLevel().addFreshEntity(stand);
+
+        Vec3 rayOrigin = player.getEyePosition();
+        Vec3 rayDir = Vec3.atCenterOf(targetAbs).subtract(rayOrigin).normalize();
+        ServiceRegistry.getInstance().placement().enqueuePlaceBatch(
+                player,
+                List.of(targetAbs),
+                Direction.UP,
+                0.5D,
+                0.5D,
+                0.5D,
+                (byte) 0,
+                "",
+                false,
+                true,
+                true,
+                "minecraft:dirt",
+                new ItemStack(Items.DIRT),
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDir.x,
+                rayDir.y,
+                rayDir.z);
+
+        helper.succeedWhen(() -> {
+            helper.assertBlockPresent(Blocks.DIRT, targetRel);
+            helper.assertTrue(!stand.isRemoved(), "Overwrite must not delete the occupying entity");
+            stopPlayers(player);
+        });
+    }
+
+    /** 生存玩家即使伪造覆盖字段，也不能替换既有方块。 */
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
+    public static void survivalQuickBuildCannotSpoofOverwrite(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(2, 1, 2);
+        helper.setBlock(targetRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        BlockPos targetAbs = helper.absolutePos(targetRel);
+        Vec3 rayOrigin = player.getEyePosition();
+        Vec3 rayDir = Vec3.atCenterOf(targetAbs).subtract(rayOrigin).normalize();
+
+        ServiceRegistry.getInstance().placement().enqueuePlaceBatch(
+                player,
+                List.of(targetAbs),
+                Direction.UP,
+                0.5D,
+                0.5D,
+                0.5D,
+                (byte) 0,
+                "",
+                false,
+                true,
+                true,
+                "minecraft:dirt",
+                new ItemStack(Items.DIRT),
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDir.x,
+                rayDir.y,
+                rayDir.z);
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+                    "Spoofed overwrite job should finish as a skipped placement");
+            helper.assertBlockPresent(Blocks.STONE, targetRel);
+            stopPlayers(player);
+        });
+    }
+
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
     public static void restoredTaskWorkflowIdDoesNotSwallowStatefulPlacement(GameTestHelper helper) {
         BlockPos oldSupportRel = new BlockPos(1, 1, 2);
@@ -997,6 +1220,7 @@ public final class RtsServerGameTests {
         RtsAPI.get().mining().startUltimine(
                 player, helper.absolutePos(chainRel.get(2)), Direction.UP,
                 (byte) 1, "", secondShovel, 5, (byte) 0, false);
+        TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
 
         var states = TaskPersistenceRuntime.INSTANCE.coordinator().query()
                 .ownedBy(player.getUUID()).stream()
@@ -1356,12 +1580,267 @@ public final class RtsServerGameTests {
         });
     }
 
-    private static boolean hasActiveTask(ServerPlayer player, TaskType type) {
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void creativeBreakUndoRestoresBlockEntityNbt(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(3, 1, 3);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        setChestStack(helper, chestRel, 0, new ItemStack(Items.DIAMOND, 7));
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos chest = helper.absolutePos(chestRel);
+        HistoryBlockRecord before = ServerHistoryManager.captureBlock(helper.getLevel(), chest, true);
+        helper.setBlock(chestRel, Blocks.AIR);
+
+        ServerHistoryManager.recordBreakWithRecords(
+                player, List.of(before), Direction.DOWN, 0, true);
+        helper.assertValueEqual(1, ServerHistoryManager.executeUndo(player),
+                "Creative break undo should restore one block");
+        helper.assertBlockPresent(Blocks.CHEST, chestRel);
+        helper.assertValueEqual(7, countChestItem(helper, chestRel, Items.DIAMOND),
+                "Creative break undo must restore the complete chest NBT");
+        helper.assertValueEqual(1, ServerHistoryManager.executeRedo(player),
+                "Creative break redo should remove the restored block again");
+        helper.assertBlockPresent(Blocks.AIR, chestRel);
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void creativePlacementUndoRestoresOverwrittenBlock(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(3, 1, 3);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        setChestStack(helper, chestRel, 0, new ItemStack(Items.EMERALD, 5));
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos chest = helper.absolutePos(chestRel);
+        HistoryBlockRecord before = ServerHistoryManager.capturePlacementBefore(
+                helper.getLevel(), chest, true);
+        helper.setBlock(chestRel, Blocks.STONE);
+        HistoryBlockRecord placement = HistoryBlockRecord.placement(
+                chest, before.state(), before.blockEntityData(),
+                helper.getLevel().getBlockState(chest));
+
+        ServerHistoryManager.recordPlacementWithRecords(
+                player, List.of(placement), Direction.UP, true);
+        helper.assertValueEqual(1, ServerHistoryManager.executeUndo(player),
+                "Creative placement undo should restore one overwritten block");
+        helper.assertBlockPresent(Blocks.CHEST, chestRel);
+        helper.assertValueEqual(5, countChestItem(helper, chestRel, Items.EMERALD),
+                "Creative placement undo must restore overwritten block-entity NBT");
+        helper.assertValueEqual(1, ServerHistoryManager.executeRedo(player),
+                "Creative placement redo should restore the placed stone");
+        helper.assertBlockPresent(Blocks.STONE, chestRel);
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120, batch = "history")
+    public static void creativeQuickBuildPipelineRecordsOverwrittenBlock(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(4, 1, 4);
+        helper.setBlock(targetRel, Blocks.CHEST);
+        setChestStack(helper, targetRel, 0, new ItemStack(Items.GOLD_INGOT, 6));
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        ServerHistoryManager.clear(player.getUUID());
+        BlockPos target = helper.absolutePos(targetRel);
+        Vec3 rayOrigin = player.getEyePosition();
+        Vec3 rayDir = Vec3.atCenterOf(target).subtract(rayOrigin).normalize();
+
+        ServiceRegistry.getInstance().placement().enqueuePlaceBatch(
+                player, List.of(target), Direction.UP,
+                0.5D, 0.5D, 0.5D, (byte) 0, "",
+                false, false, true,
+                "minecraft:stone", new ItemStack(Items.STONE),
+                rayOrigin.x, rayOrigin.y, rayOrigin.z,
+                rayDir.x, rayDir.y, rayDir.z);
+        helper.assertTrue(hasActiveTask(player, TaskType.PLACEMENT),
+                "Creative overwrite fixture must enter the durable placement pipeline");
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+                    "Creative overwrite placement did not reach its terminal history commit");
+            helper.assertBlockPresent(Blocks.STONE, targetRel);
+            helper.assertValueEqual(1, ServerHistoryManager.executeUndo(player),
+                    "Pipeline-created creative placement history should undo exactly one block");
+            helper.assertBlockPresent(Blocks.CHEST, targetRel);
+            helper.assertValueEqual(6, countChestItem(helper, targetRel, Items.GOLD_INGOT),
+                    "Real placement pipeline must restore the overwritten chest NBT");
+            stopPlayers(player);
+        });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void survivalPlacementUndoRefundsLinkedStorage(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(2, 1, 2);
+        BlockPos targetRel = new BlockPos(5, 1, 5);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        helper.setBlock(targetRel, Blocks.DIRT);
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        BlockPos target = helper.absolutePos(targetRel);
+        HistoryBlockRecord placement = HistoryBlockRecord.placement(
+                target, Blocks.AIR.defaultBlockState(), null,
+                helper.getLevel().getBlockState(target));
+
+        ServerHistoryManager.recordPlacementWithRecords(
+                player, List.of(placement), Direction.UP, false);
+        helper.assertValueEqual(1, ServerHistoryManager.executeUndo(player),
+                "Survival placement undo should remove one placed block");
+        helper.assertBlockPresent(Blocks.AIR, targetRel);
+        helper.assertValueEqual(1, countChestItem(helper, chestRel, Items.DIRT),
+                "Survival placement undo should refund linked storage first");
+        helper.assertValueEqual(0, ServerHistoryManager.getRedoSize(player.getUUID()),
+                "Survival undo must never create a redo entry");
+        helper.assertValueEqual(0, ServerHistoryManager.executeRedo(player),
+                "Survival redo must have no side effects");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void survivalBreakUndoConsumesLinkedThenRecordedSlot(GameTestHelper helper) {
+        BlockPos chestRel = new BlockPos(2, 1, 2);
+        BlockPos firstRel = new BlockPos(5, 1, 5);
+        BlockPos secondRel = new BlockPos(6, 1, 5);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        setChestStack(helper, chestRel, 0, new ItemStack(Items.STONE));
+        ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
+        player.getInventory().setItem(2, new ItemStack(Items.STONE));
+        RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        List<HistoryBlockRecord> records = List.of(
+                new HistoryBlockRecord(helper.absolutePos(firstRel), Blocks.STONE.defaultBlockState()),
+                new HistoryBlockRecord(helper.absolutePos(secondRel), Blocks.STONE.defaultBlockState()));
+
+        ServerHistoryManager.recordBreakWithRecords(
+                player, records, Direction.DOWN, 2, false);
+        helper.assertValueEqual(2, ServerHistoryManager.executeUndo(player),
+                "Survival break undo should restore both paid blocks");
+        helper.assertBlockPresent(Blocks.STONE, firstRel);
+        helper.assertBlockPresent(Blocks.STONE, secondRel);
+        helper.assertValueEqual(0, countChestItem(helper, chestRel, Items.STONE),
+                "Undo should consume the linked stone first");
+        helper.assertTrue(player.getInventory().getItem(2).isEmpty(),
+                "Undo should consume the recorded slot after linked storage is empty");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void undoStackKeepsOnlyLatestThreeOperations(GameTestHelper helper) {
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        ServerHistoryManager.clear(player.getUUID());
+        for (int i = 0; i < 4; i++) {
+            BlockPos rel = new BlockPos(2 + i, 1, 3);
+            ServerHistoryManager.recordBreakWithRecords(player,
+                    List.of(new HistoryBlockRecord(
+                            helper.absolutePos(rel), Blocks.STONE.defaultBlockState())),
+                    Direction.DOWN, 0, true);
+        }
+        helper.assertValueEqual(3, ServerHistoryManager.getUndoSize(player.getUUID()),
+                "Only the latest three complete operations may remain undoable");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void creativeRedoRestoresBothBlockEntitySnapshots(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(4, 1, 4);
+        helper.setBlock(targetRel, Blocks.CHEST);
+        setChestStack(helper, targetRel, 0, new ItemStack(Items.EMERALD, 3));
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        BlockPos target = helper.absolutePos(targetRel);
+        HistoryBlockRecord before = ServerHistoryManager.capturePlacementBefore(
+                helper.getLevel(), target, true);
+
+        helper.setBlock(targetRel, Blocks.AIR);
+        helper.setBlock(targetRel, Blocks.CHEST);
+        setChestStack(helper, targetRel, 0, new ItemStack(Items.DIAMOND, 9));
+        HistoryBlockRecord placement = HistoryBlockRecord.placement(
+                target, before.state(), before.blockEntityData(),
+                helper.getLevel().getBlockState(target),
+                ServerHistoryManager.captureBlockEntityData(helper.getLevel(), target));
+        ServerHistoryManager.recordPlacementWithRecords(
+                player, List.of(placement), Direction.UP, true);
+
+        helper.assertValueEqual(1, ServerHistoryManager.executeUndo(player),
+                "Undo should restore the before chest snapshot");
+        helper.assertValueEqual(3, countChestItem(helper, targetRel, Items.EMERALD),
+                "Undo must restore the before NBT");
+        helper.assertValueEqual(1, ServerHistoryManager.executeRedo(player),
+                "Redo should restore the after chest snapshot");
+        helper.assertValueEqual(9, countChestItem(helper, targetRel, Items.DIAMOND),
+                "Redo must restore the after NBT");
+        helper.assertValueEqual(1, ServerHistoryManager.executeUndo(player),
+                "A redone operation must return to the undo stack");
+        helper.assertValueEqual(3, countChestItem(helper, targetRel, Items.EMERALD),
+                "Undo after redo must still restore the original NBT");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void creativeRedoMovesOnlySuccessfulPositions(GameTestHelper helper) {
+        BlockPos firstRel = new BlockPos(3, 1, 3);
+        BlockPos secondRel = new BlockPos(4, 1, 3);
+        helper.setBlock(firstRel, Blocks.STONE);
+        helper.setBlock(secondRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        List<HistoryBlockRecord> records = List.of(
+                HistoryBlockRecord.placement(helper.absolutePos(firstRel),
+                        Blocks.AIR.defaultBlockState(), null, Blocks.STONE.defaultBlockState()),
+                HistoryBlockRecord.placement(helper.absolutePos(secondRel),
+                        Blocks.AIR.defaultBlockState(), null, Blocks.STONE.defaultBlockState()));
+        ServerHistoryManager.recordPlacementWithRecords(player, records, Direction.UP, true);
+        helper.assertValueEqual(2, ServerHistoryManager.executeUndo(player),
+                "Fixture should undo both creative placements");
+        helper.setBlock(secondRel, Blocks.DIRT);
+
+        helper.assertValueEqual(1, ServerHistoryManager.executeRedo(player),
+                "Redo should skip the position changed after undo");
+        helper.assertBlockPresent(Blocks.STONE, firstRel);
+        helper.assertBlockPresent(Blocks.DIRT, secondRel);
+        helper.assertValueEqual(1, ServerHistoryManager.getRedoSize(player.getUUID()),
+                "The failed redo subset must remain redoable");
+        helper.assertValueEqual(1, ServerHistoryManager.executeUndo(player),
+                "Only the successful redo subset should return to undo");
+        helper.assertBlockPresent(Blocks.AIR, firstRel);
+        helper.assertBlockPresent(Blocks.DIRT, secondRel);
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 100, batch = "history")
+    public static void newOperationClearsCreativeRedoBranch(GameTestHelper helper) {
+        BlockPos firstRel = new BlockPos(3, 1, 3);
+        helper.setBlock(firstRel, Blocks.STONE);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        HistoryBlockRecord broken = ServerHistoryManager.captureBlock(
+                helper.getLevel(), helper.absolutePos(firstRel), true);
+        helper.setBlock(firstRel, Blocks.AIR);
+        ServerHistoryManager.recordBreakWithRecords(
+                player, List.of(broken), Direction.DOWN, 0, true);
+        helper.assertValueEqual(1, ServerHistoryManager.executeUndo(player),
+                "Fixture should create one redo entry");
+        helper.assertValueEqual(1, ServerHistoryManager.getRedoSize(player.getUUID()),
+                "Creative undo should expose one redo entry");
+
+        BlockPos secondRel = new BlockPos(5, 1, 3);
+        helper.setBlock(secondRel, Blocks.DIRT);
+        ServerHistoryManager.recordPlacementWithRecords(player, List.of(
+                HistoryBlockRecord.placement(helper.absolutePos(secondRel),
+                        Blocks.AIR.defaultBlockState(), null, Blocks.DIRT.defaultBlockState())),
+                Direction.UP, true);
+        helper.assertValueEqual(0, ServerHistoryManager.getRedoSize(player.getUUID()),
+                "A new operation must clear the old redo branch");
+        stopPlayers(player);
+        helper.succeed();
+    }
+
+    static boolean hasActiveTask(ServerPlayer player, TaskType type) {
         return TaskPersistenceRuntime.INSTANCE.coordinator().query().ownedBy(player.getUUID()).stream()
                 .anyMatch(snapshot -> snapshot.type() == type && !snapshot.state().terminal());
     }
 
-    private static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
+    static ServerPlayer startRtsPlayer(GameTestHelper helper, GameType gameType) {
         return startRtsPlayer(helper, gameType, new Vec3(3.5D, 2.0D, 3.5D));
     }
 
@@ -1463,6 +1942,32 @@ public final class RtsServerGameTests {
         return positions;
     }
 
+    private static void submitAreaDestroyRound(GameTestHelper helper, ServerPlayer player,
+            List<BlockPos> targetsRel) {
+        for (BlockPos targetRel : targetsRel) {
+            helper.setBlock(targetRel, Blocks.STONE);
+        }
+        helper.assertTrue(RtsCameraManager.isActive(player),
+                "Repeated area-destroy submission requires an active RTS camera session");
+        helper.assertTrue(RtsLinkedStorageResolver.canAccessWorldTarget(
+                        player, helper.absolutePos(targetsRel.getFirst())),
+                "Repeated area-destroy target must remain inside the active RTS action range");
+        RtsAPI.get().mining().areaDestroy(player, asApiPositions(helper, targetsRel),
+                (byte) 0, "", ItemStack.EMPTY, false);
+        TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
+        helper.assertTrue(hasActiveTask(player, TaskType.DESTRUCTION),
+                "Repeated area-destroy submission must create a fresh destruction task");
+    }
+
+    private static void assertAreaDestroyRoundFinished(GameTestHelper helper, ServerPlayer player,
+            List<BlockPos> targetsRel, String round) {
+        for (BlockPos targetRel : targetsRel) {
+            helper.assertBlockPresent(Blocks.AIR, targetRel);
+        }
+        helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                round + " area-destroy batch exceeded the fixed completion window");
+    }
+
     /** 创建只包含同一种方块的最小蓝图，避免 GameTest 依赖外部蓝图文件。 */
     private static RtsBlueprint simpleBlueprint(String name, Block block, int length) {
         List<RtsBlueprintBlock> blocks = new ArrayList<>(length);
@@ -1553,7 +2058,7 @@ public final class RtsServerGameTests {
                 UUID.randomUUID(), player.serverLevel().dimension(), target, claims);
     }
 
-    private static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
+    static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
         return asApiPositions(relativePositions.stream()
                 .map(helper::absolutePos)
                 .toList());
@@ -1652,11 +2157,19 @@ public final class RtsServerGameTests {
         return BuiltInRegistries.ITEM.getKey(item).toString();
     }
 
-    private static void stopPlayers(ServerPlayer player) {
+    static void stopPlayers(ServerPlayer player) {
         RtsCameraManager.stopIfActive(player);
         if (player.getServer() != null
                 && player.getServer().getPlayerList().getPlayer(player.getUUID()) == player) {
-            player.getServer().getPlayerList().remove(player);
+            try {
+                player.getServer().getPlayerList().remove(player);
+            } catch (UnsupportedOperationException exception) {
+                // 某些真实整合包模组会在假玩家登出事件中广播仅真实客户端注册的 payload。
+                // GameTest server 没有客户端握手，不能让测试夹具清理动作掩盖被测的 RTS 结果。
+                if (!RtsClientboundPackets.isGameTestServerPlayer(player)) {
+                    throw exception;
+                }
+            }
         }
     }
 

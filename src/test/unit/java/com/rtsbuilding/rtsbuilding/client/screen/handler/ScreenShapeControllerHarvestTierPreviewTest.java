@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.handler;
 
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ConfirmedDestroyPreviewState;
 import net.minecraft.core.BlockPos;
 import org.junit.jupiter.api.Test;
 
@@ -25,7 +26,7 @@ class ScreenShapeControllerHarvestTierPreviewTest {
                 true);
 
         ShapeDataRecords.GhostPreview filtered =
-                ScreenShapeController.pruneConfirmedDestroyPreview(preview, List.of(skipped));
+                ConfirmedDestroyPreviewState.prune(preview, List.of(skipped));
 
         assertEquals(List.of(accepted), filtered.blocks());
         assertTrue(filtered.destructive());
@@ -44,7 +45,7 @@ class ScreenShapeControllerHarvestTierPreviewTest {
                 true);
 
         ShapeDataRecords.GhostPreview filtered =
-                ScreenShapeController.pruneConfirmedDestroyPreview(preview, List.of(skipped));
+                ConfirmedDestroyPreviewState.prune(preview, List.of(skipped));
 
         assertSame(ShapeDataRecords.GhostPreview.EMPTY, filtered);
     }

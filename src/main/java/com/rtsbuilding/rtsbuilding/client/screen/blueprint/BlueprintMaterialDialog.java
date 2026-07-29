@@ -1,133 +1,59 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.util.Mth;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintMaterialInspector.buildStats;
-import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintMaterialInspector.detailLines;
-import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.*;
+import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.text;
+import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.trim;
 
 /**
- * Renders the modal list of missing materials and blueprint compatibility notes.
+ * 绘制正式蓝图材料窗口的内容区。
+ *
+ * <p>窗口框架、标题栏和关闭行为由 {@link BlueprintMaterialWindowPanel} 管理；
+ * 本类只消费 Core 材料快照，并把物品 id 还原为 Minecraft 图标。</p>
  */
 final class BlueprintMaterialDialog {
-    private static final int CLOSE_SIZE = 14;
-    private static final int TITLE_H = 20;
-    private static final int ROW_H = 22;
-    private static final int COLUMN_GAP = 6;
+    private static final int ROW_H = BlueprintWindowLayout.MATERIAL_ROW_H;
+    private static final int COLUMN_GAP = BlueprintWindowLayout.MATERIAL_COLUMN_GAP;
 
     private BlueprintMaterialDialog() {
     }
 
-    static int render(GuiGraphics g, Font font, BlueprintEntry entry, ClientRtsController controller,
-            int screenW, int screenH, int mouseX, int mouseY, int scroll) {
-        Layout layout = layout(screenW, screenH);
-        List<DetailLine> lines = detailLines(entry, controller);
-        int visible = visibleRows(layout.listH());
-        int columns = columns(layout);
-        int clampedScroll = Mth.clamp(scroll, 0, maxScroll(lines.size(), visible, columns));
-
-        g.fill(0, 0, screenW, screenH, 0x66000000);
-        drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEE121922, 0xFF6E8799, 0xFF0B0E13);
-        g.fill(layout.x() + 1, layout.y() + 1, layout.x() + layout.w() - 1, layout.y() + TITLE_H, 0xCC233345);
-        g.drawString(font, trim(font, text("screen.rtsbuilding.blueprints.details_title"), layout.w() - 70),
-                layout.x() + 8, layout.y() + 6, 0xFFEAF2FF, false);
-        drawButton(g, font, layout.closeX(), closeY(layout), CLOSE_SIZE, CLOSE_SIZE, "x",
-                inside(mouseX, mouseY, layout.closeX(), closeY(layout), CLOSE_SIZE, CLOSE_SIZE));
-
-        g.drawString(font, trim(font, entry.name(), layout.w() - 20), layout.x() + 10, layout.y() + 31, 0xFFEAF2FF, false);
-        BuildStats stats = buildStats(entry, controller);
-        String summary = lines.isEmpty()
-                ? text("screen.rtsbuilding.blueprints.materials_all_ready")
-                : text("screen.rtsbuilding.blueprints.details_summary",
-                        stats.percent(),
-                        stats.buildable(),
-                        stats.total(),
-                        stats.missingTypes(),
-                        stats.unsupportedTypes(),
-                        stats.missingBlockTypes());
-        int summaryColor = lines.isEmpty() || stats.percent() >= 100 ? 0xFF8EEA9B : 0xFFFFC06C;
-        g.drawString(font, trim(font, summary, layout.w() - 20), layout.x() + 10, layout.y() + 44, summaryColor, false);
-
-        drawFrame(g, layout.listX(), layout.listY(), layout.listW(), layout.listH(), 0x99101620, 0xFF415266, 0xFF0B0E13);
-        if (lines.isEmpty()) {
-            String message = text("screen.rtsbuilding.blueprints.materials_all_ready");
-            g.drawString(font, trim(font, message, layout.listW() - 14), layout.listX() + 7, layout.listY() + 8,
-                    summaryColor, false);
-            return clampedScroll;
-        }
-
-        renderRows(g, font, lines, layout, mouseX, mouseY, clampedScroll, visible, columns);
-        renderScrollbar(g, lines.size(), layout, clampedScroll, visible, columns);
-        return clampedScroll;
-    }
-
-    static int renderContent(GuiGraphics g, Font font, BlueprintEntry entry, ClientRtsController controller,
-            int x, int y, int w, int h, int mouseX, int mouseY, int scroll) {
-        Layout layout = layoutFromBounds(x, y, w, h);
-        List<DetailLine> lines = detailLines(entry, controller);
-        int visible = visibleRows(layout.listH());
-        int columns = columns(layout);
-        int clampedScroll = Mth.clamp(scroll, 0, maxScroll(lines.size(), visible, columns));
-
-        g.drawString(font, trim(font, entry.name(), layout.w() - 20),
-                layout.x() + 10, layout.y() + 8, 0xFFEAF2FF, false);
-        BuildStats stats = buildStats(entry, controller);
-        String summary = lines.isEmpty()
-                ? text("screen.rtsbuilding.blueprints.materials_all_ready")
-                : text("screen.rtsbuilding.blueprints.details_summary",
-                        stats.percent(),
-                        stats.buildable(),
-                        stats.total(),
-                        stats.missingTypes(),
-                        stats.unsupportedTypes(),
-                        stats.missingBlockTypes());
-        int summaryColor = lines.isEmpty() || stats.percent() >= 100 ? 0xFF8EEA9B : 0xFFFFC06C;
-        g.drawString(font, trim(font, summary, layout.w() - 20),
-                layout.x() + 10, layout.y() + 21, summaryColor, false);
-
-        drawFrame(g, layout.listX(), layout.listY(), layout.listW(), layout.listH(),
-                0x99101620, 0xFF415266, 0xFF0B0E13);
-        if (lines.isEmpty()) {
-            String message = text("screen.rtsbuilding.blueprints.materials_all_ready");
-            g.drawString(font, trim(font, message, layout.listW() - 14),
-                    layout.listX() + 7, layout.listY() + 8, summaryColor, false);
-            return clampedScroll;
-        }
-
-        renderRows(g, font, lines, layout, mouseX, mouseY, clampedScroll, visible, columns);
-        renderScrollbar(g, lines.size(), layout, clampedScroll, visible, columns);
-        return clampedScroll;
-    }
-
-    /** 使用 Core 材料快照绘制生产窗口；Minecraft 侧只负责把正式物品 id 还原为图标。 */
     static int renderCoreContent(GuiGraphics g, Font font, BlueprintMaterialUiState state,
             int x, int y, int w, int h, int mouseX, int mouseY, int scroll) {
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         Layout layout = layoutFromBounds(x, y, w, h);
         int visible = visibleRows(layout.listH());
         int columns = columns(layout);
         int clampedScroll = Mth.clamp(scroll, 0, maxScroll(state.rows.size(), visible, columns));
         g.drawString(font, trim(font, state.blueprintName, layout.w() - 20),
-                layout.x() + 10, layout.y() + 8, 0xFFEAF2FF, false);
+                layout.x() + 10, layout.y() + 8, BlueprintDialogStyle.PRIMARY_TEXT.toArgb(), false);
         String summary = state.rows.isEmpty()
                 ? text("screen.rtsbuilding.blueprints.materials_all_ready")
                 : text("screen.rtsbuilding.blueprints.details_summary",
                         state.percent, state.buildable, state.total, state.missingTypes,
                         state.unsupportedTypes, state.missingBlockTypes);
-        int summaryColor = state.allReady() ? 0xFF8EEA9B : 0xFFFFC06C;
+        int summaryColor = (state.allReady() ? BlueprintDialogStyle.READY
+                : BlueprintDialogStyle.WARNING).toArgb();
         g.drawString(font, trim(font, summary, layout.w() - 20),
                 layout.x() + 10, layout.y() + 21, summaryColor, false);
-        drawFrame(g, layout.listX(), layout.listY(), layout.listW(), layout.listH(),
-                0x99101620, 0xFF415266, 0xFF0B0E13);
+        UiChromeRenderer.frame(canvas, new UiRect(layout.listX(), layout.listY(),
+                        layout.listW(), layout.listH()), 1.0D,
+                BlueprintDialogStyle.LIST_BACKGROUND, BlueprintDialogStyle.LIST_BORDER,
+                BlueprintDialogStyle.DARK_BORDER);
         if (state.rows.isEmpty()) {
             String message = text("screen.rtsbuilding.blueprints.materials_all_ready");
             g.drawString(font, trim(font, message, layout.listW() - 14),
@@ -152,12 +78,15 @@ final class BlueprintMaterialDialog {
         for (int row = 0; row < visible; row++) {
             for (int column = 0; column < columns; column++) {
                 int index = (scroll + row) * columns + column;
-                if (index >= lines.size()) return;
+                if (index >= lines.size()) {
+                    return;
+                }
                 BlueprintMaterialUiState.Row line = lines.get(index);
                 int rowX = layout.listX() + 4 + column * (cellW + COLUMN_GAP);
                 int rowY = layout.listY() + 3 + row * ROW_H;
-                if (inside(mouseX, mouseY, rowX, rowY, cellW, ROW_H)) {
-                    g.fill(rowX, rowY, rowX + cellW, rowY + ROW_H, 0x66324126);
+                if (UiRect.contains(rowX, rowY, cellW, ROW_H, mouseX, mouseY)) {
+                    g.fill(rowX, rowY, rowX + cellW, rowY + ROW_H,
+                            BlueprintDialogStyle.ROW_HOVER.toArgb());
                 }
                 ItemStack preview = ItemStack.EMPTY;
                 ResourceLocation id = ResourceLocation.tryParse(line.iconId);
@@ -167,71 +96,23 @@ final class BlueprintMaterialDialog {
                 if (!preview.isEmpty()) {
                     g.renderItem(preview, rowX + 4, rowY + 2);
                 } else {
-                    g.fill(rowX + 6, rowY + 4, rowX + 20, rowY + 18, 0xAA36506A);
-                    RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "?", rowX + 13, rowY + 6, 0xFFFFD080);
+                    g.fill(rowX + 6, rowY + 4, rowX + 20, rowY + 18,
+                            BlueprintDialogStyle.MISSING_ICON_BACKGROUND.toArgb());
+                    RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "?", rowX + 13, rowY + 6,
+                            BlueprintDialogStyle.MISSING_ICON_TEXT.toArgb());
                 }
                 int detailW = Math.min(86, Math.max(54, cellW / 3));
                 int detailX = rowX + cellW - detailW - 4;
                 g.drawString(font, trim(font, line.label, Math.max(24, detailX - rowX - 28)),
-                        rowX + 26, rowY + 2, 0xFFEAF2FF, false);
-                g.drawString(font, trim(font, line.detail, detailW), detailX, rowY + 7, line.color, false);
+                        rowX + 26, rowY + 2, BlueprintDialogStyle.PRIMARY_TEXT.toArgb(), false);
+                g.drawString(font, trim(font, line.detail, detailW), detailX, rowY + 7,
+                        BlueprintDialogStyle.materialTone(line.tone).toArgb(), false);
             }
         }
     }
 
-    static boolean shouldClose(double mouseX, double mouseY, int screenW, int screenH) {
-        Layout layout = layout(screenW, screenH);
-        return !inside(mouseX, mouseY, layout.x(), layout.y(), layout.w(), layout.h())
-                || inside(mouseX, mouseY, layout.closeX(), closeY(layout), CLOSE_SIZE, CLOSE_SIZE);
-    }
-
-    static int scrolled(int currentScroll, double scrollY, BlueprintEntry entry, ClientRtsController controller, int screenH) {
-        Layout layout = layout(0, screenH);
-        int visible = visibleRows(layout.listH());
-        int maxScroll = maxScroll(detailLines(entry, controller).size(), visible, columns(layout));
-        return Mth.clamp(currentScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
-    }
-
-    static int scrolledContent(int currentScroll, double scrollY, BlueprintEntry entry, ClientRtsController controller,
-            int w, int h) {
-        Layout layout = layoutFromBounds(0, 0, w, h);
-        int visible = visibleRows(layout.listH());
-        int maxScroll = maxScroll(detailLines(entry, controller).size(), visible, columns(layout));
-        return Mth.clamp(currentScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
-    }
-
-    private static void renderRows(GuiGraphics g, Font font, List<DetailLine> lines, Layout layout,
-            int mouseX, int mouseY, int scroll, int visible, int columns) {
-        int cellW = (layout.listW() - 8 - (columns - 1) * COLUMN_GAP) / columns;
-        for (int row = 0; row < visible; row++) {
-            for (int column = 0; column < columns; column++) {
-                int index = (scroll + row) * columns + column;
-                if (index >= lines.size()) {
-                    return;
-                }
-                DetailLine line = lines.get(index);
-                int rowX = layout.listX() + 4 + column * (cellW + COLUMN_GAP);
-                int rowY = layout.listY() + 3 + row * ROW_H;
-                if (inside(mouseX, mouseY, rowX, rowY, cellW, ROW_H)) {
-                    g.fill(rowX, rowY, rowX + cellW, rowY + ROW_H, 0x66324126);
-                }
-                if (!line.preview().isEmpty()) {
-                    g.renderItem(line.preview(), rowX + 4, rowY + 2);
-                } else {
-                    g.fill(rowX + 6, rowY + 4, rowX + 20, rowY + 18, 0xAA36506A);
-                    RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "?", rowX + 13, rowY + 6, 0xFFFFD080);
-                }
-                int detailW = Math.min(86, Math.max(54, cellW / 3));
-                int detailX = rowX + cellW - detailW - 4;
-                g.drawString(font, trim(font, line.label(), Math.max(24, detailX - rowX - 28)), rowX + 26, rowY + 2,
-                        0xFFEAF2FF, false);
-                g.drawString(font, trim(font, line.detail(), detailW), detailX, rowY + 7,
-                        line.color(), false);
-            }
-        }
-    }
-
-    private static void renderScrollbar(GuiGraphics g, int lineCount, Layout layout, int scroll, int visible, int columns) {
+    private static void renderScrollbar(GuiGraphics g, int lineCount, Layout layout, int scroll,
+            int visible, int columns) {
         int maxScroll = maxScroll(lineCount, visible, columns);
         if (maxScroll <= 0) {
             return;
@@ -242,8 +123,9 @@ final class BlueprintMaterialDialog {
         int rowCount = rowCount(lineCount, columns);
         int thumbH = Math.max(12, barH * visible / Math.max(visible, rowCount));
         int thumbY = barY + (barH - thumbH) * scroll / maxScroll;
-        g.fill(barX, barY, barX + 2, barY + barH, 0x66566A7C);
-        g.fill(barX - 1, thumbY, barX + 3, thumbY + thumbH, 0xFF8EA5B8);
+        g.fill(barX, barY, barX + 2, barY + barH, BlueprintDialogStyle.SCROLL_TRACK.toArgb());
+        g.fill(barX - 1, thumbY, barX + 3, thumbY + thumbH,
+                BlueprintDialogStyle.SCROLL_THUMB.toArgb());
     }
 
     private static int visibleRows(int listH) {
@@ -262,32 +144,13 @@ final class BlueprintMaterialDialog {
         return layout.listW() >= 390 ? 2 : 1;
     }
 
-    private static Layout layout(int screenW, int screenH) {
-        int width = screenW <= 0 ? 560 : Math.min(560, Math.max(300, screenW - 48));
-        int height = Math.min(320, Math.max(188, screenH - 70));
-        int x = screenW <= 0 ? 0 : (screenW - width) / 2;
-        int y = Math.max(24, (screenH - height) / 2);
-        int listX = x + 10;
-        int listY = y + 60;
-        int listW = width - 20;
-        int listH = height - 72;
-        return new Layout(x, y, width, height, listX, listY, listW, listH, x + width - CLOSE_SIZE - 6);
-    }
-
     private static Layout layoutFromBounds(int x, int y, int width, int height) {
-        int safeW = Math.max(300, width);
-        int safeH = Math.max(150, height);
-        int listX = x + 10;
-        int listY = y + 38;
-        int listW = safeW - 20;
-        int listH = Math.max(44, safeH - 46);
-        return new Layout(x, y, safeW, safeH, listX, listY, listW, listH, x + safeW - CLOSE_SIZE - 6);
+        BlueprintWindowLayout.MaterialDialogGeometry shared =
+                BlueprintWindowLayout.materialDialog(x, y, width, height);
+        return new Layout(shared.x, shared.y, shared.width, shared.height,
+                shared.listX, shared.listY, shared.listW, shared.listH);
     }
 
-    private static int closeY(Layout layout) {
-        return layout.y() + 3;
-    }
-
-    private record Layout(int x, int y, int w, int h, int listX, int listY, int listW, int listH, int closeX) {
+    private record Layout(int x, int y, int w, int h, int listX, int listY, int listW, int listH) {
     }
 }

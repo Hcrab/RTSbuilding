@@ -33,6 +33,7 @@ public final class GuideUiCatalog {
                 };
             default:
                 return new GuideUiTopic[]{
+                        topic(GuideUiIcon.CLOCK, "screen.rtsbuilding.guide.top.mode.title", "screen.rtsbuilding.guide.top.mode.1", "screen.rtsbuilding.guide.top.mode.2"),
                         topic(GuideUiIcon.HAND, "screen.rtsbuilding.guide.top.interact.title", "screen.rtsbuilding.guide.top.interact.1", "screen.rtsbuilding.guide.top.interact.2", "screen.rtsbuilding.guide.top.interact.3", "screen.rtsbuilding.guide.top.interact.4"),
                         topic(GuideUiIcon.GRID, "screen.rtsbuilding.guide.top.camera.title", "screen.rtsbuilding.guide.top.camera.1", "screen.rtsbuilding.guide.top.camera.2", "screen.rtsbuilding.guide.top.camera.3", "screen.rtsbuilding.guide.top.camera.4"),
                         topic(GuideUiIcon.LINK, "screen.rtsbuilding.guide.top.link.title", "screen.rtsbuilding.guide.top.link.1", "screen.rtsbuilding.guide.top.link.2"),
@@ -40,7 +41,8 @@ public final class GuideUiCatalog {
                         topic(GuideUiIcon.ROTATE, "screen.rtsbuilding.guide.top.rotate.title", "screen.rtsbuilding.guide.top.rotate.1"),
                         topic(GuideUiIcon.BUILD, "screen.rtsbuilding.guide.top.build.title", "screen.rtsbuilding.guide.top.build.1", "screen.rtsbuilding.guide.top.build.2", "screen.rtsbuilding.guide.top.build.3"),
                         topic(GuideUiIcon.PICKAXE, "screen.rtsbuilding.guide.top.ultimine.title", "screen.rtsbuilding.guide.top.ultimine.1", "screen.rtsbuilding.guide.top.ultimine.2"),
-                        topic(GuideUiIcon.GRID, "screen.rtsbuilding.guide.top.chunk.title", "screen.rtsbuilding.guide.top.chunk.1")
+                        topic(GuideUiIcon.GRID, "screen.rtsbuilding.guide.top.chunk.title", "screen.rtsbuilding.guide.top.chunk.1"),
+                        topic(GuideUiIcon.SEARCH, "screen.rtsbuilding.guide.top.quest.title", "screen.rtsbuilding.guide.top.quest.1")
                 };
         }
     }

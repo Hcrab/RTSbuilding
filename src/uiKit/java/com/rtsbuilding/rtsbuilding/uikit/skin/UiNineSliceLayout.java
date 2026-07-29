@@ -13,6 +13,10 @@ import java.util.List;
  * 不可能退化成按面积无限平铺的旧实现。</p>
  */
 public final class UiNineSliceLayout {
+    private static final Part[] PARTS = Part.values();
+    public interface TargetVisitor {
+        void visit(Part part, double x, double y, double width, double height);
+    }
     public enum Part {
         TOP_LEFT, TOP, TOP_RIGHT,
         LEFT, CENTER, RIGHT,
@@ -53,6 +57,43 @@ public final class UiNineSliceLayout {
             }
         }
         return Collections.unmodifiableList(slices);
+    }
+
+    /**
+     * 高频纯色 chrome 路径只遍历九个目标块，不创建 source/Slice/List 临时对象。
+     * 贴图九宫格仍使用 {@link #calculate} 获得完整 source 映射。
+     */
+    public static void visitTargets(UiRect target, double left, double top,
+                                    double right, double bottom, TargetVisitor visitor) {
+        if (target == null || visitor == null) {
+            throw new IllegalArgumentException("target and visitor must not be null");
+        }
+        requireBorder(left, "left");
+        requireBorder(top, "top");
+        requireBorder(right, "right");
+        requireBorder(bottom, "bottom");
+        if (left + right > target.getWidth() || top + bottom > target.getHeight()) {
+            throw new IllegalArgumentException("target is too small for fixed corners");
+        }
+        double x0 = target.getX();
+        double x1 = x0 + left;
+        double x2 = target.right() - right;
+        double x3 = target.right();
+        double y0 = target.getY();
+        double y1 = y0 + top;
+        double y2 = target.bottom() - bottom;
+        double y3 = target.bottom();
+        visitRow(visitor, 0, x0, x1, x2, x3, y0, y1);
+        visitRow(visitor, 3, x0, x1, x2, x3, y1, y2);
+        visitRow(visitor, 6, x0, x1, x2, x3, y2, y3);
+    }
+
+    private static void visitRow(TargetVisitor visitor, int part,
+                                 double x0, double x1, double x2, double x3,
+                                 double y0, double y1) {
+        visitor.visit(PARTS[part], x0, y0, x1 - x0, y1 - y0);
+        visitor.visit(PARTS[part + 1], x1, y0, x2 - x1, y1 - y0);
+        visitor.visit(PARTS[part + 2], x2, y0, x3 - x2, y1 - y0);
     }
 
     private static UiRect rect(double[] x, double[] y, int column, int row) {

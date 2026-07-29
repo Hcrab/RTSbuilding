@@ -131,6 +131,14 @@ public final class RtsPlacementQuickBuild {
      */
     public static boolean placeStateBatchEntry(ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
                                                StatePlacementPlan plan) {
+        return placeStateBatchEntry(player, session, targetPos, plan, false);
+    }
+
+    /**
+     * @param creativeOverwrite 已由服务端核验的创造覆盖标志；允许替换既有方块并忽略实体占位。
+     */
+    public static boolean placeStateBatchEntry(ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
+                                               StatePlacementPlan plan, boolean creativeOverwrite) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return false;
         }
@@ -146,7 +154,7 @@ public final class RtsPlacementQuickBuild {
         if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
             return true;
         }
-        if (!canPlaceStateAt(level, player, targetPos, plan.state())) {
+        if (!canPlaceStateAt(level, player, targetPos, plan.state(), creativeOverwrite && player.isCreative())) {
             return true;
         }
 
@@ -198,12 +206,20 @@ public final class RtsPlacementQuickBuild {
     }
 
     static boolean canPlaceStateAt(ServerLevel level, ServerPlayer player, BlockPos targetPos, BlockState state) {
+        return canPlaceStateAt(level, player, targetPos, state, false);
+    }
+
+    static boolean canPlaceStateAt(ServerLevel level, ServerPlayer player, BlockPos targetPos, BlockState state,
+                                   boolean creativeOverwrite) {
         if (level == null || targetPos == null || state == null || !level.hasChunkAt(targetPos)) {
             return false;
         }
         BlockState current = level.getBlockState(targetPos);
-        if (!current.isAir() && !current.canBeReplaced()) {
+        if (!creativeOverwrite && !current.isAir() && !current.canBeReplaced()) {
             return false;
+        }
+        if (creativeOverwrite) {
+            return state.canSurvive(level, targetPos);
         }
         CollisionContext collision = player == null ? CollisionContext.empty() : CollisionContext.of(player);
         return state.canSurvive(level, targetPos) && level.isUnobstructed(state, targetPos, collision);

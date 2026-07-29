@@ -8,6 +8,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class PlacedBlockRotationGestureTest {
     @Test
+    void horizontalGestureTurnsCameraFacingSideTowardItsScreenDirection() {
+        assertEquals(-1, PlacedBlockRotationGesture.HORIZONTAL_RIGHT.quarterTurns());
+        assertEquals(1, PlacedBlockRotationGesture.HORIZONTAL_LEFT.quarterTurns());
+    }
+
+    @Test
     void verticalGestureUsesCameraRightAsItsSignedAxis() {
         assertEquals(
                 Direction.EAST,

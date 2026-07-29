@@ -9,6 +9,15 @@ on:
         description: Existing GitHub release tag to publish
         required: true
         type: string
+      release_type:
+        description: Mod platform release channel for manual publishes
+        required: true
+        default: beta
+        type: choice
+        options:
+          - release
+          - beta
+          - alpha
       publish_neoforge:
         description: Publish NeoForge 1.21.1
         required: true
@@ -30,7 +39,11 @@ on:
         default: true
         type: boolean
       changelog:
-        description: Optional release notes for a manual publish
+        description: Deprecated plaintext release notes; use changelog_base64 for non-ASCII text
+        required: false
+        type: string
+      changelog_base64:
+        description: Optional UTF-8 release notes encoded as Base64 for a manual publish
         required: false
         type: string
 
@@ -76,12 +89,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
           MANUAL_CHANGELOG: ${{ inputs.changelog }}
+          MANUAL_CHANGELOG_BASE64: ${{ inputs.changelog_base64 }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_CHANGELOG" ]]; then
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_CHANGELOG_BASE64" ]]; then
+            printf '%s' "$MANUAL_CHANGELOG_BASE64" | base64 --decode > release-notes.md
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_CHANGELOG" ]]; then
             printf '%s\n' "$MANUAL_CHANGELOG" > release-notes.md
           else
             gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > release-notes.md
           fi
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path("release-notes.md").read_text(encoding="utf-8")
+          required = ("## 简体中文", "#### 玩家可见变化", "## English")
+          missing = [marker for marker in required if marker not in text]
+          if missing or "\ufffd" in text:
+              raise SystemExit(f"Release notes failed UTF-8 validation; missing={missing!r}")
+          PY
 
       - name: Publish NeoForge 1.21.1 to Modrinth
         if: github.event_name == 'release' || inputs.publish_modrinth
@@ -92,7 +118,7 @@ jobs:
           files: build/libs/rtsbuilding-neoforge-1.21.1-${{ github.event.release.tag_name || inputs.tag }}.jar
           name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for NeoForge 1.21.1
           version: ${{ github.event.release.tag_name || inputs.tag }}
-          version-type: beta
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.release_type }}
           changelog-file: release-notes.md
           loaders: neoforge
           game-versions: 1.21.1
@@ -111,7 +137,7 @@ jobs:
           files: build/libs/rtsbuilding-neoforge-1.21.1-${{ github.event.release.tag_name || inputs.tag }}.jar
           name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for NeoForge 1.21.1
           version: ${{ github.event.release.tag_name || inputs.tag }}
-          version-type: beta
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.release_type }}
           changelog-file: release-notes.md
           loaders: neoforge
           game-versions: 1.21.1
@@ -155,12 +181,25 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
           MANUAL_CHANGELOG: ${{ inputs.changelog }}
+          MANUAL_CHANGELOG_BASE64: ${{ inputs.changelog_base64 }}
         run: |
-          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_CHANGELOG" ]]; then
+          set -euo pipefail
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_CHANGELOG_BASE64" ]]; then
+            printf '%s' "$MANUAL_CHANGELOG_BASE64" | base64 --decode > release-notes.md
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && -n "$MANUAL_CHANGELOG" ]]; then
             printf '%s\n' "$MANUAL_CHANGELOG" > release-notes.md
           else
             gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json body --jq .body > release-notes.md
           fi
+          python3 - <<'PY'
+          from pathlib import Path
+
+          text = Path("release-notes.md").read_text(encoding="utf-8")
+          required = ("## 简体中文", "#### 玩家可见变化", "## English")
+          missing = [marker for marker in required if marker not in text]
+          if missing or "\ufffd" in text:
+              raise SystemExit(f"Release notes failed UTF-8 validation; missing={missing!r}")
+          PY
 
       - name: Publish Forge 1.20.1 to Modrinth
         if: github.event_name == 'release' || inputs.publish_modrinth
@@ -171,7 +210,7 @@ jobs:
           files: build/libs/rtsbuilding-forge-1.20.1-${{ github.event.release.tag_name || inputs.tag }}.jar
           name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for Forge 1.20.1
           version: ${{ github.event.release.tag_name || inputs.tag }}
-          version-type: beta
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.release_type }}
           changelog-file: release-notes.md
           loaders: forge
           game-versions: 1.20.1
@@ -190,7 +229,7 @@ jobs:
           files: build/libs/rtsbuilding-forge-1.20.1-${{ github.event.release.tag_name || inputs.tag }}.jar
           name: RTS Building ${{ github.event.release.tag_name || inputs.tag }} for Forge 1.20.1
           version: ${{ github.event.release.tag_name || inputs.tag }}
-          version-type: beta
+          version-type: ${{ github.event_name == 'release' && (github.event.release.prerelease && 'beta' || 'release') || inputs.release_type }}
           changelog-file: release-notes.md
           loaders: forge
           game-versions: 1.20.1

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
-import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.core.BlockPos;
@@ -42,7 +42,7 @@ public final class BlueprintGhostBlockModelRenderer {
      */
     public static boolean renderModels(
             Minecraft minecraft,
-            List<BlueprintPanel.BlueprintGhostBlock> blocks,
+            List<BlueprintGhostBlock> blocks,
             PoseStack poseStack,
             int[] outMinX, int[] outMinY, int[] outMinZ,
             int[] outMaxX, int[] outMaxY, int[] outMaxZ) {
@@ -50,7 +50,7 @@ public final class BlueprintGhostBlockModelRenderer {
         boolean renderedBlockModels = false;
         MultiBufferSource.BufferSource blockBuffer = minecraft.renderBuffers().bufferSource();
 
-        for (BlueprintPanel.BlueprintGhostBlock block : blocks) {
+        for (BlueprintGhostBlock block : blocks) {
             BlockPos pos = block.pos();
 
             // Update bounding box
@@ -87,7 +87,7 @@ public final class BlueprintGhostBlockModelRenderer {
      */
     public static boolean renderModels(
             Minecraft minecraft,
-            List<BlueprintPanel.BlueprintGhostBlock> blocks,
+            List<BlueprintGhostBlock> blocks,
             PoseStack poseStack) {
 
         int[] outMinX = {Integer.MAX_VALUE};

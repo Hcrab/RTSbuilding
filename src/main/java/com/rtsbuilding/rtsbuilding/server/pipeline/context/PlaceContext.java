@@ -140,6 +140,11 @@ public class PlaceContext extends PipelineContext {
                 && getArg(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED);
     }
 
+    public boolean isOverwriteExisting() {
+        return hasArg(PlacementExecutePipe.ARG_OVERWRITE_EXISTING)
+                && getArg(PlacementExecutePipe.ARG_OVERWRITE_EXISTING);
+    }
+
     /** 返回要放置的物品 ID。 */
     public String getItemId() {
         return getArg(PlacementExecutePipe.ARG_ITEM_ID);
@@ -289,6 +294,12 @@ public class PlaceContext extends PipelineContext {
         /** 若已占用则跳过标志。 */
         public Builder skipIfOccupied(boolean skipIfOccupied) {
             args.put(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED.name(), skipIfOccupied);
+            return this;
+        }
+
+        /** 请求创造模式批量建造覆盖既有方块。 */
+        public Builder overwriteExisting(boolean overwriteExisting) {
+            args.put(PlacementExecutePipe.ARG_OVERWRITE_EXISTING.name(), overwriteExisting);
             return this;
         }
 

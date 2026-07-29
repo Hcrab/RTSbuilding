@@ -12,11 +12,11 @@ class MiningReleaseContractTest {
     @Test
     void mouseReleaseStopsMiningBeforeFloatingWindowsCanConsumeRelease() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java"));
         String body = methodBody(source, "public boolean mouseReleased");
 
-        int miningGuard = body.indexOf("this.cameraInput.isLeftMiningActive()");
-        int stopMining = body.indexOf("this.cameraInput.stopActiveMining()", miningGuard);
+        int miningGuard = body.indexOf("screen.cameraInput.isLeftMiningActive()");
+        int stopMining = body.indexOf("screen.cameraInput.stopActiveMining()", miningGuard);
         int floatingRelease = body.indexOf("handleFloatingWindowRelease");
 
         assertTrue(miningGuard >= 0, "mouse release must check active mining");
@@ -28,12 +28,12 @@ class MiningReleaseContractTest {
     @Test
     void keyboardReleaseStopsMiningImmediately() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenKeyboardSessionOwner.java"));
         String body = methodBody(source, "public boolean keyReleased");
 
-        int keyboardMiningGuard = body.indexOf("this.cameraInput.isKeyboardMining()");
+        int keyboardMiningGuard = body.indexOf("screen.cameraInput.isKeyboardMining()");
         int breakReleaseGuard = body.indexOf("ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)", keyboardMiningGuard);
-        int stopMining = body.indexOf("this.cameraInput.stopActiveMining()", breakReleaseGuard);
+        int stopMining = body.indexOf("screen.cameraInput.stopActiveMining()", breakReleaseGuard);
 
         assertTrue(keyboardMiningGuard >= 0, "keyboard mining release guard missing");
         assertTrue(breakReleaseGuard > keyboardMiningGuard,

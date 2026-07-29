@@ -43,6 +43,10 @@ public final class UiEscapeStack<T> {
         return owners.size();
     }
 
+    public void clear() {
+        owners.clear();
+    }
+
     public List<T> snapshotBottomToTop() {
         return Collections.unmodifiableList(new ArrayList<T>(owners));
     }

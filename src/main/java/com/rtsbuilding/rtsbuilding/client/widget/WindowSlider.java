@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WindowSliderLayout;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 
@@ -22,14 +26,6 @@ public class WindowSlider {
     private boolean visible = true;
     private boolean dragging = false;
     private Consumer<Integer> onChange;
-
-    // ======================== Colour constants ========================
-    private static final int TRACK_BG = 0xFF07090D;
-    private static final int TRACK_FILL = 0xFF313946;
-    private static final int KNOB_COLOR = 0xFF5FE36C;
-    private static final int TRACK_H = 4;
-    private static final int KNOB_W = 8;
-    private static final int KNOB_H = 12;
 
     public WindowSlider(int x, int y, int width, int height, int min, int max, int value) {
         this.x = x;
@@ -87,24 +83,16 @@ public class WindowSlider {
 
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
-
-        int knobX = knobPosition();
-        int trackCenterY = y + height / 2;
-
-        // Track background
-        g.fill(x, trackCenterY - TRACK_H / 2, x + width, trackCenterY + TRACK_H - TRACK_H / 2, TRACK_BG);
-        g.fill(x + 1, trackCenterY - TRACK_H / 2 + 1, x + width - 1, trackCenterY + TRACK_H - TRACK_H / 2 - 1, TRACK_FILL);
-
-        // Knob
-        int knobY = trackCenterY - KNOB_H / 2;
-        g.fill(knobX - KNOB_W / 2, knobY, knobX + KNOB_W - KNOB_W / 2, knobY + KNOB_H, KNOB_COLOR);
+        WindowSliderChromeRenderer.render(
+                new MinecraftUiCanvas(g, net.minecraft.client.Minecraft.getInstance().font),
+                geometry());
     }
 
     // ======================== Input handling ========================
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!visible || button != 0) return false;
-        if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height) {
+        if (bounds().contains(mouseX, mouseY)) {
             setValueFromMouse(mouseX);
             this.dragging = true;
             return true;
@@ -122,23 +110,21 @@ public class WindowSlider {
 
     public boolean mouseDragged(double mouseX, double mouseY, int button) {
         if (!visible || !dragging || button != 0) return false;
-        double clampedX = Mth.clamp(mouseX, x, x + width);
-        setValueFromMouse(clampedX);
+        setValueFromMouse(mouseX);
         return true;
     }
 
     // ======================== Private helpers ========================
 
-    private int knobPosition() {
-        if (max <= min) return x;
-        double fraction = (value - min) / (double) (max - min);
-        return x + (int) Math.round(fraction * width);
+    private WindowSliderLayout.Geometry geometry() {
+        return WindowSliderLayout.geometry(bounds(), min, max, value);
+    }
+
+    private UiRect bounds() {
+        return new UiRect(x, y, width, height);
     }
 
     private void setValueFromMouse(double mouseX) {
-        double fraction = (mouseX - x) / Math.max(1.0D, width);
-        fraction = Mth.clamp(fraction, 0.0D, 1.0D);
-        int newValue = (int) Math.round(min + fraction * (max - min));
-        setValue(Mth.clamp(newValue, min, max));
+        setValue(WindowSliderLayout.valueAt(bounds(), min, max, mouseX));
     }
 }

@@ -31,6 +31,17 @@ public final class UiFloatAnimation {
         easing = newEasing;
     }
 
+    /**
+     * 立即跳到新值并结束当前过渡，供受击闪烁这类每次触发都必须从满强度重播的效果使用。
+     */
+    public void snapTo(double newValue) {
+        startValue = newValue;
+        endValue = newValue;
+        startMillis = clock.nowMillis();
+        durationMillis = 0L;
+        easing = UiEasing.LINEAR;
+    }
+
     public double value() {
         if (durationMillis <= 0L) {
             return endValue;

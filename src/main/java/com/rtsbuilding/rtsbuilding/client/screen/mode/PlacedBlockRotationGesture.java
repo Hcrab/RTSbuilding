@@ -25,8 +25,8 @@ public enum PlacedBlockRotationGesture {
 
     public int quarterTurns() {
         return switch (this) {
-            case HORIZONTAL_LEFT, VERTICAL_DOWN -> -1;
-            case HORIZONTAL_RIGHT, VERTICAL_UP -> 1;
+            case HORIZONTAL_RIGHT, VERTICAL_DOWN -> -1;
+            case HORIZONTAL_LEFT, VERTICAL_UP -> 1;
         };
     }
 

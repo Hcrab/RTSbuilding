@@ -1,19 +1,26 @@
 package com.rtsbuilding.rtsbuilding.uipreview;
 
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+
 import java.awt.Color;
 
 /** 主线逐像素 frame/slot 画法在 BufferedImage 边界的对应实现。 */
 final class UiMainlinePreviewStyle {
-    static final Color WHITE = color(0xFFF2F6FB);
-    static final Color TEXT = color(0xFFD8E2EE);
-    static final Color MUTED = color(0xFF9FB0C2);
+    static final Color WHITE = color(RtsMainlineTheme.PRIMARY_TEXT);
+    static final Color TEXT = color(RtsMainlineTheme.SECONDARY_TEXT);
+    static final Color MUTED = color(RtsMainlineTheme.MUTED_TEXT);
 
     private UiMainlinePreviewStyle() {
     }
 
     static Color color(int argb) {
         return new Color(argb, true);
+    }
+
+    static Color color(UiColor color) {
+        return color(color.toArgb());
     }
 
     static void frame(BufferedImageUiCanvas canvas, UiRect rect,

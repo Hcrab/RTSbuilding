@@ -20,6 +20,24 @@ final class RtsDurableTaskExecutionRuntime {
     /** 单方块 0-9 破坏动画是瞬时表现，不值得每阶段强制落盘。 */
     private final Map<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId, MiningProgressOverlay>
             miningProgressOverlays = new java.util.HashMap<>();
+    /**
+     * 批量建造的轻量执行镜像。
+     *
+     * <p>建造进度会累积坐标及创造模式前后 NBT。若每个 slice 都重写 durable payload，
+     * 已完成部分会被反复复制和编码，表现为任务越接近末尾越慢。镜像只在有界检查点及
+     * 生命周期边界合并回 TaskStore，同时保留首次世界副作用前必须完成 root ACK 的约束。</p>
+     */
+    private final Map<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId, PlacementProgressOverlay>
+            placementProgressOverlays = new java.util.HashMap<>();
+    /**
+     * 范围破坏的轻量执行镜像。
+     *
+     * <p>破坏任务会不断累积目标游标和撤销历史；若每个 slice 都生成 durable revision，
+     * 后台 writer 就必须反复重写一份越来越大的 NBT。这里与连锁挖掘采用相同策略：
+     * 首次接触世界前等待 root ACK，之后只在有界检查点或生命周期边界写盘。</p>
+     */
+    private final Map<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId, DestructionProgressOverlay>
+            destructionProgressOverlays = new java.util.HashMap<>();
     /** 只用于单个主线程 slice 解析在线玩家，不持有任务状态。 */
     private MinecraftServer activeServer;
 
@@ -47,6 +65,32 @@ final class RtsDurableTaskExecutionRuntime {
     void resetAfterServerStop() {
         activeServer = null;
         miningProgressOverlays.clear();
+        placementProgressOverlays.clear();
+        destructionProgressOverlays.clear();
+    }
+
+    /** 暂停、取消和停服时把建造镜像合并为一个 durable revision。 */
+    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot transitionPlacementSnapshot(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState lifecycle,
+            long gameTime) {
+        PlacementProgressOverlay overlay = placementProgressOverlays.remove(snapshot.id());
+        PlacementTaskPayload payload = overlay != null && overlay.baseRevision() == snapshot.revision()
+                ? overlay.payload()
+                : com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.decode(snapshot.payload());
+        var state = payload.state();
+        return snapshot.nextRevision(lifecycle, null, gameTime,
+                state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
+                com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload));
+    }
+
+    /** 返回包含尚未写盘进度的建造状态，供取消时收拢撤回历史。 */
+    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskState currentPlacementState(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
+        PlacementProgressOverlay overlay = placementProgressOverlays.get(snapshot.id());
+        if (overlay != null && overlay.baseRevision() == snapshot.revision()) return overlay.payload().state();
+        return com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
+                .decode(snapshot.payload()).state();
     }
 
     /** 暂停、取消和停服时把热路径镜像合并成一个 durable revision。 */
@@ -71,6 +115,32 @@ final class RtsDurableTaskExecutionRuntime {
         return com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec.decode(snapshot.payload()).state();
     }
 
+    /** 暂停、取消和停服时把范围破坏镜像合并为一个 durable revision。 */
+    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot transitionDestructionSnapshot(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState lifecycle,
+            long gameTime) {
+        DestructionProgressOverlay overlay = destructionProgressOverlays.remove(snapshot.id());
+        DestructionTaskPayload payload = overlay != null && overlay.baseRevision() == snapshot.revision()
+                ? overlay.payload()
+                : com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.decode(snapshot.payload());
+        var state = payload.state();
+        var nextPayload = new DestructionTaskPayload(
+                payload.ownerId(), payload.dimension(), payload.workflowEntryId(), state);
+        return snapshot.nextRevision(lifecycle, null, gameTime,
+                state.cursorUnits(), state.succeededUnits(), state.failedUnits(),
+                com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload));
+    }
+
+    /** 返回包含尚未写盘进度的范围破坏状态，供取消和历史恢复使用。 */
+    com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskState currentDestructionState(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot) {
+        DestructionProgressOverlay overlay = destructionProgressOverlays.get(snapshot.id());
+        if (overlay != null && overlay.baseRevision() == snapshot.revision()) return overlay.payload().state();
+        return com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec
+                .decode(snapshot.payload()).state();
+    }
+
     void checkpointMiningExecutions(
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
             long gameTime) {
@@ -89,37 +159,108 @@ final class RtsDurableTaskExecutionRuntime {
         }
     }
 
+    /** 停服前把仍在内存镜像中的建造游标与历史写回 TaskStore。 */
+    void checkpointPlacementExecutions(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
+            long gameTime) {
+        for (var taskId : java.util.List.copyOf(placementProgressOverlays.keySet())) {
+            var snapshot = coordinator.query().get(taskId).orElse(null);
+            if (snapshot == null || snapshot.state().terminal()) {
+                placementProgressOverlays.remove(taskId);
+                continue;
+            }
+            PlacementProgressOverlay overlay = placementProgressOverlays.get(taskId);
+            if (overlay == null || overlay.baseRevision() != snapshot.revision()) {
+                placementProgressOverlays.remove(taskId);
+                continue;
+            }
+            coordinator.replace(transitionPlacementSnapshot(snapshot, snapshot.state(), gameTime));
+        }
+    }
+
+    /** 停服前把仍在内存镜像中的范围破坏游标和撤销历史写回 TaskStore。 */
+    void checkpointDestructionExecutions(
+            com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator,
+            long gameTime) {
+        for (var taskId : java.util.List.copyOf(destructionProgressOverlays.keySet())) {
+            var snapshot = coordinator.query().get(taskId).orElse(null);
+            if (snapshot == null || snapshot.state().terminal()) {
+                destructionProgressOverlays.remove(taskId);
+                continue;
+            }
+            DestructionProgressOverlay overlay = destructionProgressOverlays.get(taskId);
+            if (overlay == null || overlay.baseRevision() != snapshot.revision()) {
+                destructionProgressOverlays.remove(taskId);
+                continue;
+            }
+            coordinator.replace(transitionDestructionSnapshot(snapshot, snapshot.state(), gameTime));
+        }
+    }
+
     private DurableTaskScheduler.SliceResult executeDurablePlacement(
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
             TaskBudget budget) {
-        if (!durableRevisionAcknowledged(snapshot)) {
+        PlacementProgressOverlay overlay = placementProgressOverlays.get(snapshot.id());
+        if (overlay != null && overlay.baseRevision() != snapshot.revision()) {
+            placementProgressOverlays.remove(snapshot.id());
+            overlay = null;
+        }
+        if (overlay == null && !durableRevisionAcknowledged(snapshot)) {
             return new DurableTaskScheduler.SliceResult(snapshot, 0);
         }
-        PlacementTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec
-                .decode(snapshot.payload());
+        PlacementTaskPayload payload = overlay == null
+                ? com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.decode(snapshot.payload())
+                : overlay.payload();
+        int uncheckpointedUnits = overlay == null ? 0 : overlay.uncheckpointedUnits();
         var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(payload.ownerId());
         if (player == null || !player.serverLevel().dimension().equals(payload.dimension())) {
-            return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
-                    payload.state().failedUnits(), snapshot.payload());
+            return new DurableTaskScheduler.SliceResult(snapshot, 0);
         }
         var session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session == null) {
-            return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
-                    payload.state().failedUnits(), snapshot.payload());
+            return new DurableTaskScheduler.SliceResult(snapshot, 0);
         }
         if (payload.workflowEntryId() >= 0
                 && com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                         .from(player, payload.workflowEntryId()).isEmpty()) {
+            placementProgressOverlays.remove(snapshot.id());
             var failed = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
                     null, player.serverLevel().getGameTime(), payload.state().cursorUnits(),
-                    payload.state().succeededUnits(), payload.state().failedUnits(), snapshot.payload());
+                    payload.state().succeededUnits(), payload.state().failedUnits(),
+                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(payload));
             return new DurableTaskScheduler.SliceResult(failed, 0);
         }
         var result = RtsPlacementBatch.tickDetachedPlacementSlice(
                 player, session, payload.state(), budget.maxUnits(),
                 saturatingDeadline(System.nanoTime(), budget.remainingNanos()));
         var nextPayload = payload.withState(result.state());
+        int pendingUnits = uncheckpointedUnits + result.processedUnits();
+        if (result.outcome()
+                == com.rtsbuilding.rtsbuilding.server.task.placement.PlacementSliceResult.Outcome.CONTINUE) {
+            boolean checkpointDue = durableRevisionAcknowledged(snapshot) && pendingUnits >= 256;
+            if (!checkpointDue) {
+                placementProgressOverlays.put(snapshot.id(), new PlacementProgressOverlay(
+                        snapshot.revision(), nextPayload, pendingUnits));
+                return new DurableTaskScheduler.SliceResult(snapshot, result.processedUnits());
+            }
+            var checkpoint = snapshot.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING,
+                    null, player.serverLevel().getGameTime(), result.state().cursorUnits(),
+                    result.state().succeededUnits(), result.state().failedUnits(),
+                    com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskCodec.encode(nextPayload));
+            placementProgressOverlays.put(snapshot.id(), new PlacementProgressOverlay(
+                    checkpoint.revision(), nextPayload, 0));
+            return new DurableTaskScheduler.SliceResult(checkpoint, result.processedUnits());
+        }
+
+        // 等待资源或完成时先等上一检查点 ACK，再提交完整生命周期边界。
+        if (!durableRevisionAcknowledged(snapshot)) {
+            placementProgressOverlays.put(snapshot.id(), new PlacementProgressOverlay(
+                    snapshot.revision(), nextPayload, pendingUnits));
+            return new DurableTaskScheduler.SliceResult(snapshot, result.processedUnits());
+        }
+        placementProgressOverlays.remove(snapshot.id());
         var lifecycle = switch (result.outcome()) {
             case CONTINUE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING;
             case WAITING_RESOURCE ->
@@ -146,11 +287,19 @@ final class RtsDurableTaskExecutionRuntime {
     private DurableTaskScheduler.SliceResult executeDurableDestruction(
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot,
             TaskBudget budget) {
-        if (!durableRevisionAcknowledged(snapshot)) {
+        DestructionProgressOverlay overlay = destructionProgressOverlays.get(snapshot.id());
+        if (overlay != null && overlay.baseRevision() != snapshot.revision()) {
+            destructionProgressOverlays.remove(snapshot.id());
+            overlay = null;
+        }
+        // 第一次触碰世界前必须确认 root 已落盘；建立镜像后不再逐 slice 等待磁盘。
+        if (overlay == null && !durableRevisionAcknowledged(snapshot)) {
             return new DurableTaskScheduler.SliceResult(snapshot, 0);
         }
-        DestructionTaskPayload payload = com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec
-                .decode(snapshot.payload());
+        DestructionTaskPayload payload = overlay == null
+                ? com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.decode(snapshot.payload())
+                : overlay.payload();
+        int uncheckpointedUnits = overlay == null ? 0 : overlay.uncheckpointedUnits();
         var player = activeServer == null ? null : activeServer.getPlayerList().getPlayer(payload.ownerId());
         if (player == null || !player.serverLevel().dimension().equals(payload.dimension())) {
             return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
@@ -174,6 +323,34 @@ final class RtsDurableTaskExecutionRuntime {
                 saturatingDeadline(System.nanoTime(), budget.remainingNanos()));
         var nextPayload = new DestructionTaskPayload(
                 payload.ownerId(), payload.dimension(), payload.workflowEntryId(), result.state());
+        int pendingUnits = uncheckpointedUnits + result.processedUnits();
+
+        if (result.outcome()
+                == com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResult.Outcome.CONTINUE) {
+            // 大范围任务每 256 个目标合并一次检查点，避免目标和撤销历史每小批都整包写盘。
+            boolean checkpointDue = durableRevisionAcknowledged(snapshot) && pendingUnits >= 256;
+            if (!checkpointDue) {
+                destructionProgressOverlays.put(snapshot.id(), new DestructionProgressOverlay(
+                        snapshot.revision(), nextPayload, pendingUnits));
+                return new DurableTaskScheduler.SliceResult(snapshot, result.processedUnits());
+            }
+            var checkpoint = snapshot.nextRevision(
+                    com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING,
+                    null, player.serverLevel().getGameTime(), result.state().cursorUnits(),
+                    result.state().succeededUnits(), result.state().failedUnits(),
+                    com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskCodec.encode(nextPayload));
+            destructionProgressOverlays.put(snapshot.id(), new DestructionProgressOverlay(
+                    checkpoint.revision(), nextPayload, 0));
+            return new DurableTaskScheduler.SliceResult(checkpoint, result.processedUnits());
+        }
+
+        // 等待资源或完成时必须先等上一检查点 ACK，再提交明确的生命周期边界。
+        if (!durableRevisionAcknowledged(snapshot)) {
+            destructionProgressOverlays.put(snapshot.id(), new DestructionProgressOverlay(
+                    snapshot.revision(), nextPayload, pendingUnits));
+            return new DurableTaskScheduler.SliceResult(snapshot, result.processedUnits());
+        }
+        destructionProgressOverlays.remove(snapshot.id());
         var lifecycle = switch (result.outcome()) {
             case CONTINUE -> com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.RUNNING;
             case WAITING_RESOURCE ->
@@ -339,6 +516,18 @@ final class RtsDurableTaskExecutionRuntime {
             MiningTaskPayload payload,
             int uncheckpointedUnits,
             long lastCheckpointGameTime) {
+    }
+
+    private record DestructionProgressOverlay(
+            long baseRevision,
+            DestructionTaskPayload payload,
+            int uncheckpointedUnits) {
+    }
+
+    private record PlacementProgressOverlay(
+            long baseRevision,
+            PlacementTaskPayload payload,
+            int uncheckpointedUnits) {
     }
 
 

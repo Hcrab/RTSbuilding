@@ -41,6 +41,11 @@ public class Config {
 
     // ---- Rendering options ----
 
+    public static final ModConfigSpec.BooleanValue ENABLE_UI_ANIMATIONS = CLIENT_BUILDER
+            .comment("Enable short visual-only hover and selection transitions in the RTS UI.")
+            .translation("rtsbuilding.configuration.enableUiAnimations")
+            .define("enableUiAnimations", true);
+
     public static final ModConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = CLIENT_BUILDER
             .comment("Render translucent block ghost models for placement previews before the player confirms placement.")
             .translation("rtsbuilding.configuration.useBlockGhostPreview")
@@ -161,9 +166,9 @@ public class Config {
             .defineInRange("mining.areaDestroyMaxTargets", 98304, 1, 262144);
 
     public static final ModConfigSpec.IntValue ULTIMINE_BLOCKS_PER_TICK = SERVER_BUILDER
-            .comment("Maximum queued chain mining targets processed per player per server tick.")
+            .comment("Maximum queued mining targets processed by one mining task slice.")
             .translation("rtsbuilding.configuration.ultimineBlocksPerTick")
-            .defineInRange("mining.ultimineBlocksPerTick", 8, 1, 128);
+            .defineInRange("mining.ultimineBlocksPerTick", 32, 1, 128);
 
     public static final ModConfigSpec.IntValue BUILD_BATCH_BLOCKS_PER_TICK = SERVER_BUILDER
             .comment("Maximum queued remote placement targets processed per player per server tick.")
@@ -188,7 +193,7 @@ public class Config {
     public static final ModConfigSpec.LongValue TASK_ENGINE_MAX_NANOS_PER_TICK = SERVER_BUILDER
             .comment("Cooperative RTS main-thread time budget per server tick in nanoseconds.")
             .translation("rtsbuilding.configuration.taskEngineMaxNanosPerTick")
-            .defineInRange("taskEngine.maxNanosPerTick", 4_000_000L, 250_000L, 20_000_000L);
+            .defineInRange("taskEngine.maxNanosPerTick", 8_000_000L, 250_000L, 20_000_000L);
 
     public static final ModConfigSpec.DoubleValue REMOTE_POV_BLOCK_REACH = SERVER_BUILDER
             .comment("Temporary interaction reach used while RTSBuilding replays a remote player action.")
@@ -209,6 +214,10 @@ public class Config {
             .comment("Fallback internal fluid buffer capacity in buckets when progression data is unavailable.")
             .translation("rtsbuilding.configuration.internalFluidCapacityBuckets")
             .defineInRange("fluid.internalFluidCapacityBuckets", 100, 1, 4096);
+
+    private static final ModConfigSpec.IntValue SERVER_CONFIG_REVISION = SERVER_BUILDER
+            .comment("Internal RTSBuilding server configuration migration revision. Do not edit manually.")
+            .defineInRange("internal.configRevision", 0, 0, ServerConfigMigration.CURRENT_REVISION);
 
     public static final ModConfigSpec SPEC = COMMON_BUILDER.build();
     public static final ModConfigSpec CLIENT_SPEC = CLIENT_BUILDER.build();
@@ -268,6 +277,15 @@ public class Config {
 
     public static boolean isPlacementBlockGhostPreviewEnabled() {
         return USE_BLOCK_GHOST_PREVIEW.getAsBoolean();
+    }
+
+    public static boolean isUiAnimationsEnabled() {
+        return ENABLE_UI_ANIMATIONS.getAsBoolean();
+    }
+
+    public static void setUiAnimationsEnabled(boolean enabled) {
+        ENABLE_UI_ANIMATIONS.set(enabled);
+        CLIENT_SPEC.save();
     }
 
     public static void setPlacementBlockGhostPreviewEnabled(boolean enabled) {
@@ -445,6 +463,26 @@ public class Config {
 
     public static long internalFluidCapacityMb() {
         return Math.max(1L, (long) INTERNAL_FLUID_CAPACITY_BUCKETS.getAsInt()) * FluidType.BUCKET_VOLUME;
+    }
+
+    /**
+     * 把旧版本真正落盘的保守默认值迁移到当前默认值，同时保留玩家主动设置的其他数值。
+     *
+     * @return 本次是否写入了新的迁移版本
+     */
+    public static boolean migrateLegacyServerDefaults() {
+        ServerConfigMigration.Values migrated = ServerConfigMigration.migrate(
+                SERVER_CONFIG_REVISION.getAsInt(),
+                ULTIMINE_BLOCKS_PER_TICK.getAsInt(),
+                TASK_ENGINE_MAX_NANOS_PER_TICK.get());
+        if (migrated.revision() == SERVER_CONFIG_REVISION.getAsInt()) {
+            return false;
+        }
+        ULTIMINE_BLOCKS_PER_TICK.set(migrated.miningSlice());
+        TASK_ENGINE_MAX_NANOS_PER_TICK.set(migrated.taskBudgetNanos());
+        SERVER_CONFIG_REVISION.set(migrated.revision());
+        SERVER_SPEC.save();
+        return true;
     }
 
     private static int clampInt(int value, int min, int max) {

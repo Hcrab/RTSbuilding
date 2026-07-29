@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
-import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 
@@ -51,7 +51,8 @@ public final class BlueprintGhostRenderer {
         }
 
         // 1. Filter out blocks outside RTS bounds
-        List<BlueprintPanel.BlueprintGhostBlock> filteredBlocks = BlueprintGhostBoundsFilter.filter(preview.blocks());
+        List<BlueprintGhostBlock> filteredBlocks =
+                BlueprintGhostBoundsFilter.filter(preview.blocks());
         if (filteredBlocks.isEmpty()) {
             return;
         }

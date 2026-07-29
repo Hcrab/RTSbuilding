@@ -93,9 +93,15 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         // ── 3. 创造模式快速路径 ───────────────────────────────────
         if (player.isCreative()) {
             Direction actualFace = face == null ? Direction.DOWN : face;
-            // 在上下文数据中存储破坏信息，用于历史记录
-            ctx.setData(HistoryRecordPipe.ARG_HISTORY_POSITIONS, List.of(pos.immutable()));
+            // 创造破坏必须在修改世界前捕获完整 BlockState 与方块实体 NBT。
+            var before = com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager
+                    .captureBlock(player.serverLevel(), pos, true);
+            if (before != null) {
+                ctx.setData(HistoryRecordPipe.ARG_HISTORY_RECORDS, List.of(before));
+            }
             ctx.setData(HistoryRecordPipe.ARG_HISTORY_FACE, actualFace);
+            ctx.setData(HistoryRecordPipe.ARG_HISTORY_SOURCE_SLOT, toolSlot);
+            ctx.setData(HistoryRecordPipe.ARG_HISTORY_CREATIVE, true);
             RtsMiningStateMachine.destroyMinedBlock(player, session, pos, toolSlot);
             // 完成工作流、归还工具、记录历史（同生存模式 finalizeMiningOperation）
             WorkflowPipeline.runCleanupSequence(ctx, List.of(

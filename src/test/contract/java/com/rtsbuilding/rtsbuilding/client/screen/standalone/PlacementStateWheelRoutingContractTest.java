@@ -12,19 +12,33 @@ class PlacementStateWheelRoutingContractTest {
     @Test
     void placementWheelGetsRBeforeRotateModeAndUsesSeparateAction() throws Exception {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        int placementRoute = source.indexOf("openPlacementStateWheel(currentMouseX(), currentMouseY())");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenComponentState.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenKeyboardActionOwner.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenModeSessionOwner.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenPointerClickRouter.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenKeyPressRouter.java"));
+        int placementRoute = source.indexOf("screen.openPlacementStateWheel(screen.currentMouseX(), screen.currentMouseY())");
         int modeRoute = source.indexOf("handleModeKeyPressed(keyCode, scanCode)", placementRoute);
         assertTrue(placementRoute >= 0);
         assertTrue(modeRoute > placementRoute);
-        assertTrue(source.contains("private final PlacedBlockRotationHandles rotationHandles"));
-        assertTrue(source.contains("private final PlacementStateWheel placementStateWheel"));
+        assertTrue(source.contains("PlacedBlockRotationHandles rotationHandles"));
+        assertTrue(source.contains("PlacementStateWheel placementStateWheel"));
         assertTrue(source.contains("copyPlacementState(choice.state())"),
                 "轮盘必须保存其实际渲染状态的安全属性快照，不能只提交单个属性");
         assertTrue(source.contains("handlePlacementPageClick(mouseX, mouseY)"));
         assertTrue(source.contains("cyclePlacementPage(-1)"));
         assertTrue(source.contains("cyclePlacementPage(1)"));
-        assertTrue(source.contains("this.controller.rotateBlockStep("));
+        assertTrue(source.contains("screen.controller.rotateBlockStep("));
         assertTrue(source.contains("RtsPlacementRayFreeze.freeze("));
         assertTrue(source.contains("GLFW.glfwSetCursorPos("));
 

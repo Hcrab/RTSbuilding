@@ -11,17 +11,18 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.HoverEvent;
+import net.minecraft.world.level.storage.LevelResource;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 
-import java.util.Locale;
-
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
+    private static final String STABLE_VERSION = "1.1.6";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean shownThisConnection;
@@ -39,8 +40,12 @@ public final class RtsClientOnboardingReminder {
     }
 
     private static int dismissIntroReminder() {
-        RtsClientUiStateStore.dismissIntroReminder(currentReminderKey(Minecraft.getInstance()));
         Minecraft minecraft = Minecraft.getInstance();
+        String key = currentReminderKey(minecraft);
+        if (key.isBlank()) {
+            return 0;
+        }
+        RtsClientUiStateStore.dismissIntroReminder(key);
         if (minecraft.player != null) {
             minecraft.player.displayClientMessage(Component.translatable("chat.rtsbuilding.intro.dismissed"), false);
         }
@@ -67,6 +72,11 @@ public final class RtsClientOnboardingReminder {
         }
 
         String key = currentReminderKey(minecraft);
+        if (key.isBlank()) {
+            // 服务器/存档身份尚未稳定时稍后重试，避免把提醒错误地记到维度或全局键上。
+            ticksUntilReminder = SHOW_DELAY_TICKS;
+            return;
+        }
         shownThisConnection = true;
         if (RtsClientUiStateStore.isIntroReminderDismissed(key)) {
             return;
@@ -77,6 +87,8 @@ public final class RtsClientOnboardingReminder {
                 Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA), false);
         minecraft.player.displayClientMessage(Component.translatable(
                 "chat.rtsbuilding.intro.version_warning",
+                Component.literal(currentDisplayVersion()),
+                Component.literal(STABLE_VERSION),
                 websiteComponent())
                 .withStyle(ChatFormatting.GOLD), false);
         minecraft.player.displayClientMessage(Component.translatable(
@@ -106,6 +118,21 @@ public final class RtsClientOnboardingReminder {
                 .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Component.literal(RtsCommunityLinks.DISCORD_INVITE))));
     }
 
+    /**
+     * 从实际加载的 ModContainer 读取当前版本系列。
+     *
+     * <p>入门提醒面向普通玩家，只展示 {@code 1.1.6} 这一公开版本系列；
+     * Patch/Pilot 构建自身仍保留完整限定符的 JAR 元数据，便于日志诊断。
+     */
+    private static String currentDisplayVersion() {
+        String version = ModList.get()
+                .getModContainerById(RtsbuildingMod.MODID)
+                .map(container -> container.getModInfo().getVersion().toString())
+                .orElse("unknown");
+        int qualifier = version.indexOf('-');
+        return qualifier > 0 ? version.substring(0, qualifier) : version;
+    }
+
     private static Component websiteComponent() {
         return Component.literal(RtsCommunityLinks.WEBSITE).withStyle(style -> style
                 .withColor(ChatFormatting.BLUE)
@@ -124,20 +151,15 @@ public final class RtsClientOnboardingReminder {
 
     private static String currentReminderKey(Minecraft minecraft) {
         if (minecraft == null) {
-            return "unknown";
+            return "";
+        }
+        if (minecraft.getSingleplayerServer() != null) {
+            return RtsIntroReminderScope.singleplayerKey(
+                    minecraft.getSingleplayerServer().getWorldPath(LevelResource.ROOT));
         }
         if (minecraft.getCurrentServer() != null && minecraft.getCurrentServer().ip != null) {
-            return "server:" + minecraft.getCurrentServer().ip.trim().toLowerCase(Locale.ROOT);
+            return RtsIntroReminderScope.serverKey(minecraft.getCurrentServer().ip);
         }
-        if (minecraft.getSingleplayerServer() != null && minecraft.getSingleplayerServer().getWorldData() != null) {
-            String name = minecraft.getSingleplayerServer().getWorldData().getLevelName();
-            if (name != null && !name.isBlank()) {
-                return "singleplayer:" + name.trim().toLowerCase(Locale.ROOT);
-            }
-        }
-        if (minecraft.level != null) {
-            return "level:" + minecraft.level.dimension().location().toString().toLowerCase(Locale.ROOT);
-        }
-        return "unknown";
+        return "";
     }
 }

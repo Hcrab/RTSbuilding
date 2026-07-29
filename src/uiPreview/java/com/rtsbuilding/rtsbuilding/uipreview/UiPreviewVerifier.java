@@ -36,7 +36,12 @@ public final class UiPreviewVerifier {
             UiPreviewResult first = renderer.render(scenario);
             UiPreviewResult second = renderer.render(scenario);
             try {
-                verifyStructure(first);
+                try {
+                    verifyStructure(first);
+                } catch (IllegalStateException failure) {
+                    throw new IllegalStateException("preview scenario " + scenario.id()
+                            + " failed structure budget: " + failure.getMessage(), failure);
+                }
                 verifyDeterministic(first.image(), second.image(), scenario.id());
                 File output = new File(outputDirectory, scenario.id() + ".png");
                 ImageIO.write(first.image(), "png", output);
@@ -49,8 +54,11 @@ public final class UiPreviewVerifier {
                 second.close();
             }
         }
+        TopBarAnimationPreviewRenderer.render(outputDirectory);
         System.out.println("Verified " + UiPreviewScenario.firstBatch().size()
-                + " deterministic headless UI preview scenes");
+                + " deterministic headless UI preview scenes and "
+                + TopBarAnimationPreviewRenderer.SLICE_COUNT
+                + " top-bar animation slices");
     }
 
     private static void verifyStructure(UiPreviewResult result) {

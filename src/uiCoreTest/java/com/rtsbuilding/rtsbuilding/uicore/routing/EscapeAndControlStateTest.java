@@ -32,6 +32,16 @@ class EscapeAndControlStateTest {
     }
 
     @Test
+    void 切屏清理escape栈不触发任何关闭副作用() {
+        UiEscapeStack<String> stack = new UiEscapeStack<String>();
+        stack.push("window");
+        stack.push("dialog");
+        stack.clear();
+        assertEquals(0, stack.size());
+        assertNull(stack.peek());
+    }
+
+    @Test
     void 启用控件不能携带禁用原因() {
         assertThrows(IllegalArgumentException.class,
                 () -> new UiControlState(true, false, false, false, "locked"));
@@ -55,5 +65,26 @@ class EscapeAndControlStateTest {
         assertTrue(state.isSelected());
         assertFalse(state.isEnabled());
         assertEquals("需要蓝图插件", state.getDisabledReason());
+    }
+
+    @Test
+    void 瞬时交互状态与业务状态共用同一不可变快照() {
+        UiControlState state = UiControlState.enabled().withInteraction(true, true, true);
+        assertTrue(state.isVisible());
+        assertTrue(state.isHovered());
+        assertTrue(state.isFocused());
+        assertTrue(state.isPressed());
+        assertFalse(UiControlState.enabled().isPressed());
+    }
+
+    @Test
+    void 隐藏或禁用控件不能保留无效按压() {
+        assertFalse(UiControlState.hidden().isVisible());
+        assertThrows(IllegalArgumentException.class,
+                () -> new UiControlState(false, true, true, false, false,
+                        false, false, false, ""));
+        assertThrows(IllegalArgumentException.class,
+                () -> new UiControlState(true, false, false, false, true,
+                        false, false, false, "locked"));
     }
 }

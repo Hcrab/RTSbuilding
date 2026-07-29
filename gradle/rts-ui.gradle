@@ -110,6 +110,12 @@ tasks.register('uiCoreTest', Test) {
     description = '运行不依赖 Minecraft 的 Java 8 UI Core 契约测试。'
     dependsOn tasks.named('uiCoreTestClasses')
     dependsOn tasks.named('verifyUiCoreIsolation')
+    // UI Core 契约会直接读取生产 Adapter 与 Kit 源码来审计路由边界。
+    // 必须把这些源码显式列为输入，否则 owner 拆分后 Gradle 可能误用旧的绿色结果。
+    inputs.files(
+            fileTree('src/main/java') { include '**/*.java' },
+            fileTree('src/uiCore/java') { include '**/*.java' },
+            fileTree('src/uiKit/java') { include '**/*.java' })
     testClassesDirs = sourceSets.uiCoreTest.output.classesDirs
     classpath = sourceSets.uiCoreTest.runtimeClasspath
     useJUnitPlatform()
@@ -301,6 +307,167 @@ tasks.register('verifyUiDevModSources') {
     }
 }
 
+tasks.register('verifyUiStyleDebt') {
+    group = 'verification'
+    description = '锁定通用 ARGB、重复布局偏移与正式按钮手绘债务，确保后续只减不增。'
+    def productionRoots = [
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/gear',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/guide',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/storage',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/workflow',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/craft',
+            'src/main/java/com/rtsbuilding/rtsbuilding/client/widget'
+    ]
+    def productionSources = files(productionRoots.collect { fileTree(it) { include '**/*.java' } },
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsClientUiUtil.java'),
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java'))
+    def previewSources = fileTree('src/uiPreview/java') { include '**/*.java' }
+    def productionScreenSources =
+            fileTree('src/main/java/com/rtsbuilding/rtsbuilding/client/screen') { include '**/*.java' }
+    def productionOverlaySources = files(
+            fileTree('src/main/java/com/rtsbuilding/rtsbuilding/client/input/overlay') {
+                include '**/*.java'
+            },
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/input/RtsClientInputGate.java'),
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/popup/RtsCraftQuantityDialog.java'),
+            file('src/main/java/com/rtsbuilding/rtsbuilding/client/popup/RtsCraftFeedbackPopup.java'))
+    // 颜色门禁覆盖整个生产 screen 包和已经收口的容器 Overlay/Popup；不能靠文件白名单制造局部零债务。
+    def productionColorSources = files(
+            productionSources, productionScreenSources, productionOverlaySources)
+    def iconRenderer = file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarIconRenderer.java')
+    def guidePanel = file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/guide/GuidePanel.java')
+    inputs.files(productionSources, productionColorSources, previewSources,
+            productionScreenSources, productionOverlaySources, iconRenderer, guidePanel)
+    doLast {
+        def argb = ~/0x[0-9A-Fa-f]{8}/
+        int productionArgb = productionColorSources.files.sum { source ->
+            (source.getText('UTF-8') =~ argb).count
+        } as int
+        def rgb = ~/0x[0-9A-Fa-f]{6}(?![0-9A-Fa-f])/
+        int productionRgb = productionColorSources.files.sum { source ->
+            (source.getText('UTF-8') =~ rgb).count
+        } as int
+        int previewArgb = previewSources.files.sum { source ->
+            (source.getText('UTF-8') =~ argb).count
+        } as int
+        // 2026-07-24：生产颜色已经全部迁到 Kit 主题边界；预览仅保留诊断/差异图专用色。
+        int productionArgbLimit = 0
+        int previewArgbLimit = 31
+        int productionRgbLimit = 0
+        if (productionArgb > productionArgbLimit || productionRgb > productionRgbLimit
+                || previewArgb > previewArgbLimit) {
+            throw new GradleException(
+                    "UI color debt grew: production ARGB=${productionArgb}/${productionArgbLimit}, " +
+                    "production RGB=${productionRgb}/${productionRgbLimit}, " +
+                    "preview=${previewArgb}/${previewArgbLimit}")
+        }
+        // 2026-07-23 Craft/蓝图/设置二次收口后的债务水位；主题文件本身不在扫描范围内。
+        // 插件管理页已纳入生产扫描；它的色值已全部迁入 Kit 语义色板。
+        def layoutLiteral = ~/\b(?:x|y|w|h|width|height|mouseX|mouseY)\s*[+-]\s*\d+/
+        int layoutDebt = productionSources.files.sum { source ->
+            (source.getText('UTF-8') =~ layoutLiteral).count
+        } as int
+        int layoutDebtLimit = 0
+        if (layoutDebt > layoutDebtLimit) {
+            throw new GradleException(
+                    "UI layout literal debt grew: ${layoutDebt}/${layoutDebtLimit}")
+        }
+        // GUI 矩形统一采用 Core 的半开语义；世界方块/AABB 的闭区间不在此规则范围。
+        def closedPointerHit = ~/(?s)mouseX\s*>=\s*x\s*&&\s*mouseX\s*<=\s*x\s*\+\s*w.*?mouseY\s*>=\s*y\s*&&\s*mouseY\s*<=\s*y\s*\+\s*h/
+        def productionPointerSources = files(
+                productionScreenSources, productionOverlaySources)
+        int closedPointerHitDebt = productionPointerSources.files.sum { source ->
+            (source.getText('UTF-8') =~ closedPointerHit).count
+        } as int
+        if (closedPointerHitDebt != 0) {
+            throw new GradleException(
+                    "Closed-boundary UI pointer hit tests returned: ${closedPointerHitDebt}/0")
+        }
+        int legacyFrameDebt = productionColorSources.files.sum { source ->
+            source.getText('UTF-8').count('RtsClientUiUtil.drawPanelFrame(')
+        } as int
+        if (legacyFrameDebt != 0) {
+            throw new GradleException(
+                    "Legacy production UI frame helper returned: ${legacyFrameDebt}/0")
+        }
+        // 水平线仍可表达章节分隔；生产 UI 的垂直线只曾用于私有手写框体，现统一由 Kit primitive 接管。
+        int directVerticalLineDebt = productionColorSources.files.sum { source ->
+            source.getText('UTF-8').count('.vLine(')
+        } as int
+        if (directVerticalLineDebt != 0) {
+            throw new GradleException(
+                    "Direct production UI vertical-line chrome returned: ${directVerticalLineDebt}/0")
+        }
+        String topbar = iconRenderer.getText('UTF-8')
+        ['.fill(', '.hLine(', '.vLine(', '.drawString('].each { forbidden ->
+            if (topbar.contains(forbidden)) {
+                throw new GradleException("Formal top-bar icons must be texture-only: ${forbidden}")
+            }
+        }
+        String guide = guidePanel.getText('UTF-8')
+        int iconStart = guide.indexOf('private void drawTopicIcon')
+        int iconEnd = guide.indexOf('private void drawGuideTextureIcon', iconStart)
+        if (iconStart < 0 || iconEnd < 0) {
+            throw new GradleException('Guide icon texture boundary is missing')
+        }
+        String guideIconPath = guide.substring(iconStart, iconEnd)
+        ['.fill(', '.hLine(', '.vLine(', '.drawString('].each { forbidden ->
+            if (guideIconPath.contains(forbidden)) {
+                throw new GradleException("Formal guide icons must be texture-only: ${forbidden}")
+            }
+        }
+        println "UI style debt: production ARGB ${productionArgb}/${productionArgbLimit}, " +
+                "production RGB ${productionRgb}/${productionRgbLimit}, " +
+                "preview ARGB ${previewArgb}/${previewArgbLimit}, " +
+                "layout literals ${layoutDebt}/${layoutDebtLimit}, " +
+                "closed pointer hits ${closedPointerHitDebt}/0, formal hand-drawn icons 0"
+        println "UI chrome debt: legacy production UI frame helper ${legacyFrameDebt}/0, " +
+                "direct vertical-line chrome ${directVerticalLineDebt}/0"
+    }
+}
+
+tasks.register('verifyUiIconResources') {
+    group = 'verification'
+    description = '核对正式按钮纹理路径、尺寸、透明通道、四状态和资产来源记录。'
+    def topbarIds = [
+            'mode_interact', 'mode_link', 'mode_funnel', 'mode_rotate',
+            'quick_build', 'quest_detect', 'chunk_view', 'filter_block',
+            'guide', 'developer', 'settings_gear'
+    ]
+    def states = ['inactive', 'hover', 'active', 'pressed']
+    def topbarTextures = topbarIds.collectMany { id -> states.collect { state ->
+        file("src/main/resources/assets/rtsbuilding/textures/gui/topbar/${id}_${state}.png")
+    } }
+    def guideTextures = ['search', 'sort', 'clock', 'droplet', 'pin', 'craft', 'slider', 'toggle'].collect {
+        file("src/main/resources/assets/rtsbuilding/textures/gui/guide/${it}.png")
+    }
+    def assetLicenses = file('ASSET-LICENSES.md')
+    inputs.files(topbarTextures + guideTextures + [assetLicenses])
+    doLast {
+        (topbarTextures + guideTextures).each { texture ->
+            if (!texture.isFile() || texture.length() == 0L) {
+                throw new GradleException("Missing formal UI icon texture: ${texture}")
+            }
+            def image = javax.imageio.ImageIO.read(texture)
+            if (image == null) throw new GradleException("Unreadable UI icon texture: ${texture}")
+            int expected = texture.parentFile.name == 'topbar' ? 24 : 18
+            if (image.width != expected || image.height != expected || !image.colorModel.hasAlpha()) {
+                throw new GradleException(
+                        "Invalid UI icon ${texture}: ${image.width}x${image.height}, alpha=${image.colorModel.hasAlpha()}")
+            }
+        }
+        String licenseText = assetLicenses.getText('UTF-8')
+        if (!licenseText.contains('guide_*') || !licenseText.contains('textures/gui/guide/')) {
+            throw new GradleException('UI icon source/license record is incomplete')
+        }
+        println "Verified ${topbarTextures.size()} top-bar states and ${guideTextures.size()} guide textures"
+    }
+}
+
 tasks.named('check').configure {
     dependsOn tasks.named('uiCoreTest')
     dependsOn tasks.named('uiKitTest')
@@ -308,6 +475,8 @@ tasks.named('check').configure {
     dependsOn tasks.named('verifyUiBaselineResources')
     dependsOn tasks.named('verifyUiJava8Bytecode')
     dependsOn tasks.named('verifyUiDevModSources')
+    dependsOn tasks.named('verifyUiStyleDebt')
+    dependsOn tasks.named('verifyUiIconResources')
 }
 
 tasks.named('jar', Jar).configure {

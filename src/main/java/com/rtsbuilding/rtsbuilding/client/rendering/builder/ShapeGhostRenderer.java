@@ -145,15 +145,26 @@ public final class ShapeGhostRenderer {
         }
 
         // ── Build mode (placement ghost) ──
-        // 批量建造不提前渲染整片方块虚影，避免库存不足时误导玩家以为所有目标都会放置。
-        boolean usePlacementLayerSettings = shouldUsePlacementPreviewSettings(preview);
-        boolean renderBlockGhost = preview.blocks().size() <= 1
-                && (usePlacementLayerSettings
-                        ? com.rtsbuilding.rtsbuilding.Config.isPlacementBlockGhostPreviewEnabled()
-                        : true);
+        // 锁定前后的预览使用同一套图层设置，避免选点完成时虚影突然消失。
+        boolean renderBlockGhost = shouldRenderPlacementBlockGhost(
+                preview,
+                com.rtsbuilding.rtsbuilding.Config.isPlacementBlockGhostPreviewEnabled());
         BuildGhostRenderer.render(minecraft, preview, poseStack, lineBuffer, fillBuffer,
                 renderBlockGhost,
                 shouldRenderPlacementWireframe(preview));
+    }
+
+    /**
+     * 方块虚影开关对单方块和批量建造使用同一套语义。
+     *
+     * <p>旧实现用 {@code blocks.size() <= 1} 强行关闭批量虚影，导致玩家在锁定
+     * 范围后仍保留线框，却突然失去已经开启的方块虚影。这里仅判断预览是否存在
+     * 以及玩家是否开启该层；大范围预览的性能取舍由玩家的显式设置决定。</p>
+     */
+    static boolean shouldRenderPlacementBlockGhost(
+            ShapeDataRecords.GhostPreview preview,
+            boolean configEnabled) {
+        return configEnabled && preview != null && !preview.blocks().isEmpty();
     }
 
     static boolean shouldRenderPlacementWireframe(ShapeDataRecords.GhostPreview preview) {
@@ -163,13 +174,7 @@ public final class ShapeGhostRenderer {
     }
 
     static boolean shouldRenderPlacementWireframe(ShapeDataRecords.GhostPreview preview, boolean configEnabled) {
-        if (preview == null || preview.blocks().isEmpty()) {
-            return false;
-        }
-        if (preview.blocks().size() > 1) {
-            return true;
-        }
-        return configEnabled;
+        return configEnabled && preview != null && !preview.blocks().isEmpty();
     }
 
     // ===== Range-destroy confirmed work area handling =====
@@ -353,10 +358,6 @@ public final class ShapeGhostRenderer {
     static boolean previewContains(ShapeDataRecords.GhostPreview preview, BlockPos pos) {
         if (preview == null || pos == null) return false;
         return RenderingUtil.contains(preview.blocks(), pos) || RenderingUtil.contains(preview.emptyBlocks(), pos);
-    }
-
-    private static boolean shouldUsePlacementPreviewSettings(ShapeDataRecords.GhostPreview preview) {
-        return preview != null && preview.readyConfirm();
     }
 
     private static int previewKey(ShapeDataRecords.GhostPreview preview) {

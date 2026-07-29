@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsGuiVectorRenderer;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
 import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -114,20 +115,23 @@ public final class BuilderModeWheel {
                 this.centerY,
                 ringRadius,
                 8.0F,
-                multiplyAlpha(0x241A222B, alpha));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.TRACK_BACKGROUND, alpha).toArgb());
         RtsGuiVectorRenderer.drawRing(
                 graphics,
                 this.centerX,
                 this.centerY,
                 ringRadius,
                 1.25F,
-                multiplyAlpha(0xA07E8C99, alpha));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.TRACK_BORDER, alpha).toArgb());
         RtsGuiVectorRenderer.fillDisc(
                 graphics,
                 this.centerX,
                 this.centerY,
                 2.0F + progress,
-                multiplyAlpha(0xFFD9E2EA, alpha * 0.78F));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.CENTER_DOT, alpha * 0.78F).toArgb());
 
         drawOption(graphics, BuilderMode.INTERACT, 0, -1, 0,
                 distance, currentMode, hovered, alpha, progress);
@@ -153,7 +157,8 @@ public final class BuilderModeWheel {
                 Component.translatable("screen.rtsbuilding.mode_wheel.hint").getString(),
                 this.centerX,
                 this.centerY + 97,
-                multiplyAlpha(0xFFD6DFEA, alpha * 0.86F));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.HINT_TEXT, alpha * 0.86F).toArgb());
     }
 
     private void drawOption(
@@ -174,21 +179,22 @@ public final class BuilderModeWheel {
         float hover = this.hoverProgress[optionIndex];
         float scale = (0.72F + openingProgress * 0.28F) * (1.0F + hover * 0.12F);
         float radius = OPTION_RADIUS * scale;
-        int border = hover > 0.01F
-                ? blendColor(0xFF82909D, 0xFFFFD878, hover)
-                : current ? 0xFF8FD4A8 : 0xFF82909D;
-        int background = hover > 0.01F
-                ? blendColor(0xD51A2026, 0xE6453820, hover)
-                : current ? 0xD522382D : 0xC91A2026;
+        int border = ModeWheelStyle.multiplyAlpha(
+                ModeWheelStyle.optionBorder(current, hover), alpha).toArgb();
+        int background = ModeWheelStyle.multiplyAlpha(
+                ModeWheelStyle.optionBackground(current, hover), alpha).toArgb();
         RtsGuiVectorRenderer.fillDisc(
-                graphics, cx, cy, radius + 1.25F, multiplyAlpha(border, alpha));
+                graphics, cx, cy, radius + 1.25F, border);
         RtsGuiVectorRenderer.fillDisc(
                 graphics, cx, cy, Math.max(4.0F, radius - 1.25F),
-                multiplyAlpha(background, alpha));
+                background);
 
         TopBarTypes.TopBarButtonId iconId = modeButtonId(mode);
-        ResourceLocation texture = TopBarIconRenderer.topbarModeTexture(
-                iconId, current, hovered, false);
+        TopBarIconRenderer.VisualState textureState = current
+                ? TopBarIconRenderer.VisualState.ACTIVE
+                : hovered ? TopBarIconRenderer.VisualState.HOVER
+                : TopBarIconRenderer.VisualState.INACTIVE;
+        ResourceLocation texture = TopBarIconRenderer.texture(iconId, textureState);
         if (texture != null) {
             int iconSize = Math.max(12, Math.round(ICON_SIZE * scale));
             int iconX = cx - iconSize / 2;
@@ -235,14 +241,16 @@ public final class BuilderModeWheel {
                 centerX + (width + 1) / 2,
                 centerY,
                 15.0F,
-                multiplyAlpha(0xD0161B22, alpha * 0.88F));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.LABEL_BACKGROUND, alpha * 0.88F).toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(
                 graphics,
                 font,
                 text,
                 centerX,
                 centerY - 4,
-                multiplyAlpha(0xFFF0F4F7, alpha));
+                ModeWheelStyle.multiplyAlpha(
+                        ModeWheelStyle.LABEL_TEXT, alpha).toArgb());
     }
 
     private static TopBarTypes.TopBarButtonId modeButtonId(BuilderMode mode) {
@@ -263,18 +271,4 @@ public final class BuilderModeWheel {
         };
     }
 
-    private static int multiplyAlpha(int color, float multiplier) {
-        int alpha = Math.round(
-                ((color >>> 24) & 0xFF) * Mth.clamp(multiplier, 0.0F, 1.0F));
-        return color & 0x00FFFFFF | alpha << 24;
-    }
-
-    private static int blendColor(int from, int to, float amount) {
-        float clamped = Mth.clamp(amount, 0.0F, 1.0F);
-        int a = Math.round(Mth.lerp(clamped, (from >>> 24) & 0xFF, (to >>> 24) & 0xFF));
-        int r = Math.round(Mth.lerp(clamped, (from >>> 16) & 0xFF, (to >>> 16) & 0xFF));
-        int g = Math.round(Mth.lerp(clamped, (from >>> 8) & 0xFF, (to >>> 8) & 0xFF));
-        int b = Math.round(Mth.lerp(clamped, from & 0xFF, to & 0xFF));
-        return a << 24 | r << 16 | g << 8 | b;
-    }
 }

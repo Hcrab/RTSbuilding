@@ -91,7 +91,15 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canStartNormalRts(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Set an RTS home first."), true);
+            net.minecraft.network.chat.MutableComponent message =
+                    net.minecraft.network.chat.Component.translatable(
+                            RtsProgressionManager.hasHome(player)
+                                    ? "message.rtsbuilding.home.too_far"
+                                    : "message.rtsbuilding.home.required");
+            if (RtsProgressionManager.hasHome(player)) {
+                message.withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD);
+            }
+            player.displayClientMessage(message, true);
             return;
         }
         startNormal(player, startAtPlayerHead);

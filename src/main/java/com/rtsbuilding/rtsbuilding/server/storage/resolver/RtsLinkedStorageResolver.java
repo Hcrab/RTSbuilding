@@ -5,7 +5,6 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlockEventHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
@@ -103,7 +102,7 @@ public final class RtsLinkedStorageResolver {
 
     /**
      * 链接引用是世界目标，因此解析器拥有在解析之前使用的
-     * 共享相机、区块、交互和家园半径门控。
+     * 共享相机会话、区块、交互权限和本次操作半径门控。
      * <p>
      * 同时强制基岩层边界：拒绝任何在世界最小建筑高度
      *（基岩层）或以下的坐标，防止在虚空中进行 RTS 操作。
@@ -124,10 +123,7 @@ public final class RtsLinkedStorageResolver {
         if (!level.mayInteract(player, pos)) {
             return false;
         }
-        if (!RtsCameraManager.isWithinActionRange(player, pos)) {
-            return false;
-        }
-        return RtsProgressionManager.canAccessHomeRadius(player, pos);
+        return RtsCameraManager.isWithinActionRange(player, pos);
     }
 
     /**

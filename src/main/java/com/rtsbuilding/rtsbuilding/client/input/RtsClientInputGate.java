@@ -14,6 +14,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScre
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiBlink;
+import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -202,46 +205,65 @@ public final class RtsClientInputGate {
         g.pose().scale((float) profile.renderScale(), (float) profile.renderScale(), 1.0F);
 
         if (!layout.overlayCollapsed()) {
-            drawOverlayWindowFrame(g, layout.craftPanelX(), layout.craftPanelY(), layout.craftPanelW(), layout.craftPanelH());
+            drawOverlayWindowFrame(g, minecraft.font, layout.craftPanelX(),
+                    layout.craftPanelY(), layout.craftPanelW(), layout.craftPanelH());
             renderOverlayCraftablesPanel(g, minecraft.font, mouseX, mouseY, layout, controller);
         }
 
-        drawOverlayWindowFrame(g, layout.storagePanelX(), layout.storagePanelY(), STORAGE_PANEL_W, layout.storagePanelH());
+        drawOverlayWindowFrame(g, minecraft.font, layout.storagePanelX(),
+                layout.storagePanelY(), STORAGE_PANEL_W, layout.storagePanelH());
         drawMiniButton(g, minecraft.font, layout.dragX(), layout.headerY(), OVERLAY_DRAG_W, OVERLAY_HEADER_H,
                 Component.translatable("screen.rtsbuilding.overlay.drag_button").getString());
         drawMiniButton(g, minecraft.font, layout.sortX(), layout.headerY(), 12, OVERLAY_HEADER_H, sortShort(controller.getStorageSort()));
         drawMiniButton(g, minecraft.font, layout.dirX(), layout.headerY(), 12, OVERLAY_HEADER_H,
                 controller.isStorageSortAscending() ? "A" : "D");
 
-        int searchBg = overlaySearchFocused ? 0xAA304153 : 0xAA202731;
-        g.fill(layout.searchX(), layout.headerY(), layout.searchX() + layout.searchW(), layout.headerY() + OVERLAY_HEADER_H, searchBg);
-        g.hLine(layout.searchX(), layout.searchX() + layout.searchW(), layout.headerY(), 0xFF61758A);
-        g.hLine(layout.searchX(), layout.searchX() + layout.searchW(), layout.headerY() + OVERLAY_HEADER_H, 0xFF10161D);
-        g.vLine(layout.searchX(), layout.headerY(), layout.headerY() + OVERLAY_HEADER_H, 0xFF61758A);
-        g.vLine(layout.searchX() + layout.searchW(), layout.headerY(), layout.headerY() + OVERLAY_HEADER_H, 0xFF10161D);
+        drawPanelFrame(g, minecraft.font, layout.searchX(), layout.headerY(),
+                layout.searchW(), OVERLAY_HEADER_H,
+                ContainerOverlayStyle.searchBackground(overlaySearchFocused),
+                ContainerOverlayStyle.SEARCH_BORDER_LIGHT,
+                ContainerOverlayStyle.SEARCH_BORDER_DARK);
 
         String searchText = overlaySearchDraft == null ? "" : overlaySearchDraft;
         String display = trimToWidth(minecraft.font, searchText, Math.max(8, layout.searchW() - OVERLAY_SEARCH_CLEAR_W - 5));
-        g.drawString(minecraft.font, display, layout.searchX() + 2, layout.headerY() + 2, 0xEAF2FF, false);
-        if (overlaySearchFocused && (System.currentTimeMillis() / 300L) % 2L == 0L) {
+        g.drawString(minecraft.font, display, layout.searchX() + 2,
+                layout.headerY() + 2,
+                ContainerOverlayStyle.SEARCH_TEXT.toArgb(), false);
+        if (overlaySearchFocused && UiBlink.caretVisible(SystemUiClock.INSTANCE)) {
             int caretX = layout.searchX() + 2 + minecraft.font.width(display) + 1;
-            g.fill(caretX, layout.headerY() + 2, caretX + 1, layout.headerY() + OVERLAY_HEADER_H - 2, 0xFFEAF2FF);
+            g.fill(caretX, layout.headerY() + 2, caretX + 1,
+                    layout.headerY() + OVERLAY_HEADER_H - 2,
+                    ContainerOverlayStyle.SEARCH_TEXT.toArgb());
         }
-        g.fill(layout.clearX(), layout.headerY(), layout.clearX() + OVERLAY_SEARCH_CLEAR_W, layout.headerY() + OVERLAY_HEADER_H, 0xAA2A3340);
+        g.fill(layout.clearX(), layout.headerY(),
+                layout.clearX() + OVERLAY_SEARCH_CLEAR_W,
+                layout.headerY() + OVERLAY_HEADER_H,
+                ContainerOverlayStyle.SEARCH_CLEAR_BACKGROUND.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "x",
                 layout.clearX() + OVERLAY_SEARCH_CLEAR_W / 2, layout.headerY() + 2,
-                searchText.isEmpty() ? 0x88A0B4C8 : 0xFFFFFF);
+                (searchText.isEmpty()
+                        ? ContainerOverlayStyle.SEARCH_CLEAR_EMPTY
+                        : ContainerOverlayStyle.BUTTON_TEXT).toArgb());
 
         if (!layout.overlayCollapsed()) {
-            g.fill(layout.pageX(), layout.pagePrevY(), layout.pageX() + PAGE_BUTTON_W, layout.pagePrevY() + PAGE_BUTTON_H, 0xAA2A2A2A);
+            g.fill(layout.pageX(), layout.pagePrevY(),
+                    layout.pageX() + PAGE_BUTTON_W,
+                    layout.pagePrevY() + PAGE_BUTTON_H,
+                    ContainerOverlayStyle.PAGE_BACKGROUND.toArgb());
             RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "^",
-                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pagePrevY() + 1, 0xFFFFFF);
+                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pagePrevY() + 1,
+                    ContainerOverlayStyle.BUTTON_TEXT.toArgb());
             String pageText = (controller.getStoragePage() + 1) + "/" + controller.getStorageTotalPages();
             RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, pageText,
-                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pageTextY(), 0xDDDDDD);
-            g.fill(layout.pageX(), layout.pageNextY(), layout.pageX() + PAGE_BUTTON_W, layout.pageNextY() + PAGE_BUTTON_H, 0xAA2A2A2A);
+                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pageTextY(),
+                    ContainerOverlayStyle.PAGE_TEXT.toArgb());
+            g.fill(layout.pageX(), layout.pageNextY(),
+                    layout.pageX() + PAGE_BUTTON_W,
+                    layout.pageNextY() + PAGE_BUTTON_H,
+                    ContainerOverlayStyle.PAGE_BACKGROUND.toArgb());
             RtsClientUiUtil.drawCenteredStringNoShadow(g, minecraft.font, "v",
-                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pageNextY() + 1, 0xFFFFFF);
+                    layout.pageX() + PAGE_BUTTON_W / 2, layout.pageNextY() + 1,
+                    ContainerOverlayStyle.BUTTON_TEXT.toArgb());
         }
 
         if (!layout.overlayCollapsed()) {
@@ -255,11 +277,14 @@ public final class RtsClientInputGate {
         for (int i = 0; i < visibleStorageSlots; i++) {
             int cx = layout.gridX() + (i % STORAGE_COLS) * SLOT_PITCH;
             int cy = layout.gridY() + (i / STORAGE_COLS) * SLOT_PITCH;
-            g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xAA131313);
+            g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE,
+                    ContainerOverlayStyle.STORAGE_SLOT.toArgb());
             if (i < maxSlots) {
                 var entry = entries.get(i);
                 g.renderItem(entry.stack(), cx + 1, cy + 1);
-                drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(entry.count()), 0xFFF7E6A8);
+                drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE,
+                        RtsClientUiUtil.compactCount(entry.count()),
+                        ContainerOverlayStyle.STORAGE_COUNT);
             }
         }
 
@@ -268,18 +293,20 @@ public final class RtsClientInputGate {
             for (int i = 0; i < RETURN_SLOTS; i++) {
                 int cx = layout.returnX() + i * SLOT_PITCH;
                 int cy = layout.returnY();
-                g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xAA20262E);
-                g.hLine(cx, cx + SLOT_SIZE, cy, 0xFF4E5A67);
-                g.hLine(cx, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xFF161A20);
-                g.vLine(cx, cy, cy + SLOT_SIZE, 0xFF4E5A67);
-                g.vLine(cx + SLOT_SIZE, cy, cy + SLOT_SIZE, 0xFF161A20);
+                drawPanelFrame(g, minecraft.font, cx, cy, SLOT_SIZE, SLOT_SIZE,
+                        ContainerOverlayStyle.RETURN_SLOT,
+                        ContainerOverlayStyle.RETURN_BORDER_LIGHT,
+                        ContainerOverlayStyle.RETURN_BORDER_DARK);
 
                 ItemStack preview = RETURN_QUEUE[i];
                 if (!preview.isEmpty()) {
                     g.renderItem(preview, cx + 1, cy + 1);
-                    drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(preview.getCount()), 0xFFE8F6FF);
+                    drawSlotCountOverlay(g, minecraft.font, cx, cy, SLOT_SIZE,
+                            RtsClientUiUtil.compactCount(preview.getCount()),
+                            ContainerOverlayStyle.RETURN_COUNT);
                 } else {
-                    g.drawString(minecraft.font, "+", cx + 6, cy + 5, 0xAACEE1FF, false);
+                    g.drawString(minecraft.font, "+", cx + 6, cy + 5,
+                            ContainerOverlayStyle.RETURN_EMPTY_TEXT.toArgb(), false);
                 }
             }
         }
@@ -300,7 +327,7 @@ public final class RtsClientInputGate {
                         storageCountDetail(controller, entry.count()),
                         (int) mouseX + 10,
                         (int) mouseY + 18,
-                        0xFFFFAA);
+                        ContainerOverlayStyle.TOOLTIP_COUNT.toArgb());
             }
 
             int hoveredCraft = resolveOverlayCraftableEntryIndex(mouseX, mouseY, layout);
@@ -315,7 +342,9 @@ public final class RtsClientInputGate {
                             detail,
                             (int) mouseX + 10,
                             (int) mouseY + 18,
-                            entry.craftable() ? 0xFFAEE8AE : 0xFFFFB0B0,
+                            (entry.craftable()
+                                    ? ContainerOverlayStyle.TOOLTIP_CRAFTABLE
+                                    : ContainerOverlayStyle.TOOLTIP_MISSING).toArgb(),
                             false);
                 }
             }
@@ -330,7 +359,7 @@ public final class RtsClientInputGate {
                             "x" + (itemId == null ? 0 : resolvePinnedItemCount(itemId)),
                             (int) mouseX + 10,
                             (int) mouseY + 18,
-                            0xFFFFAA);
+                            ContainerOverlayStyle.TOOLTIP_COUNT.toArgb());
                 }
             }
 
@@ -367,634 +396,37 @@ public final class RtsClientInputGate {
 
     @SubscribeEvent
     public static void onScreenMousePressed(ScreenEvent.MouseButtonPressed.Pre event) {
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-                && event.getScreen() instanceof InventoryScreen
-                && handleInventoryRtsButtonClick(event.getScreen(), event.getMouseX(), event.getMouseY())) {
-            event.setCanceled(true);
-            return;
-        }
-
-        if (!ClientRtsController.get().canUseStorageOverlay()) {
-            return;
-        }
-        if (event.getScreen() instanceof BuilderScreen) {
-            return;
-        }
-        if (event.getScreen() instanceof RtsCraftTerminalScreen) {
-            return;
-        }
-        if (!(event.getScreen() instanceof AbstractContainerScreen<?>)) {
-            return;
-        }
-        if (!RtsClientUiStateStore.isContainerOverlayEnabled()) {
-            clearOverlaySearchFocus();
-            OVERLAY_CRAFT_DIALOG.close();
-            return;
-        }
-
-        if (OVERLAY_CRAFT_DIALOG.isOpen()) {
-            captureLeftRelease = false;
-            captureRightRelease = false;
-            OVERLAY_CRAFT_DIALOG.mouseClicked(
-                    event.getMouseX(),
-                    event.getMouseY(),
-                    event.getButton(),
-                    Minecraft.getInstance().getWindow().getGuiScaledWidth(),
-                    Minecraft.getInstance().getWindow().getGuiScaledHeight());
-            submitOverlayCraftDialogIfReady();
-            event.setCanceled(true);
-            return;
-        }
-
-        Minecraft minecraft = Minecraft.getInstance();
-        OverlayProfile profile = overlayProfile();
-        OverlayLayout layout = resolveOverlayLayout(profile);
-        double rawMx = event.getMouseX();
-        double rawMy = event.getMouseY();
-        double mx = toOverlayMouse(rawMx, profile);
-        double my = toOverlayMouse(rawMy, profile);
-        capturePendingCraftRefill((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy, event.getButton());
-        if (overlayInfoOpen) {
-            OverlayInfoRect infoRect = resolveOverlayInfoRect(minecraft.font, layout);
-            if (inside(mx, my, infoRect.x(), infoRect.y(), infoRect.w(), infoRect.h())) {
-                if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT
-                        && inside(mx, my, infoRect.closeX(), infoRect.closeY(),
-                                OVERLAY_INFO_CLOSE_SIZE, OVERLAY_INFO_CLOSE_SIZE)) {
-                    overlayInfoOpen = false;
-                }
-                clearOverlaySearchFocus();
-                if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-                    captureLeftRelease = true;
-                } else if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-                    captureRightRelease = true;
-                }
-                event.setCanceled(true);
-                return;
-            }
-        }
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            if (inside(mx, my, layout.dragX(), layout.headerY(), OVERLAY_DRAG_W, OVERLAY_HEADER_H)) {
-                beginOverlayDrag(mx, my, layout);
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.closeX(), layout.controlsY(), OVERLAY_CLOSE_W, OVERLAY_BOTTOM_BUTTON_H)) {
-                disableContainerOverlay();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.collapseX(), layout.controlsY(), OVERLAY_COLLAPSE_W, OVERLAY_BOTTOM_BUTTON_H)) {
-                overlayCollapsed = !overlayCollapsed;
-                overlayInfoOpen = false;
-                clearOverlaySearchFocus();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (Screen.hasShiftDown()) {
-                if (RtsClientUiStateStore.isOverlayShiftImportEnabled()) {
-                    if (tryStartShiftImportDrag((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy)) {
-                        captureLeftRelease = true;
-                        event.setCanceled(true);
-                        return;
-                    }
-                    if (tryImportHoveredMenuSlot((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy, event.getButton())) {
-                        captureLeftRelease = true;
-                        event.setCanceled(true);
-                        return;
-                    }
-                }
-                if (tryQuickMoveOverlayEntry((AbstractContainerScreen<?>) event.getScreen(), mx, my)) {
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-            }
-            if (!inside(mx, my, layout.panelX(), layout.panelY(), layout.panelW(), layout.panelH())) {
-                clearOverlaySearchFocus();
-                return;
-            }
-            if (layout.overlayCollapsed()) {
-                if (inside(mx, my, layout.sortX(), layout.headerY(), 12, OVERLAY_HEADER_H)) {
-                    ClientRtsController.get().cycleSort();
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                if (inside(mx, my, layout.dirX(), layout.headerY(), 12, OVERLAY_HEADER_H)) {
-                    ClientRtsController.get().toggleSortDirection();
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                if (inside(mx, my, layout.clearX(), layout.headerY(), OVERLAY_SEARCH_CLEAR_W, OVERLAY_HEADER_H)) {
-                    overlaySearchDraft = "";
-                    clearOverlaySearchFocus();
-                    ClientRtsController.get().setStorageSearch("");
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                if (inside(mx, my, layout.searchX(), layout.headerY(), layout.searchW(), OVERLAY_HEADER_H)) {
-                    setOverlaySearchFocused(true);
-                    overlaySearchDraft = ClientRtsController.get().getStorageSearch();
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                if (inside(mx, my, layout.refreshX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H)) {
-                    clearOverlaySearchFocus();
-                    ClientRtsController.get().refreshStoragePage();
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                if (inside(mx, my, layout.infoX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H)) {
-                    clearOverlaySearchFocus();
-                    overlayInfoOpen = !overlayInfoOpen;
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                clearOverlaySearchFocus();
-                int idx = resolveOverlaySlotIndex(mx, my, layout.gridX(), layout.gridY(), 1);
-                if (!minecraft.player.containerMenu.getCarried().isEmpty()
-                        && idx >= 0
-                        && tryDepositCarriedToLinked(Integer.MAX_VALUE)) {
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                if (tryPickupFromOverlay(idx, Integer.MAX_VALUE)) {
-                    captureLeftRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (handleOverlayCraftLeftClick(mx, my, layout)) {
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.sortX(), layout.headerY(), 12, OVERLAY_HEADER_H)) {
-                ClientRtsController.get().cycleSort();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.dirX(), layout.headerY(), 12, OVERLAY_HEADER_H)) {
-                ClientRtsController.get().toggleSortDirection();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.clearX(), layout.headerY(), OVERLAY_SEARCH_CLEAR_W, OVERLAY_HEADER_H)) {
-                overlaySearchDraft = "";
-                clearOverlaySearchFocus();
-                ClientRtsController.get().setStorageSearch("");
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.searchX(), layout.headerY(), layout.searchW(), OVERLAY_HEADER_H)) {
-                setOverlaySearchFocused(true);
-                overlaySearchDraft = ClientRtsController.get().getStorageSearch();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            clearOverlaySearchFocus();
-            int quickbarIdx = resolveQuickbarSlotIndex(mx, my, layout.quickbarX(), layout.quickbarY());
-            if (quickbarIdx >= 0) {
-                selectOverlayQuickbarSlot(quickbarIdx);
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.pageX(), layout.pagePrevY(), PAGE_BUTTON_W, PAGE_BUTTON_H)) {
-                ClientRtsController.get().prevPage();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.pageX(), layout.pageNextY(), PAGE_BUTTON_W, PAGE_BUTTON_H)) {
-                ClientRtsController.get().nextPage();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.refreshX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H)) {
-                ClientRtsController.get().refreshStoragePage();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.infoX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H)) {
-                overlayInfoOpen = !overlayInfoOpen;
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (inside(mx, my, layout.shiftImportX(), layout.returnY(), layout.shiftImportW(), SLOT_SIZE)) {
-                toggleOverlayShiftImportEnabled();
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-
-            int returnIdx = resolveReturnSlotIndex(mx, my, layout.returnX(), layout.returnY());
-            if (returnIdx >= 0) {
-                tryDepositCarriedToLinked(Integer.MAX_VALUE);
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-
-            int idx = resolveOverlaySlotIndex(mx, my, layout.gridX(), layout.gridY(), layout.storageRows());
-            if (!minecraft.player.containerMenu.getCarried().isEmpty()
-                    && idx >= 0
-                    && tryDepositCarriedToLinked(Integer.MAX_VALUE)) {
-                captureLeftRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (tryPickupFromOverlay(idx, Integer.MAX_VALUE)) {
-                captureLeftRelease = true;
-                event.setCanceled(true);
-            }
-            return;
-        }
-
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            if (layout.overlayCollapsed()) {
-                if (!inside(mx, my, layout.panelX(), layout.panelY(), layout.panelW(), layout.panelH())) {
-                    clearOverlaySearchFocus();
-                    return;
-                }
-                int idx = resolveOverlaySlotIndex(mx, my, layout.gridX(), layout.gridY(), 1);
-                if (!minecraft.player.containerMenu.getCarried().isEmpty()
-                        && idx >= 0
-                        && tryDepositCarriedToLinked(1)) {
-                    captureRightRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                if (tryPickupFromOverlay(idx, 1)) {
-                    captureRightRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-                captureRightRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (Screen.hasShiftDown()) {
-                if (RtsClientUiStateStore.isOverlayShiftImportEnabled()) {
-                    if (tryImportHoveredMenuSlot((AbstractContainerScreen<?>) event.getScreen(), rawMx, rawMy, event.getButton())) {
-                        captureRightRelease = true;
-                        event.setCanceled(true);
-                        return;
-                    }
-                }
-                if (tryQuickMoveOverlayEntry((AbstractContainerScreen<?>) event.getScreen(), mx, my)) {
-                    captureRightRelease = true;
-                    event.setCanceled(true);
-                    return;
-                }
-            }
-
-            if (handleOverlayCraftRightClick(mx, my, layout)) {
-                captureRightRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-
-            int returnIdx = resolveReturnSlotIndex(mx, my, layout.returnX(), layout.returnY());
-            if (returnIdx >= 0) {
-                tryDepositCarriedToLinked(1);
-                captureRightRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-
-            int idx = resolveOverlaySlotIndex(mx, my, layout.gridX(), layout.gridY(), layout.storageRows());
-            if (!minecraft.player.containerMenu.getCarried().isEmpty()
-                    && idx >= 0
-                    && tryDepositCarriedToLinked(1)) {
-                captureRightRelease = true;
-                event.setCanceled(true);
-                return;
-            }
-            if (tryPickupFromOverlay(idx, 1)) {
-                captureRightRelease = true;
-                event.setCanceled(true);
-            }
-        }
+        RtsClientPointerRouter.onScreenMousePressed(event);
     }
 
     @SubscribeEvent
     public static void onScreenMouseDragged(ScreenEvent.MouseDragged.Pre event) {
-        if (shiftImportDragging) {
-            if (OverlayInteraction.isLeftMouseDown()
-                    && Screen.hasShiftDown()
-                    && RtsClientUiStateStore.isOverlayShiftImportEnabled()
-                    && ClientRtsController.get().canUseStorageOverlay()
-                    && event.getScreen() == shiftImportDragScreen
-                    && event.getScreen() instanceof AbstractContainerScreen<?> screen
-                    && !(event.getScreen() instanceof BuilderScreen)
-                    && !(event.getScreen() instanceof RtsCraftTerminalScreen)) {
-                tryContinueShiftImportDrag(screen, event.getMouseX(), event.getMouseY());
-            } else {
-                endShiftImportDrag();
-            }
-            event.setCanceled(true);
-            return;
-        }
-        if (!overlayDragging
-                || !ClientRtsController.get().canUseStorageOverlay()
-                || !RtsClientUiStateStore.isContainerOverlayEnabled()
-                || event.getScreen() instanceof BuilderScreen
-                || event.getScreen() instanceof RtsCraftTerminalScreen
-                || !(event.getScreen() instanceof AbstractContainerScreen<?>)) {
-            return;
-        }
-        OverlayProfile profile = overlayProfile();
-        updateOverlayDrag(event.getScreen(), toOverlayMouse(event.getMouseX(), profile), toOverlayMouse(event.getMouseY(), profile), profile);
-        event.setCanceled(true);
+        RtsClientPointerRouter.onScreenMouseDragged(event);
     }
 
     @SubscribeEvent
     public static void onScreenMouseReleased(ScreenEvent.MouseButtonReleased.Pre event) {
-        if (!ClientRtsController.get().canUseStorageOverlay()
-                || !RtsClientUiStateStore.isContainerOverlayEnabled()
-                || event.getScreen() instanceof BuilderScreen
-                || event.getScreen() instanceof RtsCraftTerminalScreen
-                || !(event.getScreen() instanceof AbstractContainerScreen<?>)) {
-            endOverlayDrag();
-            endShiftImportDrag();
-            captureLeftRelease = false;
-            captureRightRelease = false;
-            return;
-        }
-
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            endShiftImportDrag();
-        }
-
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && overlayDragging) {
-            endOverlayDrag();
-            captureLeftRelease = false;
-            event.setCanceled(true);
-            return;
-        }
-
-        if (OVERLAY_CRAFT_DIALOG.isOpen()) {
-            captureLeftRelease = false;
-            captureRightRelease = false;
-            event.setCanceled(true);
-            return;
-        }
-
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_LEFT && captureLeftRelease) {
-            captureLeftRelease = false;
-            event.setCanceled(true);
-            return;
-        }
-
-        if (event.getButton() == GLFW.GLFW_MOUSE_BUTTON_RIGHT && captureRightRelease) {
-            captureRightRelease = false;
-            event.setCanceled(true);
-            return;
-        }
-
-        if (event.getButton() != GLFW.GLFW_MOUSE_BUTTON_LEFT && event.getButton() != GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-            return;
-        }
-
-        trySendPendingCraftRefill(event.getScreen(), event.getButton());
-
-        // Click-to-pick / click-to-return is handled on mouse press so the carried item does not snap back on release.
+        RtsClientPointerRouter.onScreenMouseReleased(event);
     }
 
     @SubscribeEvent
     public static void onScreenMouseScrolled(ScreenEvent.MouseScrolled.Pre event) {
-        if (!ClientRtsController.get().canUseStorageOverlay()
-                || !RtsClientUiStateStore.isContainerOverlayEnabled()) {
-            return;
-        }
-        if (event.getScreen() instanceof BuilderScreen) {
-            return;
-        }
-        if (event.getScreen() instanceof RtsCraftTerminalScreen) {
-            return;
-        }
-        if (!(event.getScreen() instanceof AbstractContainerScreen<?>)) {
-            return;
-        }
-
-        if (OVERLAY_CRAFT_DIALOG.isOpen()) {
-            OVERLAY_CRAFT_DIALOG.mouseScrolled(event.getScrollDeltaY());
-            event.setCanceled(true);
-            return;
-        }
-
-        OverlayProfile profile = overlayProfile();
-        double mx = toOverlayMouse(event.getMouseX(), profile);
-        double my = toOverlayMouse(event.getMouseY(), profile);
-        OverlayLayout layout = resolveOverlayLayout(profile);
-        if (!inside(mx, my, layout.panelX(), layout.panelY(), layout.panelW(), layout.panelH())) {
-            return;
-        }
-
-        if (!layout.craftCollapsed() && inside(mx, my, layout.craftPanelX(), layout.craftPanelY(), layout.craftPanelW(), layout.craftPanelH())) {
-            int maxScroll = maxOverlayCraftScroll(ClientRtsController.get(), layout.craftVisibleRows());
-            if (event.getScrollDeltaY() > 0.0D) {
-                overlayCraftScroll = Math.max(0, overlayCraftScroll - 1);
-            } else if (event.getScrollDeltaY() < 0.0D) {
-                overlayCraftScroll = Math.min(maxScroll, overlayCraftScroll + 1);
-                if (overlayCraftScroll >= maxScroll && ClientRtsController.get().hasMoreCraftables()) {
-                    ClientRtsController.get().requestMoreCraftables();
-                }
-            }
-        } else if (event.getScrollDeltaY() > 0.0D) {
-            ClientRtsController.get().prevPage();
-        } else if (event.getScrollDeltaY() < 0.0D) {
-            ClientRtsController.get().nextPage();
-        }
-        event.setCanceled(true);
+        RtsClientPointerRouter.onScreenMouseScrolled(event);
     }
 
     @SubscribeEvent
     public static void onScreenKeyPressed(ScreenEvent.KeyPressed.Pre event) {
-        if (!ClientRtsController.get().canUseStorageOverlay()
-                || !RtsClientUiStateStore.isContainerOverlayEnabled()
-                || event.getScreen() instanceof BuilderScreen
-                || event.getScreen() instanceof RtsCraftTerminalScreen
-                || !(event.getScreen() instanceof AbstractContainerScreen<?>)) {
-            return;
-        }
-
-        if (OVERLAY_CRAFT_DIALOG.isOpen()) {
-            OVERLAY_CRAFT_DIALOG.keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers());
-            submitOverlayCraftDialogIfReady();
-            event.setCanceled(true);
-            return;
-        }
-
-        if (!overlaySearchFocused && !overlayCraftSearchFocused) {
-            return;
-        }
-
-        int keyCode = event.getKeyCode();
-        boolean ctrl = (event.getModifiers() & GLFW.GLFW_MOD_CONTROL) != 0;
-        boolean craftSearch = overlayCraftSearchFocused;
-
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            if (craftSearch) {
-                overlayCraftSearchDraft = "";
-                overlayCraftSearchFocused = false;
-                applyOverlayCraftSearch();
-            } else {
-                overlaySearchDraft = "";
-                overlaySearchFocused = false;
-                ClientRtsController.get().setStorageSearch("");
-            }
-            event.setCanceled(true);
-            return;
-        }
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            if (craftSearch) {
-                overlayCraftSearchFocused = false;
-                applyOverlayCraftSearch();
-            } else {
-                overlaySearchFocused = false;
-            }
-            event.setCanceled(true);
-            return;
-        }
-        if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-            if (craftSearch) {
-                if (!overlayCraftSearchDraft.isEmpty()) {
-                    overlayCraftSearchDraft = overlayCraftSearchDraft.substring(0, overlayCraftSearchDraft.length() - 1);
-                }
-            } else if (!overlaySearchDraft.isEmpty()) {
-                overlaySearchDraft = overlaySearchDraft.substring(0, overlaySearchDraft.length() - 1);
-                ClientRtsController.get().setStorageSearch(overlaySearchDraft);
-            }
-            event.setCanceled(true);
-            return;
-        }
-        if (keyCode == GLFW.GLFW_KEY_DELETE) {
-            if (craftSearch) {
-                overlayCraftSearchDraft = "";
-            } else {
-                overlaySearchDraft = "";
-                ClientRtsController.get().setStorageSearch("");
-            }
-            event.setCanceled(true);
-            return;
-        }
-        if (ctrl && keyCode == GLFW.GLFW_KEY_V) {
-            Minecraft minecraft = Minecraft.getInstance();
-            String clip = minecraft.keyboardHandler.getClipboard();
-            if (clip != null && !clip.isEmpty()) {
-                appendSearchText(clip, craftSearch);
-            }
-            event.setCanceled(true);
-            return;
-        }
-
-        event.setCanceled(true);
+        RtsClientInputRouter.onScreenKeyPressed(event);
     }
 
     @SubscribeEvent
     public static void onScreenCharTyped(ScreenEvent.CharacterTyped.Pre event) {
-        if (!ClientRtsController.get().canUseStorageOverlay()
-                || !RtsClientUiStateStore.isContainerOverlayEnabled()
-                || event.getScreen() instanceof BuilderScreen
-                || event.getScreen() instanceof RtsCraftTerminalScreen
-                || !(event.getScreen() instanceof AbstractContainerScreen<?>)) {
-            return;
-        }
-        if (OVERLAY_CRAFT_DIALOG.isOpen()) {
-            OVERLAY_CRAFT_DIALOG.charTyped((char) event.getCodePoint(), 0);
-            submitOverlayCraftDialogIfReady();
-            event.setCanceled(true);
-            return;
-        }
-        if (!overlaySearchFocused && !overlayCraftSearchFocused) {
-            return;
-        }
-        int codePoint = event.getCodePoint();
-        if (!Character.isValidCodePoint(codePoint) || Character.isISOControl(codePoint)) {
-            event.setCanceled(true);
-            return;
-        }
-        appendSearchText(new String(Character.toChars(codePoint)), overlayCraftSearchFocused);
-        event.setCanceled(true);
+        RtsClientInputRouter.onScreenCharTyped(event);
     }
 
     @SubscribeEvent
     public static void onScreenClosing(ScreenEvent.Closing event) {
-        captureLeftRelease = false;
-        captureRightRelease = false;
-        overlaySearchFocused = false;
-        overlaySearchDraft = "";
-        overlayCraftSearchFocused = false;
-        overlayCraftSearchDraft = "";
-        overlayInfoOpen = false;
-        overlayCraftScroll = 0;
-        overlayLastCraftablesStorageRevision = -1;
-        activeOverlayScreen = null;
-        endShiftImportDrag();
-        OVERLAY_CRAFT_DIALOG.close();
-        clearPendingCraftRefill();
-        if (!ClientRtsController.get().canUseStorageOverlay()) {
-            pendingOverlayCarriedItemId = "";
-            return;
-        }
-        if (event.getScreen() instanceof BuilderScreen) {
-            return;
-        }
-        if (event.getScreen() instanceof RtsCraftTerminalScreen) {
-            pendingOverlayCarriedItemId = "";
-            return;
-        }
-        if (!(event.getScreen() instanceof AbstractContainerScreen<?>)) {
-            pendingOverlayCarriedItemId = "";
-            return;
-        }
-
-        if (pendingOverlayCarriedItemId.isBlank()) {
-            return;
-        }
-
-        Minecraft minecraft = Minecraft.getInstance();
-        if (minecraft.player == null) {
-            pendingOverlayCarriedItemId = "";
-            return;
-        }
-
-        ItemStack carried = minecraft.player.containerMenu.getCarried();
-        if (carried.isEmpty()) {
-            pendingOverlayCarriedItemId = "";
-            return;
-        }
-
-        var carriedId = BuiltInRegistries.ITEM.getKey(carried.getItem());
-        if (carriedId == null || !pendingOverlayCarriedItemId.equals(carriedId.toString())) {
-            pendingOverlayCarriedItemId = "";
-            return;
-        }
-
-        PacketDistributor.sendToServer(new C2SRtsReturnCarriedPayload(pendingOverlayCarriedItemId, carried.getCount()));
-        minecraft.player.containerMenu.setCarried(ItemStack.EMPTY);
-        pendingOverlayCarriedItemId = "";
+        RtsClientInputRouter.onScreenClosing(event);
     }
 
 }

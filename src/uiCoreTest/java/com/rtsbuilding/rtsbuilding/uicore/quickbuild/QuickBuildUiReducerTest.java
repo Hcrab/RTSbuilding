@@ -42,6 +42,26 @@ class QuickBuildUiReducerTest {
                 QuickBuildUiReducer.apply(box, QuickBuildUiAction.limit(80)).command);
     }
 
+    @Test
+    void overwriteControlTogglesLikeOtherIndependentOptions() {
+        QuickBuildUiState base = state(true, QuickBuildUiMode.BUILD, QuickBuildUiShape.CHAIN);
+        QuickBuildUiControl overwrite = new QuickBuildUiControl(
+                QuickBuildUiControl.Id.OVERWRITE, "Overwrite", false, true);
+        QuickBuildUiState state = new QuickBuildUiState(
+                base.open, base.mode, base.destroyEnabled, base.destroyDisabledReason,
+                base.buildShape, base.destroyShape, base.shapes,
+                Arrays.asList(base.controls.get(0), base.controls.get(1), overwrite),
+                base.chainLimit, base.chainMinimum, base.chainMaximum,
+                base.progressCompleted, base.progressTotal, base.remainingBlocks,
+                base.progressText, base.costText, base.selectedItemId, base.missingBlocks,
+                base.hintKey, base.confirmKeyLabel, base.dimensions);
+
+        QuickBuildUiTransition result = QuickBuildUiReducer.apply(
+                state, QuickBuildUiAction.control(QuickBuildUiControl.Id.OVERWRITE));
+        assertTrue(result.state.control(QuickBuildUiControl.Id.OVERWRITE).selected);
+        assertTrue(result.state.control(QuickBuildUiControl.Id.FILL).selected);
+    }
+
     private static QuickBuildUiState state(boolean destroyEnabled, QuickBuildUiMode mode,
                                            QuickBuildUiShape destroyShape) {
         return new QuickBuildUiState(true, mode, destroyEnabled, "",

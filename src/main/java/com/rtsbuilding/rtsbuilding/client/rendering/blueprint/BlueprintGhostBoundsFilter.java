@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 
@@ -25,8 +25,8 @@ public final class BlueprintGhostBoundsFilter {
      * @param blocks the blueprint block list to filter
      * @return a new list containing only in-bounds blocks; returns the original list if the controller has no bounds
      */
-    public static List<BlueprintPanel.BlueprintGhostBlock> filter(
-            List<BlueprintPanel.BlueprintGhostBlock> blocks) {
+    public static List<BlueprintGhostBlock> filter(
+            List<BlueprintGhostBlock> blocks) {
         ClientRtsController controller = ClientRtsController.get();
         if (!controller.hasBounds()) {
             return blocks;
@@ -38,8 +38,8 @@ public final class BlueprintGhostBoundsFilter {
         int maxBlockX = Mth.ceil(ax + r) - 1;
         int minBlockZ = Mth.floor(az - r);
         int maxBlockZ = Mth.ceil(az + r) - 1;
-        List<BlueprintPanel.BlueprintGhostBlock> result = new ArrayList<>(blocks.size());
-        for (BlueprintPanel.BlueprintGhostBlock block : blocks) {
+        List<BlueprintGhostBlock> result = new ArrayList<>(blocks.size());
+        for (BlueprintGhostBlock block : blocks) {
             if (block == null) continue;
             BlockPos pos = block.pos();
             if (pos.getX() >= minBlockX && pos.getX() <= maxBlockX

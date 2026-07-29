@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot;
 import net.minecraft.nbt.CompoundTag;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
@@ -71,6 +72,29 @@ class DurableTaskSchedulerTest {
         assertEquals(1, stats.slices());
         assertEquals(8, stats.processedUnits());
         assertEquals(1L, coordinator.query().get(initial.id()).orElseThrow().revision());
+    }
+
+    @Test
+    void twoQueuedTasksEachReceiveOneFullMiningSizedSlice() {
+        AtomicLong clock = new AtomicLong();
+        TaskPersistenceCoordinator coordinator = coordinator();
+        TaskSnapshot first = task();
+        TaskSnapshot second = task();
+        coordinator.submit(first);
+        coordinator.submit(second);
+        List<Integer> allowances = new ArrayList<>();
+        DurableTaskScheduler scheduler = new DurableTaskScheduler(clock::get);
+        scheduler.register(TaskType.PLACEMENT, (snapshot, budget) -> {
+            allowances.add(budget.maxUnits());
+            return new DurableTaskScheduler.SliceResult(snapshot, budget.maxUnits());
+        });
+
+        DurableTaskScheduler.TickStats stats = scheduler.tick(
+                coordinator, List.of(first, second), 8_000_000L, 256, 32);
+
+        assertEquals(List.of(32, 32), allowances);
+        assertEquals(2, stats.slices());
+        assertEquals(64, stats.processedUnits());
     }
 
     private static TaskPersistenceCoordinator coordinator() {

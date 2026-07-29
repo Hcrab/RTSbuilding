@@ -13,18 +13,22 @@ class RtsBackpackRoutingContractTest {
     void carriedBackpackKeepsUuidBindingAndPlacementNeverFallsBackToOpen() throws Exception {
         String compat = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/compat/sophisticatedbackpacks/RtsBackpackCompat.java"));
-        String screen = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+        String itemActions = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenItemActionHandler.java"));
         String placement = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java"));
         String lifecycle = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/resolver/RtsLinkedStorageBlockEventHandler.java"));
+        String remoteMenuMixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/ModdedRemoteStillValidMixin.java"));
 
         assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
                         && compat.contains("findCarriedBackpack(player, uuid)"),
                 "UUID resolution must cover Sophisticated Backpacks' carried and accessory slots.");
-        assertTrue(screen.contains("forcePlace || forceBackpackPlacement")
-                        && screen.contains("!forceBackpackPlacement && !forcePlace"),
+        assertTrue(itemActions.contains("forcePlace || forceBackpackPlacement")
+                        && itemActions.contains(
+                        "!forceBackpackPlacement && !forcePlace"),
                 "Right-clicking a backpack must bypass interaction and enter placement.");
         assertTrue(placement.contains("forcePlace || sophisticatedBackpackPlacementOnly")
                         && placement.contains(
@@ -34,5 +38,7 @@ class RtsBackpackRoutingContractTest {
                 "Moving a backpack off the ground must preserve its UUID binding.");
         assertFalse(lifecycle.contains("removeBrokenLinkedStorageRef"),
                 "Moving a backpack off the ground must not delete its UUID binding.");
+        assertTrue(remoteMenuMixin.contains("sophisticatedbackpacks.common.gui.BackpackContainer"),
+                "Remote backpack screens must keep their concrete menu valid while the player uses RTS view.");
     }
 }

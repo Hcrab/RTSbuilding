@@ -37,7 +37,14 @@ public final class RtsMainlineLayout {
     public static final int CRAFT_PANEL_W = 126;
     public static final int CRAFT_PANEL_GAP = 6;
     public static final int CRAFT_PANEL_SEARCH_H = 12;
+    public static final int CRAFT_PANEL_COLS = 4;
     public static final int CRAFT_PANEL_SLOT = 18;
+    public static final int CRAFT_PANEL_PITCH = 20;
+    public static final int CRAFT_PANEL_APPLY_W = 18;
+    public static final int CRAFT_PANEL_TOGGLE_W = 38;
+    public static final int SORT_BUTTON_SIZE = 16;
+    public static final int SORT_BUTTON_GAP = 4;
+    public static final int CRAFT_DOCK_X_INSET = 2;
 
     private RtsMainlineLayout() {
     }
@@ -106,6 +113,8 @@ public final class RtsMainlineLayout {
         int contentY = panelY + BOTTOM_PANEL_HEADER_H + 4;
         int sortX = contentX;
         int sortY = contentY + 2;
+        int craftDockX = sortX + CRAFT_DOCK_X_INSET;
+        int craftDockY = sortY + (SORT_BUTTON_SIZE + SORT_BUTTON_GAP) * 2;
         int categoryX = sortX + 58;
         int categoryY = contentY;
         int categoryH = Math.max(24, panelY + panelH - BOTTOM_PANEL_PADDING - categoryY);
@@ -124,6 +133,7 @@ public final class RtsMainlineLayout {
         int craftPanelH = Math.max(CRAFT_PANEL_SEARCH_H + CRAFT_PANEL_SLOT + 27,
                 panelY + panelH - BOTTOM_PANEL_PADDING - craftPanelY);
         return new BottomPanel(panelX, panelY, panelW, panelH, sortX, sortY,
+                craftDockX, craftDockY,
                 categoryX, categoryY, categoryH, storageX, storageY, storageW,
                 craftPanelX, mainStorageW, searchW, pagerX, toolY, gridY, gridH,
                 Math.max(1, gridH / SLOT), craftPanelY, craftPanelH);
@@ -170,13 +180,15 @@ public final class RtsMainlineLayout {
 
     public static final class BottomPanel {
         public final int panelX, panelY, panelW, panelH;
-        public final int sortX, sortY, categoryX, categoryY, categoryH;
+        public final int sortX, sortY, craftDockX, craftDockY;
+        public final int categoryX, categoryY, categoryH;
         public final int storageX, storageY, storageW, craftPanelX;
         public final int mainStorageW, searchW, pagerX, toolY, gridY, gridH;
         public final int storageRows, craftPanelY, craftPanelH;
 
         private BottomPanel(int panelX, int panelY, int panelW, int panelH,
-                            int sortX, int sortY, int categoryX, int categoryY,
+                            int sortX, int sortY, int craftDockX, int craftDockY,
+                            int categoryX, int categoryY,
                             int categoryH, int storageX, int storageY, int storageW,
                             int craftPanelX, int mainStorageW, int searchW, int pagerX,
                             int toolY, int gridY, int gridH, int storageRows,
@@ -187,6 +199,8 @@ public final class RtsMainlineLayout {
             this.panelH = panelH;
             this.sortX = sortX;
             this.sortY = sortY;
+            this.craftDockX = craftDockX;
+            this.craftDockY = craftDockY;
             this.categoryX = categoryX;
             this.categoryY = categoryY;
             this.categoryH = categoryH;

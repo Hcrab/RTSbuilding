@@ -125,6 +125,11 @@ public final class RtsBuilderPackets {
                 RtsInteractionHandlers::handleUndo);
 
         registrar.playToServer(
+                C2SRtsRedoPayload.TYPE,
+                C2SRtsRedoPayload.STREAM_CODEC,
+                RtsInteractionHandlers::handleRedo);
+
+        registrar.playToServer(
                 C2SRtsSubmitPendingPayload.TYPE,
                 C2SRtsSubmitPendingPayload.STREAM_CODEC,
                 RtsInteractionHandlers::handleSubmitPending);

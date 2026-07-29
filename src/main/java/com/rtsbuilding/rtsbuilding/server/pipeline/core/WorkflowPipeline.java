@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolLeaseRollbackPolicy;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
@@ -119,6 +120,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
      */
     public PipelineResult execute(C ctx) {
         Objects.requireNonNull(ctx, "ctx");
+        RtsOperationDiagnostics.begin(type, ctx);
 
         for (int i = 0; i < pipes.size(); i++) {
             PipelinePipe<? super C> pipe = pipes.get(i);
@@ -131,15 +133,19 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                         // 继续执行下一个 Pipe
                     }
                     case PipelineResult.Failure f -> {
-                        RtsbuildingMod.LOGGER.warn("[Pipeline] Pipe[{}] '{}' failed: {}",
+                        RtsbuildingMod.LOGGER.debug("[Pipeline] Pipe[{}] '{}' failed: {}",
                                 i, pipe.getClass().getSimpleName(), f.message());
+                        RtsOperationDiagnostics.pipelineResult(
+                                type, ctx, pipe.getClass().getSimpleName(), result, false);
                         rollbackIfNeeded(ctx);
                         firePipelineResultEvent(ctx, result);
                         return result;
                     }
                     case PipelineResult.Skip sk -> {
-                        RtsbuildingMod.LOGGER.info("[Pipeline] Pipe[{}] '{}' skipped: {}",
+                        RtsbuildingMod.LOGGER.debug("[Pipeline] Pipe[{}] '{}' skipped: {}",
                                 i, pipe.getClass().getSimpleName(), sk.reason());
+                        RtsOperationDiagnostics.pipelineResult(
+                                type, ctx, pipe.getClass().getSimpleName(), result, false);
                         rollbackIfNeeded(ctx);
                         firePipelineResultEvent(ctx, result);
                         return result;
@@ -151,6 +157,8 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                 ctx.setResult(failure);
                 RtsbuildingMod.LOGGER.error("[Pipeline] Pipe[{}] '{}' threw", i,
                         pipe.getClass().getSimpleName(), e);
+                RtsOperationDiagnostics.pipelineResult(
+                        type, ctx, pipe.getClass().getSimpleName(), failure, true);
                 rollbackIfNeeded(ctx);
                 firePipelineResultEvent(ctx, failure);
                 return failure;
@@ -166,6 +174,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
         if (!asyncCompletion) {
             firePipelineResultEvent(ctx, PipelineResult.success());
         }
+        RtsOperationDiagnostics.pipelineResult(type, ctx, "PIPELINE", PipelineResult.success(), false);
 
         // 如果此管道有可 Tick 的 Pipe，注册它们进行逐 Tick 执行。
         // 在注册之前，从上下文中剥离瞬态同步阶段数据以
@@ -229,7 +238,7 @@ public final class WorkflowPipeline<C extends PipelineContext> {
                         rollbackIfNeeded(ctx);
                     }
                     case PipelineResult.Skip sk -> {
-                        RtsbuildingMod.LOGGER.info("[Pipeline] Cleanup pipe[{}] '{}' skipped: {}",
+                        RtsbuildingMod.LOGGER.debug("[Pipeline] Cleanup pipe[{}] '{}' skipped: {}",
                                 i, pipe.getClass().getSimpleName(), sk.reason());
                     }
                 }

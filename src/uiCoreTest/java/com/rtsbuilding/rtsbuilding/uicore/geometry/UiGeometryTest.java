@@ -13,6 +13,14 @@ class UiGeometryTest {
     }
 
     @Test
+    void 无临时对象命中入口保持相同半开语义() {
+        assertTrue(UiRect.contains(10, 20, 30, 40, 10, 20));
+        assertFalse(UiRect.contains(10, 20, 30, 40, 40, 20));
+        assertFalse(UiRect.contains(10, 20, 30, 40, 10, 60));
+        assertFalse(UiRect.contains(10, 20, 0, 40, 10, 20));
+    }
+
+    @Test
     void 零面积矩形不可命中() {
         assertFalse(new UiRect(0, 0, 0, 10).contains(0, 0));
     }

@@ -11,7 +11,7 @@ import net.minecraft.world.item.ItemStack;
 /**
  * RTS 世界修改的统一区块保护入口。
  *
- * <p>射程、相机、家园半径这些判断仍由原来的 resolver 负责；本类只处理
+ * <p>射程、相机会话和世界边界判断仍由原来的 resolver 负责；本类只处理
  * “这个玩家能不能在此处执行某类动作”。使用动作级方法而不是一个泛用
  * canAccess，是为了让 OpenPAC 这类 claim mod 能区分放置、破坏和交互权限。
  */

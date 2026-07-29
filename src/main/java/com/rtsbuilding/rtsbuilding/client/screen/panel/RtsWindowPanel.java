@@ -1,11 +1,23 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiEventReply;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiKeyEvent;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiPointerEvent;
+import com.rtsbuilding.rtsbuilding.uicore.routing.UiEventTarget;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiFloatAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -25,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * That separation lets us migrate visible panels one at a time while the current
  * container overlay and legacy input gate continue to work unchanged.
  */
-public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
+public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEventTarget {
     private static final AtomicLong NEXT_Z_ORDER = new AtomicLong();
     private static final int DEFAULT_TITLE_BAR_H = 20;
     private static final int DEFAULT_MIN_W = 80;
@@ -70,6 +82,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     private WindowButton closeButton;
     private boolean boundsDirty;
     private boolean userBoundsPreference;
+    private final UiFloatAnimation hoverBorderAnimation =
+            new UiFloatAnimation(SystemUiClock.INSTANCE, 0.0D);
+    private boolean hoverBorderTarget;
 
     /**
      * Hysteresis flag: when true, a wider threshold (SNAP_THRESHOLD * 2) is used
@@ -161,6 +176,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
         initializePosition();
         clampWindowToScreen();
         this.mouseHovering = !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
+        updateHoverBorderAnimation(this.mouseHovering);
 
         // When the window is covered, globally suppress hover effects on all child buttons
         // Must be set before renderWindowFrame because the close button renders there
@@ -483,6 +499,46 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     @Override
+    public UiEventReply handlePointer(UiPointerEvent event) {
+        boolean handled = switch (event.getType()) {
+            case PRESS -> mouseClicked(event.getX(), event.getY(), event.getButton());
+            case DRAG -> mouseDragged(event.getX(), event.getY(), event.getButton(),
+                    event.getDeltaX(), event.getDeltaY());
+            case RELEASE -> mouseReleased(event.getX(), event.getY(), event.getButton());
+            case SCROLL -> mouseScrolled(event.getX(), event.getY(),
+                    event.getDeltaX(), event.getDeltaY());
+            case MOVE -> false;
+        };
+        if (!handled) {
+            return UiEventReply.PASS;
+        }
+        if (event.getType() == UiPointerEvent.Type.PRESS) {
+            markBroughtToFront();
+            return UiEventReply.CAPTURE_POINTER;
+        }
+        return UiEventReply.BLOCK_WORLD;
+    }
+
+    @Override
+    public UiEventReply handleKey(UiKeyEvent event) {
+        boolean handled = switch (event.getType()) {
+            case PRESS -> keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers());
+            case CHAR_TYPED -> charTyped(event.getCharacter(), event.getModifiers());
+            case RELEASE -> false;
+        };
+        return handled ? UiEventReply.BLOCK_WORLD : UiEventReply.PASS;
+    }
+
+    @Override
+    public boolean handleEscape() {
+        if (!isVisibleWindow() || !this.closable) {
+            return false;
+        }
+        setOpen(false);
+        return true;
+    }
+
+    @Override
     public void close() {
         setOpen(false);
     }
@@ -528,11 +584,11 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     protected int getHoverBorderLightColor() {
-        return 0xFFAAC8E8;
+        return RtsMainlineTheme.WINDOW_BORDER_HOVER_LIGHT.toArgb();
     }
 
     protected int getHoverBorderDarkColor() {
-        return 0xFF2A3A4A;
+        return RtsMainlineTheme.WINDOW_BORDER_HOVER_DARK.toArgb();
     }
 
     protected int getTitleBarColor() {
@@ -545,6 +601,11 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
 
     protected boolean canShowWindow() {
         return true;
+    }
+
+    /** 子类仅在确实需要阻断全部背景 UI/世界输入时覆写。 */
+    protected boolean isModalWindow() {
+        return false;
     }
 
     protected boolean shouldClipContent() {
@@ -616,10 +677,16 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     private void renderWindowFrame(GuiGraphics g, int mouseX, int mouseY) {
-        int light = this.mouseHovering ? getHoverBorderLightColor() : getBorderLightColor();
-        int dark = this.mouseHovering ? getHoverBorderDarkColor() : getBorderDarkColor();
-        RtsClientUiUtil.drawPanelFrame(g, this.windowX, this.windowY, this.windowWidth, this.windowHeight,
-                getBackgroundColor(), light, dark);
+        double hoverProgress = Config.isUiAnimationsEnabled()
+                ? this.hoverBorderAnimation.value()
+                : (this.mouseHovering ? 1.0D : 0.0D);
+        int light = UiColor.interpolate(new UiColor(getBorderLightColor()),
+                new UiColor(getHoverBorderLightColor()), hoverProgress).toArgb();
+        int dark = UiColor.interpolate(new UiColor(getBorderDarkColor()),
+                new UiColor(getHoverBorderDarkColor()), hoverProgress).toArgb();
+        UiChromeRenderer.frame(new MinecraftUiCanvas(g, this.screen.font(), this.screen),
+                new UiRect(this.windowX, this.windowY, this.windowWidth, this.windowHeight), 1.0D,
+                new UiColor(getBackgroundColor()), new UiColor(light), new UiColor(dark));
         int titleH = getTitleBarHeight();
         if (titleH > 0) {
             g.fill(this.windowX + 1, this.windowY + 1, this.windowX + this.windowWidth - 1,
@@ -635,6 +702,16 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
             this.closeButton.setY(closeButtonY());
             this.closeButton.render(g, mouseX, mouseY, 0.0F);
         }
+    }
+
+    /** 只在悬浮目标变化时重定向动画，避免每帧重启动导致边框永远追不上终值。 */
+    private void updateHoverBorderAnimation(boolean hovering) {
+        if (this.hoverBorderTarget == hovering) {
+            return;
+        }
+        this.hoverBorderTarget = hovering;
+        this.hoverBorderAnimation.animateTo(hovering ? 1.0D : 0.0D,
+                90L, UiEasing.EASE_OUT_CUBIC);
     }
 
     private void enableContentScissor(GuiGraphics g) {

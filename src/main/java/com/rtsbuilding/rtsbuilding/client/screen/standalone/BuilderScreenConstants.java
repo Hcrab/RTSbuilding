@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftDockLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -58,10 +59,10 @@ public final class BuilderScreenConstants {
     public static final int TOOL_AREA_H = RtsMainlineLayout.TOOL_AREA_H;
 
     // ======================== Search / Sort ========================
-    /** Search clear button size */
-    public static final int SEARCH_CLEAR_SIZE = 12;
     /** Sort button size */
-    public static final int SORT_BUTTON_SIZE = 16;
+    public static final int SORT_BUTTON_SIZE = RtsMainlineLayout.SORT_BUTTON_SIZE;
+    /** Gap between vertically stacked sort/height buttons */
+    public static final int SORT_BUTTON_GAP = RtsMainlineLayout.SORT_BUTTON_GAP;
 
     // ======================== Crafting panel ========================
     /** Crafting panel width */
@@ -69,33 +70,22 @@ public final class BuilderScreenConstants {
     /** Gap between crafting panel and storage grid */
     public static final int CRAFT_PANEL_GAP = RtsMainlineLayout.CRAFT_PANEL_GAP;
     /** Crafting panel columns */
-    public static final int CRAFT_PANEL_COLS = 4;
+    public static final int CRAFT_PANEL_COLS = RtsMainlineLayout.CRAFT_PANEL_COLS;
     /** Crafting panel slot size */
     public static final int CRAFT_PANEL_SLOT = RtsMainlineLayout.CRAFT_PANEL_SLOT;
     /** Crafting panel row pitch */
-    public static final int CRAFT_PANEL_PITCH = 20;
+    public static final int CRAFT_PANEL_PITCH = RtsMainlineLayout.CRAFT_PANEL_PITCH;
     /** Crafting search box height */
     public static final int CRAFT_PANEL_SEARCH_H = RtsMainlineLayout.CRAFT_PANEL_SEARCH_H;
     /** Crafting apply button width */
-    public static final int CRAFT_PANEL_APPLY_W = 18;
+    public static final int CRAFT_PANEL_APPLY_W = RtsMainlineLayout.CRAFT_PANEL_APPLY_W;
     /** Crafting toggle button width */
-    public static final int CRAFT_PANEL_TOGGLE_W = 38;
-    /** Craft dock centre button size */
-    public static final int CRAFT_DOCK_C_SIZE = 18;
-    /** Craft dock slot size */
-    public static final int CRAFT_DOCK_SLOT_SIZE = 10;
-    /** Craft dock gap */
-    public static final int CRAFT_DOCK_GAP = 2;
+    public static final int CRAFT_PANEL_TOGGLE_W = RtsMainlineLayout.CRAFT_PANEL_TOGGLE_W;
+    /** Remote GUI binding slot and cursor-indicator size */
+    public static final int CRAFT_DOCK_SLOT_SIZE =
+            BottomPanelCraftDockLayout.BINDING_SLOT_SIZE;
     /** Gap between storage and recent items */
     public static final int STORAGE_RECENT_GAP = 6;
-
-    // ======================== Category panel ========================
-    /** Category panel width */
-    public static final int CATEGORY_W = RtsMainlineLayout.CATEGORY_W;
-    /** Category row height */
-    public static final int CATEGORY_ROW_H = 11;
-    /** Category text scale */
-    public static final float CATEGORY_TEXT_SCALE = 0.84F;
 
     // ======================== Quick-build panel ========================
     /** Quick-build panel width */
@@ -192,12 +182,6 @@ public final class BuilderScreenConstants {
     // ======================== Miscellaneous ========================
     /** Funnel cursor item stack (hopper) */
     public static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(net.minecraft.world.item.Items.HOPPER);
-    /** Left tooltip X offset */
-    public static final int LEFT_TOOLTIP_X_OFFSET = 8;
-    /** Left tooltip Y offset */
-    public static final int LEFT_TOOLTIP_Y_OFFSET = 24;
-    /** Left tooltip detail Y offset */
-    public static final int LEFT_TOOLTIP_DETAIL_Y_OFFSET = 18;
     /** Storage link detail action button height */
     public static final int STORAGE_LINK_DETAIL_ACTION_H = 16;
     /** "All" category token */
@@ -299,6 +283,24 @@ public final class BuilderScreenConstants {
     public static final ResourceLocation TOPBAR_RANGE_CULLING_ACTIVE = topbarTexture("filter_block_active");
     /** 范围剔除（按下） */
     public static final ResourceLocation TOPBAR_RANGE_CULLING_PRESSED = topbarTexture("filter_block_pressed");
+
+    /** 指南 / 帮助（未激活）。 */
+    public static final ResourceLocation TOPBAR_GUIDE_INACTIVE = topbarTexture("guide_inactive");
+    /** 指南 / 帮助（悬停）。 */
+    public static final ResourceLocation TOPBAR_GUIDE_HOVER = topbarTexture("guide_hover");
+    /** 指南 / 帮助（已激活）。 */
+    public static final ResourceLocation TOPBAR_GUIDE_ACTIVE = topbarTexture("guide_active");
+    /** 指南 / 帮助（按下）。 */
+    public static final ResourceLocation TOPBAR_GUIDE_PRESSED = topbarTexture("guide_pressed");
+
+    /** 开发者场景（未激活）。 */
+    public static final ResourceLocation TOPBAR_DEVELOPER_INACTIVE = topbarTexture("developer_inactive");
+    /** 开发者场景（悬停）。 */
+    public static final ResourceLocation TOPBAR_DEVELOPER_HOVER = topbarTexture("developer_hover");
+    /** 开发者场景（已激活）。 */
+    public static final ResourceLocation TOPBAR_DEVELOPER_ACTIVE = topbarTexture("developer_active");
+    /** 开发者场景（按下）。 */
+    public static final ResourceLocation TOPBAR_DEVELOPER_PRESSED = topbarTexture("developer_pressed");
 
     /** Settings gear (inactive) */
     public static final ResourceLocation TOPBAR_GEAR_INACTIVE = topbarTexture("settings_gear_inactive");

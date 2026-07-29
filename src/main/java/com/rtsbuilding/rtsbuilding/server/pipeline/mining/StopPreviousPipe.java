@@ -44,7 +44,7 @@ public record StopPreviousPipe(boolean mergeable) implements PipelinePipe<Pipeli
                 var tokenOpt = RtsWorkflowEngine.getInstance().from(ctx.player(), existingEntryId);
                 if (tokenOpt.isPresent()) {
                     // 存在活跃挖掘工作流——排队新目标而不是停止
-                    RtsbuildingMod.LOGGER.info("[StopPreviousPipe] Queue mode activated for {} — existing entry #{}",
+                    RtsbuildingMod.LOGGER.debug("[StopPreviousPipe] Queue mode activated for {} — existing entry #{}",
                             ctx.player().getGameProfile().getName(), existingEntryId);
                     ctx.setData(KEY_QUEUE_MODE, true);
                     return PipelineResult.success();
@@ -53,7 +53,7 @@ public record StopPreviousPipe(boolean mergeable) implements PipelinePipe<Pipeli
         }
 
         // 停止前一个操作（默认行为）
-        RtsbuildingMod.LOGGER.info("[StopPreviousPipe] Stopping previous mining for {}",
+        RtsbuildingMod.LOGGER.debug("[StopPreviousPipe] Stopping previous mining for {}",
                 ctx.player().getGameProfile().getName());
         RtsTaskEngine.INSTANCE.cancelActiveMiningTasks(ctx.player());
         RtsMiningStateMachine.stopActiveMining(ctx.player(), session);

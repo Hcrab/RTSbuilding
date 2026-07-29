@@ -35,16 +35,13 @@ public final class StorageStateManager {
     //  Constants
     // =========================================================================
 
-    public static final int QUICK_SLOT_COUNT = 27;
-    public static final int GUI_BINDING_SLOT_COUNT = 8;
+    public static final int QUICK_SLOT_COUNT = StorageBindingState.QUICK_SLOT_COUNT;
+    public static final int GUI_BINDING_SLOT_COUNT = StorageBindingState.GUI_BINDING_SLOT_COUNT;
     private static final int DEFAULT_STORAGE_PAGE_SIZE = 90;
     private static final int MAX_STORAGE_PAGE_SIZE = 180;
     private static final String CATEGORY_ALL = "all";
     private static final String CATEGORY_MOD_PREFIX = "mod|";
     private static final String CATEGORY_TAB_PREFIX = "tab|";
-    private static final long STORAGE_SCAN_RESULT_VISIBLE_MS = 450L;
-    private static final int CRAFTABLE_BATCH_SIZE = 12;
-    private static final long STORAGE_AUTO_REFRESH_INTERVAL_MS = 30_000L;
 
     // =========================================================================
     //  Storage page fields
@@ -70,29 +67,9 @@ public final class StorageStateManager {
     private final Map<String, Long> storageTotalCounts = new HashMap<>();
     private final List<FluidEntry> fluidEntries = new ArrayList<>();
     private final List<RecentEntry> recentEntries = new ArrayList<>();
-    private boolean storageScanRunning;
-    private long storageScanStartedAtMs;
-    private long storageScanVisibleUntilMs;
-    private long storagePageReceivedAtMs;
-    private boolean storageViewDirty;
-    private long storageViewDirtySinceMs;
-    private boolean storageDirtyRefreshRequested;
-    private long storageDirtyRefreshRequestedAtMs;
+    private final StorageRefreshState refreshState = new StorageRefreshState();
 
-    // =========================================================================
-    //  Craft fields
-    // =========================================================================
-
-    private String craftablesSearch = "";
-    private boolean craftablesShowUnavailable;
-    private final List<CraftableEntry> craftableEntries = new ArrayList<>();
-    private int craftablesRevision;
-    private boolean craftablesHasMore;
-    private final Set<Integer> pendingCraftableOffsets = new HashSet<>();
-    private String craftFeedbackItemId = "";
-    private int craftFeedbackCount;
-    private long craftFeedbackExpiryMs;
-    private final List<CraftFeedbackIngredient> craftFeedbackIngredients = new ArrayList<>();
+    private final StorageCraftState craftState = new StorageCraftState();
 
     // =========================================================================
     //  Funnel fields
@@ -101,21 +78,7 @@ public final class StorageStateManager {
     private boolean funnelEnabled;
     private final List<FunnelBufferEntry> funnelBufferEntries = new ArrayList<>();
 
-    // =========================================================================
-    //  Quick-slot fields
-    // =========================================================================
-
-    private final String[] quickSlotItemIds = new String[QUICK_SLOT_COUNT];
-    private final String[] quickSlotLabels = new String[QUICK_SLOT_COUNT];
-    private final ItemStack[] quickSlotPreviews = new ItemStack[QUICK_SLOT_COUNT];
-
-    // =========================================================================
-    //  GUI-binding fields
-    // =========================================================================
-
-    private final String[] guiBindingLabels = new String[GUI_BINDING_SLOT_COUNT];
-    private final String[] guiBindingItemIds = new String[GUI_BINDING_SLOT_COUNT];
-    private final ItemStack[] guiBindingPreviews = new ItemStack[GUI_BINDING_SLOT_COUNT];
+    private final StorageBindingState bindingState = new StorageBindingState();
 
     // =========================================================================
     //  Other storage-related fields
@@ -138,16 +101,6 @@ public final class StorageStateManager {
         this.storagePanelWidthNormalized = 0.92D;
         this.storagePanelHeightNormalized = 0.24D;
         this.storageCategories.add(CATEGORY_ALL);
-        for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
-            this.quickSlotItemIds[i] = "";
-            this.quickSlotLabels[i] = "";
-            this.quickSlotPreviews[i] = ItemStack.EMPTY;
-        }
-        for (int i = 0; i < GUI_BINDING_SLOT_COUNT; i++) {
-            this.guiBindingLabels[i] = "";
-            this.guiBindingItemIds[i] = "";
-            this.guiBindingPreviews[i] = ItemStack.EMPTY;
-        }
     }
 
     // =========================================================================
@@ -275,19 +228,19 @@ public final class StorageStateManager {
     // =========================================================================
 
     public boolean isStorageScanRunning() {
-        return this.storageScanRunning;
+        return this.refreshState.scanRunning();
     }
 
     public boolean isStorageViewDirty() {
-        return this.storageViewDirty;
+        return this.refreshState.viewDirty();
     }
 
     public boolean shouldHighlightStorageRefresh() {
-        return this.storageViewDirty;
+        return this.refreshState.viewDirty();
     }
 
     public boolean hasStoragePageSnapshot() {
-        return this.storagePageReceivedAtMs > 0L || this.storageRevision > 0;
+        return this.refreshState.hasPageSnapshot(this.storageRevision);
     }
 
     public boolean hasAnyStorageContent() {
@@ -298,14 +251,7 @@ public final class StorageStateManager {
     }
 
     public float getStorageScanProgress() {
-        if (!isStorageScanPopupVisible()) {
-            return 0.0F;
-        }
-        if (this.storageScanRunning) {
-            long elapsed = Math.max(0L, System.currentTimeMillis() - this.storageScanStartedAtMs);
-            return (float) Math.min(0.92D, elapsed / 900.0D * 0.92D);
-        }
-        return 1.0F;
+        return this.refreshState.scanProgress();
     }
 
     // =========================================================================
@@ -355,39 +301,39 @@ public final class StorageStateManager {
     // =========================================================================
 
     public String getCraftablesSearch() {
-        return this.craftablesSearch;
+        return this.craftState.search();
     }
 
     public boolean isCraftablesShowUnavailable() {
-        return this.craftablesShowUnavailable;
+        return this.craftState.showUnavailable();
     }
 
     public List<CraftableEntry> getCraftableEntries() {
-        return Collections.unmodifiableList(this.craftableEntries);
+        return this.craftState.entries();
     }
 
     public int getCraftablesRevision() {
-        return this.craftablesRevision;
+        return this.craftState.revision();
     }
 
     public boolean hasMoreCraftables() {
-        return this.craftablesHasMore;
+        return this.craftState.hasMore();
     }
 
     public String getCraftFeedbackItemId() {
-        return this.craftFeedbackItemId;
+        return this.craftState.feedbackItemId();
     }
 
     public int getCraftFeedbackCount() {
-        return this.craftFeedbackCount;
+        return this.craftState.feedbackCount();
     }
 
     public long getCraftFeedbackExpiryMs() {
-        return this.craftFeedbackExpiryMs;
+        return this.craftState.feedbackExpiryMs();
     }
 
     public List<CraftFeedbackIngredient> getCraftFeedbackIngredients() {
-        return Collections.unmodifiableList(this.craftFeedbackIngredients);
+        return this.craftState.feedbackIngredients();
     }
 
     // =========================================================================
@@ -399,24 +345,15 @@ public final class StorageStateManager {
     }
 
     public String getQuickSlotItemId(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return "";
-        }
-        return this.quickSlotItemIds[index];
+        return this.bindingState.quickItemId(index);
     }
 
     public String getQuickSlotLabel(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return "";
-        }
-        return this.quickSlotLabels[index];
+        return this.bindingState.quickLabel(index);
     }
 
     public ItemStack getQuickSlotPreview(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return ItemStack.EMPTY;
-        }
-        return this.quickSlotPreviews[index];
+        return this.bindingState.quickPreview(index);
     }
 
     public int getGuiBindingCount() {
@@ -427,24 +364,21 @@ public final class StorageStateManager {
         if (index < 0 || index >= GUI_BINDING_SLOT_COUNT) {
             return "";
         }
-        ItemStack preview = this.guiBindingPreviews[index];
+        ItemStack preview = this.bindingState.bindingPreview(index);
         if (preview != null && !preview.isEmpty()) {
             // 服务端保存的 label 可能已经按服务端语言展开。优先用客户端
             // 物品预览重新解析名称，让 AE 线缆、机器等绑定跟随玩家的当前语言。
             return preview.getHoverName().getString();
         }
-        return this.guiBindingLabels[index];
+        return this.bindingState.bindingLabel(index);
     }
 
     public ItemStack getGuiBindingPreview(int index) {
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT) {
-            return ItemStack.EMPTY;
-        }
-        return this.guiBindingPreviews[index];
+        return this.bindingState.bindingPreview(index);
     }
 
     public boolean hasGuiBinding(int index) {
-        return !getGuiBindingLabel(index).isBlank();
+        return this.bindingState.hasBinding(index);
     }
 
     // =========================================================================
@@ -468,13 +402,13 @@ public final class StorageStateManager {
             return;
         }
         this.storagePageSize = safePageSize;
-        if (hasStoragePageSnapshot() && !this.storageScanRunning) {
+        if (hasStoragePageSnapshot() && !this.refreshState.scanRunning()) {
             requestStoragePage(this.storagePage);
         }
     }
 
     public void requestStoragePageIfNoSnapshot(int page) {
-        if (!hasStoragePageSnapshot() && !this.storageScanRunning) {
+        if (!hasStoragePageSnapshot() && !this.refreshState.scanRunning()) {
             requestStoragePage(page);
         }
     }
@@ -521,40 +455,23 @@ public final class StorageStateManager {
     // =========================================================================
 
     public void setCraftablesSearch(String search) {
-        String normalized = normalizeCraftablesSearch(search);
-        if (this.craftablesSearch.equals(normalized)) {
-            return;
-        }
-        this.craftablesSearch = normalized;
-        requestCraftables();
+        this.craftState.setSearch(search);
     }
 
     public void setCraftablesShowUnavailable(boolean showUnavailable) {
-        if (this.craftablesShowUnavailable == showUnavailable) {
-            return;
-        }
-        this.craftablesShowUnavailable = showUnavailable;
-        requestCraftables();
+        this.craftState.setShowUnavailable(showUnavailable);
     }
 
     public void toggleCraftablesShowUnavailable() {
-        setCraftablesShowUnavailable(!this.craftablesShowUnavailable);
+        setCraftablesShowUnavailable(!this.craftState.showUnavailable());
     }
 
     public void requestCraftables() {
-        this.craftablesSearch = normalizeCraftablesSearch(this.craftablesSearch);
-        clearCraftablesState();
-        if (this.craftablesSearch.isBlank()) {
-            return;
-        }
-        requestCraftablesPage(0, CRAFTABLE_BATCH_SIZE);
+        this.craftState.requestFirstPage();
     }
 
     public void requestMoreCraftables() {
-        if (this.craftablesSearch.isBlank() || !this.craftablesHasMore) {
-            return;
-        }
-        requestCraftablesPage(this.craftableEntries.size(), CRAFTABLE_BATCH_SIZE);
+        this.craftState.requestMore();
     }
 
     public void craftRecipeToLinked(String recipeId) {
@@ -562,10 +479,7 @@ public final class StorageStateManager {
     }
 
     public void craftRecipeToLinked(String recipeId, int craftCount) {
-        if (recipeId == null || recipeId.isBlank()) {
-            return;
-        }
-        RtsClientPacketGateway.sendCraftRecipe(recipeId, craftCount);
+        this.craftState.craft(recipeId, craftCount);
     }
 
     // =========================================================================
@@ -619,60 +533,29 @@ public final class StorageStateManager {
      * Assigns a quick slot. Called from the controller which provides the selected item data.
      */
     public void assignQuickSlotFromSelected(int index, String selectedItemId, ItemStack selectedItemPreview) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return;
-        }
-        if (selectedItemId == null || selectedItemId.isBlank() || selectedItemPreview == null || selectedItemPreview.isEmpty()) {
-            clearQuickSlot(index);
-            return;
-        }
-        setQuickSlotLocal(index, selectedItemId, selectedItemPreview.copy());
-        RtsClientPacketGateway.sendSetQuickSlot(index, selectedItemId, selectedItemPreview);
+        this.bindingState.assignSelected(index, selectedItemId, selectedItemPreview);
     }
 
     public void assignQuickSlotFromToolItem(int index, ItemStack stack) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT || stack == null || stack.isEmpty()) {
-            return;
-        }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-        if (id == null) {
-            return;
-        }
-        String itemId = id.toString();
-        setQuickSlotLocal(index, itemId, stack.copy());
-        RtsClientPacketGateway.sendSetQuickSlot(index, itemId, stack);
+        this.bindingState.assignTool(index, stack);
     }
 
     public void clearQuickSlot(int index) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return;
-        }
-        setQuickSlotLocal(index, "", ItemStack.EMPTY);
-        RtsClientPacketGateway.sendSetQuickSlot(index, "", ItemStack.EMPTY);
+        this.bindingState.clearQuick(index);
     }
 
     public void setGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT || pos == null) {
-            return;
-        }
-        RtsClientPacketGateway.sendSetGuiBinding(index, pos, face, itemIdHint);
+        this.bindingState.setBinding(index, pos, face, itemIdHint);
     }
 
     public void clearGuiBinding(int index) {
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT) {
-            return;
-        }
-        this.guiBindingLabels[index] = "";
-        RtsClientPacketGateway.sendClearGuiBinding(index);
+        this.bindingState.clearBinding(index);
     }
 
     public void openGuiBinding(int index) {
         // NOTE: beginRemoteMenuOpenGrace() is called by the controller before
         // delegating to this method.
-        if (index < 0 || index >= GUI_BINDING_SLOT_COUNT || !hasGuiBinding(index)) {
-            return;
-        }
-        RtsClientPacketGateway.sendOpenGuiBinding(index);
+        this.bindingState.openBinding(index);
     }
 
     // =========================================================================
@@ -680,14 +563,7 @@ public final class StorageStateManager {
     // =========================================================================
 
     public void applyStorageDirty(S2CRtsStorageDirtyPayload payload) {
-        if (payload == null || !payload.dirty()) {
-            clearStorageViewDirty();
-            return;
-        }
-        if (!this.storageViewDirty) {
-            this.storageViewDirtySinceMs = System.currentTimeMillis();
-        }
-        this.storageViewDirty = true;
+        this.refreshState.applyDirty(payload != null && payload.dirty());
     }
 
     /**
@@ -701,21 +577,15 @@ public final class StorageStateManager {
     public void applyStoragePage(S2CRtsStoragePagePayload payload, Runnable afterPageApplied) {
         markStorageScanFinished();
         clearStorageViewDirty();
+        StoragePagePayloadDecoder.DecodedPage decoded = StoragePagePayloadDecoder.decode(payload, this.linkedStorageName);
         this.storageLinked = payload.linked();
         this.linkedStorageName = payload.linkedName();
         this.autoStoreMinedDrops = payload.autoStoreMinedDrops();
         this.bdNetworkEnabled = payload.useBdNetwork();
         this.linkedStoragePositions.clear();
+        this.linkedStoragePositions.addAll(decoded.positions());
         this.linkedStorageEntries.clear();
-        for (int i = 0; i < payload.linkedPositions().size(); i++) {
-            Long packed = payload.linkedPositions().get(i);
-            if (packed == null) {
-                continue;
-            }
-            BlockPos pos = BlockPos.of(packed.longValue());
-            this.linkedStoragePositions.add(pos);
-            this.linkedStorageEntries.add(decodeLinkedStorageEntry(payload, i, pos));
-        }
+        this.linkedStorageEntries.addAll(decoded.linked());
         this.storagePage = payload.page();
         this.storageTotalPages = Math.max(1, payload.totalPages());
         this.storageTotalEntries = payload.totalEntries();
@@ -735,94 +605,26 @@ public final class StorageStateManager {
             this.storageCategory = CATEGORY_ALL;
         }
         this.storageEntries.clear();
+        this.storageEntries.addAll(decoded.items());
         this.fluidEntries.clear();
+        this.fluidEntries.addAll(decoded.fluids());
         this.recentEntries.clear();
-
-        int size = Math.min(payload.itemStacks().size(), payload.counts().size());
-        for (int i = 0; i < size; i++) {
-            ItemStack stack = payload.itemStacks().get(i);
-            if (stack == null || stack.isEmpty()) {
-                continue;
-            }
-            ItemStack preview = stack.copy();
-            preview.setCount(1);
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(preview.getItem());
-            if (id == null) {
-                continue;
-            }
-            this.storageEntries.add(new StorageEntry(preview, id.toString(), payload.counts().get(i), id.getNamespace(), id.getPath()));
-        }
+        this.recentEntries.addAll(decoded.recent());
 
         if (payload.totalCountsSnapshot()) {
             this.storageTotalCounts.clear();
-            int totalItemSize = Math.min(payload.totalItemIds().size(), payload.totalItemCounts().size());
-            for (int i = 0; i < totalItemSize; i++) {
-                String itemId = payload.totalItemIds().get(i);
-                ResourceLocation id = ResourceLocation.tryParse(itemId);
-                if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                    continue;
-                }
-                this.storageTotalCounts.put(itemId, Math.max(0L, payload.totalItemCounts().get(i)));
-            }
+            this.storageTotalCounts.putAll(decoded.totals());
         }
 
-        int fluidSize = Math.min(payload.fluidIds().size(),
-                Math.min(payload.fluidAmounts().size(), payload.fluidCapacities().size()));
-        for (int i = 0; i < fluidSize; i++) {
-            String fluidId = payload.fluidIds().get(i);
-            ResourceLocation id = ResourceLocation.tryParse(fluidId);
-            if (id == null || !BuiltInRegistries.FLUID.containsKey(id)) {
-                continue;
-            }
-            Fluid fluid = BuiltInRegistries.FLUID.get(id);
-            FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
-            ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
-            String label = fluid.getFluidType().getDescription(fluidStack).getString();
-            this.fluidEntries.add(new FluidEntry(
-                    fluidId, label,
-                    payload.fluidAmounts().get(i),
-                    payload.fluidCapacities().get(i),
-                    id.getNamespace(), id.getPath(), preview));
-        }
-
-        int recentSize = Math.min(
-                payload.recentIds().size(),
-                Math.min(
-                        payload.recentAmounts().size(),
-                        Math.min(payload.recentCapacities().size(), payload.recentKinds().size())));
-        for (int i = 0; i < recentSize; i++) {
-            RecentEntry entry = decodeRecentEntry(
-                    payload.recentIds().get(i),
-                    payload.recentAmounts().get(i),
-                    payload.recentCapacities().get(i),
-                    payload.recentKinds().get(i));
-            if (entry != null) {
-                this.recentEntries.add(entry);
-            }
-        }
-
-        applyQuickSlotPayload(payload.quickSlotItemIds(), payload.quickSlotPreviews());
-        applyGuiBindingPayload(payload.guiBindingLabels(), payload.guiBindingItemIds());
+        this.bindingState.applyQuickSlots(payload.quickSlotItemIds(), payload.quickSlotPreviews(), this.storageEntries);
+        this.bindingState.applyBindings(payload.guiBindingLabels(), payload.guiBindingItemIds());
 
         this.funnelEnabled = payload.funnelEnabled();
         this.funnelBufferEntries.clear();
-        int funnelBufferSize = Math.min(payload.funnelBufferItemIds().size(), payload.funnelBufferCounts().size());
-        for (int i = 0; i < funnelBufferSize; i++) {
-            String itemId = payload.funnelBufferItemIds().get(i);
-            ResourceLocation id = ResourceLocation.tryParse(itemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                continue;
-            }
-            long count = Math.max(0L, payload.funnelBufferCounts().get(i));
-            if (count <= 0L) {
-                continue;
-            }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
-            this.funnelBufferEntries.add(new FunnelBufferEntry(stack, itemId, count));
-        }
+        this.funnelBufferEntries.addAll(decoded.funnel());
         this.storageRevision++;
         if (!this.storageLinked && this.linkedStoragePositions.isEmpty()) {
-            clearCraftablesState();
+            this.craftState.clear();
         }
 
         if (afterPageApplied != null) {
@@ -831,116 +633,11 @@ public final class StorageStateManager {
     }
 
     public void applyCraftables(S2CRtsCraftablesPayload payload) {
-        String payloadSearch = normalizeCraftablesSearch(payload.search());
-        if (!this.craftablesSearch.equals(payloadSearch)
-                || this.craftablesShowUnavailable != payload.showUnavailable()) {
-            return;
-        }
-
-        int offset = Math.max(0, payload.offset());
-        this.pendingCraftableOffsets.remove(offset);
-        if (!payload.append() || offset == 0) {
-            this.craftableEntries.clear();
-        } else if (offset != this.craftableEntries.size()) {
-            return;
-        }
-
-        int size = Math.min(
-                payload.recipeIds().size(),
-                Math.min(
-                        payload.resultItemIds().size(),
-                        Math.min(
-                                payload.resultCounts().size(),
-                                Math.min(payload.craftable().size(), payload.missingSummaries().size()))));
-        int optionFlatIndex = 0;
-        for (int i = 0; i < size; i++) {
-            ResourceLocation id = ResourceLocation.tryParse(payload.resultItemIds().get(i));
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
-                optionFlatIndex += i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
-                continue;
-            }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
-            int resultCount = Math.max(1, payload.resultCounts().get(i));
-            stack.setCount(Math.min(resultCount, stack.getMaxStackSize()));
-            int optionCount = i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
-            List<CraftRecipeOption> recipeOptions = new ArrayList<>(optionCount);
-            for (int optionIndex = 0; optionIndex < optionCount; optionIndex++) {
-                if (optionFlatIndex >= payload.optionRecipeIds().size()
-                        || optionFlatIndex >= payload.optionResultCounts().size()
-                        || optionFlatIndex >= payload.optionCraftable().size()
-                        || optionFlatIndex >= payload.optionSummaries().size()
-                        || optionFlatIndex >= payload.optionMissingSummaries().size()) {
-                    break;
-                }
-                recipeOptions.add(new CraftRecipeOption(
-                        payload.optionRecipeIds().get(optionFlatIndex),
-                        Math.max(1, payload.optionResultCounts().get(optionFlatIndex)),
-                        payload.optionCraftable().get(optionFlatIndex),
-                        payload.optionSummaries().get(optionFlatIndex),
-                        payload.optionMissingSummaries().get(optionFlatIndex)));
-                optionFlatIndex++;
-            }
-            if (recipeOptions.isEmpty()) {
-                recipeOptions.add(new CraftRecipeOption(
-                        payload.recipeIds().get(i),
-                        resultCount,
-                        payload.craftable().get(i),
-                        stack.getHoverName().getString(),
-                        payload.missingSummaries().get(i)));
-            }
-            this.craftableEntries.add(new CraftableEntry(
-                    stack,
-                    payload.recipeIds().get(i),
-                    payload.resultItemIds().get(i),
-                    resultCount,
-                    payload.craftable().get(i),
-                    payload.missingSummaries().get(i),
-                    id.getNamespace(),
-                    id.getPath(),
-                    List.copyOf(recipeOptions)));
-        }
-        this.craftablesSearch = payloadSearch;
-        this.craftablesShowUnavailable = payload.showUnavailable();
-        this.craftablesHasMore = payload.hasMore();
-        this.craftablesRevision++;
+        this.craftState.apply(payload);
     }
 
     public void applyCraftFeedback(S2CRtsCraftFeedbackPayload payload) {
-        String itemId = payload.itemId() == null ? "" : payload.itemId();
-        int craftedCount = Math.max(0, payload.craftedCount());
-        if (itemId.isBlank() || craftedCount <= 0) {
-            return;
-        }
-        List<CraftFeedbackIngredient> decodedIngredients = new ArrayList<>();
-        int ingredientSize = Math.min(payload.consumedItemIds().size(), payload.consumedCounts().size());
-        for (int i = 0; i < ingredientSize; i++) {
-            String consumedItemId = payload.consumedItemIds().get(i);
-            ResourceLocation consumedKey = ResourceLocation.tryParse(consumedItemId);
-            if (consumedKey == null || !BuiltInRegistries.ITEM.containsKey(consumedKey)) {
-                continue;
-            }
-            ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(consumedKey));
-            decodedIngredients.add(new CraftFeedbackIngredient(
-                    consumedItemId,
-                    preview.getHoverName().getString(),
-                    preview,
-                    Math.max(0, payload.consumedCounts().get(i))));
-        }
-        long now = System.currentTimeMillis();
-        boolean mergeWithActive = itemId.equals(this.craftFeedbackItemId) && now <= this.craftFeedbackExpiryMs;
-        if (mergeWithActive) {
-            this.craftFeedbackCount += craftedCount;
-        } else {
-            this.craftFeedbackItemId = itemId;
-            this.craftFeedbackCount = craftedCount;
-        }
-        if (mergeWithActive) {
-            mergeCraftFeedbackIngredients(decodedIngredients);
-        } else {
-            this.craftFeedbackIngredients.clear();
-            this.craftFeedbackIngredients.addAll(decodedIngredients);
-        }
-        this.craftFeedbackExpiryMs = now + 2200L;
+        this.craftState.applyFeedback(payload);
     }
 
     // =========================================================================
@@ -967,11 +664,11 @@ public final class StorageStateManager {
         this.storageCollapsed = false;
         clearStorageScanState();
         clearStorageViewDirty();
-        this.storagePageReceivedAtMs = 0L;
+        this.refreshState.forgetSnapshot();
         this.bdNetworkEnabled = true;
         this.autoStoreMinedDrops = true;
         this.funnelBufferEntries.clear();
-        clearCraftablesState();
+        this.craftState.clear();
         clearQuickSlotsLocal();
         clearGuiBindingsLocal();
     }
@@ -979,34 +676,18 @@ public final class StorageStateManager {
     void clearStorageStateOnDisable() {
         clearStorageScanState();
         clearStorageViewDirty();
-        this.storagePageReceivedAtMs = 0L;
+        this.refreshState.forgetSnapshot();
         this.funnelEnabled = false;
         this.funnelBufferEntries.clear();
-        clearCraftablesState();
+        this.craftState.clear();
         clearQuickSlotsLocal();
         clearGuiBindingsLocal();
     }
 
     void tickStorageAutoRefresh(boolean storageViewVisible) {
-        long now = System.currentTimeMillis();
-        if (this.storageViewDirty && this.storageViewDirtySinceMs <= 0L) {
-            this.storageViewDirtySinceMs = now;
+        if (this.refreshState.shouldRequestRefresh(storageViewVisible, hasStoragePageSnapshot())) {
+            requestStoragePage(this.storagePage);
         }
-        if (!RtsStorageDirtyRefreshPolicy.shouldRequest(
-                this.storageViewDirty,
-                storageViewVisible,
-                this.storageScanRunning,
-                hasStoragePageSnapshot(),
-                this.storageDirtyRefreshRequested,
-                this.storageDirtyRefreshRequestedAtMs,
-                this.storageViewDirtySinceMs,
-                now,
-                STORAGE_AUTO_REFRESH_INTERVAL_MS)) {
-            return;
-        }
-        this.storageDirtyRefreshRequested = true;
-        this.storageDirtyRefreshRequestedAtMs = now;
-        requestStoragePage(this.storagePage);
     }
 
     void setBdNetworkWithoutPacket(boolean enabled) {
@@ -1036,30 +717,16 @@ public final class StorageStateManager {
     }
 
     void clearQuickSlotsLocal() {
-        for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
-            this.quickSlotItemIds[i] = "";
-            this.quickSlotLabels[i] = "";
-            this.quickSlotPreviews[i] = ItemStack.EMPTY;
-        }
+        this.bindingState.clearQuickSlots();
     }
 
     void clearGuiBindingsLocal() {
-        for (int i = 0; i < GUI_BINDING_SLOT_COUNT; i++) {
-            this.guiBindingLabels[i] = "";
-            this.guiBindingItemIds[i] = "";
-            this.guiBindingPreviews[i] = ItemStack.EMPTY;
-        }
+        this.bindingState.clearGuiBindings();
     }
 
     /** Returns true if the storage page can be auto-refreshed and a refresh should be scheduled. */
     boolean isStorageScanPopupVisible() {
-        if (this.storageScanRunning) {
-            return true;
-        }
-        if (this.storageScanVisibleUntilMs <= 0L) {
-            return false;
-        }
-        return System.currentTimeMillis() < this.storageScanVisibleUntilMs;
+        return this.refreshState.popupVisible();
     }
 
     /** Returns the stored storage entries for internal use by controller (e.g., selected item preview). */
@@ -1076,161 +743,19 @@ public final class StorageStateManager {
     // =========================================================================
 
     private void markStorageScanStarted() {
-        if (!RtsClientUiStateStore.isShowStorageReadyPopupEnabled()) {
-            clearStorageScanState();
-            return;
-        }
-        this.storageScanRunning = true;
-        this.storageScanStartedAtMs = System.currentTimeMillis();
-        this.storageScanVisibleUntilMs = 0L;
+        this.refreshState.markScanStarted();
     }
 
     private void markStorageScanFinished() {
-        if (!this.storageScanRunning && this.storageScanStartedAtMs <= 0L) {
-            return;
-        }
-        this.storageScanRunning = false;
-        long now = System.currentTimeMillis();
-        this.storagePageReceivedAtMs = now;
-        this.storageScanVisibleUntilMs = now + STORAGE_SCAN_RESULT_VISIBLE_MS;
+        this.refreshState.markScanFinished();
     }
 
     void clearStorageScanState() {
-        this.storageScanRunning = false;
-        this.storageScanStartedAtMs = 0L;
-        this.storageScanVisibleUntilMs = 0L;
+        this.refreshState.clearScan();
     }
 
     void clearStorageViewDirty() {
-        this.storageViewDirty = false;
-        this.storageViewDirtySinceMs = 0L;
-        this.storageDirtyRefreshRequested = false;
-        this.storageDirtyRefreshRequestedAtMs = 0L;
-    }
-
-    private void requestCraftablesPage(int offset, int limit) {
-        int normalizedOffset = Math.max(0, offset);
-        int normalizedLimit = Math.max(1, limit);
-        if (!this.pendingCraftableOffsets.add(normalizedOffset)) {
-            return;
-        }
-        RtsClientPacketGateway.sendRequestCraftables(
-                this.craftablesSearch,
-                this.craftablesShowUnavailable,
-                normalizedOffset,
-                normalizedLimit);
-    }
-
-    private void clearCraftablesState() {
-        boolean changed = !this.craftableEntries.isEmpty()
-                || this.craftablesHasMore
-                || !this.pendingCraftableOffsets.isEmpty();
-        this.craftableEntries.clear();
-        this.craftablesHasMore = false;
-        this.pendingCraftableOffsets.clear();
-        if (changed) {
-            this.craftablesRevision++;
-        }
-    }
-
-    private void applyQuickSlotPayload(List<String> payloadQuickSlots, List<ItemStack> payloadQuickSlotPreviews) {
-        clearQuickSlotsLocal();
-        int size = Math.min(QUICK_SLOT_COUNT, payloadQuickSlots == null ? 0 : payloadQuickSlots.size());
-        for (int i = 0; i < size; i++) {
-            String itemId = payloadQuickSlots.get(i);
-            if (itemId == null || itemId.isBlank()) {
-                continue;
-            }
-            ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-                continue;
-            }
-            ItemStack preview = payloadQuickSlotPreviews != null && i < payloadQuickSlotPreviews.size()
-                    ? payloadQuickSlotPreviews.get(i)
-                    : ItemStack.EMPTY;
-            if (preview == null || preview.isEmpty() || !preview.is(BuiltInRegistries.ITEM.get(key))) {
-                preview = resolveQuickSlotFallbackPreview(itemId, key);
-            } else {
-                preview = preview.copyWithCount(1);
-            }
-            setQuickSlotLocal(i, itemId, preview);
-        }
-    }
-
-    private ItemStack resolveQuickSlotFallbackPreview(String itemId, ResourceLocation key) {
-        for (StorageEntry entry : this.storageEntries) {
-            if (entry != null && itemId.equals(entry.itemId()) && entry.stack() != null && !entry.stack().isEmpty()) {
-                return entry.stack().copyWithCount(1);
-            }
-        }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
-    }
-
-    private void applyGuiBindingPayload(List<String> payloadGuiBindings, List<String> payloadGuiBindingItemIds) {
-        clearGuiBindingsLocal();
-        int size = Math.min(
-                GUI_BINDING_SLOT_COUNT,
-                Math.min(
-                        payloadGuiBindings == null ? 0 : payloadGuiBindings.size(),
-                        payloadGuiBindingItemIds == null ? 0 : payloadGuiBindingItemIds.size()));
-        for (int i = 0; i < size; i++) {
-            String label = payloadGuiBindings.get(i);
-            this.guiBindingLabels[i] = label == null ? "" : label;
-            String itemId = payloadGuiBindingItemIds.get(i);
-            this.guiBindingItemIds[i] = itemId == null ? "" : itemId;
-            ResourceLocation key = ResourceLocation.tryParse(this.guiBindingItemIds[i]);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
-                this.guiBindingItemIds[i] = "";
-                this.guiBindingPreviews[i] = ItemStack.EMPTY;
-                continue;
-            }
-            this.guiBindingPreviews[i] = new ItemStack(BuiltInRegistries.ITEM.get(key));
-        }
-    }
-
-    private void setQuickSlotLocal(int index, String itemId, ItemStack preview) {
-        if (index < 0 || index >= QUICK_SLOT_COUNT) {
-            return;
-        }
-        String normalizedItemId = itemId == null ? "" : itemId;
-        ItemStack normalizedPreview = preview == null ? ItemStack.EMPTY : preview.copy();
-        if (!normalizedPreview.isEmpty()) {
-            normalizedPreview.setCount(1);
-        }
-        this.quickSlotItemIds[index] = normalizedItemId;
-        if (normalizedItemId.isBlank() || normalizedPreview.isEmpty()) {
-            this.quickSlotLabels[index] = "";
-            this.quickSlotPreviews[index] = ItemStack.EMPTY;
-            return;
-        }
-        this.quickSlotLabels[index] = normalizedPreview.getHoverName().getString();
-        this.quickSlotPreviews[index] = normalizedPreview;
-    }
-
-    private LinkedStorageEntry decodeLinkedStorageEntry(S2CRtsStoragePagePayload payload, int index, BlockPos pos) {
-        String label = index >= 0 && index < payload.linkedNames().size()
-                ? payload.linkedNames().get(index)
-                : this.linkedStorageName;
-        if (label == null || label.isBlank()) {
-            label = "Linked Storage";
-        }
-        byte mode = index >= 0 && index < payload.linkedModes().size()
-                ? payload.linkedModes().get(index)
-                : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
-        int priority = index >= 0 && index < payload.linkedPriorities().size()
-                ? payload.linkedPriorities().get(index)
-                : 0;
-        boolean worldAvailable = index >= 0 && index < payload.linkedWorldAvailable().size()
-                && Boolean.TRUE.equals(payload.linkedWorldAvailable().get(index));
-        ItemStack preview = ItemStack.EMPTY;
-        String iconItemId = index >= 0 && index < payload.linkedIconItemIds().size()
-                ? payload.linkedIconItemIds().get(index)
-                : "";
-        ResourceLocation iconKey = ResourceLocation.tryParse(iconItemId);
-        if (iconKey != null && BuiltInRegistries.ITEM.containsKey(iconKey)) {
-            preview = new ItemStack(BuiltInRegistries.ITEM.get(iconKey));
-        }
-        return new LinkedStorageEntry(pos, label, mode, priority, preview, worldAvailable);
+        this.refreshState.clearDirty();
     }
 
     private long getStorageFluidAmount(String fluidId) {
@@ -1245,38 +770,6 @@ public final class StorageStateManager {
         return 0L;
     }
 
-    private void mergeCraftFeedbackIngredients(List<CraftFeedbackIngredient> added) {
-        if (added == null || added.isEmpty()) {
-            return;
-        }
-        Map<String, CraftFeedbackIngredient> merged = new LinkedHashMap<>();
-        for (CraftFeedbackIngredient ingredient : this.craftFeedbackIngredients) {
-            if (ingredient == null || ingredient.itemId() == null || ingredient.itemId().isBlank()) {
-                continue;
-            }
-            merged.put(ingredient.itemId(), ingredient);
-        }
-        for (CraftFeedbackIngredient ingredient : added) {
-            if (ingredient == null || ingredient.itemId() == null || ingredient.itemId().isBlank()) {
-                continue;
-            }
-            CraftFeedbackIngredient existing = merged.get(ingredient.itemId());
-            if (existing == null) {
-                merged.put(ingredient.itemId(), ingredient);
-                continue;
-            }
-            merged.put(
-                    ingredient.itemId(),
-                    new CraftFeedbackIngredient(
-                            ingredient.itemId(),
-                            ingredient.label(),
-                            ingredient.preview().copy(),
-                            existing.count() + ingredient.count()));
-        }
-        this.craftFeedbackIngredients.clear();
-        this.craftFeedbackIngredients.addAll(merged.values());
-    }
-
     // =========================================================================
     //  Static helpers
     // =========================================================================
@@ -1286,10 +779,6 @@ public final class StorageStateManager {
             return 0.0D;
         }
         return Mth.clamp(value, 0.0D, 1.0D);
-    }
-
-    private static String normalizeCraftablesSearch(String search) {
-        return search == null ? "" : search.trim();
     }
 
     private static String normalizeCategory(String category) {
@@ -1306,31 +795,4 @@ public final class StorageStateManager {
         return CATEGORY_MOD_PREFIX + value;
     }
 
-    private static RecentEntry decodeRecentEntry(String idText, long amount, long capacity, byte kind) {
-        if (idText == null || idText.isBlank()) {
-            return null;
-        }
-        ResourceLocation id = ResourceLocation.tryParse(idText);
-        if (id == null) {
-            return null;
-        }
-        boolean fluidKind = kind == S2CRtsStoragePagePayload.RECENT_FLUID_PLACED
-                || kind == S2CRtsStoragePagePayload.RECENT_FLUID_USED
-                || kind == S2CRtsStoragePagePayload.RECENT_FLUID_CRAFTED;
-        if (fluidKind) {
-            if (!BuiltInRegistries.FLUID.containsKey(id)) {
-                return null;
-            }
-            Fluid fluid = BuiltInRegistries.FLUID.get(id);
-            FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
-            ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
-            String label = fluid.getFluidType().getDescription(fluidStack).getString();
-            return new RecentEntry(true, idText, label, Math.max(0L, amount), Math.max(0L, capacity), kind, preview);
-        }
-        if (!BuiltInRegistries.ITEM.containsKey(id)) {
-            return null;
-        }
-        ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
-        return new RecentEntry(false, idText, preview.getHoverName().getString(), Math.max(0L, amount), 0L, kind, preview);
-    }
 }

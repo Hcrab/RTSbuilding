@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
@@ -78,6 +79,12 @@ final class QuickBuildUiAdapter {
                 controls.add(new QuickBuildUiControl(QuickBuildUiControl.Id.CONNECT,
                         panel.uiScreen().text("screen.rtsbuilding.quick_build.connect"), connected, true));
             }
+            if (mode == QuickBuildUiMode.BUILD
+                    && panel.hasCreativePlayer()) {
+                controls.add(new QuickBuildUiControl(QuickBuildUiControl.Id.OVERWRITE,
+                        panel.uiScreen().text("screen.rtsbuilding.quick_build.overwrite"),
+                        panel.isOverwriteSelected(), true));
+            }
         }
 
         RtsWorkflowStatus workflow = panel.uiController().findActiveDestroyWorkflow();
@@ -94,13 +101,20 @@ final class QuickBuildUiAdapter {
                         - panel.uiController().getStorageTotalCount(selectedId));
             } catch (NumberFormatException ignored) { }
         }
+        boolean keyboardFinalConfirm = Config.isKeyboardBatchConfirmEnabled();
         String hint = mode == QuickBuildUiMode.BUILD
+                ? keyboardFinalConfirm
                 ? "screen.rtsbuilding.quick_build.build_hint"
+                : "screen.rtsbuilding.quick_build.build_hint_auto"
                 : destroyShape == QuickBuildUiShape.CHAIN
                 ? "screen.rtsbuilding.quick_build.chain_hint"
                 : panel.isAdvancedShapeMode()
+                ? keyboardFinalConfirm
                 ? "screen.rtsbuilding.quick_build.destroy_advanced_box_hint"
-                : "screen.rtsbuilding.quick_build.destroy_hint";
+                : "screen.rtsbuilding.quick_build.destroy_advanced_box_hint_auto"
+                : keyboardFinalConfirm
+                ? "screen.rtsbuilding.quick_build.destroy_hint"
+                : "screen.rtsbuilding.quick_build.destroy_hint_auto";
         return new QuickBuildUiState(panel.isOpen(), mode, panel.canUseRangeDestroy(),
                 panel.canUseRangeDestroy() ? "" : "plugin_required",
                 buildShape, destroyShape, shapes, controls,
@@ -153,6 +167,10 @@ final class QuickBuildUiAdapter {
                 panel.uiScreen().getShapeController().setBuildLineConnected(
                         !panel.uiScreen().getShapeController().isBuildLineConnected());
             }
+        } else if (id == QuickBuildUiControl.Id.OVERWRITE && mode == QuickBuildUiMode.BUILD
+                && panel.hasCreativePlayer()) {
+            panel.setOverwriteSelected(!panel.isOverwriteSelected());
+            panel.uiScreen().clearShapeBuildSession();
         }
         panel.uiScreen().persistUiState();
         panel.rebuildFillModeButtons();

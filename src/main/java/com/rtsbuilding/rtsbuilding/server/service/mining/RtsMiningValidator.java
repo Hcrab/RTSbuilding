@@ -28,7 +28,7 @@ import net.minecraft.world.level.block.state.BlockState;
  *   <li>{@link #ULTIMINE_MAX_BLOCKS}=256 — BFS 连锁挖掘收集的硬上限</li>
  *   <li>{@link #AREA_MINE_MAX_SIZE}=36 — 区域挖掘每个维度的最大范围</li>
  *   <li>{@link #AREA_DESTROY_MAX_TARGETS}=98304 — 区域破坏接受的最大位置数</li>
- *   <li>{@link #ULTIMINE_BLOCKS_PER_TICK}=8 — 每 tick 处理的连锁挖掘目标数（节流）</li>
+ *   <li>{@link #ULTIMINE_BLOCKS_PER_TICK}=32 — 单个挖掘任务切片处理的目标数（节流）</li>
  * </ul>
  *
  * <p><b>验证功能：</b>
@@ -56,8 +56,8 @@ public final class RtsMiningValidator {
     /** 快速建造接受的显式形状破坏最大目标数。 */
     public static final int AREA_DESTROY_MAX_TARGETS = 98304;
 
-    /** 单个 tick 中处理的连锁挖掘目标数。 */
-    public static final int ULTIMINE_BLOCKS_PER_TICK = 8;
+    /** 单个挖掘任务切片处理的批量目标数。 */
+    public static final int ULTIMINE_BLOCKS_PER_TICK = 32;
 
     /** 玩家的快捷栏槽位数（0-8）。 */
     private static final int PLAYER_HOTBAR_SLOT_COUNT = 9;
@@ -143,6 +143,19 @@ public final class RtsMiningValidator {
                 || state == null
                 || !state.requiresCorrectToolForDrops()
                 || (tool != null && !tool.isEmpty() && tool.isCorrectToolForDrops(state));
+    }
+
+    /**
+     * 连锁挖掘沿用范围挖掘的软方块规则：0 级方块不要求当前工具能够正确采集掉落。
+     *
+     * <p>雪层等方块会要求特定工具才能掉落对应物品，但它们没有采掘等级要求。
+     * 若直接使用 {@link #canHarvestWithTool}，拿着镐选中雪层时，连锁收集会在种子
+     * 方块处得到零目标。这里仅放宽 0 级方块；石头及更高等级方块仍然要求真实工具。</p>
+     */
+    private static boolean canUltimineWithTool(BlockState state, ItemStack tool, boolean creative) {
+        return creative
+                || RtsMiningRules.requiredLevel(state) <= 0
+                || canHarvestWithTool(state, tool, false);
     }
 
     /**
@@ -269,7 +282,7 @@ public final class RtsMiningValidator {
             return false;
         }
         ItemStack actualTool = resolveMiningTool(player, toolSlot, linkedTool);
-        if (!canHarvestWithTool(state, actualTool, false)) {
+        if (!canUltimineWithTool(state, actualTool, false)) {
             return false;
         }
         float seedDestroySpeed = seedState.getDestroySpeed(player.serverLevel(), pos);
@@ -304,10 +317,21 @@ public final class RtsMiningValidator {
      * 当保护启用时，挖掘系统应停止以避免破坏工具。
      */
     public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session) {
+        int toolSlot = session == null ? 0 : session.mining.miningToolSlot;
+        return isToolNearBreak(player, session, toolSlot);
+    }
+
+    /**
+     * 使用指定作业冻结的快捷栏槽位检查工具耐久。
+     *
+     * <p>范围破坏由独立 Task 跨 Tick 执行，其槽位属于 Task 快照，不保证与
+     * Session 中最近一次连锁挖掘的槽位相同。</p>
+     */
+    public static boolean isToolNearBreak(ServerPlayer player, RtsStorageSession session, int toolSlot) {
         if (session == null || !session.mining.miningToolProtectionEnabled) {
             return false;
         }
-        ItemStack tool = activeMiningTool(player, session);
+        ItemStack tool = activeMiningTool(player, session, toolSlot);
         if (tool.isEmpty() || !tool.isDamageableItem()) {
             return false;
         }
@@ -328,13 +352,24 @@ public final class RtsMiningValidator {
         if (session == null) {
             return ItemStack.EMPTY;
         }
+        return activeMiningTool(player, session, session.mining.miningToolSlot);
+    }
+
+    /**
+     * 返回当前租约工具；没有租约时，使用调用方提供的作业快捷栏槽位。
+     * 该重载用于范围破坏等把槽位冻结在 Task 中的异步操作。
+     */
+    public static ItemStack activeMiningTool(ServerPlayer player, RtsStorageSession session, int toolSlot) {
+        if (session == null) {
+            return ItemStack.EMPTY;
+        }
         if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
             return session.mining.miningToolLease.stack();
         }
         if (player == null) {
             return ItemStack.EMPTY;
         }
-        int slot = clampHotbarSlot(session.mining.miningToolSlot);
+        int slot = clampHotbarSlot(toolSlot);
         if (slot < 0 || slot >= player.getInventory().getContainerSize()) {
             return ItemStack.EMPTY;
         }
@@ -396,7 +431,7 @@ public final class RtsMiningValidator {
                     selectedToolRequested) <= 0.0F) {
                 return new java.util.ArrayDeque<>();
             }
-            if (!canHarvestWithTool(
+            if (!canUltimineWithTool(
                     seedState, resolveMiningTool(player, toolSlot, linkedTool), false)) {
                 return new java.util.ArrayDeque<>();
             }

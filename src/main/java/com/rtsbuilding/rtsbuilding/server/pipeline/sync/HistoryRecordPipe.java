@@ -39,6 +39,10 @@ public final class HistoryRecordPipe implements PipelinePipe<PipelineContext> {
             new TypedKey<>("historyRecords", (Class) List.class);
     public static final TypedKey<Direction> ARG_HISTORY_FACE =
             new TypedKey<>("historyFace", Direction.class);
+    public static final TypedKey<Integer> ARG_HISTORY_SOURCE_SLOT =
+            new TypedKey<>("historySourceSlot", Integer.class);
+    public static final TypedKey<Boolean> ARG_HISTORY_CREATIVE =
+            new TypedKey<>("historyCreative", Boolean.class);
 
     @Override
     public PipelineResult execute(PipelineContext ctx) {
@@ -52,11 +56,16 @@ public final class HistoryRecordPipe implements PipelinePipe<PipelineContext> {
         Direction face = ctx.hasData(ARG_HISTORY_FACE)
                 ? ctx.getData(ARG_HISTORY_FACE)
                 : Direction.DOWN;
+        int sourceSlot = ctx.hasData(ARG_HISTORY_SOURCE_SLOT)
+                ? ctx.getData(ARG_HISTORY_SOURCE_SLOT) : -1;
+        boolean creativeOperation = ctx.hasData(ARG_HISTORY_CREATIVE)
+                ? ctx.getData(ARG_HISTORY_CREATIVE) : ctx.player().isCreative();
 
         if (hasRecords) {
             List<HistoryBlockRecord> records = ctx.getData(ARG_HISTORY_RECORDS);
             if (!records.isEmpty()) {
-                ServerHistoryManager.recordBreakWithRecords(ctx.player(), records, face);
+                ServerHistoryManager.recordBreakWithRecords(
+                        ctx.player(), records, face, sourceSlot, creativeOperation);
             }
         } else {
             List<BlockPos> positions = ctx.getData(ARG_HISTORY_POSITIONS);

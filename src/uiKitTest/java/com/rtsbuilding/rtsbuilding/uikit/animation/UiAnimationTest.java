@@ -54,4 +54,20 @@ class UiAnimationTest {
         assertEquals(0, UiEasing.EASE_OUT_CUBIC.apply(-2), 0.0001);
         assertEquals(1, UiEasing.EASE_IN_OUT_QUAD.apply(2), 0.0001);
     }
+
+    @Test
+    void 瞬移会取消旧过渡并允许从满强度重新播放() {
+        FixedUiClock clock = new FixedUiClock(0L);
+        UiFloatAnimation animation = new UiFloatAnimation(clock, 0.0D);
+        animation.animateTo(1.0D, 100L, UiEasing.LINEAR);
+        clock.advanceMillis(50L);
+
+        animation.snapTo(1.0D);
+        assertEquals(1.0D, animation.value(), 0.0001D);
+        assertTrue(animation.isFinished());
+
+        animation.animateTo(0.0D, 300L, UiEasing.LINEAR);
+        clock.advanceMillis(150L);
+        assertEquals(0.5D, animation.value(), 0.0001D);
+    }
 }

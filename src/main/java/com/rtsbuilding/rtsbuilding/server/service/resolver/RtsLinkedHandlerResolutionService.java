@@ -75,7 +75,7 @@ public final class RtsLinkedHandlerResolutionService {
                 if (crossDim) {
                     ServerLevel targetLevel = player.server.getLevel(ref.dimension());
                     if (!session.linkedStorageInfo.isDetached(ref)
-                            && RtsProgressionManager.canAccessHomeRadius(player, pos)
+                            && RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)
                             && targetLevel != null && targetLevel.hasChunkAt(pos)) {
                         Object endpointIdentity = targetLevel.getBlockEntity(pos);
                         handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
@@ -101,8 +101,7 @@ public final class RtsLinkedHandlerResolutionService {
                 } else {
                     boolean sameDimension = currentDimension.equals(ref.dimension());
                     if (sameDimension && !session.linkedStorageInfo.isDetached(ref)
-                            && RtsProgressionManager.canAccessHomeRadius(player, pos)
-                            && player.serverLevel().hasChunkAt(pos)) {
+                            && RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
                         Object endpointIdentity = player.serverLevel().getBlockEntity(pos);
                         handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
                                 player.getUUID(), currentDimension, pos, backpackUuid, endpointIdentity,
@@ -201,9 +200,6 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 BlockPos pos = ref.pos();
-                if (!RtsProgressionManager.canAccessHomeRadius(player, pos)) {
-                    continue;
-                }
                 if (crossDim) {
                     ServerLevel targetLevel = player.server.getLevel(ref.dimension());
                     if (targetLevel == null || !targetLevel.hasChunkAt(pos)) {
@@ -218,7 +214,7 @@ public final class RtsLinkedHandlerResolutionService {
                             linkedPriority(session, ref)));
                 } else {
                     if (!currentDimension.equals(ref.dimension())) continue;
-                    if (!player.serverLevel().hasChunkAt(pos)) continue;
+                    if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) continue;
                     IFluidHandler handler = RtsLinkedCapabilities.findFluidHandler(player, pos);
                     if (handler == null) continue;
                     String name = session.linkedStorageInfo.computeNameIfAbsent(ref,

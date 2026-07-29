@@ -2,6 +2,9 @@ package com.rtsbuilding.rtsbuilding.server.workflow.service;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
+import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEntry;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.RtsWorkflowEventBus;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
@@ -35,6 +38,8 @@ public final class RtsWorkflowTimeoutService {
     private final RtsWorkflowEventBus eventBus;
     private final BiConsumer<UUID, ResourceKey<Level>> workflowDirtySink;
     private final Predicate<MinecraftServer> serverThreadCheck;
+    private final TimeoutTaskCanceller taskCanceller;
+    private final WorkflowActivityGuard activityGuard;
     private final WorkflowTimeoutDeadline deadline = new WorkflowTimeoutDeadline();
 
     private long maxIdleMillis;
@@ -53,7 +58,20 @@ public final class RtsWorkflowTimeoutService {
                 slotManagers,
                 eventBus,
                 (playerId, dimension) -> RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension),
-                server -> server != null && server.isSameThread());
+                server -> server != null && server.isSameThread(),
+                (server, playerId, dimension, entryId) -> {
+                    if (server == null) return;
+                    var player = server.getPlayerList().getPlayer(playerId);
+                    if (player != null) {
+                        RtsTaskEngine.INSTANCE.cancelWorkflowTask(player, dimension, entryId);
+                    }
+                },
+                (server, playerId, dimension, entryId) -> TaskPersistenceRuntime.INSTANCE
+                        .coordinator()
+                        .query()
+                        .findByWorkflow(playerId, dimension.location().toString(), entryId)
+                        .filter(snapshot -> !snapshot.state().terminal())
+                        .isPresent());
     }
 
     /**
@@ -63,11 +81,26 @@ public final class RtsWorkflowTimeoutService {
             Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers,
             RtsWorkflowEventBus eventBus,
             BiConsumer<UUID, ResourceKey<Level>> workflowDirtySink,
-            Predicate<MinecraftServer> serverThreadCheck) {
+            Predicate<MinecraftServer> serverThreadCheck,
+            TimeoutTaskCanceller taskCanceller) {
+        this(slotManagers, eventBus, workflowDirtySink, serverThreadCheck, taskCanceller,
+                (server, playerId, dimension, entryId) -> false);
+    }
+
+    /** 测试注入入口；允许测试精确模拟某个面板条目仍由 durable task 占用。 */
+    RtsWorkflowTimeoutService(
+            Map<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> slotManagers,
+            RtsWorkflowEventBus eventBus,
+            BiConsumer<UUID, ResourceKey<Level>> workflowDirtySink,
+            Predicate<MinecraftServer> serverThreadCheck,
+            TimeoutTaskCanceller taskCanceller,
+            WorkflowActivityGuard activityGuard) {
         this.slotManagers = Objects.requireNonNull(slotManagers, "slotManagers");
         this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.workflowDirtySink = Objects.requireNonNull(workflowDirtySink, "workflowDirtySink");
         this.serverThreadCheck = Objects.requireNonNull(serverThreadCheck, "serverThreadCheck");
+        this.taskCanceller = Objects.requireNonNull(taskCanceller, "taskCanceller");
+        this.activityGuard = Objects.requireNonNull(activityGuard, "activityGuard");
     }
 
     /**
@@ -125,33 +158,45 @@ public final class RtsWorkflowTimeoutService {
         if (!deadline.shouldRun(gameTime)) {
             return;
         }
-        scanAndCleanup();
+        scanAndCleanup(server);
     }
 
     /**
      * 执行一次到期扫描。调用者已经通过主线程校验，因此这里可以安全地修改工作流状态、
      * 同步分发事件，并把网络刷新合并到 Tick 末。
      */
-    private void scanAndCleanup() {
+    private void scanAndCleanup(MinecraftServer server) {
         int total = 0;
 
         for (Map.Entry<UUID, Map<ResourceKey<Level>, RtsWorkflowSlotManager>> playerEntry
                 : slotManagers.entrySet()) {
             UUID playerId = playerEntry.getKey();
+            // 离线玩家无法安全完成历史收口；等其重新登录并恢复投影后再开始 30 秒计时。
+            if (server != null && server.getPlayerList().getPlayer(playerId) == null) {
+                continue;
+            }
             Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimensions = playerEntry.getValue();
 
             for (Map.Entry<ResourceKey<Level>, RtsWorkflowSlotManager> dimensionEntry
                     : dimensions.entrySet()) {
+                ResourceKey<Level> dimension = dimensionEntry.getKey();
                 RtsWorkflowSlotManager slots = dimensionEntry.getValue();
-                List<Integer> staleIds = slots.removeStaleEntries(maxIdleMillis);
+                List<RtsWorkflowEntry> staleEntries = slots.removeStaleEntrySnapshots(
+                        maxIdleMillis,
+                        entry -> !entry.terminal()
+                                && activityGuard.hasActiveTask(
+                                        server, playerId, dimension, entry.id()));
 
-                if (!staleIds.isEmpty()) {
-                    for (int staleId : staleIds) {
-                        eventBus.fire(new WorkflowEvent(
-                                WorkflowEventType.TIMEOUT, playerId, staleId, null));
+                if (!staleEntries.isEmpty()) {
+                    for (RtsWorkflowEntry stale : staleEntries) {
+                        if (!stale.terminal()) {
+                            taskCanceller.cancel(server, playerId, dimension, stale.id());
+                            eventBus.fire(new WorkflowEvent(
+                                    WorkflowEventType.TIMEOUT, playerId, stale.id(), null));
+                        }
                         total++;
                     }
-                    workflowDirtySink.accept(playerId, dimensionEntry.getKey());
+                    workflowDirtySink.accept(playerId, dimension);
                 }
             }
 
@@ -165,6 +210,20 @@ public final class RtsWorkflowTimeoutService {
         if (total > 0) {
             RtsbuildingMod.LOGGER.info("[WorkflowTimeout] Cleaned up {} stale workflow(s)", total);
         }
+    }
+
+    @FunctionalInterface
+    interface TimeoutTaskCanceller {
+        void cancel(MinecraftServer server, UUID playerId, ResourceKey<Level> dimension, int entryId);
+    }
+
+    @FunctionalInterface
+    interface WorkflowActivityGuard {
+        boolean hasActiveTask(
+                MinecraftServer server,
+                UUID playerId,
+                ResourceKey<Level> dimension,
+                int entryId);
     }
 }
 

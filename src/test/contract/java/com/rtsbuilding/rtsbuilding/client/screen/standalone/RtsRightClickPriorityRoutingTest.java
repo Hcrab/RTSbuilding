@@ -11,18 +11,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RtsRightClickPriorityRoutingTest {
     @Test
     void selectedStorageItemSingleBlockNormalRightClickInteractsBeforePlacement() throws IOException {
-        String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
+        String router = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenPrimaryActionRouter.java"));
+        String handler = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenItemActionHandler.java"));
+        String routeBody = methodBody(
+                router, "boolean run(double mouseX, double mouseY, int mouseButton)");
+        String body = methodBody(handler, "boolean runSelectedItem(");
 
-        int selectedItemBranch = body.indexOf("if (this.controller.hasSelectedItem())");
+        int selectedItemBranch = routeBody.indexOf(
+                "if (this.controller.hasSelectedItem())");
         assertTrue(selectedItemBranch >= 0, "selected item branch missing");
 
         int normalInteractGuard = body.indexOf(
-                "if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode",
-                selectedItemBranch);
-        int interactPinnedItem = body.indexOf("this.controller.interactBlockWithPinnedItem", selectedItemBranch);
-        int forcePlacementBranch = body.indexOf("if (rangeDestroyMode)", selectedItemBranch);
+                "if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode");
+        int interactPinnedItem = body.indexOf(
+                "this.controller.interactBlockWithPinnedItem");
+        int forcePlacementBranch = body.indexOf("if (rangeDestroyMode)");
 
         assertTrue(normalInteractGuard >= 0,
                 "普通右键交互优先只能截获单方块模式，形状/范围放置不能被提前返回。");
@@ -41,17 +48,24 @@ class RtsRightClickPriorityRoutingTest {
 
     @Test
     void selectedStorageItemShapePlacementBypassesNormalInteractBranch() throws IOException {
-        String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
+        String router = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenPrimaryActionRouter.java"));
+        String handler = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenItemActionHandler.java"));
+        String routeBody = methodBody(
+                router, "boolean run(double mouseX, double mouseY, int mouseButton)");
+        String body = methodBody(handler, "boolean runSelectedItem(");
 
-        int selectedItemBranch = body.indexOf("if (this.controller.hasSelectedItem())");
+        int selectedItemBranch = routeBody.indexOf(
+                "if (this.controller.hasSelectedItem())");
         assertTrue(selectedItemBranch >= 0, "selected item branch missing");
 
         int normalInteractGuard = body.indexOf(
-                "this.controller.getBuildShape() == BuildShape.BLOCK",
-                selectedItemBranch);
-        int shapePlacement = body.indexOf("this.shapeController.placeWithShape(", selectedItemBranch);
+                "this.controller.getBuildShape() == BuildShape.BLOCK");
+        int shapePlacement = body.indexOf(
+                "this.shapeController.placeWithShape(");
 
         assertTrue(normalInteractGuard >= 0, "selected storage item routing must guard interact-first by shape");
         assertTrue(shapePlacement > normalInteractGuard,
@@ -61,8 +75,12 @@ class RtsRightClickPriorityRoutingTest {
     @Test
     void mainHandNormalRightClickInteractsAndShiftRightClickPlacesFirst() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenPrimaryActionRouter.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenItemActionHandler.java"));
+        String body = methodBody(source, "boolean runToolOrEmptyHand(");
 
         int toolSlotInteract = body.indexOf("this.controller.interactBlockWithToolSlot");
         assertTrue(toolSlotInteract >= 0, "normal main-hand right-click should send tool-slot interaction");

@@ -7,6 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class RtsBatchPlacementQuickBuildContractTest {
     @Test
@@ -19,6 +20,24 @@ class RtsBatchPlacementQuickBuildContractTest {
     void implBatchPlacementKeepsQuickBuildFastPath() throws IOException {
         assertBatchEntryUsesQuickBuild(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/impl/RtsPlacementServiceImpl.java"));
+    }
+
+    @Test
+    void missingMaterialAndQueueRejectionCannotBecomeCompletedZero() throws IOException {
+        String batch = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementBatch.java"));
+        String enqueue = methodBody(batch,
+                "boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting");
+        assertTrue(enqueue.contains("quickBuild && (itemId == null || itemId.isBlank())"));
+        assertTrue(enqueue.contains("message.rtsbuilding.quick_build.select_material"));
+
+        String pipe = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/placement/PlacementExecutePipe.java"));
+        String execute = methodBody(pipe, "public PipelineResult execute(");
+        assertTrue(execute.contains("if (!enqueued)"));
+        assertTrue(execute.contains("PipelineResult.failure("));
+        assertFalse(execute.contains("token.complete()"),
+                "入队失败必须回滚，不能显示为完成 0 个方块");
     }
 
     private static void assertBatchEntryUsesQuickBuild(Path sourcePath) throws IOException {

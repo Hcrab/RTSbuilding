@@ -36,6 +36,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     // ===== Public API =====
 
     public InteractionTypes.InteractionTarget pickInteractionTarget(boolean includeFluidSource) {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
@@ -77,6 +80,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public InteractionTypes.InteractionTarget pickItemAirInteractionTarget() {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.player == null || mc.getCameraEntity() == null) {
             return null;
@@ -100,6 +106,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public BlockHitResult pickBlockHit(boolean includeFluidSource) {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
@@ -114,6 +123,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public BlockHitResult pickBlockHitIgnoringRangeCulling(boolean includeFluidSource) {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
@@ -137,6 +149,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public BlockPos resolveBlueprintAnchor(BlockHitResult hit) {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (hit == null || mc == null || mc.level == null) {
             return null;
@@ -149,6 +164,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public Vec3 computeCursorRayDirection() {
+        if (this.screen == null) {
+            return new Vec3(0, 0, -1);
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null) {
             return new Vec3(0, 0, -1);
@@ -179,6 +197,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public Vec3 currentRayOrigin() {
+        if (this.screen == null) {
+            return Vec3.ZERO;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.gameRenderer == null) {
             return Vec3.ZERO;

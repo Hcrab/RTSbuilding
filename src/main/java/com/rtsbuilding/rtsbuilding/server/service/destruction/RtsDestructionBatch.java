@@ -96,7 +96,7 @@ public final class RtsDestructionBatch {
         if (!com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .submitDestructionJob(player, job)) return false;
 
-        RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} submitted {} destroy targets to TaskStore",
+        RtsbuildingMod.LOGGER.debug("[RtsDestructionBatch] {} submitted {} destroy targets to TaskStore",
                 player.getGameProfile().getName(), targets.size());
         return true;
     }
@@ -114,7 +114,8 @@ public final class RtsDestructionBatch {
      * <p>当完整的作业完成时，记录历史、更新工作流进度、归还工具（如果是最后的作业）、
      * 刷新储存页面。
      */
-    public static DestructionTaskState snapshotDetachedState(DestructionJob job) {
+    public static DestructionTaskState snapshotDetachedState(
+            DestructionJob job, boolean creativeOperation) {
         if (job == null) throw new IllegalArgumentException("job 不能为空");
         List<CompoundTag> history = job.processedRecords.stream()
                 .map(RtsDestructionBatch::encodeHistoryRecord)
@@ -129,7 +130,8 @@ public final class RtsDestructionBatch {
                 job.destroyedPositions.size(),
                 job.skippedWhileProcessing,
                 job.destroyedPositions,
-                history);
+                history,
+                creativeOperation);
     }
 
     /**
@@ -149,7 +151,8 @@ public final class RtsDestructionBatch {
             return new DestructionSliceResult(
                     state, 0, 0, 0, 0, DestructionSliceResult.Outcome.COMPLETE);
         }
-        if (state.toolProtectionEnabled() && RtsMiningValidator.isToolNearBreak(player, session)) {
+        if (state.toolProtectionEnabled()
+                && RtsMiningValidator.isToolNearBreak(player, session, state.toolSlot())) {
             return new DestructionSliceResult(
                     state, 0, 0, 0, 0, DestructionSliceResult.Outcome.WAITING_RESOURCE);
         }
@@ -198,8 +201,10 @@ public final class RtsDestructionBatch {
                 continue;
             }
 
-            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(level, target);
-            List<HistoryBlockRecord> neighborRecords = captureNeighborRecords(level, target);
+            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(
+                    level, target, state.creativeOperation());
+            List<HistoryBlockRecord> neighborRecords = captureNeighborRecords(
+                    level, target, state.creativeOperation());
             var result = RtsMiningStateMachine.destroyMinedBlock(
                     player, session, target, job.toolSlot());
             if (!result.broken()) {
@@ -214,7 +219,7 @@ public final class RtsDestructionBatch {
                 dropsToAbsorb.add(target);
             }
             if (job.hasNext() && job.toolProtectionEnabled
-                    && RtsMiningValidator.isToolNearBreak(player, session)) {
+                    && RtsMiningValidator.isToolNearBreak(player, session, job.toolSlot())) {
                 outcome = DestructionSliceResult.Outcome.WAITING_RESOURCE;
                 break;
             }
@@ -255,7 +260,8 @@ public final class RtsDestructionBatch {
         for (CompoundTag encoded : state.historyRecords()) {
             records.add(decodeHistoryRecord(player, encoded));
         }
-        ServerHistoryManager.recordBreakWithRecords(player, records, Direction.DOWN);
+        ServerHistoryManager.recordBreakWithRecords(
+                player, records, Direction.DOWN, state.toolSlot(), state.creativeOperation());
     }
 
     /**
@@ -332,14 +338,14 @@ public final class RtsDestructionBatch {
     /**
      * 捕获所有 6 个邻居的破坏前状态，用于多方块结构追踪（门、床、双高植物等）。
      */
-    private static List<HistoryBlockRecord> captureNeighborRecords(ServerLevel level, BlockPos pos) {
+    private static List<HistoryBlockRecord> captureNeighborRecords(
+            ServerLevel level, BlockPos pos, boolean includeBlockEntityData) {
         List<HistoryBlockRecord> records = new ArrayList<>(6);
         for (Direction dir : Direction.values()) {
             BlockPos neighbor = pos.relative(dir);
-            BlockState state = level.getBlockState(neighbor);
-            if (!state.isAir()) {
-                records.add(new HistoryBlockRecord(neighbor.immutable(), state));
-            }
+            HistoryBlockRecord record = ServerHistoryManager.captureBlock(
+                    level, neighbor, includeBlockEntityData);
+            if (record != null) records.add(record);
         }
         return records;
     }

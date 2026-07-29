@@ -49,10 +49,10 @@ class RtsCullingRoutingContractTest {
     @Test
     void builderScreenRangeCullingWorldActionDelegatesToDedicatedInput() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean handleRangeCullingWorldAction");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenWorldQueryOwner.java"));
+        String body = methodBody(source, "boolean handleRangeCullingWorldAction");
 
-        assertTrue(body.contains("RtsCullingWorldInput.handleWorldAction(this.cullingManager, this.cursorPicker)"));
+        assertTrue(body.contains("RtsCullingWorldInput.handleWorldAction(screen.cullingManager, screen.cursorPicker)"));
         assertFalse(body.contains("pickBlockHitIgnoringRangeCulling"),
                 "range-culling world action must not use the raw picker");
     }
@@ -80,21 +80,21 @@ class RtsCullingRoutingContractTest {
     @Test
     void cullingModeOnlySwallowsLeftDragSoRightDragCanRotateCamera() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java"));
         String body = methodBody(source, "public boolean mouseDragged");
 
-        assertTrue(body.contains("this.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT"),
+        assertTrue(body.contains("screen.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT"),
                 "range-culling mode should only consume left-button box-selection drags");
     }
 
     @Test
     void activeBoxHandleDragRoutesBeforeCullingDragSwallow() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java"));
         String body = methodBody(source, "public boolean mouseDragged");
 
         int handleDrag = body.indexOf("handleBoxHandleDrag(button, dragX, dragY)");
-        int cullingSwallow = body.indexOf("this.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT");
+        int cullingSwallow = body.indexOf("screen.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT");
         assertTrue(handleDrag >= 0, "active blueprint/culling handles should receive drag input");
         assertTrue(cullingSwallow >= 0, "range-culling left drag guard should still exist");
         assertTrue(handleDrag < cullingSwallow,

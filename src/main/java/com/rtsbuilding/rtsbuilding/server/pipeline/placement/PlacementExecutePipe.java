@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.*;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -53,6 +52,8 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
             new TypedKey<>("forcePlace", Boolean.class);
     public static final TypedKey<Boolean> ARG_SKIP_IF_OCCUPIED =
             new TypedKey<>("skipIfOccupied", Boolean.class);
+    public static final TypedKey<Boolean> ARG_OVERWRITE_EXISTING =
+            new TypedKey<>("overwriteExisting", Boolean.class);
     public static final TypedKey<String> ARG_ITEM_ID =
             new TypedKey<>("itemId", String.class);
     public static final TypedKey<ItemStack> ARG_ITEM_PROTOTYPE =
@@ -99,6 +100,7 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
         String statePreset = pctx.getStatePreset();
         boolean forcePlace = pctx.isForcePlace();
         boolean skipIfOccupied = pctx.isSkipIfOccupied();
+        boolean overwriteExisting = pctx.isOverwriteExisting();
         String itemId = pctx.getItemId();
         ItemStack itemPrototype = pctx.getItemPrototype();
         double rayOriginX = pctx.getRayOriginX();
@@ -116,18 +118,15 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
 
         boolean enqueued = RtsPlacementBatch.enqueuePlaceBatch(player, session, clickedPositions,
                 face, hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps, statePreset,
-                forcePlace, skipIfOccupied, itemId, itemPrototype,
+                forcePlace, skipIfOccupied, overwriteExisting, itemId, itemPrototype,
                 rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ,
                 quickBuild, forceEmptyHand, sendRemoteHint,
                 workflowEntryId);
 
-        // ── 如果入队被静默跳过（无有效位置、队列已满等），
-        //    完成工作流条目以防止槽泄漏 ──────────────
-        if (!enqueued && workflowEntryId >= 0) {
-            RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
-                    .ifPresent(token -> token.complete());
-            return PipelineResult.success();
+        // 入队失败必须沿管线回滚并取消工作流，不能伪装成“完成 0 个方块”。
+        if (!enqueued) {
+            return PipelineResult.failure("Placement task was not queued");
         }
 
         return PipelineResult.success();
