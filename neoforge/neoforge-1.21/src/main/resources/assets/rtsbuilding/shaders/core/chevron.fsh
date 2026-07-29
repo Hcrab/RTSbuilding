@@ -1,8 +1,9 @@
 #version 150
 
-uniform vec2 u_TriA;
-uniform vec2 u_TriB;
-uniform vec2 u_TriC;
+uniform vec2 u_P0;
+uniform vec2 u_P1;
+uniform vec2 u_P2;
+uniform float u_Radius;
 
 in vec2 texCoord0;
 in vec4 vertexColor;
@@ -23,7 +24,7 @@ float sdTriangle(vec2 p, vec2 p0, vec2 p1, vec2 p2) {
 }
 
 void main() {
-    float sdf = sdTriangle(texCoord0, u_TriA, u_TriB, u_TriC);
-    float alpha = 1.0 - smoothstep(-1.0, 1.0, sdf / fwidth(sdf));
+    float sdf = sdTriangle(texCoord0, u_P0, u_P1, u_P2) - u_Radius;
+    float alpha = 1.0 - smoothstep(-1.5, 1.5, sdf / fwidth(sdf));
     fragColor = vertexColor * alpha;
 }

@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraMod
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.SettingsSection;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ResetButton;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ScaleSliderComponent;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ThemeSwitchComponent;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ToggleSwitch;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
@@ -21,7 +21,7 @@ public class OperationSection extends SettingsSection {
     private static final double SENS_MAX = 2.0;
 
     private final ScaleSliderComponent slider = new ScaleSliderComponent();
-    private final ThemeSwitchComponent orbitToggle = new ThemeSwitchComponent();
+    private final ToggleSwitch orbitToggle = new ToggleSwitch();
     
     private final SliderTrack sensTrack = new SliderTrack();
 
@@ -79,9 +79,9 @@ public class OperationSection extends SettingsSection {
         
         renderLabel(g, getOrbitLabel(), x, y, 1);
         int textCenterY = textY(y, 1) + Minecraft.getInstance().font.lineHeight / 2;
-        int toggleX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - 4 - ThemeSwitchComponent.SIZE;
-        int toggleY = textCenterY - ThemeSwitchComponent.SIZE / 2;
-        orbitToggle.render(g, mouseX, mouseY, toggleX, toggleY, cameraModule != null && cameraModule.isOrbitMode());
+        int toggleX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - 4 - 28;
+        int toggleY = textCenterY - 7;
+        orbitToggle.render(g, toggleX, toggleY, cameraModule != null && cameraModule.isOrbitMode());
         
         int orbitResetX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE;
         int orbitResetY = textCenterY - ResetButton.BTN_SIZE / 2;

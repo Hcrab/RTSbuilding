@@ -1,6 +1,6 @@
 {
-    "vertex": "uiexperiment:rounded_rect",
-    "fragment": "uiexperiment:rounded_rect",
+    "vertex": "rtsbuilding:reset_icon",
+    "fragment": "rtsbuilding:reset_icon",
     "samplers": [],
     "uniforms": [
         {
@@ -36,6 +36,18 @@
             "type": "float",
             "count": 1,
             "values": [4.0]
+        },
+        {
+            "name": "u_Thickness",
+            "type": "float",
+            "count": 1,
+            "values": [2.0]
+        },
+        {
+            "name": "u_Gap",
+            "type": "float",
+            "count": 1,
+            "values": [60.0]
         }
     ]
 }

@@ -45,10 +45,10 @@ public class RenderingSection extends SettingsSection {
     private static final int MIN_CONTENT_H = 167;
     private static final int EXTRA_ROWS_H = 20;
 
-    private final ThemeSwitchComponent depthToggle = new ThemeSwitchComponent();
-    private final ThemeSwitchComponent flowToggle = new ThemeSwitchComponent();
-    private final ThemeSwitchComponent smoothToggle = new ThemeSwitchComponent();
-    private final ThemeSwitchComponent uiSmoothToggle = new ThemeSwitchComponent();
+    private final ToggleSwitch depthToggle = new ToggleSwitch();
+    private final ToggleSwitch flowToggle = new ToggleSwitch();
+    private final ToggleSwitch smoothToggle = new ToggleSwitch();
+    private final ToggleSwitch uiSmoothToggle = new ToggleSwitch();
     private final ScaleSliderComponent alphaSlider = new ScaleSliderComponent();
     private final SliderTrack alphaTrack = new SliderTrack();
 
@@ -179,11 +179,11 @@ public class RenderingSection extends SettingsSection {
     }
 
     private void renderToggleRow(GuiGraphics g, int mx, int my, int x, int w, int lineY,
-                                  String label, ThemeSwitchComponent toggle, boolean state, ResetButton resetBtn) {
+                                  String label, ToggleSwitch toggle, boolean state, ResetButton resetBtn) {
         renderRowLabel(g, label, x, lineY);
         int textCenterY = lineY + 2 + Minecraft.getInstance().font.lineHeight / 2;
-        int toggleX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - RESET_BTN_GAP - ThemeSwitchComponent.SIZE;
-        toggle.render(g, mx, my, toggleX, textCenterY - ThemeSwitchComponent.SIZE / 2, state);
+        int toggleX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - RESET_BTN_GAP - 28;
+        toggle.render(g, toggleX, textCenterY - 7, state);
         resetBtn.render(g, mx, my, x + w - RIGHT_PAD - ResetButton.BTN_SIZE, textCenterY - ResetButton.BTN_SIZE / 2);
     }
 

@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.model.P
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.RtsButton;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
 import com.rtsbuilding.rtsbuilding.client.util.state.HoverSuppression;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.gui.GuiGraphics;
@@ -207,12 +208,14 @@ public abstract class RtsPanel implements RtsPanelApi {
                 : Math.max(getMinWindowHeight(), this.screen.height - SCREEN_MARGIN * 2);
     }
 
-    protected int getPanelBgColor() { return 0xFFFFFFFF; }
-    protected int getPanelHoverBgColor() { return getPanelBgColor(); }
-    protected int getTitleBarBgColor() { return 0xFFFFFFFF; }
+    protected int getPanelBgColor() { return DarkUiPalette.bg(); }
+    protected int getPanelHoverBgColor() { return DarkUiPalette.hoverBorder(); }
+    protected int getPanelBorderColor() { return DarkUiPalette.accent(); }
+    protected int getTitleBarBgColor() { return DarkUiPalette.border(); }
     protected int getTitleTextColor() { return ThemeManager.getTextColor(); }
     protected boolean canShowWindow() { return true; }
     protected boolean shouldClipContent() { return true; }
+    protected boolean shouldUseSdfBackground() { return true; }
 
     protected int contentX() { return bounds.getX() + 1; }
     protected int contentY() { return bounds.getY() + getTitleBarHeight() + 3; }
@@ -233,12 +236,13 @@ public abstract class RtsPanel implements RtsPanelApi {
         clampWindowToScreen();
     }
 
-    private void renderWindowFrame(GuiGraphics g, int mx, int my) {
+    protected void renderWindowFrame(GuiGraphics g, int mx, int my) {
         WindowFrameRenderer.renderFrame(g, mx, my, new WindowFrameRenderer.Context(
                 bounds.getX(), bounds.getY(), bounds.getWidth(), bounds.getHeight(),
                 getTitleBarHeight(), getPanelBgColor(), getPanelHoverBgColor(),
+                getPanelBorderColor(),
                 getTitleBarBgColor(), getTitleTextColor(), getTitle(), this.closable, this.closeButton,
-                this.panelHoverState.get()));
+                this.panelHoverState.get(), shouldUseSdfBackground()));
     }
 
     private void enableContentScissor(GuiGraphics g) {

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
+import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
@@ -14,13 +15,17 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageM
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.util.render.RtsShaders;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
+import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.resources.ResourceLocation;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterKeyMappingsEvent;
+import net.neoforged.neoforge.client.event.RegisterShadersEvent;
 
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientBootstrap {
@@ -35,6 +40,54 @@ public final class RtsClientBootstrap {
     @SubscribeEvent
     public static void onRegisterKeyMappings(RegisterKeyMappingsEvent event) {
         RtsKeyMappings.register(event);
+    }
+
+    @SubscribeEvent
+    public static void onRegisterShaders(RegisterShadersEvent event) {
+        try {
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rounded_rect"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.roundedRect = shader
+            );
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rounded_rect_top"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.roundedRectTop = shader
+            );
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "chevron"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.chevron = shader
+            );
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "textured"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.textured = shader
+            );
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "reset_icon"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.resetIcon = shader
+            );
+        } catch (java.io.IOException e) {
+            throw new RuntimeException("Failed to load shader", e);
+        }
     }
 
     @SubscribeEvent

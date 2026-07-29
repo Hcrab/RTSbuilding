@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.SliderTextureConstants;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 
@@ -13,11 +11,13 @@ public class ScaleSliderComponent {
     
 
     
-    private static final int TRACK_H = 5;
+    private static final int TRACK_H = 9;
+    private static final int TRACK_COLOR = 0x662E3B4C;
     
-    private static final int THUMB_H = 7;
-    
-    private static final int THUMB_W = 8;
+    private static final int THUMB_H = 9;
+    private static final int THUMB_W = 9;
+    private static final int THUMB_COLOR = 0xFF586A80;
+    private static final int THUMB_COLOR_ACTIVE = 0xFF6A7E96;
     
     private static final int TRACK_CLICK_PADDING = 3;
 
@@ -76,20 +76,15 @@ public class ScaleSliderComponent {
         }
 
         
-        boolean draggingState = this.dragging;
+        boolean active = this.dragging;
 
-        
-        NineSliceRegion track = draggingState ? SliderTextureConstants.TRACK_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.TRACK_NINE_SLICE;
-        SpriteRenderer.drawNineSlice(g, track.withTheme(),
-                trackX, trackY, trackW, TRACK_H);
+        SdfRenderer.drawPill(g, trackX, trackY, trackW, TRACK_H, TRACK_COLOR);
 
-        
         int thumbX = trackX + (int) Math.round((smoothValue - min) / (max - min) * (trackW - THUMB_W));
         this.renderedThumbX = thumbX;
         int thumbY = trackY + (TRACK_H - THUMB_H) / 2;
-        NineSliceRegion thumb = draggingState ? SliderTextureConstants.THUMB_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.THUMB_NINE_SLICE;
-        SpriteRenderer.drawNineSlice(g, thumb.withTheme(),
-                thumbX, thumbY, THUMB_W, THUMB_H);
+        int thumbColor = active ? THUMB_COLOR_ACTIVE : THUMB_COLOR;
+        SdfRenderer.drawPill(g, thumbX, thumbY, THUMB_W, THUMB_H, thumbColor);
     }
 
     

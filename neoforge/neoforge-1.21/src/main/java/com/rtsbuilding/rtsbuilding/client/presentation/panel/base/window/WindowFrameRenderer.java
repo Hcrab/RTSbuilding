@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.RtsButton;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.client.Minecraft;
@@ -47,25 +48,30 @@ public final class WindowFrameRenderer {
             int titleBarHeight,
             int panelBgColor,
             int panelHoverBgColor,
+            int panelBorderColor,
             int titleBarBgColor,
             int titleTextColor,
             Component title,
             boolean closable,
             RtsButton closeButton,
-            float hoverAnimProgress
+            float hoverAnimProgress,
+            boolean useSdfBackground
     ) {}
 
     
-
-    
     public static void renderFrame(GuiGraphics g, int mouseX, int mouseY, Context ctx) {
-        renderPanelBackground(g, ctx);
+        if (ctx.useSdfBackground()) {
+            renderSdfPanelBackground(g, ctx);
+        } else {
+            renderPanelBackground(g, ctx);
+        }
         renderTitleBar(g, mouseX, mouseY, ctx);
     }
 
     
 
     
+
     private static void renderPanelBackground(GuiGraphics g, Context ctx) {
         float t = ctx.hoverAnimProgress();
         int wx = ctx.windowX();
@@ -85,9 +91,47 @@ public final class WindowFrameRenderer {
         }
     }
 
-    
+    private static void renderSdfPanelBackground(GuiGraphics g, Context ctx) {
+        float t = ctx.hoverAnimProgress();
+        int wx = ctx.windowX(), wy = ctx.windowY();
+        int ww = ctx.windowWidth(), wh = ctx.windowHeight();
+        int radius = 8;
+        int borderWidth = 1;
+        int defaultBorder = ctx.panelBorderColor();
+        int hoverBorder = ctx.panelHoverBgColor();
+        int borderColor = lerpArgb(defaultBorder, hoverBorder, t);
+
+        int shExpand = Math.round(4 + t * 4);
+        float shAlpha = 0.10f + t * 0.25f;
+        int shX = wx - shExpand, shY = wy - shExpand;
+        int shW = ww + 2 * shExpand, shH = wh + 2 * shExpand;
+        int shRad1 = radius + shExpand;
+        int shRad2 = radius + shExpand + 2;
+        SdfRenderer.drawRoundedRect(g, shX, shY, shW, shH, shRad1, 0x40000000, shAlpha);
+        g.flush();
+        SdfRenderer.drawRoundedRect(g, shX, shY, shW, shH, shRad2, 0x20000000, shAlpha * 0.5f);
+        g.flush();
+
+        SdfRenderer.drawBorderedRoundedRect(g, wx, wy, ww, wh, radius,
+                borderColor, ctx.panelBgColor(), borderWidth);
+    }
+
+    private static int lerpArgb(int from, int to, float t) {
+        if (t <= 0.005f) return from;
+        if (t >= 0.995f) return to;
+        int a = lerpComp((from >> 24) & 0xFF, (to >> 24) & 0xFF, t);
+        int r = lerpComp((from >> 16) & 0xFF, (to >> 16) & 0xFF, t);
+        int gr = lerpComp((from >> 8) & 0xFF, (to >> 8) & 0xFF, t);
+        int b = lerpComp(from & 0xFF, to & 0xFF, t);
+        return (a << 24) | (r << 16) | (gr << 8) | b;
+    }
+
+    private static int lerpComp(int from, int to, float t) {
+        return Math.round(from + (to - from) * t);
+    }
+
     private static void renderPanelLayer(GuiGraphics g, int wx, int wy, int ww, int wh,
-                                          Context ctx, float alphaMultiplier, boolean hovered) {
+                                           Context ctx, float alphaMultiplier, boolean hovered) {
         int tint = hovered ? ctx.panelHoverBgColor() : ctx.panelBgColor();
         float a = (float) (tint >> 24 & 0xFF) / 255.0F * alphaMultiplier;
         float r = (float) (tint >> 16 & 0xFF) / 255.0F;
@@ -122,6 +166,11 @@ public final class WindowFrameRenderer {
 
     private static void renderTitleBarBackground(GuiGraphics g, Context ctx, int titleH) {
         int tint = ctx.titleBarBgColor();
+        if (ctx.useSdfBackground()) {
+            SdfRenderer.drawRoundedRectTopOnly(g, ctx.windowX() + 1, ctx.windowY() + 1,
+                    ctx.windowWidth() - 2, titleH, 7, tint, 1.0f);
+            return;
+        }
         float a = (float) (tint >> 24 & 0xFF) / 255.0F;
         float r = (float) (tint >> 16 & 0xFF) / 255.0F;
         float gr = (float) (tint >> 8 & 0xFF) / 255.0F;
@@ -129,9 +178,6 @@ public final class WindowFrameRenderer {
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         RenderSystem.setShaderColor(r, gr, b, a);
-        
-        
-        
         SpriteRenderer.drawNineSliceDragPanel(g, ctx.windowX() + 3, ctx.windowY() + 3,
                 ctx.windowWidth() - 6, titleH, false);
         g.flush();
@@ -147,7 +193,7 @@ public final class WindowFrameRenderer {
 
     private static void renderCloseButton(GuiGraphics g, int mouseX, int mouseY, Context ctx) {
         int btnX = ctx.windowX() + ctx.windowWidth() - CLOSE_BUTTON_SIZE - 5;
-        int btnY = ctx.windowY() + 4;
+        int btnY = ctx.windowY() + 5;
         RtsButton btn = ctx.closeButton();
         btn.setX(btnX);
         btn.setY(btnY);

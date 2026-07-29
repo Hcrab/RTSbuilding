@@ -1,0 +1,43 @@
+{
+    "vertex": "rtsbuilding:textured",
+    "fragment": "rtsbuilding:textured",
+    "samplers": [
+        { "name": "Sampler0" }
+    ],
+    "uniforms": [
+        {
+            "name": "ModelViewMat",
+            "type": "matrix4x4",
+            "count": 16,
+            "values": [
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0
+            ]
+        },
+        {
+            "name": "ProjMat",
+            "type": "matrix4x4",
+            "count": 16,
+            "values": [
+                1.0, 0.0, 0.0, 0.0,
+                0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0,
+                0.0, 0.0, 0.0, 1.0
+            ]
+        },
+        {
+            "name": "u_Size",
+            "type": "float",
+            "count": 2,
+            "values": [1.0, 1.0]
+        },
+        {
+            "name": "u_TexBounds",
+            "type": "float",
+            "count": 4,
+            "values": [0.0, 0.0, 1.0, 1.0]
+        }
+    ]
+}

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.gear;
 
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.SettingsSection;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ResetButton;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ThemeSwitchComponent;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ToggleSwitch;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -11,7 +11,7 @@ import net.minecraft.network.chat.Component;
 public class PersonalizationSection extends SettingsSection {
 
     
-    private final ThemeSwitchComponent themeSwitch = new ThemeSwitchComponent();
+    private final ToggleSwitch themeSwitch = new ToggleSwitch();
 
     
     private final ResetButton themeResetBtn = new ResetButton();
@@ -40,9 +40,9 @@ public class PersonalizationSection extends SettingsSection {
         
         boolean lightMode = ThemeManager.getInstance().isLightMode();
         int textCenterY = textY(y, 0) + Minecraft.getInstance().font.lineHeight / 2;
-        int toggleX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - 4 - ThemeSwitchComponent.SIZE;
-        int toggleY = textCenterY - ThemeSwitchComponent.SIZE / 2;
-        themeSwitch.render(g, mouseX, mouseY, toggleX, toggleY, lightMode);
+        int toggleX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE - 4 - 28;
+        int toggleY = textCenterY - 7;
+        themeSwitch.render(g, toggleX, toggleY, lightMode);
 
         
         int resetX = x + w - RIGHT_PAD - ResetButton.BTN_SIZE;

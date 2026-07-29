@@ -2,54 +2,20 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component;
 
 import com.mojang.math.Axis;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
 public class CollapsibleSection {
-    
-
     private static final int SECTION_HEADER_H = 22;
-
-    
-
-    private static final ResourceLocation FOLD_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_3.png");
-    private static final int FOLD_TEX_W = 32;
-    private static final int FOLD_TEX_FILE_H = 32;
-    private static final int FOLD_TEX_STATE_H = 16;
-    private static final int FOLD_BORDER = 4;
-    private static final TextureInfo FOLD_TEX_INFO = new TextureInfo(
-            FOLD_TEXTURE, FOLD_TEX_W, FOLD_TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion FOLD_NINE_SLICE = NineSliceRegion.fullTheme(
-            FOLD_TEX_INFO, FOLD_TEX_STATE_H, FOLD_BORDER);
     private static final int FOLD_BTN_SIZE = 16;
 
-    
-
-    private static final ResourceLocation FOLD_ARROW_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/arrow.png");
-    
-    private static final int FOLD_ARROW_TEX_W = 512;
-    
-    private static final int FOLD_ARROW_TEX_FILE_W = 1024;
-    private static final int FOLD_ARROW_TEX_FILE_H = 512;
-    private static final int FOLD_ARROW_STATE_H = 512;
-
-    private static final TextureInfo FOLD_ARROW_TEX_INFO = new TextureInfo(
-            FOLD_ARROW_TEXTURE, FOLD_ARROW_TEX_FILE_W, FOLD_ARROW_TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
+    private static final int SECTION_BG_COLOR = 0xFF636363;
+    private static final int SECTION_BORDER_DEFAULT = 0xFF000000;
+    private static final int SECTION_BORDER_HOVER = 0xFF384565;
 
     
 
@@ -120,33 +86,40 @@ public class CollapsibleSection {
     
     private void renderHoverBackground(GuiGraphics g, int x, int y, int sectionWidth) {
         float t = this.hoverState.get();
-        CrossFadeRenderer.render(g, t,
-                () -> renderStateBackground(g, x, y, sectionWidth, 0),
-                () -> renderStateBackground(g, x, y, sectionWidth, FOLD_TEX_STATE_H));
+        int bgH = SECTION_HEADER_H + (int)(this.contentFullHeight * this.cachedProgress);
+        int radius = 6;
+        int borderWidth = 1;
+        int borderColor = lerpArgb(SECTION_BORDER_DEFAULT, SECTION_BORDER_HOVER, t);
+
+        SdfRenderer.drawBorderedRoundedRect(g, x, y, sectionWidth, bgH, radius,
+                borderColor, SECTION_BG_COLOR, borderWidth);
     }
 
-    
-    private void renderStateBackground(GuiGraphics g, int x, int y, int sectionWidth, int vOffset) {
-        
-        
-        int bgH = SECTION_HEADER_H + (int)(this.contentFullHeight * this.cachedProgress);
-        SpriteRenderer.drawNineSlice(g, FOLD_NINE_SLICE.withTheme().withVOffset(vOffset),
-                x, y, sectionWidth, bgH);
+    private static int lerpArgb(int from, int to, float t) {
+        if (t <= 0.005f) return from;
+        if (t >= 0.995f) return to;
+        int a = lerpComp((from >> 24) & 0xFF, (to >> 24) & 0xFF, t);
+        int r = lerpComp((from >> 16) & 0xFF, (to >> 16) & 0xFF, t);
+        int g = lerpComp((from >> 8) & 0xFF, (to >> 8) & 0xFF, t);
+        int b = lerpComp(from & 0xFF, to & 0xFF, t);
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    private static int lerpComp(int from, int to, float t) {
+        return Math.round(from + (to - from) * t);
     }
 
     
     private void renderArrow(GuiGraphics g, int x, int y) {
-
+        int ax = x + ARROW_X_OFFSET;
+        int ay = y + ARROW_Y_OFFSET;
         g.pose().pushPose();
-        g.pose().translate(x + ARROW_X_OFFSET, y + ARROW_Y_OFFSET, 0);
-        
         float halfBtn = FOLD_BTN_SIZE / 2.0f;
-        g.pose().translate(halfBtn, halfBtn, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + this.arrowAnim.get()) * 90.0f));
-        g.pose().translate(-halfBtn, -halfBtn, 0);
-        SpriteRegion arrowRegion = new SpriteRegion(FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_TEX_W, FOLD_ARROW_STATE_H)
-                .withTheme();
-        SpriteRenderer.drawSprite(g, arrowRegion, 0, 0, FOLD_BTN_SIZE, FOLD_BTN_SIZE);
+        g.pose().translate(ax + halfBtn, ay + halfBtn, 0);
+        g.pose().mulPose(Axis.ZP.rotationDegrees(this.arrowAnim.get() * 90.0f));
+        g.pose().scale(2f / 3f, 2f / 3f, 1f);
+        SdfRenderer.drawChevron(g, (int)-halfBtn, (int)-halfBtn, FOLD_BTN_SIZE, FOLD_BTN_SIZE,
+                ThemeManager.getTextColor());
         g.pose().popPose();
     }
 

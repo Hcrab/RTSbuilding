@@ -1,6 +1,6 @@
 {
-    "vertex": "uiexperiment:triangle",
-    "fragment": "uiexperiment:triangle",
+    "vertex": "rtsbuilding:rounded_rect_top",
+    "fragment": "rtsbuilding:rounded_rect_top",
     "samplers": [],
     "uniforms": [
         {
@@ -26,22 +26,16 @@
             ]
         },
         {
-            "name": "u_TriA",
+            "name": "u_Size",
             "type": "float",
             "count": 2,
-            "values": [-0.5, -0.4]
+            "values": [1.0, 1.0]
         },
         {
-            "name": "u_TriB",
+            "name": "u_Radius",
             "type": "float",
-            "count": 2,
-            "values": [0.5, -0.4]
-        },
-        {
-            "name": "u_TriC",
-            "type": "float",
-            "count": 2,
-            "values": [0.0, 0.5]
+            "count": 1,
+            "values": [4.0]
         }
     ]
 }

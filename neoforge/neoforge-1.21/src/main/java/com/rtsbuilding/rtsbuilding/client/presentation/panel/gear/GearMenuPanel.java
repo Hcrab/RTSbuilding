@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.client.render.pass.BoundaryPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelectionPass;
 import com.rtsbuilding.rtsbuilding.client.render.pass.InteractionTargetPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -207,6 +208,26 @@ public final class GearMenuPanel extends RtsPanel {
     public int getMinWindowHeight() {
         return GEAR_MENU_MIN_H;
     }
+
+    @Override
+    protected boolean shouldUseSdfBackground() {
+        return true;
+    }
+
+    @Override
+    protected int getPanelBgColor() { return DarkUiPalette.bg(); }
+
+    @Override
+    protected int getPanelBorderColor() { return DarkUiPalette.accent(); }
+
+    @Override
+    protected int getPanelHoverBgColor() { return DarkUiPalette.hoverBorder(); }
+
+    @Override
+    protected int getTitleBarBgColor() { return DarkUiPalette.border(); }
+
+    @Override
+    protected int contentY() { return bounds.getY() + getTitleBarHeight() + 2; }
 
     @Override
     public void setBounds(int x, int y, int width, int height) {

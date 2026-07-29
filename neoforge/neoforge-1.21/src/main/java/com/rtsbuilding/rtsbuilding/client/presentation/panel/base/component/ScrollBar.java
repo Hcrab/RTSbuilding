@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.SliderTextureConstants;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.util.Mth;
 
@@ -27,6 +25,11 @@ public class ScrollBar {
     public enum Orientation {
         VERTICAL,
         HORIZONTAL
+    }
+
+    public enum ThumbStyle {
+        PILL,
+        CIRCLE
     }
 
     
@@ -58,6 +61,7 @@ public class ScrollBar {
     private int thumbHoverColor = DEFAULT_THUMB_HOVER_COLOR;
     private int trackWidth = DEFAULT_TRACK_WIDTH;
     private int minThumbSize = MIN_THUMB_SIZE;
+    private ThumbStyle thumbStyle = ThumbStyle.PILL;
 
     
 
@@ -192,21 +196,31 @@ public class ScrollBar {
         int thumbLen = computeThumbLength(renderLen);
         int thumbPos = computeThumbPos(barX, renderY, renderLen, thumbLen);
 
-        
         boolean active = this.dragging || this.hovering;
+        int curThumbColor = active ? thumbHoverColor : thumbColor;
 
         if (orientation == Orientation.VERTICAL) {
-            
-            NineSliceRegion track = active ? SliderTextureConstants.TRACK_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.TRACK_NINE_SLICE;
-            SpriteRenderer.drawNineSlice(g, track.withTheme(), barX, renderY, TRACK_THICKNESS, renderLen);
-            
-            SpriteRenderer.drawNineSlice(g, SliderTextureConstants.THUMB_NINE_SLICE.withTheme(), barX - 1, thumbPos, THUMB_THICKNESS, thumbLen);
+            SdfRenderer.drawPill(g, barX, renderY, TRACK_THICKNESS, renderLen, trackColor);
+            if (thumbStyle == ThumbStyle.CIRCLE) {
+                int thumbW = Math.min(thumbLen, THUMB_THICKNESS);
+                int thumbH = thumbW;
+                int thumbOffX = barX - 1 + (THUMB_THICKNESS - thumbW) / 2;
+                int thumbOffY = thumbPos + (thumbLen - thumbH) / 2;
+                SdfRenderer.drawPill(g, thumbOffX, thumbOffY, thumbW, thumbH, curThumbColor);
+            } else {
+                SdfRenderer.drawPill(g, barX - 1, thumbPos, THUMB_THICKNESS, thumbLen, curThumbColor);
+            }
         } else {
-            
-            NineSliceRegion track = active ? SliderTextureConstants.TRACK_NINE_SLICE.withVOffset(SliderTextureConstants.STATE_OFFSET) : SliderTextureConstants.TRACK_NINE_SLICE;
-            SpriteRenderer.drawNineSlice(g, track.withTheme(), barX, renderY, renderLen, TRACK_THICKNESS);
-            
-            SpriteRenderer.drawNineSlice(g, SliderTextureConstants.THUMB_NINE_SLICE.withTheme(), thumbPos, renderY - 1, thumbLen, THUMB_THICKNESS);
+            SdfRenderer.drawPill(g, barX, renderY, renderLen, TRACK_THICKNESS, trackColor);
+            if (thumbStyle == ThumbStyle.CIRCLE) {
+                int thumbH = Math.min(thumbLen, THUMB_THICKNESS);
+                int thumbW = thumbH;
+                int thumbOffX = thumbPos + (thumbLen - thumbW) / 2;
+                int thumbOffY = renderY - 1 + (THUMB_THICKNESS - thumbH) / 2;
+                SdfRenderer.drawPill(g, thumbOffX, thumbOffY, thumbW, thumbH, curThumbColor);
+            } else {
+                SdfRenderer.drawPill(g, thumbPos, renderY - 1, thumbLen, THUMB_THICKNESS, curThumbColor);
+            }
         }
     }
 
@@ -271,6 +285,11 @@ public class ScrollBar {
 
     public ScrollBar withMinThumbSize(int size) {
         this.minThumbSize = size;
+        return this;
+    }
+
+    public ScrollBar withThumbStyle(ThumbStyle style) {
+        this.thumbStyle = style;
         return this;
     }
 

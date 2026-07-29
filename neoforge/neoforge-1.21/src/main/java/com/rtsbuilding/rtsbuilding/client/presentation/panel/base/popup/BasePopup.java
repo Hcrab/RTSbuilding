@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.popup;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -173,7 +173,7 @@ public abstract class BasePopup {
         int ph = menuHeight();
 
         
-        SpriteRenderer.drawNineSlicePanel(g, x, y, pw, ph, false);
+        SdfRenderer.drawRoundedRect(g, x, y, pw, ph, 6, 0xFF2B2B2B);
 
         
         int hoveredIndex = -1;

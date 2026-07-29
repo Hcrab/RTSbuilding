@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component;
 
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ScaleSliderComponent;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ThemeSwitchComponent;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ToggleSwitch;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
@@ -168,29 +168,29 @@ public abstract class SettingsSection {
         return rowY(y, row) + 2;
     }
 
-    
-
-    
     protected int toggleX(int w) {
-        return w - ThemeSwitchComponent.SIZE - RIGHT_PAD;
+        return w - 28 - RIGHT_PAD;
     }
 
     
+
     protected int toggleY(int y, int row) {
         int textCenter = textY(y, row) + Minecraft.getInstance().font.lineHeight / 2;
-        return textCenter - ThemeSwitchComponent.SIZE / 2;
+        return textCenter - 7;
     }
 
     
+
     protected void renderLabel(GuiGraphics g, String text, int x, int y, int row) {
         TextRenderer.draw(g, text, x + LEFT_PAD, textY(y, row), getTextColor());
     }
 
     
+
     protected void renderToggle(GuiGraphics g, int mx, int my,
                                  int x, int y, int w, int row,
-                                 ThemeSwitchComponent toggle, boolean state) {
-        toggle.render(g, mx, my, x + toggleX(w), toggleY(y, row), state);
+                                 ToggleSwitch toggle, boolean state) {
+        toggle.render(g, x + toggleX(w), toggleY(y, row), state);
     }
 
     
