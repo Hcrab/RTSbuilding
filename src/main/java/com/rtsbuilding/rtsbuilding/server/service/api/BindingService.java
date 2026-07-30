@@ -3,8 +3,10 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 /**
  * 存储绑定服务接口——管理玩家链接存储、快捷槽、GUI 绑定和建造模式切换等绑定操作。
@@ -43,6 +45,9 @@ public interface BindingService {
      */
     void unlinkStorage(ServerPlayer player, BlockPos pos);
 
+    /** 按完整维度+坐标身份解绑，避免不同维度同坐标引用互相误删。 */
+    void unlinkStorage(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos);
+
     /**
      * 更新已链接存储的设置，包括链接模式和优先级。
      * 优先级决定了物品存取时的顺序（高优先级先被提取）。
@@ -53,6 +58,10 @@ public interface BindingService {
      * @param priority 新的优先级（数值越大优先级越高）
      */
     void updateLinkedStorageSettings(ServerPlayer player, BlockPos pos, byte linkMode, int priority);
+
+    /** 按完整维度+坐标身份更新跨维度链接设置。 */
+    void updateLinkedStorageSettings(
+            ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos, byte linkMode, int priority);
 
     /**
      * 启用或禁用掉落物漏斗功能。

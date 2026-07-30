@@ -501,8 +501,17 @@ public final class StorageStateManager {
         RtsClientPacketGateway.sendUnlinkStorage(pos);
     }
 
+    public void unlinkLinkedStorage(String dimensionId, BlockPos pos) {
+        RtsClientPacketGateway.sendUnlinkStorage(dimensionId, pos);
+    }
+
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
         RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
+    }
+
+    public void updateLinkedStorageSettings(
+            String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
+        RtsClientPacketGateway.sendUpdateLinkedStorage(dimensionId, pos, extractOnly, priority);
     }
 
     public void storeHotbarSlotToLinked(int slot) {

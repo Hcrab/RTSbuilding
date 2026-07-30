@@ -62,11 +62,16 @@ public final class RtsBindingServiceImpl implements BindingService {
 
     @Override
     public void unlinkStorage(ServerPlayer player, BlockPos pos) {
-        if (player == null || pos == null) return;
+        unlinkStorage(player, player == null ? null : player.serverLevel().dimension(), pos);
+    }
+
+    @Override
+    public void unlinkStorage(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos) {
+        if (player == null || dimension == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
-        if (removeLinkedRef(session, player.serverLevel().dimension(), pos)) {
+        if (removeLinkedRef(session, dimension, pos)) {
             RtsEndpointLeaseCache.INSTANCE.invalidate(
-                    player.getUUID(), player.serverLevel().dimension(), pos);
+                    player.getUUID(), dimension, pos);
             registry.serviceOp().afterModification(player, session);
         }
     }
@@ -81,10 +86,18 @@ public final class RtsBindingServiceImpl implements BindingService {
 
     @Override
     public void updateLinkedStorageSettings(ServerPlayer player, BlockPos pos, byte linkMode, int priority) {
-        if (player == null || pos == null) return;
+        updateLinkedStorageSettings(
+                player, player == null ? null : player.serverLevel().dimension(), pos, linkMode, priority);
+    }
+
+    @Override
+    public void updateLinkedStorageSettings(ServerPlayer player, ResourceKey<Level> dimension,
+            BlockPos pos, byte linkMode, int priority) {
+        if (player == null || dimension == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         applyUpdate(player, session,
-                RtsStorageBindings.updateLinkedStorageSettings(player, session, pos, linkMode, priority));
+                RtsStorageBindings.updateLinkedStorageSettings(
+                        player, session, dimension, pos, linkMode, priority));
     }
 
     @Override

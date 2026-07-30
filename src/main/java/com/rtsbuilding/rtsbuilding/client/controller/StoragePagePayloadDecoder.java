@@ -100,6 +100,8 @@ final class StoragePagePayloadDecoder {
     }
 
     private static LinkedStorageEntry decodeLinked(S2CRtsStoragePagePayload payload, int index, BlockPos pos, String fallbackName) {
+        String dimensionId = index < payload.linkedDimensions().size()
+                ? payload.linkedDimensions().get(index) : "";
         String label = index < payload.linkedNames().size() ? payload.linkedNames().get(index) : fallbackName;
         if (label == null || label.isBlank()) label = "Linked Storage";
         byte mode = index < payload.linkedModes().size() ? payload.linkedModes().get(index) : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
@@ -109,7 +111,7 @@ final class StoragePagePayloadDecoder {
         String iconId = index < payload.linkedIconItemIds().size() ? payload.linkedIconItemIds().get(index) : "";
         ResourceLocation iconKey = ResourceLocation.tryParse(iconId);
         if (iconKey != null && BuiltInRegistries.ITEM.containsKey(iconKey)) preview = new ItemStack(BuiltInRegistries.ITEM.get(iconKey));
-        return new LinkedStorageEntry(pos, label, mode, priority, preview, available);
+        return new LinkedStorageEntry(pos, dimensionId, label, mode, priority, preview, available);
     }
 
     private static RecentEntry decodeRecent(String idText, long amount, long capacity, byte kind) {

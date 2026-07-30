@@ -126,15 +126,33 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendUnlinkStorage(BlockPos pos) {
-        if (pos != null) {
-            PacketDistributor.sendToServer(new C2SRtsUnlinkStoragePayload(pos));
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null) {
+            sendUnlinkStorage(minecraft.level.dimension().location().toString(), pos);
+        }
+    }
+
+    public static void sendUnlinkStorage(String dimensionId, BlockPos pos) {
+        ResourceLocation dimension = ResourceLocation.tryParse(dimensionId);
+        if (dimension != null && pos != null) {
+            PacketDistributor.sendToServer(new C2SRtsUnlinkStoragePayload(dimension, pos));
         }
     }
 
     public static void sendUpdateLinkedStorage(BlockPos pos, boolean extractOnly, int priority) {
-        if (pos != null) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null) {
+            sendUpdateLinkedStorage(
+                    minecraft.level.dimension().location().toString(), pos, extractOnly, priority);
+        }
+    }
+
+    public static void sendUpdateLinkedStorage(
+            String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
+        ResourceLocation dimension = ResourceLocation.tryParse(dimensionId);
+        if (dimension != null && pos != null) {
             PacketDistributor.sendToServer(new C2SRtsUpdateLinkedStoragePayload(
-                    pos,
+                    dimension, pos,
                     extractOnly ? C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL,
                     Mth.clamp(priority, -9999, 9999)));
         }

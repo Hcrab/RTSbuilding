@@ -60,10 +60,14 @@ public final class RtsRefinedStorageCompat {
     }
 
     public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
+        return player == null ? null : createNetworkItemHandler(player, player.serverLevel(), pos);
+    }
+
+    /** 在显式世界中解析 RS 网络，供跨维度已连接端点复用。 */
+    public static IItemHandler createNetworkItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
         if (player == null || pos == null || REFLECTION == null) {
             return null;
         }
-        ServerLevel level = player.serverLevel();
         if (level == null || !level.hasChunkAt(pos)) {
             return null;
         }

@@ -26,5 +26,6 @@ public enum RtsFeature {
     AREA_MINE,
     AREA_DESTROY,
     BLUEPRINTS,
-    RANGE_CULLING
+    RANGE_CULLING,
+    CROSS_DIMENSION_STORAGE
 }

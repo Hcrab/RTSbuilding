@@ -29,6 +29,7 @@ record FluidEntry(String fluidId, String namespace, String path, long amount, lo
 
 record LinkedRefPayload(
         List<Long> positions,
+        List<String> dimensions,
         List<String> names,
         List<Byte> modes,
         List<Integer> priorities,

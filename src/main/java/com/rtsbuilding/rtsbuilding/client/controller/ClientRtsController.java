@@ -246,7 +246,9 @@ public static ClientRtsController get() {
     public void storeHotbarSlotToLinked(int slot) { this.commandOwner.storeHotbarSlotToLinked(slot); }
     public void fillInventoryFromLinked() { this.commandOwner.fillInventoryFromLinked(); }
     public void unlinkLinkedStorage(BlockPos pos) { this.commandOwner.unlinkLinkedStorage(pos); }
+    public void unlinkLinkedStorage(String dimensionId, BlockPos pos) { this.commandOwner.unlinkLinkedStorage(dimensionId, pos); }
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(pos, extractOnly, priority); }
+    public void updateLinkedStorageSettings(String dimensionId, BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(dimensionId, pos, extractOnly, priority); }
     boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) { return this.commandOwner.shouldUseRtsCraftTerminalScreen(craftingScreen); }
     public void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) { this.commandOwner.quickDropSelectedItem(itemId, amount, dropPos); }
     public void applyStoragePage(S2CRtsStoragePagePayload payload) { this.commandOwner.applyStoragePage(payload); }

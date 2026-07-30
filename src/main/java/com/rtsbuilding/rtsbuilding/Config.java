@@ -140,6 +140,16 @@ public class Config {
             .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
             .defineInRange("storage.refinedStorageNetworkRefreshThrottle", 10, 1, 200);
 
+    public static final ModConfigSpec.BooleanValue ENABLE_CROSS_DIMENSION_STORAGE = SERVER_BUILDER
+            .comment("Allow the cross-dimension storage plugin to wake and access linked storage in other dimensions.")
+            .translation("rtsbuilding.configuration.enableCrossDimensionStorage")
+            .define("storage.enableCrossDimensionStorage", true);
+
+    public static final ModConfigSpec.IntValue MAX_CROSS_DIMENSION_AWAKE_CHUNKS = SERVER_BUILDER
+            .comment("Maximum short-lived cross-dimension storage chunk tickets retained for one player.")
+            .translation("rtsbuilding.configuration.maxCrossDimensionAwakeChunks")
+            .defineInRange("storage.maxCrossDimensionAwakeChunks", 32, 1, 256);
+
     public static final ModConfigSpec.IntValue PAGE_CACHE_MAX_PLAYERS = SERVER_BUILDER
             .comment("Maximum player count retained by the storage page LRU cache.")
             .translation("rtsbuilding.configuration.pageCacheMaxPlayers")
@@ -454,6 +464,14 @@ public class Config {
 
     public static long internalFluidCapacityMb() {
         return Math.max(1L, (long) INTERNAL_FLUID_CAPACITY_BUCKETS.getAsInt()) * FluidType.BUCKET_VOLUME;
+    }
+
+    public static boolean isCrossDimensionStorageEnabled() {
+        return ENABLE_CROSS_DIMENSION_STORAGE.getAsBoolean();
+    }
+
+    public static int maxCrossDimensionAwakeChunks() {
+        return MAX_CROSS_DIMENSION_AWAKE_CHUNKS.getAsInt();
     }
 
     /**

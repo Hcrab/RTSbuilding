@@ -39,6 +39,8 @@ class BuiltInRtsPluginCatalogTest {
                 RtsFeature.LINK_STORAGE, RtsFeature.STORAGE_BROWSER,
                 RtsFeature.AUTO_STORE_MINED_DROPS, RtsFeature.FUNNEL,
                 RtsFeature.FLUID_HANDLING, RtsFeature.REMOTE_GUI_BINDING);
+        assertEnables(byId, BuiltInRtsPluginCatalog.CROSS_DIMENSION_STORAGE_PLUGIN,
+                RtsFeature.CROSS_DIMENSION_STORAGE);
         assertEnables(byId, BuiltInRtsPluginCatalog.CHAIN_BREAK_PLUGIN, RtsFeature.ULTIMINE);
         assertEnables(byId, BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN,
                 RtsFeature.AREA_MINE, RtsFeature.AREA_DESTROY);

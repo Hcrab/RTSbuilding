@@ -6,8 +6,10 @@ import com.rtsbuilding.rtsbuilding.server.service.bindings.RtsQuickSlotBindingSe
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 /**
  * 拥有玩家 RTS 存储会话的绑定边缘。
@@ -66,6 +68,12 @@ public final class RtsStorageBindings {
     public static UpdateResult updateLinkedStorageSettings(ServerPlayer player, RtsStorageSession session,
             BlockPos pos, byte linkMode, int priority) {
         return RtsLinkedStorageBindingService.updateSettings(player, session, pos, linkMode, priority);
+    }
+
+    public static UpdateResult updateLinkedStorageSettings(ServerPlayer player, RtsStorageSession session,
+            ResourceKey<Level> dimension, BlockPos pos, byte linkMode, int priority) {
+        return RtsLinkedStorageBindingService.updateSettings(
+                player, session, dimension, pos, linkMode, priority);
     }
 
     // ======================================================================

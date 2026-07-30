@@ -10,10 +10,12 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -112,11 +114,17 @@ public final class RtsLinkedStorageBindingService {
      */
     public static RtsStorageBindings.UpdateResult updateSettings(ServerPlayer player, RtsStorageSession session,
             BlockPos pos, byte linkMode, int priority) {
-        if (player == null || session == null || pos == null) {
+        ResourceKey<Level> dimension = player == null ? null : player.serverLevel().dimension();
+        return updateSettings(player, session, dimension, pos, linkMode, priority);
+    }
+
+    public static RtsStorageBindings.UpdateResult updateSettings(ServerPlayer player, RtsStorageSession session,
+            ResourceKey<Level> dimension, BlockPos pos, byte linkMode, int priority) {
+        if (player == null || session == null || dimension == null || pos == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.immutable());
         if (!session.linkedStorageInfo.contains(ref)) {
             return RtsStorageBindings.UpdateResult.none();
         }
@@ -129,7 +137,10 @@ public final class RtsLinkedStorageBindingService {
         }
         session.linkedStorageInfo.setMode(ref, normalizedMode);
         session.linkedStorageInfo.setPriority(ref, normalizedPriority);
-        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+        ServerLevel level = player.server.getLevel(dimension);
+        if (level != null && level.hasChunkAt(ref.pos())) {
+            session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(level, ref.pos()));
+        }
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 
