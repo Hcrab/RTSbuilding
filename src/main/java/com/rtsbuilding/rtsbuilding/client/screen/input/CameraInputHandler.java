@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineUiAdapter;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -443,7 +444,12 @@ public final class CameraInputHandler {
                 // 记录普通挖掘操作到撤回栈（等待服务端确认）
                 screen.getShapeController().recordPendingBreakForUndo(
                         List.of(hit.getBlockPos().immutable()), hit.getDirection(), screen.getSelectedToolSlot());
-                this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
+                this.controller.startMining(
+                        hit,
+                        screen.getSelectedToolSlot(),
+                        screen.currentRayOrigin(),
+                        screen.computeCursorRayDirection(),
+                        Screen.hasShiftDown());
             }
         }
         this.leftMiningActive = true;

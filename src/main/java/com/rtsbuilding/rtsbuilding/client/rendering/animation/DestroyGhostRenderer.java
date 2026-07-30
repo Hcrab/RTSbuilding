@@ -4,7 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -53,21 +53,23 @@ public final class DestroyGhostRenderer {
                 iterator.remove();
                 continue;
             }
-            if (!isWithinBounds(ghost.pos)) {
+            if (!isWithinBounds(minecraft, ghost.pos)) {
                 continue;
             }
             float scale = computeShrinkScale(elapsed);
-            if (ghost.state.getRenderShape() == RenderShape.MODEL) {
-                GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                        ghost.state, ghost.pos, MODEL_ALPHA, scale);
-            } else {
-                renderFilledBox(poseStack, fillBuffer, ghost.pos, scale);
-            }
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, ghost.pos, poseStack, () -> {
+                if (ghost.state.getRenderShape() == RenderShape.MODEL) {
+                    GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
+                            ghost.state, ghost.pos, MODEL_ALPHA, scale);
+                } else {
+                    renderFilledBox(poseStack, fillBuffer, ghost.pos, scale);
+                }
+            });
         }
         blockBuffer.endBatch();
     }
 
-    static void renderWireframes(PoseStack poseStack, VertexConsumer lineBuffer) {
+    static void renderWireframes(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer) {
         if (GHOSTS.isEmpty()) {
             return;
         }
@@ -81,12 +83,13 @@ public final class DestroyGhostRenderer {
                 iterator.remove();
                 continue;
             }
-            if (!isWithinBounds(ghost.pos)) {
+            if (!isWithinBounds(minecraft, ghost.pos)) {
                 continue;
             }
             float scale = computeShrinkScale(elapsed);
-            renderLineBox(poseStack, lineBuffer, ghost.pos, scale,
-                    0.38F, 1.00F, 0.42F, Math.max(0.0F, scale * 0.95F));
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, ghost.pos, poseStack,
+                    () -> renderLineBox(poseStack, lineBuffer, ghost.pos, scale,
+                            0.38F, 1.00F, 0.42F, Math.max(0.0F, scale * 0.95F)));
         }
     }
 
@@ -115,10 +118,11 @@ public final class DestroyGhostRenderer {
         return Math.max(0.0F, 1.0F - eased);
     }
 
-    private static boolean isWithinBounds(BlockPos pos) {
+    private static boolean isWithinBounds(Minecraft minecraft, BlockPos pos) {
         ClientRtsController controller = ClientRtsController.get();
         if (!controller.hasBounds()) return true;
-        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        return RtsSableClientSpatialCompat.isWithinBounds(
+                minecraft.level, pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 
     private record DestroyGhostEntry(BlockPos pos, BlockState state, long addedAtMs) {

@@ -18,7 +18,7 @@ import net.minecraft.world.phys.Vec3;
  * <p>两种子模式：
  * <ul>
  *   <li><b>方块/实体交互（{@link #interactWithToolSlot}）</b>——对目标方块或实体使用物品。
- *   依次尝试四种交互模式：非潜行对块 → 非潜行空中 → 潜行对块 → 潜行空中。</li>
+ *   按客户端真实修饰键依次尝试对块和空中使用。</li>
  *   <li><b>空中使用（{@link #useItemInAirWithToolSlot}）</b>——在空中使用物品（无目标）。</li>
  * </ul>
  *
@@ -32,10 +32,10 @@ public final class RtsToolSlotInteractor {
 
     /**
      * 使用指定快捷栏槽位中的物品与目标方块或实体交互。
-     * 依次尝试四种交互模式：非潜行对块、非潜行空中、潜行对块、潜行空中。
+     * 只执行客户端实际请求的普通或潜行模式，避免一次点击触发两套物品语义。
      */
     public static InteractionResult interactWithToolSlot(ServerPlayer player, ServerLevel level, Entity targetEntity,
-            BlockHitResult blockHit, Vec3 hit, int toolSlot, RayContext rayContext) {
+            BlockHitResult blockHit, Vec3 hit, int toolSlot, RayContext rayContext, boolean shiftDown) {
         int slot = clampHotbarSlot(toolSlot);
         int previousSelected = player.getInventory().selected;
         Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
@@ -49,36 +49,20 @@ public final class RtsToolSlotInteractor {
             player.getInventory().selected = slot;
             try {
                 if (targetEntity != null) {
-                    return InteractionHelper.interactEntityWithMainHand(player, level, targetEntity, hit);
+                    return TemporaryContextSwitcher.withTemporaryShiftKey(player, shiftDown,
+                            () -> InteractionHelper.interactEntityWithMainHand(player, level, targetEntity, hit));
                 }
                 if (blockHit != null) {
-                    InteractionResult primaryResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItemOn(
+                    InteractionResult blockResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, shiftDown, () -> player.gameMode.useItemOn(
                             player,
                             level,
                             player.getMainHandItem(),
                             InteractionHand.MAIN_HAND,
                             blockHit));
-                    if (primaryResult.consumesAction()) {
-                        return primaryResult;
+                    if (blockResult.consumesAction()) {
+                        return blockResult;
                     }
-                    InteractionResult primaryUseResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND));
-                    if (primaryUseResult.consumesAction()) {
-                        return primaryUseResult;
-                    }
-                    InteractionResult secondaryResult = TemporaryContextSwitcher.withTemporaryShiftKey(player, true, () -> player.gameMode.useItemOn(
-                            player,
-                            level,
-                            player.getMainHandItem(),
-                            InteractionHand.MAIN_HAND,
-                            blockHit));
-                    if (secondaryResult.consumesAction()) {
-                        return secondaryResult;
-                    }
-                    return TemporaryContextSwitcher.withTemporaryShiftKey(player, true, () -> player.gameMode.useItem(
+                    return TemporaryContextSwitcher.withTemporaryShiftKey(player, shiftDown, () -> player.gameMode.useItem(
                             player,
                             level,
                             player.getMainHandItem(),
@@ -95,7 +79,7 @@ public final class RtsToolSlotInteractor {
      * 在空中使用指定快捷栏槽位中的物品（无目标方块/实体）。
      */
     public static InteractionResult useItemInAirWithToolSlot(ServerPlayer player, ServerLevel level, Vec3 hit,
-            int toolSlot, RayContext rayContext) {
+            int toolSlot, RayContext rayContext, boolean shiftDown) {
         int slot = clampHotbarSlot(toolSlot);
         int previousSelected = player.getInventory().selected;
         Vec3 fallback = hit == null ? player.getEyePosition() : hit;
@@ -108,7 +92,7 @@ public final class RtsToolSlotInteractor {
                 () -> {
             player.getInventory().selected = slot;
             try {
-                return TemporaryContextSwitcher.withTemporaryShiftKey(player, false, () -> player.gameMode.useItem(
+                return TemporaryContextSwitcher.withTemporaryShiftKey(player, shiftDown, () -> player.gameMode.useItem(
                         player,
                         level,
                         player.getMainHandItem(),

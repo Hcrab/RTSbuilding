@@ -133,7 +133,7 @@ final class BuilderScreenPrimaryActionRouter {
         InteractionTypes.InteractionTarget target =
                 this.cursorPicker.pickInteractionTarget(false);
         if (target == null) {
-            host.tryUseMainHandItemInAir();
+            host.tryUseMainHandItemInAir(forcePlace);
             return true;
         }
         if (this.controller.hasSelectedFluid()) {

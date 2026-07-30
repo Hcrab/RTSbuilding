@@ -207,16 +207,22 @@ final class ClientRtsInteractionOwner {
             controller.buildPlacementService.interactEntityEmpty(entityId, hitLocation, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
         }
 
-    void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
+    void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+            boolean shiftDown, boolean localScreenOpened) {
+            controller.buildPlacementService.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir,
+                    shiftDown, localScreenOpened, controller::beginRemoteMenuOpenGrace);
         }
 
-    void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
+    void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+            boolean shiftDown, boolean localScreenOpened) {
+            controller.buildPlacementService.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir,
+                    shiftDown, localScreenOpened, controller::beginRemoteMenuOpenGrace);
         }
 
-    void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
+    void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir,
+            boolean shiftDown) {
+            controller.buildPlacementService.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir,
+                    shiftDown, controller::beginRemoteMenuOpenGrace);
         }
 
     void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
@@ -235,8 +241,8 @@ final class ClientRtsInteractionOwner {
             controller.buildPlacementService.breakPlaced(pos, face, allowAdjacentFallback);
         }
 
-    void startMining(BlockPos pos, int face, int toolSlot) {
-            controller.miningOperationService.startMining(pos, face, toolSlot,
+    void startMining(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean shiftDown) {
+            controller.miningOperationService.startMining(hit, toolSlot, rayOrigin, rayDir, shiftDown,
                     controller.buildPlacementService.getSelectedItemId(),
                     controller.buildPlacementService.getSelectedItemPreview(),
                     controller.isAllowPlacedBlockRecovery(), controller.isToolProtectionEnabled());

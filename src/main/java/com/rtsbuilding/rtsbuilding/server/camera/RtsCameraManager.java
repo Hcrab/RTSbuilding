@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.camera;
 
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
@@ -294,8 +295,10 @@ public final class RtsCameraManager {
             return false;
         }
 
-        double dx = (pos.getX() + 0.5D) - session.anchor().x;
-        double dz = (pos.getZ() + 0.5D) - session.anchor().z;
+        Vec3 physicalCenter = RtsSableSpatialCompat.projectLogicalToGlobal(
+                player.serverLevel(), Vec3.atCenterOf(pos));
+        double dx = physicalCenter.x - session.anchor().x;
+        double dz = physicalCenter.z - session.anchor().z;
         double halfExtent = actionHalfExtent(player, session);
         return Math.abs(dx) <= halfExtent && Math.abs(dz) <= halfExtent;
     }

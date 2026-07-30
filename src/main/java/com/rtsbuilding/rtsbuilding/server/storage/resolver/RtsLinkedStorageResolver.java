@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.resolver;
 
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
@@ -114,7 +115,8 @@ public final class RtsLinkedStorageResolver {
         if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) {
             return false;
         }
-        if (!level.mayInteract(player, pos)) {
+        BlockPos physicalPos = RtsSableSpatialCompat.physicalBlockPos(level, pos);
+        if (physicalPos == null || !level.mayInteract(player, physicalPos)) {
             return false;
         }
         return RtsCameraManager.isWithinActionRange(player, pos);

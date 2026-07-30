@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
@@ -131,13 +132,18 @@ public final class BuildGhostBlockStateResolver {
         Camera camera = minecraft.gameRenderer.getMainCamera();
         Vec3 cameraPos = camera.getPosition();
         Vec3 targetCenter = Vec3.atCenterOf(targetPos);
-        Vec3 viewDir = RaycastHelper.computeCursorRayDirection(minecraft);
+        Vec3 globalViewDir = RaycastHelper.computeCursorRayDirection(minecraft);
+        RtsSableClientSpatialCompat.Ray localRay = RtsSableClientSpatialCompat.toRenderLocalRay(
+                minecraft.level, targetPos, cameraPos, globalViewDir);
+        Vec3 localCameraPos = localRay.origin();
+        Vec3 viewDir = localRay.direction();
         // 服务端 TemporaryContextSwitcher 也由客户端光标射线恢复虚拟玩家朝向。
         // 这里若改用“相机到方块中心”的连线，鼠标靠近方块边缘时可能跨过方向象限，
         // 导致幽灵/R 轮盘显示的状态与最终 getStateForPlacement 不一致。
         float yawDeg = placementYawFromRay(viewDir);
-        Vec3 rayEnd = cameraPos.add(viewDir.scale(128.0D));
-        BlockHitResult actualHit = RaycastHelper.raycastBlockFromCursor(minecraft, cameraPos, rayEnd, false);
+        Vec3 rayEnd = cameraPos.add(globalViewDir.scale(128.0D));
+        BlockHitResult actualHit = RaycastHelper.raycastBlockFromCursor(
+                minecraft, cameraPos, rayEnd, false);
 
         Direction clickedFace;
         BlockPos adjacentPos;
@@ -150,7 +156,8 @@ public final class BuildGhostBlockStateResolver {
         } else {
             clickedFace = Direction.getNearest(-viewDir.x, -viewDir.y, -viewDir.z);
             adjacentPos = targetPos.relative(clickedFace.getOpposite());
-            hitLocation = computeFallbackHitLocation(clickedFace, adjacentPos, targetCenter, cameraPos, viewDir);
+            hitLocation = computeFallbackHitLocation(
+                    clickedFace, adjacentPos, targetCenter, localCameraPos, viewDir);
         }
 
         BlockPlaceContext context = new BlockPlaceContext(

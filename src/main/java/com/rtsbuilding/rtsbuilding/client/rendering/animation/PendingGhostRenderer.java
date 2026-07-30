@@ -4,7 +4,7 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -76,12 +76,12 @@ public final class PendingGhostRenderer {
     }
 
     /** Renders pending ghosts as wireframes (line-only mode). */
-    static void renderWireframes(PoseStack poseStack, VertexConsumer lineBuffer) {
+    static void renderWireframes(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer) {
         long now = System.currentTimeMillis();
         pruneExpired(now);
         float lineR = 0.30F, lineG = 0.75F, lineB = 1.00F, lineA = 0.75F;
         for (PendingGhostEntry ghost : GHOSTS.values()) {
-            if (!isWithinBounds(ghost.pos)) continue;
+            if (!isWithinBounds(minecraft, ghost.pos)) continue;
             BlockPos pos = ghost.pos;
             float scale = computeGrowScale(now - ghost.addedAtMs);
             double inset = 0.5D - scale * 0.44D;
@@ -91,7 +91,10 @@ public final class PendingGhostRenderer {
             double maxX = pos.getX() + 1.0D - inset;
             double maxY = pos.getY() + 1.0D - inset;
             double maxZ = pos.getZ() + 1.0D - inset;
-            LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ, lineR, lineG, lineB, lineA);
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
+                    () -> LevelRenderer.renderLineBox(
+                            poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ,
+                            lineR, lineG, lineB, lineA));
         }
     }
 
@@ -107,7 +110,7 @@ public final class PendingGhostRenderer {
         java.util.ArrayList<BlockPos> fallbackPositions = new java.util.ArrayList<>();
 
         for (PendingGhostEntry ghost : GHOSTS.values()) {
-            if (!isWithinBounds(ghost.pos)) continue;
+            if (!isWithinBounds(minecraft, ghost.pos)) continue;
             BlockState state = ghost.blockState;
             if (state != null && !state.isAir() && state.getRenderShape() == RenderShape.MODEL) {
                 modelGroups.computeIfAbsent(state, k -> new java.util.ArrayList<>()).add(ghost.pos);
@@ -125,8 +128,9 @@ public final class PendingGhostRenderer {
                 BlockState state = group.getKey();
                 for (BlockPos pos : group.getValue()) {
                     float scale = computeGrowScale(now - GHOSTS.get(pos.asLong()).addedAtMs);
-                    GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                            state, pos, GHOST_ALPHA, scale);
+                    RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
+                            () -> GhostBlockModelRenderer.renderAt(
+                                    minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA, scale));
                 }
             }
             blockBuffer.endBatch();
@@ -134,11 +138,11 @@ public final class PendingGhostRenderer {
 
         // Render fallback (coloured boxes for unresolvable states)
         if (!fallbackPositions.isEmpty()) {
-            renderFallback(poseStack, fillBuffer, fallbackPositions);
+            renderFallback(minecraft, poseStack, fillBuffer, fallbackPositions);
         }
     }
 
-    private static void renderFallback(PoseStack poseStack, VertexConsumer fillBuffer,
+    private static void renderFallback(Minecraft minecraft, PoseStack poseStack, VertexConsumer fillBuffer,
             java.util.List<BlockPos> positions) {
         long now = System.currentTimeMillis();
         float fillR = 0.40F, fillG = 0.85F, fillB = 0.90F, fillA = 0.12F;
@@ -147,11 +151,12 @@ public final class PendingGhostRenderer {
             PendingGhostEntry ghost = GHOSTS.get(pos.asLong());
             float scale = (ghost != null) ? computeGrowScale(now - ghost.addedAtMs) : BASE_SCALE;
             double inset = 0.5D - scale * 0.44D;
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
-                    pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
-                    pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
-                    fillR, fillG, fillB, fillA);
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
+                    () -> LevelRenderer.addChainedFilledBoxVertices(
+                            poseStack, fillBuffer,
+                            pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
+                            pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
+                            fillR, fillG, fillB, fillA));
         }
     }
 
@@ -190,9 +195,10 @@ public final class PendingGhostRenderer {
     /**
      * Checks whether a block position is within RTS bounds.
      */
-    private static boolean isWithinBounds(BlockPos pos) {
+    private static boolean isWithinBounds(Minecraft minecraft, BlockPos pos) {
         ClientRtsController controller = ClientRtsController.get();
         if (!controller.hasBounds()) return true;
-        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        return RtsSableClientSpatialCompat.isWithinBounds(
+                minecraft.level, pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 }

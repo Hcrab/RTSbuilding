@@ -314,24 +314,30 @@ public final class BuildPlacementService {
     }
 
     public void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+                                          boolean shiftDown, boolean localScreenOpened,
                                           Runnable beginRemoteMenuOpenGrace) {
         if (hit == null) return;
-        beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendInteractBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
+        if (!localScreenOpened) {
+            beginRemoteMenuOpenGrace.run();
+        }
+        RtsClientPacketGateway.sendInteractBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir, shiftDown);
     }
 
     public void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+                                         boolean shiftDown, boolean localScreenOpened,
                                          Runnable beginRemoteMenuOpenGrace) {
         if (hit == null) return;
-        beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendUseItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
+        if (!localScreenOpened) {
+            beginRemoteMenuOpenGrace.run();
+        }
+        RtsClientPacketGateway.sendUseItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir, shiftDown);
     }
 
     public void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir,
-                                            Runnable beginRemoteMenuOpenGrace) {
+                                            boolean shiftDown, Runnable beginRemoteMenuOpenGrace) {
         if (hit == null || itemId == null || itemId.isBlank()) return;
         beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendInteractBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir);
+        RtsClientPacketGateway.sendInteractBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir, shiftDown);
     }
 
     public void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,

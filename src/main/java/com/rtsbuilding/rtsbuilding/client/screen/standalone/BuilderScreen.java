@@ -396,7 +396,7 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
     void closePlacementStateWheel() { this.pointerGestureOwner.closePlacementStateWheel(); }
     void closePlacementStateWheelImmediately() { this.pointerGestureOwner.closePlacementStateWheelImmediately(); }
     void releasePlacementWheelPointer() { this.pointerGestureOwner.releasePlacementWheelPointer(); }
-    boolean tryUseMainHandItemInAir() { return this.worldQueryOwner.tryUseMainHandItemInAir(); }
+    boolean tryUseMainHandItemInAir(boolean shiftDown) { return this.worldQueryOwner.tryUseMainHandItemInAir(shiftDown); }
     boolean canUseMainHandItemInAir() { return this.pointerGestureOwner.canUseMainHandItemInAir(); }
 @Override
     /**
@@ -540,6 +540,7 @@ static boolean hasRecipeViewerLoaded() {
     public String text(String key, Object... args) { return this.previewQueryOwner.text(key, args); }
     public String selectedItemStatusLabel() { return this.previewQueryOwner.selectedItemStatusLabel(); }
     boolean hasMainHandItem() { return this.worldQueryOwner.hasMainHandItem(); }
+    boolean mainHandItemIsBlock() { return this.worldQueryOwner.mainHandItemIsBlock(); }
     ItemStack resolveCursorPreview() { return this.previewQueryOwner.resolveCursorPreview(); }
     boolean shouldRenderFunnelCursor() { return this.previewQueryOwner.shouldRenderFunnelCursor(); }
     public Vec3 computeCursorRayDirection() { return this.previewQueryOwner.computeCursorRayDirection(); }

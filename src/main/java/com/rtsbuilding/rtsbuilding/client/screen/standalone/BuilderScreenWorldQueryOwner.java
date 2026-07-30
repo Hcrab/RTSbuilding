@@ -28,6 +28,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
+import com.rtsbuilding.rtsbuilding.client.compat.RtsClientItemUseRegistry;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationGesture;
@@ -103,7 +104,7 @@ final class BuilderScreenWorldQueryOwner {
         this.screen = screen;
     }
 
-    boolean tryUseMainHandItemInAir() {
+    boolean tryUseMainHandItemInAir(boolean shiftDown) {
             if (!screen.canUseMainHandItemInAir()) {
                 return false;
             }
@@ -112,12 +113,20 @@ final class BuilderScreenWorldQueryOwner {
                 return false;
             }
             screen.shapeController.clearShapeBuildSession();
+            boolean localScreenOpened = RtsClientItemUseRegistry.tryOpenRegisteredScreen(null, shiftDown);
             screen.controller.useItemInAirWithToolSlot(
                     target.blockHit(),
                     screen.getSelectedToolSlot(),
                     target.rayOrigin(),
-                    target.rayDir());
+                    target.rayDir(),
+                    shiftDown,
+                    localScreenOpened);
             return true;
+        }
+
+    boolean mainHandItemIsBlock() {
+            return screen.getMinecraft().player != null
+                    && screen.getMinecraft().player.getMainHandItem().getItem() instanceof BlockItem;
         }
 
     boolean handleRangeCullingSelectionClick(double mouseX, double mouseY, int button) {

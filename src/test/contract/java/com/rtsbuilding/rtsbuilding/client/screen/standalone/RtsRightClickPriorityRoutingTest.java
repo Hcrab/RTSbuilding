@@ -26,7 +26,7 @@ class RtsRightClickPriorityRoutingTest {
         assertTrue(selectedItemBranch >= 0, "selected item branch missing");
 
         int normalInteractGuard = body.indexOf(
-                "if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode");
+                "if (!forceBackpackPlacement && !forceBlockPlacement && !rangeDestroyMode");
         int interactPinnedItem = body.indexOf(
                 "this.controller.interactBlockWithPinnedItem");
         int forcePlacementBranch = body.indexOf("if (rangeDestroyMode)");
@@ -86,9 +86,10 @@ class RtsRightClickPriorityRoutingTest {
         assertTrue(toolSlotInteract >= 0, "normal main-hand right-click should send tool-slot interaction");
 
         int shiftPlace = body.lastIndexOf("this.controller.placeSelected(", toolSlotInteract);
-        int forceGuard = body.lastIndexOf("if (forcePlace ||", toolSlotInteract);
+        int forceGuard = body.lastIndexOf("forcePlace && host.mainHandItemIsBlock()", toolSlotInteract);
 
-        assertTrue(forceGuard >= 0, "main-hand block action must keep the Shift force-place branch");
+        assertTrue(forceGuard >= 0,
+                "Shift may force placement only for an actual main-hand block item");
         int forceGuardEnd = body.indexOf(") {", forceGuard);
         assertTrue(body.substring(forceGuard, forceGuardEnd)
                         .contains("this.controller.getPlacementStatePreset().isBlank()"),

@@ -28,7 +28,7 @@ class RtsBackpackRoutingContractTest {
                 "UUID resolution must cover Sophisticated Backpacks' carried and accessory slots.");
         assertTrue(itemActions.contains("forcePlace || forceBackpackPlacement")
                         && itemActions.contains(
-                        "!forceBackpackPlacement && !forcePlace"),
+                        "!forceBackpackPlacement && !forceBlockPlacement"),
                 "Right-clicking a backpack must bypass interaction and enter placement.");
         assertTrue(placement.contains("forcePlace || sophisticatedBackpackPlacementOnly")
                         && placement.contains(

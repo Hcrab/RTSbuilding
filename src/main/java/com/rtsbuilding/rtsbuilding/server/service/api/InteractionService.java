@@ -31,6 +31,7 @@ public interface InteractionService {
     void interactTarget(ServerPlayer player, int entityId, BlockPos clickedPos, Direction face,
                         double hitX, double hitY, double hitZ,
                         byte sourceType, byte toolSlot, String itemId,
+                        boolean shiftDown,
                         double rayOriginX, double rayOriginY, double rayOriginZ,
                         double rayDirX, double rayDirY, double rayDirZ);
 }

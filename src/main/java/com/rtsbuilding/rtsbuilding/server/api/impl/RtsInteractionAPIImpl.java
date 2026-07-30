@@ -21,7 +21,7 @@ public final class RtsInteractionAPIImpl implements RtsInteractionAPI {
                                double rayOriginX, double rayOriginY, double rayOriginZ,
                                double rayDirX, double rayDirY, double rayDirZ) {
         REGISTRY.interaction().interactTarget(player, entityId, (BlockPos) clickedPos, face,
-                hitX, hitY, hitZ, sourceType, toolSlot, itemId,
+                hitX, hitY, hitZ, sourceType, toolSlot, itemId, false,
                 rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
     }
 

@@ -1,10 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.compat.RtsClientItemUseRegistry;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
+import net.minecraft.world.item.BlockItem;
 
 /**
  * 主操作中与选中物品、工具槽和空手有关的动作执行器。
@@ -43,7 +45,9 @@ final class BuilderScreenItemActionHandler {
                     target.rayOrigin(),
                     target.rayDir());
         } else if (target.blockHit() != null) {
-            if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode
+            boolean forceBlockPlacement = forcePlace
+                    && this.controller.getSelectedItemPreview().getItem() instanceof BlockItem;
+            if (!forceBackpackPlacement && !forceBlockPlacement && !rangeDestroyMode
                     && this.controller.getPlacementStatePreset().isBlank()
                     && this.controller.getBuildShape() == BuildShape.BLOCK) {
                 this.shapeController.clearShapeBuildSession();
@@ -51,7 +55,8 @@ final class BuilderScreenItemActionHandler {
                         target.blockHit(),
                         this.controller.getSelectedItemId(),
                         target.rayOrigin(),
-                        target.rayDir());
+                        target.rayDir(),
+                        forcePlace);
                 return true;
             }
             if (rangeDestroyMode) {
@@ -106,7 +111,8 @@ final class BuilderScreenItemActionHandler {
             }
         } else if (target.blockHit() != null) {
             if (host.hasMainHandItem()) {
-                if (forcePlace || !this.controller.getPlacementStatePreset().isBlank()) {
+                if ((forcePlace && host.mainHandItemIsBlock())
+                        || !this.controller.getPlacementStatePreset().isBlank()) {
                     // R 预选状态只能由放置包携带；普通交互包会重新按命中点计算朝向。
                     this.controller.placeSelected(
                             target.blockHit(), forcePlace,
@@ -117,11 +123,15 @@ final class BuilderScreenItemActionHandler {
                             "",
                             host.selectedToolSlot());
                 } else {
+                    boolean localScreenOpened = RtsClientItemUseRegistry.tryOpenRegisteredScreen(
+                            target.blockHit(), forcePlace);
                     this.controller.interactBlockWithToolSlot(
                             target.blockHit(),
                             host.selectedToolSlot(),
                             target.rayOrigin(),
-                            target.rayDir());
+                            target.rayDir(),
+                            forcePlace,
+                            localScreenOpened);
                 }
             } else {
                 this.controller.interactEmpty(

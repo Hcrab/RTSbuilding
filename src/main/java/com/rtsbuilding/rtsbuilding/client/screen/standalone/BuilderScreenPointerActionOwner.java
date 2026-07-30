@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.compat.create.RtsCreateGlueCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
@@ -257,6 +258,9 @@ final class BuilderScreenPointerActionOwner {
                 return true;
             }
             if (screen.handleBatchConfirmMouse(mouseX, mouseY, button)) {
+                return true;
+            }
+            if (RtsCreateGlueCompat.handleWorldClick(screen, mouseX, mouseY, button)) {
                 return true;
             }
             if (CameraInputHandler.isBreakActionMouse(button)

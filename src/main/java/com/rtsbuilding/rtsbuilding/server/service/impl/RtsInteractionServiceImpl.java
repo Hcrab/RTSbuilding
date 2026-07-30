@@ -56,6 +56,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
     public void interactTarget(ServerPlayer player, int entityId, BlockPos clickedPos, Direction face,
                                double hitX, double hitY, double hitZ,
                                byte sourceType, byte toolSlot, String itemId,
+                               boolean shiftDown,
                                double rayOriginX, double rayOriginY, double rayOriginZ,
                                double rayDirX, double rayDirY, double rayDirZ) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.INTERACT)) {
@@ -133,11 +134,13 @@ public final class RtsInteractionServiceImpl implements InteractionService {
         AbstractContainerMenu menuBeforeInteract = player.containerMenu;
 
         if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
-            result = RtsToolSlotInteractor.interactWithToolSlot(player, level, targetEntity, blockHit, hit, toolSlot, rayContext);
+            result = RtsToolSlotInteractor.interactWithToolSlot(player, level, targetEntity, blockHit, hit,
+                    toolSlot, rayContext, shiftDown);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR) {
-            result = RtsToolSlotInteractor.useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
+            result = RtsToolSlotInteractor.useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext, shiftDown);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM) {
-            result = RtsLinkedItemInteractor.interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
+            result = RtsLinkedItemInteractor.interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit,
+                    itemId, rayContext, shiftDown);
         } else if (sourceType == C2SRtsInteractPayload.SOURCE_EMPTY_HAND) {
             result = RtsEmptyHandInteractor.interactWithEmptyHand(player, level, targetEntity, blockHit, hit, rayContext);
         }

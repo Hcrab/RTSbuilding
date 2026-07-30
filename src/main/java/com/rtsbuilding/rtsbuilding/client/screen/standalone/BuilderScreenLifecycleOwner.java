@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
+import com.rtsbuilding.rtsbuilding.client.compat.RtsVanillaCursorHitBridge;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
@@ -214,6 +215,9 @@ final class BuilderScreenLifecycleOwner {
         }
 
     void tick() {
+
+            // 机械动力强力胶等第三方预览只读取原版 hitResult；每 tick 同步一次 RTS 自由光标。
+            RtsVanillaCursorHitBridge.publish(screen);
 
             // 每 tick 写入脏状态（无脏时零开销）
             screen.uiStateManager.flush();

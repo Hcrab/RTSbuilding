@@ -3,11 +3,16 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+
+import java.util.Objects;
+import java.util.UUID;
 
 /**
  * 持有一次形状选区会话，并独占多次点击推进与滚轮尺寸调整。
@@ -23,6 +28,7 @@ public final class ShapeSelectionSession {
     private int footprintNudgeA;
     private int footprintNudgeB;
     private double cursorY;
+    private UUID frameId;
 
     public void init(BuilderScreen screen, ShapeSelectionBoxController boxes) {
         this.screen = screen;
@@ -35,6 +41,10 @@ public final class ShapeSelectionSession {
 
     public void replace(ShapeBuildTypes.Session session) {
         this.session = session;
+        Minecraft mc = this.screen == null ? null : this.screen.getMinecraft();
+        this.frameId = session == null || session.pointA() == null || mc == null || mc.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(mc.level, session.pointA());
     }
 
     public BlockHitResult templateHit() {
@@ -51,6 +61,7 @@ public final class ShapeSelectionSession {
         this.footprintNudgeA = 0;
         this.footprintNudgeB = 0;
         this.cursorY = 0.0D;
+        this.frameId = null;
         this.boxes.clear();
     }
 
@@ -61,6 +72,16 @@ public final class ShapeSelectionSession {
 
     public void advance(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
         if (this.session == null || this.session.shape() != shape) {
+            start(hit, rayDir, mouseY, shape);
+            return;
+        }
+        Minecraft mc = this.screen == null ? null : this.screen.getMinecraft();
+        UUID hitFrameId = mc == null || mc.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(mc.level, hit.getBlockPos());
+        if (!Objects.equals(this.frameId, hitFrameId)) {
+            // 跨主世界/飞船或跨两艘飞船时，本次点击成为新会话第一点，避免生成横跨 plot 的巨型形状。
+            clear();
             start(hit, rayDir, mouseY, shape);
             return;
         }
@@ -76,11 +97,17 @@ public final class ShapeSelectionSession {
     private void start(BlockHitResult hit, Vec3 rayDir, double mouseY, BuildShape shape) {
         this.footprintNudgeA = 0;
         this.footprintNudgeB = 0;
-        Direction placementFace = ShapeGeometryUtil.resolveShapePlacementFace(shape, hit.getDirection(), rayDir);
+        Minecraft mc = this.screen == null ? null : this.screen.getMinecraft();
+        this.frameId = mc == null || mc.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(mc.level, hit.getBlockPos());
+        Vec3 localRayDir = localRay(hit.getBlockPos(), rayDir).direction();
+        Direction placementFace = ShapeGeometryUtil.resolveShapePlacementFace(
+                shape, hit.getDirection(), localRayDir);
         this.templateHit = new BlockHitResult(hit.getLocation(), placementFace, hit.getBlockPos(), hit.isInside());
         this.session = new ShapeBuildTypes.Session(
                 shape,
-                resolveBuildFace(shape, hit.getDirection(), rayDir),
+                resolveBuildFace(shape, hit.getDirection(), localRayDir),
                 placementFace,
                 hit.getBlockPos(),
                 null,
@@ -221,9 +248,10 @@ public final class ShapeSelectionSession {
                 ? mc.gameRenderer.getMainCamera().getPosition()
                 : null;
         Vec3 rayDirection = mc != null ? this.screen.computeCursorRayDirection() : null;
+        RtsSableClientSpatialCompat.Ray localRay = localRay(this.session.pointA(), rayOrigin, rayDirection);
         return ShapeSessionInputResolver.resolve(
                 this.session, cursorHit, requireReady, isVerticalLine(this.session.shape()), lineConnected,
-                this.footprintNudgeA, this.footprintNudgeB, rayOrigin, rayDirection);
+                this.footprintNudgeA, this.footprintNudgeB, localRay.origin(), localRay.direction());
     }
 
     private BlockPos resolvePlanePoint(ShapeBuildTypes.Session base, BlockHitResult cursorHit) {
@@ -232,7 +260,26 @@ public final class ShapeSelectionSession {
                 ? mc.gameRenderer.getMainCamera().getPosition()
                 : null;
         Vec3 direction = mc != null ? this.screen.computeCursorRayDirection() : null;
-        return ShapeSessionInputResolver.resolvePlanePoint(base, cursorHit, origin, direction);
+        RtsSableClientSpatialCompat.Ray localRay = localRay(base.pointA(), origin, direction);
+        return ShapeSessionInputResolver.resolvePlanePoint(
+                base, cursorHit, localRay.origin(), localRay.direction());
+    }
+
+    private RtsSableClientSpatialCompat.Ray localRay(BlockPos framePosition, Vec3 globalDirection) {
+        Minecraft mc = this.screen == null ? null : this.screen.getMinecraft();
+        Vec3 globalOrigin = mc != null && mc.gameRenderer != null
+                ? mc.gameRenderer.getMainCamera().getPosition()
+                : null;
+        return localRay(framePosition, globalOrigin, globalDirection);
+    }
+
+    private RtsSableClientSpatialCompat.Ray localRay(
+            BlockPos framePosition, Vec3 globalOrigin, Vec3 globalDirection) {
+        Minecraft mc = this.screen == null ? null : this.screen.getMinecraft();
+        return mc == null || mc.level == null
+                ? new RtsSableClientSpatialCompat.Ray(globalOrigin, globalDirection)
+                : RtsSableClientSpatialCompat.toRenderLocalRay(
+                        mc.level, framePosition, globalOrigin, globalDirection);
     }
 
     public boolean isAwaiting(BuildShape currentShape) {

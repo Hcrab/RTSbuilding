@@ -427,7 +427,8 @@ public final class RtsClientPacketGateway {
                 itemId == null ? "" : itemId));
     }
 
-    public static void sendInteractBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+    public static void sendInteractBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+            boolean shiftDown) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 C2SRtsInteractPayload.NO_ENTITY,
                 hit.getBlockPos(),
@@ -438,6 +439,7 @@ public final class RtsClientPacketGateway {
                 C2SRtsInteractPayload.SOURCE_TOOL_SLOT,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 "",
+                shiftDown,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
@@ -446,7 +448,8 @@ public final class RtsClientPacketGateway {
                 rayDir.z));
     }
 
-    public static void sendUseItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+    public static void sendUseItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+            boolean shiftDown) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 C2SRtsInteractPayload.NO_ENTITY,
                 hit.getBlockPos(),
@@ -457,6 +460,7 @@ public final class RtsClientPacketGateway {
                 C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 "",
+                shiftDown,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
@@ -465,7 +469,8 @@ public final class RtsClientPacketGateway {
                 rayDir.z));
     }
 
-    public static void sendInteractBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
+    public static void sendInteractBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir,
+            boolean shiftDown) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 C2SRtsInteractPayload.NO_ENTITY,
                 hit.getBlockPos(),
@@ -476,6 +481,7 @@ public final class RtsClientPacketGateway {
                 C2SRtsInteractPayload.SOURCE_PIN_ITEM,
                 (byte) 0,
                 itemId,
+                shiftDown,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
@@ -495,6 +501,7 @@ public final class RtsClientPacketGateway {
                 C2SRtsInteractPayload.SOURCE_TOOL_SLOT,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 "",
+                false,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
@@ -514,6 +521,7 @@ public final class RtsClientPacketGateway {
                 C2SRtsInteractPayload.SOURCE_EMPTY_HAND,
                 (byte) 0,
                 "",
+                false,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
@@ -533,6 +541,7 @@ public final class RtsClientPacketGateway {
                 C2SRtsInteractPayload.SOURCE_PIN_ITEM,
                 (byte) 0,
                 itemId,
+                false,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
@@ -576,18 +585,30 @@ public final class RtsClientPacketGateway {
                 toolProtectionEnabled));
     }
 
-    public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
+    public static void sendMineStart(BlockHitResult hit, int toolSlot, String toolItemId, ItemStack toolPrototype,
+            boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled, boolean shiftDown,
+            Vec3 rayOrigin, Vec3 rayDir) {
+        if (hit == null) {
+            return;
+        }
+        BlockPos pos = hit.getBlockPos();
+        Vec3 hitLocation = hit.getLocation();
+        Vec3 safeRayOrigin = rayOrigin == null ? Vec3.ZERO : rayOrigin;
+        Vec3 safeRayDir = rayDir == null ? Vec3.ZERO : rayDir;
         RtsDeveloperScenarioTracker.getInstance().record("mine_request", "kind=single");
         PacketDistributor.sendToServer(new C2SRtsMinePayload(
                 pos,
-                (byte) face,
+                (byte) hit.getDirection().get3DDataValue(),
                 true,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                 allowPlacedBlockRecovery,
-                toolProtectionEnabled));
+                toolProtectionEnabled,
+                shiftDown,
+                hitLocation.x, hitLocation.y, hitLocation.z,
+                safeRayOrigin.x, safeRayOrigin.y, safeRayOrigin.z,
+                safeRayDir.x, safeRayDir.y, safeRayDir.z));
     }
 
     public static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
@@ -625,6 +646,10 @@ public final class RtsClientPacketGateway {
                 "",
                 ItemStack.EMPTY,
                 false,
-                false));
+                false,
+                false,
+                pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
+                0.0D, 0.0D, 0.0D,
+                0.0D, 0.0D, 0.0D));
     }
 }

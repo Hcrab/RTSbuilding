@@ -7,6 +7,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -15,8 +17,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 public final class MiningOperationService {
 
@@ -71,6 +77,7 @@ public final class MiningOperationService {
     private BlockPos areaMinePointA;
     /** Anchor point B: second click position, together with A defines the base rectangle */
     private BlockPos areaMinePointB;
+    private UUID areaMineFrameId;
     /** Height offset: extends up/down from point A Y (scroll wheel, positive=up, negative=down) */
     private int areaMineHeightOffset;
 
@@ -117,25 +124,29 @@ public final class MiningOperationService {
     /**
      * Starts mining a single block.
      */
-    public void startMining(BlockPos pos, int face, int toolSlot,
+    public void startMining(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean shiftDown,
                             String selectedItemId, ItemStack selectedItemPreview,
                             boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
-        if (pos == null) {
+        if (hit == null) {
             return;
         }
+        BlockPos pos = hit.getBlockPos();
+        int face = hit.getDirection().get3DDataValue();
         this.activeMinePos = pos.immutable();
         this.activeMineFace = face;
         this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
         this.mineRenderPos = this.activeMinePos;
         this.mineRenderStage = 0;
         RtsClientPacketGateway.sendMineStart(
-                this.activeMinePos,
-                face,
+                hit,
                 this.activeMineToolSlot,
                 selectedMiningToolItemId(selectedItemId, selectedItemPreview),
                 selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
                 allowPlacedBlockRecovery,
-                toolProtectionEnabled);
+                toolProtectionEnabled,
+                shiftDown,
+                rayOrigin,
+                rayDir);
     }
 
     /**
@@ -254,18 +265,34 @@ public final class MiningOperationService {
     // ---------- Selection management ----------
 
     public void setAreaMinePointA(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
-        this.areaMinePointA = pos == null ? null : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        this.areaMinePointA = pos == null
+                ? null
+                : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        Minecraft minecraft = Minecraft.getInstance();
+        this.areaMineFrameId = this.areaMinePointA == null || minecraft.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(minecraft.level, this.areaMinePointA);
         this.areaMinePointB = null;
         this.areaMineHeightOffset = 0;
-        this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_SECOND;
+        this.areaMinePhase = this.areaMinePointA == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_SECOND;
         this.mineRenderPos = this.areaMinePointA;
         this.mineRenderStage = 0;
     }
 
     public void setAreaMinePointB(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
-        this.areaMinePointB = pos == null ? null : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        Minecraft minecraft = Minecraft.getInstance();
+        UUID nextFrameId = pos == null || minecraft.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(minecraft.level, pos);
+        if (this.areaMinePointA != null && !Objects.equals(this.areaMineFrameId, nextFrameId)) {
+            setAreaMinePointA(pos, anchorX, anchorZ, maxRadius, hasBounds);
+            return;
+        }
+        this.areaMinePointB = pos == null
+                ? null
+                : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
         this.areaMineHeightOffset = 0;
-        this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_HEIGHT;
+        this.areaMinePhase = this.areaMinePointB == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_HEIGHT;
         this.mineRenderPos = this.areaMinePointB;
         this.mineRenderStage = 0;
     }
@@ -273,6 +300,11 @@ public final class MiningOperationService {
     private BlockPos clampToBounds(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
         if (pos == null || !hasBounds) {
             return pos;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null && RtsSableSpatialCompat.frameId(minecraft.level, pos) != null) {
+            return RtsSableClientSpatialCompat.isWithinBounds(
+                    minecraft.level, pos, anchorX, anchorZ, maxRadius) ? pos : null;
         }
         int minBlockX = Mth.floor(anchorX - maxRadius);
         int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
@@ -288,6 +320,7 @@ public final class MiningOperationService {
         this.areaMinePhase = AREA_MINE_PHASE_NONE;
         this.areaMinePointA = null;
         this.areaMinePointB = null;
+        this.areaMineFrameId = null;
         this.areaMineHeightOffset = 0;
         this.mineRenderStage = -1;
     }

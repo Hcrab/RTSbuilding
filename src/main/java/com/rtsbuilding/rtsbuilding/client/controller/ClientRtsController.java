@@ -293,14 +293,14 @@ public static ClientRtsController get() {
     public void storeFluidFromToolSlot(int toolSlot) { this.interactionOwner.storeFluidFromToolSlot(toolSlot); }
     public void interactEmpty(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactEmpty(hit, rayOrigin, rayDir); }
     public void interactEntityEmpty(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactEntityEmpty(entityId, hitLocation, rayOrigin, rayDir); }
-    public void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir); }
-    public void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir); }
-    public void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir); }
+    public void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean shiftDown, boolean localScreenOpened) { this.interactionOwner.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir, shiftDown, localScreenOpened); }
+    public void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean shiftDown, boolean localScreenOpened) { this.interactionOwner.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir, shiftDown, localScreenOpened); }
+    public void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir, boolean shiftDown) { this.interactionOwner.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir, shiftDown); }
     public void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactEntityWithToolSlot(entityId, hitLocation, toolSlot, rayOrigin, rayDir); }
     public void interactEntityWithPinnedItem(int entityId, Vec3 hitLocation, String itemId, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.interactEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir); }
     public void breakPlaced(BlockPos pos) { this.interactionOwner.breakPlaced(pos); }
     public void breakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) { this.interactionOwner.breakPlaced(pos, face, allowAdjacentFallback); }
-    public void startMining(BlockPos pos, int face, int toolSlot) { this.interactionOwner.startMining(pos, face, toolSlot); }
+    public void startMining(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean shiftDown) { this.interactionOwner.startMining(hit, toolSlot, rayOrigin, rayDir, shiftDown); }
     public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode) { this.interactionOwner.startUltimine(pos, face, toolSlot, limit, mode); }
     public void continueMining(int toolSlot) { this.interactionOwner.continueMining(toolSlot); }
     public int getAreaMinePhase() { return this.interactionOwner.getAreaMinePhase(); }

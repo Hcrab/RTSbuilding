@@ -43,6 +43,7 @@ public final class RtsInteractionHandlers {
                         payload.sourceType(),
                         payload.toolSlot(),
                         payload.itemId(),
+                        payload.shiftDown(),
                         payload.rayOriginX(),
                         payload.rayOriginY(),
                         payload.rayOriginZ(),

@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -103,6 +104,30 @@ public final class ShapeGhostRenderer {
             return;
         }
 
+        // 建造预览由模型/线框渲染器逐方块建立局部帧，避免大 plot 坐标进入 float 矩阵。
+        // 挖掘类预览仍保留整组变换；它们的合并骨架需要保持连续拓扑。
+        if (!preview.destructive() && !preview.chainDestroyPreview()) {
+            renderGhostPreviewInFrame(
+                    minecraft, preview, poseStack, lineBuffer, fillBuffer, selectionAabb);
+            return;
+        }
+
+        BlockPos framePosition = firstPreviewPosition(preview);
+        poseStack.pushPose();
+        try {
+            if (minecraft.level != null && framePosition != null) {
+                RtsSableClientSpatialCompat.applyRenderPose(minecraft.level, framePosition, poseStack);
+            }
+            renderGhostPreviewInFrame(
+                    minecraft, preview, poseStack, lineBuffer, fillBuffer, selectionAabb);
+        } finally {
+            poseStack.popPose();
+        }
+    }
+
+    private static void renderGhostPreviewInFrame(Minecraft minecraft, ShapeDataRecords.GhostPreview preview,
+            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer, AABB selectionAabb) {
+
         // ── Confirmed destructive work area ──
         if (preview.destructive() && preview.confirmedWorkArea()) {
             DestroyVisualState visual = destroyVisualState(ClientRtsController.get(), preview);
@@ -152,6 +177,16 @@ public final class ShapeGhostRenderer {
         BuildGhostRenderer.render(minecraft, preview, poseStack, lineBuffer, fillBuffer,
                 renderBlockGhost,
                 shouldRenderPlacementWireframe(preview));
+    }
+
+    private static BlockPos firstPreviewPosition(ShapeDataRecords.GhostPreview preview) {
+        if (preview == null) {
+            return null;
+        }
+        if (!preview.blocks().isEmpty()) {
+            return preview.blocks().getFirst();
+        }
+        return preview.emptyBlocks().isEmpty() ? null : preview.emptyBlocks().getFirst();
     }
 
     /**
@@ -389,8 +424,11 @@ public final class ShapeGhostRenderer {
         double az = controller.getAnchorZ();
         double r = controller.getMaxRadius();
 
-        List<BlockPos> filteredBlocks = RenderingUtil.filterBlocksWithinBounds(preview.blocks(), ax, az, r);
-        List<BlockPos> filteredEmptyBlocks = RenderingUtil.filterBlocksWithinBounds(preview.emptyBlocks(), ax, az, r);
+        Minecraft minecraft = Minecraft.getInstance();
+        List<BlockPos> filteredBlocks = RtsSableClientSpatialCompat.filterWithinBounds(
+                minecraft.level, preview.blocks(), ax, az, r);
+        List<BlockPos> filteredEmptyBlocks = RtsSableClientSpatialCompat.filterWithinBounds(
+                minecraft.level, preview.emptyBlocks(), ax, az, r);
 
         // If both lists are the original objects, no blocks were filtered out
         if (filteredBlocks == preview.blocks() && filteredEmptyBlocks == preview.emptyBlocks()) {

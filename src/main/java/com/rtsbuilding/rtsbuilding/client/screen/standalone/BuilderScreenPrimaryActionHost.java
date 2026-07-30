@@ -42,8 +42,8 @@ final class BuilderScreenPrimaryActionHost {
         return screen.isAdvancedShapeMode();
     }
 
-    boolean tryUseMainHandItemInAir() {
-        return screen.tryUseMainHandItemInAir();
+    boolean tryUseMainHandItemInAir(boolean shiftDown) {
+        return screen.tryUseMainHandItemInAir(shiftDown);
     }
 
     boolean canUseToolSlotShapeSource() {
@@ -56,5 +56,9 @@ final class BuilderScreenPrimaryActionHost {
 
     boolean hasMainHandItem() {
         return screen.hasMainHandItem();
+    }
+
+    boolean mainHandItemIsBlock() {
+        return screen.mainHandItemIsBlock();
     }
 }

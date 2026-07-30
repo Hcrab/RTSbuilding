@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsNativeLeftClickBridge;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -24,6 +25,9 @@ public final class RtsMiningHandlers {
     public static void handleMine(C2SRtsMinePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
+                if (RtsNativeLeftClickBridge.interceptMiningStart(serverPlayer, payload)) {
+                    return;
+                }
                 Direction face = Direction.from3DDataValue(payload.face());
                 ServiceRegistry.getInstance().mining().mine(
                         serverPlayer,
