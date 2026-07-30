@@ -16,6 +16,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DurableTaskSchedulerTest {
 
@@ -95,6 +96,31 @@ class DurableTaskSchedulerTest {
         assertEquals(List.of(32, 32), allowances);
         assertEquals(2, stats.slices());
         assertEquals(64, stats.processedUnits());
+    }
+
+    @Test
+    void oversizedCheckpointFailsOnlyTheOffendingTaskInsteadOfEscapingServerTick() {
+        AtomicLong clock = new AtomicLong();
+        TaskPersistenceCoordinator coordinator = coordinator();
+        TaskSnapshot initial = task();
+        coordinator.submit(initial);
+        DurableTaskScheduler scheduler = new DurableTaskScheduler(clock::get);
+        scheduler.register(TaskType.PLACEMENT, (snapshot, budget) -> {
+            CompoundTag oversized = new CompoundTag();
+            oversized.putByteArray("history", new byte[(int) TaskCodec.MAX_TASK_PAYLOAD_BYTES + 1]);
+            return new DurableTaskScheduler.SliceResult(
+                    snapshot.nextRevision(TaskLifecycleState.RUNNING, null, 1L,
+                            1, 1, 0, oversized), 1);
+        });
+
+        DurableTaskScheduler.TickStats stats = scheduler.tick(
+                coordinator, List.of(initial), 1_000_000L, 1, 1);
+
+        TaskSnapshot failed = coordinator.query().get(initial.id()).orElseThrow();
+        assertEquals(TaskLifecycleState.FAILED, failed.state());
+        assertEquals(2L, failed.revision());
+        assertTrue(failed.payload().isEmpty(), "失败终态必须回退到最后一个已验证 payload");
+        assertEquals(1, stats.processedUnits());
     }
 
     private static TaskPersistenceCoordinator coordinator() {
