@@ -27,10 +27,10 @@ public final class TaskCodec {
     public static final int MAX_TASKS = 100_000;
     public static final int MAX_MIGRATIONS = 4_096;
     /** 大型 plan 必须外置为引用，不能把任意大 NBT 塞进每 Tick checkpoint。 */
-    public static final long MAX_TASK_PAYLOAD_BYTES = 4L * 1024L * 1024L;
+    public static final long MAX_TASK_PAYLOAD_BYTES = 40L * 1024L * 1024L;
     public static final long MAX_IMAGE_ESTIMATED_BYTES = 96L * 1024L * 1024L;
     private static final int MAX_NBT_DEPTH = 64;
-    private static final int MAX_NBT_NODES = 100_000;
+    private static final int MAX_NBT_NODES = 1_000_000;
 
     private static final String TASKS = "tasks";
     private static final String TOMBSTONES = "tombstones";
@@ -303,7 +303,7 @@ public final class TaskCodec {
         SizeCounter counter = new SizeCounter(MAX_TASK_PAYLOAD_BYTES, MAX_NBT_NODES);
         measureTag(snapshot.payloadView(), counter, 0);
         if (counter.exceeded()) {
-            throw new TaskCodecException("单个 task payload 超过 4 MiB/100000 节点上限");
+            throw new TaskCodecException("单个 task payload 超过 40 MiB/1000000 节点上限");
         }
         long metadataBytes = 256L + NbtStringLimits.modifiedUtfBytes(snapshot.dimensionId());
         if (snapshot.waitKey() != null) {

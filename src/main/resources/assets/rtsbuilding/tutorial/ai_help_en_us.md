@@ -235,6 +235,8 @@ Small actions may finish inside one pipeline run. Large shapes and blueprints ar
 
 The durable Task is authoritative for long-running work; Workflow is its player-facing projection. Pausing, leaving a world, or rejoining must not let wall-clock expiry delete a non-terminal Task that still exists. Resume continues from persisted progress. When the last projection disappears, the server sends an idle state to clear stale client progress; deleting an already-missing row also triggers authoritative reconciliation.
 
+Each durable task payload is bounded by both a 40 MiB limit and a one-million-node NBT limit. If an unusually large area task exceeds either boundary, the Task Engine terminates only that task from its last valid checkpoint instead of allowing the capacity exception to escape the server tick; other tasks and the player's existing undo history remain intact.
+
 New player workflows take precedence over old unpinned workflows. When the workflow panel or the relevant task-family limit is full, the Task Engine evicts the oldest unpinned task in the current dimension and relevant family; a new request is rejected for capacity only when every relevant older task is pinned. A non-terminal durable task that has lost its valid visible Workflow projection is cancelled and cleaned up instead of remaining as a hidden slot blocker, and an old task restoring its projection cannot evict a newly created visible workflow. Internal funnel and recovery helper tasks may remain hidden, but they do not consume player workflow slots.
 
 ### Structured diagnostic logs

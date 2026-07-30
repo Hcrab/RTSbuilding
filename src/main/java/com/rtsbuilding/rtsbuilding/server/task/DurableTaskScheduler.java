@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.task;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskCodec;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot;
 
@@ -66,7 +69,19 @@ public final class DurableTaskScheduler {
                     throw new IllegalStateException("未产生新 revision 时不得修改 durable snapshot");
                 }
             } else if (after.revision() == before.revision() + 1L) {
-                coordinator.replace(after);
+                try {
+                    coordinator.replace(after);
+                } catch (TaskCodec.TaskCodecException oversizedPayload) {
+                    /*
+                     * 世界操作可能已经发生，因此不能重跑当前 slice。保留最后一个已验证 payload，
+                     * 将唯一出问题的任务转成终态并建立墓碑；这样最多放弃该任务，绝不拖垮服务器 tick。
+                     */
+                    RtsbuildingMod.LOGGER.error(
+                            "[TaskScheduler] 任务 {} ({}) 的新 payload 无法持久化，已安全放弃该任务",
+                            before.id(), before.type(), oversizedPayload);
+                    after = failFromLastValidSnapshot(before, after.updatedGameTime());
+                    coordinator.replace(after);
+                }
                 if (after.state().terminal()) {
                     coordinator.requestTombstone(after.id(), after.updatedGameTime());
                 }
@@ -81,6 +96,14 @@ public final class DurableTaskScheduler {
         }
         long elapsed = Math.max(0L, nanoClock.getAsLong() - started);
         return new TickStats(slices, processed, elapsed, elapsed >= maxNanos, processed >= maxUnits);
+    }
+
+    /** 使用最后一个通过容量校验的 payload 生成可持久化终态，避免再次携带超额数据。 */
+    private static TaskSnapshot failFromLastValidSnapshot(TaskSnapshot before, long attemptedGameTime) {
+        long failureGameTime = Math.max(before.updatedGameTime(), attemptedGameTime);
+        return before.nextRevision(
+                TaskLifecycleState.FAILED, null, failureGameTime,
+                before.cursorUnits(), before.succeededUnits(), before.failedUnits(), before.payload());
     }
 
     private static long saturatingAdd(long value, long delta) {
