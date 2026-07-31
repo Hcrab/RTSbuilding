@@ -110,7 +110,8 @@ public final class RtsCrossDimensionStorageWakeService {
         }
     }
 
-    int activeLeaseCount(UUID playerId) {
+    /** 返回诊断和 GameTest 可见的当前短租约数，不暴露票据实现细节。 */
+    public int activeLeaseCount(UUID playerId) {
         return leases.size(playerId);
     }
 

@@ -100,4 +100,32 @@ public final class RtsCrossDimensionStorageGameTests {
         RtsServerGameTests.stopPlayers(player);
         helper.succeed();
     }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
+    public static void sameCoordinateWakeLeasesKeepDimensionIdentityAndReleaseTogether(
+            GameTestHelper helper) {
+        ServerPlayer player = RtsServerGameTests.startRtsPlayer(helper, GameType.SURVIVAL);
+        ServerLevel overworld = helper.getLevel();
+        ServerLevel nether = overworld.getServer().getLevel(Level.NETHER);
+        ServerLevel end = overworld.getServer().getLevel(Level.END);
+        helper.assertTrue(nether != null && end != null,
+                "GameTest 服务端应同时创建下界与末地");
+
+        BlockPos sameCoordinates = FAR_NETHER_POS.offset(96, 0, 96);
+        RtsCrossDimensionStorageWakeService.INSTANCE.ensureReady(
+                player, nether, sameCoordinates);
+        RtsCrossDimensionStorageWakeService.INSTANCE.ensureReady(
+                player, end, sameCoordinates);
+        helper.assertTrue(RtsCrossDimensionStorageWakeService.INSTANCE
+                        .activeLeaseCount(player.getUUID()) == 2,
+                "同坐标的下界与末地端点必须占用两个维度化租约，不能互相覆盖");
+
+        RtsCrossDimensionStorageWakeService.INSTANCE.releasePlayer(
+                overworld.getServer(), player.getUUID());
+        helper.assertTrue(RtsCrossDimensionStorageWakeService.INSTANCE
+                        .activeLeaseCount(player.getUUID()) == 0,
+                "玩家离开时应一次释放其所有跨维度短租约");
+        RtsServerGameTests.stopPlayers(player);
+        helper.succeed();
+    }
 }
