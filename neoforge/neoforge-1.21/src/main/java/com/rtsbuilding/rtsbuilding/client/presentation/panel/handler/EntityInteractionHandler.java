@@ -15,14 +15,7 @@ import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.animal.horse.AbstractHorse;
-import net.minecraft.world.entity.npc.AbstractVillager;
-import net.minecraft.world.entity.vehicle.ContainerEntity;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.slf4j.Logger;
@@ -31,11 +24,9 @@ import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
 
 import static com.rtsbuilding.rtsbuilding.client.presentation.event.model.EventResult.CONSUMED;
 import static com.rtsbuilding.rtsbuilding.client.presentation.event.model.EventResult.PASS;
-import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
 
 public final class EntityInteractionHandler {
 
@@ -127,9 +118,6 @@ public final class EntityInteractionHandler {
         if (hit.hasEntity() && hit.entityHit() != null) {
             
             Entity target = hit.entityHit().getEntity();
-            if (screen.hasContainerScreen() && isContainerEntity(target)) {
-                screen.closeContainerScreen();
-            }
 
             int entityId = target.getId();
             Vec3 hitLocation = hit.entityHit().getLocation();
@@ -140,10 +128,6 @@ public final class EntityInteractionHandler {
 
         if (hit.hasBlock() && hit.blockHit() != null) {
             BlockHitResult blockHit = hit.blockHit();
-            
-            if (screen.hasContainerScreen() && isContainerBlock(mc.level, blockHit.getBlockPos())) {
-                screen.closeContainerScreen();
-            }
 
             RtsClientPacketGateway.sendInteractEntityEmptyHand(
                     NetworkConstants.NO_ENTITY,
@@ -298,26 +282,5 @@ public final class EntityInteractionHandler {
 
     public SelectionHighlight getHighlight() {
         return highlight;
-    }
-
-    
-    
-    
-
-    
-    private static boolean isContainerBlock(Level level, BlockPos pos) {
-        BlockState state = level.getBlockState(pos);
-        if (state.getMenuProvider(level, pos) != null) return true;
-        BlockEntity be = level.getBlockEntity(pos);
-        if (be instanceof MenuProvider) return true;
-        return BoxTargetCollector.hasUseOverride(state.getBlock());
-    }
-
-    
-    private static boolean isContainerEntity(Entity entity) {
-        return entity instanceof MenuProvider
-                || entity instanceof AbstractVillager
-                || entity instanceof AbstractHorse
-                || entity instanceof ContainerEntity;
     }
 }

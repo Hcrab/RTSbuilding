@@ -514,7 +514,6 @@ public final class SelectPanel extends RtsPanel {
                     NetworkConstants.NO_ENTITY,
                     be.hitLocation(), be.blockHit(), rayOrigin, rayDir);
         }
-        setOpen(false);
     }
 
     

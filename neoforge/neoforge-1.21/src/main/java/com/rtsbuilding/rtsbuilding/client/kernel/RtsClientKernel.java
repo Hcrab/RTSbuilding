@@ -6,8 +6,10 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraMod
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.remote.RemoteMenuModule;
 import com.rtsbuilding.rtsbuilding.client.input.InputPipeline;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPipeline;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -167,10 +169,9 @@ public final class RtsClientKernel {
 
     
     private void ensureBuilderScreenOpen() {
-        if (mc().screen instanceof BuilderScreen) return;
-        
-        RemoteMenuModule rmm = module(RemoteMenuModule.class);
-        if (rmm != null && rmm.isRemoteMenuOpen()) return;
+        Screen screen = mc().screen;
+        if (screen instanceof BuilderScreen || screen instanceof RtsCraftTerminalScreen) return;
+        if (screen != null) return;
         CameraModule cam = module(CameraModule.class);
         if (cam != null && cam.getState().isEnabled()) {
             mc().setScreen(new BuilderScreen());
@@ -180,6 +181,7 @@ public final class RtsClientKernel {
     
     private void closeBuilderScreenIfOpen() {
         if (mc().screen instanceof BuilderScreen) {
+            LOG.debug("RTS: Closing BuilderScreen via closeBuilderScreenIfOpen (RTS toggled off)");
             mc().setScreen(null);
         }
     }

@@ -21,6 +21,11 @@ public final class ContainerInputForwarder {
     }
 
     
+    public void swap(AbstractContainerScreen<?> newScreen) {
+        screen = newScreen;
+    }
+
+    
     public boolean hasScreen() {
         return screen != null;
     }

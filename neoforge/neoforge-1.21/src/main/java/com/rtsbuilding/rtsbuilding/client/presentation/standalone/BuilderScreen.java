@@ -160,6 +160,8 @@ public class BuilderScreen extends Screen {
 
     @Override
     public void onClose() {
+        com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.debug(
+                "RTS: BuilderScreen.onClose() called");
         screenCoordinator.closeContainerScreen();
         this.topBarPanel.onRtsExited();
         super.onClose();

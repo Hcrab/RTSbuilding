@@ -20,20 +20,49 @@ abstract class MinecraftSetScreenMixin {
 
     @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true)
     private void rtsbuilding$onSetScreen(@Nullable Screen newScreen, CallbackInfo ci) {
-        CameraModule cam = RtsClientKernel.get().module(CameraModule.class);
-        if (cam == null || !cam.getState().isEnabled()) return;
-
         Minecraft mc = (Minecraft) (Object) this;
         Screen current = mc.screen;
 
+        if (newScreen == null && current instanceof BuilderScreen) {
+            RtsbuildingMod.LOGGER.info("RTS: setScreen(null) while BuilderScreen is current; closing RTS UI",
+                    new RuntimeException("stack"));
+        }
         if (newScreen == null) return;
         if (newScreen instanceof BuilderScreen || newScreen instanceof RtsCraftTerminalScreen) return;
-        if (!(current instanceof BuilderScreen builderScreen)) return;
+        if (newScreen instanceof AbstractContainerScreen<?>) {
+            RtsbuildingMod.LOGGER.debug("RTS: setScreen({}) while current={}; intercepted={}",
+                    newScreen.getClass().getSimpleName(),
+                    current == null ? "null" : current.getClass().getSimpleName(),
+                    current instanceof BuilderScreen);
+        }
+        if (!(current instanceof BuilderScreen builderScreen)) {
+            CameraModule cam = RtsClientKernel.get().module(CameraModule.class);
+            if (cam == null || !cam.getState().isEnabled()) return;
+            if (!(newScreen instanceof AbstractContainerScreen<?> orphanContainer)) return;
+            try {
+                RtsbuildingMod.LOGGER.info("RTS: Reopening BuilderScreen for container {} (current screen was {})",
+                        orphanContainer.getClass().getSimpleName(),
+                        current == null ? "null" : current.getClass().getSimpleName());
+                mc.setScreen(new BuilderScreen());
+                if (mc.screen instanceof BuilderScreen reopened) {
+                    reopened.showContainerScreen(orphanContainer);
+                }
+            } catch (Throwable throwable) {
+                RtsbuildingMod.LOGGER.error("RTS: Failed to reopen BuilderScreen for container overlay; cancelling vanilla screen switch.",
+                        throwable);
+            } finally {
+                ci.cancel();
+            }
+            return;
+        }
+        if (!(newScreen instanceof AbstractContainerScreen<?> containerScreen)) return;
 
-        if (newScreen instanceof AbstractContainerScreen<?> containerScreen) {
-            RtsbuildingMod.LOGGER.debug("RTS: Intercepting {} as overlay in BuilderScreen via mixin",
-                    containerScreen.getClass().getSimpleName());
+        try {
             builderScreen.showContainerScreen(containerScreen);
+        } catch (Throwable throwable) {
+            RtsbuildingMod.LOGGER.error("RTS: Failed to show container overlay {} in BuilderScreen; cancelling vanilla screen switch.",
+                    containerScreen.getClass().getSimpleName(), throwable);
+        } finally {
             ci.cancel();
         }
     }

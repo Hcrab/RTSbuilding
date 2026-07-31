@@ -24,7 +24,7 @@ public final class ContainerScreenPanel extends RtsPanel {
     private final ContainerInputForwarder inputForwarder;
 
     
-    private final Component title;
+    private Component title;
 
     
     @Nullable
@@ -57,6 +57,38 @@ public final class ContainerScreenPanel extends RtsPanel {
     @Nullable
     public AbstractContainerScreen<?> getContainerScreen() {
         return inputForwarder.getScreen();
+    }
+
+    
+    public void refresh(AbstractContainerScreen<?> containerScreen) {
+        if (containerScreen == null) return;
+        inputForwarder.swap(containerScreen);
+        this.title = containerScreen.getTitle();
+        this.computedPanelSize = null;
+
+        if (this.screen == null) return;
+
+        int[] contentBounds = scanContentBounds(containerScreen);
+        int naturalW = Math.max(getMinWindowWidth(), contentBounds[0] + PANEL_PAD_H + 2);
+        int naturalH = Math.max(getMinWindowHeight(), contentBounds[1] + PANEL_PAD_V + getTitleBarHeight() + 8);
+
+        this.computedPanelSize = new int[]{naturalW, naturalH};
+        this.bounds.setDefaults(naturalW, naturalH);
+
+        if (!isResizing()) {
+            setWindowWidth(Math.min(Math.max(getWindowWidth(), naturalW), getMaxWindowWidth()));
+            setWindowHeight(Math.min(Math.max(getWindowHeight(), naturalH), getMaxWindowHeight()));
+            clampWindowToScreen();
+        }
+
+        int cw = Math.max(1, getWindowWidth() - 2);
+        int ch = Math.max(1, getWindowHeight() - getTitleBarHeight() - 8);
+        inputForwarder.init(cw, ch);
+        onBoundsChanged();
+        markBroughtToFront();
+        if (this.screen != null) {
+            this.screen.getFloatingWindowLayer().markSortDirty();
+        }
     }
 
     
@@ -206,8 +238,12 @@ public final class ContainerScreenPanel extends RtsPanel {
             g.pose().translate(cx, cy, 0);
             renderingOverlay = true;
             try {
-                
-                cs.render(g, mouseX - cx, mouseY - cy, partialTick);
+                RenderSystem.enableDepthTest();
+                try {
+                    cs.render(g, mouseX - cx, mouseY - cy, partialTick);
+                } finally {
+                    RenderSystem.disableDepthTest();
+                }
             } finally {
                 renderingOverlay = false;
             }

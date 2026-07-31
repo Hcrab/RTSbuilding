@@ -2,17 +2,15 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.select;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.item.ItemStack;
@@ -23,34 +21,14 @@ public final class SelectEntryRenderer {
     
 
     
-    private static final ResourceLocation SELECT_BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
-    private static final int SELECT_BG_TEX_W = 32;
-    private static final int SELECT_BG_TEX_FILE_H = 48;
-    
-    private static final int SELECT_BG_STATE_H = 16;
-    
-    private static final int SELECT_BG_BORDER = 4;
-    private static final TextureInfo SELECT_BG_TEX_INFO = new TextureInfo(
-            SELECT_BG_TEXTURE, SELECT_BG_TEX_W, SELECT_BG_TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion SELECT_BG_NINE_SLICE = NineSliceRegion.fullTheme(
-            SELECT_BG_TEX_INFO, SELECT_BG_STATE_H, SELECT_BG_BORDER);
-
     private SelectEntryRenderer() {}
 
     
 
     
     public static void renderEntryBg(GuiGraphics g, int x, int y, int w, int h, float t) {
-        CrossFadeRenderer.render(g, t,
-                () -> SpriteRenderer.drawNineSlice(g,
-                        SELECT_BG_NINE_SLICE.withTheme().withVOffset(0),
-                        x, y, w, h),
-                () -> SpriteRenderer.drawNineSlice(g,
-                        SELECT_BG_NINE_SLICE.withTheme().withVOffset(SELECT_BG_STATE_H),
-                        x, y, w, h));
+        int fill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), t);
+        SdfRenderer.drawBorderedRoundedRect(g, x, y, w, h, 4, DarkUiPalette.black(), fill, 1);
     }
 
     

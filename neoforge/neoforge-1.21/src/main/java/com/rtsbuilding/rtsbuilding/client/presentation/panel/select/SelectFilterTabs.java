@@ -1,15 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.select;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
 
 public final class SelectFilterTabs {
 
@@ -19,25 +17,7 @@ public final class SelectFilterTabs {
     
 
     
-    private static final ResourceLocation FILTER_BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
-    private static final int FILTER_BG_TEX_W = 32;
-    private static final int FILTER_BG_TEX_FILE_H = 48;
-    
-    private static final int FILTER_BG_STATE_H = 16;
-    
-    private static final int FILTER_BG_SELECTED_V_OFFSET = 32;
-    
-    private static final int FILTER_BG_BORDER = 2;
 
-    private static final TextureInfo FILTER_BG_TEX_INFO = new TextureInfo(
-            FILTER_BG_TEXTURE, FILTER_BG_TEX_W, FILTER_BG_TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion FILTER_BG_NINE_SLICE = NineSliceRegion.fullTheme(
-            FILTER_BG_TEX_INFO, FILTER_BG_STATE_H, FILTER_BG_BORDER);
-
-    
 
     
     public enum FilterMode {
@@ -126,25 +106,15 @@ public final class SelectFilterTabs {
             float hoverT = hoverStates[i].track(hovered);
 
             
-            final int fTabX = tabX;
-            final int fTabW = tabW;
-            if (selected) {
-                SpriteRenderer.drawNineSlice(g,
-                        FILTER_BG_NINE_SLICE.withTheme().withVOffset(FILTER_BG_SELECTED_V_OFFSET),
-                        fTabX, tabY, fTabW, TAB_BAR_H);
-            } else {
-                CrossFadeRenderer.render(g, hoverT,
-                        () -> SpriteRenderer.drawNineSlice(g,
-                                FILTER_BG_NINE_SLICE.withTheme().withVOffset(0),
-                                fTabX, tabY, fTabW, TAB_BAR_H),
-                        () -> SpriteRenderer.drawNineSlice(g,
-                                FILTER_BG_NINE_SLICE.withTheme().withVOffset(FILTER_BG_STATE_H),
-                                fTabX, tabY, fTabW, TAB_BAR_H));
-            }
+            int fillColor = selected
+                    ? DarkUiPalette.toggleOn()
+                    : ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), hoverT);
+            SdfRenderer.drawBorderedRoundedRect(g, tabX, tabY, tabW, TAB_BAR_H, 4,
+                    DarkUiPalette.black(), fillColor, 1);
 
             
             int color = selected || hovered ? activeColor : textColor;
-            int textX = fTabX + (fTabW - labelW) / 2;
+            int textX = tabX + (tabW - labelW) / 2;
             int textY = tabY + (TAB_BAR_H - font.lineHeight) / 2;
             TextRenderer.draw(g, label, textX, textY, color);
 

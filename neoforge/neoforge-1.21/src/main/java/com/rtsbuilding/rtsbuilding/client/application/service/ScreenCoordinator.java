@@ -17,6 +17,18 @@ public final class ScreenCoordinator {
     public void showContainerScreen(Screen screen, RtsFloatingWindowLayer floatingWindowLayer, BuilderScreen builderScreen) {
         if (!(screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?> containerScreen)) return;
 
+        if (this.containerScreenPanel != null && this.containerScreenPanel.isOpen()) {
+            try {
+                this.containerScreenPanel.refresh(containerScreen);
+                return;
+            } catch (Throwable throwable) {
+                com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.error(
+                        "RTS: Failed to refresh open container panel; reopening a fresh panel.",
+                        throwable);
+                this.containerScreenPanel.setOpen(false);
+            }
+        }
+
         if (this.containerScreenPanel != null) {
             this.containerScreenPanel.setOpen(false);
         }
