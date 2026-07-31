@@ -5,6 +5,8 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageM
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.animate.Easing;
+import java.util.HashMap;
+import java.util.Map;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
@@ -17,10 +19,7 @@ public final class PriorityEditController {
     private long editStartTime;
     private boolean isEditing;
 
-    private final AnimFloat priorityBoxAnim = AnimFloat.of(0f, 100L, Easing.EASE_OUT_QUAD);
-    private int lastAnimRow = -1;
-    private float lastAnimBaseW;
-
+    private final Map<Integer, AnimFloat> rowAnims = new HashMap<>();
     private final List<RowLayout> rowLayouts;
 
     public PriorityEditController(List<RowLayout> rowLayouts) {
@@ -33,9 +32,7 @@ public final class PriorityEditController {
         editBuffer.setLength(0);
         editBuffer.append(priority);
         editStartTime = System.currentTimeMillis();
-        lastAnimRow = rowIndex;
-        lastAnimBaseW = net.minecraft.client.Minecraft.getInstance().font.width(String.valueOf(priority)) + 4 * 2;
-        priorityBoxAnim.target(1f);
+        rowAnims.computeIfAbsent(rowIndex, k -> AnimFloat.of(0f, 100L, Easing.EASE_OUT_QUAD)).target(1f);
     }
 
     public void tryCommit() {
@@ -60,23 +57,26 @@ public final class PriorityEditController {
     }
 
     public void doCancel() {
-        if (editingIndex >= 0 && editingIndex < rowLayouts.size()) {
-            lastAnimRow = editingIndex;
-            lastAnimBaseW = rowLayouts.get(editingIndex).priorityW;
+        if (editingIndex >= 0) {
+            AnimFloat anim = rowAnims.get(editingIndex);
+            if (anim != null) {
+                anim.target(0f);
+            } else {
+                anim = AnimFloat.of(1f, 100L, Easing.EASE_OUT_QUAD);
+                anim.target(0f);
+                rowAnims.put(editingIndex, anim);
+            }
         }
         isEditing = false;
         editingIndex = -1;
         editBuffer.setLength(0);
-        priorityBoxAnim.target(0f);
     }
 
     public void tick(int count) {
-        if (!priorityBoxAnim.isAnimating() && !isEditing) {
-            lastAnimRow = -1;
-        }
         if (isEditing && editingIndex >= count) {
             doCancel();
         }
+        rowAnims.values().removeIf(anim -> !anim.isAnimating() && anim.get() < 0.01f);
     }
 
     public boolean isEditing() { return isEditing; }
@@ -91,13 +91,15 @@ public final class PriorityEditController {
 
     public long getStartTime() { return editStartTime; }
 
-    public float getAnimValue() { return priorityBoxAnim.get(); }
+    public float getAnimValue(int rowIndex) {
+        AnimFloat anim = rowAnims.get(rowIndex);
+        return anim != null ? anim.get() : 0f;
+    }
 
     public float computePriorityBoxWidth(int normalW, boolean isEditingRow, int rowIndex) {
-        boolean applyAnim = isEditingRow || (rowIndex == lastAnimRow && lastAnimRow >= 0);
-        if (!applyAnim) return normalW;
-        float baseW = isEditingRow ? normalW : lastAnimBaseW;
-        return baseW + (40 - baseW) * priorityBoxAnim.get();
+        float t = getAnimValue(rowIndex);
+        if (t < 0.01f && !isEditingRow) return normalW;
+        return normalW + (40 - normalW) * t;
     }
 
     public boolean isClickOnEditBox(int mx, int my, int parentX, int parentY, int scroll) {

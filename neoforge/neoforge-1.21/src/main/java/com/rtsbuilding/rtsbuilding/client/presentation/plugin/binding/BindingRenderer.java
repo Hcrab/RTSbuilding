@@ -7,12 +7,11 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageM
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.OverlayContext;
 
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -29,6 +28,12 @@ public final class BindingRenderer {
     private final List<RowLayout> rowLayouts;
     private final PriorityEditController editController;
     private final EntryAnimationController animController;
+
+    private final Map<Integer, AnimFloat> arrowHoverAnims = new HashMap<>();
+    private final Map<Integer, AnimFloat> locateHoverAnims = new HashMap<>();
+    private final Map<Integer, AnimFloat> unbindHoverAnims = new HashMap<>();
+    private final Map<Integer, AnimFloat> toggleHoverAnims = new HashMap<>();
+    private final Map<Integer, AnimFloat> priorityHoverAnims = new HashMap<>();
 
     public BindingRenderer(OverlayContext ctx, ScrollBar scrollBar, List<RowLayout> rowLayouts,
                     PriorityEditController editController, EntryAnimationController animController) {
@@ -52,14 +57,14 @@ public final class BindingRenderer {
 
     private static final int ARROW_BTN_SIZE = 14;
 
-    private static final int ARROW_DRAW_SIZE = 10;
+    private static final int ARROW_DRAW_SIZE = 6;
     private static final int SCROLLBAR_W = 7;
     private static final int RIGHT_MARGIN = 4;
     private static final int LEFT_PAD = 5;
     private static final int TOP_PAD = 2;
 
     private static final int EDIT_INPUT_W = 40;
-    private static final int EDIT_INPUT_H = 13;
+    private static final int EDIT_INPUT_H = ARROW_BTN_SIZE;
 
     private static final long CURSOR_BLINK_MS = 600;
 
@@ -71,53 +76,6 @@ public final class BindingRenderer {
 
     private static final int LOCATE_BTN_COLOR = 0xFF8080E0;
     private static final int LOCATE_BTN_HOVER_COLOR = 0xFFA0A0FF;
-
-    private static final ResourceLocation INPUT_BOX_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_4.png");
-    private static final int INPUT_BOX_TEX_W = 32;
-    private static final int INPUT_BOX_TEX_H = 32;
-    private static final int INPUT_BOX_STATE_H = 16;
-    private static final int INPUT_BOX_BORDER = 4;
-    private static final TextureInfo INPUT_BOX_TEX_INFO = new TextureInfo(
-            INPUT_BOX_TEXTURE, INPUT_BOX_TEX_W, INPUT_BOX_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion INPUT_BOX_NINE_SLICE = NineSliceRegion.fullTheme(
-            INPUT_BOX_TEX_INFO, INPUT_BOX_STATE_H, INPUT_BOX_BORDER);
-
-    private static final ResourceLocation BTN_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
-    private static final int BTN_TEX_W = 32;
-    private static final int BTN_TEX_H = 48;
-    private static final int BTN_STATE_H = 16;
-    private static final int BTN_BORDER = 4;
-    private static final TextureInfo BTN_TEX_INFO = new TextureInfo(
-            BTN_TEXTURE, BTN_TEX_W, BTN_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion BTN_NINE_SLICE = NineSliceRegion.fullTheme(
-            BTN_TEX_INFO, BTN_STATE_H, BTN_BORDER);
-
-    private static final ResourceLocation ARROW_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/arrow.png");
-    private static final int ARROW_TEX_FILE_W = 1024;
-    private static final int ARROW_TEX_H = 512;
-    private static final TextureInfo ARROW_TEX_INFO = new TextureInfo(
-            ARROW_TEXTURE, ARROW_TEX_FILE_W, ARROW_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
-
-    private static final SpriteRegion ARROW_SPRITE = new SpriteRegion(
-            ARROW_TEX_INFO, 0, 0, ARROW_TEX_INFO.halfWidth(), ARROW_TEX_H).withTheme();
-
-    private static final ResourceLocation BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_7.png");
-    private static final int BG_TEX_W = 32;
-    private static final int BG_TEX_H = 48;
-    private static final int BG_STATE_H = 16;
-    private static final int BG_BORDER = 4;
-    private static final TextureInfo BG_TEX_INFO = new TextureInfo(
-            BG_TEXTURE, BG_TEX_W, BG_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion BG_NINE_SLICE = NineSliceRegion.fullTheme(
-            BG_TEX_INFO, BG_STATE_H, BG_BORDER);
 
     public void renderContent(GuiGraphics g) {
         StorageModule sm = RtsClientKernel.get().module(StorageModule.class);
@@ -151,11 +109,6 @@ public final class BindingRenderer {
             RowLayout.ButtonBar btnBar = new RowLayout.ButtonBar(mc, scrollBar.isVisible(), x, w);
             int fontColor = ThemeManager.getTextColor();
 
-            NineSliceRegion themedBtnNormal = BTN_NINE_SLICE.withTheme();
-            NineSliceRegion themedBtnHover = BTN_NINE_SLICE.withTheme().withVOffset(BTN_STATE_H);
-            NineSliceRegion themedInputNormal = INPUT_BOX_NINE_SLICE.withTheme();
-            NineSliceRegion themedInputFocus = INPUT_BOX_NINE_SLICE.withTheme().withVOffset(INPUT_BOX_STATE_H);
-
             rowLayouts.clear();
             int clipY = y + TOP_PAD;
             for (int vi = 0; vi < count; vi++) {
@@ -165,8 +118,7 @@ public final class BindingRenderer {
                 rowLayouts.add(rl);
 
                 renderSingleRow(g, x, y, scroll, vi, origIdx, rl, entries, names, iconIds, priorities,
-                        btnBar, fontColor, mc, mouseX, mouseY, clipY, visibleH,
-                        themedBtnNormal, themedBtnHover, themedInputNormal, themedInputFocus);
+                        btnBar, fontColor, mc, mouseX, mouseY, clipY, visibleH);
             }
         } else {
             String hint = "No linked";
@@ -184,22 +136,10 @@ public final class BindingRenderer {
         int firstRow = scroll / ROW_H;
         int totalRows = visibleH / ROW_H + 2;
 
-        int bgThemeOffset = SpriteRenderer.getNineSliceThemeOffset(BG_NINE_SLICE);
-        NineSliceRegion normalEvenSlice = BG_NINE_SLICE.withVOffset(0);
-        NineSliceRegion normalOddSlice = BG_NINE_SLICE.withVOffset(BG_STATE_H);
-        NineSliceRegion hoveredSlice = BG_NINE_SLICE.withVOffset(BG_STATE_H * 2);
-
         for (int i = firstRow; i < firstRow + totalRows; i++) {
             int bgTop = y + TOP_PAD + i * ROW_H - scroll;
-            boolean hovered = !ctx.isDividerDragging() && i < count
-                    && mouseX >= x && mouseX < x + w
-                    && mouseY >= bgTop && mouseY < bgTop + ROW_H;
-
-            float barHoverT = animController.tickBarHover(i, hovered);
-            NineSliceRegion baseSlice = (i % 2 == 0) ? normalEvenSlice : normalOddSlice;
-            CrossFadeRenderer.render(g, barHoverT,
-                    () -> SpriteRenderer.drawNineSlice(g, baseSlice, bgThemeOffset, x, bgTop, w, ROW_H),
-                    () -> SpriteRenderer.drawNineSlice(g, hoveredSlice, bgThemeOffset, x, bgTop, w, ROW_H));
+            int color = (i % 2 == 0) ? DarkUiPalette.p7() : DarkUiPalette.p6();
+            g.fill(x, bgTop, x + w, bgTop + ROW_H, color);
         }
     }
 
@@ -208,9 +148,7 @@ public final class BindingRenderer {
                                   List<LinkedStorageEntry> entries, List<String> names,
                                   List<String> iconIds, List<Integer> priorities,
                                   RowLayout.ButtonBar btnBar, int fontColor, Minecraft mc,
-                                  int mouseX, int mouseY, int clipY, int clipH,
-                                  NineSliceRegion themedBtnNormal, NineSliceRegion themedBtnHover,
-                                  NineSliceRegion themedInputNormal, NineSliceRegion themedInputFocus) {
+                                  int mouseX, int mouseY, int clipY, int clipH) {
         int lineH = mc.font.lineHeight;
 
         int baseRowY = TOP_PAD + vi * ROW_H;
@@ -234,7 +172,7 @@ public final class BindingRenderer {
         int arrowBtnY = rowCenterY - ARROW_BTN_SIZE / 2;
         rl.arrowBtnX = cursorX;
         if (actuallyRender) {
-            renderArrowButton(g, cursorX, arrowBtnY, vi == 0, themedBtnNormal);
+            renderArrowButton(g, cursorX, arrowBtnY, vi == 0, mouseX, mouseY);
         }
         cursorX += ARROW_BTN_SIZE + PRIORITY_ICON_GAP;
         rl.priorityX = cursorX;
@@ -243,8 +181,12 @@ public final class BindingRenderer {
         rl.priorityW = priorityBoxW;
         float animW = editController.computePriorityBoxWidth(priorityBoxW, isEditingRow, vi);
         if (actuallyRender || isEditingRow) {
+            boolean hoverPriority = !ctx.isDividerDragging() && !isEditingRow
+                    && mouseX >= cursorX && mouseX < cursorX + (int) animW
+                    && mouseY >= rowCenterY - EDIT_INPUT_H / 2 && mouseY < rowCenterY + EDIT_INPUT_H / 2;
             renderPriorityBox(g, cursorX, rowCenterY, String.valueOf(priority),
-                    isEditingRow, dimmed, (int) animW, themedInputNormal, themedInputFocus);
+                    isEditingRow, dimmed, (int) animW, vi,
+                    priorityHoverAnims.computeIfAbsent(vi, k -> AnimFloat.hover()).track(hoverPriority));
         }
         cursorX += (int) animW + PRIORITY_ICON_GAP;
 
@@ -265,28 +207,33 @@ public final class BindingRenderer {
         }
 
         if (actuallyRender) {
-            renderActionButtons(g, entry, rl, btnBar, rowCenterY, mouseX, mouseY, themedBtnNormal, themedBtnHover);
+            renderActionButtons(g, entry, rl, btnBar, rowCenterY, mouseX, mouseY);
         }
     }
 
-    private void renderArrowButton(GuiGraphics g, int btnX, int btnY, boolean isFirst, NineSliceRegion themedBtnSlice) {
-        SpriteRenderer.drawNineSlice(g, themedBtnSlice, btnX, btnY, ARROW_BTN_SIZE, ARROW_BTN_SIZE);
+    private void renderArrowButton(GuiGraphics g, int btnX, int btnY, boolean isFirst, int mouseX, int mouseY) {
+        boolean hovering = !ctx.isDividerDragging()
+                && inRect(mouseX, mouseY, btnX, btnY, ARROW_BTN_SIZE, ARROW_BTN_SIZE);
+        int rowIndex = rowLayouts.size();
+        AnimFloat anim = arrowHoverAnims.computeIfAbsent(rowIndex, k -> AnimFloat.hover());
+        float t = anim.track(hovering);
+        int fillColor = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), t);
+        SdfRenderer.drawBorderedRoundedRect(g, btnX, btnY, ARROW_BTN_SIZE, ARROW_BTN_SIZE, 4,
+                DarkUiPalette.black(), fillColor, 1);
         var pose = g.pose();
         pose.pushPose();
         pose.translate(btnX + ARROW_BTN_SIZE / 2, btnY + ARROW_BTN_SIZE / 2, 0);
-        if (isFirst) {
-            pose.mulPose(Axis.ZP.rotationDegrees(180f));
-        }
-        SpriteRenderer.drawSprite(g, ARROW_SPRITE,
-                -ARROW_DRAW_SIZE / 2, -ARROW_DRAW_SIZE / 2,
-                ARROW_DRAW_SIZE, ARROW_DRAW_SIZE);
+        pose.mulPose(Axis.ZP.rotationDegrees(isFirst ? 90f : -90f));
+        int half = ARROW_DRAW_SIZE / 2;
+        SdfRenderer.drawChevron(g, -half, -half, ARROW_DRAW_SIZE, ARROW_DRAW_SIZE,
+                ThemeManager.getTextColor(), 0.5f);
         pose.popPose();
     }
 
     private void renderActionButtons(GuiGraphics g, LinkedStorageEntry entry, RowLayout rl,
-                                      RowLayout.ButtonBar btnBar, int rowCenterY, int mouseX, int mouseY,
-                                      NineSliceRegion themedBtnNormal, NineSliceRegion themedBtnHover) {
+                                      RowLayout.ButtonBar btnBar, int rowCenterY, int mouseX, int mouseY) {
         int btnY = rowCenterY - BTN_HEIGHT / 2;
+        int rowIndex = rowLayouts.size() - 1;
 
         String locateText;
         if (entry.worldAvailable()) {
@@ -304,7 +251,7 @@ public final class BindingRenderer {
                 && inRect(mouseX, mouseY, locateBtnX, btnY, locateBtnW, BTN_HEIGHT);
         drawTextButton(g, locateBtnX, btnY, locateText,
                 hoverLocate ? LOCATE_BTN_HOVER_COLOR : LOCATE_BTN_COLOR,
-                themedBtnNormal, themedBtnHover);
+                locateHoverAnims.computeIfAbsent(rowIndex * 3, k -> AnimFloat.hover()).track(hoverLocate));
 
         String unbindText = "解绑";
         int unbindBtnW = Minecraft.getInstance().font.width(unbindText) + BTN_PAD_H * 2;
@@ -315,7 +262,7 @@ public final class BindingRenderer {
                 && inRect(mouseX, mouseY, unbindX, btnY, unbindBtnW, BTN_HEIGHT);
         drawTextButton(g, unbindX, btnY, unbindText,
                 hoverUnbind ? UNBIND_HOVER_COLOR : UNBIND_COLOR,
-                themedBtnNormal, themedBtnHover);
+                unbindHoverAnims.computeIfAbsent(rowIndex * 3 + 1, k -> AnimFloat.hover()).track(hoverUnbind));
 
         String toggleText = entry.isExtractOnly() ? "仅提取" : "双向";
         int toggleBtnW = Minecraft.getInstance().font.width(toggleText) + BTN_PAD_H * 2;
@@ -327,36 +274,30 @@ public final class BindingRenderer {
         int toggleColor = entry.isExtractOnly() ? MODE_EXTRACT_COLOR : MODE_BI_COLOR;
         drawTextButton(g, toggleX, btnY, toggleText,
                 hoverToggle ? BTN_HOVER_FG : toggleColor,
-                themedBtnNormal, themedBtnHover);
+                toggleHoverAnims.computeIfAbsent(rowIndex * 3 + 2, k -> AnimFloat.hover()).track(hoverToggle));
     }
 
-    private void drawTextButton(GuiGraphics g, int btnX, int btnY, String text, int textColor,
-                                NineSliceRegion themedBtnNormal, NineSliceRegion themedBtnHover) {
+    private void drawTextButton(GuiGraphics g, int btnX, int btnY, String text, int textColor, float hoverT) {
         int btnW = Minecraft.getInstance().font.width(text) + BTN_PAD_H * 2;
-        NineSliceRegion slice = textColor == UNBIND_HOVER_COLOR
-                || textColor == LOCATE_BTN_HOVER_COLOR
-                || textColor == BTN_HOVER_FG
-                ? themedBtnHover : themedBtnNormal;
-        SpriteRenderer.drawNineSlice(g, slice, btnX, btnY, btnW, BTN_HEIGHT);
+        int fillColor = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), hoverT);
+        SdfRenderer.drawBorderedRoundedRect(g, btnX, btnY, btnW, BTN_HEIGHT, 4,
+                DarkUiPalette.black(), fillColor, 1);
         int lineH = Minecraft.getInstance().font.lineHeight;
         TextRenderer.drawCentered(g, Minecraft.getInstance().font, text,
                 btnX + btnW / 2, btnY + (BTN_HEIGHT - lineH) / 2, textColor);
     }
 
     private void renderPriorityBox(GuiGraphics g, int boxX, int centerY,
-                                    String priorityStr, boolean editing, boolean dimmed, int boxW,
-                                    NineSliceRegion themedInputNormal, NineSliceRegion themedInputFocus) {
+                                    String priorityStr, boolean editing, boolean dimmed, int boxW, int rowIndex,
+                                    float hoverT) {
         int boxY = centerY - EDIT_INPUT_H / 2;
 
-        float crossFadeT = editController.getAnimValue();
-        CrossFadeRenderer.render(g, crossFadeT,
-                () -> SpriteRenderer.drawNineSlice(g, themedInputNormal, boxX, boxY, boxW, EDIT_INPUT_H),
-                () -> SpriteRenderer.drawNineSlice(g, themedInputFocus, boxX, boxY, boxW, EDIT_INPUT_H));
+        SdfRenderer.drawInputBox(g, boxX, boxY, boxW, EDIT_INPUT_H, editController.getAnimValue(rowIndex), hoverT, 4);
 
         Minecraft mc = Minecraft.getInstance();
         int fontColor = ThemeManager.getTextColor();
         int textColor = editing ? fontColor : (dimmed ? (fontColor & 0xFFFFFF) | 0x60000000 : fontColor);
-        int textX = boxX + 3;
+        int textX = boxX + 4;
         int textY = boxY + (EDIT_INPUT_H - mc.font.lineHeight) / 2;
 
         if (editing) {

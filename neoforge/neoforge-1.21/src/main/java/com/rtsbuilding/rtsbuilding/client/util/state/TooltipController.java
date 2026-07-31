@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.util.state;
 
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
@@ -168,7 +168,7 @@ public class TooltipController {
         
         try (BlendScope blend = BlendScope.normal()) {
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-            SpriteRenderer.drawNineSliceFloatingPanel(ctx.g(), tipX, tipY, tipW, tipH, false);
+            SdfRenderer.drawVectorFloatingPanel(ctx.g(), tipX, tipY, tipW, tipH, false, alpha);
 
             
             float textY = tipY + padV;

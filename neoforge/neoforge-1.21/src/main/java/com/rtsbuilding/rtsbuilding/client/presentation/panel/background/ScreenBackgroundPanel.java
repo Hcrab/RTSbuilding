@@ -6,12 +6,10 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayout
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
 
 public final class ScreenBackgroundPanel implements RtsPanelApi {
 
@@ -21,27 +19,7 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
 
     
 
-    
-    private static final ResourceLocation SCREEN_UI_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/screen_ui.png");
-    
-    private static final int TEX_W = 256;
-    
-    private static final int TEX_FILE_H = 256;
-    
-    private static final int HALF_W = TEX_W / 2;       
-    
-    private static final int STATE_H = 128;
-    
-    private static final int ACTIVE_V_OFFSET = 128;
-    
-    private static final int BORDER = 8;
-    private static final TextureInfo SCREEN_TEX_INFO = new TextureInfo(
-            SCREEN_UI_TEXTURE, TEX_W, TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion SCREEN_NINE_SLICE = NineSliceRegion.fullTheme(
-            SCREEN_TEX_INFO, STATE_H, BORDER);
+
 
     
     public static final int BACKGROUND_TOP_Y = TopBarLayoutHelper.TOP_BAR_HEIGHT;
@@ -141,11 +119,8 @@ public final class ScreenBackgroundPanel implements RtsPanelApi {
 
         float t = hoverAnim.track(hovered);
 
-        NineSliceRegion normalSpec = SCREEN_NINE_SLICE.withTheme();
-        NineSliceRegion activeSpec = SCREEN_NINE_SLICE.withVOffset(ACTIVE_V_OFFSET).withTheme();
-        CrossFadeRenderer.render(g, t,
-                () -> SpriteRenderer.drawNineSlice(g, normalSpec, 0, BACKGROUND_TOP_Y, contentW, contentH),
-                () -> SpriteRenderer.drawNineSlice(g, activeSpec, 0, BACKGROUND_TOP_Y, contentW, contentH));
+        int color = ColorAnimation.lerpRGB(DarkUiPalette.accent(), ColorAnimation.scale(DarkUiPalette.accent(), 1.4f), t);
+        SdfRenderer.drawRoundedOutline(g, 1, BACKGROUND_TOP_Y + 1, contentW - 2, contentH - 2, 8, color);
     }
 
     

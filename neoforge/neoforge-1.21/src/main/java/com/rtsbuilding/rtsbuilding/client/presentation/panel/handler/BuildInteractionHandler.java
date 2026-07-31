@@ -16,6 +16,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.LeftSidebar
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.ModeSwitcher;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -67,17 +68,14 @@ public final class BuildInteractionHandler {
         }
 
         
-        if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && !isAltDown() && !isShiftDown()) {
-            
-            return CONSUMED;
-        }
 
         return PASS;
     }
 
     
     public EventResult handleMouseRelease(MouseReleaseEvent event, BuilderScreen screen,
-                                           TopBarPanel topBarPanel) {
+                                           TopBarPanel topBarPanel,
+                                           LeftSidebarPanel leftSidebarPanel) {
         int button = event.button();
 
         
@@ -90,7 +88,8 @@ public final class BuildInteractionHandler {
         if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT && !isAltDown() && !isShiftDown()
                 && !screen.isMouseOverRtsPanelApi(event.x(), event.y())
                 && isWorldArea(event.x(), event.y(), screen)
-                && isInBuildOrInteractiveMode(topBarPanel)) {
+                && isInBuildOrInteractiveMode(topBarPanel)
+                && !shouldSkipRightClickRelease(screen, leftSidebarPanel)) {
             
             if (!cameraInputLayer.wasDragged(button)) {
                 return runPrimaryActionAt(screen);
@@ -254,6 +253,14 @@ public final class BuildInteractionHandler {
     }
 
     
+    
+    private boolean shouldSkipRightClickRelease(BuilderScreen screen, LeftSidebarPanel leftSidebarPanel) {
+        if (!screen.isInteractiveMode()) return false;
+        if (leftSidebarPanel == null) return false;
+        if (leftSidebarPanel.isClickButtonSelected()) return true;
+        return kernel.renderPipeline().boxSelector.getPhase() == BoxSelector.Phase.COMPLETE;
+    }
+
     private static boolean isWorldArea(double mouseX, double mouseY, BuilderScreen screen) {
         int leftW = screen.getLeftSidebarWidth();
         if (mouseX < leftW) return false;

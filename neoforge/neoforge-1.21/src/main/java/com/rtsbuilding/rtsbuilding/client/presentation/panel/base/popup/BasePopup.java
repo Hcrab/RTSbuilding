@@ -1,9 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.popup;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
-import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import net.minecraft.client.gui.GuiGraphics;
 
 public abstract class BasePopup {
@@ -173,7 +174,7 @@ public abstract class BasePopup {
         int ph = menuHeight();
 
         
-        SdfRenderer.drawRoundedRect(g, x, y, pw, ph, 6, 0xFF2B2B2B);
+        SdfRenderer.drawBorderedRoundedRect(g, x, y, pw, ph, 6, DarkUiPalette.border(), 0xFF2B2B2B, 1);
 
         
         int hoveredIndex = -1;
@@ -194,7 +195,7 @@ public abstract class BasePopup {
             
             if (t > 0.001f) {
                 int bgColor = ColorAnimation.lerpRGB(bgNormal(), bgHover(), t);
-                g.fill(x + getPadH(), iy, x + pw - getPadH(), iy + getItemHeight(), bgColor);
+                SdfRenderer.drawRoundedRect(g, x + getPadH(), iy, pw - getPadH() * 2, getItemHeight(), 3, bgColor);
             }
 
             renderItem(g, i, iy, t);

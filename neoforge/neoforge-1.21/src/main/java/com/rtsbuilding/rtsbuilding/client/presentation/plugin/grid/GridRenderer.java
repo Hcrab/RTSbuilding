@@ -11,7 +11,10 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.Overla
 import com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid.GridSlotRenderer;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.Easing;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
@@ -57,18 +60,7 @@ public final class GridRenderer {
     private static final int BUTTON_SIZE = 18;
     private static final int BUTTON_SPACING = 1;
 
-    private static final ResourceLocation OVERLAY_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/down/slots_overlay.png");
-    private static final int OVERLAY_TEX_W = 32;
-    private static final int OVERLAY_TEX_H = 16;
-    private static final int OVERLAY_STATE_H = 16;
-    private static final int OVERLAY_BORDER = 2;
-    private static final TextureInfo OVERLAY_TEX_INFO = new TextureInfo(
-            OVERLAY_TEXTURE, OVERLAY_TEX_W, OVERLAY_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion OVERLAY_NINE_SLICE = NineSliceRegion.fullTheme(
-            OVERLAY_TEX_INFO, OVERLAY_STATE_H, OVERLAY_BORDER);
+
 
     private static final ResourceLocation NOTHING_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/down/nothing.png");
@@ -81,21 +73,7 @@ public final class GridRenderer {
     private static final SpriteRegion NOTHING_SPRITE = new SpriteRegion(
             NOTHING_TEX_INFO, 0, 0, NOTHING_TEX_W / 2, NOTHING_TEX_H);
 
-    private static final ResourceLocation SORT_BTN_BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
-    private static final int SORT_BTN_BG_TEX_W = 32;
-    private static final int SORT_BTN_BG_TEX_H = 48;
-    private static final int SORT_BTN_BG_STATE_H = 16;
-    private static final TextureInfo SORT_BTN_BG_TEX_INFO = new TextureInfo(
-            SORT_BTN_BG_TEXTURE, SORT_BTN_BG_TEX_W, SORT_BTN_BG_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
 
-    private static final SpriteRegion SORT_BTN_NORMAL = new SpriteRegion(
-            SORT_BTN_BG_TEX_INFO, 0, 0, SORT_BTN_BG_TEX_W / 2, SORT_BTN_BG_STATE_H);
-
-    private static final SpriteRegion SORT_BTN_HOVER = new SpriteRegion(
-            SORT_BTN_BG_TEX_INFO, 0, SORT_BTN_BG_STATE_H, SORT_BTN_BG_TEX_W / 2, SORT_BTN_BG_STATE_H);
 
     private static final ResourceLocation SORT_ICON_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/down/sort.png");
@@ -166,17 +144,7 @@ public final class GridRenderer {
 
     private static final int HINT_COLOR = 0x60_FFFFFF;
 
-    private static final ResourceLocation SEARCH_BOX_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_4.png");
-    private static final int SEARCH_BOX_TEX_W = 32;
-    private static final int SEARCH_BOX_TEX_H = 32;
-    private static final int SEARCH_BOX_STATE_H = 16;
-    private static final int SEARCH_BOX_BORDER = 4;
-    private static final TextureInfo SEARCH_BOX_TEX_INFO = new TextureInfo(
-            SEARCH_BOX_TEXTURE, SEARCH_BOX_TEX_W, SEARCH_BOX_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion SEARCH_BOX_NINE_SLICE = NineSliceRegion.fullTheme(
-            SEARCH_BOX_TEX_INFO, SEARCH_BOX_STATE_H, SEARCH_BOX_BORDER);
+
 
     private static final int SEARCH_INPUT_H = 18;
     private static final int SEARCH_INPUT_PAD = 4;
@@ -197,6 +165,12 @@ public final class GridRenderer {
     private final AnimFloat typeFilterBtnHover = AnimFloat.hover();
     private final AnimFloat containerBtnHover = AnimFloat.hover();
     private final AnimFloat recentSortHover = AnimFloat.hover();
+    private final AnimFloat searchFocusAnim = AnimFloat.of(0f, 100L, Easing.EASE_OUT_QUAD);
+    private final AnimFloat recentSearchFocusAnim = AnimFloat.of(0f, 100L, Easing.EASE_OUT_QUAD);
+    private final AnimFloat searchHoverAnim = AnimFloat.hover();
+    private final AnimFloat recentSearchHoverAnim = AnimFloat.hover();
+    private boolean prevSearchFocused;
+    private boolean prevRecentSearchFocused;
     private final AnimFloat slotHoverAnim = AnimFloat.hover();
     private final AnimFloat slotSelectedAnim = AnimFloat.hover();
     private int lastHoveredMain = -1;
@@ -232,8 +206,6 @@ public final class GridRenderer {
         int x = ctx.getX(), y = ctx.getY(), w = ctx.getWidth(), h = ctx.getHeight();
 
         int slotThemeOffset = SpriteRenderer.getThemeOffset(GridSlotRenderer.SLOT_NORMAL);
-        int overlayThemeOffset = SpriteRenderer.getNineSliceThemeOffset(OVERLAY_NINE_SLICE);
-
         Minecraft mc = Minecraft.getInstance();
 
         int mouseX = ctx.getLastMouseX();
@@ -246,9 +218,9 @@ public final class GridRenderer {
 
         currentItemTooltip.update(isHoveringOverCurrentSelection, false);
 
-        CrossFadeRenderer.render(g, currentItemHover.track(isHoveringOverCurrentSelection),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, itemDisplayX, itemDisplayY, itemDisplaySize, itemDisplaySize),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, itemDisplayX, itemDisplayY, itemDisplaySize, itemDisplaySize));
+        int itemFill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), currentItemHover.track(isHoveringOverCurrentSelection));
+        SdfRenderer.drawBorderedRoundedRect(g, itemDisplayX, itemDisplayY, itemDisplaySize, itemDisplaySize, 4,
+                DarkUiPalette.black(), itemFill, 1);
 
         if (!state.currentSelectedItem.isEmpty()) {
             RenderSystem.disableDepthTest();
@@ -276,9 +248,9 @@ public final class GridRenderer {
                 && mouseY >= sortBtnY && mouseY < sortBtnY + BUTTON_SIZE;
         sortButtonTooltip.update(isHoveringOverSortBtn, false);
 
-        CrossFadeRenderer.render(g, sortBtnHover.track(isHoveringOverSortBtn),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, sortBtnX, sortBtnY, BUTTON_SIZE, BUTTON_SIZE),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, sortBtnX, sortBtnY, BUTTON_SIZE, BUTTON_SIZE));
+        int sortFill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), sortBtnHover.track(isHoveringOverSortBtn));
+        SdfRenderer.drawBorderedRoundedRect(g, sortBtnX, sortBtnY, BUTTON_SIZE, BUTTON_SIZE, 4,
+                DarkUiPalette.black(), sortFill, 1);
         SpriteRenderer.drawSprite(g, switch (state.currentSortType) {
             case NAME -> SORT_NAME_ICON;
             case COUNT -> SORT_COUNT_ICON;
@@ -291,9 +263,9 @@ public final class GridRenderer {
                 && mouseY >= orderBtnY && mouseY < orderBtnY + BUTTON_SIZE;
         orderButtonTooltip.update(isHoveringOverOrderBtn, false);
 
-        CrossFadeRenderer.render(g, orderBtnHover.track(isHoveringOverOrderBtn),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, orderBtnX, orderBtnY, BUTTON_SIZE, BUTTON_SIZE),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, orderBtnX, orderBtnY, BUTTON_SIZE, BUTTON_SIZE));
+        int orderFill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), orderBtnHover.track(isHoveringOverOrderBtn));
+        SdfRenderer.drawBorderedRoundedRect(g, orderBtnX, orderBtnY, BUTTON_SIZE, BUTTON_SIZE, 4,
+                DarkUiPalette.black(), orderFill, 1);
         SpriteRenderer.drawSprite(g, state.reverseSortOrder ? ORDER_DESC_ICON : ORDER_ASC_ICON,
                 slotThemeOffset, orderBtnX, orderBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
@@ -303,9 +275,9 @@ public final class GridRenderer {
                 && mouseY >= typeFilterBtnY && mouseY < typeFilterBtnY + BUTTON_SIZE;
         typeFilterButtonTooltip.update(isHoveringOverTypeFilterBtn, false);
 
-        CrossFadeRenderer.render(g, typeFilterBtnHover.track(isHoveringOverTypeFilterBtn),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, typeFilterBtnX, typeFilterBtnY, BUTTON_SIZE, BUTTON_SIZE),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, typeFilterBtnX, typeFilterBtnY, BUTTON_SIZE, BUTTON_SIZE));
+        int typeFilterFill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), typeFilterBtnHover.track(isHoveringOverTypeFilterBtn));
+        SdfRenderer.drawBorderedRoundedRect(g, typeFilterBtnX, typeFilterBtnY, BUTTON_SIZE, BUTTON_SIZE, 4,
+                DarkUiPalette.black(), typeFilterFill, 1);
         SpriteRenderer.drawSprite(g, TYPE_ITEM_ICON,
                 0, typeFilterBtnX, typeFilterBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
@@ -315,9 +287,9 @@ public final class GridRenderer {
                 && mouseY >= containerBtnY && mouseY < containerBtnY + BUTTON_SIZE;
         containerButtonTooltip.update(isHoveringOverContainerBtn, false);
 
-        CrossFadeRenderer.render(g, containerBtnHover.track(isHoveringOverContainerBtn),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE));
+        int containerFill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), containerBtnHover.track(isHoveringOverContainerBtn));
+        SdfRenderer.drawBorderedRoundedRect(g, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE, 4,
+                DarkUiPalette.black(), containerFill, 1);
         SpriteRenderer.drawSprite(g, CONTAINER_EXTRACT_ICON,
                 0, containerBtnX, containerBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
@@ -326,9 +298,9 @@ public final class GridRenderer {
         boolean isHoveringRecentSort = mouseX >= recentSortBtnX && mouseX < recentSortBtnX + BUTTON_SIZE
                 && mouseY >= recentSortBtnY && mouseY < recentSortBtnY + BUTTON_SIZE;
         recentSortButtonTooltip.update(isHoveringRecentSort, false);
-        CrossFadeRenderer.render(g, recentSortHover.track(isHoveringRecentSort),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_NORMAL, slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE),
-                () -> SpriteRenderer.drawSprite(g, SORT_BTN_HOVER, slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE));
+        int recentSortFill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), recentSortHover.track(isHoveringRecentSort));
+        SdfRenderer.drawBorderedRoundedRect(g, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE, 4,
+                DarkUiPalette.black(), recentSortFill, 1);
         SpriteRenderer.drawSprite(g, state.recentSortAscending ? ORDER_ASC_ICON : ORDER_DESC_ICON,
                 slotThemeOffset, recentSortBtnX, recentSortBtnY, BUTTON_SIZE, BUTTON_SIZE);
 
@@ -336,11 +308,15 @@ public final class GridRenderer {
         int recentSearchY = y + PAD_TOP + 1;
         int recentSearchW = (x + 3 + state.recentCols * SLOT_SIZE) - recentSearchX;
         if (recentSearchW > SEARCH_INPUT_H) {
-            NineSliceRegion normalSpec = SEARCH_BOX_NINE_SLICE.withTheme();
-            NineSliceRegion focusSpec = SEARCH_BOX_NINE_SLICE.withTheme().withVOffset(SEARCH_BOX_STATE_H);
-            CrossFadeRenderer.render(g, state.recentSearchFocused ? 1f : 0f,
-                    () -> SpriteRenderer.drawNineSlice(g, normalSpec, recentSearchX, recentSearchY, recentSearchW, SEARCH_INPUT_H),
-                    () -> SpriteRenderer.drawNineSlice(g, focusSpec, recentSearchX, recentSearchY, recentSearchW, SEARCH_INPUT_H));
+            if (state.recentSearchFocused != prevRecentSearchFocused) {
+                recentSearchFocusAnim.target(state.recentSearchFocused ? 1f : 0f);
+                prevRecentSearchFocused = state.recentSearchFocused;
+            }
+            boolean recentSearchHovered = !state.recentSearchFocused
+                    && mouseX >= recentSearchX && mouseX < recentSearchX + recentSearchW
+                    && mouseY >= recentSearchY && mouseY < recentSearchY + SEARCH_INPUT_H;
+            SdfRenderer.drawInputBox(g, recentSearchX, recentSearchY, recentSearchW, SEARCH_INPUT_H,
+                    recentSearchFocusAnim.get(), recentSearchHoverAnim.track(recentSearchHovered), 4);
 
             Font searchFont = mc.font;
             String searchText = state.recentSearchBuffer.toString();
@@ -384,11 +360,15 @@ public final class GridRenderer {
         int searchY = y + PAD_TOP + 1;
         int searchW = (mainOriginX + calcMainGridW) - searchX;
         if (searchW > SEARCH_INPUT_H) {
-            NineSliceRegion normalSpec = SEARCH_BOX_NINE_SLICE.withTheme();
-            NineSliceRegion focusSpec = SEARCH_BOX_NINE_SLICE.withTheme().withVOffset(SEARCH_BOX_STATE_H);
-            CrossFadeRenderer.render(g, state.searchFocused ? 1f : 0f,
-                    () -> SpriteRenderer.drawNineSlice(g, normalSpec, searchX, searchY, searchW, SEARCH_INPUT_H),
-                    () -> SpriteRenderer.drawNineSlice(g, focusSpec, searchX, searchY, searchW, SEARCH_INPUT_H));
+            if (state.searchFocused != prevSearchFocused) {
+                searchFocusAnim.target(state.searchFocused ? 1f : 0f);
+                prevSearchFocused = state.searchFocused;
+            }
+            boolean searchHovered = !state.searchFocused
+                    && mouseX >= searchX && mouseX < searchX + searchW
+                    && mouseY >= searchY && mouseY < searchY + SEARCH_INPUT_H;
+            SdfRenderer.drawInputBox(g, searchX, searchY, searchW, SEARCH_INPUT_H,
+                    searchFocusAnim.get(), searchHoverAnim.track(searchHovered), 4);
 
             Font searchFont = mc.font;
             String searchText = state.searchBuffer.toString();
@@ -539,8 +519,8 @@ public final class GridRenderer {
         g.flush();
         g.disableScissor();
 
-        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE, overlayThemeOffset, state.recentGridOriginX, originY, state.recentGridW, frameH);
-        SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE, overlayThemeOffset, mainOriginX, originY, state.cachedMainGridWidth, frameH);
+        SdfRenderer.drawRoundedOutline(g, state.recentGridOriginX, originY, state.recentGridW, frameH, 4, DarkUiPalette.accent());
+        SdfRenderer.drawRoundedOutline(g, mainOriginX, originY, state.cachedMainGridWidth, frameH, 4, DarkUiPalette.accent());
 
         int dividerX = (state.recentGridOriginX + state.recentGridW + mainOriginX) / 2;
         g.vLine(dividerX, y + 5, originY + gridVisibleH - 3, ThemeManager.getDividerColor());
@@ -756,8 +736,7 @@ public final class GridRenderer {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-        SpriteRenderer.drawNineSliceFloatingPanel(g, tipX, tipY, tipW, tipH, false);
+        SdfRenderer.drawVectorFloatingPanel(g, tipX, tipY, tipW, tipH, false, alpha);
 
         float textY = tipY + padV;
         for (int i = 0; i < lines.length; i++) {

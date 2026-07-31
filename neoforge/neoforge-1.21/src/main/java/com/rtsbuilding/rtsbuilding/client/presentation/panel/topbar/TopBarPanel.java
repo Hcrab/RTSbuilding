@@ -11,9 +11,10 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.group_button
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.popup.DebugMenuPopup;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.popup.LogoMenuPopup;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
@@ -67,46 +68,18 @@ public final class TopBarPanel implements RtsPanelApi {
     
     private static final int LOGO_SIZE = TopBarLayoutHelper.LOGO_SIZE;
     
-    private static final int LOGO_SHEET_WIDTH = 1024;
+    private static final int LOGO_SHEET_WIDTH = 512;
     
-    private static final int LOGO_SHEET_HEIGHT = 1024;
+    private static final int LOGO_SHEET_HEIGHT = 512;
 
     
 
-    
-    private static final ResourceLocation TOP_UI_UP_TEXTURE =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/top_ui_up.png");
-    
-    private static final ResourceLocation TOP_UI_DOWN_TEXTURE =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/top/top_ui_down.png");
-    
-    private static final int TOP_UI_TEX_W = 32;
-    
-    private static final int TOP_UI_TEX_H = 16;
-    
-    private static final int TOP_UI_HALF_W = 16;
-    
-    private static final int TOP_UI_BORDER = 2;
-    private static final TextureInfo TOP_UP_TEX_INFO = new TextureInfo(
-            TOP_UI_UP_TEXTURE, TOP_UI_TEX_W, TOP_UI_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final TextureInfo TOP_DOWN_TEX_INFO = new TextureInfo(
-            TOP_UI_DOWN_TEXTURE, TOP_UI_TEX_W, TOP_UI_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    
-    private static final int TOP_SRC_H = 8;
-    
-    private static final int BOTTOM_SRC_H = TopBarLayoutHelper.BOTTOM_SRC_H;
-    private static final NineSliceRegion TOP_UP_NINE_SLICE = NineSliceRegion.fullTheme(
-            TOP_UP_TEX_INFO, TOP_SRC_H, TOP_UI_BORDER);
-    private static final NineSliceRegion TOP_DOWN_NINE_SLICE = NineSliceRegion.fullTheme(
-            TOP_DOWN_TEX_INFO, BOTTOM_SRC_H, TOP_UI_BORDER);
     
     private static final int TOP_BAR_HEIGHT = TopBarLayoutHelper.TOP_BAR_HEIGHT;
     
     private static final int SCREEN_BORDER = TopBarLayoutHelper.SCREEN_BORDER;
+
+    private static final int BOTTOM_SRC_H = TopBarLayoutHelper.BOTTOM_SRC_H;
 
     @Override
     public void init(BuilderScreen screen) {
@@ -271,31 +244,25 @@ public final class TopBarPanel implements RtsPanelApi {
 
     
     private void renderLogoCrossFade(GuiGraphics g) {
+        int bgColor = ColorAnimation.lerpRGB(DarkUiPalette.border(), DarkUiPalette.accent(), logoHoverState.get());
+        SdfRenderer.drawRoundedRect(g, 0, 0, LOGO_SIZE, LOGO_SIZE, 4, bgColor);
         TextureInfo logoInfo = new TextureInfo(
                 LOGO_TEXTURE, LOGO_SHEET_WIDTH, LOGO_SHEET_HEIGHT,
-                TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-                TextureInfo.FilterMode.PIXEL);
-        int halfW = LOGO_SHEET_WIDTH / 2;
-        int halfH = LOGO_SHEET_HEIGHT / 2;
-        SpriteRegion normal = new SpriteRegion(logoInfo, 0, 0, halfW, halfH);
-        SpriteRegion highlighted = normal.withVOffset(halfH);
-        Runnable normalRender = () -> SpriteRenderer.drawSprite(g, normal.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
-        Runnable highlightedRender = () -> SpriteRenderer.drawSprite(g, highlighted.withTheme(), 0, 0, LOGO_SIZE, LOGO_SIZE);
-        CrossFadeRenderer.render(g, logoHoverState.get(), normalRender, highlightedRender);
+                TextureInfo.ThemeLayout.NONE,
+                TextureInfo.FilterMode.NORMAL);
+        SpriteRenderer.drawSprite(g, new SpriteRegion(logoInfo, 0, 0, LOGO_SHEET_WIDTH, LOGO_SHEET_HEIGHT),
+                0, 0, LOGO_SIZE, LOGO_SIZE);
     }
 
     
     private void renderTopBarBackground(GuiGraphics g) {
         int screenW = screen.width;
 
-        
-        SpriteRenderer.drawNineSlice(g, TOP_UP_NINE_SLICE.withTheme(),
-                0, 0, screenW, TOP_BAR_HEIGHT);
+        g.fill(0, 0, screenW, TOP_BAR_HEIGHT, DarkUiPalette.border());
 
-        
         int bottomY = TOP_BAR_HEIGHT + SCREEN_BORDER;
-        SpriteRenderer.drawNineSlice(g, TOP_DOWN_NINE_SLICE.withTheme(),
-                0, bottomY, screenW, BOTTOM_SRC_H);
+        int bottomColor = (DarkUiPalette.accent() & 0x00FFFFFF) | 0x99000000;
+        g.fill(0, bottomY, screenW, bottomY + BOTTOM_SRC_H, bottomColor);
     }
 
     @Override

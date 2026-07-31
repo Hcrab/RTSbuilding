@@ -2,13 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
-import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.presentation.standalone.RtsCraftTerminalScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -76,29 +70,5 @@ public final class ClientInputBridge {
         }
     }
 
-    
-    @SubscribeEvent
-    public static void onScreenOpening(ScreenEvent.Opening event) {
-        CameraModule cam = kernel().module(CameraModule.class);
-        if (cam == null || !cam.getState().isEnabled()) return;
 
-        Minecraft mc = Minecraft.getInstance();
-        Screen current = mc.screen;
-        if (!(current instanceof BuilderScreen builderScreen)) return;
-
-        Screen newScreen = event.getScreen();
-        
-        if (newScreen instanceof BuilderScreen || newScreen instanceof RtsCraftTerminalScreen) return;
-
-        
-        if (newScreen instanceof AbstractContainerScreen<?> containerScreen) {
-            RtsbuildingMod.LOGGER.debug("RTS: Intercepting {} as overlay in BuilderScreen",
-                    containerScreen.getClass().getSimpleName());
-            builderScreen.showContainerScreen(containerScreen);
-            event.setCanceled(true);
-        }
-        
-        
-        
-    }
 }

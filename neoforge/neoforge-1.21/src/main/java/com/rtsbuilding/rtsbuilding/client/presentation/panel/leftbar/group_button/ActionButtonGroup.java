@@ -6,8 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.button.Abstrac
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
@@ -30,20 +29,6 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
     
 
     
-    private static final ResourceLocation DOWN_BG = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/button/down_button.png");
-    
-    private static final ResourceLocation MIDDLE_BG = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/button/middle_button.png");
-    
-    private static final ResourceLocation UP_BG = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/button/up_button.png");
-
-    
-    private static final ResourceLocation ONLY_BG = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/button/only_button.png");
-
-    
     private boolean showBindButton = true;
 
     
@@ -55,28 +40,14 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
     
 
     
-    private final TextureInfo onlyTexInfo;
-    
-    private final SpriteRegion[] onlyRegions;
-
-    
     private final TooltipController bindBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
     private final TooltipController dirRotateBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
     private final TooltipController itemPickupBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
 
     public ActionButtonGroup() {
         super(Direction.VERTICAL, DEFAULT_BTN_SIZE, DEFAULT_INNER_GAP, true,
-                DOWN_BG, MIDDLE_BG, UP_BG,
+                null, null, null,
                 BIND_BTN, DIRECTION_ROTATE_BTN, ITEM_PICKUP_BTN);
-        
-        this.onlyTexInfo = new TextureInfo(
-                ONLY_BG, AbstractButtonGroup.TEX_W, AbstractButtonGroup.TEX_H,
-                TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-                TextureInfo.FilterMode.PIXEL);
-        this.onlyRegions = new SpriteRegion[3];
-        this.onlyRegions[0] = new SpriteRegion(onlyTexInfo, 0, 0,                           AbstractButtonGroup.HALF_W, AbstractButtonGroup.STATE_H);
-        this.onlyRegions[1] = new SpriteRegion(onlyTexInfo, 0, AbstractButtonGroup.STATE_H, AbstractButtonGroup.HALF_W, AbstractButtonGroup.STATE_H);
-        this.onlyRegions[2] = new SpriteRegion(onlyTexInfo, 0, AbstractButtonGroup.STATE_H * 2, AbstractButtonGroup.HALF_W, AbstractButtonGroup.STATE_H);
     }
 
     
@@ -165,13 +136,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         boolean hovering = mouseX >= bx && mouseX < bx + buttonSize
                 && mouseY >= by && mouseY < by + buttonSize;
         float hoverT = this.hoverStates[index].track(hovering);
-
-        SpriteRenderer.drawStateSprite(g,
-                onlyRegions[0],     
-                onlyRegions[1],     
-                onlyRegions[2],     
-                selected[index],
-                hoverT,
+        SdfRenderer.drawButtonBg(g, 3, false, selected[index], hoverT,
                 bx, by, buttonSize, buttonSize);
     }
 
@@ -318,8 +283,7 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-        SpriteRenderer.drawNineSliceFloatingPanel(g, tipX, tipY, tipW, tipH, false);
+        SdfRenderer.drawVectorFloatingPanel(g, tipX, tipY, tipW, tipH, false, alpha);
 
         float textY = tipY + padV;
         for (int i = 0; i < lines.length; i++) {

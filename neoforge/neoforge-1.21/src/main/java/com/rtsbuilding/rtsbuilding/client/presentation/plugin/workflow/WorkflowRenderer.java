@@ -6,7 +6,10 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.Workflo
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.OverlayContext;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.animate.Easing;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
@@ -42,36 +45,7 @@ public class WorkflowRenderer {
     private static final int SCROLLBAR_GAP = 3;
     private static final int SCROLLBAR_TRACK_W = 7;
 
-    private static final ResourceLocation PROGRESS_BAR_BG = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/right/progress_bar_background.png");
-    private static final int PROGRESS_BAR_TEX_W = 32;
-    private static final int PROGRESS_BAR_TEX_H = 16;
-    private static final int PROGRESS_BAR_STATE_H = 16;
-    private static final int PROGRESS_BAR_BORDER = 2;
-    private static final TextureInfo PROGRESS_BAR_TEX_INFO = new TextureInfo(
-            PROGRESS_BAR_BG, PROGRESS_BAR_TEX_W, PROGRESS_BAR_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion PROGRESS_BAR_NINE_SLICE = NineSliceRegion.fullTheme(
-            PROGRESS_BAR_TEX_INFO, PROGRESS_BAR_STATE_H, PROGRESS_BAR_BORDER);
 
-    private static final ResourceLocation GO_ON_TEX = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/right/progress_bar_go_on.png");
-    private static final ResourceLocation PUT_ASIDE_TEX = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/right/progress_bar_put_aside.png");
-    private static final int FILL_TEX_SIZE = 16;
-    private static final TextureInfo GO_ON_TEX_INFO = new TextureInfo(
-            GO_ON_TEX, FILL_TEX_SIZE, FILL_TEX_SIZE,
-            TextureInfo.ThemeLayout.NONE,
-            TextureInfo.FilterMode.PIXEL);
-    private static final TextureInfo PUT_ASIDE_TEX_INFO = new TextureInfo(
-            PUT_ASIDE_TEX, FILL_TEX_SIZE, FILL_TEX_SIZE,
-            TextureInfo.ThemeLayout.NONE,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion GO_ON_NINE_SLICE = NineSliceRegion.fullTheme(
-            GO_ON_TEX_INFO, FILL_TEX_SIZE, 0);
-    private static final NineSliceRegion PUT_ASIDE_NINE_SLICE = NineSliceRegion.fullTheme(
-            PUT_ASIDE_TEX_INFO, FILL_TEX_SIZE, 0);
 
     private static final ResourceLocation BG_TEXTURE = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/base/base_ui/base_ui_7.png");
@@ -85,39 +59,7 @@ public class WorkflowRenderer {
     private static final NineSliceRegion BG_NINE_SLICE = NineSliceRegion.fullTheme(
             BG_TEX_INFO, BG_STATE_H, BG_BORDER);
 
-    private static final ResourceLocation BTN_BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_2.png");
-    private static final int BTN_BG_TEX_W = 32;
-    private static final int BTN_BG_TEX_H = 48;
-    private static final int BTN_BG_STATE_H = 16;
-    private static final TextureInfo BTN_BG_TEX_INFO = new TextureInfo(
-            BTN_BG_TEXTURE, BTN_BG_TEX_W, BTN_BG_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final SpriteRegion BTN_NORMAL = new SpriteRegion(
-            BTN_BG_TEX_INFO, 0, 0, BTN_BG_TEX_W / 2, BTN_BG_STATE_H);
-    private static final SpriteRegion BTN_HOVER = new SpriteRegion(
-            BTN_BG_TEX_INFO, 0, BTN_BG_STATE_H, BTN_BG_TEX_W / 2, BTN_BG_STATE_H);
 
-    private static final ResourceLocation ICON_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/right/close.png");
-    private static final TextureInfo ICON_TEX_INFO = new TextureInfo(
-            ICON_TEXTURE, 128, 128,
-            TextureInfo.ThemeLayout.NONE,
-            TextureInfo.FilterMode.PIXEL);
-    private static final SpriteRegion CLOSE_ICON = new SpriteRegion(
-            ICON_TEX_INFO, 0, 0, 128, 128);
-
-    private static final ResourceLocation TOGGLE_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/right/playpause.png");
-    private static final TextureInfo TOGGLE_TEX_INFO = new TextureInfo(
-            TOGGLE_TEXTURE, 128, 256,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final SpriteRegion TOGGLE_PAUSE = new SpriteRegion(
-            TOGGLE_TEX_INFO, 0, 0, 64, 128);
-    private static final SpriteRegion TOGGLE_PLAY = new SpriteRegion(
-            TOGGLE_TEX_INFO, 0, 128, 64, 128);
 
     private final OverlayContext context;
     private final ScrollBar scrollBar;
@@ -125,6 +67,8 @@ public class WorkflowRenderer {
 
     private final Map<Integer, AnimFloat> toggleBtnHovers = new HashMap<>();
     private final Map<Integer, AnimFloat> deleteBtnHovers = new HashMap<>();
+    private final Map<Integer, AnimFloat> toggleStateAnims = new HashMap<>();
+    private final Map<Integer, Boolean> prevOnHold = new HashMap<>();
 
     public WorkflowRenderer(OverlayContext context, ScrollBar scrollBar, List<RowLayout> rowLayouts) {
         this.context = context;
@@ -196,23 +140,17 @@ public class WorkflowRenderer {
 
             int labelColor = status.onHold() ? SUPPRESSED_TEXT_COLOR : TEXT_COLOR;
 
-            boolean fillUsePutAside = status.onHold();
-            NineSliceRegion fillSlice = fillUsePutAside ? PUT_ASIDE_NINE_SLICE : GO_ON_NINE_SLICE;
-            SpriteRenderer.drawNineSlice(g, PROGRESS_BAR_NINE_SLICE.withTheme(),
-                    ox, barY, barW, BAR_HEIGHT);
-            if (fillW > 0) {
-                int fillRenderW = Math.min(fillW, barW - 4);
-                SpriteRenderer.drawNineSlice(g, fillSlice, 0,
-                        ox + 2, barY + 2, fillRenderW, BAR_HEIGHT - 4);
-            }
+            float fillRatio = (float) fillW / barW;
+            int fillStart = status.onHold() ? 0xFFFF8C00 : 0xFF2E7D32;
+            int fillEnd = status.onHold() ? 0xFFFFB74D : 0xFF66BB6A;
+            SdfRenderer.drawProgressBar(g, ox, barY, barW, BAR_HEIGHT, fillRatio,
+                    DarkUiPalette.accent(), fillStart, fillEnd, DarkUiPalette.hoverBorder());
 
             int textCenterY = barY + (BAR_HEIGHT - font.lineHeight) / 2 + 1;
             int textRightBound = ox + barW - 2;
             int textX = textRightBound - font.width(progressText);
             TextRenderer.draw(g, label, ox + 4, textCenterY, labelColor);
             TextRenderer.draw(g, progressText, textX, textCenterY, labelColor);
-
-            int themeOffset = SpriteRenderer.getThemeOffset(BTN_NORMAL);
 
             int toggleIconX = toggleBtnX + (BTN_SIZE - TOGGLE_ICON_SIZE) / 2;
             int toggleIconY = btnY + (BTN_SIZE - TOGGLE_ICON_SIZE) / 2;
@@ -227,16 +165,36 @@ public class WorkflowRenderer {
             boolean deleteHovered = mx >= deleteBtnX && mx < deleteBtnX + BTN_SIZE
                     && my >= btnY && my < btnY + BTN_SIZE;
 
-            CrossFadeRenderer.render(g, toggleHover.track(toggleHovered),
-                    () -> SpriteRenderer.drawSprite(g, BTN_NORMAL, themeOffset, toggleBtnX, btnY, BTN_SIZE, BTN_SIZE),
-                    () -> SpriteRenderer.drawSprite(g, BTN_HOVER, themeOffset, toggleBtnX, btnY, BTN_SIZE, BTN_SIZE));
-            SpriteRegion toggleIcon = (status.onHold() ? TOGGLE_PLAY : TOGGLE_PAUSE).withTheme();
-            SpriteRenderer.drawSprite(g, toggleIcon, toggleIconX, toggleIconY, TOGGLE_ICON_SIZE, TOGGLE_ICON_SIZE);
+            {
+                float t = toggleHover.track(toggleHovered);
+                int fill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), t);
+                SdfRenderer.drawBorderedRoundedRect(g, toggleBtnX, btnY, BTN_SIZE, BTN_SIZE, 4, DarkUiPalette.black(), fill, 1);
+            }
+            {
+                AnimFloat stateAnim = toggleStateAnims.computeIfAbsent(i, k -> AnimFloat.of(0f, 200L, Easing.EASE_OUT_QUAD));
+                Boolean prev = prevOnHold.get(i);
+                if (prev == null || prev != status.onHold()) {
+                    stateAnim.target(status.onHold() ? 1f : 0f);
+                    prevOnHold.put(i, status.onHold());
+                }
+                float stateT = stateAnim.get();
+                int playSize = TOGGLE_ICON_SIZE * 4 / 5;
+                int playX = toggleBtnX + (BTN_SIZE - playSize) / 2;
+                int playY = btnY + (BTN_SIZE - playSize) / 2;
+                int iconCx = toggleIconX + TOGGLE_ICON_SIZE / 2;
+                int iconCy = toggleIconY + TOGGLE_ICON_SIZE / 2;
+                int playAlpha = Math.round(stateT * 255);
+                int pauseAlpha = Math.round((1f - stateT) * 255);
+                SdfRenderer.drawChevron(g, playX, playY, playSize, playSize, (playAlpha << 24) | 0x00FFFFFF, 1f);
+                SdfRenderer.drawPauseIcon(g, iconCx, iconCy, TOGGLE_ICON_SIZE, (pauseAlpha << 24) | 0x00FFFFFF);
+            }
 
-            CrossFadeRenderer.render(g, deleteHover.track(deleteHovered),
-                    () -> SpriteRenderer.drawSprite(g, BTN_NORMAL, themeOffset, deleteBtnX, btnY, BTN_SIZE, BTN_SIZE),
-                    () -> SpriteRenderer.drawSprite(g, BTN_HOVER, themeOffset, deleteBtnX, btnY, BTN_SIZE, BTN_SIZE));
-            SpriteRenderer.drawSprite(g, CLOSE_ICON, closeIconX, closeIconY, CLOSE_ICON_SIZE, CLOSE_ICON_SIZE);
+            {
+                float t = deleteHover.track(deleteHovered);
+                int fill = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), t);
+                SdfRenderer.drawBorderedRoundedRect(g, deleteBtnX, btnY, BTN_SIZE, BTN_SIZE, 4, DarkUiPalette.black(), fill, 1);
+            }
+            SdfRenderer.drawRoundedRect(g, closeIconX, closeIconY, CLOSE_ICON_SIZE, CLOSE_ICON_SIZE, 2, 0xFFFF4444);
 
             rowLayouts.add(new RowLayout(i, status.entryId(), toggleBtnX, deleteBtnX, btnY, rowY, ROW_HEIGHT));
 

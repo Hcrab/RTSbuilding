@@ -6,11 +6,9 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.DownOv
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.rightbar.overlay.LowerRightOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.rightbar.overlay.UpperRightOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
 
 import java.util.Objects;
 
@@ -35,22 +33,7 @@ public final class RightSidebarPanel implements RtsPanelApi {
     
 
     
-    private static final ResourceLocation BORDER_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/right/right_ui.png");
-    
-    private static final int TEX_W = 32;
-    
-    private static final int TEX_FILE_H = 32;
-    
-    private static final int STATE_H = 16;
-    
-    private static final int BORDER = 2;
-    private static final TextureInfo RIGHT_TEX_INFO = new TextureInfo(
-            BORDER_TEXTURE, TEX_W, TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion RIGHT_NINE_SLICE = NineSliceRegion.fullTheme(
-            RIGHT_TEX_INFO, STATE_H, BORDER);
+
 
     
     private final RightSidebarLayoutHelper layout = new RightSidebarLayoutHelper();
@@ -129,10 +112,7 @@ public final class RightSidebarPanel implements RtsPanelApi {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         RightSidebarLayoutHelper.Rect sb = layoutRect();
-
-        int srcY = resizeHandler.isActive() ? STATE_H : 0;
-        SpriteRenderer.drawNineSlice(g, RIGHT_NINE_SLICE.withTheme().withVOffset(srcY),
-                sb.x(), sb.y(), sb.width(), sb.height());
+        g.fill(sb.x(), sb.y(), sb.x() + sb.width(), sb.y() + sb.height(), DarkUiPalette.bg());
     }
 
     

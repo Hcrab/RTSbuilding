@@ -7,9 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayout
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.popup.DebugMenuPopup;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.gui.GuiGraphics;
@@ -33,22 +31,7 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
     private static final ResourceLocation CHUNK_DISPLAY =
             ResourceLocation.tryParse("rtsbuilding:textures/gui/top/button/chunk_display.png");
 
-    
-    private static final ResourceLocation FOLD_ARROW =
-            ResourceLocation.tryParse("rtsbuilding:textures/gui/base/arrow.png");
-    private static final int FOLD_ARROW_HALF_W = 512;
-    private static final int FOLD_ARROW_STATE_H = 512;
-    
-    private static final int FOLD_ARROW_TEX_W = 1024;
-    
-    private static final int FOLD_ARROW_TEX_H = 512;
-    private static final int FOLD_ARROW_SIZE = 8;
-
-    
-    private static final TextureInfo FOLD_ARROW_TEX_INFO = new TextureInfo(
-            FOLD_ARROW, FOLD_ARROW_TEX_W, FOLD_ARROW_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
+    private static final int FOLD_ARROW_SIZE = 11;
 
     private final DebugMenuPopup debugPopup;
 
@@ -121,11 +104,10 @@ public final class UtilityButtonGroup extends AbstractButtonGroup {
         g.pose().pushPose();
         float halfArrow = FOLD_ARROW_SIZE / 2.0f;
         g.pose().translate(arrowX + halfArrow, arrowY + halfArrow, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + arrowRotateAnim.get()) * 90.0f));
-        g.pose().translate(-halfArrow, -halfArrow, 0);
-        SpriteRegion arrowRegion = new SpriteRegion(
-                FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_HALF_W, FOLD_ARROW_STATE_H).withTheme();
-        SpriteRenderer.drawSprite(g, arrowRegion, 0, 0, FOLD_ARROW_SIZE, FOLD_ARROW_SIZE);
+        g.pose().mulPose(Axis.ZP.rotationDegrees(arrowRotateAnim.get() * 90.0f));
+        g.pose().scale(2f / 3f, 2f / 3f, 1f);
+        SdfRenderer.drawChevron(g, (int)-halfArrow, (int)-halfArrow, FOLD_ARROW_SIZE, FOLD_ARROW_SIZE,
+                ThemeManager.getTextColor(), 0.5f);
         g.pose().popPose();
     }
 

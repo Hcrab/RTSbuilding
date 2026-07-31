@@ -5,17 +5,13 @@ import com.mojang.math.Axis;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.popup.BasePopup;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 
 import java.util.function.Consumer;
 
@@ -43,96 +39,31 @@ public final class ModeSwitcher {
 
     
 
-    
-    private static final ResourceLocation MODE_BG_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_6.png");
-    private static final int MODE_BG_TEX_W = 32;
-    private static final int MODE_BG_TEX_H = 32;
-    
-    private static final int MODE_BG_NORMAL_H = 16;
-    
-    private static final int MODE_BG_BORDER = 4;
 
-    private static final TextureInfo MODE_BG_TEX_INFO = new TextureInfo(
-            MODE_BG_TEXTURE, MODE_BG_TEX_W, MODE_BG_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-
-    private static final NineSliceRegion MODE_BG_NINE_SLICE = NineSliceRegion.fullTheme(
-            MODE_BG_TEX_INFO, MODE_BG_NORMAL_H, MODE_BG_BORDER);
 
     
 
-    private static final ResourceLocation BLUEPRINT_MODE_TEX = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/top/blueprint_mode.png");
-    private static final int BLUEPRINT_MODE_TEX_W = 128;
-    private static final int BLUEPRINT_MODE_TEX_H = 64;
-    private static final TextureInfo BLUEPRINT_TEX_INFO = new TextureInfo(
-            BLUEPRINT_MODE_TEX, BLUEPRINT_MODE_TEX_W, BLUEPRINT_MODE_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
 
-    private static final ResourceLocation BUILD_MODE_TEX = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/top/build_mode.png");
-    private static final int BUILD_MODE_TEX_W = 128;
-    private static final int BUILD_MODE_TEX_H = 64;
-    private static final TextureInfo BUILD_TEX_INFO = new TextureInfo(
-            BUILD_MODE_TEX, BUILD_MODE_TEX_W, BUILD_MODE_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-
-    private static final ResourceLocation INTERACTIVE_MODE_TEX = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/top/interactive_mode.png");
-    private static final int INTERACTIVE_MODE_TEX_W = 128;
-    private static final int INTERACTIVE_MODE_TEX_H = 96;
-    private static final TextureInfo INTERACTIVE_TEX_INFO = new TextureInfo(
-            INTERACTIVE_MODE_TEX, INTERACTIVE_MODE_TEX_W, INTERACTIVE_MODE_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-
-    
-
-    
-    private static final ResourceLocation FOLD_ARROW_TEX = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/arrow.png");
-    private static final int FOLD_ARROW_TEX_W = 1024;
-    private static final int FOLD_ARROW_TEX_H = 512;
-    private static final int FOLD_ARROW_HALF_W = 512;
-    private static final int FOLD_ARROW_STATE_H = 512;
-
-    private static final TextureInfo FOLD_ARROW_TEX_INFO = new TextureInfo(
-            FOLD_ARROW_TEX, FOLD_ARROW_TEX_W, FOLD_ARROW_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
 
     
 
     
     private static final int SWITCHER_HEIGHT = 14;
     
-    private static final int ICON_SIZE = 12;
-    
-    private static final int ICON_TEXT_GAP = 3;
-    
-    private static final int ARROW_SIZE = 8;
+    private static final int ARROW_SIZE = 11;
     
     private static final int TEXT_ARROW_GAP = 5;
     
     private static final int PAD_H = 5;
-    
     private static final int MARGIN_LEFT = 2;
 
-    
+
 
     
+
     private static final int POPUP_ITEM_HEIGHT = 22;
     
     private static final int POPUP_PAD_H = 6;
-    
-    private static final int POPUP_ICON_SIZE = 14;
-    
-    private static final int POPUP_ICON_SLOT_W = POPUP_ICON_SIZE;
-    
     private static final int POPUP_SHORTCUT_GAP = 16;
 
     
@@ -173,7 +104,7 @@ public final class ModeSwitcher {
             int tw = font.width(mode.getDisplayName());
             if (tw > maxTextWidth) maxTextWidth = tw;
         }
-        return PAD_H * 2 + ICON_SIZE + ICON_TEXT_GAP + maxTextWidth + TEXT_ARROW_GAP + ARROW_SIZE;
+        return PAD_H * 2 + maxTextWidth + TEXT_ARROW_GAP + ARROW_SIZE;
     }
 
     
@@ -232,30 +163,7 @@ public final class ModeSwitcher {
     
 
     
-    private SpriteRegion getModeIconRegion(Mode mode) {
-        return switch (mode) {
-            case INTERACTIVE -> new SpriteRegion(
-                    INTERACTIVE_TEX_INFO, 0, 0,
-                    INTERACTIVE_TEX_INFO.halfWidth(), INTERACTIVE_TEX_INFO.halfHeight());
-            case BUILD -> new SpriteRegion(
-                    BUILD_TEX_INFO, 0, 0,
-                    BUILD_TEX_INFO.halfWidth(), BUILD_TEX_INFO.halfHeight());
-            case BLUEPRINT -> new SpriteRegion(
-                    BLUEPRINT_TEX_INFO, 0, 0,
-                    BLUEPRINT_TEX_INFO.halfWidth(), BLUEPRINT_TEX_INFO.halfHeight());
-        };
-    }
 
-    
-    private static int getIconDrawWidth(Mode mode, int drawH) {
-        return switch (mode) {
-            case INTERACTIVE -> drawH * INTERACTIVE_TEX_INFO.halfWidth() / INTERACTIVE_TEX_INFO.halfHeight();
-            case BUILD -> drawH * BUILD_TEX_INFO.halfWidth() / BUILD_TEX_INFO.halfHeight();
-            case BLUEPRINT -> drawH * BLUEPRINT_TEX_INFO.halfWidth() / BLUEPRINT_TEX_INFO.halfHeight();
-        };
-    }
-
-    
 
     
     public void render(GuiGraphics g, int mouseX, int mouseY) {
@@ -267,27 +175,14 @@ public final class ModeSwitcher {
         boolean hovering = mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + SWITCHER_HEIGHT;
         hoverState.track(hovering);
 
-        
-        NineSliceRegion bgNormal = MODE_BG_NINE_SLICE.withTheme();
-        NineSliceRegion bgHover = MODE_BG_NINE_SLICE.withVOffset(MODE_BG_NORMAL_H).withTheme();
-        CrossFadeRenderer.render(g, hoverState.get(),
-                () -> SpriteRenderer.drawNineSlice(g, bgNormal, x, y, w, SWITCHER_HEIGHT),
-                () -> SpriteRenderer.drawNineSlice(g, bgHover, x, y, w, SWITCHER_HEIGHT));
+        SdfRenderer.drawButtonBg(g, 3, true, false, hoverState.get(), x, y, w, SWITCHER_HEIGHT);
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
 
         
-        int iconH = ICON_SIZE;
-        int iconW = getIconDrawWidth(currentMode, iconH);
-        int iconX = x + PAD_H + (ICON_SIZE - iconW) / 2;
-        int iconY = y + (SWITCHER_HEIGHT - iconH) / 2;
-        SpriteRegion iconRegion = getModeIconRegion(currentMode).withTheme();
-        SpriteRenderer.drawSprite(g, iconRegion, iconX, iconY, iconW, iconH);
-
-        
-        int textX = x + PAD_H + ICON_SIZE + ICON_TEXT_GAP;
-        int textY = iconY + (iconH - Minecraft.getInstance().font.lineHeight) / 2 + 1;
+        int textX = x + PAD_H;
+        int textY = y + (SWITCHER_HEIGHT - Minecraft.getInstance().font.lineHeight) / 2 + 1;
         int textColor = ThemeManager.getTextColor();
         TextRenderer.draw(g, currentMode.getDisplayName(), textX, textY, textColor);
 
@@ -309,16 +204,13 @@ public final class ModeSwitcher {
 
     
     private void renderArrow(GuiGraphics g, int x, int y) {
-
-        SpriteRegion arrowRegion = new SpriteRegion(
-                FOLD_ARROW_TEX_INFO, 0, 0, FOLD_ARROW_HALF_W, FOLD_ARROW_STATE_H).withTheme();
         g.pose().pushPose();
-        g.pose().translate(x, y, 0);
         float half = ARROW_SIZE / 2.0f;
-        g.pose().translate(half, half, 0);
-        g.pose().mulPose(Axis.ZP.rotationDegrees((1.0f + this.arrowAnim.get()) * 90.0f));
-        g.pose().translate(-half, -half, 0);
-        SpriteRenderer.drawSprite(g, arrowRegion, 0, 0, ARROW_SIZE, ARROW_SIZE);
+        g.pose().translate(x + half, y + half, 0);
+        g.pose().mulPose(Axis.ZP.rotationDegrees(this.arrowAnim.get() * 90.0f));
+        g.pose().scale(2f / 3f, 2f / 3f, 1f);
+        SdfRenderer.drawChevron(g, (int)-half, (int)-half, ARROW_SIZE, ARROW_SIZE,
+                ThemeManager.getTextColor(), 0.5f);
         g.pose().popPose();
     }
 
@@ -366,7 +258,7 @@ public final class ModeSwitcher {
             int[] widths = new int[modes.length];
             int shortcutW = font.width(RtsKeyMappings.CYCLE_MODE_KEY.getTranslatedKeyMessage());
             for (int i = 0; i < modes.length; i++) {
-                widths[i] = POPUP_ICON_SLOT_W + 4 + font.width(modes[i].getDisplayName()) + POPUP_SHORTCUT_GAP + shortcutW;
+                widths[i] = font.width(modes[i].getDisplayName()) + POPUP_SHORTCUT_GAP + shortcutW;
             }
             setItemContentWidths(widths);
         }
@@ -390,21 +282,12 @@ public final class ModeSwitcher {
         protected void renderItem(GuiGraphics g, int index, int itemY, float hoverT) {
             Mode mode = Mode.values()[index];
 
-            
-            int iconH = POPUP_ICON_SIZE;
-            int iconW = switcher.getIconDrawWidth(mode, iconH);
-            int iconX = x + getPadH() + (POPUP_ICON_SLOT_W - iconW) / 2;
-            int iconY = itemY + (getItemHeight() - iconH) / 2;
-            SpriteRegion iconRegion = switcher.getModeIconRegion(mode).withTheme();
-            SpriteRenderer.drawSprite(g, iconRegion, iconX, iconY, iconW, iconH);
-
-            
             int textColor = hoverT > 0.5f
                     ? ThemeManager.getHoverTextColor()
                     : ThemeManager.getTextColor();
             String label = mode.getDisplayName().getString();
-            int textX = x + getPadH() + POPUP_ICON_SLOT_W + 4;
-            int textY = iconY + (iconH - Minecraft.getInstance().font.lineHeight) / 2 + 1;
+            int textX = x + getPadH();
+            int textY = itemY + (getItemHeight() - Minecraft.getInstance().font.lineHeight) / 2 + 1;
             TextRenderer.draw(g, label, textX, textY, textColor);
 
             

@@ -52,7 +52,7 @@ public final class BuilderScreenEventRouter {
                 panelRegistry, leftSidebarPanel, movementHandler, bindModeHandler,
                 entityInteractionHandler, buildInteractionHandler, topBarPanel);
         registerMouseReleaseHandlers(dispatcher, panelRegistry, floatingWindowLayer, kernel,
-                buildInteractionHandler, screen, topBarPanel);
+                buildInteractionHandler, screen, topBarPanel, leftSidebarPanel);
         registerMouseDragHandlers(dispatcher, panelRegistry, floatingWindowLayer, kernel);
         registerMouseScrollHandlers(dispatcher, panelRegistry, floatingWindowLayer, kernel,
                 leftSidebarPanel, screen);
@@ -124,11 +124,12 @@ public final class BuilderScreenEventRouter {
 
     private void registerMouseReleaseHandlers(EventDispatcher d, PanelRegistry pr,
             RtsFloatingWindowLayer fw, RtsClientKernel kernel,
-            BuildInteractionHandler bih, BuilderScreen screen, TopBarPanel topBar) {
+            BuildInteractionHandler bih, BuilderScreen screen, TopBarPanel topBar,
+            LeftSidebarPanel leftSidebarPanel) {
         pr.registerContentPanelMouseRelease(d);
 
         d.onMouseRelease(event ->
-                bih.handleMouseRelease(event, screen, topBar),
+                bih.handleMouseRelease(event, screen, topBar, leftSidebarPanel),
                 EventDispatcher.P_BUILD_ACTION);
 
         d.onMouseRelease(event -> {

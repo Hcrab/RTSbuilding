@@ -1,18 +1,16 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.component;
 
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
 import com.rtsbuilding.rtsbuilding.client.util.animate.Easing;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.glfw.GLFW;
 
 import javax.annotation.Nullable;
@@ -37,31 +35,6 @@ public class HexInputComponent {
 
     
 
-    private static final ResourceLocation INPUT_BOX_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_4.png");
-    private static final int INPUT_BOX_TEX_W = 32;
-    private static final int INPUT_BOX_TEX_H = 32;
-    private static final int INPUT_BOX_STATE_H = 16;
-    private static final int INPUT_BOX_BORDER = 4;
-    private static final TextureInfo INPUT_BOX_TEX_INFO = new TextureInfo(
-            INPUT_BOX_TEXTURE, INPUT_BOX_TEX_W, INPUT_BOX_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion INPUT_BOX_NINE_SLICE = NineSliceRegion.fullTheme(
-            INPUT_BOX_TEX_INFO, INPUT_BOX_STATE_H, INPUT_BOX_BORDER);
-
-    
-
-    private static final ResourceLocation MODE_BTN_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/base_ui/base_ui_3.png");
-    private static final int MODE_BTN_TEX_W = 32;
-    private static final int MODE_BTN_TEX_H = 32;
-    private static final int MODE_BTN_STATE_H = 16;
-    private static final int MODE_BTN_BORDER = 4;
-    private static final TextureInfo MODE_BTN_TEX_INFO = new TextureInfo(
-            MODE_BTN_TEXTURE, MODE_BTN_TEX_W, MODE_BTN_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion MODE_BTN_NINE_SLICE = NineSliceRegion.fullTheme(
-            MODE_BTN_TEX_INFO, MODE_BTN_STATE_H, MODE_BTN_BORDER);
 
     
 
@@ -86,6 +59,7 @@ public class HexInputComponent {
 
     
     private final AnimFloat inputFocusAnim = AnimFloat.of(0f, 100L, Easing.EASE_OUT_QUAD);
+    private final AnimFloat inputHoverAnim = AnimFloat.hover();
     
     private boolean prevHexEditMode;
 
@@ -131,17 +105,17 @@ public class HexInputComponent {
             inputFocusAnim.target(hexEditMode ? 1f : 0f);
             prevHexEditMode = hexEditMode;
         }
-        NineSliceRegion normalSpec = INPUT_BOX_NINE_SLICE.withTheme();
-        NineSliceRegion focusSpec = INPUT_BOX_NINE_SLICE.withTheme().withVOffset(INPUT_BOX_STATE_H);
-        CrossFadeRenderer.render(g, inputFocusAnim.get(),
-                () -> SpriteRenderer.drawNineSlice(g, normalSpec, inputX, inputY, inputW, INPUT_H),
-                () -> SpriteRenderer.drawNineSlice(g, focusSpec, inputX, inputY, inputW, INPUT_H));
+        boolean inputHovered = !hexEditMode
+                && mouseX >= inputX && mouseX < inputX + inputW
+                && mouseY >= inputY && mouseY < inputY + INPUT_H;
+        SdfRenderer.drawInputBox(g, inputX, inputY, inputW, INPUT_H,
+                inputFocusAnim.get(), inputHoverAnim.track(inputHovered), 4);
 
         TextRenderer.draw(g, inputLabel, previewX,
                 inputY + (INPUT_H - font.lineHeight) / 2, inputTextColor);
 
         int contentAreaW = inputW - INPUT_PAD * 2;
-        int textBaselineX = inputX + INPUT_PAD;
+        int textBaselineX = inputX + INPUT_PAD + 1;
         int textY = inputY + (INPUT_H - font.lineHeight) / 2;
 
         if (hexEditMode) {
@@ -197,12 +171,9 @@ public class HexInputComponent {
         boolean modeBtnHovered = mouseX >= btnX && mouseX < btnX + modeBtnW
                 && mouseY >= btnY && mouseY < btnY + INPUT_H;
         float modeBtnT = this.modeBtnHoverState.track(modeBtnHovered);
-        CrossFadeRenderer.render(g, modeBtnT,
-                () -> SpriteRenderer.drawNineSlice(g,
-                        MODE_BTN_NINE_SLICE.withTheme(), btnX, btnY, modeBtnW, INPUT_H),
-                () -> SpriteRenderer.drawNineSlice(g,
-                        MODE_BTN_NINE_SLICE.withTheme().withVOffset(MODE_BTN_STATE_H),
-                        btnX, btnY, modeBtnW, INPUT_H));
+        int modeBtnColor = ColorAnimation.lerpRGB(DarkUiPalette.bg(), DarkUiPalette.accent(), modeBtnT);
+        SdfRenderer.drawBorderedRoundedRect(g, btnX, btnY, modeBtnW, INPUT_H, 4,
+                DarkUiPalette.border(), modeBtnColor, 1);
         int modeTextColor = ThemeManager.getTextColor();
         TextRenderer.draw(g, modeText,
                 btnX + (modeBtnW - modeTextW) / 2,

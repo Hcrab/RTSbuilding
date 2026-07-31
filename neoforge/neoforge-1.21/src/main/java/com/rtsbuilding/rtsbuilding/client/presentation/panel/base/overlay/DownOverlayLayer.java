@@ -2,54 +2,16 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
-import com.rtsbuilding.rtsbuilding.client.util.render.CrossFadeRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.resources.ResourceLocation;
 
 public abstract class DownOverlayLayer implements OverlayContext {
 
-    
 
-    
-    private static final ResourceLocation OVERLAY_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/overlay_ui.png");
-    
-    private static final int OVERLAY_TEX_W = 256;
-    
-    private static final int OVERLAY_TEX_FILE_H = 256;
-    
-    private static final int OVERLAY_STATE_H = 128;
-    
-    private static final int OVERLAY_ACTIVE_V_OFFSET = 128;
-    
-    private static final int OVERLAY_BORDER = 8;
-    private static final TextureInfo OVERLAY_TEX_INFO = new TextureInfo(
-            OVERLAY_TEXTURE, OVERLAY_TEX_W, OVERLAY_TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion OVERLAY_NINE_SLICE = NineSliceRegion.fullTheme(
-            OVERLAY_TEX_INFO, OVERLAY_STATE_H, OVERLAY_BORDER);
-
-    
-
-    
-    private static final ResourceLocation SCREEN_UI_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/screen_ui.png");
-    private static final int SCREEN_UI_TEX_W = 256;
-    private static final int SCREEN_UI_TEX_FILE_H = 256;
-    private static final int SCREEN_UI_STATE_H = 128;
-    private static final int SCREEN_UI_BORDER = 8;
-    private static final TextureInfo SCREEN_UI_TEX_INFO = new TextureInfo(
-            SCREEN_UI_TEXTURE, SCREEN_UI_TEX_W, SCREEN_UI_TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion SCREEN_UI_NINE_SLICE = NineSliceRegion.fullTheme(
-            SCREEN_UI_TEX_INFO, SCREEN_UI_STATE_H, SCREEN_UI_BORDER);
 
     
 
@@ -121,10 +83,7 @@ public abstract class DownOverlayLayer implements OverlayContext {
         }
         float hoverT = hoverAnim.get();
 
-        
-        CrossFadeRenderer.render(g, hoverT,
-                () -> SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE.withTheme(), x, y, width, height),
-                () -> SpriteRenderer.drawNineSlice(g, OVERLAY_NINE_SLICE.withTheme().withVOffset(OVERLAY_ACTIVE_V_OFFSET), x, y, width, height));
+
 
         
         g.flush();
@@ -139,12 +98,11 @@ public abstract class DownOverlayLayer implements OverlayContext {
         
         renderContent(g);
 
-        
-        CrossFadeRenderer.render(g, hoverT,
-                () -> SpriteRenderer.drawNineSlice(g, SCREEN_UI_NINE_SLICE.withTheme(), x, y, width, height),
-                () -> SpriteRenderer.drawNineSlice(g, SCREEN_UI_NINE_SLICE.withTheme().withVOffset(SCREEN_UI_STATE_H), x, y, width, height));
-
         g.disableScissor();
+
+        
+        int borderColor = ColorAnimation.lerpRGB(DarkUiPalette.accent(), ColorAnimation.scale(DarkUiPalette.accent(), 1.4f), hoverT);
+        SdfRenderer.drawRoundedOutline(g, x + 1, y + 1, width - 2, height - 2, 8, borderColor);
 
         
         postRenderContent(g);

@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.color;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
@@ -28,15 +29,7 @@ public class ColorWheelComponent {
     private static final int WHEEL_CENTER_U = (COLOR_WHEEL_TEX_W - 1) / 2;
     private static final int WHEEL_CENTER_V = (COLOR_WHEEL_TEX_H - 1) / 2;
     private static final int WHEEL_RADIUS = WHEEL_CENTER_U - 1;
-    private static final ResourceLocation INDICATOR_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/color/color_palette_indicator.png");
-    private static final int INDICATOR_TEX_W = 144;
-    private static final int INDICATOR_TEX_H = 216;
-    private static final int INDICATOR_STATE_H = 72;
-    private static final TextureInfo INDICATOR_TEX_INFO = new TextureInfo(
-            INDICATOR_TEXTURE, INDICATOR_TEX_W, INDICATOR_TEX_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR, TextureInfo.FilterMode.PIXEL);
-    private static final int INDICATOR_DRAW_SIZE = 5;
+    private static final int INDICATOR_RADIUS = 2;
     private NativeImage wheelImage;
     public static class WheelPickResult {
         public final int texU;
@@ -78,38 +71,17 @@ public class ColorWheelComponent {
                                  float relX, float relY,
                                  AnimFloat animator,
                                  int mouseX, int mouseY, boolean dragging) {
-        int targetState;
-        if (dragging) {
-            targetState = 2;
-        } else if (mouseX >= wheelX && mouseX < wheelX + DRAW_SIZE
-                && mouseY >= wheelY && mouseY < wheelY + DRAW_SIZE) {
-            targetState = 1;
-        } else {
-            targetState = 0;
-        }
-
-        animator.target(targetState);
-        float stateF = animator.get();
-        int stateVOffset = Math.round(stateF * INDICATOR_STATE_H);
-        stateVOffset = Math.max(0, Math.min(INDICATOR_TEX_H - INDICATOR_STATE_H, stateVOffset));
-
         int dotCenterX = (int) Math.round(wheelX + relX * DRAW_SIZE);
         int dotCenterY = (int) Math.round(wheelY + relY * DRAW_SIZE);
 
-        int halfDot = INDICATOR_DRAW_SIZE / 2;
-        int minCenter = wheelX + halfDot;
-        int maxCenter = wheelX + DRAW_SIZE - halfDot - 1;
+        int minCenter = wheelX + INDICATOR_RADIUS;
+        int maxCenter = wheelX + DRAW_SIZE - INDICATOR_RADIUS - 1;
         dotCenterX = Math.max(minCenter, Math.min(maxCenter, dotCenterX));
-        minCenter = wheelY + halfDot;
-        maxCenter = wheelY + DRAW_SIZE - halfDot - 1;
+        minCenter = wheelY + INDICATOR_RADIUS;
+        maxCenter = wheelY + DRAW_SIZE - INDICATOR_RADIUS - 1;
         dotCenterY = Math.max(minCenter, Math.min(maxCenter, dotCenterY));
 
-        SpriteRegion region = new SpriteRegion(
-                INDICATOR_TEX_INFO, 0, stateVOffset,
-                INDICATOR_TEX_INFO.halfWidth(), INDICATOR_STATE_H);
-        SpriteRenderer.drawSprite(g, region.withTheme(),
-                dotCenterX - halfDot, dotCenterY - halfDot,
-                INDICATOR_DRAW_SIZE, INDICATOR_DRAW_SIZE);
+        SdfRenderer.drawCircle(g, dotCenterX, dotCenterY, INDICATOR_RADIUS, 0xFFFFFFFF);
     }
 
     

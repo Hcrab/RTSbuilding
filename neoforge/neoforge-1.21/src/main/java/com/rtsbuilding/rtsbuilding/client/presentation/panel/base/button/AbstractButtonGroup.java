@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.base.button;
 
-import com.mojang.math.Axis;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayoutHelper;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
@@ -131,18 +131,8 @@ public abstract class AbstractButtonGroup {
 
         
         if (hasBg) {
-            ResourceLocation[] bgTexArr = { downBg, middleBg, upBg };
-            this.bgTexInfo = new TextureInfo[3];
-            this.bgStateRegions = new SpriteRegion[9]; 
-            for (int t = 0; t < 3; t++) {
-                this.bgTexInfo[t] = new TextureInfo(
-                        bgTexArr[t], TEX_W, TEX_H,
-                        TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-                        TextureInfo.FilterMode.PIXEL);
-                this.bgStateRegions[t * 3]     = new SpriteRegion(bgTexInfo[t], 0, 0,           HALF_W, STATE_H);
-                this.bgStateRegions[t * 3 + 1] = new SpriteRegion(bgTexInfo[t], 0, STATE_H,     HALF_W, STATE_H);
-                this.bgStateRegions[t * 3 + 2] = new SpriteRegion(bgTexInfo[t], 0, STATE_H * 2, HALF_W, STATE_H);
-            }
+            this.bgTexInfo = null;
+            this.bgStateRegions = null;
 
             
             this.bgTypeForButton = new int[n];
@@ -231,32 +221,9 @@ public abstract class AbstractButtonGroup {
         boolean hovering = mouseX >= bx && mouseX < bx + buttonSize
                 && mouseY >= by && mouseY < by + buttonSize;
         float hoverT = this.hoverStates[index].track(hovering);
-
-        int bt = bgTypeForButton[index]; 
-        int bsi = bt * 3;
-
-        boolean needRotate = direction == Direction.HORIZONTAL && bt != 1;
-        if (needRotate) {
-            float angle = 90f; 
-            float cx = bx + buttonSize / 2.0f;
-            float cy = by + buttonSize / 2.0f;
-            g.pose().pushPose();
-            g.pose().translate(cx, cy, 0);
-            g.pose().mulPose(Axis.ZP.rotationDegrees(angle));
-            g.pose().translate(-cx, -cy, 0);
-        }
-
-        SpriteRenderer.drawStateSprite(g,
-                bgStateRegions[bsi],     
-                bgStateRegions[bsi + 1], 
-                bgStateRegions[bsi + 2], 
-                selected[index],
-                hoverT,
-                bx, by, buttonSize, buttonSize);
-
-        if (needRotate) {
-            g.pose().popPose();
-        }
+        int bt = bgTypeForButton[index];
+        SdfRenderer.drawButtonBg(g, bt, direction == Direction.HORIZONTAL,
+                selected[index], hoverT, bx, by, buttonSize, buttonSize);
     }
 
     

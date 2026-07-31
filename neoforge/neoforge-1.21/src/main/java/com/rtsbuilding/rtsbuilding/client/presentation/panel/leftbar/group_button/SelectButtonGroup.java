@@ -4,7 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.button.AbstractButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.util.animate.ColorAnimation;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.state.TooltipController;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
@@ -24,23 +24,12 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
 
     
 
-    
-    private static final ResourceLocation DOWN_BG = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/button/down_button.png");
-    
-    private static final ResourceLocation MIDDLE_BG = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/button/middle_button.png");
-    
-    private static final ResourceLocation UP_BG = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/base/button/up_button.png");
-
-    
     private final TooltipController clickBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
     private final TooltipController selectBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
 
     public SelectButtonGroup() {
         super(Direction.VERTICAL, DEFAULT_BTN_SIZE, DEFAULT_INNER_GAP, true,
-                DOWN_BG, MIDDLE_BG, UP_BG,
+                null, null, null,
                 BTN_TEXTURE, SELECT_BTN);
         
         selected[0] = true;
@@ -125,8 +114,7 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
 
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
-        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-        SpriteRenderer.drawNineSliceFloatingPanel(g, tipX, tipY, tipW, tipH, false);
+        SdfRenderer.drawVectorFloatingPanel(g, tipX, tipY, tipW, tipH, false, alpha);
 
         float textY = tipY + padV;
         for (int i = 0; i < lines.length; i++) {

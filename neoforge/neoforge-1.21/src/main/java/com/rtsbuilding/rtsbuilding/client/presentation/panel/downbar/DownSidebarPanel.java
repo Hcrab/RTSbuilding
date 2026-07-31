@@ -6,11 +6,9 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.DownOv
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.overlay.LeftDownOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.downbar.overlay.RightDownOverlayLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.NineSliceRegion;
-import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.render.DarkUiPalette;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
 
 import java.util.Objects;
 
@@ -35,22 +33,7 @@ public final class DownSidebarPanel implements RtsPanelApi {
     
 
     
-    private static final ResourceLocation BORDER_TEXTURE = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/down/down_ui.png");
-    
-    private static final int TEX_W = 32;
-    
-    private static final int TEX_FILE_H = 32;
-    
-    private static final int STATE_H = 16;
-    
-    private static final int BORDER = 2;
-    private static final TextureInfo DOWN_TEX_INFO = new TextureInfo(
-            BORDER_TEXTURE, TEX_W, TEX_FILE_H,
-            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
-            TextureInfo.FilterMode.PIXEL);
-    private static final NineSliceRegion DOWN_NINE_SLICE = NineSliceRegion.fullTheme(
-            DOWN_TEX_INFO, STATE_H, BORDER);
+
 
     
     private final DownSidebarLayoutHelper layout = new DownSidebarLayoutHelper();
@@ -135,9 +118,7 @@ public final class DownSidebarPanel implements RtsPanelApi {
         DownSidebarLayoutHelper.Rect db = layoutRect();
         if (db.width() <= 0 || db.height() <= 0) return;
 
-        int srcY = resizeHandler.isActive() ? STATE_H : 0;
-        SpriteRenderer.drawNineSlice(g, DOWN_NINE_SLICE.withTheme().withVOffset(srcY),
-                db.x(), db.y(), db.width(), db.height());
+        g.fill(db.x(), db.y(), db.x() + db.width(), db.y() + db.height(), DarkUiPalette.bg());
     }
 
     
@@ -157,7 +138,6 @@ public final class DownSidebarPanel implements RtsPanelApi {
 
         
         leftLayer.setBounds(db.x(), oy, leftW, oh);
-        leftLayer.setDividerDragging(isDraggingOverlayDivider);
         leftLayer.setLastMousePos(mouseX, mouseY);
         leftLayer.render(g, isDraggingOverlayDivider || isMouseInLayer(leftLayer, mouseX, mouseY));
 
@@ -166,7 +146,6 @@ public final class DownSidebarPanel implements RtsPanelApi {
         int rightW = totalW - leftW - gap;
         if (rightW > 0) {
             rightLayer.setBounds(rightX, oy, rightW, oh);
-            rightLayer.setDividerDragging(isDraggingOverlayDivider);
             rightLayer.setLastMousePos(mouseX, mouseY);
             rightLayer.render(g, isDraggingOverlayDivider || isMouseInLayer(rightLayer, mouseX, mouseY));
         }

@@ -56,10 +56,42 @@ public final class RtsClientBootstrap {
             event.registerShader(
                     new ShaderInstance(
                             event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rounded_rect_outline"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.roundedRectOutline = shader
+            );
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
                             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rounded_rect_top"),
                             DefaultVertexFormat.POSITION_TEX_COLOR
                     ),
                     shader -> RtsShaders.roundedRectTop = shader
+            );
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rounded_rect_bottom"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.roundedRectBottom = shader
+            );
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rounded_rect_left"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.roundedRectLeft = shader
+            );
+            event.registerShader(
+                    new ShaderInstance(
+                            event.getResourceProvider(),
+                            ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rounded_rect_right"),
+                            DefaultVertexFormat.POSITION_TEX_COLOR
+                    ),
+                    shader -> RtsShaders.roundedRectRight = shader
             );
             event.registerShader(
                     new ShaderInstance(

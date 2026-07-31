@@ -131,8 +131,9 @@ public final class RtsInteractionServiceImpl implements RtsService {
         }
 
         boolean playedSpecificSound = false;
+        BlockPos placedPos = null;
         if (result.consumesAction() && blockHit != null && beforeClicked != null) {
-            BlockPos placedPos = RtsPlacementHelper.detectPlacedPos(
+            placedPos = RtsPlacementHelper.detectPlacedPos(
                     level, effectiveBlockPos, beforeClicked, adjacentPos, beforeAdjacent);
             if (placedPos != null) {
                 PlacedBlockTrackerData.get(level).mark(placedPos);
@@ -159,6 +160,10 @@ public final class RtsInteractionServiceImpl implements RtsService {
             }
         }
 
-        server.page().requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
+        boolean storageChanged = placedPos != null
+                || (result.consumesAction() && menuAfterInteract == menuBeforeInteract);
+        if (storageChanged) {
+            server.page().requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
+        }
     }
 }

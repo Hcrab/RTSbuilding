@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.component.ScaleSlid
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
 import com.rtsbuilding.rtsbuilding.client.util.render.BlendScope;
-import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import net.minecraft.client.Minecraft;
@@ -174,7 +174,7 @@ public class ColorPickerPanel extends RtsPanel {
         int grayBarX = wheelLayout[6], grayBarY = wheelLayout[7];
 
         try (BlendScope blend = BlendScope.normal()) {
-            SpriteRenderer.drawNineSliceFloatingPanel(g, panelX, panelY, panelW, panelH, false);
+            SdfRenderer.drawVectorFloatingPanel(g, panelX, panelY, panelW, panelH, false);
             wheelComponent.renderWheel(g, wheelImgX, wheelImgY);
             wheelComponent.renderIndicator(g, wheelImgX, wheelImgY,
                     indicatorRelX, indicatorRelY, indicatorStateAnim,
