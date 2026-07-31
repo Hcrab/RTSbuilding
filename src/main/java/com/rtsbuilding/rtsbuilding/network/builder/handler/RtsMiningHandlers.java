@@ -2,9 +2,11 @@ package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsConvenienceDestroyPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsConvenienceDestroyService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsNativeLeftClickBridge;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -85,6 +87,24 @@ public final class RtsMiningHandlers {
                 ServiceRegistry.getInstance().mining().areaDestroy(
                         serverPlayer,
                         payload.positions(),
+                        payload.toolSlot(),
+                        payload.toolItemId(),
+                        payload.toolPrototype(),
+                        payload.toolProtectionEnabled());
+            }
+        });
+    }
+
+    public static void handleConvenienceDestroy(
+            C2SRtsConvenienceDestroyPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsConvenienceDestroyService.INSTANCE.submit(
+                        serverPlayer,
+                        payload.mode(),
+                        payload.anchor(),
+                        Direction.from3DDataValue(payload.face()),
+                        payload.settings(),
                         payload.toolSlot(),
                         payload.toolItemId(),
                         payload.toolPrototype(),

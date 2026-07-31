@@ -319,6 +319,13 @@ public static AreaMineBounds computeAreaMineBounds(BlockPos pointA, BlockPos poi
     public void clearAreaMineSession() { this.interactionOwner.clearAreaMineSession(); }
     public void confirmAreaMine(int toolSlot, ShapeFillMode fillMode) { this.interactionOwner.confirmAreaMine(toolSlot, fillMode); }
     public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) { this.interactionOwner.confirmShapeAreaDestroy(targets, toolSlot); }
+    public void confirmConvenienceDestroy(
+            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode mode,
+            BlockHitResult hit,
+            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings settings,
+            int toolSlot) {
+        this.interactionOwner.confirmConvenienceDestroy(mode, hit, settings, toolSlot);
+    }
     public void abortMining(int toolSlot) { this.interactionOwner.abortMining(toolSlot); }
     public int getMineProgressStage() { return this.interactionOwner.getMineProgressStage(); }
     public BlockPos getMineProgressPos() { return this.interactionOwner.getMineProgressPos(); }

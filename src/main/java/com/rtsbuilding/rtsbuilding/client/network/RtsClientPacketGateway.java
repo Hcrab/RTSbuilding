@@ -3,6 +3,8 @@ package com.rtsbuilding.rtsbuilding.client.network;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
@@ -597,6 +599,25 @@ public final class RtsClientPacketGateway {
         }
         PacketDistributor.sendToServer(new C2SRtsAreaDestroyPayload(
                 positions,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                toolProtectionEnabled));
+    }
+
+    public static void sendConvenienceDestroy(long requestId,
+            RtsConvenienceDestroyMode mode, BlockPos anchor, Direction face,
+            RtsConvenienceDestroySettings settings, int toolSlot,
+            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled) {
+        if (mode == null || anchor == null) {
+            return;
+        }
+        PacketDistributor.sendToServer(new C2SRtsConvenienceDestroyPayload(
+                requestId,
+                mode,
+                anchor.immutable(),
+                (byte) (face == null ? Direction.UP : face).get3DDataValue(),
+                settings == null ? RtsConvenienceDestroySettings.DEFAULT : settings,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,

@@ -424,6 +424,14 @@ public final class RtsClientUiStateStore {
         public static final class MiningState {
             public int ultimineLimit = 64;
             public String areaMineShape = "CHAIN";
+            public String catalogPage = "SHAPES";
+            public String convenienceTool = "REPEAT_BOX";
+            public int convenienceSizeX = 3;
+            public int convenienceSizeY = 3;
+            public int convenienceSizeZ = 3;
+            public int convenienceChunkUp = 0;
+            public int convenienceChunkDown = 15;
+            public int convenienceTreeMaxBlocks = 256;
 
             // ===== 范围破坏模式独立状态 =====
             public String destroyFillMode = "FILL";
@@ -546,6 +554,21 @@ public final class RtsClientUiStateStore {
             // quickBuild — mining
             clean.quickBuild.mining.ultimineLimit = Math.max(1, Math.min(256, this.quickBuild.mining.ultimineLimit));
             clean.quickBuild.mining.areaMineShape = sanitizeEnum(this.quickBuild.mining.areaMineShape, "CHAIN");
+            clean.quickBuild.mining.catalogPage = sanitizeEnum(this.quickBuild.mining.catalogPage, "SHAPES");
+            clean.quickBuild.mining.convenienceTool = sanitizeEnum(
+                    this.quickBuild.mining.convenienceTool, "REPEAT_BOX");
+            clean.quickBuild.mining.convenienceSizeX = Math.max(1,
+                    Math.min(64, this.quickBuild.mining.convenienceSizeX));
+            clean.quickBuild.mining.convenienceSizeY = Math.max(1,
+                    Math.min(128, this.quickBuild.mining.convenienceSizeY));
+            clean.quickBuild.mining.convenienceSizeZ = Math.max(1,
+                    Math.min(64, this.quickBuild.mining.convenienceSizeZ));
+            clean.quickBuild.mining.convenienceChunkUp = Math.max(0,
+                    Math.min(128, this.quickBuild.mining.convenienceChunkUp));
+            clean.quickBuild.mining.convenienceChunkDown = Math.max(0,
+                    Math.min(128, this.quickBuild.mining.convenienceChunkDown));
+            clean.quickBuild.mining.convenienceTreeMaxBlocks = Math.max(1,
+                    Math.min(8192, this.quickBuild.mining.convenienceTreeMaxBlocks));
             clean.quickBuild.mining.destroyFillMode = sanitizeEnum(this.quickBuild.mining.destroyFillMode, "FILL");
             clean.quickBuild.mining.destroyRotationDegrees = Math.floorMod(this.quickBuild.mining.destroyRotationDegrees, 360);
             clean.quickBuild.mining.destroyLineConnected = this.quickBuild.mining.destroyLineConnected;

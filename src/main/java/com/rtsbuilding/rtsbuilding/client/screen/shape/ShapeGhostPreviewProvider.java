@@ -60,6 +60,9 @@ public final class ShapeGhostPreviewProvider {
     }
 
     private ShapeDataRecords.GhostPreview destroyPreview() {
+        if (this.screen.isQuickBuildConvenienceDestroyMode()) {
+            return this.screen.getConvenienceDestroyGhostPreview();
+        }
         if (this.screen.isQuickBuildRangeDestroyChainMode()) {
             ShapeDataRecords.GhostPreview confirmed = this.confirmedPreviews.activeChain(
                     this.runtime.destroyProgress(), this.runtime::isLiveDestroyTarget);

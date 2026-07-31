@@ -62,6 +62,24 @@ class QuickBuildUiReducerTest {
         assertTrue(result.state.control(QuickBuildUiControl.Id.FILL).selected);
     }
 
+    @Test
+    void conveniencePageKeepsToolAndClampsTreeGroupLimit() {
+        QuickBuildUiState base = state(true, QuickBuildUiMode.DESTROY, QuickBuildUiShape.BOX);
+        QuickBuildUiTransition page = QuickBuildUiReducer.apply(
+                base, QuickBuildUiAction.catalog(QuickBuildUiCatalogPage.CONVENIENCE_TOOLS));
+        assertTrue(page.state.convenienceMode());
+
+        QuickBuildUiTransition tool = QuickBuildUiReducer.apply(
+                page.state, QuickBuildUiAction.convenienceTool(QuickBuildUiConvenienceTool.TREE_FELL));
+        QuickBuildUiTransition limit = QuickBuildUiReducer.apply(
+                tool.state, QuickBuildUiAction.convenienceParameter(
+                        QuickBuildUiConvenienceParameter.TREE_MAX_BLOCKS, 99_999));
+        assertEquals(QuickBuildUiConvenienceTool.TREE_FELL, limit.state.convenienceTool);
+        assertEquals(QuickBuildUiConvenienceSettings.TREE_MAX,
+                limit.state.convenienceSettings.treeMaxBlocks());
+        assertEquals(QuickBuildUiShape.BOX, limit.state.destroyShape);
+    }
+
     private static QuickBuildUiState state(boolean destroyEnabled, QuickBuildUiMode mode,
                                            QuickBuildUiShape destroyShape) {
         return new QuickBuildUiState(true, mode, destroyEnabled, "",

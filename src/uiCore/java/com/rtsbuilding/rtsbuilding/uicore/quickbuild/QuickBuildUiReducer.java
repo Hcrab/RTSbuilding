@@ -24,6 +24,22 @@ public final class QuickBuildUiReducer {
             case SET_CHAIN_LIMIT:
                 return state.chainMode() ? result(state.withChainLimit(action.value),
                         QuickBuildUiTransition.Command.SET_CHAIN_LIMIT, action) : none(state, action);
+            case SELECT_CATALOG_PAGE:
+                return state.mode == QuickBuildUiMode.DESTROY && action.catalogPage != null
+                        ? result(state.withCatalogPage(action.catalogPage),
+                        QuickBuildUiTransition.Command.SELECT_CATALOG_PAGE, action)
+                        : none(state, action);
+            case SELECT_CONVENIENCE_TOOL:
+                return state.mode == QuickBuildUiMode.DESTROY && action.convenienceTool != null
+                        ? result(state.withConvenienceTool(action.convenienceTool),
+                        QuickBuildUiTransition.Command.SELECT_CONVENIENCE_TOOL, action)
+                        : none(state, action);
+            case SET_CONVENIENCE_PARAMETER:
+                return state.convenienceMode() && action.convenienceParameter != null
+                        ? result(state.withConvenienceParameter(
+                        action.convenienceParameter, action.value),
+                        QuickBuildUiTransition.Command.SET_CONVENIENCE_PARAMETER, action)
+                        : none(state, action);
             case CLOSE:
                 return result(state.closed(), QuickBuildUiTransition.Command.CLOSE, action);
             default:

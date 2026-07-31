@@ -87,6 +87,11 @@ public final class RtsBuilderPackets {
                 C2SRtsAreaDestroyPayload.STREAM_CODEC,
                 RtsMiningHandlers::handleAreaDestroy);
 
+        registrar.playToServer(
+                C2SRtsConvenienceDestroyPayload.TYPE,
+                C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
+                RtsMiningHandlers::handleConvenienceDestroy);
+
         registrar.playToClient(
                 S2CRtsMineProgressPayload.TYPE,
                 S2CRtsMineProgressPayload.STREAM_CODEC,

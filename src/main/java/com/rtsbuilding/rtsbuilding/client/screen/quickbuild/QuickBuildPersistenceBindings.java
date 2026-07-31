@@ -2,6 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 
 import java.util.List;
 
@@ -36,6 +39,46 @@ final class QuickBuildPersistenceBindings {
                         (state, value) -> state.quickBuild.mining.ultimineLimit = value,
                         preferences::chainLimit,
                         preferences::chainLimit),
+                PersistableProperty.enumField(
+                        "quick_build_catalog_page",
+                        state -> state.quickBuild.mining.catalogPage,
+                        (state, value) -> state.quickBuild.mining.catalogPage = value,
+                        preferences::catalogPage,
+                        preferences::catalogPage,
+                        QuickBuildUiCatalogPage.SHAPES,
+                        QuickBuildUiCatalogPage.class),
+                PersistableProperty.enumField(
+                        "convenience_destroy_tool",
+                        state -> state.quickBuild.mining.convenienceTool,
+                        (state, value) -> state.quickBuild.mining.convenienceTool = value,
+                        preferences::convenienceTool,
+                        preferences::convenienceTool,
+                        QuickBuildUiConvenienceTool.REPEAT_BOX,
+                        QuickBuildUiConvenienceTool.class),
+                convenienceInt("convenience_size_x", QuickBuildUiConvenienceParameter.SIZE_X,
+                        state -> state.quickBuild.mining.convenienceSizeX,
+                        (state, value) -> state.quickBuild.mining.convenienceSizeX = value,
+                        preferences),
+                convenienceInt("convenience_size_y", QuickBuildUiConvenienceParameter.SIZE_Y,
+                        state -> state.quickBuild.mining.convenienceSizeY,
+                        (state, value) -> state.quickBuild.mining.convenienceSizeY = value,
+                        preferences),
+                convenienceInt("convenience_size_z", QuickBuildUiConvenienceParameter.SIZE_Z,
+                        state -> state.quickBuild.mining.convenienceSizeZ,
+                        (state, value) -> state.quickBuild.mining.convenienceSizeZ = value,
+                        preferences),
+                convenienceInt("convenience_chunk_up", QuickBuildUiConvenienceParameter.CHUNK_UP,
+                        state -> state.quickBuild.mining.convenienceChunkUp,
+                        (state, value) -> state.quickBuild.mining.convenienceChunkUp = value,
+                        preferences),
+                convenienceInt("convenience_chunk_down", QuickBuildUiConvenienceParameter.CHUNK_DOWN,
+                        state -> state.quickBuild.mining.convenienceChunkDown,
+                        (state, value) -> state.quickBuild.mining.convenienceChunkDown = value,
+                        preferences),
+                convenienceInt("convenience_tree_max", QuickBuildUiConvenienceParameter.TREE_MAX_BLOCKS,
+                        state -> state.quickBuild.mining.convenienceTreeMaxBlocks,
+                        (state, value) -> state.quickBuild.mining.convenienceTreeMaxBlocks = value,
+                        preferences),
                 PersistableProperty.boolField(
                         "creative_overwrite",
                         state -> state.quickBuild.building.creativeOverwrite,
@@ -109,5 +152,19 @@ final class QuickBuildPersistenceBindings {
     }
 
     private QuickBuildPersistenceBindings() {
+    }
+
+    private static PersistableProperty convenienceInt(
+            String key,
+            QuickBuildUiConvenienceParameter parameter,
+            java.util.function.ToIntFunction<com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore.UiState> reader,
+            java.util.function.ObjIntConsumer<com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore.UiState> writer,
+            QuickBuildPreferenceState preferences) {
+        return PersistableProperty.intField(
+                key,
+                reader::applyAsInt,
+                writer::accept,
+                () -> preferences.convenienceSettings().value(parameter),
+                value -> preferences.convenienceParameter(parameter, value));
     }
 }

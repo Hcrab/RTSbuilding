@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyPlanner;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
@@ -13,6 +14,10 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiReducer;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -20,6 +25,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
 
@@ -40,6 +46,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     // ======================== 实例 ========================
     private QuickBuildControlSurface controlSurface;
     private final QuickBuildPreferenceState preferences = new QuickBuildPreferenceState();
+    private final QuickBuildConvenienceController convenience =
+            new QuickBuildConvenienceController(this.preferences);
 
     // ======================== 持久化属性 ========================
 
@@ -61,6 +69,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         this.preferences.buildShape(controller.getBuildShape());
         AreaMineShape storedDestroyShape = controller.getAreaMineShape();
         this.preferences.destroyShape(storedDestroyShape);
+        this.convenience.init(screen, controller);
         this.controlSurface = new QuickBuildControlSurface(this::dispatchCore);
         this.controlSurface.refreshAll(QuickBuildUiAdapter.snapshot(this));
     }
@@ -120,6 +129,76 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     public int getChainDestroyLimit() {
         return this.preferences.chainLimit();
+    }
+
+    QuickBuildUiCatalogPage getCatalogPage() {
+        return this.convenience.page(isDestroyModeActive());
+    }
+
+    QuickBuildUiConvenienceTool getConvenienceTool() {
+        return this.convenience.tool();
+    }
+
+    QuickBuildUiConvenienceSettings getConvenienceSettings() {
+        return this.convenience.settings();
+    }
+
+    void setCatalogPage(QuickBuildUiCatalogPage page) {
+        this.convenience.setPage(page, isDestroyModeActive());
+        afterConvenienceModeChanged();
+    }
+
+    void setConvenienceTool(QuickBuildUiConvenienceTool tool) {
+        this.convenience.setTool(tool);
+        afterConvenienceModeChanged();
+    }
+
+    void setConvenienceParameter(QuickBuildUiConvenienceParameter parameter, int value) {
+        this.convenience.setParameter(parameter, value);
+        if (screen != null) {
+            screen.persistUiState();
+        }
+        if (this.controlSurface != null) {
+            this.controlSurface.syncConvenienceSettings(this.preferences.convenienceSettings());
+        }
+    }
+
+    public boolean isConvenienceDestroyMode() {
+        return this.convenience.isActive(isDestroyModeActive());
+    }
+
+    public RtsConvenienceDestroyPlanner.Plan convenienceDestroyPreview() {
+        return this.convenience.preview(isDestroyModeActive());
+    }
+
+    public com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords.GhostPreview
+            convenienceGhostPreview() {
+        return this.convenience.ghostPreview(isDestroyModeActive());
+    }
+
+    public boolean submitConvenienceDestroy(BlockHitResult hit) {
+        return this.convenience.submit(
+                isDestroyModeActive(), hit, this.screen.getSelectedToolSlot());
+    }
+
+    String convenienceDimensionLabel() {
+        return this.convenience.dimensionLabel();
+    }
+
+    String convenienceHintKey() {
+        return this.convenience.hintKey(isDestroyModeActive());
+    }
+
+    private void afterConvenienceModeChanged() {
+        if (isOpen()) {
+            applyActiveShapeToController();
+            screen.clearShapeBuildSession();
+            controller.clearAreaMineSession();
+        }
+        if (screen != null) screen.persistUiState();
+        if (this.controlSurface != null) {
+            this.controlSurface.refreshAll(QuickBuildUiAdapter.snapshot(this));
+        }
     }
 
     public void setChainDestroyLimit(int limit) {
@@ -288,6 +367,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     @Override
     protected void onClose() {
         restoreSingleBlockCursor();
+        this.convenience.invalidate();
         if (screen != null) {
             screen.persistUiState();
         }
@@ -357,7 +437,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     public boolean isRangeDestroyChainMode() {
-        return isRangeDestroyMode() && effectiveRangeDestroyShape() == AreaMineShape.CHAIN;
+        return isRangeDestroyMode() && !isConvenienceDestroyMode()
+                && effectiveRangeDestroyShape() == AreaMineShape.CHAIN;
     }
 
     /**
@@ -404,7 +485,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     BuildShape activeAdvancedShape() {
-        return isDestroyModeActive()
+        return isConvenienceDestroyMode()
+                ? BuildShape.BLOCK
+                : isDestroyModeActive()
                 ? toBuildShape(effectiveRangeDestroyShape())
                 : this.preferences.buildShape();
     }
@@ -534,6 +617,11 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     private void applyActiveShapeToController() {
         if (isDestroyModeActive()) {
+            if (isConvenienceDestroyMode()) {
+                this.controller.setAreaMineShape(AreaMineShape.BLOCK);
+                this.controller.setBuildShape(BuildShape.BLOCK);
+                return;
+            }
             AreaMineShape shape = effectiveRangeDestroyShape();
             this.preferences.destroyShape(shape);
             this.controller.setAreaMineShape(shape);

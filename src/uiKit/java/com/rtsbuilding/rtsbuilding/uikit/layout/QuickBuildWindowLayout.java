@@ -13,13 +13,17 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 public final class QuickBuildWindowLayout {
     public static final int WINDOW_W = 178;
     public static final int BUILD_BASE_H = 260;
-    public static final int DESTROY_BASE_H = 260;
+    public static final int DESTROY_BASE_H = 286;
     public static final int BOTTOM_INFO_H = 72;
     public static final int TITLE_H = 20;
     public static final int MODE_H = 18;
     public static final int MODE_GAP = 4;
     public static final int MODE_TOP = 5;
     public static final int SECTION_TOP = 31;
+    public static final int CATALOG_TOP = SECTION_TOP + 14;
+    public static final int CATALOG_H = 18;
+    public static final int CATALOG_GAP = 4;
+    public static final int CATALOG_TOOLS_GAP = 8;
     public static final int CONTROL_LIST_TOP = SECTION_TOP + 15;
     public static final int CHAIN_LABEL_TOP = SECTION_TOP + 17;
     public static final int CHAIN_SLIDER_GAP = 14;
@@ -34,6 +38,11 @@ public final class QuickBuildWindowLayout {
     public static final int RIGHT_COL_X = 88;
     public static final int CONTROL_W = 84;
     public static final int CONTROL_H = 20;
+    public static final int CONVENIENCE_TOOL_W = 72;
+    public static final int CONVENIENCE_TOOL_H = 22;
+    public static final int CONVENIENCE_TOOL_PITCH = 30;
+    public static final int CONVENIENCE_PARAMETER_LABEL_GAP = 13;
+    public static final int CONVENIENCE_PARAMETER_PITCH = 50;
     public static final int CONTROL_ICON_INSET = 2;
     public static final int CONTROL_ICON_SIZE = 16;
     public static final int SHAPE_SELECTED_INSET = 2;
@@ -86,23 +95,27 @@ public final class QuickBuildWindowLayout {
                 bodyY + SECTION_TOP,
                 windowX + RIGHT_COL_X,
                 windowY + (destroy ? DESTROY_BASE_H : BUILD_BASE_H),
-                windowHeight(destroy));
+                windowHeight(destroy), destroy);
     }
 
     public static final class Geometry {
         public final int windowX, windowY, bodyY;
         public final int buildModeX, destroyModeX, modeY, modeW;
         public final int sectionTitleY, rightX, dividerY, windowH;
+        public final boolean destroy;
         public final int chainLabelY, chainSliderY, statusTextY, statusItemY;
+        public final int catalogY, catalogW, convenienceContentY;
         public final int contentX, contentW, sectionLabelX;
         public final UiRect buildMode, destroyMode, divider, progress;
 
         private Geometry(int windowX,int windowY,int bodyY,int buildModeX,int destroyModeX,
-                         int modeY,int modeW,int sectionTitleY,int rightX,int dividerY,int windowH) {
+                         int modeY,int modeW,int sectionTitleY,int rightX,int dividerY,int windowH,
+                         boolean destroy) {
             this.windowX=windowX; this.windowY=windowY; this.bodyY=bodyY;
             this.buildModeX=buildModeX; this.destroyModeX=destroyModeX;
             this.modeY=modeY; this.modeW=modeW; this.sectionTitleY=sectionTitleY;
             this.rightX=rightX; this.dividerY=dividerY; this.windowH=windowH;
+            this.destroy=destroy;
             this.chainLabelY = bodyY + CHAIN_LABEL_TOP;
             this.chainSliderY = chainLabelY + CHAIN_SLIDER_GAP;
             this.statusTextY = dividerY + STATUS_TEXT_TOP;
@@ -110,6 +123,9 @@ public final class QuickBuildWindowLayout {
             this.contentX = windowX + CONTENT_INSET;
             this.contentW = WINDOW_W - CONTENT_INSET * 2;
             this.sectionLabelX = windowX + SECTION_LABEL_INSET;
+            this.catalogY = bodyY + CATALOG_TOP;
+            this.catalogW = (contentW - CATALOG_GAP) / 2;
+            this.convenienceContentY = catalogY + CATALOG_H + CATALOG_TOOLS_GAP;
             this.buildMode = new UiRect(buildModeX, modeY, modeW, MODE_H);
             this.destroyMode = new UiRect(destroyModeX, modeY, modeW, MODE_H);
             this.divider = new UiRect(
@@ -123,8 +139,31 @@ public final class QuickBuildWindowLayout {
         public int shapeX(int index) {
             return contentX + (index % 2) * (SHAPE_SLOT + SHAPE_GAP);
         }
-        public int shapeY(int index){return bodyY + CONTROL_LIST_TOP + (index / 2) * SHAPE_ROW_PITCH;}
-        public int controlY(int index){return bodyY + CONTROL_LIST_TOP + index * SHAPE_ROW_PITCH;}
+        public int shapeY(int index) {
+            return bodyY + CONTROL_LIST_TOP + (destroy ? 26 : 0)
+                    + (index / 2) * SHAPE_ROW_PITCH;
+        }
+
+        public int controlY(int index) {
+            return bodyY + CONTROL_LIST_TOP + (destroy ? 26 : 0)
+                    + index * SHAPE_ROW_PITCH;
+        }
+
+        public int catalogX(int index) {
+            return contentX + index * (catalogW + CATALOG_GAP);
+        }
+
+        public int convenienceToolY(int index) {
+            return convenienceContentY + index * CONVENIENCE_TOOL_PITCH;
+        }
+
+        public int convenienceParameterLabelY(int index) {
+            return convenienceContentY + index * CONVENIENCE_PARAMETER_PITCH;
+        }
+
+        public int convenienceParameterSliderY(int index) {
+            return convenienceParameterLabelY(index) + CONVENIENCE_PARAMETER_LABEL_GAP;
+        }
 
         public int chainValueX(int sliderWidth) {
             return rightX + sliderWidth + CHAIN_VALUE_GAP;

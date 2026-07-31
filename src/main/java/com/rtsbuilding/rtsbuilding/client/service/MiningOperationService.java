@@ -7,6 +7,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
 import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import net.minecraft.client.Minecraft;
@@ -367,6 +369,31 @@ public final class MiningOperationService {
         this.mineRenderStage = 0;
         RtsClientPacketGateway.sendAreaDestroy(
                 targets,
+                this.activeMineToolSlot,
+                selectedMiningToolItemId(selectedItemId, selectedItemPreview),
+                selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
+                toolProtectionEnabled);
+        clearAreaMineSession();
+    }
+
+    /**
+     * 提交声明式便捷破坏请求；客户端预览坐标不会进入协议，服务端会重新规划。
+     */
+    public void confirmConvenienceDestroy(RtsConvenienceDestroyMode mode,
+            BlockHitResult hit, RtsConvenienceDestroySettings settings, int toolSlot,
+            String selectedItemId, ItemStack selectedItemPreview,
+            boolean toolProtectionEnabled) {
+        if (mode == null || hit == null) {
+            return;
+        }
+        BlockPos anchor = hit.getBlockPos().immutable();
+        this.activeMinePos = anchor;
+        this.activeMineFace = hit.getDirection().get3DDataValue();
+        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.mineRenderPos = anchor;
+        this.mineRenderStage = 0;
+        RtsClientPacketGateway.sendConvenienceDestroy(
+                System.nanoTime(), mode, anchor, hit.getDirection(), settings,
                 this.activeMineToolSlot,
                 selectedMiningToolItemId(selectedItemId, selectedItemPreview),
                 selectedMiningToolPrototype(selectedItemId, selectedItemPreview),

@@ -133,7 +133,16 @@ final class BuilderScreenWindowActionOwner {
 
     boolean isQuickBuildRangeDestroyChainMode() {
             return screen.isQuickBuildOpen() && screen.quickBuildPanel.isRangeDestroyChainMode();
-        }
+    }
+
+    boolean isQuickBuildConvenienceDestroyMode() {
+            return screen.isQuickBuildOpen() && screen.quickBuildPanel.isConvenienceDestroyMode();
+    }
+
+    com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords.GhostPreview
+            getConvenienceDestroyGhostPreview() {
+            return screen.quickBuildPanel.convenienceGhostPreview();
+    }
 
     boolean isQuickBuildCreativeOverwriteEnabled() {
             return screen.isQuickBuildOpen() && screen.quickBuildPanel.isCreativeOverwriteEnabled();
@@ -156,6 +165,9 @@ final class BuilderScreenWindowActionOwner {
         }
 
     String activeQuickBuildShapeLabel() {
+            if (screen.isQuickBuildConvenienceDestroyMode()) {
+                return screen.text("screen.rtsbuilding.quick_build.convenience_tools");
+            }
             if (screen.isQuickBuildRangeDestroyChainMode()) {
                 return screen.text("screen.rtsbuilding.shape.chain");
             }
@@ -165,6 +177,12 @@ final class BuilderScreenWindowActionOwner {
     boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
             if (!screen.isQuickBuildRangeDestroyMode() || screen.isQuickBuildRangeDestroyChainMode() || !screen.isWorldArea(mouseX, mouseY)) {
                 return false;
+            }
+            if (screen.isQuickBuildConvenienceDestroyMode()) {
+                InteractionTypes.InteractionTarget target =
+                        screen.cursorPicker.pickInteractionTarget(false);
+                return target == null || target.blockHit() == null
+                        || screen.quickBuildPanel.submitConvenienceDestroy(target.blockHit());
             }
             if (screen.isAdvancedShapeMode()
                     && screen.shapeController.clickAdvancedRangeDestroyHandle(

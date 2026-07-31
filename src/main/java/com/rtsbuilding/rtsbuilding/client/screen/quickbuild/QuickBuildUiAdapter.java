@@ -6,7 +6,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShape;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
@@ -57,7 +59,10 @@ final class QuickBuildUiAdapter {
                 ? panel.uiScreen().getShapeController().getDestroyShapeFillMode()
                 : panel.uiScreen().getShapeController().getBuildShapeFillMode();
         List<QuickBuildUiControl> controls = new ArrayList<>();
-        if (!(mode == QuickBuildUiMode.DESTROY && destroyShape == QuickBuildUiShape.CHAIN)) {
+        boolean convenience = mode == QuickBuildUiMode.DESTROY
+                && panel.getCatalogPage() == QuickBuildUiCatalogPage.CONVENIENCE_TOOLS;
+        if (!convenience
+                && !(mode == QuickBuildUiMode.DESTROY && destroyShape == QuickBuildUiShape.CHAIN)) {
             for (ShapeFillMode option : ShapeGeometryUtil.availableFillModes(panel.uiController().getBuildShape())) {
                 controls.add(new QuickBuildUiControl(control(option),
                         panel.uiScreen().fillModeLabel(option), option == fill, true));
@@ -102,7 +107,9 @@ final class QuickBuildUiAdapter {
             } catch (NumberFormatException ignored) { }
         }
         boolean keyboardFinalConfirm = Config.isKeyboardBatchConfirmEnabled();
-        String hint = mode == QuickBuildUiMode.BUILD
+        String hint = convenience
+                ? panel.convenienceHintKey()
+                : mode == QuickBuildUiMode.BUILD
                 ? keyboardFinalConfirm
                 ? "screen.rtsbuilding.quick_build.build_hint"
                 : "screen.rtsbuilding.quick_build.build_hint_auto"
@@ -115,13 +122,16 @@ final class QuickBuildUiAdapter {
                 : keyboardFinalConfirm
                 ? "screen.rtsbuilding.quick_build.destroy_hint"
                 : "screen.rtsbuilding.quick_build.destroy_hint_auto";
+        QuickBuildUiConvenienceSettings convenienceSettings = panel.getConvenienceSettings();
         return new QuickBuildUiState(panel.isOpen(), mode, panel.canUseRangeDestroy(),
                 panel.canUseRangeDestroy() ? "" : "plugin_required",
                 buildShape, destroyShape, shapes, controls,
+                panel.getCatalogPage(), panel.getConvenienceTool(), convenienceSettings,
                 panel.getChainDestroyLimit(), ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT,
                 completed, total, remaining, progress, cost, selectedId, missing,
                 hint, panel.confirmKeyLabel(mode == QuickBuildUiMode.DESTROY),
-                panel.uiScreen().currentShapeSizeText());
+                convenience ? panel.convenienceDimensionLabel()
+                        : panel.uiScreen().currentShapeSizeText());
     }
 
     static void apply(QuickBuildPanel panel, QuickBuildUiTransition transition) {
@@ -139,6 +149,11 @@ final class QuickBuildUiAdapter {
             }
             case ACTIVATE_CONTROL -> activateControl(panel, action.control, transition.state.mode);
             case SET_CHAIN_LIMIT -> panel.setChainDestroyLimit(transition.state.chainLimit);
+            case SELECT_CATALOG_PAGE -> panel.setCatalogPage(transition.state.catalogPage);
+            case SELECT_CONVENIENCE_TOOL -> panel.setConvenienceTool(transition.state.convenienceTool);
+            case SET_CONVENIENCE_PARAMETER -> panel.setConvenienceParameter(
+                    action.convenienceParameter,
+                    transition.state.convenienceSettings.value(action.convenienceParameter));
             case CLOSE -> panel.setOpen(false);
             default -> { }
         }

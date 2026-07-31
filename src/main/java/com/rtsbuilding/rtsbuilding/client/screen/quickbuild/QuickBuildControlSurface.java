@@ -6,7 +6,11 @@ import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowSlider;
 import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
@@ -16,6 +20,7 @@ import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -36,21 +41,28 @@ final class QuickBuildControlSurface {
     private WindowButton[] controlButtons = new WindowButton[0];
     private WindowButton connectToggle;
     private WindowSlider chainLimitSlider;
+    private final WindowButton[] catalogButtons = new WindowButton[2];
+    private final WindowButton[] convenienceToolButtons = new WindowButton[3];
+    private final EnumMap<QuickBuildUiConvenienceParameter, WindowSlider> convenienceSliders =
+            new EnumMap<>(QuickBuildUiConvenienceParameter.class);
     private String shapeSignature = "";
     private String controlSignature = "";
     private boolean syncingChainLimit;
+    private boolean syncingConvenience;
 
     QuickBuildControlSurface(Consumer<QuickBuildUiAction> dispatch) {
         if (dispatch == null) {
             throw new IllegalArgumentException("dispatch");
         }
         this.dispatch = dispatch;
+        createConvenienceControls();
     }
 
     void refreshAll(QuickBuildUiState state) {
         refreshShapeButtons(state);
         refreshControlButtons(state);
         ensureChainLimitSlider(state);
+        ensureConvenienceSliders(state);
     }
 
     void refreshShapeButtons(QuickBuildUiState state) {
@@ -117,6 +129,20 @@ final class QuickBuildControlSurface {
         }
     }
 
+    void syncConvenienceSettings(QuickBuildUiConvenienceSettings settings) {
+        if (settings == null || this.convenienceSliders.isEmpty()) {
+            return;
+        }
+        this.syncingConvenience = true;
+        try {
+            for (var entry : this.convenienceSliders.entrySet()) {
+                entry.getValue().setValue(settings.value(entry.getKey()));
+            }
+        } finally {
+            this.syncingConvenience = false;
+        }
+    }
+
     void render(
             GuiGraphics graphics,
             MinecraftUiCanvas canvas,
@@ -156,6 +182,22 @@ final class QuickBuildControlSurface {
             return false;
         }
         prepare(state, layout, windowWidth);
+        if (state.mode == QuickBuildUiMode.DESTROY
+                && click(this.catalogButtons, mouseX, mouseY, button)) {
+            return true;
+        }
+        if (state.convenienceMode()) {
+            if (click(this.convenienceToolButtons, mouseX, mouseY, button)) {
+                return true;
+            }
+            for (QuickBuildUiConvenienceParameter parameter : activeParameters(state.convenienceTool)) {
+                WindowSlider slider = this.convenienceSliders.get(parameter);
+                if (slider != null && slider.mouseClicked(mouseX, mouseY, button)) {
+                    return true;
+                }
+            }
+            return false;
+        }
         if (state.chainMode()
                 && this.chainLimitSlider.mouseClicked(mouseX, mouseY, button)) {
             return true;
@@ -184,13 +226,26 @@ final class QuickBuildControlSurface {
             double mouseY,
             int button) {
         prepare(state, layout, windowWidth);
+        if (state.convenienceMode()) {
+            for (QuickBuildUiConvenienceParameter parameter : activeParameters(state.convenienceTool)) {
+                WindowSlider slider = this.convenienceSliders.get(parameter);
+                if (slider != null && slider.mouseDragged(mouseX, mouseY, button)) {
+                    return true;
+                }
+            }
+            return false;
+        }
         return state.chainMode()
                 && this.chainLimitSlider.mouseDragged(mouseX, mouseY, button);
     }
 
     boolean mouseReleased(double mouseX, double mouseY, int button) {
-        return this.chainLimitSlider != null
+        boolean handled = this.chainLimitSlider != null
                 && this.chainLimitSlider.mouseReleased(mouseX, mouseY, button);
+        for (WindowSlider slider : this.convenienceSliders.values()) {
+            handled |= slider.mouseReleased(mouseX, mouseY, button);
+        }
+        return handled;
     }
 
     int shapeButtonCount() {
@@ -217,6 +272,18 @@ final class QuickBuildControlSurface {
         return this.chainLimitSlider;
     }
 
+    WindowButton catalogButton(int index) {
+        return this.catalogButtons[index];
+    }
+
+    WindowButton convenienceToolButton(int index) {
+        return this.convenienceToolButtons[index];
+    }
+
+    WindowSlider convenienceSlider(QuickBuildUiConvenienceParameter parameter) {
+        return this.convenienceSliders.get(parameter);
+    }
+
     private void prepare(
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
@@ -228,8 +295,25 @@ final class QuickBuildControlSurface {
             refreshControlButtons(state);
         }
         ensureChainLimitSlider(state);
-        this.chainLimitSlider.setVisible(state.chainMode());
+        ensureConvenienceSliders(state);
+        this.chainLimitSlider.setVisible(state.chainMode() && !state.convenienceMode());
         syncChainLimit(state.chainLimit);
+        syncConvenienceSettings(state.convenienceSettings);
+        for (int i = 0; i < this.catalogButtons.length; i++) {
+            this.catalogButtons[i].active = state.mode == QuickBuildUiMode.DESTROY;
+            this.catalogButtons[i].setSelectedVisual(state.catalogPage
+                    == QuickBuildUiCatalogPage.values()[i]);
+        }
+        for (int i = 0; i < this.convenienceToolButtons.length; i++) {
+            this.convenienceToolButtons[i].active = state.convenienceMode();
+            this.convenienceToolButtons[i].setSelectedVisual(state.convenienceTool
+                    == QuickBuildUiConvenienceTool.values()[i]);
+        }
+        List<QuickBuildUiConvenienceParameter> active = state.convenienceMode()
+                ? activeParameters(state.convenienceTool) : List.of();
+        for (var entry : this.convenienceSliders.entrySet()) {
+            entry.getValue().setVisible(active.contains(entry.getKey()));
+        }
         position(state, layout, windowWidth);
     }
 
@@ -245,6 +329,23 @@ final class QuickBuildControlSurface {
                 this.shapeButtons[i].setSelectedVisual(
                         state.shapes.get(i).selected);
             }
+        }
+        for (int i = 0; i < this.catalogButtons.length; i++) {
+            this.catalogButtons[i].setX(layout.catalogX(i));
+            this.catalogButtons[i].setY(layout.catalogY);
+            this.catalogButtons[i].setWidth(layout.catalogW);
+        }
+        for (int i = 0; i < this.convenienceToolButtons.length; i++) {
+            this.convenienceToolButtons[i].setX(layout.contentX);
+            this.convenienceToolButtons[i].setY(layout.convenienceToolY(i));
+        }
+        int sliderWidth = QuickBuildWindowLayout.chainSliderWidth(windowWidth);
+        int index = 0;
+        for (QuickBuildUiConvenienceParameter parameter : activeParameters(state.convenienceTool)) {
+            WindowSlider slider = this.convenienceSliders.get(parameter);
+            slider.setWidth(sliderWidth);
+            slider.setX(layout.rightX);
+            slider.setY(layout.convenienceParameterSliderY(index++));
         }
         List<QuickBuildUiControl> regular = controlsWithoutConnect(state);
         for (int i = 0; i < this.controlButtons.length; i++) {
@@ -291,6 +392,80 @@ final class QuickBuildControlSurface {
         } finally {
             this.syncingChainLimit = false;
         }
+    }
+
+    private void createConvenienceControls() {
+        for (int i = 0; i < this.catalogButtons.length; i++) {
+            QuickBuildUiCatalogPage page = QuickBuildUiCatalogPage.values()[i];
+            this.catalogButtons[i] = new WindowButton(
+                    0, 0, 80, QuickBuildWindowLayout.CATALOG_H,
+                    Component.translatable(page == QuickBuildUiCatalogPage.SHAPES
+                            ? "screen.rtsbuilding.quick_build.catalog_shapes"
+                            : "screen.rtsbuilding.quick_build.catalog_tools"),
+                    ignored -> this.dispatch.accept(QuickBuildUiAction.catalog(page)));
+            this.catalogButtons[i].setVisualRole(UiControlRole.CHOICE);
+        }
+        for (int i = 0; i < this.convenienceToolButtons.length; i++) {
+            QuickBuildUiConvenienceTool tool = QuickBuildUiConvenienceTool.values()[i];
+            this.convenienceToolButtons[i] = new WindowButton(
+                    0, 0,
+                    QuickBuildWindowLayout.CONVENIENCE_TOOL_W,
+                    QuickBuildWindowLayout.CONVENIENCE_TOOL_H,
+                    Component.translatable("screen.rtsbuilding.quick_build.tool."
+                            + tool.name().toLowerCase(java.util.Locale.ROOT)),
+                    ignored -> this.dispatch.accept(QuickBuildUiAction.convenienceTool(tool)));
+            this.convenienceToolButtons[i].setVisualRole(UiControlRole.CHOICE);
+        }
+    }
+
+    private void ensureConvenienceSliders(QuickBuildUiState state) {
+        if (!this.convenienceSliders.isEmpty()) {
+            return;
+        }
+        for (QuickBuildUiConvenienceParameter parameter : QuickBuildUiConvenienceParameter.values()) {
+            int[] range = parameterRange(parameter);
+            WindowSlider slider = new WindowSlider(
+                    0, 0,
+                    QuickBuildWindowLayout.chainSliderWidth(QuickBuildWindowLayout.WINDOW_W),
+                    QuickBuildWindowLayout.CHAIN_SLIDER_H,
+                    range[0], range[1], state.convenienceSettings.value(parameter));
+            slider.onChange(value -> {
+                if (!this.syncingConvenience) {
+                    this.dispatch.accept(QuickBuildUiAction.convenienceParameter(parameter, value));
+                }
+            });
+            this.convenienceSliders.put(parameter, slider);
+        }
+    }
+
+    static List<QuickBuildUiConvenienceParameter> activeParameters(
+            QuickBuildUiConvenienceTool tool) {
+        return switch (tool == null ? QuickBuildUiConvenienceTool.REPEAT_BOX : tool) {
+            case REPEAT_BOX -> List.of(
+                    QuickBuildUiConvenienceParameter.SIZE_X,
+                    QuickBuildUiConvenienceParameter.SIZE_Y,
+                    QuickBuildUiConvenienceParameter.SIZE_Z);
+            case CHUNK_QUARRY -> List.of(
+                    QuickBuildUiConvenienceParameter.CHUNK_UP,
+                    QuickBuildUiConvenienceParameter.CHUNK_DOWN);
+            case TREE_FELL -> List.of(QuickBuildUiConvenienceParameter.TREE_MAX_BLOCKS);
+        };
+    }
+
+    private static int[] parameterRange(QuickBuildUiConvenienceParameter parameter) {
+        return switch (parameter) {
+            case SIZE_X, SIZE_Z -> new int[] {
+                    QuickBuildUiConvenienceSettings.BOX_MIN,
+                    QuickBuildUiConvenienceSettings.BOX_MAX };
+            case SIZE_Y -> new int[] {
+                    QuickBuildUiConvenienceSettings.BOX_MIN,
+                    QuickBuildUiConvenienceSettings.HEIGHT_MAX };
+            case CHUNK_UP, CHUNK_DOWN -> new int[] { 0,
+                    QuickBuildUiConvenienceSettings.HEIGHT_MAX };
+            case TREE_MAX_BLOCKS -> new int[] {
+                    QuickBuildUiConvenienceSettings.TREE_MIN,
+                    QuickBuildUiConvenienceSettings.TREE_MAX };
+        };
     }
 
     private static boolean click(

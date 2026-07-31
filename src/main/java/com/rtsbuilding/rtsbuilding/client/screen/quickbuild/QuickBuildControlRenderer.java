@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsTextureRenderer;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShape;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
@@ -47,6 +48,18 @@ final class QuickBuildControlRenderer {
             int mouseY,
             float partialTick) {
         renderModeToggles(graphics, canvas, screen, state, layout, mouseX, mouseY);
+
+        if (state.mode == QuickBuildUiMode.DESTROY) {
+            for (int i = 0; i < 2; i++) {
+                controls.catalogButton(i).render(graphics, mouseX, mouseY, partialTick);
+            }
+        }
+        if (state.convenienceMode()) {
+            renderConvenienceTools(
+                    controls, graphics, screen, state, layout,
+                    mouseX, mouseY, partialTick);
+            return;
+        }
 
         graphics.drawString(screen.font(),
                 Component.translatable("screen.rtsbuilding.quick_build.shape"),
@@ -215,6 +228,49 @@ final class QuickBuildControlRenderer {
         renderControlIndicator(
                 graphics, layout.rightX, layout.controlY(controls.controlButtonCount()),
                 selected, connectButton.isHoveredOrFocused());
+    }
+
+    private static void renderConvenienceTools(
+            QuickBuildControlSurface controls,
+            GuiGraphics graphics,
+            BuilderScreen screen,
+            QuickBuildUiState state,
+            QuickBuildWindowLayout.Geometry layout,
+            int mouseX,
+            int mouseY,
+            float partialTick) {
+        graphics.drawString(screen.font(),
+                Component.translatable("screen.rtsbuilding.quick_build.convenience_tools"),
+                layout.sectionLabelX, layout.sectionTitleY,
+                QuickBuildStyle.SECTION_TEXT.toArgb(), false);
+        graphics.drawString(screen.font(),
+                Component.translatable("screen.rtsbuilding.quick_build.parameters"),
+                layout.rightX, layout.sectionTitleY,
+                QuickBuildStyle.SECTION_TEXT.toArgb(), false);
+
+        for (int i = 0; i < 3; i++) {
+            controls.convenienceToolButton(i).render(
+                    graphics, mouseX, mouseY, partialTick);
+        }
+
+        List<QuickBuildUiConvenienceParameter> parameters =
+                QuickBuildControlSurface.activeParameters(state.convenienceTool);
+        for (int i = 0; i < parameters.size(); i++) {
+            QuickBuildUiConvenienceParameter parameter = parameters.get(i);
+            graphics.drawString(screen.font(),
+                    Component.translatable("screen.rtsbuilding.quick_build.parameter."
+                            + parameter.name().toLowerCase(java.util.Locale.ROOT)),
+                    layout.rightX, layout.convenienceParameterLabelY(i),
+                    QuickBuildStyle.SECTION_TEXT.toArgb(), false);
+            controls.convenienceSlider(parameter).render(
+                    graphics, mouseX, mouseY, partialTick);
+            String value = Integer.toString(state.convenienceSettings.value(parameter));
+            graphics.drawString(screen.font(), value,
+                    layout.chainValueX(controls.convenienceSlider(parameter).getWidth()),
+                    layout.convenienceParameterSliderY(i)
+                            + QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET,
+                    QuickBuildStyle.VALUE_TEXT.toArgb(), false);
+        }
     }
 
     private static void renderControlIndicator(

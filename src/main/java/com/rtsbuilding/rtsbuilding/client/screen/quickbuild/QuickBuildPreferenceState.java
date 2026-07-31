@@ -1,6 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
 
 import java.util.EnumMap;
 
@@ -16,6 +20,10 @@ final class QuickBuildPreferenceState {
     private BuildShape buildShape = BuildShape.BLOCK;
     private AreaMineShape destroyShape = AreaMineShape.CHAIN;
     private int chainLimit = 64;
+    private QuickBuildUiCatalogPage catalogPage = QuickBuildUiCatalogPage.SHAPES;
+    private QuickBuildUiConvenienceTool convenienceTool = QuickBuildUiConvenienceTool.REPEAT_BOX;
+    private QuickBuildUiConvenienceSettings convenienceSettings =
+            QuickBuildUiConvenienceSettings.DEFAULT;
     private boolean overwrite;
     private final EnumMap<BuildShape, Boolean> advanced =
             new EnumMap<BuildShape, Boolean>(BuildShape.class);
@@ -52,6 +60,36 @@ final class QuickBuildPreferenceState {
 
     void chainLimit(int value) {
         chainLimit = value;
+    }
+
+    QuickBuildUiCatalogPage catalogPage() {
+        return catalogPage;
+    }
+
+    void catalogPage(QuickBuildUiCatalogPage value) {
+        catalogPage = value == null ? QuickBuildUiCatalogPage.SHAPES : value;
+    }
+
+    QuickBuildUiConvenienceTool convenienceTool() {
+        return convenienceTool;
+    }
+
+    void convenienceTool(QuickBuildUiConvenienceTool value) {
+        convenienceTool = value == null ? QuickBuildUiConvenienceTool.REPEAT_BOX : value;
+    }
+
+    QuickBuildUiConvenienceSettings convenienceSettings() {
+        return convenienceSettings;
+    }
+
+    void convenienceSettings(QuickBuildUiConvenienceSettings value) {
+        convenienceSettings = value == null ? QuickBuildUiConvenienceSettings.DEFAULT : value;
+    }
+
+    void convenienceParameter(QuickBuildUiConvenienceParameter parameter, int value) {
+        if (parameter != null) {
+            convenienceSettings = convenienceSettings.with(parameter, value);
+        }
     }
 
     boolean overwrite() {

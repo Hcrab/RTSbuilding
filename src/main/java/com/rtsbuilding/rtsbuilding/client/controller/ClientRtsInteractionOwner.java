@@ -13,6 +13,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.client.service.BuildPlacementService;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
@@ -307,7 +309,16 @@ final class ClientRtsInteractionOwner {
                     controller.buildPlacementService.getSelectedItemId(),
                     controller.buildPlacementService.getSelectedItemPreview(),
                     controller.isToolProtectionEnabled());
-        }
+    }
+
+    void confirmConvenienceDestroy(RtsConvenienceDestroyMode mode,
+            BlockHitResult hit, RtsConvenienceDestroySettings settings, int toolSlot) {
+        controller.miningOperationService.confirmConvenienceDestroy(
+                mode, hit, settings, toolSlot,
+                controller.buildPlacementService.getSelectedItemId(),
+                controller.buildPlacementService.getSelectedItemPreview(),
+                controller.isToolProtectionEnabled());
+    }
 
     void abortMining(int toolSlot) {
             controller.miningOperationService.abortMining(toolSlot);

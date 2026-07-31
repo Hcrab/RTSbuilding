@@ -466,6 +466,10 @@ static boolean hasRecipeViewerLoaded() {
     public ClientRtsController uiController() { return this.windowActionOwner.uiController(); }
     public boolean isQuickBuildRangeDestroyMode() { return this.windowActionOwner.isQuickBuildRangeDestroyMode(); }
     public boolean isQuickBuildRangeDestroyChainMode() { return this.windowActionOwner.isQuickBuildRangeDestroyChainMode(); }
+    public boolean isQuickBuildConvenienceDestroyMode() { return this.windowActionOwner.isQuickBuildConvenienceDestroyMode(); }
+    public ShapeDataRecords.GhostPreview getConvenienceDestroyGhostPreview() {
+        return this.windowActionOwner.getConvenienceDestroyGhostPreview();
+    }
     public boolean isQuickBuildCreativeOverwriteEnabled() { return this.windowActionOwner.isQuickBuildCreativeOverwriteEnabled(); }
     public boolean isAdvancedRangeDestroyBoxMode() { return this.windowActionOwner.isAdvancedRangeDestroyBoxMode(); }
     public boolean isAdvancedRangeDestroyShapeMode() { return this.windowActionOwner.isAdvancedRangeDestroyShapeMode(); }
@@ -531,7 +535,7 @@ static boolean hasRecipeViewerLoaded() {
     public void setSelectedToolSlot(int slot) { this.worldQueryOwner.setSelectedToolSlot(slot); }
     public BlueprintGhostPreview getBlueprintGhostPreview() { return this.previewQueryOwner.getBlueprintGhostPreview(); }
     public List<BlockPos> collectUltiminePreviewBlocks() { return this.previewQueryOwner.collectUltiminePreviewBlocks(); }
-    List<BlockPos> filterToBounds(List<BlockPos> blocks) { return this.previewQueryOwner.filterToBounds(blocks); }
+    public List<BlockPos> filterToBounds(List<BlockPos> blocks) { return this.previewQueryOwner.filterToBounds(blocks); }
     boolean isMovePlayerActionMouse(int button) { return this.previewQueryOwner.isMovePlayerActionMouse(button); }
     boolean isMovePlayerActionKey(int keyCode, int scanCode) { return this.previewQueryOwner.isMovePlayerActionKey(keyCode, scanCode); }
     boolean handleMovePlayerActionAt(double mouseX, double mouseY) { return this.previewQueryOwner.handleMovePlayerActionAt(mouseX, mouseY); }
