@@ -112,12 +112,15 @@ public final class RtsFloatingWindowLayer {
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         
-        long[] timestamps = new long[this.frontToBackWindows.size()];
-        for (int j = 0; j < this.frontToBackWindows.size(); j++) {
+        int snapshotSize = this.frontToBackWindows.size();
+        long[] timestamps = new long[snapshotSize];
+        for (int j = 0; j < snapshotSize; j++) {
             timestamps[j] = this.frontToBackWindows.get(j).getLastClickTime();
         }
 
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
+        for (int i = snapshotSize - 1; i >= 0; i--) {
+            
+            if (i >= this.frontToBackWindows.size()) continue;
             RtsPanel window = this.frontToBackWindows.get(i);
             if (!window.isOpen()) continue;
             int windowIdx = i;
@@ -126,10 +129,15 @@ public final class RtsFloatingWindowLayer {
                 
                 
                 boolean otherPanelBroughtToFront = false;
-                for (int j = 0; j < this.frontToBackWindows.size(); j++) {
-                    if (j != windowIdx && this.frontToBackWindows.get(j).getLastClickTime() > timestamps[j]) {
-                        otherPanelBroughtToFront = true;
-                        break;
+                
+                if (this.frontToBackWindows.size() != snapshotSize) {
+                    otherPanelBroughtToFront = true;
+                } else {
+                    for (int j = 0; j < snapshotSize; j++) {
+                        if (j != windowIdx && this.frontToBackWindows.get(j).getLastClickTime() > timestamps[j]) {
+                            otherPanelBroughtToFront = true;
+                            break;
+                        }
                     }
                 }
                 if (!otherPanelBroughtToFront) {
