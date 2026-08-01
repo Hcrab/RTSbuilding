@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.render.pass;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectionHighlight;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.SelectionHighlight;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import net.minecraft.client.Minecraft;

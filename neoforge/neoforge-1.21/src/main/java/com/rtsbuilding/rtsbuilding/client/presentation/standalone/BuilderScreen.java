@@ -19,7 +19,7 @@ import com.rtsbuilding.rtsbuilding.client.input.layer.CameraInputLayer;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.*;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.rightbar.RightSidebarPanel;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectionHighlight;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.SelectionHighlight;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarLayoutHelper;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.render.ViewCaptureService;
@@ -92,7 +92,7 @@ public class BuilderScreen extends Screen {
         this.selectionHighlight = new SelectionHighlight();
         this.movementHandler = new BuilderScreenMovementHandler();
         this.bindModeHandler = new BindModeMouseHandler();
-        this.entityInteractionHandler = new EntityInteractionHandler(selectionHighlight);
+        this.entityInteractionHandler = new EntityInteractionHandler();
         CameraInputLayer cameraInputLayer = kernel.inputPipeline().findLayer(CameraInputLayer.class);
         this.buildInteractionHandler = new BuildInteractionHandler(kernel, cameraInputLayer);
         this.cursorStyleManager = new CursorStyleManager((mx, my) -> {
@@ -142,9 +142,9 @@ public class BuilderScreen extends Screen {
             eshp.setHighlightSource(this.selectionHighlight);
         }
         
-        var csp = screenCoordinator.getContainerScreenPanel();
-        if (csp != null && csp.isOpen()) {
-            csp.init(this);
+        var ip = screenCoordinator.getInteractionPanel();
+        if (ip != null && ip.isOpen()) {
+            ip.init(this);
         }
     }
 
@@ -273,6 +273,16 @@ public class BuilderScreen extends Screen {
 
     public void showContainerScreen(Screen screen) {
         screenCoordinator.showContainerScreen(screen, floatingWindowLayer, this);
+    }
+
+    
+    public com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.InteractionPanel getInteractionPanel() {
+        return screenCoordinator.getInteractionPanel();
+    }
+
+    
+    public com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.InteractionPanel getOrCreateInteractionPanel() {
+        return screenCoordinator.getOrCreateInteractionPanel(this);
     }
 
     public boolean hasContainerScreen() {

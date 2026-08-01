@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.presentation.panel.select;
+package com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;

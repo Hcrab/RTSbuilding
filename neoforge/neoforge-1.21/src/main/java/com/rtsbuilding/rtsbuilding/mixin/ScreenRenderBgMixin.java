@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.mixin;
 
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.container.ContainerScreenPanel;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.InteractionPanel;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import org.spongepowered.asm.mixin.Mixin;
@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Mixin：当 {@link ContainerScreenPanel} 将容器屏幕作为子覆盖层渲染时，
+ * Mixin：当 {@link InteractionPanel} 将容器屏幕作为子覆盖层渲染时，
  * 跳过深色背景绘制，防止子屏幕的深色覆盖遮住 RTS UI 面板。
  *
  * <p>设计说明：</p>
@@ -35,7 +35,7 @@ public abstract class ScreenRenderBgMixin {
     @Inject(method = "renderBackground(Lnet/minecraft/client/gui/GuiGraphics;IIF)V",
             at = @At("HEAD"), cancellable = true)
     private void rtsbuilding$skipBackgroundInOverlay(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-        if (ContainerScreenPanel.isRenderingOverlay()) {
+        if (InteractionPanel.isRenderingOverlay()) {
             ci.cancel();
         }
     }
@@ -49,7 +49,7 @@ public abstract class ScreenRenderBgMixin {
     @Inject(method = "renderTransparentBackground(Lnet/minecraft/client/gui/GuiGraphics;)V",
             at = @At("HEAD"), cancellable = true)
     private void rtsbuilding$skipTransparentBgInOverlay(GuiGraphics guiGraphics, CallbackInfo ci) {
-        if (ContainerScreenPanel.isRenderingOverlay()) {
+        if (InteractionPanel.isRenderingOverlay()) {
             ci.cancel();
         }
     }

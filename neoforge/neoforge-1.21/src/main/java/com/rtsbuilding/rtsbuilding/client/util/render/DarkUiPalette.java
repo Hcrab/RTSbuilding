@@ -17,6 +17,7 @@ public final class DarkUiPalette {
     private static int black;
     private static int hoverBorder;
     private static int toggleOn;
+    private static int p1;
     private static int p6;
     private static int p7;
 
@@ -38,6 +39,7 @@ public final class DarkUiPalette {
                 black = abgrToArgb(image.getPixelRGBA(3, 0));
                 hoverBorder = image.getWidth() > 4 ? abgrToArgb(image.getPixelRGBA(4, 0)) : black;
                 toggleOn = image.getWidth() > 5 ? abgrToArgb(image.getPixelRGBA(5, 0)) : hoverBorder;
+                p1 = image.getWidth() > 1 ? abgrToArgb(image.getPixelRGBA(1, 0)) : accent;
                 p6 = image.getWidth() > 6 ? abgrToArgb(image.getPixelRGBA(6, 0)) : toggleOn;
                 p7 = image.getWidth() > 7 ? abgrToArgb(image.getPixelRGBA(7, 0)) : p6;
                 image.close();
@@ -54,6 +56,7 @@ public final class DarkUiPalette {
     public static int black() { load(); return black; }
     public static int hoverBorder() { load(); return hoverBorder; }
     public static int toggleOn() { load(); return toggleOn; }
+    public static int p1() { load(); return p1; }
     public static int p6() { load(); return p6; }
     public static int p7() { load(); return p7; }
 

@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.presentation.panel.select;
+package com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction;
 
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;

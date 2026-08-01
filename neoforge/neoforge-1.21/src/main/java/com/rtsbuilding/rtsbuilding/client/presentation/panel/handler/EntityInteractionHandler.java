@@ -6,10 +6,10 @@ import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.presentation.event.model.EventResult;
 import com.rtsbuilding.rtsbuilding.client.presentation.event.model.MouseClickEvent;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.LeftSidebarPanel;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.BlockEntry;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.EntityEntry;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectableEntry;
-import com.rtsbuilding.rtsbuilding.client.presentation.panel.select.SelectionHighlight;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.BlockEntry;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.EntityEntry;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.InteractionPanel;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction.SelectableEntry;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
@@ -18,6 +18,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
 
@@ -32,36 +33,27 @@ public final class EntityInteractionHandler {
 
     private static final Logger LOGGER = LogUtils.getLogger();
 
-    private final SelectionHighlight highlight;
     private final BoxTargetCollector targetCollector;
-    private final SelectPanelController panelController;
+    @Nullable
+    private InteractionPanel interactionPanel;
 
-    public EntityInteractionHandler(SelectionHighlight highlight) {
-        this.highlight = highlight;
+    public EntityInteractionHandler() {
         this.targetCollector = new BoxTargetCollector();
-        this.panelController = new SelectPanelController(highlight);
     }
 
-    
-    
-    
-
-    
     public EventResult handleMouseClick(MouseClickEvent event, BuilderScreen screen,
                                          LeftSidebarPanel leftSidebarPanel) {
         if (event.button() != GLFW_BUTTON_RIGHT) return PASS;
         if (!screen.isInteractiveMode()) return PASS;
         if (isAltDown() || isShiftDown()) return PASS;
 
-        
-        if (panelController.isOpen()) return PASS;
+        // 容器标签面板打开期间不响应新的框选交互
+        if (isInteractionPanelOpen()) return PASS;
 
-        
         if (leftSidebarPanel.isClickButtonSelected() && !leftSidebarPanel.isBindModeActive()) {
             return handleDirectInteract(screen);
         }
 
-        
         if (!leftSidebarPanel.isClickButtonSelected()) {
             var sel = RtsClientKernel.get().renderPipeline().boxSelector;
             if (sel.getPhase() == BoxSelector.Phase.COMPLETE) {
@@ -72,40 +64,58 @@ public final class EntityInteractionHandler {
         return PASS;
     }
 
-    
+    /**
+     * 校验容器标签面板：实体失效/移出框选范围时从标签列表移除，全部失效则关闭面板。
+     */
     public void validatePanel(BuilderScreen screen) {
-        if (!panelController.isOpen()) return;
+        InteractionPanel panel = currentPanel(screen);
+        if (panel == null || !panel.isOpen()) return;
 
         Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) { panelController.close(); return; }
+        if (mc.level == null) { panel.closePanel(); return; }
 
         var sel = RtsClientKernel.get().renderPipeline().boxSelector;
         if (sel.getPhase() != BoxSelector.Phase.COMPLETE) {
-            panelController.close();
+            panel.closePanel();
             return;
         }
 
         var cache = new BoxTargetCollector.BoxSelectorCache(sel.getMinCorner(), sel.getMaxCorner());
         List<Entity> currentEntities = targetCollector.collectEntities(
                 mc.level, cache, mc.getCameraEntity());
-        panelController.validate(screen, currentEntities, cache);
+
+        List<SelectableEntry> oldEntries = panel.getEntries();
+        List<SelectableEntry> newEntries = new ArrayList<>();
+        for (SelectableEntry entry : oldEntries) {
+            switch (entry) {
+                case EntityEntry ee -> {
+                    if (ee.entity() != null && ee.entity().isAlive()
+                            && currentEntities.contains(ee.entity())) {
+                        newEntries.add(entry);
+                    }
+                }
+                case BlockEntry be -> newEntries.add(entry);
+            }
+        }
+
+        if (newEntries.size() == oldEntries.size()) return;
+
+        if (newEntries.isEmpty()) {
+            panel.closePanel();
+            return;
+        }
+
+        panel.updateTargets(newEntries);
     }
 
-    
-    public boolean isSelectPanelOpen() {
-        return panelController.isOpen();
+    public boolean isInteractionPanelOpen() {
+        return interactionPanel != null && interactionPanel.isOpen();
     }
 
-    
-    public void closeSelectPanel() {
-        panelController.close();
+    public void closeInteractionPanel() {
+        if (interactionPanel != null) interactionPanel.closePanel();
     }
 
-    
-    
-    
-
-    
     private EventResult handleDirectInteract(BuilderScreen screen) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.getCameraEntity() == null) return PASS;
@@ -116,7 +126,6 @@ public final class EntityInteractionHandler {
         var hit = ray.raycastNearest(mc);
 
         if (hit.hasEntity() && hit.entityHit() != null) {
-            
             Entity target = hit.entityHit().getEntity();
 
             int entityId = target.getId();
@@ -138,21 +147,14 @@ public final class EntityInteractionHandler {
         return PASS;
     }
 
-    
-    
-    
-
-    
     private EventResult handleBoxSelectInteract(BuilderScreen screen, BoxSelector sel,
                                                   int mouseX, int mouseY) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return PASS;
 
-        
         var cache = validateCursorInBox(mc, screen, sel);
         if (cache == null) return PASS;
 
-        
         List<Entity> entities = targetCollector.collectEntities(
                 mc.level, cache, mc.getCameraEntity());
         List<BoxTargetCollector.BlockInfo> guiBlocks = targetCollector.collectGuiBlocks(mc.level, cache);
@@ -161,7 +163,6 @@ public final class EntityInteractionHandler {
         LOGGER.info("[SelectInteract] box=[{}~{}] entities={} guiBlocks={} nonGuiInteractiveBlocks={}",
                 cache.minCorner(), cache.maxCorner(), entities.size(), guiBlocks.size(), nonGuiBlocks.size());
 
-        
         var ray = CursorRaycaster.computeCameraCenterRay(mc);
         if (ray == null) return PASS;
         Vec3 rayOrigin = ray.origin();
@@ -169,7 +170,6 @@ public final class EntityInteractionHandler {
 
         boolean hasGuiTargets = !entities.isEmpty() || !guiBlocks.isEmpty();
 
-        
         if (!hasGuiTargets && !nonGuiBlocks.isEmpty()) {
             for (var info : nonGuiBlocks) {
                 RtsClientPacketGateway.sendInteractEntityEmptyHand(
@@ -180,13 +180,11 @@ public final class EntityInteractionHandler {
             return CONSUMED;
         }
 
-        
         List<SelectableEntry> entries = buildEntries(entities, guiBlocks, nonGuiBlocks);
-        if (!entries.isEmpty()) {
-            return panelController.show(entries, rayOrigin, rayDir, sel, screen, mouseX, mouseY);
+        if (!entries.isEmpty() && showPanel(screen, entries, rayOrigin, rayDir, mouseX, mouseY)) {
+            return CONSUMED;
         }
 
-        
         var cursorHit = Objects.requireNonNull(CursorRaycaster.computeCursorRay(mc, screen))
                 .raycastBlock(mc);
         if (cursorHit != null) {
@@ -200,7 +198,6 @@ public final class EntityInteractionHandler {
         return PASS;
     }
 
-    
     private static BoxTargetCollector.BoxSelectorCache validateCursorInBox(
             Minecraft mc, BuilderScreen screen, BoxSelector sel) {
         var cursorRay = CursorRaycaster.computeCursorRay(mc, screen);
@@ -228,11 +225,6 @@ public final class EntityInteractionHandler {
         return new BoxTargetCollector.BoxSelectorCache(min, max);
     }
 
-    
-    
-    
-
-    
     private static List<SelectableEntry> buildEntries(
             List<Entity> entities,
             List<BoxTargetCollector.BlockInfo> guiBlocks,
@@ -260,10 +252,6 @@ public final class EntityInteractionHandler {
         return entries;
     }
 
-    
-    
-    
-
     private static boolean isAltDown() {
         var window = Minecraft.getInstance().getWindow();
         long handle = window.getWindow();
@@ -280,7 +268,16 @@ public final class EntityInteractionHandler {
 
     private static final int GLFW_BUTTON_RIGHT = 1;
 
-    public SelectionHighlight getHighlight() {
-        return highlight;
+    private boolean showPanel(BuilderScreen screen, List<SelectableEntry> entries,
+                              Vec3 rayOrigin, Vec3 rayDir, int mouseX, int mouseY) {
+        interactionPanel = screen.getOrCreateInteractionPanel();
+        return interactionPanel.showTargets(entries, rayOrigin, rayDir, mouseX, mouseY);
+    }
+
+    @Nullable
+    private InteractionPanel currentPanel(BuilderScreen screen) {
+        if (interactionPanel == null) return null;
+        if (interactionPanel.getScreen() != screen) return null;
+        return interactionPanel;
     }
 }

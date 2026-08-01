@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.presentation.panel.select;
+package com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction;
 
 public sealed interface SelectableEntry permits EntityEntry, BlockEntry {
 

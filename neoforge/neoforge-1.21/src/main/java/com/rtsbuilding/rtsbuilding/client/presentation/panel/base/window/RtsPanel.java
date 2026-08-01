@@ -89,6 +89,7 @@ public abstract class RtsPanel implements RtsPanelApi {
         boolean needScissor = shouldClipContent();
         try {
             renderWindowFrame(g, mouseX, mouseY);
+            onRenderBeforeContent(g, mouseX, mouseY);
             if (needScissor) { g.flush(); enableContentScissor(g); }
             renderContent(g, mouseX, mouseY, partialTick);
             g.flush();
@@ -234,6 +235,13 @@ public abstract class RtsPanel implements RtsPanelApi {
         bounds.setX(aboveWindow.getWindowX());
         bounds.setY(aboveWindow.getWindowY() + aboveWindow.getWindowHeight() + gap);
         clampWindowToScreen();
+    }
+
+    /**
+     * 面板背景绘制完成之后、内容区裁剪建立之前的钩子：
+     * 用于绘制需要延伸出内容区（如贴紧标题栏或面板边缘）的背景元素。
+     */
+    protected void onRenderBeforeContent(GuiGraphics g, int mouseX, int mouseY) {
     }
 
     protected void renderWindowFrame(GuiGraphics g, int mx, int my) {

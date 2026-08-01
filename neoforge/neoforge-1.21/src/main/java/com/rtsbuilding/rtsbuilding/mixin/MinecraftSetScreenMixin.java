@@ -24,8 +24,7 @@ abstract class MinecraftSetScreenMixin {
         Screen current = mc.screen;
 
         if (newScreen == null && current instanceof BuilderScreen) {
-            RtsbuildingMod.LOGGER.info("RTS: setScreen(null) while BuilderScreen is current; closing RTS UI",
-                    new RuntimeException("stack"));
+            RtsbuildingMod.LOGGER.debug("RTS: BuilderScreen closing via setScreen(null)");
         }
         if (newScreen == null) return;
         if (newScreen instanceof BuilderScreen || newScreen instanceof RtsCraftTerminalScreen) return;

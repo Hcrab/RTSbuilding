@@ -24,6 +24,6 @@ void main() {
         sdf = max(dx, dy);
     }
 
-    float alpha = 1.0 - smoothstep(-1.0, 1.0, sdf / fwidth(sdf));
+    float alpha = 1.0 - smoothstep(-1.0, 1.0, sdf / length(vec2(dFdx(sdf), dFdy(sdf))));
     fragColor = vertexColor * alpha;
 }

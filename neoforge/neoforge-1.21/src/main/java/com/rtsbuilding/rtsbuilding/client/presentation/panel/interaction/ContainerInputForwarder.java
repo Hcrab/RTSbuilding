@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.presentation.panel.container;
+package com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction;
 
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import org.jetbrains.annotations.Nullable;

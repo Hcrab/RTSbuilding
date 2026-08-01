@@ -1,4 +1,4 @@
-package com.rtsbuilding.rtsbuilding.client.presentation.panel.select;
+package com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction;
 
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
 import net.minecraft.world.entity.Entity;

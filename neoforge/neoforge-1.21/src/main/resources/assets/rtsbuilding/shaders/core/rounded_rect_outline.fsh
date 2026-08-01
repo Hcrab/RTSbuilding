@@ -13,13 +13,12 @@ out vec4 fragColor;
 void main() {
     vec2 halfSize = u_Size;
     vec2 d = abs(texCoord0) - halfSize + u_Radius;
-    float sdf = length(max(d, 0.0)) - u_Radius;
+    float sdf = length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - u_Radius;
 
     float outlineSdf = abs(sdf + u_Thickness * 0.5) - u_Thickness * 0.5;
-    vec2 od = vec2(dFdx(outlineSdf), dFdy(outlineSdf));
-    float outlineAlpha = 1.0 - smoothstep(-1.0, 1.0, outlineSdf / length(od));
-
     vec2 fd = vec2(dFdx(sdf), dFdy(sdf));
+    float outlineAlpha = 1.0 - smoothstep(-1.0, 1.0, outlineSdf / length(fd));
+
     float outsideAlpha = smoothstep(0.0, length(fd), sdf + u_Thickness);
 
     vec4 outsideColor = u_FillColor * outsideAlpha;

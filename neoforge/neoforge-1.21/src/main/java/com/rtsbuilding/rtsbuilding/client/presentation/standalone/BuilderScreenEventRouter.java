@@ -75,7 +75,7 @@ public final class BuilderScreenEventRouter {
 
         d.onMouseClick(event -> {
             if (fw.mouseClicked(event.x(), event.y(), event.button())) return CONSUMED;
-            if (eih.isSelectPanelOpen()) { eih.closeSelectPanel(); return CONSUMED; }
+            if (eih.isInteractionPanelOpen()) { eih.closeInteractionPanel(); return CONSUMED; }
             return PASS;
         }, EventDispatcher.P_FLOATING_WINDOW);
 
@@ -178,8 +178,8 @@ public final class BuilderScreenEventRouter {
             BuilderScreen screen) {
         d.onKeyPress(event -> {
             if (fw.keyPressed(event.keyCode(), event.scanCode(), event.modifiers())) return CONSUMED;
-            if (event.keyCode() == GLFW.GLFW_KEY_ESCAPE && eih.isSelectPanelOpen()) {
-                eih.closeSelectPanel();
+            if (event.keyCode() == GLFW.GLFW_KEY_ESCAPE && eih.isInteractionPanelOpen()) {
+                eih.closeInteractionPanel();
                 return CONSUMED;
             }
             return PASS;
