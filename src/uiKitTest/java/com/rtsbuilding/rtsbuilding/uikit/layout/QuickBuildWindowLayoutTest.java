@@ -30,8 +30,8 @@ class QuickBuildWindowLayoutTest {
     }
 
     @Test
-    void buildAndDestroyReserveTheSameFiveRowBody() {
-        assertEquals(0, QuickBuildWindowLayout.windowHeight(true)
+    void destroyModeReservesOneExtraParameterRow() {
+        assertEquals(26, QuickBuildWindowLayout.windowHeight(true)
                 - QuickBuildWindowLayout.windowHeight(false));
     }
 
