@@ -202,22 +202,7 @@ final class ClientRtsLifecycleOwner {
                 controller.screenlessRemoteMenuTicks = 0;
             }
 
-            if (controller.pendingCraftTerminalOpen
-                    && minecraft.player.containerMenu instanceof CraftingMenu pendingMenu
-                    && minecraft.player.containerMenu.containerId != 0
-                    && !(minecraft.screen instanceof RtsCraftTerminalScreen)) {
-                Component pendingTitle = minecraft.screen != null ? minecraft.screen.getTitle() : Component.literal("RTS Craft Terminal");
-                minecraft.setScreen(new RtsCraftTerminalScreen(pendingMenu, minecraft.player.getInventory(), pendingTitle));
-                controller.pendingCraftTerminalOpen = false;
-                controller.pendingCraftTerminalOpenTicks = 0;
-            }
-
-            if (minecraft.screen instanceof CraftingScreen craftingScreen
-                    && minecraft.player != null
-                    && craftingScreen.getMenu() instanceof CraftingMenu craftingMenu
-                    && !(minecraft.screen instanceof RtsCraftTerminalScreen)
-                    && controller.shouldUseRtsCraftTerminalScreen(craftingScreen)) {
-                minecraft.setScreen(new RtsCraftTerminalScreen(craftingMenu, minecraft.player.getInventory(), craftingScreen.getTitle()));
+            if (minecraft.screen instanceof RtsCraftTerminalScreen) {
                 controller.pendingCraftTerminalOpen = false;
                 controller.pendingCraftTerminalOpenTicks = 0;
             } else if (controller.pendingCraftTerminalOpen) {

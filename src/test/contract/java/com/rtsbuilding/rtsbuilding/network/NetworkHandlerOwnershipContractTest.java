@@ -55,7 +55,8 @@ class NetworkHandlerOwnershipContractTest {
                             "C2SRtsOpenCraftTerminalPayload", "handleOpenCraftTerminal",
                             "C2SRtsCraftRefillPayload", "handleCraftRefill",
                             "C2SRtsCraftRecipePayload", "handleCraftRecipe",
-                            "C2SRtsJeiTransferPayload", "handleJeiTransfer")));
+                            "C2SRtsJeiTransferPayload", "handleJeiTransfer",
+                            "C2SRtsClearCraftingGridPayload", "handleClearCraftingGrid")));
 
     @Test
     void everyCameraAndCraftC2sPayloadHasOneProductionRegistration() throws IOException {

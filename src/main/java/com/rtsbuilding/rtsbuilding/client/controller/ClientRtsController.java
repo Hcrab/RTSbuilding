@@ -31,7 +31,6 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -140,6 +139,7 @@ public static ClientRtsController get() {
     public List<BlockPos> getLinkedStoragePositions() { return this.stateQueryOwner.getLinkedStoragePositions(); }
     public List<LinkedStorageEntry> getLinkedStorageEntries() { return this.stateQueryOwner.getLinkedStorageEntries(); }
     public int getStoragePage() { return this.stateQueryOwner.getStoragePage(); }
+    public int getStoragePageSize() { return this.stateQueryOwner.getStoragePageSize(); }
     public int getStorageTotalPages() { return this.stateQueryOwner.getStorageTotalPages(); }
     public int getStorageTotalEntries() { return this.stateQueryOwner.getStorageTotalEntries(); }
     public int getStorageRevision() { return this.stateQueryOwner.getStorageRevision(); }
@@ -249,7 +249,6 @@ public static ClientRtsController get() {
     public void unlinkLinkedStorage(String dimensionId, BlockPos pos) { this.commandOwner.unlinkLinkedStorage(dimensionId, pos); }
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(pos, extractOnly, priority); }
     public void updateLinkedStorageSettings(String dimensionId, BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(dimensionId, pos, extractOnly, priority); }
-    boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) { return this.commandOwner.shouldUseRtsCraftTerminalScreen(craftingScreen); }
     public void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) { this.commandOwner.quickDropSelectedItem(itemId, amount, dropPos); }
     public void applyStoragePage(S2CRtsStoragePagePayload payload) { this.commandOwner.applyStoragePage(payload); }
     public void applyCraftables(S2CRtsCraftablesPayload payload) { this.commandOwner.applyCraftables(payload); }

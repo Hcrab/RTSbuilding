@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -183,7 +184,8 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         OverflowOutcome overflow = OverflowOutcome.EMPTY;
-        if (menu instanceof CraftingMenu craftingMenu && menuSlot == 0) {
+        if (isCraftingGridMenu(menu) && menuSlot == 0) {
+            AbstractContainerMenu craftingMenu = menu;
             ItemStack[] craftBlueprint = ServiceRegistry.getInstance().crafting().snapshotCraftGridBlueprint(craftingMenu);
             ItemStack resultSnapshot = slot.getItem().copy();
             if (resultSnapshot.isEmpty()) {
@@ -195,8 +197,8 @@ public final class RtsTransferPlayerIntegration {
                 Slot resultSlot = craftingMenu.getSlot(0);
                 ItemStack currentResult = resultSlot.getItem();
                 if (currentResult.isEmpty() || !ItemStack.isSameItemSameComponents(currentResult, resultPrototype)) {
-                    ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
-                            craftingMenu, extractHandlers, player, craftBlueprint, false, true);
+                    ServiceRegistry.getInstance().crafting().refillCraftGridFromLinked(
+                            player, craftingMenu, craftBlueprint);
                     currentResult = resultSlot.getItem();
                     if (currentResult.isEmpty() || !ItemStack.isSameItemSameComponents(currentResult, resultPrototype)) {
                         break;
@@ -220,8 +222,8 @@ public final class RtsTransferPlayerIntegration {
                 overflow = overflow.merge(RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(
                         insertHandlers, player, gained));
                 craftedAny = true;
-                ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
-                        craftingMenu, extractHandlers, player, craftBlueprint, false, true);
+                ServiceRegistry.getInstance().crafting().refillCraftGridFromLinked(
+                        player, craftingMenu, craftBlueprint);
             }
             if (!craftedAny) {
                 return;
@@ -234,7 +236,7 @@ public final class RtsTransferPlayerIntegration {
             if (moved.isEmpty()) {
                 return;
             }
-            if (menu instanceof CraftingMenu && menuSlot == 0) {
+            if (isCraftingGridMenu(menu) && menuSlot == 0) {
                 ResourceLocation craftedId = BuiltInRegistries.ITEM.getKey(moved.getItem());
                 if (craftedId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
@@ -393,5 +395,110 @@ public final class RtsTransferPlayerIntegration {
         } else if (inventoryFull) {
             player.displayClientMessage(Component.literal("Inventory is full."), true);
         }
+    }
+
+    /**
+     * 合成终端的批量存取入口。所有数量都由服务端按背包容量重新限制，客户端原型
+     * 只作为精确组件筛选条件，不能凭空生成物品。
+     */
+    public static void bulkStorageOperation(
+            ServerPlayer player, RtsStorageSession session,
+            byte action, ItemStack prototype, int requestedAmount) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)
+                || session == null
+                || !(player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu)) {
+            return;
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        if (linked.isEmpty()) {
+            return;
+        }
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(linked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+
+        boolean changed = switch (action) {
+            case C2SRtsBulkStorageOpPayload.WITHDRAW -> bulkWithdrawToInventory(
+                    player, extractHandlers, insertHandlers, prototype, requestedAmount);
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_INVENTORY -> depositPlayerSlots(
+                    player, insertHandlers, 9, 36);
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_HOTBAR -> depositPlayerSlots(
+                    player, insertHandlers, 0, 9);
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_ALL -> depositPlayerSlots(
+                    player, insertHandlers, 0, 36);
+            default -> false;
+        };
+        if (changed) {
+            player.containerMenu.broadcastChanges();
+            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+            QuestService.runQuestDetect(player, session, false);
+        }
+    }
+
+    private static boolean bulkWithdrawToInventory(
+            ServerPlayer player,
+            List<IItemHandler> extractHandlers,
+            List<IItemHandler> insertHandlers,
+            ItemStack prototype,
+            int requestedAmount) {
+        if (prototype == null || prototype.isEmpty() || requestedAmount <= 0) {
+            return false;
+        }
+        ItemStack exactPrototype = prototype.copyWithCount(1);
+        int maxPerStack = Math.max(1, exactPrototype.getMaxStackSize());
+        int remaining = Math.min(requestedAmount, 36 * maxPerStack);
+        boolean changed = false;
+        while (remaining > 0) {
+            int batch = Math.min(maxPerStack, remaining);
+            ItemStack extracted = RtsTransferExtractor.extractMatchingFromLinked(
+                    extractHandlers, exactPrototype.getItem(), exactPrototype, batch);
+            if (extracted.isEmpty()) {
+                break;
+            }
+            int extractedCount = extracted.getCount();
+            ItemStack leftover = RtsTransferInserter.moveToPlayerInventoryOnly(player, extracted);
+            int moved = extractedCount - leftover.getCount();
+            if (!leftover.isEmpty()) {
+                // 这批物品刚从同一网络取出，正常情况下必然可退回；异常处理器拒收时
+                // 再使用既有背包/掉落兜底，避免吞物。
+                RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, leftover);
+            }
+            if (moved <= 0) {
+                break;
+            }
+            changed = true;
+            remaining -= moved;
+            if (moved < extractedCount) {
+                break;
+            }
+        }
+        return changed;
+    }
+
+    private static boolean depositPlayerSlots(
+            ServerPlayer player, List<IItemHandler> insertHandlers, int startInclusive, int endExclusive) {
+        boolean changed = false;
+        int start = Math.max(0, startInclusive);
+        int end = Math.min(player.getInventory().items.size(), endExclusive);
+        for (int slot = start; slot < end; slot++) {
+            ItemStack actual = player.getInventory().getItem(slot);
+            if (actual.isEmpty()) {
+                continue;
+            }
+            ItemStack remainder = RtsTransferInserter.storeToLinkedOnlyPreferExisting(insertHandlers, actual);
+            int inserted = actual.getCount() - remainder.getCount();
+            if (inserted <= 0) {
+                continue;
+            }
+            actual.shrink(inserted);
+            player.getInventory().setItem(slot, actual.isEmpty() ? ItemStack.EMPTY : actual);
+            changed = true;
+        }
+        return changed;
+    }
+
+    private static boolean isCraftingGridMenu(AbstractContainerMenu menu) {
+        return menu instanceof CraftingMenu
+                || menu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
     }
 }

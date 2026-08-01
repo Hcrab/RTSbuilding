@@ -7,9 +7,8 @@ import com.rtsbuilding.rtsbuilding.server.service.api.CraftingService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageCrafting;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.neoforged.neoforge.items.IItemHandler;
 
 import java.util.List;
@@ -107,25 +106,32 @@ public final class RtsCraftingServiceImpl implements CraftingService {
     }
 
     @Override
-    public ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu) {
+    public ItemStack[] snapshotCraftGridBlueprint(AbstractContainerMenu menu) {
         return RtsStorageCrafting.snapshotCraftGridBlueprint(menu);
     }
 
     @Override
-    public void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+    public void refillCraftGridFromBlueprint(AbstractContainerMenu menu, List<IItemHandler> handlers, ServerPlayer player,
                                              ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         RtsStorageCrafting.refillCraftGridFromBlueprint(menu, handlers, player, blueprint, fillAll, includePlayerFallback);
     }
 
     @Override
-    public void refillCraftGridFromLinked(ServerPlayer player, CraftingMenu craftingMenu,
-                                          ItemStack[] blueprint, CraftingRecipe recipe) {
-        RtsStorageCrafting.refillCraftGridFromLinked(player, registry.session().getIfPresent(player), craftingMenu, blueprint, recipe);
+    public void refillCraftGridFromLinked(ServerPlayer player, AbstractContainerMenu craftingMenu,
+                                          ItemStack[] blueprint) {
+        RtsStorageCrafting.refillCraftGridFromLinked(
+                player, registry.session().getIfPresent(player), craftingMenu, blueprint);
     }
 
     @Override
     public void recordCraftedOutput(ServerPlayer player, ItemStack crafted) {
         RtsStorageCrafting.recordCraftedOutput(player, registry.session().getIfPresent(player), crafted);
+    }
+
+    @Override
+    public void clearCraftingGrid(ServerPlayer player, boolean toPlayerInventory) {
+        RtsStorageCrafting.clearCraftingGrid(
+                player, registry.session().getIfPresent(player), toPlayerInventory);
     }
 
     // ────────────────────────────────────────────────────────────────

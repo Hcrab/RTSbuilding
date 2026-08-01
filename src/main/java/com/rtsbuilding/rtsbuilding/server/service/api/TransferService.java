@@ -78,4 +78,7 @@ public interface TransferService {
      * @param player 目标玩家
      */
     void fillPlayerInventoryFromLinked(ServerPlayer player);
+
+    /** 执行终端批量取出或批量存入操作。 */
+    void bulkStorageOperation(ServerPlayer player, byte action, ItemStack prototype, int amount);
 }

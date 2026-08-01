@@ -65,7 +65,7 @@ public final class RtsClientUiStateStore {
     }
 
     /** 当前数据版本，用于未来兼容性迁移 */
-    static final int CURRENT_STORE_VERSION = 4;
+    static final int CURRENT_STORE_VERSION = 5;
 
     /** 持久化配置文件路径：config/rts_building/rtsbuilding-client-ui.rtsd（二进制编译格式） */
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
@@ -174,6 +174,16 @@ public final class RtsClientUiStateStore {
             }
             state.sound.placementSoundsEnabled = true;
             version = 4;
+        }
+        if (version < 5) {
+            if (state.storage == null) {
+                state.storage = new UiState.StorageState();
+            }
+            state.storage.craftTerminalRows = 5;
+            state.storage.craftTerminalSearchPinned = true;
+            state.storage.craftTerminalSearchMode = "STANDARD";
+            state.storage.craftTerminalSearch = "";
+            version = 5;
         }
         if (version < CURRENT_STORE_VERSION) {
             state._storeVersion = CURRENT_STORE_VERSION;
@@ -294,6 +304,45 @@ public final class RtsClientUiStateStore {
 
     public static synchronized void setShowWorkflowPanelEnabled(boolean enabled) {
         CACHE.get().storage.showWorkflowPanel = enabled;
+        CACHE.markDirty();
+    }
+
+    public static synchronized int getCraftTerminalRows() {
+        return Math.max(2, Math.min(6, CACHE.get().storage.craftTerminalRows));
+    }
+
+    public static synchronized void setCraftTerminalRows(int rows) {
+        CACHE.get().storage.craftTerminalRows = Math.max(2, Math.min(6, rows));
+        CACHE.markDirty();
+    }
+
+    public static synchronized boolean isCraftTerminalSearchPinned() {
+        return CACHE.get().storage.craftTerminalSearchPinned;
+    }
+
+    public static synchronized void setCraftTerminalSearchPinned(boolean pinned) {
+        CACHE.get().storage.craftTerminalSearchPinned = pinned;
+        CACHE.markDirty();
+    }
+
+    public static synchronized String getCraftTerminalSearchMode() {
+        String mode = CACHE.get().storage.craftTerminalSearchMode;
+        return mode == null || mode.isBlank() ? "STANDARD" : mode;
+    }
+
+    public static synchronized void setCraftTerminalSearchMode(String mode) {
+        CACHE.get().storage.craftTerminalSearchMode = mode == null ? "STANDARD" : mode;
+        CACHE.markDirty();
+    }
+
+    public static synchronized String getCraftTerminalSearch() {
+        String search = CACHE.get().storage.craftTerminalSearch;
+        return search == null ? "" : search;
+    }
+
+    public static synchronized void setCraftTerminalSearch(String search) {
+        String safe = search == null ? "" : search;
+        CACHE.get().storage.craftTerminalSearch = safe.substring(0, Math.min(128, safe.length()));
         CACHE.markDirty();
     }
 
@@ -478,6 +527,10 @@ public final class RtsClientUiStateStore {
             public boolean storageAutoRefreshEnabled = true;
             public boolean showStorageReadyPopup = false;
             public boolean showWorkflowPanel = true;
+            public int craftTerminalRows = 5;
+            public boolean craftTerminalSearchPinned = true;
+            public String craftTerminalSearchMode = "STANDARD";
+            public String craftTerminalSearch = "";
         }
 
         /** 战斗 / 工具保护状态。 */
@@ -608,6 +661,12 @@ public final class RtsClientUiStateStore {
             clean.storage.storageAutoRefreshEnabled = this.storage.storageAutoRefreshEnabled;
             clean.storage.showStorageReadyPopup = this.storage.showStorageReadyPopup;
             clean.storage.showWorkflowPanel = this.storage.showWorkflowPanel;
+            clean.storage.craftTerminalRows = Math.max(2, Math.min(6, this.storage.craftTerminalRows));
+            clean.storage.craftTerminalSearchPinned = this.storage.craftTerminalSearchPinned;
+            clean.storage.craftTerminalSearchMode = sanitizeCraftTerminalSearchMode(
+                    this.storage.craftTerminalSearchMode);
+            String terminalSearch = this.storage.craftTerminalSearch == null ? "" : this.storage.craftTerminalSearch;
+            clean.storage.craftTerminalSearch = terminalSearch.substring(0, Math.min(128, terminalSearch.length()));
             // combat
             clean.combat.toolProtectionEnabled = this.combat.toolProtectionEnabled;
             clean.combat.damageSoundEnabled = this.combat.damageSoundEnabled;
@@ -674,6 +733,14 @@ public final class RtsClientUiStateStore {
                 return fallback;
             }
             return value.trim().toUpperCase(Locale.ROOT);
+        }
+
+        private static String sanitizeCraftTerminalSearchMode(String value) {
+            String normalized = sanitizeEnum(value, "STANDARD");
+            return switch (normalized) {
+                case "SYNC_TO_JEI", "BIDIRECTIONAL" -> normalized;
+                default -> "STANDARD";
+            };
         }
 
         /**

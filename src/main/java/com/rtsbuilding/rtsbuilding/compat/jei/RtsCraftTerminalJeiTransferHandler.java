@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import mezz.jei.api.constants.RecipeTypes;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.gui.ingredient.IRecipeSlotView;
@@ -11,9 +12,7 @@ import mezz.jei.api.recipe.RecipeType;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
-import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
@@ -28,35 +27,20 @@ import java.util.Objects;
 import java.util.Optional;
 
 public final class RtsCraftTerminalJeiTransferHandler
-        implements IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> {
-    private static final int CRAFT_GRID_SLOT_START = 1;
-    private static final int CRAFT_GRID_SLOT_COUNT = 9;
-    private static final int INVENTORY_SLOT_START = 10;
-    private static final int INVENTORY_SLOT_COUNT = 36;
-
-    private final IRecipeTransferHandler<CraftingMenu, RecipeHolder<CraftingRecipe>> vanillaDelegate;
+        implements IRecipeTransferHandler<RtsCraftTerminalMenu, RecipeHolder<CraftingRecipe>> {
 
     public RtsCraftTerminalJeiTransferHandler(IRecipeTransferHandlerHelper transferHelper) {
         Objects.requireNonNull(transferHelper, "transferHelper");
-        this.vanillaDelegate = transferHelper.createUnregisteredRecipeTransferHandler(
-                transferHelper.createBasicRecipeTransferInfo(
-                        CraftingMenu.class,
-                        MenuType.CRAFTING,
-                        RecipeTypes.CRAFTING,
-                        CRAFT_GRID_SLOT_START,
-                        CRAFT_GRID_SLOT_COUNT,
-                        INVENTORY_SLOT_START,
-                        INVENTORY_SLOT_COUNT));
     }
 
     @Override
-    public Class<? extends CraftingMenu> getContainerClass() {
-        return CraftingMenu.class;
+    public Class<? extends RtsCraftTerminalMenu> getContainerClass() {
+        return RtsCraftTerminalMenu.class;
     }
 
     @Override
-    public Optional<MenuType<CraftingMenu>> getMenuType() {
-        return Optional.of(MenuType.CRAFTING);
+    public Optional<MenuType<RtsCraftTerminalMenu>> getMenuType() {
+        return Optional.of(RtsMenuTypes.RTS_CRAFT_TERMINAL.get());
     }
 
     @Override
@@ -65,11 +49,8 @@ public final class RtsCraftTerminalJeiTransferHandler
     }
 
     @Override
-    public IRecipeTransferError transferRecipe(CraftingMenu container, RecipeHolder<CraftingRecipe> recipe,
+    public IRecipeTransferError transferRecipe(RtsCraftTerminalMenu container, RecipeHolder<CraftingRecipe> recipe,
             IRecipeSlotsView recipeSlots, Player player, boolean maxTransfer, boolean doTransfer) {
-        if (!isRtsCraftTerminalScreen(container)) {
-            return this.vanillaDelegate.transferRecipe(container, recipe, recipeSlots, player, maxTransfer, doTransfer);
-        }
         if (!doTransfer) {
             return null;
         }
@@ -80,13 +61,6 @@ public final class RtsCraftTerminalJeiTransferHandler
                 maxTransfer,
                 true));
         return null;
-    }
-
-    private static boolean isRtsCraftTerminalScreen(CraftingMenu container) {
-        Minecraft minecraft = Minecraft.getInstance();
-        return minecraft != null
-                && minecraft.screen instanceof RtsCraftTerminalScreen screen
-                && screen.getMenu() == container;
     }
 
     private static List<ItemStack> buildIngredientPrototypes(CraftingRecipe recipe, IRecipeSlotsView recipeSlots) {

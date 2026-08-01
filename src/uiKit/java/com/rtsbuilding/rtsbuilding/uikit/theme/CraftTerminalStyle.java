@@ -30,6 +30,14 @@ public final class CraftTerminalStyle {
     public static final UiColor LINK_BORDER_DARK = new UiColor(0xFF0D1218);
     public static final UiColor LINK_TITLE_BACKGROUND = new UiColor(0xA0233345);
     public static final UiColor LINK_TITLE_DIVIDER = new UiColor(0xFF0F171F);
+    public static final UiColor STORAGE_ROW_EVEN = new UiColor(0xD0141922);
+    public static final UiColor STORAGE_ROW_ODD = new UiColor(0xD01A202D);
+    public static final UiColor CRAFT_BACKGROUND = new UiColor(0xE010151B);
+    public static final UiColor INVENTORY_PANEL_BACKGROUND = new UiColor(0xD0141922);
+    public static final UiColor BUTTON_HOVER_BACKGROUND = new UiColor(0xCC3F5268);
+    public static final UiColor BUTTON_ACTIVE_BACKGROUND = new UiColor(0xCC2E6A50);
+    public static final UiColor SCROLL_TRACK = new UiColor(0xAA111820);
+    public static final UiColor SCROLL_THUMB = new UiColor(0xFF5E738A);
     public static final UiColor IMPORT_EMPTY_BACKGROUND = new UiColor(0x8821262D);
     public static final UiColor IMPORT_READY_BACKGROUND = new UiColor(0xAA2E516A);
     public static final UiColor SEARCH_BACKGROUND = new UiColor(0xAA1E2731);

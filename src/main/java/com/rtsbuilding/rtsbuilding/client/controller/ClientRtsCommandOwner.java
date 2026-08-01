@@ -30,7 +30,6 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -200,14 +199,6 @@ final class ClientRtsCommandOwner {
 
     void updateLinkedStorageSettings(String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
             RtsClientPacketGateway.sendUpdateLinkedStorage(dimensionId, pos, extractOnly, priority);
-        }
-
-    boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
-            if (controller.pendingCraftTerminalOpen) {
-                return true;
-            }
-            return craftingScreen.getTitle() != null
-                    && "RTS Craft Terminal".equals(craftingScreen.getTitle().getString());
         }
 
     void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) {

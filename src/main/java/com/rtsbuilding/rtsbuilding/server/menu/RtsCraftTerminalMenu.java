@@ -1,117 +1,302 @@
 package com.rtsbuilding.rtsbuilding.server.menu;
 
+import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
-import net.minecraft.server.level.ServerLevel;
+import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.entity.player.StackedContents;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
-import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.CraftingContainer;
+import net.minecraft.world.inventory.RecipeBookMenu;
+import net.minecraft.world.inventory.RecipeBookType;
+import net.minecraft.world.inventory.ResultContainer;
+import net.minecraft.world.inventory.ResultSlot;
+import net.minecraft.world.inventory.Slot;
+import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.item.crafting.RecipeType;
+import net.minecraft.world.level.Level;
 
-import java.util.ArrayList;
-import java.util.List;
+import javax.annotation.Nullable;
+import java.util.Optional;
 
 /**
- * RTS 合成终端菜单，继承原版工作台菜单以支持远程合成操作。
- * 允许玩家在任意位置打开合成界面，并在从合成槽（slot 0）取走物品时
- * 记录合成产出并自动从关联存储中补满材料。
+ * RTS 一体化合成终端的服务端权威菜单。
+ *
+ * <p>合成语义直接沿用原版工作台的 {@link RecipeBookMenu}、
+ * {@link TransientCraftingContainer} 与 {@link ResultSlot} 组合：配方匹配、成就事件、
+ * 配方剩余物和 Shift 合成都不在这里另造一套。该类只拥有终端专用槽位坐标、远程
+ * {@link #stillValid(Player)} 规则，以及合成后从 linked storage 按原槽位补料的桥接。</p>
+ *
+ * <p>槽位索引必须保持原版工作台顺序：结果 0、合成格 1~9、背包 10~36、快捷栏
+ * 37~45。网络包、JEI 和批量转移都依赖这个稳定契约。</p>
  */
-public final class RtsCraftTerminalMenu extends CraftingMenu {
+public final class RtsCraftTerminalMenu extends RecipeBookMenu<CraftingInput, CraftingRecipe> {
+    public static final int RESULT_SLOT = 0;
+    public static final int CRAFT_SLOT_START = 1;
+    public static final int CRAFT_SLOT_END = 10;
+    public static final int INVENTORY_SLOT_START = 10;
+    public static final int INVENTORY_SLOT_END = 37;
+    public static final int HOTBAR_SLOT_START = 37;
+    public static final int HOTBAR_SLOT_END = 46;
 
-    /**
-     * 构造合成终端菜单。
-     *
-     * @param containerId 容器 ID
-     * @param inventory   玩家背包
-     * @param access      容器访问权限
-     */
-    public RtsCraftTerminalMenu(int containerId, Inventory inventory, ContainerLevelAccess access) {
-        super(containerId, inventory, access);
+    /** 菜单槽位按最多六行储存区布局；屏幕减少行数时从顶部收缩，不移动这些槽。 */
+    private static final int CRAFT_GRID_X = 26;
+    private static final int CRAFT_GRID_Y = 140;
+    private static final int RESULT_X = 134;
+    private static final int RESULT_Y = 148;
+    private static final int INVENTORY_X = 8;
+    private static final int INVENTORY_Y = 220;
+    private static final int HOTBAR_Y = 278;
+
+    private final CraftingContainer craftSlots = new TransientCraftingContainer(this, 3, 3);
+    private final ResultContainer resultSlots = new ResultContainer();
+    private final ContainerLevelAccess access;
+    private final Player player;
+    private boolean placingRecipe;
+
+    /** 客户端菜单工厂使用；服务端打开时会传入真实的远程访问上下文。 */
+    public RtsCraftTerminalMenu(int containerId, Inventory inventory) {
+        this(containerId, inventory, ContainerLevelAccess.NULL);
     }
 
-    /**
-     * 始终返回 true，允许玩家在任何位置使用该合成终端。
-     */
+    public RtsCraftTerminalMenu(int containerId, Inventory inventory, ContainerLevelAccess access) {
+        super(RtsMenuTypes.RTS_CRAFT_TERMINAL.get(), containerId);
+        this.access = access;
+        this.player = inventory.player;
+
+        this.addSlot(new ResultSlot(inventory.player, this.craftSlots, this.resultSlots,
+                0, RESULT_X, RESULT_Y));
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                this.addSlot(new Slot(this.craftSlots, column + row * 3,
+                        CRAFT_GRID_X + column * 18, CRAFT_GRID_Y + row * 18));
+            }
+        }
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 9; column++) {
+                this.addSlot(new Slot(inventory, column + row * 9 + 9,
+                        INVENTORY_X + column * 18, INVENTORY_Y + row * 18));
+            }
+        }
+        for (int column = 0; column < 9; column++) {
+            this.addSlot(new Slot(inventory, column, INVENTORY_X + column * 18, HOTBAR_Y));
+        }
+    }
+
     @Override
     public boolean stillValid(Player player) {
         return true;
     }
 
-    /**
-     * 当合成格子内容发生变化时，触发同步更新。
-     */
     @Override
     public void slotsChanged(Container inventory) {
-        super.slotsChanged(inventory);
-        this.broadcastChanges();
+        if (!this.placingRecipe) {
+            this.access.execute((level, ignored) -> updateCraftingResult(
+                    this, level, this.player, this.craftSlots, this.resultSlots, null));
+        }
     }
 
-    /**
-     * 处理玩家点击合成槽（slot 0）的逻辑：<br>
-     * 1. 点击前快照当前合成蓝图的材料布局；<br>
-     * 2. 解析当前配方；<br>
-     * 3. 调用父类处理点击（取走合成结果）；<br>
-     * 4. 取走物品后，记录合成产出并尝试从关联存储中补满材料。
-     */
+    private static void updateCraftingResult(
+            AbstractContainerMenu menu,
+            Level level,
+            Player player,
+            CraftingContainer craftSlots,
+            ResultContainer resultSlots,
+            @Nullable RecipeHolder<CraftingRecipe> knownRecipe) {
+        if (level.isClientSide) {
+            return;
+        }
+        CraftingInput input = craftSlots.asCraftInput();
+        ServerPlayer serverPlayer = (ServerPlayer) player;
+        ItemStack result = ItemStack.EMPTY;
+        Optional<RecipeHolder<CraftingRecipe>> match = level.getServer().getRecipeManager()
+                .getRecipeFor(RecipeType.CRAFTING, input, level, knownRecipe);
+        if (match.isPresent()) {
+            RecipeHolder<CraftingRecipe> holder = match.get();
+            if (resultSlots.setRecipeUsed(level, serverPlayer, holder)) {
+                ItemStack assembled = holder.value().assemble(input, level.registryAccess());
+                if (assembled.isItemEnabled(level.enabledFeatures())) {
+                    result = assembled;
+                }
+            }
+        }
+        resultSlots.setItem(0, result);
+        menu.setRemoteSlot(0, result);
+        serverPlayer.connection.send(new ClientboundContainerSetSlotPacket(
+                menu.containerId, menu.incrementStateId(), RESULT_SLOT, result));
+    }
+
     @Override
-    public void clicked(int slotId, int button, ClickType clickType, Player player) {
-        ItemStack[] blueprint = null;
-        CraftingRecipe recipe = null;
-        if (slotId == 0 && player instanceof ServerPlayer) {
-            blueprint = snapshotBlueprint();
-            recipe = resolveCurrentRecipe((ServerPlayer) player);
+    public void beginPlacingRecipe() {
+        this.placingRecipe = true;
+    }
+
+    @Override
+    public void finishPlacingRecipe(RecipeHolder<CraftingRecipe> recipe) {
+        this.placingRecipe = false;
+        this.access.execute((level, ignored) -> updateCraftingResult(
+                this, level, this.player, this.craftSlots, this.resultSlots, recipe));
+    }
+
+    @Override
+    public void fillCraftSlotsStackedContents(StackedContents itemHelper) {
+        this.craftSlots.fillStackedContents(itemHelper);
+    }
+
+    @Override
+    public void clearCraftingContent() {
+        this.craftSlots.clearContent();
+        this.resultSlots.clearContent();
+    }
+
+    @Override
+    public boolean recipeMatches(RecipeHolder<CraftingRecipe> recipe) {
+        return recipe.value().matches(this.craftSlots.asCraftInput(), this.player.level());
+    }
+
+    @Override
+    public void removed(Player player) {
+        super.removed(player);
+        this.access.execute((level, ignored) -> this.clearContainer(player, this.craftSlots));
+    }
+
+    /** 捕获点击前的真实槽位组件与数量，用它判断消耗并只补回实际缺少的部分。 */
+    @Override
+    public void clicked(int slotId, int button, net.minecraft.world.inventory.ClickType clickType, Player player) {
+        ItemStack[] before = null;
+        ItemStack craftedOutput = ItemStack.EMPTY;
+        if (slotId == RESULT_SLOT && player instanceof ServerPlayer serverPlayer) {
+            before = snapshotGrid();
+            craftedOutput = this.getSlot(RESULT_SLOT).getItem().copy();
         }
 
         super.clicked(slotId, button, clickType, player);
 
-        if (slotId == 0 && player instanceof ServerPlayer serverPlayer && blueprint != null) {
-            ItemStack carried = serverPlayer.containerMenu.getCarried();
-            if (!carried.isEmpty()) {
-                ServiceRegistry.getInstance().crafting().recordCraftedOutput(serverPlayer, carried.copy());
+        if (slotId == RESULT_SLOT
+                && player instanceof ServerPlayer serverPlayer
+                && before != null
+                && wasGridConsumed(before)) {
+            if (!craftedOutput.isEmpty()) {
+                ServiceRegistry.getInstance().crafting().recordCraftedOutput(serverPlayer, craftedOutput);
             }
-            ServiceRegistry.getInstance().crafting().refillCraftGridFromLinked(serverPlayer, this, blueprint, recipe);
+            ServiceRegistry.getInstance().crafting()
+                    .refillCraftGridFromLinked(serverPlayer, this, before);
         }
     }
 
-    /**
-     * 快照当前合成格子（slot 1~9）中的物品布局作为蓝图。<br>
-     * 每个物品只保留 1 份副本，用于后续识别配方和补料。
-     *
-     * @return 长度为 9 的蓝图数组
-     */
-    private ItemStack[] snapshotBlueprint() {
-        ItemStack[] blueprint = new ItemStack[9];
-        for (int i = 0; i < blueprint.length; i++) {
-            ItemStack stack = this.getSlot(1 + i).getItem();
-            blueprint[i] = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+    private ItemStack[] snapshotGrid() {
+        ItemStack[] snapshot = new ItemStack[9];
+        for (int i = 0; i < snapshot.length; i++) {
+            ItemStack stack = this.getSlot(CRAFT_SLOT_START + i).getItem();
+            snapshot[i] = stack.isEmpty() ? ItemStack.EMPTY : stack.copy();
         }
-        return blueprint;
+        return snapshot;
     }
 
-    /**
-     * 解析当前合成格子布局对应的合成配方。
-     *
-     * @param player 服务器端玩家
-     * @return 匹配的合成配方，若未匹配则返回 null
-     */
-    private CraftingRecipe resolveCurrentRecipe(ServerPlayer player) {
-        if (player == null || !(player.level() instanceof ServerLevel level)) {
-            return null;
-        }
-        List<ItemStack> stacks = new ArrayList<>(9);
+    private boolean wasGridConsumed(ItemStack[] before) {
         for (int i = 0; i < 9; i++) {
-            stacks.add(this.getSlot(1 + i).getItem().copy());
+            ItemStack previous = before[i];
+            ItemStack current = this.getSlot(CRAFT_SLOT_START + i).getItem();
+            if (previous.isEmpty() != current.isEmpty()) {
+                return true;
+            }
+            if (!previous.isEmpty()
+                    && (!ItemStack.isSameItemSameComponents(previous, current)
+                    || previous.getCount() != current.getCount())) {
+                return true;
+            }
         }
-        return level.getRecipeManager()
-                .getRecipeFor(RecipeType.CRAFTING, CraftingInput.of(3, 3, stacks), level)
-                .map(RecipeHolder::value)
-                .orElse(null);
+        return false;
+    }
+
+    /** 供通用补料服务触发原版结果槽刷新，不向客户端暴露可变容器所有权。 */
+    public CraftingContainer craftingContainer() {
+        return this.craftSlots;
+    }
+
+    @Override
+    public ItemStack quickMoveStack(Player player, int index) {
+        ItemStack original = ItemStack.EMPTY;
+        Slot slot = this.slots.get(index);
+        if (slot != null && slot.hasItem()) {
+            ItemStack source = slot.getItem();
+            original = source.copy();
+            if (index == RESULT_SLOT) {
+                this.access.execute((level, ignored) -> source.getItem().onCraftedBy(source, level, player));
+                if (!this.moveItemStackTo(source, INVENTORY_SLOT_START, HOTBAR_SLOT_END, true)) {
+                    return ItemStack.EMPTY;
+                }
+                slot.onQuickCraft(source, original);
+            } else if (index >= INVENTORY_SLOT_START && index < HOTBAR_SLOT_END) {
+                if (!this.moveItemStackTo(source, CRAFT_SLOT_START, CRAFT_SLOT_END, false)) {
+                    if (index < HOTBAR_SLOT_START) {
+                        if (!this.moveItemStackTo(source, HOTBAR_SLOT_START, HOTBAR_SLOT_END, false)) {
+                            return ItemStack.EMPTY;
+                        }
+                    } else if (!this.moveItemStackTo(source, INVENTORY_SLOT_START, INVENTORY_SLOT_END, false)) {
+                        return ItemStack.EMPTY;
+                    }
+                }
+            } else if (!this.moveItemStackTo(source, INVENTORY_SLOT_START, HOTBAR_SLOT_END, false)) {
+                return ItemStack.EMPTY;
+            }
+
+            if (source.isEmpty()) {
+                slot.setByPlayer(ItemStack.EMPTY);
+            } else {
+                slot.setChanged();
+            }
+            if (source.getCount() == original.getCount()) {
+                return ItemStack.EMPTY;
+            }
+            slot.onTake(player, source);
+            if (index == RESULT_SLOT) {
+                player.drop(source, false);
+            }
+        }
+        return original;
+    }
+
+    @Override
+    public boolean canTakeItemForPickAll(ItemStack stack, Slot slot) {
+        return slot.container != this.resultSlots && super.canTakeItemForPickAll(stack, slot);
+    }
+
+    @Override
+    public int getResultSlotIndex() {
+        return RESULT_SLOT;
+    }
+
+    @Override
+    public int getGridWidth() {
+        return this.craftSlots.getWidth();
+    }
+
+    @Override
+    public int getGridHeight() {
+        return this.craftSlots.getHeight();
+    }
+
+    @Override
+    public int getSize() {
+        return CRAFT_SLOT_END;
+    }
+
+    @Override
+    public RecipeBookType getRecipeBookType() {
+        return RecipeBookType.CRAFTING;
+    }
+
+    @Override
+    public boolean shouldMoveToInventory(int slotIndex) {
+        return slotIndex != RESULT_SLOT;
     }
 }

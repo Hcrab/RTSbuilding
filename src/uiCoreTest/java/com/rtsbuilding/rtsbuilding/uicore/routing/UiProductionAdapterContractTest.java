@@ -249,7 +249,9 @@ class UiProductionAdapterContractTest {
     @Test
     void craftTerminal颜色与框体进入Kit主题和九宫格() throws IOException {
         String terminal = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/craftterminal/"
+                + "CraftTerminalRenderer.java");
         String style = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/CraftTerminalStyle.java");
 

@@ -40,8 +40,6 @@ public final class StorageStateManager {
     private static final int DEFAULT_STORAGE_PAGE_SIZE = 90;
     private static final int MAX_STORAGE_PAGE_SIZE = 180;
     private static final String CATEGORY_ALL = "all";
-    private static final String CATEGORY_MOD_PREFIX = "mod|";
-    private static final String CATEGORY_TAB_PREFIX = "tab|";
 
     // =========================================================================
     //  Storage page fields
@@ -132,10 +130,10 @@ public final class StorageStateManager {
     }
 
     public void updateStoragePanelLayout(double xNormalized, double yNormalized, double widthNormalized, double heightNormalized) {
-        this.storagePanelXNormalized = clampLayoutNormalized(xNormalized);
-        this.storagePanelYNormalized = clampLayoutNormalized(yNormalized);
-        this.storagePanelWidthNormalized = clampLayoutNormalized(widthNormalized);
-        this.storagePanelHeightNormalized = clampLayoutNormalized(heightNormalized);
+        this.storagePanelXNormalized = StorageUiValueSanitizer.clampPanelNormalized(xNormalized);
+        this.storagePanelYNormalized = StorageUiValueSanitizer.clampPanelNormalized(yNormalized);
+        this.storagePanelWidthNormalized = StorageUiValueSanitizer.clampPanelNormalized(widthNormalized);
+        this.storagePanelHeightNormalized = StorageUiValueSanitizer.clampPanelNormalized(heightNormalized);
     }
 
     public boolean isStorageLinked() {
@@ -423,7 +421,7 @@ public final class StorageStateManager {
     }
 
     public void setStorageCategory(String category) {
-        String normalized = normalizeCategory(category);
+        String normalized = StorageUiValueSanitizer.normalizeCategory(category);
         if (this.storageCategory.equals(normalized)) {
             return;
         }
@@ -599,13 +597,13 @@ public final class StorageStateManager {
         this.storageTotalPages = Math.max(1, payload.totalPages());
         this.storageTotalEntries = payload.totalEntries();
         this.storageSearch = payload.search();
-        this.storageCategory = normalizeCategory(payload.category());
+        this.storageCategory = StorageUiValueSanitizer.normalizeCategory(payload.category());
         this.storageSort = RtsStorageSort.byId(payload.sort());
         this.storageSortAscending = payload.ascending();
         this.storageCategories.clear();
         this.storageCategories.add(CATEGORY_ALL);
         for (String category : payload.categories()) {
-            String normalized = normalizeCategory(category);
+            String normalized = StorageUiValueSanitizer.normalizeCategory(category);
             if (!this.storageCategories.contains(normalized)) {
                 this.storageCategories.add(normalized);
             }
@@ -777,31 +775,6 @@ public final class StorageStateManager {
             }
         }
         return 0L;
-    }
-
-    // =========================================================================
-    //  Static helpers
-    // =========================================================================
-
-    private static double clampLayoutNormalized(double value) {
-        if (!Double.isFinite(value)) {
-            return 0.0D;
-        }
-        return Mth.clamp(value, 0.0D, 1.0D);
-    }
-
-    private static String normalizeCategory(String category) {
-        if (category == null) {
-            return CATEGORY_ALL;
-        }
-        String value = category.trim().toLowerCase(Locale.ROOT);
-        if (value.isEmpty() || CATEGORY_ALL.equals(value)) {
-            return CATEGORY_ALL;
-        }
-        if (value.startsWith(CATEGORY_MOD_PREFIX) || value.startsWith(CATEGORY_TAB_PREFIX)) {
-            return value;
-        }
-        return CATEGORY_MOD_PREFIX + value;
     }
 
 }
