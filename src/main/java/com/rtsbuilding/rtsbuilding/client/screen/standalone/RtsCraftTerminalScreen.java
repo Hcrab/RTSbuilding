@@ -3,7 +3,6 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalLayout;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalScrollState;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalSearchMode;
@@ -15,7 +14,9 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
+import com.rtsbuilding.rtsbuilding.uicore.craftterminal.CraftTerminalUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftTerminalLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftTerminalStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -40,18 +41,6 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.CLEAR_BUTTON_X;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.CLEAR_PLAYER_Y;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.CLEAR_STORAGE_Y;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.DEPOSIT_ALL_Y;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.DEPOSIT_BUTTON_X;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.DEPOSIT_HOTBAR_Y;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.SIDE_BUTTON_H;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.SIDE_BUTTON_W;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.TOOLBAR_H;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.TOOLBAR_W;
-import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer.TOOLBAR_X;
-
 /**
  * RTS 一体化合成终端界面。
  *
@@ -61,8 +50,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal
  * 完成，客户端不预测生成、删除或搬动物品。</p>
  */
 public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCraftTerminalMenu> {
-    private final CraftTerminalLayout layout =
-            new CraftTerminalLayout(RtsClientUiStateStore.getCraftTerminalRows());
+    private CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(
+            RtsClientUiStateStore.getCraftTerminalRows());
     private final CraftTerminalScrollState scrollState = new CraftTerminalScrollState();
     private EditBox searchBox;
     private CraftTerminalSearchMode searchMode = CraftTerminalSearchMode.STANDARD;
@@ -75,14 +64,14 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
         this.imageWidth = CraftTerminalLayout.WIDTH;
         this.imageHeight = CraftTerminalLayout.IMAGE_HEIGHT;
         this.inventoryLabelX = 8;
-        this.inventoryLabelY = 210;
         this.titleLabelX = 6;
     }
 
     @Override
     protected void init() {
         super.init();
-        this.layout.setRows(Math.min(this.layout.rows(), maximumRowsForScreen()));
+        this.layout = CraftTerminalLayout.geometry(
+                Math.min(this.layout.rows, maximumRowsForScreen()));
         recenterVisibleArea();
         ClientRtsController controller = ClientRtsController.get();
         this.previousPageSize = controller.getStoragePageSize();
@@ -96,9 +85,9 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
 
         this.searchBox = new EditBox(
                 this.font,
-                this.leftPos + CraftTerminalLayout.SEARCH_X + 3,
-                this.topPos + this.layout.searchY() + 2,
-                CraftTerminalLayout.SEARCH_WIDTH - 14,
+                this.leftPos + (int) this.layout.search.getX() + 3,
+                this.topPos + (int) this.layout.search.getY() + 2,
+                (int) this.layout.search.getWidth() - 14,
                 8,
                 Component.translatable("screen.rtsbuilding.craft_terminal.search"));
         this.searchBox.setBordered(false);
@@ -127,7 +116,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
 
     @Override
     public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        this.scrollState.update(ClientRtsController.get(), this.layout.rows());
+        this.scrollState.update(ClientRtsController.get(), this.layout.rows);
         syncSearchFromController();
         syncSearchFromJei();
         this.renderBackground(graphics, mouseX, mouseY, partialTick);
@@ -145,29 +134,25 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
                 graphics, this.font, this.leftPos, this.topPos,
                 this.layout, this.scrollState,
                 controller.getStorageTotalEntries(),
-                this.searchBox == null ? "" : this.searchBox.getValue(),
                 this.searchBox != null && this.searchBox.isFocused(),
+                this.searchBox != null && !this.searchBox.getValue().isEmpty(),
                 this.searchMode, RtsClientUiStateStore.isCraftTerminalSearchPinned(),
-                maximumRowsForScreen(),
-                controller.getStorageSort(), controller.isStorageSortAscending(),
-                mouseX, mouseY);
+                controller.getStorageSort().ordinal(),
+                controller.isStorageSortAscending(), mouseX, mouseY);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         graphics.drawString(this.font,
                 Component.translatable("screen.rtsbuilding.craft_terminal.short_title"),
-                this.titleLabelX, this.layout.visualTop() + 5,
+                this.titleLabelX, this.layout.visualTop + 5,
                 CraftTerminalStyle.TEXT.toArgb(), false);
-        graphics.drawString(this.font, this.playerInventoryTitle,
-                this.inventoryLabelX, this.inventoryLabelY,
-                CraftTerminalStyle.MUTED_TEXT.toArgb(), false);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            if (handleHeaderClick(mouseX, mouseY) || handleActionButtonClick(mouseX, mouseY)) {
+            if (handleChromeActionClick(mouseX, mouseY)) {
                 return true;
             }
             if (isInsideScrollbar(mouseX, mouseY)) {
@@ -215,10 +200,10 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (isInsideVisibleTerminal(mouseX, mouseY)) {
+        if (isInsideStorageViewport(mouseX, mouseY)) {
             int delta = scrollY > 0.0D ? -1 : (scrollY < 0.0D ? 1 : 0);
             if (delta != 0) {
-                this.scrollState.scrollRows(ClientRtsController.get(), delta, this.layout.rows());
+                this.scrollState.scrollRows(ClientRtsController.get(), delta, this.layout.rows);
             }
             return true;
         }
@@ -252,85 +237,63 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
         return super.charTyped(codePoint, modifiers);
     }
 
-    private boolean handleHeaderClick(double mouseX, double mouseY) {
-        if (containsRelative(CraftTerminalLayout.MODE_X, this.layout.visualTop() + 3,
-                CraftTerminalLayout.HEADER_BUTTON_SIZE, CraftTerminalLayout.HEADER_BUTTON_SIZE,
-                mouseX, mouseY)) {
-            this.searchMode = this.searchMode.next();
-            RtsClientUiStateStore.setCraftTerminalSearchMode(this.searchMode.name());
-            syncSearchToJei(this.searchBox == null ? "" : this.searchBox.getValue());
-            return true;
+    private boolean handleChromeActionClick(double mouseX, double mouseY) {
+        CraftTerminalUiAction action = actionAt(mouseX, mouseY);
+        if (action == null || action == CraftTerminalUiAction.SEARCH
+                || action == CraftTerminalUiAction.SEARCH_CLEAR
+                || action == CraftTerminalUiAction.SCROLLBAR) {
+            return false;
         }
-        if (containsRelative(CraftTerminalLayout.PIN_X, this.layout.visualTop() + 3,
-                CraftTerminalLayout.HEADER_BUTTON_SIZE, CraftTerminalLayout.HEADER_BUTTON_SIZE,
-                mouseX, mouseY)) {
-            boolean pinned = !RtsClientUiStateStore.isCraftTerminalSearchPinned();
-            RtsClientUiStateStore.setCraftTerminalSearchPinned(pinned);
-            RtsClientUiStateStore.setCraftTerminalSearch(
-                    pinned && this.searchBox != null ? this.searchBox.getValue() : "");
-            return true;
+        switch (action) {
+            case SEARCH_MODE:
+                this.searchMode = this.searchMode.next();
+                RtsClientUiStateStore.setCraftTerminalSearchMode(this.searchMode.name());
+                syncSearchToJei(this.searchBox == null ? "" : this.searchBox.getValue());
+                return true;
+            case SEARCH_PIN:
+                boolean pinned = !RtsClientUiStateStore.isCraftTerminalSearchPinned();
+                RtsClientUiStateStore.setCraftTerminalSearchPinned(pinned);
+                RtsClientUiStateStore.setCraftTerminalSearch(
+                        pinned && this.searchBox != null ? this.searchBox.getValue() : "");
+                return true;
+            case CYCLE_ROWS:
+                changeRows(this.layout.rows >= maximumRowsForScreen()
+                        ? CraftTerminalLayout.MIN_ROWS : this.layout.rows + 1);
+                return true;
+            case SORT:
+                ClientRtsController sortController = ClientRtsController.get();
+                sortController.cycleSort();
+                this.scrollState.expectFreshPage(sortController, 0);
+                return true;
+            case SORT_DIRECTION:
+                ClientRtsController directionController = ClientRtsController.get();
+                directionController.toggleSortDirection();
+                this.scrollState.expectFreshPage(directionController, 0);
+                return true;
+            case CLEAR_TO_STORAGE:
+                PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(false));
+                return true;
+            case CLEAR_TO_INVENTORY:
+                PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(true));
+                return true;
+            case DEPOSIT_ALL:
+                sendBulkDeposit(C2SRtsBulkStorageOpPayload.DEPOSIT_ALL);
+                return true;
+            case DEPOSIT_HOTBAR:
+                sendBulkDeposit(C2SRtsBulkStorageOpPayload.DEPOSIT_HOTBAR);
+                return true;
+            default:
+                return false;
         }
-        if (containsRelative(CraftTerminalLayout.ROW_BUTTON_X, this.layout.visualTop() + 1,
-                10, 7, mouseX, mouseY)) {
-            changeRows(this.layout.rows() + 1);
-            return true;
-        }
-        if (containsRelative(CraftTerminalLayout.ROW_BUTTON_X, this.layout.visualTop() + 9,
-                10, 7, mouseX, mouseY)) {
-            changeRows(this.layout.rows() - 1);
-            return true;
-        }
-        return false;
-    }
-
-    private boolean handleActionButtonClick(double mouseX, double mouseY) {
-        if (containsRelative(TOOLBAR_X, this.layout.visualTop() + 1,
-                TOOLBAR_W, TOOLBAR_H, mouseX, mouseY)) {
-            ClientRtsController controller = ClientRtsController.get();
-            controller.cycleSort();
-            this.scrollState.expectFreshPage(controller, 0);
-            return true;
-        }
-        if (containsRelative(TOOLBAR_X, this.layout.visualTop() + 16,
-                TOOLBAR_W, TOOLBAR_H, mouseX, mouseY)) {
-            ClientRtsController controller = ClientRtsController.get();
-            controller.toggleSortDirection();
-            this.scrollState.expectFreshPage(controller, 0);
-            return true;
-        }
-        if (containsRelative(CLEAR_BUTTON_X, CLEAR_STORAGE_Y,
-                SIDE_BUTTON_W, SIDE_BUTTON_H, mouseX, mouseY)) {
-            PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(false));
-            return true;
-        }
-        if (containsRelative(CLEAR_BUTTON_X, CLEAR_PLAYER_Y,
-                SIDE_BUTTON_W, SIDE_BUTTON_H, mouseX, mouseY)) {
-            PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(true));
-            return true;
-        }
-        if (containsRelative(DEPOSIT_BUTTON_X, DEPOSIT_ALL_Y,
-                SIDE_BUTTON_W, SIDE_BUTTON_H, mouseX, mouseY)) {
-            sendBulkDeposit(C2SRtsBulkStorageOpPayload.DEPOSIT_ALL);
-            return true;
-        }
-        if (containsRelative(DEPOSIT_BUTTON_X, DEPOSIT_HOTBAR_Y,
-                SIDE_BUTTON_W, SIDE_BUTTON_H, mouseX, mouseY)) {
-            sendBulkDeposit(C2SRtsBulkStorageOpPayload.DEPOSIT_HOTBAR);
-            return true;
-        }
-        return false;
     }
 
     private boolean handleSearchClick(double mouseX, double mouseY, int button) {
-        int x = this.leftPos + CraftTerminalLayout.SEARCH_X;
-        int y = this.topPos + this.layout.searchY();
-        if (!UiRect.contains(x, y, CraftTerminalLayout.SEARCH_WIDTH,
-                CraftTerminalLayout.SEARCH_HEIGHT, mouseX, mouseY)) {
+        if (!this.layout.search.contains(mouseX - this.leftPos, mouseY - this.topPos)) {
             return false;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
-                || UiRect.contains(x + CraftTerminalLayout.SEARCH_WIDTH - 12, y,
-                12, CraftTerminalLayout.SEARCH_HEIGHT, mouseX, mouseY)) {
+                || this.layout.searchClear.contains(
+                mouseX - this.leftPos, mouseY - this.topPos)) {
             this.searchBox.setValue("");
         } else if (!this.menu.getCarried().isEmpty()) {
             this.searchBox.setValue(this.menu.getCarried().getHoverName().getString());
@@ -399,17 +362,18 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
     }
 
     private void changeRows(int rows) {
-        int previous = this.layout.rows();
-        this.layout.setRows(Math.min(rows, maximumRowsForScreen()));
-        if (previous == this.layout.rows()) {
+        int previous = this.layout.rows;
+        this.layout = CraftTerminalLayout.geometry(Math.min(rows, maximumRowsForScreen()));
+        if (previous == this.layout.rows) {
             return;
         }
-        RtsClientUiStateStore.setCraftTerminalRows(this.layout.rows());
+        RtsClientUiStateStore.setCraftTerminalRows(this.layout.rows);
         recenterVisibleArea();
         if (this.searchBox != null) {
-            this.searchBox.setY(this.topPos + this.layout.searchY() + 2);
+            this.searchBox.setX(this.leftPos + (int) this.layout.search.getX() + 3);
+            this.searchBox.setY(this.topPos + (int) this.layout.search.getY() + 2);
         }
-        this.scrollState.update(ClientRtsController.get(), this.layout.rows());
+        this.scrollState.update(ClientRtsController.get(), this.layout.rows);
     }
 
     private int maximumRowsForScreen() {
@@ -422,7 +386,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
 
     /** 只按当前真实可见区域居中；Slot 仍使用菜单定义的固定相对坐标。 */
     private void recenterVisibleArea() {
-        this.topPos = (this.height - this.layout.visibleHeight()) / 2 - this.layout.visualTop();
+        this.leftPos = (this.width - CraftTerminalLayout.WIDTH) / 2;
+        this.topPos = (this.height - this.layout.visibleHeight()) / 2 - this.layout.visualTop;
     }
 
     private void onSearchChanged(String value) {
@@ -479,16 +444,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
     }
 
     private int resolveVisibleStorageCell(double mouseX, double mouseY) {
-        int gridX = this.leftPos + CraftTerminalLayout.GRID_X;
-        int gridY = this.topPos + this.layout.storageGridY();
-        int width = CraftTerminalLayout.COLUMNS * CraftTerminalLayout.SLOT_SIZE;
-        int height = this.layout.rows() * CraftTerminalLayout.SLOT_SIZE;
-        if (!UiRect.contains(gridX, gridY, width, height, mouseX, mouseY)) {
-            return -1;
-        }
-        int column = Mth.floor((mouseX - gridX) / CraftTerminalLayout.SLOT_SIZE);
-        int row = Mth.floor((mouseY - gridY) / CraftTerminalLayout.SLOT_SIZE);
-        return row * CraftTerminalLayout.COLUMNS + column;
+        return this.layout.storageCellAt(mouseX - this.leftPos, mouseY - this.topPos);
     }
 
     private StorageEntry getStorageEntryForCell(int cell) {
@@ -505,30 +461,40 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
 
     private void renderButtonTooltip(GuiGraphics graphics, int mouseX, int mouseY) {
         String key = null;
-        if (containsRelative(CraftTerminalLayout.MODE_X, this.layout.visualTop() + 3,
-                10, 10, mouseX, mouseY)) {
-            key = "screen.rtsbuilding.craft_terminal.search_mode." + this.searchMode.name().toLowerCase();
-        } else if (containsRelative(CraftTerminalLayout.PIN_X, this.layout.visualTop() + 3,
-                10, 10, mouseX, mouseY)) {
-            key = "screen.rtsbuilding.craft_terminal.search_pin";
-        } else if (containsRelative(CLEAR_BUTTON_X, CLEAR_STORAGE_Y,
-                SIDE_BUTTON_W, SIDE_BUTTON_H, mouseX, mouseY)) {
-            key = "screen.rtsbuilding.craft_terminal.clear_to_storage";
-        } else if (containsRelative(CLEAR_BUTTON_X, CLEAR_PLAYER_Y,
-                SIDE_BUTTON_W, SIDE_BUTTON_H, mouseX, mouseY)) {
-            key = "screen.rtsbuilding.craft_terminal.clear_to_inventory";
-        } else if (containsRelative(DEPOSIT_BUTTON_X, DEPOSIT_ALL_Y,
-                SIDE_BUTTON_W, SIDE_BUTTON_H, mouseX, mouseY)) {
-            key = "screen.rtsbuilding.craft_terminal.deposit_all";
-        } else if (containsRelative(DEPOSIT_BUTTON_X, DEPOSIT_HOTBAR_Y,
-                SIDE_BUTTON_W, SIDE_BUTTON_H, mouseX, mouseY)) {
-            key = "screen.rtsbuilding.craft_terminal.deposit_hotbar";
-        } else if (containsRelative(TOOLBAR_X, this.layout.visualTop() + 1,
-                TOOLBAR_W, TOOLBAR_H, mouseX, mouseY)) {
-            key = "screen.rtsbuilding.craft_terminal.sort";
-        } else if (containsRelative(TOOLBAR_X, this.layout.visualTop() + 16,
-                TOOLBAR_W, TOOLBAR_H, mouseX, mouseY)) {
-            key = "screen.rtsbuilding.craft_terminal.sort_direction";
+        CraftTerminalUiAction action = actionAt(mouseX, mouseY);
+        if (action != null) {
+            switch (action) {
+                case SEARCH_MODE:
+                    key = "screen.rtsbuilding.craft_terminal.search_mode."
+                            + this.searchMode.name().toLowerCase();
+                    break;
+                case SEARCH_PIN:
+                    key = "screen.rtsbuilding.craft_terminal.search_pin";
+                    break;
+                case CYCLE_ROWS:
+                    key = "screen.rtsbuilding.craft_terminal.rows";
+                    break;
+                case CLEAR_TO_STORAGE:
+                    key = "screen.rtsbuilding.craft_terminal.clear_to_storage";
+                    break;
+                case CLEAR_TO_INVENTORY:
+                    key = "screen.rtsbuilding.craft_terminal.clear_to_inventory";
+                    break;
+                case DEPOSIT_ALL:
+                    key = "screen.rtsbuilding.craft_terminal.deposit_all";
+                    break;
+                case DEPOSIT_HOTBAR:
+                    key = "screen.rtsbuilding.craft_terminal.deposit_hotbar";
+                    break;
+                case SORT:
+                    key = "screen.rtsbuilding.craft_terminal.sort";
+                    break;
+                case SORT_DIRECTION:
+                    key = "screen.rtsbuilding.craft_terminal.sort_direction";
+                    break;
+                default:
+                    break;
+            }
         }
         if (key != null) {
             graphics.renderTooltip(this.font, Component.translatable(key), mouseX, mouseY);
@@ -578,10 +544,10 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
     }
 
     public Rect2i getToolbarArea() {
-        return new Rect2i(this.leftPos + TOOLBAR_X,
-                this.topPos + this.layout.visualTop(),
-                -TOOLBAR_X,
-                29);
+        return new Rect2i(this.leftPos + CraftTerminalLayout.WIDTH,
+                this.topPos + this.layout.visualTop,
+                CraftTerminalLayout.VISIBLE_WIDTH - CraftTerminalLayout.WIDTH,
+                this.layout.visibleHeight());
     }
 
     public StorageEntry getStorageEntryAt(double mouseX, double mouseY) {
@@ -594,42 +560,34 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
         if (cell < 0) {
             return null;
         }
-        int column = cell % CraftTerminalLayout.COLUMNS;
-        int row = cell / CraftTerminalLayout.COLUMNS;
+        UiRect bounds = this.layout.storageCell(cell);
         return new Rect2i(
-                this.leftPos + CraftTerminalLayout.GRID_X + column * CraftTerminalLayout.SLOT_SIZE,
-                this.topPos + this.layout.storageGridY() + row * CraftTerminalLayout.SLOT_SIZE,
-                CraftTerminalLayout.SLOT_SIZE,
-                CraftTerminalLayout.SLOT_SIZE);
+                this.leftPos + (int) bounds.getX(),
+                this.topPos + (int) bounds.getY(),
+                (int) bounds.getWidth(),
+                (int) bounds.getHeight());
     }
 
-    private boolean isInsideVisibleTerminal(double mouseX, double mouseY) {
-        return UiRect.contains(this.leftPos + TOOLBAR_X,
-                this.topPos + this.layout.visualTop(),
-                CraftTerminalLayout.WIDTH - TOOLBAR_X,
-                CraftTerminalLayout.TERMINAL_BOTTOM - this.layout.visualTop(),
-                mouseX, mouseY);
+    private boolean isInsideStorageViewport(double mouseX, double mouseY) {
+        double relativeX = mouseX - this.leftPos;
+        double relativeY = mouseY - this.topPos;
+        return this.layout.storageGrid.contains(relativeX, relativeY)
+                || this.layout.scrollbar.contains(relativeX, relativeY);
     }
 
     private boolean isInsideScrollbar(double mouseX, double mouseY) {
-        return UiRect.contains(
-                this.leftPos + CraftTerminalLayout.SCROLLBAR_X,
-                this.topPos + this.layout.scrollbarY(),
-                CraftTerminalLayout.SCROLLBAR_WIDTH,
-                this.layout.scrollbarHeight(),
-                mouseX, mouseY);
+        return this.layout.scrollbar.contains(
+                mouseX - this.leftPos, mouseY - this.topPos);
     }
 
     private void updateScrollbarFromMouse(double mouseY) {
-        double fraction = (mouseY - (this.topPos + this.layout.scrollbarY()))
-                / Math.max(1.0D, this.layout.scrollbarHeight());
+        double fraction = (mouseY - (this.topPos + this.layout.scrollbar.getY()))
+                / Math.max(1.0D, this.layout.scrollbar.getHeight());
         this.scrollState.setFromFraction(
-                ClientRtsController.get(), fraction, this.layout.rows());
+                ClientRtsController.get(), fraction, this.layout.rows);
     }
 
-    private boolean containsRelative(
-            int x, int y, int width, int height, double mouseX, double mouseY) {
-        return UiRect.contains(this.leftPos + x, this.topPos + y,
-                width, height, mouseX, mouseY);
+    private CraftTerminalUiAction actionAt(double mouseX, double mouseY) {
+        return this.layout.actionAt(mouseX - this.leftPos, mouseY - this.topPos);
     }
 }

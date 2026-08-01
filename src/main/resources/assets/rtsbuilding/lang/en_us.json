@@ -1046,4 +1046,5 @@
   ,"screen.rtsbuilding.craft_terminal.deposit_hotbar": "Store hotbar"
   ,"screen.rtsbuilding.craft_terminal.sort": "Change storage sorting"
   ,"screen.rtsbuilding.craft_terminal.sort_direction": "Reverse storage sorting"
+  ,"screen.rtsbuilding.craft_terminal.rows": "Change visible storage rows"
 }

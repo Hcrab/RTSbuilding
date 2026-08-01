@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftTerminalLayout;
 import net.minecraft.util.Mth;
 
 import java.util.ArrayList;

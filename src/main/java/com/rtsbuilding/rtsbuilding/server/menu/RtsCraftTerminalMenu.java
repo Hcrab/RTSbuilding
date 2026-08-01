@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.menu;
 
 import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftTerminalLayout;
 import net.minecraft.network.protocol.game.ClientboundContainerSetSlotPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -47,15 +48,7 @@ public final class RtsCraftTerminalMenu extends RecipeBookMenu<CraftingInput, Cr
     public static final int HOTBAR_SLOT_START = 37;
     public static final int HOTBAR_SLOT_END = 46;
 
-    /** 菜单槽位按最多六行储存区布局；屏幕减少行数时从顶部收缩，不移动这些槽。 */
-    private static final int CRAFT_GRID_X = 26;
-    private static final int CRAFT_GRID_Y = 140;
-    private static final int RESULT_X = 134;
-    private static final int RESULT_Y = 148;
-    private static final int INVENTORY_X = 8;
-    private static final int INVENTORY_Y = 220;
-    private static final int HOTBAR_Y = 278;
-
+    /** 菜单槽位直接复用纯 Java 布局契约，避免服务端槽坐标与客户端 chrome 漂移。 */
     private final CraftingContainer craftSlots = new TransientCraftingContainer(this, 3, 3);
     private final ResultContainer resultSlots = new ResultContainer();
     private final ContainerLevelAccess access;
@@ -73,21 +66,25 @@ public final class RtsCraftTerminalMenu extends RecipeBookMenu<CraftingInput, Cr
         this.player = inventory.player;
 
         this.addSlot(new ResultSlot(inventory.player, this.craftSlots, this.resultSlots,
-                0, RESULT_X, RESULT_Y));
+                0, CraftTerminalLayout.RESULT_X, CraftTerminalLayout.RESULT_Y));
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 3; column++) {
                 this.addSlot(new Slot(this.craftSlots, column + row * 3,
-                        CRAFT_GRID_X + column * 18, CRAFT_GRID_Y + row * 18));
+                        CraftTerminalLayout.CRAFT_GRID_X + column * 18,
+                        CraftTerminalLayout.CRAFT_GRID_Y + row * 18));
             }
         }
         for (int row = 0; row < 3; row++) {
             for (int column = 0; column < 9; column++) {
                 this.addSlot(new Slot(inventory, column + row * 9 + 9,
-                        INVENTORY_X + column * 18, INVENTORY_Y + row * 18));
+                        CraftTerminalLayout.INVENTORY_X + column * 18,
+                        CraftTerminalLayout.INVENTORY_Y + row * 18));
             }
         }
         for (int column = 0; column < 9; column++) {
-            this.addSlot(new Slot(inventory, column, INVENTORY_X + column * 18, HOTBAR_Y));
+            this.addSlot(new Slot(inventory, column,
+                    CraftTerminalLayout.INVENTORY_X + column * 18,
+                    CraftTerminalLayout.HOTBAR_Y));
         }
     }
 

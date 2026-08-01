@@ -193,7 +193,6 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintNameDialog.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintMaterialDialog.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java"
         };
@@ -204,6 +203,11 @@ class UiProductionAdapterContractTest {
             assertFalse(source.contains("mouseY <= "), path);
             assertFalse(source.contains("private static boolean inside("), path);
         }
+        String craftTerminal = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java");
+        assertTrue(craftTerminal.contains("this.layout.actionAt("));
+        assertTrue(craftTerminal.contains("this.layout.storageCellAt("));
+        assertFalse(craftTerminal.contains("containsRelative("));
         String builder = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
                 + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
@@ -252,12 +256,21 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java")
                 + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/craftterminal/"
                 + "CraftTerminalRenderer.java");
+        String chrome = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/canvas/CraftTerminalChromeRenderer.java");
+        String layout = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/CraftTerminalLayout.java");
+        String preview = read(
+                "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/CraftTerminalPreviewMain.java");
         String style = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/CraftTerminalStyle.java");
 
         assertTrue(terminal.contains("CraftTerminalStyle."));
-        assertTrue(terminal.contains("UiChromeRenderer.frame("));
-        assertTrue(terminal.contains("UiRect.contains("));
+        assertTrue(terminal.contains("CraftTerminalChromeRenderer.render("));
+        assertTrue(chrome.contains("UiChromeRenderer.frame("));
+        assertTrue(layout.contains("CraftTerminalUiAction actionAt("));
+        assertTrue(layout.contains("int storageCellAt("));
+        assertTrue(preview.contains("CraftTerminalChromeRenderer.render("));
         assertFalse(terminal.matches("(?s).*0x[0-9A-Fa-f]{6,8}.*"));
         assertFalse(terminal.contains("RtsClientUiUtil.drawPanelFrame("));
         assertTrue(style.contains("importBackground(boolean carriedStackPresent)"));

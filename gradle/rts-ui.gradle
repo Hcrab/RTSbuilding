@@ -153,6 +153,19 @@ tasks.register('runUiPreview', JavaExec) {
     outputs.dir uiPreviewOutput
 }
 
+tasks.register('runCraftTerminalPreview', JavaExec) {
+    group = 'ui preview'
+    description = '用正式 UI Kit 离屏渲染合成终端，并与美术 terminal 概念图生成并排和结构差异报告。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.CraftTerminalPreviewMain'
+    systemProperty 'java.awt.headless', 'true'
+    args layout.buildDirectory.dir('reports/craft-terminal-preview').get().asFile.absolutePath
+    args layout.projectDirectory.file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal.png').asFile.absolutePath
+    outputs.dir layout.buildDirectory.dir('reports/craft-terminal-preview')
+}
+
 tasks.register('renderUiSnapshots', JavaExec) {
     group = 'ui preview'
     description = '无头渲染 UI 场景 PNG。'

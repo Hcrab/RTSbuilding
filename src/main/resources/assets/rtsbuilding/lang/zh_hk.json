@@ -1046,4 +1046,5 @@
   ,"screen.rtsbuilding.craft_terminal.deposit_hotbar": "存入快捷列"
   ,"screen.rtsbuilding.craft_terminal.sort": "切換存儲排序"
   ,"screen.rtsbuilding.craft_terminal.sort_direction": "反轉存儲排序"
+  ,"screen.rtsbuilding.craft_terminal.rows": "切換存儲顯示行數"
 }
