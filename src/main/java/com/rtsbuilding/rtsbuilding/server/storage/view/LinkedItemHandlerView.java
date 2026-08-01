@@ -4,19 +4,19 @@ import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 /**
- * 包装 {@link IItemHandler} 以强制执行仅提取存储规则。
+ * 包装 {@link RtsItemHandler} 以强制执行仅提取存储规则。
  *
  * <p>当 {@code allowStore} 为 false 时，{@link #insertItem} 通过返回
  * 完整堆叠来拒绝所有插入。提取操作始终委托给原始处理器。
  */
-public final class LinkedItemHandlerView implements IItemHandler, ReportedCountItemHandler {
-    private final IItemHandler delegate;
+public final class LinkedItemHandlerView implements RtsItemHandler, ReportedCountItemHandler {
+    private final RtsItemHandler delegate;
     private final boolean allowStore;
 
-    public LinkedItemHandlerView(IItemHandler delegate, boolean allowStore) {
+    public LinkedItemHandlerView(RtsItemHandler delegate, boolean allowStore) {
         this.delegate = delegate;
         this.allowStore = allowStore;
     }
@@ -43,7 +43,7 @@ public final class LinkedItemHandlerView implements IItemHandler, ReportedCountI
     /**
      * 返回底层的原始处理器（用于缓存注册）。
      */
-    public IItemHandler getRawHandler() {
+    public RtsItemHandler getRawHandler() {
         return this.delegate;
     }
 

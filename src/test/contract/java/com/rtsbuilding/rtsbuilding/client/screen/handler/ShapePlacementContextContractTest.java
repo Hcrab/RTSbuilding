@@ -13,17 +13,17 @@ class ShapePlacementContextContractTest {
     @Test
     void shapePlacementFilteringUsesResolverOwnedBlockPlaceContext() throws IOException {
         String controllerSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String resolverSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapePlacementTargetResolver.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapePlacementTargetResolver.java"));
         String sessionResolverSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSessionInputResolver.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSessionInputResolver.java"));
         String sessionSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
         String previewSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGhostPreviewProvider.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGhostPreviewProvider.java"));
         String operationSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
 
         assertTrue(controllerSource.contains("ShapePlacementTargetResolver.resolveClickedTarget"),
                 "单方块点击目标应委托给统一放置目标解析器。");
@@ -82,7 +82,7 @@ class ShapePlacementContextContractTest {
     @Test
     void creativePlacementKeepsInfiniteClientAndServerMaterialPaths() throws IOException {
         String clientSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/service/BuildPlacementService.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/service/BuildPlacementService.java"));
         String quickBuildSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementQuickBuild.java"));
 

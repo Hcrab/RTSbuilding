@@ -1,12 +1,11 @@
 package com.rtsbuilding.rtsbuilding.common;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistryEntry;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsSimpleRegistry;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
@@ -15,7 +14,7 @@ import java.util.Set;
 /**
  * 方块注册器 —— RTSbuilding 的所有方块在此集中注册。
  * <p>
- * 使用 {@link DeferredRegister} 进行惰性注册，确保在正确的注册阶段完成。
+ * 使用 {@link RtsSimpleRegistry} 进行惰性注册，确保在正确的注册阶段完成。
  * 提供 {@link #simpleBlock(String, BlockBehaviour.Properties, boolean)} 和
  * {@link #registerBlock(String, java.util.function.Supplier, boolean)} 两种工厂方法，
  * 分别用于注册普通方块和自定义方块子类。
@@ -24,18 +23,18 @@ import java.util.Set;
 public final class RtsBlocks {
 
     /** 统一的方块注册表实例 */
-    public static final DeferredRegister<Block> BLOCKS =
-            DeferredRegister.create(Registries.BLOCK, RtsbuildingMod.MODID);
+    public static final RtsSimpleRegistry<Block> BLOCKS =
+            new RtsSimpleRegistry<>(BuiltInRegistries.BLOCK, RtsbuildingMod.MODID);
 
     /** 需要自动注册到创造栏的方块集合（按注册顺序排列） */
-    private static final Set<DeferredHolder<Block, ? extends Block>> CREATIVE_TAB_BLOCKS = new LinkedHashSet<>();
+    private static final Set<RtsRegistryEntry<Block, ? extends Block>> CREATIVE_TAB_BLOCKS = new LinkedHashSet<>();
 
     // ============================================================
     //  方块定义
     // ============================================================
 
     // 方块注册示例（取消注释即可使用）
-    // public static final DeferredHolder<Block, Block> EXAMPLE_BLOCK = simpleBlock("example_block",
+    // public static final RtsRegistryEntry<Block, Block> EXAMPLE_BLOCK = simpleBlock("example_block",
     //         BlockBehaviour.Properties.of().strength(2.0f).requiresCorrectToolForDrops(),
     //         true);
 
@@ -49,10 +48,10 @@ public final class RtsBlocks {
      * @param id         方块的注册名
      * @param properties 方块属性（硬度、声音等）
      * @param creative   是否自动添加到创造栏标签页
-     * @return 方块的 {@link DeferredHolder}
+     * @return 方块的 {@link RtsRegistryEntry}
      */
-    public static DeferredHolder<Block, Block> simpleBlock(String id, BlockBehaviour.Properties properties, boolean creative) {
-        DeferredHolder<Block, Block> holder = BLOCKS.register(id, () -> new Block(properties));
+    public static RtsRegistryEntry<Block, Block> simpleBlock(String id, BlockBehaviour.Properties properties, boolean creative) {
+        RtsRegistryEntry<Block, Block> holder = BLOCKS.register(id, () -> new Block(properties));
         if (creative) {
             CREATIVE_TAB_BLOCKS.add(holder);
         }
@@ -65,11 +64,11 @@ public final class RtsBlocks {
      * @param id       方块的注册名
      * @param factory  创建方块实例的工厂函数
      * @param creative 是否自动添加到创造栏标签页
-     * @return 方块的 {@link DeferredHolder}
+     * @return 方块的 {@link RtsRegistryEntry}
      */
-    public static <T extends Block> DeferredHolder<Block, T> registerBlock(String id,
+    public static <T extends Block> RtsRegistryEntry<Block, T> registerBlock(String id,
             java.util.function.Supplier<? extends T> factory, boolean creative) {
-        DeferredHolder<Block, T> holder = BLOCKS.register(id, factory);
+        RtsRegistryEntry<Block, T> holder = BLOCKS.register(id, factory);
         if (creative) {
             CREATIVE_TAB_BLOCKS.add(holder);
         }
@@ -84,8 +83,8 @@ public final class RtsBlocks {
      * 在模组总线上注册所有方块。
      * 应当在 {@link RtsbuildingMod} 的构造函数中调用。
      */
-    public static void register(IEventBus modEventBus) {
-        BLOCKS.register(modEventBus);
+    public static void register() {
+        // 访问本类即已按声明顺序注册；此方法明确表达入口初始化顺序。
     }
 
     // ============================================================
@@ -97,14 +96,14 @@ public final class RtsBlocks {
      *
      * @return 不可修改的创造栏方块集合，按注册顺序排列
      */
-    public static Set<DeferredHolder<Block, ? extends Block>> getCreativeTabBlocks() {
+    public static Set<RtsRegistryEntry<Block, ? extends Block>> getCreativeTabBlocks() {
         return Collections.unmodifiableSet(CREATIVE_TAB_BLOCKS);
     }
 
     /**
-     * 获取所有已注册方块的 {@link DeferredHolder} 列表。
+     * 获取所有已注册方块的 {@link RtsRegistryEntry} 列表。
      */
-    public static java.util.Collection<DeferredHolder<Block, ? extends Block>> getAllBlocks() {
+    public static java.util.Collection<RtsRegistryEntry<Block, ? extends Block>> getAllBlocks() {
         return BLOCKS.getEntries();
     }
 

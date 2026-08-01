@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,7 +49,7 @@ public final class RtsAggregateStorage {
     /**
      * 以指定优先级挂载一个处理器，并关联一个缓存。
      */
-    public void mount(int priority, IItemHandler handler, RtsHandlerCache cache) {
+    public void mount(int priority, RtsItemHandler handler, RtsHandlerCache cache) {
         if (inUse.get()) {
             this.pendingMutations.add(() -> {
                 doMount(priority, handler, cache);
@@ -59,7 +59,7 @@ public final class RtsAggregateStorage {
         doMount(priority, handler, cache);
     }
 
-    private void doMount(int priority, IItemHandler handler, RtsHandlerCache cache) {
+    private void doMount(int priority, RtsItemHandler handler, RtsHandlerCache cache) {
         this.priorityMounts
                 .computeIfAbsent(priority, k -> new ArrayList<>())
                 .add(new CachedHandlerSlot(priority, handler, cache));
@@ -69,7 +69,7 @@ public final class RtsAggregateStorage {
     /**
      * 按身份标识卸载一个处理器。
      */
-    public void unmount(IItemHandler handler) {
+    public void unmount(RtsItemHandler handler) {
         if (inUse.get()) {
             this.pendingMutations.add(() -> doUnmount(handler));
             return;
@@ -77,7 +77,7 @@ public final class RtsAggregateStorage {
         doUnmount(handler);
     }
 
-    private void doUnmount(IItemHandler handler) {
+    private void doUnmount(RtsItemHandler handler) {
         for (var entry : this.priorityMounts.entrySet()) {
             entry.getValue().removeIf(cs -> cs.handler == handler);
         }
@@ -291,7 +291,7 @@ public final class RtsAggregateStorage {
         this.flatOrdered = Collections.unmodifiableList(list);
     }
 
-    private static ItemStack insertToHandler(IItemHandler handler, ItemStack stack, boolean simulate) {
+    private static ItemStack insertToHandler(RtsItemHandler handler, ItemStack stack, boolean simulate) {
         if (handler == null || stack == null || stack.isEmpty()) {
             return stack == null ? ItemStack.EMPTY : stack;
         }
@@ -310,7 +310,7 @@ public final class RtsAggregateStorage {
         return remain;
     }
 
-    private static ItemStack extractOneHandler(IItemHandler handler, Item targetItem, ItemStack preferred, int limit) {
+    private static ItemStack extractOneHandler(RtsItemHandler handler, Item targetItem, ItemStack preferred, int limit) {
         if (handler == null || targetItem == null || limit <= 0) {
             return ItemStack.EMPTY;
         }
@@ -380,6 +380,6 @@ public final class RtsAggregateStorage {
 
     // ---- 值类型 ------------------------------------------------------------
 
-    record CachedHandlerSlot(int priority, IItemHandler handler, RtsHandlerCache cache) {
+    record CachedHandlerSlot(int priority, RtsItemHandler handler, RtsHandlerCache cache) {
     }
 }

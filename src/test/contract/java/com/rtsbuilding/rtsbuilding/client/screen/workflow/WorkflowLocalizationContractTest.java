@@ -36,9 +36,9 @@ class WorkflowLocalizationContractTest {
     @Test
     void workflowAndBindingUiDoNotRestoreChinesePlayerFacingLiterals() throws IOException {
         List<Path> sources = List.of(
-                Path.of("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsWorkflowPanel.java"),
-                Path.of("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsResumePlacementPanel.java"),
-                Path.of("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsBlueprintResumePanel.java"),
+                Path.of("src/client/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsWorkflowPanel.java"),
+                Path.of("src/client/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsResumePlacementPanel.java"),
+                Path.of("src/client/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsBlueprintResumePanel.java"),
                 Path.of("src/main/java/com/rtsbuilding/rtsbuilding/network/builder/handler/RtsInteractionHandlers.java"),
                 Path.of("src/main/java/com/rtsbuilding/rtsbuilding/server/workflow/core/RtsWorkflowEngine.java"),
                 Path.of("src/main/java/com/rtsbuilding/rtsbuilding/server/workflow/model/RtsWorkflowStatus.java"));

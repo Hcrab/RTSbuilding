@@ -19,7 +19,7 @@ class RtsRemoteBlockSoundContractTest {
 
         assertTrue(soundSource.contains("BlockPos pos, BlockState brokenState)"),
                 "远程破坏声必须接收破坏前的方块状态，不能在方块变成空气后再读。");
-        assertTrue(method.contains("brokenState.getSoundType(level, pos, player)"),
+        assertTrue(method.contains("brokenState.getSoundType()"),
                 "破坏声应使用被破坏方块自己的 SoundType。");
         assertFalse(method.contains("level.getBlockState(pos)"),
                 "破坏声方法内部不能重新读取当前位置，否则批量破坏后常会读到空气。");
@@ -51,7 +51,7 @@ class RtsRemoteBlockSoundContractTest {
         String serverSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementSound.java"));
         String clientSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/sound/RtsBlockActionSoundPlayer.java"))
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/sound/RtsBlockActionSoundPlayer.java"))
                 .replace("\r\n", "\n");
         String configSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/Config.java"));
@@ -61,6 +61,8 @@ class RtsRemoteBlockSoundContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/RtsBuilderPackets.java"));
         String dispatcher = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/network/ClientPayloadDispatcher.java"));
+        String clientSink = Files.readString(Path.of(
+                "src/client/java/com/rtsbuilding/rtsbuilding/network/FabricClientPayloadSink.java"));
 
         assertTrue(serverSource.contains("S2CRtsBlockActionSoundPayload"),
                 "服务端应发送方块音色，而不是把声音固定在可能滞后的世界坐标。");
@@ -82,13 +84,16 @@ class RtsRemoteBlockSoundContractTest {
                 "新的配置键应默认允许每 tick 最多 16 声，避免旧默认值 1 延续到已有运行目录。");
         assertFalse(modSource.contains("RtsPlacementSound.tickPlayer(serverPlayer)"),
                 "玩家 tick 不应再驱动任何声音队列。");
-        assertTrue(modSource.contains("RtsPlacementSound.forgetPlayer(serverPlayer.getUUID())"),
+        assertTrue(modSource.contains("RtsPlacementSound.forgetPlayer(player.getUUID())"),
                 "玩家离线时仍应清理限流计数状态。");
         assertTrue(clientSource.contains("0.0D,\n                true"),
                 "声音实例必须相对监听器播放，跟随当前 RTS 相机。");
         assertTrue(packetRegistry.contains("S2CRtsBlockActionSoundPayload.STREAM_CODEC"),
                 "相对方块声音必须注册为 S2C 数据包。");
-        assertTrue(dispatcher.contains("case S2CRtsBlockActionSoundPayload p ->"),
+        assertTrue(dispatcher.contains("ClientSink") && dispatcher.contains("dispatchBuilder"),
+                "公共网络层应仅转交给客户端安装的 sink，避免专用服务端加载客户端类。");
+        assertTrue(clientSink.contains(
+                        "case S2CRtsBlockActionSoundPayload value -> RtsClientNetworkHandlers.handleBlockActionSound(value, context);"),
                 "专用服务端也必须能安全分发声音包，而不直接加载客户端类。");
     }
 

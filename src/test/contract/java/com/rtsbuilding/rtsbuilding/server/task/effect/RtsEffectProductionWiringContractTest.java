@@ -33,8 +33,8 @@ class RtsEffectProductionWiringContractTest {
 
         String mod = read("RtsbuildingMod.java");
         assertOrdered(mod,
-                "ServerTickOrchestrator.getInstance().tickMining(event.getServer())",
-                "SaveScheduler.INSTANCE.onTick(event.getServer())",
+                "ServerTickOrchestrator.getInstance().tickMining(server)",
+                "SaveScheduler.INSTANCE.onTick(server)",
                 "TaskPersistenceRuntime.INSTANCE.tick()");
     }
 

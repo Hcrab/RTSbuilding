@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -1022,6 +1023,11 @@ class UiProductionAdapterContractTest {
     }
 
     private static String read(String path) throws IOException {
-        return new String(Files.readAllBytes(Paths.get(path)), StandardCharsets.UTF_8);
+        Path source = Paths.get(path);
+        if (!Files.exists(source) && path.startsWith("src/main/java/")) {
+            // Fabric 把仅客户端生产类放进独立源集；契约仍可沿用原有逻辑路径。
+            source = Paths.get("src/client/java/" + path.substring("src/main/java/".length()));
+        }
+        return new String(Files.readAllBytes(source), StandardCharsets.UTF_8);
     }
 }

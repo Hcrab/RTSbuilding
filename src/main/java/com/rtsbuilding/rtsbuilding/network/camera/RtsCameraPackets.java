@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.camera;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.camera.handler.RtsCameraNetworkHandlers;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 
 /**
  * Registers RTS camera session and movement packets.
@@ -14,7 +14,7 @@ public final class RtsCameraPackets {
     private RtsCameraPackets() {
     }
 
-    public static void register(PayloadRegistrar registrar) {
+    public static void register(RtsPayloadRegistrar registrar) {
         registrar.playToServer(
                 C2SRtsToggleCameraPayload.TYPE,
                 C2SRtsToggleCameraPayload.STREAM_CODEC,

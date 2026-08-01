@@ -17,7 +17,7 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -172,7 +172,7 @@ public final class HistoryExecutor {
 
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session != null) {
-            List<IItemHandler> handlers = linkedItemHandlers(player, session);
+            List<RtsItemHandler> handlers = linkedItemHandlers(player, session);
             ItemStack extracted = RtsPlacementExtractor.extractSelectedFromLinkedCached(
                     player, handlers, required.getItem(), ItemStack.EMPTY);
             if (!extracted.isEmpty()) return extracted;
@@ -195,7 +195,7 @@ public final class HistoryExecutor {
         if (stack == null || stack.isEmpty()) return;
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session != null) {
-            List<IItemHandler> handlers = linkedItemHandlers(player, session);
+            List<RtsItemHandler> handlers = linkedItemHandlers(player, session);
             if (!handlers.isEmpty()) {
                 RtsTransferInserter.refundToLinked(handlers, player, stack);
                 return;
@@ -204,7 +204,7 @@ public final class HistoryExecutor {
         if (!player.addItem(stack)) Block.popResource(player.serverLevel(), pos, stack);
     }
 
-    private static List<IItemHandler> linkedItemHandlers(
+    private static List<RtsItemHandler> linkedItemHandlers(
             ServerPlayer player, RtsStorageSession session) {
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         return RtsLinkedStorageResolver.itemHandlersForInsert(linked);

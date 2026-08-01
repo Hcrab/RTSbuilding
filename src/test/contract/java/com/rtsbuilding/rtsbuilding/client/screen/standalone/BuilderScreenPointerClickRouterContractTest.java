@@ -16,7 +16,7 @@ class BuilderScreenPointerClickRouterContractTest {
     @Test
     void routesFrontLayersBeforePanelsAndWorld() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenPointerClickRouter.java"));
 
         int placementWheel = source.indexOf("handlePlacementStateWheelClick");
@@ -45,7 +45,7 @@ class BuilderScreenPointerClickRouterContractTest {
     @Test
     void mainScreenOwnsScaleRemapAndDelegatesOnlyOnce() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String method = methodBody(source,
                 "public boolean mouseClicked(double mouseX, double mouseY, int button)");
 
@@ -56,13 +56,13 @@ class BuilderScreenPointerClickRouterContractTest {
     @Test
     void primaryActionRouterDependsOnNarrowHostInsteadOfWholeScreen() throws IOException {
         String router = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenPrimaryActionRouter.java"));
         String host = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenPrimaryActionHost.java"));
         String pointer = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenPointerClickRouter.java"));
 
         assertTrue(router.contains(

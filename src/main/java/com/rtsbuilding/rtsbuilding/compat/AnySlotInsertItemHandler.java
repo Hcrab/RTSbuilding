@@ -34,8 +34,8 @@ public interface AnySlotInsertItemHandler {
      */
     default ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
         // Fallback: linear scan — override in bulk-capable handlers
-        for (int slot = 0; slot < ((net.neoforged.neoforge.items.IItemHandler) this).getSlots() && amount > 0; slot++) {
-            net.neoforged.neoforge.items.IItemHandler handler = (net.neoforged.neoforge.items.IItemHandler) this;
+        for (int slot = 0; slot < ((com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler) this).getSlots() && amount > 0; slot++) {
+            com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler handler = (com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler) this;
             ItemStack slotStack = handler.getStackInSlot(slot);
             if (slotStack.isEmpty() || slotStack.getItem() != targetItem) continue;
             ItemStack extracted = handler.extractItem(slot, amount, simulate);

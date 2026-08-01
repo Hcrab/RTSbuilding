@@ -104,11 +104,11 @@ class ScreenShapeControllerRangeDestroyClampTest {
     @Test
     void advancedRoundShapesStartFromCenteredOrdinaryPreview() throws IOException {
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String geometry = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/AdvancedShapeSelectionGeometry.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/AdvancedShapeSelectionGeometry.java"));
         String session = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
         String readySession = methodBody(
                 session,
                 "private ShapeBuildTypes.Session ready");
@@ -129,15 +129,15 @@ class ScreenShapeControllerRangeDestroyClampTest {
     @Test
     void rangeDestroyCapsUseTheDedicatedPureLimiter() throws IOException {
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String planner = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
         String operationPlanner = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
         String selectionBox = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionBoxController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionBoxController.java"));
         String limiter = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/RangeDestroySelectionLimiter.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/RangeDestroySelectionLimiter.java"));
 
         assertTrue(operationPlanner.contains("new ShapeGenerationPlanCache.Request("));
         assertTrue(operationPlanner.contains("currentRangeDestroyLimits()"));

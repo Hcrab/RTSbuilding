@@ -17,9 +17,9 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidStack;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.*;
 
@@ -128,7 +128,7 @@ public final class RtsPageCore {
 
             if (!usedCache) {
                 for (LinkedHandler linked : itemHandlers) {
-                    IItemHandler handler = linked.handler();
+                    RtsItemHandler handler = linked.handler();
                     for (int i = 0; i < handler.getSlots(); i++) {
                         ItemStack stack = handler.getStackInSlot(i);
                         if (stack.isEmpty()) continue;
@@ -154,9 +154,9 @@ public final class RtsPageCore {
                 mergeCount(fluidAmounts, entry.getKey(), entry.getValue());
             }
             for (LinkedFluidHandler linked : fluidHandlers) {
-                IFluidHandler handler = linked.handler();
+                RtsFluidHandler handler = linked.handler();
                 for (int tank = 0; tank < handler.getTanks(); tank++) {
-                    FluidStack fluid = handler.getFluidInTank(tank);
+                    RtsFluidStack fluid = handler.getFluidInTank(tank);
                     if (fluid.isEmpty()) continue;
                     ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
                     if (id == null) continue;
@@ -342,7 +342,7 @@ public final class RtsPageCore {
         return search == null || search.isBlank();
     }
 
-    public static long getHandlerReportedCount(IItemHandler handler, int slot, ItemStack stack) {
+    public static long getHandlerReportedCount(RtsItemHandler handler, int slot, ItemStack stack) {
         return sanitizeCount(RtsAe2Compat.getReportedCount(handler, slot, stack));
     }
 

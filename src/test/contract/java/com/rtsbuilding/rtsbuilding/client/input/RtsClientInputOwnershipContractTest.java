@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class RtsClientInputOwnershipContractTest {
     private static final Path INPUT_DIR = Path.of(
-            "src/main/java/com/rtsbuilding/rtsbuilding/client/input");
+            "src/client/java/com/rtsbuilding/rtsbuilding/client/input");
 
     @Test
     void gateAndOwnersStayBelowHardLineLimits() throws IOException {

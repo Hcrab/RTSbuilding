@@ -7,7 +7,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.common.IOUtilities;
 
 /**
  * 插件安装、卸载与迁移完成后的即时耐久化检查点。
@@ -46,7 +45,8 @@ final class RtsPluginDurability {
                     storageLevel = player.serverLevel();
                 }
                 storageLevel.getDataStorage().save();
-                IOUtilities.waitUntilIOWorkerComplete();
+                // Fabric 没有公开 NeoForge IOUtilities；要求原版保存路径同步 flush。
+                server.saveEverything(true, true, false);
             }
 
             // 插件物品已经从背包扣除或退回；同一检查点保存玩家文件，避免状态与物品只存一边。

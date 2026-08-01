@@ -13,7 +13,7 @@ class RtsIntroReminderPersistenceContractTest {
     @Test
     void explicitDismissalIsPersistedImmediately() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/common/persist/RtsClientUiStateStore.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/common/persist/RtsClientUiStateStore.java"));
         int methodStart = source.indexOf("public static synchronized void dismissIntroReminder");
         int methodEnd = source.indexOf("\n    }", methodStart);
         String method = source.substring(methodStart, methodEnd);

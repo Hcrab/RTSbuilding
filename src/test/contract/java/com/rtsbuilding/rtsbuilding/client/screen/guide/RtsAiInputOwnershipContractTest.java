@@ -15,10 +15,10 @@ class RtsAiInputOwnershipContractTest {
     @Test
     void focusedAiInputIsPartOfTheGlobalTextInputGate() throws Exception {
         String builder = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenWorldQueryOwner.java"),
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenWorldQueryOwner.java"),
                 StandardCharsets.UTF_8);
         String panel = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/guide/RtsAiChatPanel.java"),
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/guide/RtsAiChatPanel.java"),
                 StandardCharsets.UTF_8);
 
         assertTrue(builder.contains("screen.aiChatPanel.isInputFocused()"));

@@ -12,7 +12,7 @@ class ShapeBuildConfirmationRoutingContractTest {
     @Test
     void completingSelectionUsesTheSameClickWhenKeyboardConfirmationIsDisabled() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String buildMethod = methodBody(source, "public void placeWithShape");
         String destroyMethod = methodBody(source, "public void selectRangeDestroyShape");
 

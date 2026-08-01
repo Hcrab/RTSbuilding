@@ -20,7 +20,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,7 +72,7 @@ public final class RtsCraftingGridFiller {
         if (activeLinked.isEmpty()) {
             return;
         }
-        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         Ingredient[] ingredients = recipe == null ? null : RtsCraftingUtils.mapCraftingIngredients(recipe);
         refillCraftGridFromBlueprint(craftingMenu, handlers, player, blueprint, ingredients, false, true);
         craftingMenu.broadcastChanges();
@@ -175,8 +175,8 @@ public final class RtsCraftingGridFiller {
         }
 
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         Ingredient[] required = RtsCraftingUtils.mapCraftingIngredients(craftingRecipe);
         if (required.length != 9) {
@@ -282,13 +282,13 @@ public final class RtsCraftingGridFiller {
      * 执行从链接存储/玩家回退的低级网格填充循环。
      */
     public static void refillCraftGridFromBlueprint(
-            CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+            CraftingMenu menu, List<RtsItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, boolean fillAll, boolean includePlayerFallback) {
         refillCraftGridFromBlueprint(menu, handlers, player, blueprint, null, fillAll, includePlayerFallback);
     }
 
     public static void refillCraftGridFromBlueprint(
-            CraftingMenu menu, List<IItemHandler> handlers, ServerPlayer player,
+            CraftingMenu menu, List<RtsItemHandler> handlers, ServerPlayer player,
             ItemStack[] blueprint, Ingredient[] ingredients,
             boolean fillAll, boolean includePlayerFallback) {
         if (blueprint == null || blueprint.length != 9) {
@@ -355,7 +355,7 @@ public final class RtsCraftingGridFiller {
     }
 
     private static ItemStack extractCraftGridRefillStack(
-            List<IItemHandler> handlers, ServerPlayer player,
+            List<RtsItemHandler> handlers, ServerPlayer player,
             Ingredient ingredient, ItemStack preferred, boolean includePlayerFallback) {
         boolean hasIngredient = ingredient != null && !ingredient.isEmpty();
         if (hasIngredient) {

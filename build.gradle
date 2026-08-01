@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id 'maven-publish'
-    id 'net.neoforged.moddev' version '2.0.140'
+    id 'net.fabricmc.fabric-loom-remap' version '1.15.5'
     id 'idea'
 }
 
@@ -14,6 +14,8 @@ group = mod_group_id
 
 repositories {
     mavenCentral()
+    maven { url = 'https://maven.fabricmc.net/' }
+    maven { url = 'https://maven.parchmentmc.org/' }
     maven { url = 'https://maven.blamejared.com' }
     maven { url = 'https://maven.createmod.net' }
     maven { url = 'https://maven.ithundxr.dev/snapshots' }
@@ -29,73 +31,24 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 
-neoForge {
-    version = project.neo_version
-
-    parchment {
-        mappingsVersion = project.parchment_mappings_version
-        minecraftVersion = project.parchment_minecraft_version
+loom {
+    splitEnvironmentSourceSets()
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
     }
 
     runs {
         client {
             client()
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            runDir 'run/client'
         }
-
         server {
             server()
-            programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        clientCompat {
-            client()
-            gameDirectory = project.file('run-compat-automation/neoforge-1.21.1-client')
-            def compatServer = providers.environmentVariable('RTSBUILDING_GUI_COMPAT_SERVER')
-                    .orElse('localhost:25566')
-                    .get()
-            programArguments.addAll '--quickPlayMultiplayer', compatServer
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        serverCompat {
-            server()
-            gameDirectory = project.file('run-compat-automation/neoforge-1.21.1-server')
-            programArgument '--nogui'
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        gameTestServer {
-            type = "gameTestServer"
-            // 基础 GameTest 使用干净目录，避免本地 run/mods 中的科技/客户端模组干扰服务器烟测。
-            gameDirectory = project.file('run-gametest')
-            systemProperty 'neoforge.enabledGameTestNamespaces',
-                    providers.gradleProperty('rts_gametest_namespaces').getOrElse(project.mod_id)
-        }
-
-        serverSmokeGameTestServer {
-            type = "gameTestServer"
-            // Dedicated server-side compatibility smoke profile. Keep this
-            // separate from the manual play run directory.
-            gameDirectory = project.file('run-server-smoke')
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
-        }
-
-        data {
-            data()
-            programArguments.addAll '--mod', project.mod_id, '--all', '--output', file('src/generated/resources/').getAbsolutePath(), '--existing', file('src/main/resources/').getAbsolutePath()
-        }
-
-        configureEach {
-            systemProperty 'forge.logging.markers', 'REGISTRIES'
-            logLevel = org.slf4j.event.Level.DEBUG
-        }
-    }
-
-    mods {
-        "${mod_id}" {
-            sourceSet(sourceSets.main)
+            runDir 'run/server'
+            programArgs '--nogui'
         }
     }
 }
@@ -129,31 +82,40 @@ tasks.named('processResources').configure {
 
 sourceSets {
     test {
-        compileClasspath += sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.runtimeClasspath
+        compileClasspath += sourceSets.main.output + sourceSets.client.output
+        compileClasspath += sourceSets.main.compileClasspath + sourceSets.client.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.client.output
+        runtimeClasspath += sourceSets.main.runtimeClasspath + sourceSets.client.runtimeClasspath
     }
 }
 
 apply from: 'gradle/rts-test-reporting.gradle'
 
 dependencies {
-    compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
-    compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
-    compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
-    compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
-    // Jade HUD 兼容仅在玩家安装 Jade 时加载。
-    compileOnly "curse.maven:jade-${jade_curseforge_project_id}:${jade_curseforge_file_id}"
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.layered {
+        officialMojangMappings()
+        parchment("org.parchmentmc.data:parchment-${parchment_minecraft_version}:${parchment_mappings_version}@zip")
+    }
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    // 可选客户端兼容只进入编译类路径；发布 JAR 不捆绑，也不强制玩家安装。
+    modCompileOnly "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
+    modCompileOnly "maven.modrinth:jade:${jade_version}"
+
+    // 可选兼容依赖会在核心地基稳定后逐项接回；源码始终保留在完整错误账本中。
     if (providers.gradleProperty('rts_create_gametest_jar').isPresent()) {
         // 可选 Create 回归环境：普通构建/发布不携带第三方运行时。
-        runtimeOnly files(providers.gradleProperty('rts_create_gametest_jar').get())
+        modRuntimeOnly files(providers.gradleProperty('rts_create_gametest_jar').get())
     }
 
-    // 鈹€鈹€ Test dependencies 鈹€鈹€
+    // 测试依赖
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
     testImplementation "org.mockito:mockito-core:5.12.0"
     testImplementation "org.mockito:mockito-junit-jupiter:5.12.0"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
-    testImplementation "net.neoforged:neoforge:${neo_version}"
+    testImplementation "net.fabricmc:fabric-loader-junit:${fabric_loader_version}"
 
     // 鈹€鈹€ JMH for microbenchmarks 鈹€鈹€
     testImplementation 'org.openjdk.jmh:jmh-core:1.37'
@@ -164,6 +126,16 @@ dependencies {
 }
 
 apply from: 'gradle/rts-ui.gradle'
+
+fabricApi {
+    configureTests {
+        createSourceSet = true
+        modId = 'rtsbuilding-gametest'
+        enableGameTests = true
+        enableClientGameTests = true
+        eula = true
+    }
+}
 
 // ======================================================================
 // Test task
@@ -260,26 +232,22 @@ tasks.register('generateSkeletonVisualReport', JavaExec) {
     mainClass = 'com.rtsbuilding.rtsbuilding.client.rendering.builder.SkeletonVisualReport'
 }
 
-var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
-    var replaceProperties = [
-            minecraft_version      : minecraft_version,
-            minecraft_version_range: minecraft_version_range,
-            neo_version            : neo_version,
-            loader_version_range   : loader_version_range,
-            mod_id                 : mod_id,
-            mod_name               : mod_name,
-            mod_license            : mod_license,
-            mod_version            : mod_version,
-            mod_authors            : mod_authors,
-            mod_credits            : mod_credits,
+tasks.named('processResources').configure {
+    def replaceProperties = [
+            minecraft_version: minecraft_version,
+            mod_id           : mod_id,
+            mod_name         : mod_name,
+            mod_license      : mod_license,
+            mod_version      : mod_version,
+            mod_authors      : mod_authors,
+            mod_credits      : mod_credits,
+            fabric_loader_version: fabric_loader_version,
     ]
     inputs.properties replaceProperties
-    expand replaceProperties
-    from "src/main/templates"
-    into "build/generated/sources/modMetadata"
+    filesMatching('fabric.mod.json') {
+        expand replaceProperties
+    }
 }
-sourceSets.main.resources.srcDir generateModMetadata
-neoForge.ideSyncTask generateModMetadata
 
 publishing {
     publications {
@@ -296,9 +264,15 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+    // 抢滩阶段必须看到完整平台差异，不能让 javac 默认 100 条上限掩盖后续错误簇。
+    options.compilerArgs.addAll '-Xmaxerrs', '10000'
 }
 
 tasks.named('jar', Jar).configure {
+    archiveFileName = "${mod_archive_name}-${mod_version}.jar"
+}
+
+tasks.named('remapJar').configure {
     archiveFileName = "${mod_archive_name}-${mod_version}.jar"
 }
 

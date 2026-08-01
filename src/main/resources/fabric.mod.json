@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "${mod_id}",
+  "version": "${mod_version}",
+  "name": "${mod_name}",
+  "description": "Build, manage storage, and interact with your base from an overhead RTS-style building panel.",
+  "authors": ["${mod_authors}"],
+  "contact": {
+    "homepage": "https://rts.ciallo.ltd/",
+    "sources": "https://github.com/Hcrab/RTSbuilding",
+    "issues": "https://github.com/Hcrab/RTSbuilding/issues"
+  },
+  "license": "${mod_license}",
+  "icon": "logo.png",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "com.rtsbuilding.rtsbuilding.fabric.RtsbuildingFabric"
+    ],
+    "client": [
+      "com.rtsbuilding.rtsbuilding.fabric.client.RtsbuildingFabricClient"
+    ],
+    "fabric-gametest": [
+      "com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests",
+      "com.rtsbuilding.rtsbuilding.gametest.CreateBlueprintCompatibilityGameTests",
+      "com.rtsbuilding.rtsbuilding.gametest.MekanismToolsCompatibilityGameTests"
+    ]
+  },
+  "mixins": [
+    "rtsbuilding.mixins.json",
+    {
+      "config": "rtsbuilding.jade_mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=${fabric_loader_version}",
+    "fabric-api": "*",
+    "minecraft": "~${minecraft_version}",
+    "java": ">=21"
+  },
+  "suggests": {
+    "jade": "*",
+    "jei": "*",
+    "sodium": "*"
+  }
+}

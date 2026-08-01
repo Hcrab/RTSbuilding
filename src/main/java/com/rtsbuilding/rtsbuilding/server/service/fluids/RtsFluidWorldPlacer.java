@@ -6,15 +6,20 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.BucketItem;
 import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.LiquidBlockContainer;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.Fluids;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidStack;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.fluid.FabricFluidHandler;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +29,7 @@ import java.util.List;
  *
  * <p>核心功能：
  * <ul>
- *   <li>{@link #fillFluidHandlerAtTarget} — 在点击位置及其周围搜索 {@link IFluidHandler} 并尝试填充，
+ *   <li>{@link #fillFluidHandlerAtTarget} — 在点击位置及其周围搜索 {@link RtsFluidHandler} 并尝试填充，
  *   按点击面→无面→六方向→相邻块对面等顺序搜索候选处理器</li>
  *   <li>{@link #resolveFluidPlacementPos} — 解析流体方块的放置位置（点击位置或相邻位置）</li>
  *   <li>{@link #placeFluidBlock} — 在世界中放置流体方块，处理 {@link LiquidBlockContainer}、
@@ -46,11 +51,11 @@ public final class RtsFluidWorldPlacer {
      * 尝试填充点击位置或其周围的现有流体处理器。
      * 返回填充的流体量（以 mb 为单位），如果未找到兼容的处理器则返回 0。
      */
-    public static int fillFluidHandlerAtTarget(ServerLevel level, BlockPos clickedPos, Direction face, FluidStack fluidStack) {
+    public static int fillFluidHandlerAtTarget(ServerLevel level, BlockPos clickedPos, Direction face, RtsFluidStack fluidStack) {
         if (fluidStack.isEmpty() || !level.hasChunkAt(clickedPos)) {
             return 0;
         }
-        List<IFluidHandler> candidates = new ArrayList<>();
+        List<RtsFluidHandler> candidates = new ArrayList<>();
         addFluidHandlerCandidate(level, clickedPos, face, candidates);
         addFluidHandlerCandidate(level, clickedPos, null, candidates);
         for (Direction direction : Direction.values()) {
@@ -66,22 +71,23 @@ public final class RtsFluidWorldPlacer {
             }
         }
 
-        for (IFluidHandler handler : candidates) {
-            FluidStack candidate = fluidStack.copy();
-            int simulated = handler.fill(candidate, IFluidHandler.FluidAction.SIMULATE);
+        for (RtsFluidHandler handler : candidates) {
+            RtsFluidStack candidate = fluidStack.copy();
+            int simulated = handler.fill(candidate, RtsFluidHandler.FluidAction.SIMULATE);
             if (simulated <= 0) {
                 continue;
             }
             candidate.setAmount(simulated);
-            return handler.fill(candidate, IFluidHandler.FluidAction.EXECUTE);
+            return handler.fill(candidate, RtsFluidHandler.FluidAction.EXECUTE);
         }
         return 0;
     }
 
-    private static void addFluidHandlerCandidate(ServerLevel level, BlockPos pos, Direction side, List<IFluidHandler> out) {
-        IFluidHandler handler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos, side);
-        if (handler != null && !out.contains(handler)) {
-            out.add(handler);
+    private static void addFluidHandlerCandidate(ServerLevel level, BlockPos pos, Direction side, List<RtsFluidHandler> out) {
+        Storage<FluidVariant> storage = FluidStorage.SIDED.find(level, pos, side);
+        if (storage != null && out.stream().noneMatch(candidate ->
+                candidate instanceof FabricFluidHandler fabric && fabric.wraps(storage))) {
+            out.add(new FabricFluidHandler(storage));
         }
     }
 
@@ -90,7 +96,7 @@ public final class RtsFluidWorldPlacer {
      * 如果在点击位置或相邻位置都无法放置，则返回 null。
      */
     public static BlockPos resolveFluidPlacementPos(ServerLevel level, ServerPlayer player, BlockHitResult hit,
-            FluidStack fluidStack) {
+            RtsFluidStack fluidStack) {
         BlockPos clicked = hit.getBlockPos();
         if (canPlaceFluidAt(level, player, clicked, fluidStack, resolveFluidPlacementHit(hit, clicked))) {
             return clicked;
@@ -107,53 +113,35 @@ public final class RtsFluidWorldPlacer {
     /**
      * 在世界的指定位置放置一个流体方块。
      */
-    public static boolean placeFluidBlock(ServerLevel level, ServerPlayer player, BlockPos pos, FluidStack fluidStack,
+    public static boolean placeFluidBlock(ServerLevel level, ServerPlayer player, BlockPos pos, RtsFluidStack fluidStack,
             BlockHitResult placementHit) {
         if (!canPlaceFluidAt(level, player, pos, fluidStack, placementHit)) {
             return false;
         }
 
         Fluid fluid = fluidStack.getFluid();
+        if (fluid.getBucket() instanceof BucketItem bucket) {
+            // 复用原版桶的放置路径，包含 waterlog、下界汽化、声音和第三方 BucketItem 覆盖。
+            return bucket.emptyContents(player, level, pos, placementHit);
+        }
         BlockState state = level.getBlockState(pos);
-        if (fluid.getFluidType().isVaporizedOnPlacement(level, pos, fluidStack)) {
-            fluid.getFluidType().onVaporize(player, level, pos, fluidStack);
-            return true;
-        }
-
-        if (state.getBlock() instanceof LiquidBlockContainer liquidContainer
-                && liquidContainer.canPlaceLiquid(player, level, pos, state, fluid)) {
-            return liquidContainer.placeLiquid(level, pos, state, fluid.defaultFluidState());
-        }
-
-        BlockState placeState = fluid.getFluidType().getBlockForFluidState(
-                level,
-                pos,
-                fluid.getFluidType().getStateForPlacement(level, pos, fluidStack));
+        BlockState placeState = fluid.defaultFluidState().createLegacyBlock();
         if (placeState.isAir()) {
             return false;
         }
-
-        BlockPlaceContext context = new BlockPlaceContext(
-                level,
-                player,
-                InteractionHand.MAIN_HAND,
-                ItemStack.EMPTY,
-                placementHit);
-        boolean isDestNonSolid = !state.isSolid();
-        boolean isDestReplaceable = state.canBeReplaced(context);
-        if ((isDestNonSolid || isDestReplaceable) && !state.liquid()) {
+        if (!state.isAir() && !state.liquid()) {
             level.destroyBlock(pos, true);
         }
         return level.setBlock(pos, placeState, 11);
     }
 
-    private static boolean canPlaceFluidAt(ServerLevel level, ServerPlayer player, BlockPos pos, FluidStack fluidStack,
+    private static boolean canPlaceFluidAt(ServerLevel level, ServerPlayer player, BlockPos pos, RtsFluidStack fluidStack,
             BlockHitResult placementHit) {
         if (fluidStack.isEmpty() || !level.hasChunkAt(pos)) {
             return false;
         }
         Fluid fluid = fluidStack.getFluid();
-        if (!fluid.getFluidType().canBePlacedInLevel(level, pos, fluidStack)) {
+        if (fluid == Fluids.EMPTY || fluid.defaultFluidState().createLegacyBlock().isAir()) {
             return false;
         }
 

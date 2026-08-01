@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -53,7 +53,7 @@ class RtsStorageTickServiceTest {
     }
 
     /** 故意让所有实例 equals() 相等，用于验证缓存严格采用对象身份。 */
-    private static final class CountingHandler implements IItemHandler, RefreshableSnapshotHandler {
+    private static final class CountingHandler implements RtsItemHandler, RefreshableSnapshotHandler {
         private int refreshes;
 
         @Override

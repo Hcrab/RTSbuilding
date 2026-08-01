@@ -13,7 +13,7 @@ class RtsCameraSmoothRotationContractTest {
     @Test
     void smoothRotationKeepsHighFrequencyInputInsteadOfStoppingAtTheLegacyTickCap() throws IOException {
         String clientSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/service/CameraOrbitService.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/service/CameraOrbitService.java"));
 
         assertTrue(clientSource.contains("MAX_SMOOTH_ROTATE_ACCUMULATION = 160.0F"),
                 "平滑旋转必须允许一个 tick 汇总多次高频鼠标事件。");
@@ -26,7 +26,7 @@ class RtsCameraSmoothRotationContractTest {
     @Test
     void mouseRotationUsesDirectTargetsWithoutReleaseInertia() throws IOException {
         String clientSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/service/CameraOrbitService.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/service/CameraOrbitService.java"));
 
         assertTrue(clientSource.contains("applyImmediateRotation((float) dragX, (float) dragY);"),
                 "每个鼠标拖拽事件都应立即更新目标朝向。");
@@ -39,13 +39,17 @@ class RtsCameraSmoothRotationContractTest {
     @Test
     void visualCameraAdvancesOnceBeforeEachRenderedFrame() throws IOException {
         String renderSyncSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/camera/RtsCameraRenderSync.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/camera/RtsCameraRenderSync.java"));
+        String renderMixinSource = Files.readString(Path.of(
+                "src/client/java/com/rtsbuilding/rtsbuilding/mixin/GameRendererLifecycleMixin.java"));
         String controllerSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
 
-        assertTrue(renderSyncSource.contains("RenderFrameEvent.Pre"),
+        assertTrue(renderMixinSource.contains("@Inject(method = \"render\", at = @At(\"HEAD\"))")
+                        && renderMixinSource.contains("RtsCameraRenderSync.syncBeforeRender()"),
                 "视觉镜头必须在 GameRenderer 开始本帧之前更新。");
-        assertFalse(renderSyncSource.contains("RenderLevelStageEvent"),
+        assertFalse(renderSyncSource.contains("RenderLevelStageEvent")
+                        || renderSyncSource.contains("WorldRenderEvents"),
                 "世界渲染阶段事件已经太晚，不能用来驱动本帧镜头。");
         assertFalse(controllerSource.contains(
                         "this.cameraOrbitService.syncVisualCameraFrame(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius, this.enabled);"

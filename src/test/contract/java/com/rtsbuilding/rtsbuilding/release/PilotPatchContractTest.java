@@ -17,7 +17,7 @@ class PilotPatchContractTest {
         String camera = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/camera/RtsCameraManager.java"));
         String onboarding = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/compat/RtsClientOnboardingReminder.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/compat/RtsClientOnboardingReminder.java"));
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
@@ -28,7 +28,7 @@ class PilotPatchContractTest {
         assertFalse(camera.contains("Component.literal(\"RTS camera is not unlocked.\")"));
         assertTrue(zhCn.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(zhCn.contains("\"item.rtsbuilding.rts_control_core\""));
-        assertTrue(onboarding.contains("getModContainerById(RtsbuildingMod.MODID)"));
+        assertTrue(onboarding.contains("getModContainer(RtsbuildingMod.MODID)"));
         assertTrue(onboarding.contains("Component.literal(currentDisplayVersion())"));
         assertTrue(onboarding.contains("STABLE_VERSION = \"1.1.6\""));
         assertTrue(onboarding.contains("version.indexOf('-')"));

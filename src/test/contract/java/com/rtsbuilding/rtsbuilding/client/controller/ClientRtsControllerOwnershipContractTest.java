@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 锁定已迁出的偏好与工作流投影不得重新回流到客户端总控制器。 */
 class ClientRtsControllerOwnershipContractTest {
     private static final Path ROOT = Path.of(
-            "src/main/java/com/rtsbuilding/rtsbuilding/client/controller");
+            "src/client/java/com/rtsbuilding/rtsbuilding/client/controller");
 
     @Test
     void preferenceAndWorkflowOwnersStayFocusedAndInheritedByController() throws Exception {

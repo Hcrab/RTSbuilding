@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.List;
 
@@ -19,8 +19,8 @@ import java.util.List;
  *
  * <p><b>提取层级（从低到高）：</b>
  * <ul>
- *   <li><b>单处理器提取：</b>{@link #extractOne(IItemHandler, Item)}、
- *       {@link #extractMatching(IItemHandler, Item, int)} — 从单个 IItemHandler 提取</li>
+ *   <li><b>单处理器提取：</b>{@link #extractOne(RtsItemHandler, Item)}、
+ *       {@link #extractMatching(RtsItemHandler, Item, int)} — 从单个 RtsItemHandler 提取</li>
  *   <li><b>链接存储提取：</b>{@link #extractOneFromLinked(List, Item)}、
  *       {@link #extractMatchingFromLinked(List, Item, int)} — 遍历多个处理器</li>
  *   <li><b>玩家背包提取：</b>{@link #extractOneFromPlayerMainInventory(ServerPlayer, Item)}、
@@ -69,7 +69,7 @@ public final class RtsTransferExtractor {
 
     // ---- single-item extraction --------------------------------------------------
 
-    public static ItemStack extractOne(IItemHandler handler, Item targetItem) {
+    public static ItemStack extractOne(RtsItemHandler handler, Item targetItem) {
         if (handler instanceof RtsBdCompat.DirectExtractHandler de) {
             return de.tryExtractItem(targetItem, 1, false);
         }
@@ -86,14 +86,14 @@ public final class RtsTransferExtractor {
         return ItemStack.EMPTY;
     }
 
-    public static ItemStack extractMatching(IItemHandler handler, Item targetItem, int limit) {
+    public static ItemStack extractMatching(RtsItemHandler handler, Item targetItem, int limit) {
         if (handler instanceof RtsBdCompat.DirectExtractHandler de) {
             return de.tryExtractItem(targetItem, limit, false);
         }
         return extractMatching(handler, targetItem, ItemStack.EMPTY, limit);
     }
 
-    public static ItemStack extractMatching(IItemHandler handler, Item targetItem, ItemStack preferred, int limit) {
+    public static ItemStack extractMatching(RtsItemHandler handler, Item targetItem, ItemStack preferred, int limit) {
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
             return ItemStack.EMPTY;
@@ -137,8 +137,8 @@ public final class RtsTransferExtractor {
 
     // ---- from linked handlers ---------------------------------------------------
 
-    public static ItemStack extractOneFromLinked(List<IItemHandler> handlers, Item targetItem) {
-        for (IItemHandler handler : handlers) {
+    public static ItemStack extractOneFromLinked(List<RtsItemHandler> handlers, Item targetItem) {
+        for (RtsItemHandler handler : handlers) {
             ItemStack extracted = extractOne(handler, targetItem);
             if (!extracted.isEmpty()) {
                 return extracted;
@@ -171,7 +171,7 @@ public final class RtsTransferExtractor {
         return ItemStack.EMPTY;
     }
 
-    public static ItemStack extractOneFromNetwork(List<IItemHandler> handlers, ServerPlayer player, Item targetItem) {
+    public static ItemStack extractOneFromNetwork(List<RtsItemHandler> handlers, ServerPlayer player, Item targetItem) {
         ItemStack extracted = extractOneFromLinked(handlers, targetItem);
         if (!extracted.isEmpty()) {
             return extracted;
@@ -181,14 +181,14 @@ public final class RtsTransferExtractor {
 
     // ---- multi-item extraction --------------------------------------------------
 
-    public static ItemStack extractMatchingFromLinked(List<IItemHandler> handlers, Item targetItem, int limit) {
+    public static ItemStack extractMatchingFromLinked(List<RtsItemHandler> handlers, Item targetItem, int limit) {
         return extractMatchingFromLinked(handlers, targetItem, ItemStack.EMPTY, limit);
     }
 
-    public static ItemStack extractMatchingFromLinked(List<IItemHandler> handlers, Item targetItem, ItemStack preferred, int limit) {
+    public static ItemStack extractMatchingFromLinked(List<RtsItemHandler> handlers, Item targetItem, ItemStack preferred, int limit) {
         int remaining = Math.max(0, limit);
         ItemStack out = ItemStack.EMPTY;
-        for (IItemHandler handler : handlers) {
+        for (RtsItemHandler handler : handlers) {
             if (remaining <= 0) {
                 break;
             }
@@ -322,12 +322,12 @@ public final class RtsTransferExtractor {
     // ---- combined network extraction -------------------------------------------
 
     public static ItemStack extractMatchingFromNetwork(
-            List<IItemHandler> handlers, ServerPlayer player, Item targetItem, int limit) {
+            List<RtsItemHandler> handlers, ServerPlayer player, Item targetItem, int limit) {
         return extractMatchingFromNetwork(handlers, player, targetItem, ItemStack.EMPTY, limit);
     }
 
     public static ItemStack extractMatchingFromNetwork(
-            List<IItemHandler> handlers, ServerPlayer player, Item targetItem,
+            List<RtsItemHandler> handlers, ServerPlayer player, Item targetItem,
             ItemStack preferred, int limit) {
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
@@ -353,7 +353,7 @@ public final class RtsTransferExtractor {
     }
 
     public static ItemStack extractMatchingFromQuickDropSources(
-            List<IItemHandler> handlers, ServerPlayer player, Item targetItem, int limit) {
+            List<RtsItemHandler> handlers, ServerPlayer player, Item targetItem, int limit) {
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
             return ItemStack.EMPTY;
@@ -377,7 +377,7 @@ public final class RtsTransferExtractor {
     // ---- prototype-based extraction (used by crafting) -------------------------
 
     public static ItemStack extractOneMatchingPrototypeCombined(
-            List<IItemHandler> handlers, ServerPlayer player, ItemStack prototype) {
+            List<RtsItemHandler> handlers, ServerPlayer player, ItemStack prototype) {
         ItemStack fromLinked = extractOneMatchingPrototypeFromLinked(handlers, prototype);
         if (!fromLinked.isEmpty()) {
             return fromLinked;
@@ -385,11 +385,11 @@ public final class RtsTransferExtractor {
         return extractOneMatchingPrototypeFromPlayer(player, prototype);
     }
 
-    public static ItemStack extractOneMatchingPrototypeFromLinked(List<IItemHandler> handlers, ItemStack prototype) {
+    public static ItemStack extractOneMatchingPrototypeFromLinked(List<RtsItemHandler> handlers, ItemStack prototype) {
         if (prototype == null || prototype.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        for (IItemHandler handler : handlers) {
+        for (RtsItemHandler handler : handlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack stack = handler.getStackInSlot(slot);
                 if (stack.isEmpty() || !ItemStack.isSameItemSameComponents(stack, prototype)) {
@@ -439,7 +439,7 @@ public final class RtsTransferExtractor {
      *
      * @return 提取的物品栈，或 {@link ItemStack#EMPTY}
      */
-    public static ItemStack extractOneCached(ServerPlayer player, List<IItemHandler> fallbackHandlers, Item targetItem) {
+    public static ItemStack extractOneCached(ServerPlayer player, List<RtsItemHandler> fallbackHandlers, Item targetItem) {
         if (player == null || targetItem == null) return ItemStack.EMPTY;
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
         if (aggregate != null && !aggregate.isEmpty()) {
@@ -457,7 +457,7 @@ public final class RtsTransferExtractor {
      * 如果缓存不可用，则回退到扫描提供的处理器。
      */
     public static ItemStack extractMatchingCached(
-            ServerPlayer player, List<IItemHandler> fallbackHandlers,
+            ServerPlayer player, List<RtsItemHandler> fallbackHandlers,
             Item targetItem, ItemStack preferred, int limit) {
         if (player == null || targetItem == null || limit <= 0) return ItemStack.EMPTY;
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);

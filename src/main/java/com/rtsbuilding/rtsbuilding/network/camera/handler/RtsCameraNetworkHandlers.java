@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for RTS camera input.
@@ -16,7 +16,7 @@ public final class RtsCameraNetworkHandlers {
     private RtsCameraNetworkHandlers() {
     }
 
-    public static void handleToggle(C2SRtsToggleCameraPayload payload, IPayloadContext context) {
+    public static void handleToggle(C2SRtsToggleCameraPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsCameraManager.toggle(serverPlayer, payload.startAtPlayerHead());
@@ -24,7 +24,7 @@ public final class RtsCameraNetworkHandlers {
         });
     }
 
-    public static void handleMove(C2SRtsCameraMovePayload payload, IPayloadContext context) {
+    public static void handleMove(C2SRtsCameraMovePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsCameraManager.move(

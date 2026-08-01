@@ -43,22 +43,28 @@ class StorageHandlerLifecycleContractTest {
                 "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer", "玩家退出");
 
         String mod = read("RtsbuildingMod.java");
-        assertOrderedInMethod(mod, "void onPlayerChangedDimension", "unregisterPlayer(serverPlayer)",
+        assertOrderedInMethod(mod, "void onPlayerChangedDimension", "unregisterPlayer(player)",
                 "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer", "切换维度");
     }
 
     @Test
-    void releasedAeHandlerAndNullReflectionTargetMustFailClosed() throws IOException {
+    void unavailableNeoForgeNetworksFailClosedAndFabricRsUsesTransferApi() throws IOException {
         String aeSource = read("compat/ae2/RtsAe2Compat.java");
 
-        assertTrue(aeSource.contains("if (this.released || this.storageService == null) return;"),
-                "已释放的 AE 快照刷新必须直接停止");
-        assertTrue(aeSource.contains("target == null && !Modifier.isStatic(method.getModifiers())"),
-                "反射层不得对空实例调用非静态方法");
+        assertTrue(aeSource.contains("public static boolean isAvailable()")
+                        && aeSource.contains("return false;"),
+                "没有 Fabric 1.21.1 发行版的 AE2 必须明确报告不可用");
+        assertTrue(aeSource.contains("createNetworkItemHandler")
+                        && aeSource.contains("return null;"),
+                "AE2 不可用时不得伪造网络 handler");
+        assertFalse(aeSource.contains("import appeng."),
+                "AE2 不可用时不得形成硬类链接");
 
         String rsSource = read("compat/refinedstorage/RtsRefinedStorageCompat.java");
-        assertTrue(rsSource.contains("target == null && !Modifier.isStatic(method.getModifiers())"),
-                "RS 网络节点失效时也必须拒绝对空实例执行反射调用");
+        assertTrue(rsSource.contains("FabricLoader.getInstance().isModLoaded(\"refinedstorage\")"));
+        assertTrue(rsSource.contains("ItemStorage.SIDED.find"));
+        assertFalse(rsSource.contains("java.lang.reflect"),
+                "Fabric RS 应直接使用 Transfer API，不再保留 NeoForge 节点反射");
     }
 
     private static void assertOrderedInMethod(String source, String methodMarker,

@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.FluidTransferGate;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.List;
 
@@ -28,12 +28,12 @@ import java.util.List;
 public final class RtsFluidTransferGateImpl implements FluidTransferGate {
 
     @Override
-    public ItemStack extractOneFromNetwork(List<IItemHandler> handlers, ServerPlayer player, Item targetItem) {
+    public ItemStack extractOneFromNetwork(List<RtsItemHandler> handlers, ServerPlayer player, Item targetItem) {
         return RtsTransferExtractor.extractOneFromNetwork(handlers, player, targetItem);
     }
 
     @Override
-    public void refundToLinked(List<IItemHandler> handlers, ServerPlayer player, ItemStack stack) {
+    public void refundToLinked(List<RtsItemHandler> handlers, ServerPlayer player, ItemStack stack) {
         RtsTransferInserter.refundToLinked(handlers, player, stack);
     }
 

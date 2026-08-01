@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.pathfinding;
 
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side handler for {@link C2SRtsPathfindingPayload}.
@@ -14,7 +14,7 @@ public final class RtsPathfindingNetworkHandlers {
 
     private RtsPathfindingNetworkHandlers() {}
 
-    public static void handlePathfinding(C2SRtsPathfindingPayload payload, IPayloadContext context) {
+    public static void handlePathfinding(C2SRtsPathfindingPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().pathfinding().goTo(serverPlayer, payload.target());

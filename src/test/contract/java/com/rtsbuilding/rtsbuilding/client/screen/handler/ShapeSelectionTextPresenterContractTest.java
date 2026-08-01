@@ -16,7 +16,7 @@ class ShapeSelectionTextPresenterContractTest {
     @Test
     void controllerDelegatesEveryPlayerFacingShapeTextFamily() throws IOException {
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
 
         assertTrue(controller.contains("ShapeSelectionTextPresenter.fillModeLabel"));
         assertTrue(controller.contains("ShapeSelectionTextPresenter.dimensionLabel"));
@@ -31,7 +31,7 @@ class ShapeSelectionTextPresenterContractTest {
     @Test
     void presenterCannotReadScreenConfigWorldOrKeyMappings() throws IOException {
         String presenter = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionTextPresenter.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionTextPresenter.java"));
 
         assertFalse(presenter.contains("BuilderScreen"));
         assertFalse(presenter.contains("ClientRtsController"));

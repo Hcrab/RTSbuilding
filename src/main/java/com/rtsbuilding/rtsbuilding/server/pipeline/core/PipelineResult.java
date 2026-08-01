@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * 密封结果类型，由每个 {@link PipelinePipe} 和 {@link WorkflowPipeline}

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.platform.data.RtsLegacyPersistentDataAccess;
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
@@ -84,7 +85,9 @@ final class RtsLegacySkillTreeMigration {
         }
 
         CompoundTag currentRoot = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
-        CompoundTag oldPersistentRoot = player.getPersistentData().getCompound(OLD_PERSISTENT_ROOT);
+        CompoundTag legacyPersistentData =
+                ((RtsLegacyPersistentDataAccess) player).rtsbuilding$getLegacyPersistentData();
+        CompoundTag oldPersistentRoot = legacyPersistentData.getCompound(OLD_PERSISTENT_ROOT);
         if (migrationVersion(currentRoot, oldPersistentRoot) < MIGRATION_VERSION) {
             needsHarvestTierCompatibility = true;
             LinkedHashSet<ResourceLocation> personalNodes = readUnlockedNodes(currentRoot);
@@ -100,7 +103,7 @@ final class RtsLegacySkillTreeMigration {
             SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PROGRESSION, currentRoot);
             if (!oldPersistentRoot.isEmpty()) {
                 oldPersistentRoot.putInt(NBT_PLUGIN_MIGRATION_VERSION, MIGRATION_VERSION);
-                player.getPersistentData().put(OLD_PERSISTENT_ROOT, oldPersistentRoot);
+                legacyPersistentData.put(OLD_PERSISTENT_ROOT, oldPersistentRoot);
             }
         }
 

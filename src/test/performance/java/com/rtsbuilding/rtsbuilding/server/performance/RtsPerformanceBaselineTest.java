@@ -1,12 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.performance;
 
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 import net.minecraft.SharedConstants;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.fml.loading.LoadingModList;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -31,9 +30,6 @@ class RtsPerformanceBaselineTest {
 
     @BeforeAll
     static void bootstrapMinecraftRegistries() {
-        if (LoadingModList.get() == null) {
-            LoadingModList.of(List.of(), List.of(), List.of(), List.of(), Map.of());
-        }
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
     }
@@ -107,7 +103,7 @@ class RtsPerformanceBaselineTest {
         }
     }
 
-    private static final class CountingItemHandler implements IItemHandler {
+    private static final class CountingItemHandler implements RtsItemHandler {
         private final int slots;
         private int stackReads;
 

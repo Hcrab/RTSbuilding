@@ -13,7 +13,7 @@ class QuickBuildClosedStateContractTest {
     @Test
     void builderBindsShapeControllerBeforeQuickBuildTakesItsInitialSnapshot() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String constructor = methodBody(source, "public BuilderScreen");
 
         int shapeInit = constructor.indexOf("this.shapeController.init(this, this.controller)");
@@ -25,7 +25,7 @@ class QuickBuildClosedStateContractTest {
     @Test
     void closingQuickBuildPanelRestoresSingleBlockCursor() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
         String closeBody = methodBody(source, "protected void onClose");
 
         assertTrue(closeBody.contains("restoreSingleBlockCursor()"),
@@ -37,7 +37,7 @@ class QuickBuildClosedStateContractTest {
     @Test
     void storedQuickBuildStateDoesNotActivateWhenWindowIsClosed() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java"));
         String body = methodBody(source, "void syncQuickBuildActiveState");
 
         assertTrue(body.contains("if (!screen.quickBuildPanel.isOpen() || !screen.canUseQuickBuild())"),
@@ -50,18 +50,18 @@ class QuickBuildClosedStateContractTest {
     @Test
     void quickBuildClientUiRequiresRemotePlacementUnlock() throws IOException {
         String builderScreen = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String canUseBody = methodBody(builderScreen, "public boolean canUseQuickBuild");
         String windowActions = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenWindowActionOwner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenWindowActionOwner.java"));
         String toggleBody = methodBody(windowActions, "void toggleQuickBuild");
         String panelSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
         String canShowBody = methodBody(panelSource, "protected boolean canShowWindow");
         String topBarSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java"));
         String topBarAdapterSource = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarUiAdapter.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarUiAdapter.java"));
 
         assertTrue(canUseBody.contains("!this.controller.isProgressionEnabled()"),
                 "survival balance disabled should keep quick-build available");
@@ -84,11 +84,11 @@ class QuickBuildClosedStateContractTest {
     @Test
     void quickBuildPanelOwnsShapeDimensionReadout() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
         String renderer = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildStatusRenderer.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildStatusRenderer.java"));
         String adapter = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
         String layout = Files.readString(Path.of(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/QuickBuildWindowLayout.java"));
 

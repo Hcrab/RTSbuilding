@@ -2,11 +2,11 @@ package com.rtsbuilding.rtsbuilding.compat.ftb;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.fml.ModList;
+import net.fabricmc.loader.api.FabricLoader;
 
 public final class RtsFtbCompat {
-    private static final boolean FTB_QUESTS_LOADED = ModList.get().isLoaded("ftbquests");
-    private static final boolean FTB_TEAMS_LOADED = ModList.get().isLoaded("ftbteams");
+    private static final boolean FTB_QUESTS_LOADED = FabricLoader.getInstance().isModLoaded("ftbquests");
+    private static final boolean FTB_TEAMS_LOADED = FabricLoader.getInstance().isModLoaded("ftbteams");
     private static final RtsFtbCompatImpl IMPL = createImpl();
     private static final RtsFtbTeamsCompatImpl TEAMS_IMPL = createTeamsImpl();
 

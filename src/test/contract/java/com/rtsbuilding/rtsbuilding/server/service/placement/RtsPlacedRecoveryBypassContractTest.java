@@ -15,7 +15,9 @@ class RtsPlacedRecoveryBypassContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsPlacedRecoveryService.java"));
 
         assertTrue(source.contains("getCloneItemStack(level, pos, state)"));
-        assertTrue(source.contains("CommonHooks.fireBlockBreak("));
+        assertTrue(source.contains("PlayerBlockBreakEvents.BEFORE.invoker()"));
+        assertTrue(source.contains("PlayerBlockBreakEvents.CANCELED.invoker()"));
+        assertTrue(source.contains("PlayerBlockBreakEvents.AFTER.invoker()"));
         assertTrue(source.contains("level.destroyBlock(pos, false, player)"));
         assertTrue(source.contains("if (recoveredBlock.isEmpty())"));
         assertTrue(source.contains("tracker.mark(targetPos);"));
@@ -30,7 +32,7 @@ class RtsPlacedRecoveryBypassContractTest {
 
         String trackingSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/tracking/RtsBlockTrackingEvents.java"));
-        assertTrue(trackingSource.contains("@SubscribeEvent(priority = EventPriority.LOWEST)"));
-        assertTrue(trackingSource.contains("if (event.isCanceled())"));
+        assertTrue(trackingSource.contains("PlayerBlockBreakEvents.AFTER.register"));
+        assertTrue(trackingSource.contains("onBroken(serverPlayer, serverLevel, pos)"));
     }
 }

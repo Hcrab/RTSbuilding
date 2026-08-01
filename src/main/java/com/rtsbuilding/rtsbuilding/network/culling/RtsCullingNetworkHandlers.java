@@ -3,14 +3,14 @@ package com.rtsbuilding.rtsbuilding.network.culling;
 import com.rtsbuilding.rtsbuilding.server.culling.RtsCullingPersistence;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /** 范围剔除的服务端存档适配器；维度身份始终取服务端玩家当前所在维度。 */
 public final class RtsCullingNetworkHandlers {
     private RtsCullingNetworkHandlers() {
     }
 
-    public static void handleRequest(C2SRtsRequestCullingStatePayload payload, IPayloadContext context) {
+    public static void handleRequest(C2SRtsRequestCullingStatePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
                 RtsCullingPersistence.State state = RtsCullingPersistence.load(player);
@@ -22,7 +22,7 @@ public final class RtsCullingNetworkHandlers {
         });
     }
 
-    public static void handleSave(C2SRtsSaveCullingStatePayload payload, IPayloadContext context) {
+    public static void handleSave(C2SRtsSaveCullingStatePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
                 String currentDimension = player.level().dimension().location().toString();

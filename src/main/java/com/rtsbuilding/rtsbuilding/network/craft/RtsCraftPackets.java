@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.craft;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.craft.handler.RtsCraftNetworkHandlers;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 
 /**
  * Registers RTS crafting terminal, craftable-list, and JEI transfer packets.
@@ -14,7 +14,7 @@ public final class RtsCraftPackets {
     private RtsCraftPackets() {
     }
 
-    public static void register(PayloadRegistrar registrar) {
+    public static void register(RtsPayloadRegistrar registrar) {
         registrar.playToServer(
                 C2SRtsRequestCraftablesPayload.TYPE,
                 C2SRtsRequestCraftablesPayload.STREAM_CODEC,

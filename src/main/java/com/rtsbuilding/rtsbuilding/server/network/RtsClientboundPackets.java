@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.network;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.PacketDistributor;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 /**
  * 服务端到客户端 RTS 自定义包的统一出口。
@@ -22,7 +22,7 @@ public final class RtsClientboundPackets {
         if (player == null || payload == null || isGameTestServerPlayer(player)) {
             return;
         }
-        PacketDistributor.sendToPlayer(player, payload);
+        ServerPlayNetworking.send(player, payload);
     }
 
     public static boolean isGameTestServerPlayer(ServerPlayer player) {

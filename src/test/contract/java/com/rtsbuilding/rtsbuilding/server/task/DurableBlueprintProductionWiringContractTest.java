@@ -37,14 +37,14 @@ class DurableBlueprintProductionWiringContractTest {
         String engine = read("server/task/RtsTaskEngine.java");
         String mod = read("RtsbuildingMod.java");
         String scheduler = read("server/task/TaskScheduler.java");
-        String stopping = between(mod, "static void onServerStopping(", "static void onServerStopped(");
-        String stopped = mod.substring(mod.indexOf("static void onServerStopped("));
+        String stopping = between(mod, "private static void onServerStopping(", "private static void onServerStopped(");
+        String stopped = mod.substring(mod.indexOf("private static void onServerStopped("));
 
         assertTrue(bridge.contains("TaskId.fromSubmission(player.getUUID(), submissionId)"));
         assertTrue(engine.contains("new TaskRecord(taskId.value()"));
         assertTrue(bridge.contains("persistence.coordinator().replace(next)"));
         assertTrue(bridge.contains("requestTombstone(entry.getKey(), gameTime)"));
-        assertTrue(stopping.contains("checkpointAllDurableExecutions(event.getServer())"));
+        assertTrue(stopping.contains("checkpointAllDurableExecutions(server)"));
         assertFalse(stopping.contains("TaskPersistenceRuntime.INSTANCE.stop()"),
                 "PlayerLoggedOutEvent 发生前不能关闭 durable writer");
         assertTrue(stopped.indexOf("TaskPersistenceRuntime.INSTANCE.isStarted()")

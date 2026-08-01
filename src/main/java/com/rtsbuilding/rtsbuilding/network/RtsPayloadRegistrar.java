@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.network.blueprint.BlueprintPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderPackets;
 import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
@@ -11,28 +10,33 @@ import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
 import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
 import com.rtsbuilding.rtsbuilding.network.progression.RtsProgressionPackets;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import java.util.ArrayList;
+import java.util.List;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+import net.minecraft.network.RegistryFriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 
 /**
- * Main registration entry point for non-blueprint RTS packets.
+ * Fabric 1.21.1 数据包注册器。
  *
- * The protocol version, payload ids, codecs, and packet directions are still
- * owned by the individual payload records. The domain registrars below are only
- * a readability layer, so moving a payload between them must not change the
- * wire protocol.
+ * <p>C2S 类型与接收器在公共入口直接注册；S2C 类型在此注册编码器，并把接收器描述留给
+ * 客户端入口安装。这样既保留原来的分领域注册结构，也避免公共源码引用客户端网络 API。
  */
-@EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsPayloadRegistrar {
+    private static final List<ClientRegistration<?>> CLIENT_REGISTRATIONS = new ArrayList<>();
+    private static boolean registered;
+
     private RtsPayloadRegistrar() {
     }
 
-    @SubscribeEvent
-    public static void register(final RegisterPayloadHandlersEvent event) {
-        PayloadRegistrar registrar = event.registrar("1");
-
+    public static synchronized void registerCommon() {
+        if (registered) {
+            return;
+        }
+        registered = true;
+        RtsPayloadRegistrar registrar = new RtsPayloadRegistrar();
         RtsCameraPackets.register(registrar);
         RtsStoragePackets.register(registrar);
         RtsBuilderPackets.register(registrar);
@@ -43,5 +47,31 @@ public final class RtsPayloadRegistrar {
         RtsFeedbackPackets.register(registrar);
         RtsPathfindingPackets.register(registrar);
         BlueprintPayloadRegistrar.register(registrar);
+    }
+
+    public <T extends CustomPacketPayload> void playToServer(
+            CustomPacketPayload.Type<T> type,
+            StreamCodec<? super RegistryFriendlyByteBuf, T> codec,
+            RtsPayloadHandler<T> handler) {
+        PayloadTypeRegistry.playC2S().register(type, codec);
+        ServerPlayNetworking.registerGlobalReceiver(type,
+                (payload, context) -> handler.handle(payload, new FabricServerPayloadContext(context)));
+    }
+
+    public <T extends CustomPacketPayload> void playToClient(
+            CustomPacketPayload.Type<T> type,
+            StreamCodec<? super RegistryFriendlyByteBuf, T> codec,
+            RtsPayloadHandler<T> handler) {
+        PayloadTypeRegistry.playS2C().register(type, codec);
+        CLIENT_REGISTRATIONS.add(new ClientRegistration<>(type, handler));
+    }
+
+    public static List<ClientRegistration<?>> clientRegistrations() {
+        return List.copyOf(CLIENT_REGISTRATIONS);
+    }
+
+    public record ClientRegistration<T extends CustomPacketPayload>(
+            CustomPacketPayload.Type<T> type,
+            RtsPayloadHandler<T> handler) {
     }
 }

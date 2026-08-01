@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,14 +30,14 @@ public final class RtsEndpointLeaseCache {
     });
 
     private final Map<EndpointKey, ItemLease> itemLeases = new HashMap<>();
-    private final BiConsumer<UUID, IItemHandler> releaser;
+    private final BiConsumer<UUID, RtsItemHandler> releaser;
 
-    RtsEndpointLeaseCache(BiConsumer<UUID, IItemHandler> releaser) {
+    RtsEndpointLeaseCache(BiConsumer<UUID, RtsItemHandler> releaser) {
         this.releaser = Objects.requireNonNull(releaser, "releaser");
     }
 
-    public synchronized IItemHandler resolveItem(UUID playerId, ResourceKey<Level> dimension,
-            BlockPos pos, UUID backpackId, Object blockEntityIdentity, Supplier<IItemHandler> resolver) {
+    public synchronized RtsItemHandler resolveItem(UUID playerId, ResourceKey<Level> dimension,
+            BlockPos pos, UUID backpackId, Object blockEntityIdentity, Supplier<RtsItemHandler> resolver) {
         EndpointKey key = new EndpointKey(playerId, dimension, pos.immutable(), backpackId);
         ItemLease current = itemLeases.get(key);
         if (current != null && current.blockEntityIdentity() == blockEntityIdentity) {
@@ -48,7 +48,7 @@ public final class RtsEndpointLeaseCache {
             itemLeases.remove(key);
             release(current);
         }
-        IItemHandler resolved = resolver.get();
+        RtsItemHandler resolved = resolver.get();
         if (resolved == null) {
             return null;
         }
@@ -97,6 +97,6 @@ public final class RtsEndpointLeaseCache {
         }
     }
 
-    private record ItemLease(UUID playerId, Object blockEntityIdentity, IItemHandler handler) {
+    private record ItemLease(UUID playerId, Object blockEntityIdentity, RtsItemHandler handler) {
     }
 }

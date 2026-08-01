@@ -92,13 +92,10 @@ import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.SlabType;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.gametest.GameTestHolder;
-import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
+import net.fabricmc.fabric.api.gametest.v1.FabricGameTest;
 
-@GameTestHolder(RtsbuildingMod.MODID)
-@PrefixGameTestTemplate(false)
-public final class RtsServerGameTests {
-    private static final String EMPTY_TEMPLATE = "gametest/empty";
+public final class RtsServerGameTests implements FabricGameTest {
+    private static final String EMPTY_TEMPLATE = FabricGameTest.EMPTY_STRUCTURE;
     private static final AtomicInteger PLAYER_SEQUENCE = new AtomicInteger();
     private static final List<Item> JUNK_ITEMS = List.of(
             Items.STONE,
@@ -161,7 +158,7 @@ public final class RtsServerGameTests {
             Items.GLOWSTONE_DUST,
             Items.NETHER_WART);
 
-    private RtsServerGameTests() {
+    public RtsServerGameTests() {
     }
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)

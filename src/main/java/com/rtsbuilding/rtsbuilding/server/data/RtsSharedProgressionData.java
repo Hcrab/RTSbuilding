@@ -40,7 +40,8 @@ public final class RtsSharedProgressionData extends SavedData {
 
     private static final Factory<RtsSharedProgressionData> FACTORY = new Factory<>(
             RtsSharedProgressionData::new,
-            RtsSharedProgressionData::load);
+            RtsSharedProgressionData::load,
+            null);
 
     private final Map<String, SharedProgression> groups = new HashMap<>();
 

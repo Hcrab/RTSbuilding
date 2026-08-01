@@ -16,7 +16,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 
 import java.util.ArrayList;
@@ -188,7 +188,7 @@ public final class RtsDropAbsorber {
             return new DropInsertContext(aggregate, List.of());
         }
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+        List<RtsItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
         return new DropInsertContext(null, handlers);
     }
 
@@ -198,7 +198,7 @@ public final class RtsDropAbsorber {
         }
     }
 
-    private record DropInsertContext(RtsAggregateStorage aggregate, List<IItemHandler> handlers) {
+    private record DropInsertContext(RtsAggregateStorage aggregate, List<RtsItemHandler> handlers) {
         ItemStack store(ItemStack stack) {
             if (stack == null || stack.isEmpty()) {
                 return ItemStack.EMPTY;
@@ -285,6 +285,16 @@ public final class RtsDropAbsorber {
         }
         finishEnqueue(player, buffer, changed);
         return changed;
+    }
+
+    /** Fabric 在掉落实体生成前按单栈接管；返回实际进入有界缓存的数量。 */
+    static int enqueueCapturedStack(ServerPlayer player, RtsStorageSession session, ItemStack stack) {
+        if (player == null || session == null || stack == null || stack.isEmpty()) {
+            return 0;
+        }
+        int accepted = enqueueStack(session.miningDropBuffer, stack);
+        finishEnqueue(player, session.miningDropBuffer, accepted > 0);
+        return accepted;
     }
 
     private static int enqueueStack(

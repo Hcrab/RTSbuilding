@@ -22,7 +22,7 @@ class RtsPluginDurabilityContractTest {
                 "个人插件状态必须立即写入 session.dat。");
         assertTrue(durability.contains("storageLevel.getDataStorage().save()"),
                 "队伍共享插件必须立即提交 SavedData 保存。");
-        assertTrue(durability.contains("IOUtilities.waitUntilIOWorkerComplete()"),
+        assertTrue(durability.contains("server.saveEverything(true, true, false)"),
                 "队伍 SavedData 的异步写入必须在操作返回前完成。");
         assertTrue(durability.contains("server.getPlayerList().saveAll()"),
                 "插件物品的背包增减必须与插件状态一起保存。");

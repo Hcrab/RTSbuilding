@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for RTS interaction, break, quick-drop, and undo
@@ -28,7 +28,7 @@ public final class RtsInteractionHandlers {
     private RtsInteractionHandlers() {
     }
 
-    public static void handleInteract(C2SRtsInteractPayload payload, IPayloadContext context) {
+    public static void handleInteract(C2SRtsInteractPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -53,7 +53,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleQuickDrop(C2SRtsQuickDropPayload payload, IPayloadContext context) {
+    public static void handleQuickDrop(C2SRtsQuickDropPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().transfer().quickDropLinkedItem(
@@ -67,7 +67,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleBreak(C2SRtsBreakPayload payload, IPayloadContext context) {
+    public static void handleBreak(C2SRtsBreakPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -76,7 +76,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleUndo(C2SRtsUndoPayload payload, IPayloadContext context) {
+    public static void handleUndo(C2SRtsUndoPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 // Non-RTS mode undo requests are ignored
@@ -86,7 +86,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleSubmitPending(C2SRtsSubmitPendingPayload payload, IPayloadContext context) {
+    public static void handleSubmitPending(C2SRtsSubmitPendingPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().placement().submitPendingPlacement(serverPlayer);
@@ -94,7 +94,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleDeleteWorkflow(C2SRtsDeleteWorkflowPayload payload, IPayloadContext context) {
+    public static void handleDeleteWorkflow(C2SRtsDeleteWorkflowPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 IWorkflowEngine engine = RtsWorkflowEngine.getInstance();
@@ -103,7 +103,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleRedo(C2SRtsRedoPayload payload, IPayloadContext context) {
+    public static void handleRedo(C2SRtsRedoPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 if (!RtsCameraManager.isActive(serverPlayer)) return;
@@ -112,7 +112,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleSetWorkflowProtected(C2SRtsSetWorkflowProtectedPayload payload, IPayloadContext context) {
+    public static void handleSetWorkflowProtected(C2SRtsSetWorkflowProtectedPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 IWorkflowEngine engine = RtsWorkflowEngine.getInstance();
@@ -124,7 +124,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleScanResumePlacement(C2SRtsScanResumePlacementPayload payload, IPayloadContext context) {
+    public static void handleScanResumePlacement(C2SRtsScanResumePlacementPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(serverPlayer);
@@ -143,7 +143,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleResumePlacementAction(C2SRtsResumePlacementActionPayload payload, IPayloadContext context) {
+    public static void handleResumePlacementAction(C2SRtsResumePlacementActionPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 int entryId = payload.workflowEntryId();
@@ -162,7 +162,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handlePauseWorkflow(C2SRtsPauseWorkflowPayload payload, IPayloadContext context) {
+    public static void handlePauseWorkflow(C2SRtsPauseWorkflowPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 int entryId = payload.entryId();
@@ -194,7 +194,7 @@ public final class RtsInteractionHandlers {
         });
     }
 
-    public static void handleScanBlueprintResume(C2SRtsScanBlueprintResumePayload payload, IPayloadContext context) {
+    public static void handleScanBlueprintResume(C2SRtsScanBlueprintResumePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 int entryId = payload.workflowEntryId();

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 /**
  * 挖掘工具租赁记录，追踪借用的工具及其归还目标。
@@ -14,7 +14,7 @@ import net.neoforged.neoforge.items.IItemHandler;
  * <ul>
  *   <li>{@link #empty()} — 空租赁标记，表示当前没有借用工具</li>
  *   <li>{@link #playerSlot(int, ItemStack)} — 从特定玩家背包槽位借用</li>
- *   <li>{@link #linkedSlot(IItemHandler, int, ItemStack)} — 从 {@link IItemHandler} 借用</li>
+ *   <li>{@link #linkedSlot(RtsItemHandler, int, ItemStack)} — 从 {@link RtsItemHandler} 借用</li>
  * </ul>
  *
  * <p><b>关键字段：</b>
@@ -46,7 +46,7 @@ public final class RtsToolLease {
     private final ItemStack stack;
 
     /** 工具来源的链接处理器，或 {@code null}。 */
-    private final IItemHandler linkedHandler;
+    private final RtsItemHandler linkedHandler;
 
     /** {@link #linkedHandler} 内的槽位索引，或 -1。 */
     private final int linkedSlot;
@@ -62,7 +62,7 @@ public final class RtsToolLease {
     // ─────────────────────────────────────────────────────────────────
 
     private RtsToolLease(ItemStack original, ItemStack stack,
-                         IItemHandler linkedHandler, int linkedSlot,
+                         RtsItemHandler linkedHandler, int linkedSlot,
                          int playerSlot, String sourceDescription) {
         this.original = (original == null || original.isEmpty())
                 ? ItemStack.EMPTY : original.copy();
@@ -98,11 +98,11 @@ public final class RtsToolLease {
     /**
      * 创建一个从给定链接储存槽位来源的租赁。
      *
-     * @param handler 工具来源的 {@link IItemHandler}
+     * @param handler 工具来源的 {@link RtsItemHandler}
      * @param slot    处理器内的槽位索引
      * @param stack   借用的工具堆叠（可变副本）
      */
-    public static RtsToolLease linkedSlot(IItemHandler handler, int slot,
+    public static RtsToolLease linkedSlot(RtsItemHandler handler, int slot,
                                     ItemStack stack) {
         return new RtsToolLease(stack, stack, handler, slot, -1,
                 "linked storage slot " + slot);

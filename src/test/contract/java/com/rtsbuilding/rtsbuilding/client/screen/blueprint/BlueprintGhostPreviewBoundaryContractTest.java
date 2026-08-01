@@ -15,9 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class BlueprintGhostPreviewBoundaryContractTest {
     private static final Path BLUEPRINT_ROOT = Path.of(
-            "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint");
+            "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint");
     private static final Path RENDER_ROOT = Path.of(
-            "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/blueprint");
+            "src/client/java/com/rtsbuilding/rtsbuilding/client/rendering/blueprint");
 
     @Test
     void panelDelegatesGeometryAndDoesNotOwnDuplicatePreviewRecords()
@@ -27,7 +27,7 @@ class BlueprintGhostPreviewBoundaryContractTest {
         String factory = source(BLUEPRINT_ROOT.resolve(
                 "BlueprintPlacementPreviewFactory.java"));
         String screen = source(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreen.java"));
 
         assertTrue(placement.contains(

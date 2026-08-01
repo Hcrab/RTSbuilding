@@ -13,7 +13,7 @@ class RtsModConfigScreenContractTest {
     @Test
     void moduleConfigScreenDoesNotDuplicateClientVisualSettings() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java"));
 
         assertFalse(source.contains("placementBlockGhostPreview"));
         assertFalse(source.contains("placeBlockGhostAnimation"));
@@ -28,7 +28,7 @@ class RtsModConfigScreenContractTest {
     @Test
     void moduleConfigScreenExposesServerAreaMineLimits() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java"));
 
         assertTrue(source.contains("config.rtsbuilding.section.area_mining"));
         assertTrue(source.contains("config.rtsbuilding.area_mine_max_width"));

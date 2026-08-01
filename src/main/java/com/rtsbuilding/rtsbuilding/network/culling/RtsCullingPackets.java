@@ -1,14 +1,14 @@
 package com.rtsbuilding.rtsbuilding.network.culling;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 
 /** 注册范围剔除状态的请求、保存与恢复数据包。 */
 public final class RtsCullingPackets {
     private RtsCullingPackets() {
     }
 
-    public static void register(PayloadRegistrar registrar) {
+    public static void register(RtsPayloadRegistrar registrar) {
         registrar.playToServer(
                 C2SRtsRequestCullingStatePayload.TYPE,
                 C2SRtsRequestCullingStatePayload.STREAM_CODEC,

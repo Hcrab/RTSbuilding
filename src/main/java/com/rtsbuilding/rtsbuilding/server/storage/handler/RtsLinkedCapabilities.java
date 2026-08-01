@@ -2,18 +2,24 @@ package com.rtsbuilding.rtsbuilding.server.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
+import com.rtsbuilding.rtsbuilding.platform.item.FabricItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.fluid.FabricFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidHandler;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidStorage;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemStorage;
+import net.fabricmc.fabric.api.transfer.v1.item.ItemVariant;
+import net.fabricmc.fabric.api.transfer.v1.storage.Storage;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
 
 /**
  * 在链接存储坐标处探测方块容纳物的物品和流体处理器（Capability）。
  *
- * <p>本类仅持有世界中方块坐标的低级 {@link IItemHandler} 和
- * {@link IFluidHandler} 能力查询逻辑。它扫描直接和侧面的能力，
+ * <p>本类仅持有世界中方块坐标的低级 {@link RtsItemHandler} 和
+ * {@link RtsFluidHandler} 能力查询逻辑。它扫描直接和侧面的能力，
  * 并在适用时委托给 AE2 虚拟网络处理器。
  *
  * <p>它刻意不解析会话引用、构建存储页面、转移物品/流体、
@@ -27,18 +33,18 @@ public final class RtsLinkedCapabilities {
     /**
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
-    public static IItemHandler findHandler(ServerPlayer player, BlockPos pos) {
+    public static RtsItemHandler findHandler(ServerPlayer player, BlockPos pos) {
         if (!player.serverLevel().hasChunkAt(pos)) {
             return null;
         }
-        IItemHandler direct = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, null);
+        Storage<ItemVariant> direct = ItemStorage.SIDED.find(player.serverLevel(), pos, null);
         if (direct != null) {
-            return direct;
+            return new FabricItemHandler(direct);
         }
         for (Direction direction : Direction.values()) {
-            IItemHandler sided = player.serverLevel().getCapability(Capabilities.ItemHandler.BLOCK, pos, direction);
+            Storage<ItemVariant> sided = ItemStorage.SIDED.find(player.serverLevel(), pos, direction);
             if (sided != null) {
-                return sided;
+                return new FabricItemHandler(sided);
             }
         }
         return null;
@@ -48,12 +54,12 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，优先使用 AE2 / Refined Storage 虚拟网络处理器，
      * 再回退到直接/侧面能力扫描。
      */
-    public static IItemHandler findLinkedItemHandler(ServerPlayer player, BlockPos pos) {
-        IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, pos);
+    public static RtsItemHandler findLinkedItemHandler(ServerPlayer player, BlockPos pos) {
+        RtsItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, pos);
         if (ae2Network != null) {
             return ae2Network;
         }
-        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, pos);
+        RtsItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, pos);
         if (refinedStorageNetwork != null) {
             return refinedStorageNetwork;
         }
@@ -63,18 +69,18 @@ public final class RtsLinkedCapabilities {
     /**
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
-    public static IFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
+    public static RtsFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
         if (!player.serverLevel().hasChunkAt(pos)) {
             return null;
         }
-        IFluidHandler direct = player.serverLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, null);
+        Storage<FluidVariant> direct = FluidStorage.SIDED.find(player.serverLevel(), pos, null);
         if (direct != null) {
-            return direct;
+            return new FabricFluidHandler(direct);
         }
         for (Direction direction : Direction.values()) {
-            IFluidHandler sided = player.serverLevel().getCapability(Capabilities.FluidHandler.BLOCK, pos, direction);
+            Storage<FluidVariant> sided = FluidStorage.SIDED.find(player.serverLevel(), pos, direction);
             if (sided != null) {
-                return sided;
+                return new FabricFluidHandler(sided);
             }
         }
         return null;

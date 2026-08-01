@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.List;
 import java.util.UUID;
@@ -75,18 +75,18 @@ public final class RtsLinkedStorageResolver {
     // ======================================================================
 
     /**
-     * 便捷快捷方式：解析链接处理器并提取裸 {@link IItemHandler} 实例，
+     * 便捷快捷方式：解析链接处理器并提取裸 {@link RtsItemHandler} 实例，
      * 按插入顺序排列（高优先级优先）。
      */
-    public static List<IItemHandler> itemHandlersForInsert(List<LinkedHandler> handlers) {
+    public static List<RtsItemHandler> itemHandlersForInsert(List<LinkedHandler> handlers) {
         return RtsLinkedHandlerResolutionService.itemHandlersForInsert(handlers);
     }
 
     /**
-     * 便捷快捷方式：解析链接处理器并提取裸 {@link IItemHandler} 实例，
+     * 便捷快捷方式：解析链接处理器并提取裸 {@link RtsItemHandler} 实例，
      * 按提取顺序排列（低优先级优先）。
      */
-    public static List<IItemHandler> itemHandlersForExtract(List<LinkedHandler> handlers) {
+    public static List<RtsItemHandler> itemHandlersForExtract(List<LinkedHandler> handlers) {
         return RtsLinkedHandlerResolutionService.itemHandlersForExtract(handlers);
     }
 

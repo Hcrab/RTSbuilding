@@ -13,7 +13,7 @@ class BuilderScreenScrollRouterContractTest {
     @Test
     void uiOwnersConsumeScrollBeforeWorldFallback() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenScrollRouter.java"));
 
         int wheels = source.indexOf("this.placementStateWheel.isOpen()");
@@ -42,7 +42,7 @@ class BuilderScreenScrollRouterContractTest {
     @Test
     void mainScreenKeepsScaleRemapBeforeRouter() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source,
                 "public boolean mouseScrolled(double mouseX, double mouseY, "
                         + "double scrollX, double scrollY)");

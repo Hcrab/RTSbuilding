@@ -14,11 +14,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
-@EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsGuiCompatSetupCommand {
     private static final String PROBE_REPORT_PROPERTY = "rtsbuilding.guiCompatProbeReport";
     private static final String PROBE_REPORT_ENV = "RTSBUILDING_GUI_COMPAT_PROBE_REPORT";
@@ -32,12 +28,11 @@ public final class RtsGuiCompatSetupCommand {
     private RtsGuiCompatSetupCommand() {
     }
 
-    @SubscribeEvent
-    public static void register(RegisterCommandsEvent event) {
+    public static void registerIfEnabled(CommandDispatcher<CommandSourceStack> dispatcher) {
         if (!isProbeEnabled()) {
             return;
         }
-        register(event.getDispatcher());
+        register(dispatcher);
     }
 
     public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {

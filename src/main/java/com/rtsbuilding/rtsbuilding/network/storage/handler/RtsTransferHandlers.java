@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for linked-storage item transfer actions.
@@ -15,7 +15,7 @@ public final class RtsTransferHandlers {
     private RtsTransferHandlers() {
     }
 
-    public static void handleFillInventory(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsFillInventoryPayload payload, IPayloadContext context) {
+    public static void handleFillInventory(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsFillInventoryPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().transfer().fillPlayerInventoryFromLinked(serverPlayer);
@@ -23,7 +23,7 @@ public final class RtsTransferHandlers {
         });
     }
 
-    public static void handleLinkedPickup(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload payload, IPayloadContext context) {
+    public static void handleLinkedPickup(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().transfer().pickupLinkedToCarried(serverPlayer, payload.prototype(), payload.amount());
@@ -31,7 +31,7 @@ public final class RtsTransferHandlers {
         });
     }
 
-    public static void handleLinkedQuickMove(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedQuickMovePayload payload, IPayloadContext context) {
+    public static void handleLinkedQuickMove(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedQuickMovePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().transfer().quickMoveLinkedItem(serverPlayer, payload.prototype());
@@ -39,7 +39,7 @@ public final class RtsTransferHandlers {
         });
     }
 
-    public static void handleReturnCarried(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload payload, IPayloadContext context) {
+    public static void handleReturnCarried(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().transfer().returnCarriedToLinked(serverPlayer, payload.itemId(), payload.amount());
@@ -47,7 +47,7 @@ public final class RtsTransferHandlers {
         });
     }
 
-    public static void handleImportMenuSlot(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload payload, IPayloadContext context) {
+    public static void handleImportMenuSlot(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().transfer().importMenuSlotToLinked(serverPlayer, payload.menuSlot());

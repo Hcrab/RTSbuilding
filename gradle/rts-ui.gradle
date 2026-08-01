@@ -34,6 +34,10 @@ sourceSets {
         compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
         runtimeClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
     }
+    client {
+        compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
+        runtimeClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
+    }
     // 普通仓库测试会编译直接/间接暴露 Core 类型的生产类；它必须看到与 main 相同的输出。
     test {
         compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
@@ -41,14 +45,13 @@ sourceSets {
     }
 }
 
-// ModDev 的开发运行不会自动继承 main.runtimeClasspath 里的独立 source set。
-// 必须把 Core/Kit 明确登记为同一个 rtsbuilding 模组的源码根，否则发布 JAR 正常，
-// 但按 G 构造 BuilderScreen 时 ModLauncher 的 TRANSFORMER 类加载器看不到这些类。
-neoForge {
+// Loom 的开发运行不会自动把独立 source set 当成模组内容。
+// Core/Kit 必须与 main/client 一起登记到同一个 rtsbuilding 模组。
+loom {
     mods {
         "${mod_id}" {
-            sourceSet(sourceSets.uiCore)
-            sourceSet(sourceSets.uiKit)
+            sourceSet sourceSets.uiCore
+            sourceSet sourceSets.uiKit
         }
     }
 }
@@ -69,6 +72,11 @@ dependencies {
 }
 
 tasks.named('compileJava').configure {
+    dependsOn tasks.named('compileUiCoreJava')
+    dependsOn tasks.named('compileUiKitJava')
+}
+
+tasks.named('compileClientJava').configure {
     dependsOn tasks.named('compileUiCoreJava')
     dependsOn tasks.named('compileUiKitJava')
 }
@@ -114,6 +122,7 @@ tasks.register('uiCoreTest', Test) {
     // 必须把这些源码显式列为输入，否则 owner 拆分后 Gradle 可能误用旧的绿色结果。
     inputs.files(
             fileTree('src/main/java') { include '**/*.java' },
+            fileTree('src/client/java') { include '**/*.java' },
             fileTree('src/uiCore/java') { include '**/*.java' },
             fileTree('src/uiKit/java') { include '**/*.java' })
     testClassesDirs = sourceSets.uiCoreTest.output.classesDirs
@@ -224,11 +233,11 @@ tasks.register('verifyUiBaselineResources') {
             file('src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal.png')
     ]
     def requiredPanels = [
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/RtsWindowPanel.java'),
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/gear/GearMenuPanel.java'),
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java'),
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java'),
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java')
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/screen/panel/RtsWindowPanel.java'),
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/screen/gear/GearMenuPanel.java'),
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java'),
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java'),
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java')
     ]
     inputs.files(languageFiles + requiredTextures + requiredPanels)
     doLast {
@@ -291,19 +300,23 @@ tasks.register('verifyUiJava8Bytecode') {
 
 tasks.register('verifyUiDevModSources') {
     group = 'verification'
-    description = '确认 NeoForge 开发运行的 MOD_CLASSES 同时包含 main、UI Core 与 UI Kit。'
+    description = '确认 Fabric 开发模组同时包含 main、client、UI Core 与 UI Kit。'
     dependsOn tasks.named('compileUiCoreJava')
     dependsOn tasks.named('compileUiKitJava')
     doLast {
-        def registered = neoForge.mods.named(mod_id).get().modSourceSets.get()
-                .collect { it.name } as Set
-        ['main', 'uiCore', 'uiKit'].each { required ->
-            if (!registered.contains(required)) {
+        // Loom 1.15 会把同项目 source set 展开到 modFiles；modSourceSets 只记录外部项目引用。
+        def registeredFiles = loom.mods.named(mod_id).get().modFiles.files
+                .collect { it.canonicalFile } as Set
+        ['main', 'client', 'uiCore', 'uiKit'].each { required ->
+            def classDirs = sourceSets.named(required).get().output.classesDirs.files
+                    .collect { it.canonicalFile }
+            if (classDirs.isEmpty() || !registeredFiles.containsAll(classDirs)) {
                 throw new GradleException(
-                        "NeoForge dev mod '${mod_id}' missing source set '${required}': ${registered}")
+                        "Fabric dev mod '${mod_id}' missing source set '${required}' class dirs: "
+                                + "expected=${classDirs}, registered=${registeredFiles}")
             }
         }
-        println "Verified NeoForge dev mod sources: ${registered.sort()}"
+        println 'Verified Fabric dev mod sources: main, client, uiCore, uiKit'
     }
 }
 
@@ -311,35 +324,35 @@ tasks.register('verifyUiStyleDebt') {
     group = 'verification'
     description = '锁定通用 ARGB、重复布局偏移与正式按钮手绘债务，确保后续只减不增。'
     def productionRoots = [
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/gear',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/guide',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/storage',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/workflow',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/screen/craft',
-            'src/main/java/com/rtsbuilding/rtsbuilding/client/widget'
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/topbar',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/panel',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/gear',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/guide',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/storage',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/workflow',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/screen/craft',
+            'src/client/java/com/rtsbuilding/rtsbuilding/client/widget'
     ]
     def productionSources = files(productionRoots.collect { fileTree(it) { include '**/*.java' } },
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsClientUiUtil.java'),
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java'))
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/util/RtsClientUiUtil.java'),
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java'))
     def previewSources = fileTree('src/uiPreview/java') { include '**/*.java' }
     def productionScreenSources =
-            fileTree('src/main/java/com/rtsbuilding/rtsbuilding/client/screen') { include '**/*.java' }
+            fileTree('src/client/java/com/rtsbuilding/rtsbuilding/client/screen') { include '**/*.java' }
     def productionOverlaySources = files(
-            fileTree('src/main/java/com/rtsbuilding/rtsbuilding/client/input/overlay') {
+            fileTree('src/client/java/com/rtsbuilding/rtsbuilding/client/input/overlay') {
                 include '**/*.java'
             },
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/input/RtsClientInputGate.java'),
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/popup/RtsCraftQuantityDialog.java'),
-            file('src/main/java/com/rtsbuilding/rtsbuilding/client/popup/RtsCraftFeedbackPopup.java'))
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/input/RtsClientInputGate.java'),
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/popup/RtsCraftQuantityDialog.java'),
+            file('src/client/java/com/rtsbuilding/rtsbuilding/client/popup/RtsCraftFeedbackPopup.java'))
     // 颜色门禁覆盖整个生产 screen 包和已经收口的容器 Overlay/Popup；不能靠文件白名单制造局部零债务。
     def productionColorSources = files(
             productionSources, productionScreenSources, productionOverlaySources)
-    def iconRenderer = file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarIconRenderer.java')
-    def guidePanel = file('src/main/java/com/rtsbuilding/rtsbuilding/client/screen/guide/GuidePanel.java')
+    def iconRenderer = file('src/client/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarIconRenderer.java')
+    def guidePanel = file('src/client/java/com/rtsbuilding/rtsbuilding/client/screen/guide/GuidePanel.java')
     inputs.files(productionSources, productionColorSources, previewSources,
             productionScreenSources, productionOverlaySources, iconRenderer, guidePanel)
     doLast {

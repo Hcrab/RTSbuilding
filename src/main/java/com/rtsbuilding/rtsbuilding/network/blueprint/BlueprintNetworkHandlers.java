@@ -8,13 +8,13 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 public final class BlueprintNetworkHandlers {
     private BlueprintNetworkHandlers() {
     }
 
-    public static void handlePlace(C2SBlueprintPlacePayload payload, IPayloadContext context) {
+    public static void handlePlace(C2SBlueprintPlacePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (!(context.player() instanceof ServerPlayer player)) {
                 return;

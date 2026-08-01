@@ -6,8 +6,8 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.fml.ModList;
-import net.neoforged.neoforge.items.IItemHandler;
+import net.fabricmc.loader.api.FabricLoader;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -58,15 +58,15 @@ public final class RtsBackpackCompat {
                 .map(ResourceLocation::toString);
     }
 
-    public static Optional<IItemHandler> openBackpack(UUID uuid, String itemId) {
+    public static Optional<RtsItemHandler> openBackpack(UUID uuid, String itemId) {
         return openBackpack(uuid, itemId, null);
     }
 
-    public static Optional<IItemHandler> openBackpack(UUID uuid, String itemId, ServerPlayer fallbackPlayer) {
+    public static Optional<RtsItemHandler> openBackpack(UUID uuid, String itemId, ServerPlayer fallbackPlayer) {
         if (!isAvailable() || uuid == null) {
             return Optional.empty();
         }
-        Optional<IItemHandler> carriedHandler = findBackpackHandlerByUuid(fallbackPlayer, uuid);
+        Optional<RtsItemHandler> carriedHandler = findBackpackHandlerByUuid(fallbackPlayer, uuid);
         if (carriedHandler.isPresent()) {
             return carriedHandler;
         }
@@ -84,7 +84,7 @@ public final class RtsBackpackCompat {
         return REFLECTION.openBackpack(uuid, new ItemStack(item));
     }
 
-    public static Optional<IItemHandler> findBackpackHandlerByUuid(ServerPlayer player, UUID uuid) {
+    public static Optional<RtsItemHandler> findBackpackHandlerByUuid(ServerPlayer player, UUID uuid) {
         if (!isAvailable() || player == null || uuid == null) {
             return Optional.empty();
         }
@@ -126,9 +126,6 @@ public final class RtsBackpackCompat {
         private final Method getContentsUuid;
         private final Method getBackpackStack;
         private final Method fromStack;
-        private final Method getBackpackCapability;
-        private final Method itemStackGetCapability;
-        private final Method lazyOptionalResolve;
         private final Method setContentsUuid;
         private final Method getInventoryForInputOutput;
         private final Method getInventoryHandler;
@@ -142,9 +139,6 @@ public final class RtsBackpackCompat {
                 Method getContentsUuid,
                 Method getBackpackStack,
                 Method fromStack,
-                Method getBackpackCapability,
-                Method itemStackGetCapability,
-                Method lazyOptionalResolve,
                 Method setContentsUuid,
                 Method getInventoryForInputOutput,
                 Method getInventoryHandler,
@@ -156,9 +150,6 @@ public final class RtsBackpackCompat {
             this.getContentsUuid = getContentsUuid;
             this.getBackpackStack = getBackpackStack;
             this.fromStack = fromStack;
-            this.getBackpackCapability = getBackpackCapability;
-            this.itemStackGetCapability = itemStackGetCapability;
-            this.lazyOptionalResolve = lazyOptionalResolve;
             this.setContentsUuid = setContentsUuid;
             this.getInventoryForInputOutput = getInventoryForInputOutput;
             this.getInventoryHandler = getInventoryHandler;
@@ -168,7 +159,7 @@ public final class RtsBackpackCompat {
         }
 
         static BackpackReflection tryLoad() {
-            if (!ModList.get().isLoaded(MOD_ID)) {
+            if (!FabricLoader.getInstance().isModLoaded(MOD_ID)) {
                 return null;
             }
             try {
@@ -182,19 +173,7 @@ public final class RtsBackpackCompat {
                 Method getBw = backpackBlockEntity.getMethod("getBackpackWrapper");
                 Method getCu = iBackpackWrapper.getMethod("getContentsUuid");
                 Method getStack = findFirstMethod(iBackpackWrapper, "getBackpack", "getBackpackStack");
-                Method fromStack = findMethodOrNull(backpackWrapper, "fromStack", ItemStack.class);
-                Method getBackpackCapability = null;
-                Method itemStackGetCapability = null;
-                Method lazyOptionalResolve = null;
-                if (fromStack == null) {
-                    Class<?> capabilityClass = Class.forName("net.minecraftforge.common.capabilities.Capability");
-                    Class<?> capabilityBackpackWrapper = Class.forName(
-                            "net.p3pp3rf1y.sophisticatedbackpacks.api.CapabilityBackpackWrapper");
-                    Class<?> lazyOptionalClass = Class.forName("net.minecraftforge.common.util.LazyOptional");
-                    getBackpackCapability = capabilityBackpackWrapper.getMethod("getCapabilityInstance");
-                    itemStackGetCapability = ItemStack.class.getMethod("getCapability", capabilityClass);
-                    lazyOptionalResolve = lazyOptionalClass.getMethod("resolve");
-                }
+                Method fromStack = backpackWrapper.getMethod("fromStack", ItemStack.class);
                 Method setCu = iBackpackWrapper.getMethod("setContentsUuid", UUID.class);
                 Method getInputOutput = iBackpackWrapper.getMethod("getInventoryForInputOutput");
                 Method getInventory = iBackpackWrapper.getMethod("getInventoryHandler");
@@ -219,9 +198,6 @@ public final class RtsBackpackCompat {
                         getCu,
                         getStack,
                         fromStack,
-                        getBackpackCapability,
-                        itemStackGetCapability,
-                        lazyOptionalResolve,
                         setCu,
                         getInputOutput,
                         getInventory,
@@ -241,14 +217,6 @@ public final class RtsBackpackCompat {
                 }
             }
             throw new NoSuchMethodException(String.join("/", names));
-        }
-
-        private static Method findMethodOrNull(Class<?> target, String name, Class<?>... parameterTypes) {
-            try {
-                return target.getMethod(name, parameterTypes);
-            } catch (NoSuchMethodException ignored) {
-                return null;
-            }
         }
 
         boolean isBackpackBlockEntity(BlockEntity blockEntity) {
@@ -285,7 +253,7 @@ public final class RtsBackpackCompat {
             return Optional.empty();
         }
 
-        Optional<IItemHandler> openBackpack(UUID uuid, ItemStack backpackStack) {
+        Optional<RtsItemHandler> openBackpack(UUID uuid, ItemStack backpackStack) {
             if (uuid == null || backpackStack == null || backpackStack.isEmpty()) {
                 return Optional.empty();
             }
@@ -296,19 +264,18 @@ public final class RtsBackpackCompat {
                 }
                 setContentsUuid.invoke(wrapper, uuid);
                 Object handler = getInventoryForInputOutput.invoke(wrapper);
-                if (handler instanceof IItemHandler itemHandler) {
-                    return Optional.of(itemHandler);
+                Optional<RtsItemHandler> adapted = ReflectiveRtsItemHandler.tryWrap(handler);
+                if (adapted.isPresent()) {
+                    return adapted;
                 }
                 handler = getInventoryHandler.invoke(wrapper);
-                if (handler instanceof IItemHandler itemHandler) {
-                    return Optional.of(itemHandler);
-                }
+                return ReflectiveRtsItemHandler.tryWrap(handler);
             } catch (IllegalAccessException | InvocationTargetException | ClassCastException ignored) {
             }
             return Optional.empty();
         }
 
-        Optional<IItemHandler> openExistingBackpack(ItemStack backpackStack) {
+        Optional<RtsItemHandler> openExistingBackpack(ItemStack backpackStack) {
             if (backpackStack == null || backpackStack.isEmpty()) {
                 return Optional.empty();
             }
@@ -319,13 +286,12 @@ public final class RtsBackpackCompat {
                     return Optional.empty();
                 }
                 Object handler = getInventoryForInputOutput.invoke(wrapper);
-                if (handler instanceof IItemHandler itemHandler) {
-                    return Optional.of(itemHandler);
+                Optional<RtsItemHandler> adapted = ReflectiveRtsItemHandler.tryWrap(handler);
+                if (adapted.isPresent()) {
+                    return adapted;
                 }
                 handler = getInventoryHandler.invoke(wrapper);
-                if (handler instanceof IItemHandler itemHandler) {
-                    return Optional.of(itemHandler);
-                }
+                return ReflectiveRtsItemHandler.tryWrap(handler);
             } catch (IllegalAccessException | InvocationTargetException | ClassCastException ignored) {
             }
             return Optional.empty();
@@ -378,16 +344,7 @@ public final class RtsBackpackCompat {
 
         private Object wrapperFromStack(ItemStack stack)
                 throws InvocationTargetException, IllegalAccessException {
-            if (fromStack != null) {
-                return fromStack.invoke(null, stack);
-            }
-            if (getBackpackCapability == null || itemStackGetCapability == null || lazyOptionalResolve == null) {
-                return null;
-            }
-            Object capability = getBackpackCapability.invoke(null);
-            Object lazyOptional = itemStackGetCapability.invoke(stack, capability);
-            Object resolved = lazyOptionalResolve.invoke(lazyOptional);
-            return resolved instanceof Optional<?> optional ? optional.orElse(null) : null;
+            return fromStack.invoke(null, stack);
         }
     }
 }

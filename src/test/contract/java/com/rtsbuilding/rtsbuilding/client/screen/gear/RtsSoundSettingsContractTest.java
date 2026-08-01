@@ -17,9 +17,9 @@ class RtsSoundSettingsContractTest {
         String settings = Files.readString(Path.of(
                 "src/uiCore/java/com/rtsbuilding/rtsbuilding/uicore/settings/SettingsId.java"));
         String adapter = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/gear/GearMenuUiAdapter.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/gear/GearMenuUiAdapter.java"));
         String store = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/common/persist/RtsClientUiStateStore.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/common/persist/RtsClientUiStateStore.java"));
 
         int soundSection = sections.indexOf("SOUND(\"screen.rtsbuilding.settings.category.sound\")");
         int animationSection = sections.indexOf(
@@ -47,11 +47,11 @@ class RtsSoundSettingsContractTest {
     @Test
     void runtimeFiltersSoundsImmediatelyWithoutAddingAnotherQueue() throws IOException {
         String player = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/sound/RtsBlockActionSoundPlayer.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/sound/RtsBlockActionSoundPlayer.java"));
         String payload = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/S2CRtsBlockActionSoundPayload.java"));
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsCommandOwner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsCommandOwner.java"));
 
         assertTrue(player.contains("isRtsSoundsEnabled()"));
         assertTrue(player.contains("!payload.breakAction()")

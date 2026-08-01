@@ -7,7 +7,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.fml.ModList;
+import net.fabricmc.loader.api.FabricLoader;
 
 /**
  * Open Parties and Claims 的可选兼容入口。
@@ -18,7 +18,7 @@ import net.neoforged.fml.ModList;
  */
 public final class RtsOpenPacCompat {
     private static final String MOD_ID = "openpartiesandclaims";
-    private static final boolean OPENPAC_LOADED = ModList.get().isLoaded(MOD_ID);
+    private static final boolean OPENPAC_LOADED = FabricLoader.getInstance().isModLoaded(MOD_ID);
     private static final RtsOpenPacCompatImpl IMPL = createImpl();
 
     private RtsOpenPacCompat() {

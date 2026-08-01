@@ -13,10 +13,8 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 import net.minecraft.world.level.Level;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.fml.loading.FMLEnvironment;
-
 import java.util.List;
+import java.util.function.BooleanSupplier;
 
 /**
  * Real inventory item used to install one RTS plugin.
@@ -28,6 +26,7 @@ public class RtsPluginItem extends Item {
     private static final String REMOTE_CONTROL_PLUGIN = "remote_control_plugin";
     private static final String STORAGE_INTEGRATION_PLUGIN = "storage_integration_plugin";
     private static final String AREA_DESTROY_PLUGIN = "area_destroy_plugin";
+    private static volatile BooleanSupplier controlDown = () -> false;
 
     public RtsPluginItem(Properties properties) {
         super(properties);
@@ -100,15 +99,11 @@ public class RtsPluginItem extends Item {
     }
 
     private static boolean isControlDown() {
-        return FMLEnvironment.dist == Dist.CLIENT && ClientKeyState.isControlDown();
+        return controlDown.getAsBoolean();
     }
 
-    private static final class ClientKeyState {
-        private ClientKeyState() {
-        }
-
-        private static boolean isControlDown() {
-            return net.minecraft.client.gui.screens.Screen.hasControlDown();
-        }
+    /** 仅由 Fabric 客户端入口安装，公共/服务端源码不加载 Screen。 */
+    public static void installControlDownSupplier(BooleanSupplier supplier) {
+        controlDown = supplier == null ? () -> false : supplier;
     }
 }

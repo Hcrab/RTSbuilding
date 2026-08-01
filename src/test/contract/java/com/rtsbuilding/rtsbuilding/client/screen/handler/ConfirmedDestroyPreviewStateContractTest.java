@@ -16,9 +16,9 @@ class ConfirmedDestroyPreviewStateContractTest {
     @Test
     void controllerDelegatesStorageExpiryAndPruningToDedicatedState() throws IOException {
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String workArea = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeConfirmedDestroyWorkArea.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeConfirmedDestroyWorkArea.java"));
 
         assertTrue(controller.contains(
                 "private final ShapeConfirmedDestroyWorkArea confirmedDestroyWorkArea"));
@@ -42,7 +42,7 @@ class ConfirmedDestroyPreviewStateContractTest {
     @Test
     void stateOwnerCannotReachScreenWorldControllerConfigOrNetwork() throws IOException {
         String state = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ConfirmedDestroyPreviewState.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ConfirmedDestroyPreviewState.java"));
 
         assertFalse(state.contains("BuilderScreen"));
         assertFalse(state.contains("ClientRtsController"));

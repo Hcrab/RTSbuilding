@@ -30,7 +30,7 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
 import net.minecraft.world.item.crafting.RecipeHolder;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -136,8 +136,8 @@ public final class RtsCraftingExecutor {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
         }
-        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
-        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        List<RtsItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         ItemStack previewResult = resolveCraftablePreviewResult(craftingRecipe, player);
         String resultLabel = previewResult.isEmpty() ? "item" : previewResult.getHoverName().getString();
@@ -199,8 +199,8 @@ public final class RtsCraftingExecutor {
     // ---- single craft -----------------------------------------------------------
 
     private static CraftExecutionResult craftSingleRecipeToLinked(
-            ServerPlayer player, List<IItemHandler> extractHandlers,
-            List<IItemHandler> insertHandlers, CraftingRecipe recipe) {
+            ServerPlayer player, List<RtsItemHandler> extractHandlers,
+            List<RtsItemHandler> insertHandlers, CraftingRecipe recipe) {
         boolean includePlayerFallback = !(player.containerMenu instanceof RtsCraftTerminalMenu);
 
         Ingredient[] required = RtsCraftingUtils.mapCraftingIngredients(recipe);
@@ -280,7 +280,7 @@ public final class RtsCraftingExecutor {
     // ---- ingredient extraction ---------------------------------------------------
 
     private static ExtractedIngredient takePlannedIngredientForCraft(
-            List<IItemHandler> handlers, ServerPlayer player,
+            List<RtsItemHandler> handlers, ServerPlayer player,
             Ingredient ingredient, ItemStack prototype, boolean includePlayerFallback) {
         if (ingredient == null || ingredient.isEmpty() || prototype == null || prototype.isEmpty() || !ingredient.test(prototype)) {
             return takeIngredientForCraft(handlers, player, ingredient, includePlayerFallback);
@@ -300,7 +300,7 @@ public final class RtsCraftingExecutor {
     }
 
     private static ExtractedIngredient takeIngredientForCraft(
-            List<IItemHandler> handlers, ServerPlayer player,
+            List<RtsItemHandler> handlers, ServerPlayer player,
             Ingredient ingredient, boolean includePlayerFallback) {
         ItemStack fromLinked = extractOneMatchingIngredient(handlers, ingredient, ItemStack.EMPTY);
         if (!fromLinked.isEmpty()) {
@@ -319,7 +319,7 @@ public final class RtsCraftingExecutor {
     // ---- rollback ----------------------------------------------------------------
 
     private static void rollbackCraftIngredients(
-            List<IItemHandler> handlers, ServerPlayer player, ExtractedIngredient[] extracted) {
+            List<RtsItemHandler> handlers, ServerPlayer player, ExtractedIngredient[] extracted) {
         for (int i = extracted.length - 1; i >= 0; i--) {
             ExtractedIngredient ingredient = extracted[i];
             if (ingredient == null || ingredient.stack().isEmpty()) {
@@ -336,7 +336,7 @@ public final class RtsCraftingExecutor {
         }
     }
 
-    private static void rollbackStoredCraftOutputs(List<IItemHandler> handlers, List<ItemStack> storedOutputs) {
+    private static void rollbackStoredCraftOutputs(List<RtsItemHandler> handlers, List<ItemStack> storedOutputs) {
         for (int i = storedOutputs.size() - 1; i >= 0; i--) {
             ItemStack stored = storedOutputs.get(i);
             int remaining = stored.getCount();
@@ -352,12 +352,12 @@ public final class RtsCraftingExecutor {
 
     // ---- ingredient extraction helpers --------------------------------------------
 
-    private static ItemStack extractOneMatchingIngredient(List<IItemHandler> handlers, Ingredient ingredient) {
+    private static ItemStack extractOneMatchingIngredient(List<RtsItemHandler> handlers, Ingredient ingredient) {
         return extractOneMatchingIngredient(handlers, ingredient, ItemStack.EMPTY);
     }
 
     static ItemStack extractOneMatchingIngredient(
-            List<IItemHandler> handlers, Ingredient ingredient, ItemStack preferred) {
+            List<RtsItemHandler> handlers, Ingredient ingredient, ItemStack preferred) {
         if (ingredient == null || ingredient.isEmpty()) {
             return ItemStack.EMPTY;
         }
@@ -371,8 +371,8 @@ public final class RtsCraftingExecutor {
     }
 
     private static ItemStack extractOneMatchingIngredientFromHandlers(
-            List<IItemHandler> handlers, Ingredient ingredient, ItemStack preferred) {
-        for (IItemHandler handler : handlers) {
+            List<RtsItemHandler> handlers, Ingredient ingredient, ItemStack preferred) {
+        for (RtsItemHandler handler : handlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack stack = handler.getStackInSlot(slot);
                 if (stack.isEmpty() || !ingredient.test(stack)) {
@@ -400,7 +400,7 @@ public final class RtsCraftingExecutor {
     // ---- ingredient extraction (package-visible for GridFiller) -------------------
 
     static ItemStack extractOneMatchingIngredientCombined(
-            List<IItemHandler> handlers, ServerPlayer player,
+            List<RtsItemHandler> handlers, ServerPlayer player,
             Ingredient ingredient, ItemStack preferred) {
         ItemStack fromLinked = extractOneMatchingIngredient(handlers, ingredient, preferred);
         if (!fromLinked.isEmpty()) {

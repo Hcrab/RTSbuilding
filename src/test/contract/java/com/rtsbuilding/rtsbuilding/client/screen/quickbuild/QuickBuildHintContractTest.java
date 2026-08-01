@@ -15,11 +15,11 @@ class QuickBuildHintContractTest {
     @Test
     void buildHintTracksKeyboardFinalConfirmSetting() throws IOException {
         String panel = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
         String renderer = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildStatusRenderer.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildStatusRenderer.java"));
         String adapter = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
         JsonObject zhCn = JsonParser.parseString(Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"))).getAsJsonObject();
 
@@ -36,9 +36,9 @@ class QuickBuildHintContractTest {
     @Test
     void buildAndDestroyUseTheSameAutoSubmitPolicyAfterSelection() throws IOException {
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String session = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionSession.java"));
 
         assertEquals(2, occurrences(controller, "if (shouldSubmitShapeAfterSelection())"),
                 "范围建造和范围破坏都必须在最后一个选点后经过同一自动提交策略");

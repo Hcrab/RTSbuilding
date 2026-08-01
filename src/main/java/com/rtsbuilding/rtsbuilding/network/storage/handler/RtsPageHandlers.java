@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.storage.handler;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for linked-storage page requests.
@@ -16,7 +16,7 @@ public final class RtsPageHandlers {
     private RtsPageHandlers() {
     }
 
-    public static void handleRequestStoragePage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload payload, IPayloadContext context) {
+    public static void handleRequestStoragePage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().page().requestPage(

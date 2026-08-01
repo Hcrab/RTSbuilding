@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 锁定 BuilderScreen 终局拆分，防止完整业务职责重新回流主屏幕。 */
 class BuilderScreenOwnershipContractTest {
     private static final Path ROOT = Path.of(
-            "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone");
+            "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone");
     private static final List<String> OWNERS = List.of(
             "BuilderScreenComponentState.java",
             "BuilderScreenLifecycleOwner.java",

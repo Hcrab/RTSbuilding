@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.server.service.api.*;
 import com.rtsbuilding.rtsbuilding.server.service.impl.*;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * 服务注册中心——管理所有 RTS 服务的实例化与生命周期。

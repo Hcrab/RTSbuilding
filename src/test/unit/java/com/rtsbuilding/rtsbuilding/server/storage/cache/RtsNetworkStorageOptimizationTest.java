@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,8 +15,6 @@ import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.neoforged.fml.loading.LoadingModList;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -26,9 +25,6 @@ import static org.junit.jupiter.api.Assertions.fail;
 class RtsNetworkStorageOptimizationTest {
     @BeforeAll
     static void bootstrapMinecraftRegistries() {
-        if (LoadingModList.get() == null) {
-            LoadingModList.of(List.of(), List.of(), List.of(), List.of(), Map.of());
-        }
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
     }
@@ -179,7 +175,7 @@ class RtsNetworkStorageOptimizationTest {
         RS
     }
 
-    private static final class FakeNetworkHandler implements IItemHandler,
+    private static final class FakeNetworkHandler implements RtsItemHandler,
             ReportedCountItemHandler,
             AnySlotInsertItemHandler,
             RefreshableSnapshotHandler {

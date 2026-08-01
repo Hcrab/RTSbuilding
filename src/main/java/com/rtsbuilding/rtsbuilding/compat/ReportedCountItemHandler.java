@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.compat;
 
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 /**
- * Optional extension for {@link IItemHandler} implementations that can report
+ * Optional extension for {@link RtsItemHandler} implementations that can report
  * the actual network-level count of items in a slot, which may exceed the
  * vanilla {@link net.minecraft.world.item.ItemStack#getMaxStackSize()} limit.
  */

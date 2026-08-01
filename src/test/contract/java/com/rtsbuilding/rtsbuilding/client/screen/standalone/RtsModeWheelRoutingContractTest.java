@@ -13,9 +13,9 @@ class RtsModeWheelRoutingContractTest {
     void wheelSelectionUpdatesTheStateReadByTopBarActiveStyle() throws IOException {
         String screen = owner("BuilderScreenModeSessionOwner.java");
         String topBar = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java");
         String topBarAdapter = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarUiAdapter.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarUiAdapter.java");
 
         String selection = methodBody(screen, "void selectModeFromWheel(BuilderMode mode)");
         assertTrue(selection.contains("screen.controller.setMode(mode)"),
@@ -33,7 +33,7 @@ class RtsModeWheelRoutingContractTest {
     @Test
     void altWheelUsesOneStableTickEdgeInsteadOfThreeCompetingInputPaths() throws IOException {
         String screen = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String altState = methodBody(owner("BuilderScreenModeSessionOwner.java"), "void updateModeWheelAltState()");
         String tick = methodBody(owner("BuilderScreenLifecycleOwner.java"), "void tick()");
         String keyPressed = methodBody(
@@ -56,7 +56,7 @@ class RtsModeWheelRoutingContractTest {
     void linkAndRotateActionsKeepTheRightDragCameraArbitration() throws IOException {
         String screen = owner("BuilderScreenPointerActionOwner.java");
         String cameraInput = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java");
         String mouseDown = methodBody(
                 screen,
                 "boolean handleWorldClickActions(double mouseX, double mouseY, int button)");
@@ -108,7 +108,7 @@ class RtsModeWheelRoutingContractTest {
     void placedBlockRotationUsesWorldArcsAndSubmitsOneStepIntent() throws IOException {
         String screen = owner("BuilderScreenPointerActionOwner.java");
         String handles = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacedBlockRotationHandles.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacedBlockRotationHandles.java");
         String leftClick = methodBody(
                 screen,
                 "boolean handleLeftClickInteractions(double mouseX, double mouseY, int button)");
@@ -127,9 +127,9 @@ class RtsModeWheelRoutingContractTest {
     @Test
     void placedBlockRotationHandlesRenderInWorldWithoutBlockingCameraDrag() throws IOException {
         String renderer = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/selection/PlacedBlockRotationHandleRenderer.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/rendering/selection/PlacedBlockRotationHandleRenderer.java");
         String cameraInput = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java");
 
         assertTrue(renderer.contains("RenderingUtil.quad("));
         assertTrue(renderer.contains("renderArc("));
@@ -145,7 +145,7 @@ class RtsModeWheelRoutingContractTest {
                 screen,
                 "boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers)");
         String keyRouter = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenKeyPressRouter.java");
         String keyPressed = methodBody(
                 keyRouter, "boolean keyPressed(int keyCode, int scanCode, int modifiers)");
@@ -162,9 +162,9 @@ class RtsModeWheelRoutingContractTest {
     @Test
     void hoveredPinBindingGetsPriorityOverWorldKeyConflicts() throws IOException {
         String screen = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String keyRouter = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenKeyPressRouter.java");
         String keyPressed = methodBody(
                 keyRouter, "boolean keyPressed(int keyCode, int scanCode, int modifiers)");
@@ -177,9 +177,9 @@ class RtsModeWheelRoutingContractTest {
     @Test
     void altModeWheelUsesModernVectorNodesAndProgressiveOpening() throws IOException {
         String wheel = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/BuilderModeWheel.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/mode/BuilderModeWheel.java");
         String vectorRenderer = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsGuiVectorRenderer.java");
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/util/RtsGuiVectorRenderer.java");
 
         assertTrue(wheel.contains("OPEN_DURATION_MS = 175L"));
         assertTrue(wheel.contains("animationProgress("));
@@ -196,7 +196,7 @@ class RtsModeWheelRoutingContractTest {
     }
 
     private static String owner(String file) throws IOException {
-        return source("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/" + file);
+        return source("src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/" + file);
     }
 
     private static String methodBody(String source, String signatureStart) {

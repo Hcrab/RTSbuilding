@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.model;
 
 import net.minecraft.core.BlockPos;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 /**
  * 已解析的链接物品处理器——将链接存储引用与其对应的物品处理器绑定。
@@ -14,7 +14,7 @@ import net.neoforged.neoforge.items.IItemHandler;
  * @param allowStore 是否允许存入物品（false = 仅提取模式）
  * @param priority   优先级（AE 风格，影响插入顺序）
  */
-public record LinkedHandler(LinkedStorageRef ref, String name, IItemHandler handler, boolean allowStore, int priority) {
+public record LinkedHandler(LinkedStorageRef ref, String name, RtsItemHandler handler, boolean allowStore, int priority) {
     public BlockPos pos() {
         return this.ref.pos();
     }

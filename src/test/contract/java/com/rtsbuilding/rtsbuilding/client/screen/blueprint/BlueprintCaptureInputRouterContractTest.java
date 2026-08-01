@@ -38,7 +38,7 @@ class BlueprintCaptureInputRouterContractTest {
     void blueprintPanelDelegatesCaptureKeysWithoutKeepingDuplicateBranch()
             throws IOException {
         String panel = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/"
                         + "BlueprintPanel.java"));
         String body = methodBody(panel, "public static boolean keyPressed(");
 
@@ -49,7 +49,7 @@ class BlueprintCaptureInputRouterContractTest {
 
     private static String source(String fileName) throws IOException {
         return Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/",
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/",
                 fileName));
     }
 

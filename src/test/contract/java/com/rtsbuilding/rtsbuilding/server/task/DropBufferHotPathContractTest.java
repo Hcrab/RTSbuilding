@@ -31,10 +31,11 @@ class DropBufferHotPathContractTest {
     void miningCapturesExactPreSpawnDropsInsteadOfScanningWorldEntities() throws IOException {
         String capture = read("server/service/mining/RtsMiningDropCapture.java");
         String mining = read("server/service/mining/RtsMiningStateMachine.java");
+        String mixin = read("mixin/BlockDropCaptureMixin.java");
 
-        assertTrue(capture.contains("BlockDropsEvent"));
-        assertTrue(capture.contains("EventPriority.LOWEST"));
-        assertTrue(capture.contains("enqueueCapturedDrops"));
+        assertTrue(mixin.contains("@ModifyVariable(method = \"popResource\""));
+        assertTrue(mixin.contains("RtsMiningDropCapture.captureDrop(stack)"));
+        assertTrue(capture.contains("enqueueCapturedStack"));
         assertTrue(mining.contains("RtsMiningDropCapture.capture(player, session"));
         assertFalse(mining.contains("absorbMinedDropsImmediately"));
         assertFalse(mining.contains("dropsToAbsorb"));

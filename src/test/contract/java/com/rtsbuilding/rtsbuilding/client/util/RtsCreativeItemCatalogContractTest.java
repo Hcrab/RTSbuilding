@@ -12,7 +12,7 @@ class RtsCreativeItemCatalogContractTest {
     @Test
     void creativeTabsAreBuiltBeforeAnyVisibilityDecision() throws Exception {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsCreativeItemCatalog.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/util/RtsCreativeItemCatalog.java"));
         int loop = source.indexOf("for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB)");
         int build = source.indexOf("buildContentsIfPossible(tab, parameters)", loop);
         int shouldDisplay = source.indexOf("tab.shouldDisplay()", loop);

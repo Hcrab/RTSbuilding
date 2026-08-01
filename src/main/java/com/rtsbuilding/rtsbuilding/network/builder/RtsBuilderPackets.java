@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsInteractionHandlers;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsMiningHandlers;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsPlaceHandlers;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 
 /**
  * Registers RTS placement, mining, interaction, and quick-drop packets.
@@ -16,7 +16,7 @@ public final class RtsBuilderPackets {
     private RtsBuilderPackets() {
     }
 
-    public static void register(PayloadRegistrar registrar) {
+    public static void register(RtsPayloadRegistrar registrar) {
         registrar.playToServer(
                 C2SRtsSetModePayload.TYPE,
                 C2SRtsSetModePayload.STREAM_CODEC,

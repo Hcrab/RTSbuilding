@@ -18,7 +18,7 @@ class BuilderScreenInitializationOrderContractTest {
     @Test
     void cursorPickerIsBoundBeforeQuickBuildSnapshotCanReadRaycastState() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
 
         int cursorInit = source.indexOf("this.cursorPicker.init(this, this.controller, this.shapeController);");
         int quickBuildInit = source.indexOf("this.quickBuildPanel.init(this, this.controller);");
@@ -32,9 +32,9 @@ class BuilderScreenInitializationOrderContractTest {
     @Test
     void constructorSnapshotDoesNotReadMinecraftFromUnattachedScreen() throws IOException {
         String adapter = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java"));
         String panel = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
 
         assertTrue(!adapter.contains("uiScreen().getMinecraft()"),
                 "BuilderScreen 构造期快照不能读取尚未挂载的 Screen.minecraft");

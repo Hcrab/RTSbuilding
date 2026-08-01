@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.feedback;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 
 /**
  * Registers lightweight server-to-client RTS feedback packets.
@@ -13,7 +13,7 @@ public final class RtsFeedbackPackets {
     private RtsFeedbackPackets() {
     }
 
-    public static void register(PayloadRegistrar registrar) {
+    public static void register(RtsPayloadRegistrar registrar) {
         registrar.playToClient(
                 S2CRtsDamageFeedbackPayload.TYPE,
                 S2CRtsDamageFeedbackPayload.STREAM_CODEC,

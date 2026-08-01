@@ -13,13 +13,13 @@ class ShapePreviewLimitContractTest {
     @Test
     void ordinaryAndAdvancedPreviewsClampBeforeGeometryGenerationAndReuseThePlan() throws IOException {
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String planner = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
         String operations = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
         String limiter = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/RangeDestroySelectionLimiter.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/RangeDestroySelectionLimiter.java"));
         String controllerMethod = methodBody(
                 operations,
                 "public List<BlockPos> generate");
@@ -59,15 +59,15 @@ class ShapePreviewLimitContractTest {
     @Test
     void sharedAnimatorFeedsNormalPreviewAdvancedHandlesAndDestroyEnvelope() throws IOException {
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String selectionRenderer = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/builder/AdvancedShapeSelectionBoxRenderer.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/rendering/builder/AdvancedShapeSelectionBoxRenderer.java"));
         String operations = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
         String selectionBox = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionBoxController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeSelectionBoxController.java"));
         String ghostRenderer = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/builder/ShapeGhostRenderer.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/rendering/builder/ShapeGhostRenderer.java"));
 
         assertTrue(controller.contains("this.worldOperations.generatedBounds()"));
         assertTrue(operations.contains("return this.generationPlans.bounds()"));
@@ -82,7 +82,7 @@ class ShapePreviewLimitContractTest {
     @Test
     void planCacheCannotReadScreenWorldConfigItemsOrNetwork() throws IOException {
         String planner = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGenerationPlanCache.java"));
 
         assertFalse(planner.contains("BuilderScreen"));
         assertFalse(planner.contains("ClientRtsController"));

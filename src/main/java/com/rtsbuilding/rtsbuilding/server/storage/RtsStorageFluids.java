@@ -20,9 +20,9 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.FluidType;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidStack;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidUnits;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.List;
 
@@ -38,7 +38,7 @@ import java.util.List;
  * 网络操作（跨链接处理器和缓冲区的计数/提取/插入）到 {@link RtsFluidNetworkOperator}。
  */
 public final class RtsStorageFluids {
-    private static final int FLUID_TRANSFER_MB = FluidType.BUCKET_VOLUME;
+    private static final int FLUID_TRANSFER_MB = RtsFluidUnits.BUCKET;
 
     private RtsStorageFluids() {
     }
@@ -48,10 +48,10 @@ public final class RtsStorageFluids {
     // ======================================================================
 
     public static boolean storeFluidFromContainer(FluidTransferGate gate, ServerPlayer player, RtsStorageSession session,
-            List<IItemHandler> extractItemHandlers, List<IItemHandler> insertItemHandlers,
+            List<RtsItemHandler> extractItemHandlers, List<RtsItemHandler> insertItemHandlers,
             List<LinkedFluidHandler> fluidHandlers, byte sourceType, byte toolSlot, String itemId) {
-        List<IItemHandler> safeExtractItemHandlers = extractItemHandlers == null ? List.of() : extractItemHandlers;
-        List<IItemHandler> safeInsertItemHandlers = insertItemHandlers == null ? List.of() : insertItemHandlers;
+        List<RtsItemHandler> safeExtractItemHandlers = extractItemHandlers == null ? List.of() : extractItemHandlers;
+        List<RtsItemHandler> safeInsertItemHandlers = insertItemHandlers == null ? List.of() : insertItemHandlers;
         List<LinkedFluidHandler> safeFluidHandlers = fluidHandlers == null ? List.of() : fluidHandlers;
         return switch (sourceType) {
             case C2SRtsStoreFluidPayload.SOURCE_STORAGE_ITEM, C2SRtsStoreFluidPayload.SOURCE_PIN_ITEM ->
@@ -83,7 +83,7 @@ public final class RtsStorageFluids {
         }
 
         ServerLevel level = player.serverLevel();
-        FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
+        RtsFluidStack transfer = new RtsFluidStack(fluid, FLUID_TRANSFER_MB);
         int filledIntoBlock = RtsClaimProtectionService.canInteractBlock(
                 player, clickedPos, face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)
                 ? RtsFluidWorldPlacer.fillFluidHandlerAtTarget(level, clickedPos, face, transfer)
@@ -151,7 +151,7 @@ public final class RtsStorageFluids {
     // ======================================================================
 
     private static boolean storeFluidFromLinkedItem(FluidTransferGate gate, ServerPlayer player, RtsStorageSession session,
-            List<IItemHandler> extractItemHandlers, List<IItemHandler> insertItemHandlers,
+            List<RtsItemHandler> extractItemHandlers, List<RtsItemHandler> insertItemHandlers,
             List<LinkedFluidHandler> fluidHandlers, String itemId) {
         if (itemId == null || itemId.isBlank() || extractItemHandlers.isEmpty()) {
             return false;
@@ -172,7 +172,7 @@ public final class RtsStorageFluids {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
-        FluidStack targetFluid = simulated.fluid().copy();
+        RtsFluidStack targetFluid = simulated.fluid().copy();
         targetFluid.setAmount(FLUID_TRANSFER_MB);
         if (RtsFluidNetworkOperator.insertFluidIntoNetwork(player, session, fluidHandlers, targetFluid, false) < FLUID_TRANSFER_MB) {
             gate.refundToLinked(insertItemHandlers, player, extracted);
@@ -184,7 +184,7 @@ public final class RtsStorageFluids {
             gate.refundToLinked(insertItemHandlers, player, extracted);
             return false;
         }
-        FluidStack insertFluid = executed.fluid().copy();
+        RtsFluidStack insertFluid = executed.fluid().copy();
         insertFluid.setAmount(FLUID_TRANSFER_MB);
         int inserted = RtsFluidNetworkOperator.insertFluidIntoNetwork(player, session, fluidHandlers, insertFluid, true);
         if (inserted < FLUID_TRANSFER_MB) {
@@ -220,7 +220,7 @@ public final class RtsStorageFluids {
         if (simulated.isEmpty() || simulated.fluid().getAmount() < FLUID_TRANSFER_MB) {
             return false;
         }
-        FluidStack targetFluid = simulated.fluid().copy();
+        RtsFluidStack targetFluid = simulated.fluid().copy();
         targetFluid.setAmount(FLUID_TRANSFER_MB);
         if (RtsFluidNetworkOperator.insertFluidIntoNetwork(player, session, fluidHandlers, targetFluid, false) < FLUID_TRANSFER_MB) {
             return false;
@@ -230,7 +230,7 @@ public final class RtsStorageFluids {
         if (executed.isEmpty() || executed.fluid().getAmount() < FLUID_TRANSFER_MB) {
             return false;
         }
-        FluidStack insertFluid = executed.fluid().copy();
+        RtsFluidStack insertFluid = executed.fluid().copy();
         insertFluid.setAmount(FLUID_TRANSFER_MB);
         int inserted = RtsFluidNetworkOperator.insertFluidIntoNetwork(player, session, fluidHandlers, insertFluid, true);
         if (inserted < FLUID_TRANSFER_MB) {

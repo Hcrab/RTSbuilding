@@ -17,7 +17,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.List;
 
@@ -48,7 +48,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
 
         long total = 0L;
         for (LinkedHandler linkedHandler : RtsLinkedStorageResolver.resolveLinkedHandlers(player, session)) {
-            IItemHandler handler = linkedHandler.handler();
+            RtsItemHandler handler = linkedHandler.handler();
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack stack = handler.getStackInSlot(slot);
                 if (!stack.isEmpty() && stack.getItem() == item) {
@@ -78,7 +78,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
             return ItemStack.EMPTY;
         }
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+        List<RtsItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         return RtsTransferExtractor.extractMatchingFromNetwork(handlers, player, item, count);
     }
 
@@ -117,7 +117,7 @@ public final class RtsBlueprintServiceImpl implements BlueprintService {
             return;
         }
         RtsStorageSession session = registry.session().getIfPresent(player);
-        List<IItemHandler> handlers = session == null
+        List<RtsItemHandler> handlers = session == null
                 ? List.of()
                 : RtsLinkedStorageResolver.resolveLinkedHandlers(player, session).stream().map(LinkedHandler::handler).toList();
         RtsTransferInserter.refundToLinked(handlers, player, stack);

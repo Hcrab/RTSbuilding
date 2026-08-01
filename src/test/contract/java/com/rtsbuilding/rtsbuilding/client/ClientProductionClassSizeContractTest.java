@@ -20,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class ClientProductionClassSizeContractTest {
     private static final Path CLIENT = Path.of(
-            "src/main/java/com/rtsbuilding/rtsbuilding/client");
+            "src/client/java/com/rtsbuilding/rtsbuilding/client");
 
     @Test
     void productionClientDomainsContainNoThousandLineClasses() throws IOException {

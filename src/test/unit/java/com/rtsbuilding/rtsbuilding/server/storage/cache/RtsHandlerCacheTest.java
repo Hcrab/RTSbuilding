@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -22,7 +22,7 @@ class RtsHandlerCacheTest {
         assertEquals(2, handler.attempts);
     }
 
-    private static final class FailOnceRefreshHandler implements IItemHandler, RefreshableSnapshotHandler {
+    private static final class FailOnceRefreshHandler implements RtsItemHandler, RefreshableSnapshotHandler {
         private int attempts;
 
         @Override

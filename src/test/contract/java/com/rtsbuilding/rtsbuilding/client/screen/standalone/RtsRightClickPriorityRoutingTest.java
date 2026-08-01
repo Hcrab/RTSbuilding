@@ -12,10 +12,10 @@ class RtsRightClickPriorityRoutingTest {
     @Test
     void selectedStorageItemSingleBlockNormalRightClickInteractsBeforePlacement() throws IOException {
         String router = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenPrimaryActionRouter.java"));
         String handler = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenItemActionHandler.java"));
         String routeBody = methodBody(
                 router, "boolean run(double mouseX, double mouseY, int mouseButton)");
@@ -49,10 +49,10 @@ class RtsRightClickPriorityRoutingTest {
     @Test
     void selectedStorageItemShapePlacementBypassesNormalInteractBranch() throws IOException {
         String router = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenPrimaryActionRouter.java"));
         String handler = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenItemActionHandler.java"));
         String routeBody = methodBody(
                 router, "boolean run(double mouseX, double mouseY, int mouseButton)");
@@ -75,10 +75,10 @@ class RtsRightClickPriorityRoutingTest {
     @Test
     void mainHandNormalRightClickInteractsAndShiftRightClickPlacesFirst() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenPrimaryActionRouter.java"))
                 + Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenItemActionHandler.java"));
         String body = methodBody(source, "boolean runToolOrEmptyHand(");
 

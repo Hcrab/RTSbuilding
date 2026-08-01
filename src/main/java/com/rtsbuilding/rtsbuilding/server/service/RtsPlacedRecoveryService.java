@@ -17,18 +17,19 @@ import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.Placed
 import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob;
 import com.rtsbuilding.rtsbuilding.server.task.BoundedQueueSelector;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.AABB;
-import net.neoforged.neoforge.common.CommonHooks;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.*;
 
@@ -223,7 +224,7 @@ public final class RtsPlacedRecoveryService {
                 orderedLinked = RtsLinkedHandlerResolutionService.orderHandlersForInsert(
                         RtsLinkedStorageResolver.resolveLinkedHandlers(player, session));
             }
-            List<IItemHandler> handlers = recoveryHandlersExcluding(orderedLinked, job.targetPos());
+            List<RtsItemHandler> handlers = recoveryHandlersExcluding(orderedLinked, job.targetPos());
             hasLinkedRecoveryTarget |= !handlers.isEmpty();
             boolean claimBlocked = false;
             while (!job.claims().isEmpty()
@@ -345,14 +346,22 @@ public final class RtsPlacedRecoveryService {
     static boolean recoverTrackedBlock(
             ServerPlayer player, ServerLevel level, BlockPos pos, BlockState state) {
         if (player == null || level == null || pos == null || state == null || state.isAir()) return false;
-        var breakEvent = TemporaryContextSwitcher.withTemporaryMainHandItem(
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        boolean allowed = TemporaryContextSwitcher.withTemporaryMainHandItem(
                 player, ItemStack.EMPTY,
-                () -> CommonHooks.fireBlockBreak(
-                        level, player.gameMode.getGameModeForPlayer(), player, pos, state));
-        if (breakEvent.isCanceled()) {
+                () -> PlayerBlockBreakEvents.BEFORE.invoker()
+                        .beforeBlockBreak(level, player, pos, state, blockEntity));
+        if (!allowed) {
+            PlayerBlockBreakEvents.CANCELED.invoker()
+                    .onBlockBreakCanceled(level, player, pos, state, blockEntity);
             return false;
         }
-        return level.destroyBlock(pos, false, player);
+        boolean removed = level.destroyBlock(pos, false, player);
+        if (removed) {
+            PlayerBlockBreakEvents.AFTER.invoker()
+                    .afterBlockBreak(level, player, pos, state, blockEntity);
+        }
+        return removed;
     }
 
     private static ItemEntity materializeRecoveredBlock(
@@ -407,12 +416,12 @@ public final class RtsPlacedRecoveryService {
      * linked-storage position matches the recovery target position (avoids
      * re-storing into the same block that was just broken).
      */
-    private static List<IItemHandler> recoveryHandlersExcluding(List<LinkedHandler> orderedLinked, BlockPos targetPos) {
+    private static List<RtsItemHandler> recoveryHandlersExcluding(List<LinkedHandler> orderedLinked, BlockPos targetPos) {
         if (orderedLinked == null || orderedLinked.isEmpty()) return List.of();
-        List<IItemHandler> handlers = new ArrayList<>(orderedLinked.size());
+        List<RtsItemHandler> handlers = new ArrayList<>(orderedLinked.size());
         for (LinkedHandler lh : orderedLinked) {
             if (lh == null || lh.pos() == null || lh.pos().equals(targetPos)) continue;
-            IItemHandler h = lh.handler();
+            RtsItemHandler h = lh.handler();
             if (h != null) handlers.add(h);
         }
         return handlers;

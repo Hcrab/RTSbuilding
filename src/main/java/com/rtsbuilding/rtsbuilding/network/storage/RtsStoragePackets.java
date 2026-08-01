@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.storage.handler.RtsBindingHandlers;
 import com.rtsbuilding.rtsbuilding.network.storage.handler.RtsPageHandlers;
 import com.rtsbuilding.rtsbuilding.network.storage.handler.RtsTransferHandlers;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 
 /**
  * Registers linked-storage browser, GUI binding, and overlay transfer packets.
@@ -15,7 +15,7 @@ public final class RtsStoragePackets {
     private RtsStoragePackets() {
     }
 
-    public static void register(PayloadRegistrar registrar) {
+    public static void register(RtsPayloadRegistrar registrar) {
         registrar.playToServer(
                 C2SRtsSetFunnelPayload.TYPE,
                 C2SRtsSetFunnelPayload.STREAM_CODEC,

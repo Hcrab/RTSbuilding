@@ -9,11 +9,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsMiningDropBufferStackSplitTest {
     static {
-        if (net.neoforged.fml.loading.LoadingModList.get() == null) {
-            net.neoforged.fml.loading.LoadingModList.of(
-                    java.util.List.of(), java.util.List.of(),
-                    java.util.List.of(), java.util.List.of(), java.util.Map.of());
-        }
         net.minecraft.SharedConstants.tryDetectVersion();
         net.minecraft.server.Bootstrap.bootStrap();
     }

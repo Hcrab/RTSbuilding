@@ -1,18 +1,33 @@
 {
   "required": true,
   "package": "com.rtsbuilding.rtsbuilding.mixin",
+  "plugin": "com.rtsbuilding.rtsbuilding.mixin.RtsOptionalCompatMixinConfigPlugin",
   "compatibilityLevel": "JAVA_21",
   "client": [
+    "AbstractContainerScreenAccessor",
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
     "EmbeddiumWorldSliceMixin",
+    "GameRendererLifecycleMixin",
+    "GuiChatPositionMixin",
+    "GuiHudMixin",
+    "KeyboardCharInputMixin",
+    "KeyMappingAccessor",
+    "MinecraftInteractionMixin",
+    "MouseDragInputMixin",
     "SodiumLevelSliceMixin",
     "RenderChunkRegionMixin",
     "LocalPlayerMixin"
   ],
   "mixins": [
+    "BlockDropCaptureMixin",
+    "BlockItemPlacementTrackingMixin",
     "ChestMenuMixin",
-    "ModdedRemoteStillValidMixin"
+    "EntityLegacyPersistentDataMixin",
+    "GeneratorGaloreRemoteStillValidMixin",
+    "IronFurnacesRemoteStillValidMixin",
+    "SophisticatedBackpacksRemoteStillValidMixin",
+    "SophisticatedStorageRemoteStillValidMixin"
   ],
   "injectors": {
     "defaultRequire": 1

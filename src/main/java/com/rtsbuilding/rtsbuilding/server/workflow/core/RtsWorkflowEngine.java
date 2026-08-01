@@ -19,9 +19,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -76,6 +75,10 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     /** 可选的超时服务（单独启动）。 */
     private RtsWorkflowTimeoutService timeoutService;
 
+    /** 当前逻辑服务器由加载器生命周期显式绑定，不依赖 NeoForge 的全局静态钩子。 */
+    @Nullable
+    private volatile MinecraftServer currentServer;
+
     /**
      * 蓝图工作流重载处理器——服务端重启后自动恢复蓝图的 Tick 管道。
      * 由蓝图模块在初始化时注册，避免引擎直接依赖蓝图类型。
@@ -111,7 +114,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * @param checkInterval 扫描过期工作流的间隔
      * @param maxIdleTime   清理前的最大空闲时间
      */
-    public void startTimeoutService(Duration checkInterval, Duration maxIdleTime) {
+    public void startTimeoutService(
+            MinecraftServer server, Duration checkInterval, Duration maxIdleTime) {
+        currentServer = server;
         if (timeoutService == null) {
             timeoutService = new RtsWorkflowTimeoutService(playerSlots, eventBus);
             timeoutService.start(checkInterval, maxIdleTime);
@@ -137,6 +142,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             timeoutService.stop();
             timeoutService = null;
         }
+        currentServer = null;
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -773,7 +779,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return cached;
         }
         // 回退：扫描服务器的玩家列表
-        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        MinecraftServer server = currentServer;
         if (server != null) {
             ServerPlayer online = server.getPlayerList().getPlayer(playerId);
             if (online != null) {

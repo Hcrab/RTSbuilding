@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.craft.handler;
 import com.rtsbuilding.rtsbuilding.network.craft.*;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for RTS crafting actions.
@@ -16,7 +16,7 @@ public final class RtsCraftNetworkHandlers {
     private RtsCraftNetworkHandlers() {
     }
 
-    public static void handleRequestCraftables(C2SRtsRequestCraftablesPayload payload, IPayloadContext context) {
+    public static void handleRequestCraftables(C2SRtsRequestCraftablesPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().crafting().requestCraftables(
@@ -31,7 +31,7 @@ public final class RtsCraftNetworkHandlers {
         });
     }
 
-    public static void handleOpenCraftTerminal(C2SRtsOpenCraftTerminalPayload payload, IPayloadContext context) {
+    public static void handleOpenCraftTerminal(C2SRtsOpenCraftTerminalPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().crafting().openCraftTerminal(serverPlayer);
@@ -39,7 +39,7 @@ public final class RtsCraftNetworkHandlers {
         });
     }
 
-    public static void handleCraftRefill(C2SRtsCraftRefillPayload payload, IPayloadContext context) {
+    public static void handleCraftRefill(C2SRtsCraftRefillPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().crafting().refillCurrentCraftGridFromBlueprintStacks(
@@ -51,7 +51,7 @@ public final class RtsCraftNetworkHandlers {
         });
     }
 
-    public static void handleCraftRecipe(C2SRtsCraftRecipePayload payload, IPayloadContext context) {
+    public static void handleCraftRecipe(C2SRtsCraftRecipePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().crafting().craftRecipeToLinked(serverPlayer, payload.recipeId(), payload.craftCount());
@@ -59,7 +59,7 @@ public final class RtsCraftNetworkHandlers {
         });
     }
 
-    public static void handleJeiTransfer(C2SRtsJeiTransferPayload payload, IPayloadContext context) {
+    public static void handleJeiTransfer(C2SRtsJeiTransferPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().crafting().applyJeiTransfer(

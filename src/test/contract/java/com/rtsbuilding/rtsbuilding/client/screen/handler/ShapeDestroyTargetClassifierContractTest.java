@@ -16,9 +16,9 @@ class ShapeDestroyTargetClassifierContractTest {
     @Test
     void previewCostAndConfirmationUseTheSharedClassifier() throws IOException {
         String controller = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenShapeController.java"));
         String preview = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGhostPreviewProvider.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGhostPreviewProvider.java"));
 
         assertTrue(preview.contains("ShapeDestroyTargetClassifier.classify"));
         assertTrue(controller.contains("ShapeDestroyTargetClassifier.breakableTargets"));
@@ -32,7 +32,7 @@ class ShapeDestroyTargetClassifierContractTest {
     @Test
     void classifierCannotReadWorldConfigScreenItemsOrNetwork() throws IOException {
         String classifier = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeDestroyTargetClassifier.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeDestroyTargetClassifier.java"));
 
         assertFalse(classifier.contains("import net.minecraft.client"));
         assertFalse(classifier.contains("BuilderScreen"));

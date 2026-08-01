@@ -21,7 +21,8 @@ public final class PlacedBlockTrackerData extends SavedData {
     /** 已放置方块追踪数据的工厂实例，用于创建和加载数据 */
     private static final Factory<PlacedBlockTrackerData> FACTORY = new Factory<>(
             PlacedBlockTrackerData::new,
-            PlacedBlockTrackerData::load);
+            PlacedBlockTrackerData::load,
+            null);
 
     /** 已放置方块位置集合（使用 long 编码的 BlockPos） */
     private final LongOpenHashSet placedPositions;

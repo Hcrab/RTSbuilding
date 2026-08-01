@@ -17,8 +17,8 @@ import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -66,7 +66,7 @@ public final class RtsLinkedHandlerResolutionService {
                 UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
                 boolean backpackLink = backpackUuid != null;
                 boolean sameDimension = currentDimension.equals(ref.dimension());
-                IItemHandler handler = null;
+                RtsItemHandler handler = null;
 
                 if (sameDimension && !session.linkedStorageInfo.isDetached(ref)
                         && RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
@@ -139,9 +139,9 @@ public final class RtsLinkedHandlerResolutionService {
             RtsStorageTickService.INSTANCE.unregisterPlayer(player);
             return;
         }
-        List<IItemHandler> rawHandlers = new ArrayList<>(handlers.size());
+        List<RtsItemHandler> rawHandlers = new ArrayList<>(handlers.size());
         for (LinkedHandler lh : handlers) {
-            IItemHandler h = lh.handler();
+            RtsItemHandler h = lh.handler();
             if (h instanceof LinkedItemHandlerView view) {
                 rawHandlers.add(view.getRawHandler());
             } else {
@@ -173,7 +173,7 @@ public final class RtsLinkedHandlerResolutionService {
                 if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
                     continue;
                 }
-                IFluidHandler handler = RtsLinkedCapabilities.findFluidHandler(player, pos);
+                RtsFluidHandler handler = RtsLinkedCapabilities.findFluidHandler(player, pos);
                 if (handler == null) {
                     continue;
                 }
@@ -220,11 +220,11 @@ public final class RtsLinkedHandlerResolutionService {
         return orderedHandlers(handlers, Comparator.comparingInt(LinkedHandler::priority));
     }
 
-    public static List<IItemHandler> itemHandlersForInsert(List<LinkedHandler> handlers) {
+    public static List<RtsItemHandler> itemHandlersForInsert(List<LinkedHandler> handlers) {
         return toItemHandlers(orderHandlersForInsert(handlers));
     }
 
-    public static List<IItemHandler> itemHandlersForExtract(List<LinkedHandler> handlers) {
+    public static List<RtsItemHandler> itemHandlersForExtract(List<LinkedHandler> handlers) {
         return toItemHandlers(orderHandlersForExtract(handlers));
     }
 
@@ -247,7 +247,7 @@ public final class RtsLinkedHandlerResolutionService {
                         session.linkedStorageInfo.getPriority(ref));
     }
 
-    private static IItemHandler findMatchingBackpackBlockHandler(ServerPlayer player, BlockPos pos, UUID expectedUuid) {
+    private static RtsItemHandler findMatchingBackpackBlockHandler(ServerPlayer player, BlockPos pos, UUID expectedUuid) {
         if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.serverLevel(), pos))) {
             return null;
         }
@@ -271,11 +271,11 @@ public final class RtsLinkedHandlerResolutionService {
         return ordered;
     }
 
-    private static List<IItemHandler> toItemHandlers(List<LinkedHandler> handlers) {
+    private static List<RtsItemHandler> toItemHandlers(List<LinkedHandler> handlers) {
         if (handlers == null || handlers.isEmpty()) {
             return List.of();
         }
-        List<IItemHandler> out = new ArrayList<>(handlers.size());
+        List<RtsItemHandler> out = new ArrayList<>(handlers.size());
         for (LinkedHandler linked : handlers) {
             out.add(linked.handler());
         }

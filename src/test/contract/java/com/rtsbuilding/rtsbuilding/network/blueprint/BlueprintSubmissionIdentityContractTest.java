@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 防止蓝图放置链路再次丢失可用于幂等接纳的稳定提交身份。 */
 class BlueprintSubmissionIdentityContractTest {
     private static final Path MAIN = Path.of("src/main/java/com/rtsbuilding/rtsbuilding");
+    private static final Path CLIENT = Path.of("src/client/java/com/rtsbuilding/rtsbuilding");
 
     @Test
     void payloadTransportsSubmissionIdInBothCodecDirections() throws IOException {
@@ -23,14 +24,14 @@ class BlueprintSubmissionIdentityContractTest {
 
     @Test
     void oneExplicitClientSubmissionCreatesOneIdentityAndSendsThatPayload() throws IOException {
-        String panel = read("client/screen/blueprint/BlueprintPanel.java");
-        String placement = read("client/screen/blueprint/BlueprintPlacementSession.java");
+        String panel = readClient("client/screen/blueprint/BlueprintPanel.java");
+        String placement = readClient("client/screen/blueprint/BlueprintPlacementSession.java");
 
         assertTrue(panel.contains("return PLACEMENT.place("));
         assertTrue(panel.contains("PLACEMENT.confirmPinnedPreview()"));
         assertTrue(placement.contains("C2SBlueprintPlacePayload payload = new C2SBlueprintPlacePayload("));
         assertTrue(placement.contains("UUID.randomUUID()"));
-        assertTrue(placement.contains("PacketDistributor.sendToServer(payload)"));
+        assertTrue(placement.contains("ClientPlayNetworking.send(payload)"));
     }
 
     @Test
@@ -46,5 +47,9 @@ class BlueprintSubmissionIdentityContractTest {
 
     private static String read(String relative) throws IOException {
         return Files.readString(MAIN.resolve(relative));
+    }
+
+    private static String readClient(String relative) throws IOException {
+        return Files.readString(CLIENT.resolve(relative));
     }
 }

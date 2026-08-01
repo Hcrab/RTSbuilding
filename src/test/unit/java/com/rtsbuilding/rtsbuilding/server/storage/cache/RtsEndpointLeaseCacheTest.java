@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.items.IItemHandler;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -33,15 +33,15 @@ class RtsEndpointLeaseCacheTest {
     void stableEndpointResolvesOnlyOnceUntilBlockEntityChanges() {
         AtomicInteger resolves = new AtomicInteger();
         Object firstBlockEntity = new Object();
-        IItemHandler first = mock(IItemHandler.class);
-        IItemHandler second = mock(IItemHandler.class);
+        RtsItemHandler first = mock(RtsItemHandler.class);
+        RtsItemHandler second = mock(RtsItemHandler.class);
 
-        IItemHandler a = cache.resolveItem(playerId, Level.OVERWORLD,
+        RtsItemHandler a = cache.resolveItem(playerId, Level.OVERWORLD,
                 BlockPos.ZERO, null, firstBlockEntity, () -> {
                     resolves.incrementAndGet();
                     return first;
                 });
-        IItemHandler b = cache.resolveItem(playerId, Level.OVERWORLD,
+        RtsItemHandler b = cache.resolveItem(playerId, Level.OVERWORLD,
                 BlockPos.ZERO, null, firstBlockEntity, () -> {
                     resolves.incrementAndGet();
                     return second;
@@ -50,7 +50,7 @@ class RtsEndpointLeaseCacheTest {
         assertSame(a, b);
         assertEquals(1, resolves.get());
 
-        IItemHandler c = cache.resolveItem(playerId, Level.OVERWORLD,
+        RtsItemHandler c = cache.resolveItem(playerId, Level.OVERWORLD,
                 BlockPos.ZERO, null, new Object(), () -> {
                     resolves.incrementAndGet();
                     return second;
@@ -100,13 +100,13 @@ class RtsEndpointLeaseCacheTest {
         });
 
         try {
-            IItemHandler first = ownedCache.resolveItem(playerId, Level.OVERWORLD, BlockPos.ZERO,
+            RtsItemHandler first = ownedCache.resolveItem(playerId, Level.OVERWORLD, BlockPos.ZERO,
                     null, endpointIdentity, () -> handler);
             RtsStorageTickService.INSTANCE.registerPlayer(playerId, List.of(handler));
 
             // 模拟页面解析暂时得到空 Handler 列表：只清快照，端点租约仍应保持可复用。
             RtsStorageTickService.INSTANCE.unregisterPlayer(playerId);
-            IItemHandler reused = ownedCache.resolveItem(playerId, Level.OVERWORLD, BlockPos.ZERO,
+            RtsItemHandler reused = ownedCache.resolveItem(playerId, Level.OVERWORLD, BlockPos.ZERO,
                     null, endpointIdentity, () -> new ReleasableHandler());
 
             assertSame(first, reused);
@@ -120,7 +120,7 @@ class RtsEndpointLeaseCacheTest {
     }
 
     /** 模拟 AE2 release() 清空内部网络引用后，旧缓存仍尝试刷新的真实崩溃条件。 */
-    private static final class ReleasableHandler implements IItemHandler, RefreshableSnapshotHandler {
+    private static final class ReleasableHandler implements RtsItemHandler, RefreshableSnapshotHandler {
         private final AtomicInteger releaseCount = new AtomicInteger();
         private final AtomicInteger refreshAttempts = new AtomicInteger();
         private boolean released;

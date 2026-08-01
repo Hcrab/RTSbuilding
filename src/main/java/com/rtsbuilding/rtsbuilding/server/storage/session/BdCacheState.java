@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.storage.session;
 
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.fluid.RtsFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * 单个 RtsStorageSession 范围内的 BD（更好的描述）网络缓存状态。
@@ -14,13 +14,13 @@ import javax.annotation.Nullable;
  */
 public final class BdCacheState {
 
-    /** BD 网络物品处理器（{@link IItemHandler}），null = 未缓存。 */
+    /** BD 网络物品处理器（{@link RtsItemHandler}），null = 未缓存。 */
     @Nullable
-    public IItemHandler handler;
+    public RtsItemHandler handler;
 
-    /** BD 网络流体处理器（{@link IFluidHandler}），null = 未缓存。 */
+    /** BD 网络流体处理器（{@link RtsFluidHandler}），null = 未缓存。 */
     @Nullable
-    public IFluidHandler fluidHandler;
+    public RtsFluidHandler fluidHandler;
 
     /** BD 网络显示名称。 */
     @Nullable

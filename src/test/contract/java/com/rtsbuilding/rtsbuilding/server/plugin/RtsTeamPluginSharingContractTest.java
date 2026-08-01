@@ -28,7 +28,7 @@ class RtsTeamPluginSharingContractTest {
     @Test
     void teamPluginUiHasManualRefreshTeamNameAndOwnerStatus() throws IOException {
         String payload = read("src/main/java/com/rtsbuilding/rtsbuilding/network/plugin/S2CRtsPluginStatePayload.java");
-        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java");
+        String screen = read("src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java");
 
         assertTrue(payload.contains("List<String> ownerNames") && payload.contains("String teamName"),
                 "plugin sync payload should carry team name and contributor names");

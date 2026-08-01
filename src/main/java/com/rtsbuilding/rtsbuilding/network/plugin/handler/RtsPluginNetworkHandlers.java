@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsUninstallPluginPayload;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side packet adapter for RTS plugin inventory actions.
@@ -15,7 +15,7 @@ public final class RtsPluginNetworkHandlers {
     private RtsPluginNetworkHandlers() {
     }
 
-    public static void handleInstall(C2SRtsInstallPluginPayload payload, IPayloadContext context) {
+    public static void handleInstall(C2SRtsInstallPluginPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
                 RtsPluginService.installFromInventorySlot(player, payload.inventorySlot());
@@ -23,7 +23,7 @@ public final class RtsPluginNetworkHandlers {
         });
     }
 
-    public static void handleUninstall(C2SRtsUninstallPluginPayload payload, IPayloadContext context) {
+    public static void handleUninstall(C2SRtsUninstallPluginPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
                 ResourceLocation pluginId = ResourceLocation.tryParse(payload.pluginId());
@@ -32,7 +32,7 @@ public final class RtsPluginNetworkHandlers {
         });
     }
 
-    public static void handleRequestPlugins(C2SRtsRequestPluginsPayload payload, IPayloadContext context) {
+    public static void handleRequestPlugins(C2SRtsRequestPluginsPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
                 RtsPluginService.syncToPlayer(player);

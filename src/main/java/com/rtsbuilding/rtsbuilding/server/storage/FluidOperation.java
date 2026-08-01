@@ -4,9 +4,9 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -35,7 +35,7 @@ import java.util.function.Supplier;
 public final class FluidOperation {
 
     private final FluidTransferGate gate;
-    private final List<IItemHandler> insertHandlers;
+    private final List<RtsItemHandler> insertHandlers;
     private final ServerPlayer player;
     @Nullable
     private ItemStack extracted;
@@ -46,7 +46,7 @@ public final class FluidOperation {
      * @param insertHandlers 失败时退回已提取物品的处理器
      * @param player         执行操作的玩家
      */
-    public FluidOperation(FluidTransferGate gate, List<IItemHandler> insertHandlers, ServerPlayer player) {
+    public FluidOperation(FluidTransferGate gate, List<RtsItemHandler> insertHandlers, ServerPlayer player) {
         this.gate = Objects.requireNonNull(gate, "gate");
         this.insertHandlers = Objects.requireNonNull(insertHandlers, "insertHandlers");
         this.player = Objects.requireNonNull(player, "player");
@@ -62,7 +62,7 @@ public final class FluidOperation {
      *
      * @return 如果成功提取了物品则返回 true
      */
-    public boolean extract(List<IItemHandler> handlers, Item targetItem) {
+    public boolean extract(List<RtsItemHandler> handlers, Item targetItem) {
         if (finalized) return false;
         this.extracted = gate.extractOneFromNetwork(handlers, player, targetItem);
         return this.extracted != null && !this.extracted.isEmpty();

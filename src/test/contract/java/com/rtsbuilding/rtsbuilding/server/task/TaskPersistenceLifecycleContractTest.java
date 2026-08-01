@@ -19,25 +19,29 @@ class TaskPersistenceLifecycleContractTest {
     void lifecycleUsesStartingPostTickOwnerLogoutAndStoppedBoundaries() throws IOException {
         String source = Files.readString(MOD_ENTRY);
 
-        assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.start(event.getServer())"));
+        assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.start(server)"));
         assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.tick()"));
-        assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUUID())"));
-        assertTrue(source.contains("onServerStopping(ServerStoppingEvent event)"));
+        assertTrue(source.contains("TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID())"));
+        assertTrue(source.contains("onServerStopping(MinecraftServer server)"));
         assertEquals(1, occurrences(source, "TaskPersistenceRuntime.INSTANCE.stop()"),
                 "writer 只能关闭一次");
 
-        int ownerFlush = source.indexOf("TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUUID())");
-        int sessionCleanup = source.indexOf("ServiceRegistry.getInstance().session().onPlayerLogout(serverPlayer)");
+        int logoutMethod = source.indexOf("private static void onPlayerLogout(ServerPlayer player)");
+        assertTrue(logoutMethod >= 0, "必须存在玩家登出生命周期处理方法");
+        int ownerFlush = source.indexOf(
+                "TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID())", logoutMethod);
+        int sessionCleanup = source.indexOf(
+                "ServiceRegistry.getInstance().session().onPlayerLogout(player)", logoutMethod);
         assertTrue(ownerFlush >= 0 && sessionCleanup > ownerFlush,
                 "durable owner flush 必须发生在 Session 清理之前");
-        int logoutCatch = source.indexOf("登出时 durable task 冲刷失败", ownerFlush);
-        int playerDetach = source.indexOf("RtsCameraManager.stopIfActive(serverPlayer)", logoutCatch);
+        int logoutCatch = source.indexOf("catch (RuntimeException failure)", ownerFlush);
+        int playerDetach = source.indexOf("RtsCameraManager.stopIfActive(player)", logoutCatch);
         assertTrue(logoutCatch >= 0 && playerDetach > logoutCatch);
         assertFalse(source.substring(logoutCatch, playerDetach).contains("throw failure"),
                 "owner flush 失败必须继续 detach/Session/SaveScheduler 清理，dirty 留给后续重试");
 
-        int stopping = source.indexOf("onServerStopping(ServerStoppingEvent event)");
-        int stopped = source.indexOf("onServerStopped(ServerStoppedEvent event)");
+        int stopping = source.indexOf("onServerStopping(MinecraftServer server)");
+        int stopped = source.indexOf("onServerStopped(MinecraftServer server)");
         assertTrue(stopping >= 0 && stopped > stopping,
                 "在线执行冻结必须先于玩家登出完成后的 writer 关闭");
         String stoppedBody = source.substring(stopped);

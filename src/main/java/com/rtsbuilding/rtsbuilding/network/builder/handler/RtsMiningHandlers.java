@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for RTS mining, ultimine, area mining, and area
@@ -21,7 +21,7 @@ public final class RtsMiningHandlers {
     private RtsMiningHandlers() {
     }
 
-    public static void handleMine(C2SRtsMinePayload payload, IPayloadContext context) {
+    public static void handleMine(C2SRtsMinePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -39,7 +39,7 @@ public final class RtsMiningHandlers {
         });
     }
 
-    public static void handleUltimine(C2SRtsUltiminePayload payload, IPayloadContext context) {
+    public static void handleUltimine(C2SRtsUltiminePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -57,7 +57,7 @@ public final class RtsMiningHandlers {
         });
     }
 
-    public static void handleAreaMine(C2SRtsAreaMinePayload payload, IPayloadContext context) {
+    public static void handleAreaMine(C2SRtsAreaMinePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().mining().areaMine(
@@ -75,7 +75,7 @@ public final class RtsMiningHandlers {
         });
     }
 
-    public static void handleAreaDestroy(C2SRtsAreaDestroyPayload payload, IPayloadContext context) {
+    public static void handleAreaDestroy(C2SRtsAreaDestroyPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().mining().areaDestroy(

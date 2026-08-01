@@ -12,7 +12,7 @@ class AdvancedShapeHandleInputContractTest {
     @Test
     void advancedShapeHandleClickIsConsumedBeforeMiningOrPlacement() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"));
         String body = methodBody(source, "boolean handleWorldClickActions");
 
         int handleClick = body.indexOf("handleAdvancedShapeHandleClick(mouseX, mouseY, button)");
@@ -29,7 +29,7 @@ class AdvancedShapeHandleInputContractTest {
     @Test
     void advancedShapeHandleClickUsesWorldHandleRaycast() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"));
         String body = methodBody(source, "boolean handleAdvancedShapeHandleClick");
 
         assertTrue(body.contains("button != GLFW.GLFW_MOUSE_BUTTON_LEFT"));

@@ -15,11 +15,16 @@ class StorageDirtyRefreshContractTest {
                 .resolve(relative));
     }
 
+    private static String clientSource(String relative) throws IOException {
+        return Files.readString(Path.of(System.getProperty("user.dir"), "src", "client", "java")
+                .resolve(relative));
+    }
+
     @Test
     void clientUsesEffectiveStorageTabInsteadOfTreatingBuilderScreenAsVisible() throws IOException {
-        String controller = source("com/rtsbuilding/rtsbuilding/client/controller/ClientRtsLifecycleOwner.java");
-        String screen = source("com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
-        String bottomPanel = source("com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
+        String controller = clientSource("com/rtsbuilding/rtsbuilding/client/controller/ClientRtsLifecycleOwner.java");
+        String screen = clientSource("com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String bottomPanel = clientSource("com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
 
         assertTrue(controller.contains("builderScreen.isStorageViewVisible()"));
         assertTrue(screen.contains("this.bottomPanel.isStorageBrowserVisible()"));

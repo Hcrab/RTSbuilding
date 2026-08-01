@@ -15,7 +15,7 @@ class RtsOpenPacCompatContractTest {
         String facade = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/openpac/RtsOpenPacCompat.java");
         String impl = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/openpac/RtsOpenPacCompatImpl.java");
 
-        assertTrue(facade.contains("ModList.get().isLoaded(MOD_ID)"),
+        assertTrue(facade.contains("FabricLoader.getInstance().isModLoaded(MOD_ID)"),
                 "OpenPAC compat must stay disabled unless the mod is present");
         assertTrue(impl.contains("Class.forName(\"xaero.pac.common.server.api.OpenPACServerAPI\")"),
                 "OpenPAC API should be loaded reflectively, not as a hard dependency");

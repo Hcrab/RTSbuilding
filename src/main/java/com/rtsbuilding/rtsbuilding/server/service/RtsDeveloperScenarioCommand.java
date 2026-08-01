@@ -1,30 +1,26 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsAsyncJsonlWriter;
 import com.rtsbuilding.rtsbuilding.server.task.TaskType;
+import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
 
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Locale;
 
 /** OP 开发者场景的服务端采样边界；只读状态并异步写出 JSONL。 */
-@EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsDeveloperScenarioCommand {
     private RtsDeveloperScenarioCommand() {
     }
 
-    @SubscribeEvent
-    public static void register(RegisterCommandsEvent event) {
-        event.getDispatcher().register(Commands.literal("rtsbuilding_dev")
+    public static void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+        dispatcher.register(Commands.literal("rtsbuilding_dev")
                 .then(Commands.argument("action", StringArgumentType.word())
                         .then(Commands.argument("task", StringArgumentType.word())
                                 .then(Commands.argument("runId", StringArgumentType.word())

@@ -4,7 +4,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -74,13 +74,13 @@ final class RtsCraftingAvailability {
     /**
      * 从给定的处理器和可选的玩家背包中快照可用物品。
      */
-    static List<AvailableCraftItem> snapshotAvailable(ServerPlayer player, java.util.List<IItemHandler> handlers,
+    static List<AvailableCraftItem> snapshotAvailable(ServerPlayer player, java.util.List<RtsItemHandler> handlers,
             boolean includePlayerMainInventory) {
         java.util.List<AvailableCraftItem> entries = new ArrayList<>();
         if (handlers == null) {
             handlers = java.util.List.of();
         }
-        for (IItemHandler handler : handlers) {
+        for (RtsItemHandler handler : handlers) {
             if (handler == null) {
                 continue;
             }

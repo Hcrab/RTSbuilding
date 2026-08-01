@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** 锁住普通交互目标框与 BuilderScreen 共用同一套固定 RTS Scale 鼠标坐标。 */
 class InteractionTargetCoordinateFrameContractTest {
     private static final Path SOURCE = Path.of(
-            "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/overlay/InteractionTargetRenderer.java");
+            "src/client/java/com/rtsbuilding/rtsbuilding/client/rendering/overlay/InteractionTargetRenderer.java");
 
     @Test
     void uiOcclusionUsesBuilderScreensRecordedCursorInsteadOfConvertingRawMouseAgain() throws IOException {

@@ -74,7 +74,7 @@ public final class RtsPlacementSound {
         if (!tryAcquireSound(player, level)) {
             return;
         }
-        SoundType soundType = state.getSoundType(level, pos, player);
+        SoundType soundType = state.getSoundType();
         sendBlockActionSound(
                 player,
                 soundType.getPlaceSound(),
@@ -97,7 +97,7 @@ public final class RtsPlacementSound {
         if (!tryAcquireSound(player, level)) {
             return;
         }
-        SoundType soundType = brokenState.getSoundType(level, pos, player);
+        SoundType soundType = brokenState.getSoundType();
         sendBlockActionSound(
                 player,
                 soundType.getBreakSound(),

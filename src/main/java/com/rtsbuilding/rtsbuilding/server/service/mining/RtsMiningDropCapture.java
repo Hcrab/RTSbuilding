@@ -1,12 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.fml.common.EventBusSubscriber;
-import net.neoforged.neoforge.event.level.BlockDropsEvent;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayDeque;
 import java.util.Objects;
@@ -19,7 +15,6 @@ import java.util.function.Supplier;
  * 交给轻量缓存；它不访问 AE/RS、不执行储存写入，也不改变非 RTS 挖掘。这样既保留
  * 其他模组对掉落列表的修改，又消除“生成实体后再按半径扫描”造成的移动、拾取竞争窗口。</p>
  */
-@EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsMiningDropCapture {
     private static final ThreadLocal<ArrayDeque<CaptureContext>> ACTIVE =
             ThreadLocal.withInitial(ArrayDeque::new);
@@ -46,18 +41,23 @@ public final class RtsMiningDropCapture {
         }
     }
 
-    /** LOWEST 优先级用于接收其他模组已经修改完成的最终掉落列表。 */
-    @SubscribeEvent(priority = EventPriority.LOWEST)
-    static void onBlockDrops(BlockDropsEvent event) {
-        ArrayDeque<CaptureContext> stack = ACTIVE.get();
-        CaptureContext context = stack.peek();
-        if (context == null
-                || event.getBreaker() != context.player()
-                || event.getLevel() != context.player().serverLevel()) {
-            return;
+    /**
+     * Fabric 的 Block.popResource Mixin 在实体生成前调用此方法。
+     * 返回仍需交给原版生成的余量；缓存满时绝不吞掉未接收物品。
+     */
+    public static ItemStack captureDrop(ItemStack stack) {
+        ArrayDeque<CaptureContext> contexts = ACTIVE.get();
+        CaptureContext context = contexts.peek();
+        if (context == null || stack == null || stack.isEmpty()) {
+            return stack;
         }
-        // 只移除已进入缓存的部分；缓存满时余量仍由 NeoForge 正常生成到世界。
-        RtsDropAbsorber.enqueueCapturedDrops(context.player(), context.session(), event.getDrops());
+        int accepted = RtsDropAbsorber.enqueueCapturedStack(context.player(), context.session(), stack);
+        if (accepted <= 0) {
+            return stack;
+        }
+        ItemStack remainder = stack.copy();
+        remainder.shrink(accepted);
+        return remainder;
     }
 
     private record CaptureContext(ServerPlayer player, RtsStorageSession session) {

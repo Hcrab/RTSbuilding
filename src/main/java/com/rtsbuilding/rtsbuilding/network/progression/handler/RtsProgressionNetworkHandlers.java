@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for quest detect and RTS-home actions.
@@ -16,7 +16,7 @@ public final class RtsProgressionNetworkHandlers {
     private RtsProgressionNetworkHandlers() {
     }
 
-    public static void handleQuestDetect(C2SRtsQuestDetectPayload payload, IPayloadContext context) {
+    public static void handleQuestDetect(C2SRtsQuestDetectPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 QuestService.detectQuests(serverPlayer, payload.mode());
@@ -24,7 +24,7 @@ public final class RtsProgressionNetworkHandlers {
         });
     }
 
-    public static void handleSetSurvivalProgression(C2SRtsSetSurvivalProgressionPayload payload, IPayloadContext context) {
+    public static void handleSetSurvivalProgression(C2SRtsSetSurvivalProgressionPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer && serverPlayer.hasPermissions(2)) {
                 Config.setSurvivalProgressionEnabled(payload.enabled());
@@ -36,7 +36,7 @@ public final class RtsProgressionNetworkHandlers {
         });
     }
 
-    public static void handleSetHome(C2SRtsSetHomePayload payload, IPayloadContext context) {
+    public static void handleSetHome(C2SRtsSetHomePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 if (RtsProgressionManager.commitHome(serverPlayer, payload.pos())) {
@@ -46,7 +46,7 @@ public final class RtsProgressionNetworkHandlers {
         });
     }
 
-    public static void handleBeginHomeSelection(C2SRtsBeginHomeSelectionPayload payload, IPayloadContext context) {
+    public static void handleBeginHomeSelection(C2SRtsBeginHomeSelectionPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsCameraManager.startHomeSelectionFromPanel(serverPlayer);
@@ -54,7 +54,7 @@ public final class RtsProgressionNetworkHandlers {
         });
     }
 
-    public static void handleRequestProgressionState(C2SRtsRequestProgressionStatePayload payload, IPayloadContext context) {
+    public static void handleRequestProgressionState(C2SRtsRequestProgressionStatePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 RtsProgressionManager.syncToPlayer(serverPlayer);

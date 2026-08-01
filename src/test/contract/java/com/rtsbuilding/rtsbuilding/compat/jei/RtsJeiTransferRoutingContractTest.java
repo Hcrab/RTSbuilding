@@ -12,7 +12,7 @@ class RtsJeiTransferRoutingContractTest {
     @Test
     void vanillaCraftingMenusDelegateBackToJeiTransferChecks() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/compat/jei/RtsCraftTerminalJeiTransferHandler.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/compat/jei/RtsCraftTerminalJeiTransferHandler.java"));
         String body = methodBody(source,
                 "public IRecipeTransferError transferRecipe(CraftingMenu container, RecipeHolder<CraftingRecipe> recipe,");
 
@@ -31,7 +31,7 @@ class RtsJeiTransferRoutingContractTest {
     @Test
     void vanillaDelegateUsesCraftingTableSlotLayout() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/compat/jei/RtsCraftTerminalJeiTransferHandler.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/compat/jei/RtsCraftTerminalJeiTransferHandler.java"));
 
         assertTrue(source.contains("CRAFT_GRID_SLOT_START = 1"),
                 "原版工作台合成输入槽应从菜单 slot 1 开始。");

@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.compat;
 
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 /**
- * Optional extension for {@link IItemHandler} implementations that maintain
+ * Optional extension for {@link RtsItemHandler} implementations that maintain
  * an internal snapshot/cache of their full inventory state.
  * <p>
  * Implementations should <b>not</b> perform full inventory scans in
- * hot-path methods like {@link IItemHandler#getSlots()}. Instead, the
+ * hot-path methods like {@link RtsItemHandler#getSlots()}. Instead, the
  * cache update loop calls {@link #ensureFreshSnapshot()} <b>once</b> per
  * refresh cycle, giving the handler a chance to update its internal state
  * at a controlled rate.

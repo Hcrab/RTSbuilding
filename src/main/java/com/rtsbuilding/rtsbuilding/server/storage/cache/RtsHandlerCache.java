@@ -6,14 +6,14 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.item.RtsItemHandler;
 
 import java.util.*;
 
 /**
- * 单个 {@link IItemHandler} 的槽位级别缓存，支持变更检测。
+ * 单个 {@link RtsItemHandler} 的槽位级别缓存，支持变更检测。
  *
- * <p>采用快照对比模式：每次调用 {@link #update(IItemHandler)}
+ * <p>采用快照对比模式：每次调用 {@link #update(RtsItemHandler)}
  * 都会与上一次快照进行差异比较，仅返回发生变更的物品集合。
  * 这避免了在每次页面刷新或转移操作时反复调用 {@code getStackInSlot()}。
  *
@@ -49,7 +49,7 @@ public final class RtsHandlerCache {
      * 仅实际发生变更的槽位会影响映射。
      * 这避免了在大型 AE2 式存储系统中每次 tick 都执行完整的 O(n) 重建。
      */
-    public Set<String> update(IItemHandler handler) {
+    public Set<String> update(RtsItemHandler handler) {
         Objects.requireNonNull(handler, "handler");
 
         // 给予基于快照的处理器（如 AE2）在每个更新周期刷新其内部缓存的机会。
@@ -201,7 +201,7 @@ public final class RtsHandlerCache {
      * <p>
      * 与 {@link #invalidate()} 不同，此方法将映射引用置空，
      * 这样即使缓存对象本身被短暂持有，条目也能被收集。
-     * <b>调用此方法后不要再调用 {@link #update(IItemHandler)}</b>，
+     * <b>调用此方法后不要再调用 {@link #update(RtsItemHandler)}</b>，
      * 除非先调用 {@link #invalidate()}。
      */
     public void release() {
@@ -215,7 +215,7 @@ public final class RtsHandlerCache {
     //  内部方法
     // ======================================================================
 
-    private int numSlots(IItemHandler handler) {
+    private int numSlots(RtsItemHandler handler) {
         try {
             return handler.getSlots();
         } catch (Exception e) {
@@ -223,7 +223,7 @@ public final class RtsHandlerCache {
         }
     }
 
-    private static CachedSlot readSlot(IItemHandler handler, int slot) {
+    private static CachedSlot readSlot(RtsItemHandler handler, int slot) {
         try {
             ItemStack stack = handler.getStackInSlot(slot);
             if (stack == null || stack.isEmpty()) {

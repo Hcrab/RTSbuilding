@@ -12,20 +12,20 @@ class PlacementStateWheelRoutingContractTest {
     @Test
     void placementWheelGetsRBeforeRotateModeAndUsesSeparateAction() throws Exception {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenComponentState.java"))
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenComponentState.java"))
                 + Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"))
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"))
                 + Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java"))
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java"))
                 + Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenKeyboardActionOwner.java"))
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenKeyboardActionOwner.java"))
                 + Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenModeSessionOwner.java"))
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenModeSessionOwner.java"))
                 + Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenPointerClickRouter.java"))
                 + Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenKeyPressRouter.java"));
         int placementRoute = source.indexOf("screen.openPlacementStateWheel(screen.currentMouseX(), screen.currentMouseY())");
         int modeRoute = source.indexOf("handleModeKeyPressed(keyCode, scanCode)", placementRoute);
@@ -43,9 +43,9 @@ class PlacementStateWheelRoutingContractTest {
         assertTrue(source.contains("GLFW.glfwSetCursorPos("));
 
         String picker = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java"));
         String placementService = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/service/BuildPlacementService.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/service/BuildPlacementService.java"));
         String preset = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/common/placement/PlacementStatePreset.java"));
         assertTrue(picker.contains("this.controller.copyPlacementState(state);"));
@@ -56,7 +56,7 @@ class PlacementStateWheelRoutingContractTest {
         assertTrue(preset.contains("state.getBlock() instanceof SlabBlock && !\"double\".equals(valueName)"));
 
         String wheel = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacementStateWheel.java"));
+                "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacementStateWheel.java"));
         assertTrue(wheel.contains("private static final int PLACEMENT_PAGE_SIZE = 8"));
         assertTrue(wheel.contains("PlacementStateCombinationPlan.combinations("),
                 "放置轮盘应生成完整状态组合，而不是把每个属性强行画成同心层");

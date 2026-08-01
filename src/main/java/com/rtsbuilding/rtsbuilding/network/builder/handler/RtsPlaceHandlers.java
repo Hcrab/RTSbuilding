@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for RTS placement and fluid actions.
@@ -19,7 +19,7 @@ public final class RtsPlaceHandlers {
     private RtsPlaceHandlers() {
     }
 
-    public static void handleSetMode(C2SRtsSetModePayload payload, IPayloadContext context) {
+    public static void handleSetMode(C2SRtsSetModePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 int modeId = payload.mode();
@@ -32,7 +32,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handleRotateBlock(C2SRtsRotateBlockPayload payload, IPayloadContext context) {
+    public static void handleRotateBlock(C2SRtsRotateBlockPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().placement().rotateBlock(serverPlayer, payload.pos());
@@ -40,7 +40,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handleOrientBlock(C2SRtsOrientBlockPayload payload, IPayloadContext context) {
+    public static void handleOrientBlock(C2SRtsOrientBlockPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer
                     && payload.axisDirection() >= 0
@@ -55,7 +55,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handlePlace(C2SRtsPlacePayload payload, IPayloadContext context) {
+    public static void handlePlace(C2SRtsPlacePayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -93,7 +93,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handlePlaceBatch(C2SRtsPlaceBatchPayload payload, IPayloadContext context) {
+    public static void handlePlaceBatch(C2SRtsPlaceBatchPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -121,7 +121,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handlePlaceFluid(C2SRtsPlaceFluidPayload payload, IPayloadContext context) {
+    public static void handlePlaceFluid(C2SRtsPlaceFluidPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
@@ -144,7 +144,7 @@ public final class RtsPlaceHandlers {
         });
     }
 
-    public static void handleStoreFluid(C2SRtsStoreFluidPayload payload, IPayloadContext context) {
+    public static void handleStoreFluid(C2SRtsStoreFluidPayload payload, RtsPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().fluid().storeFluidFromContainer(

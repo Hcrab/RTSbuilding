@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.plugin;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.plugin.handler.RtsPluginNetworkHandlers;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 
 /**
  * Registers RTS plugin install, uninstall, and sync packets.
@@ -11,7 +11,7 @@ public final class RtsPluginPackets {
     private RtsPluginPackets() {
     }
 
-    public static void register(PayloadRegistrar registrar) {
+    public static void register(RtsPayloadRegistrar registrar) {
         registrar.playToServer(
                 C2SRtsInstallPluginPayload.TYPE,
                 C2SRtsInstallPluginPayload.STREAM_CODEC,
