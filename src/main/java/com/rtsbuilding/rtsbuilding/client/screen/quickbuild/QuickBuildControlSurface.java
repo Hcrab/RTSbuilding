@@ -240,10 +240,33 @@ final class QuickBuildControlSurface {
     }
 
     boolean mouseReleased(double mouseX, double mouseY, int button) {
-        boolean handled = this.chainLimitSlider != null
+        // WindowButton 会在 mouseClicked 时锁定按下视觉；即使切换目录或工具，
+        // 松开事件也必须广播给全部按钮，否则点过的按钮会永久显示为 pressed。
+        boolean handled = release(this.catalogButtons, mouseX, mouseY, button);
+        handled |= release(this.convenienceToolButtons, mouseX, mouseY, button);
+        handled |= release(this.shapeButtons, mouseX, mouseY, button);
+        handled |= release(this.controlButtons, mouseX, mouseY, button);
+        if (this.connectToggle != null) {
+            handled |= this.connectToggle.mouseReleased(mouseX, mouseY, button);
+        }
+        handled |= this.chainLimitSlider != null
                 && this.chainLimitSlider.mouseReleased(mouseX, mouseY, button);
         for (WindowSlider slider : this.convenienceSliders.values()) {
             handled |= slider.mouseReleased(mouseX, mouseY, button);
+        }
+        return handled;
+    }
+
+    private static boolean release(
+            WindowButton[] buttons,
+            double mouseX,
+            double mouseY,
+            int button) {
+        boolean handled = false;
+        for (WindowButton windowButton : buttons) {
+            if (windowButton != null) {
+                handled |= windowButton.mouseReleased(mouseX, mouseY, button);
+            }
         }
         return handled;
     }

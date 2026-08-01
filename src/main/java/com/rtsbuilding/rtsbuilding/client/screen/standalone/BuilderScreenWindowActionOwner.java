@@ -166,7 +166,7 @@ final class BuilderScreenWindowActionOwner {
 
     String activeQuickBuildShapeLabel() {
             if (screen.isQuickBuildConvenienceDestroyMode()) {
-                return screen.text("screen.rtsbuilding.quick_build.convenience_tools");
+                return screen.quickBuildPanel.getConvenienceToolLabel();
             }
             if (screen.isQuickBuildRangeDestroyChainMode()) {
                 return screen.text("screen.rtsbuilding.shape.chain");

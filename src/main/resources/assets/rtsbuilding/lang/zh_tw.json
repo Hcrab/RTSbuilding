@@ -544,8 +544,6 @@
   "screen.rtsbuilding.quick_build.chain_limit_label": "上限",
   "screen.rtsbuilding.quick_build.catalog_shapes": "一般形狀",
   "screen.rtsbuilding.quick_build.catalog_tools": "工具",
-  "screen.rtsbuilding.quick_build.convenience_tools": "便捷工具",
-  "screen.rtsbuilding.quick_build.parameters": "參數",
   "screen.rtsbuilding.quick_build.tool.repeat_box": "重複 XYZ",
   "screen.rtsbuilding.quick_build.tool.chunk_quarry": "區塊挖掘",
   "screen.rtsbuilding.quick_build.tool.tree_fell": "自動砍樹",

@@ -239,15 +239,6 @@ final class QuickBuildControlRenderer {
             int mouseX,
             int mouseY,
             float partialTick) {
-        graphics.drawString(screen.font(),
-                Component.translatable("screen.rtsbuilding.quick_build.convenience_tools"),
-                layout.sectionLabelX, layout.sectionTitleY,
-                QuickBuildStyle.SECTION_TEXT.toArgb(), false);
-        graphics.drawString(screen.font(),
-                Component.translatable("screen.rtsbuilding.quick_build.parameters"),
-                layout.rightX, layout.sectionTitleY,
-                QuickBuildStyle.SECTION_TEXT.toArgb(), false);
-
         for (int i = 0; i < 3; i++) {
             controls.convenienceToolButton(i).render(
                     graphics, mouseX, mouseY, partialTick);

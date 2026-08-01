@@ -116,6 +116,20 @@ class QuickBuildClosedStateContractTest {
                 "server fallback should use the shared translated locked-feature message");
     }
 
+    @Test
+    void quickBuildButtonsReleaseTheirPressedVisual() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildControlSurface.java"));
+        String releaseBody = methodBody(source, "boolean mouseReleased");
+
+        assertTrue(releaseBody.contains("release(this.catalogButtons"));
+        assertTrue(releaseBody.contains("release(this.convenienceToolButtons"));
+        assertTrue(releaseBody.contains("release(this.shapeButtons"));
+        assertTrue(releaseBody.contains("release(this.controlButtons"));
+        assertTrue(releaseBody.contains("this.connectToggle.mouseReleased"),
+                "every quick-build button family must clear WindowButton.pressedVisual on mouse release");
+    }
+
     private static String methodBody(String source, String signatureStart) {
         int start = source.indexOf(signatureStart);
         assertTrue(start >= 0, "method not found: " + signatureStart);

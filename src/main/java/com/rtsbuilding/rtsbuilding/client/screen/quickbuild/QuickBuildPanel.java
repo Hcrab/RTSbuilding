@@ -139,6 +139,16 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return this.convenience.tool();
     }
 
+    /** 返回当前便捷破坏工具的具体玩家可见名称，不再使用泛化的分组标题。 */
+    public String getConvenienceToolLabel() {
+        String key = switch (this.convenience.tool()) {
+            case REPEAT_BOX -> "screen.rtsbuilding.quick_build.tool.repeat_box";
+            case CHUNK_QUARRY -> "screen.rtsbuilding.quick_build.tool.chunk_quarry";
+            case TREE_FELL -> "screen.rtsbuilding.quick_build.tool.tree_fell";
+        };
+        return this.screen == null ? "" : this.screen.text(key);
+    }
+
     QuickBuildUiConvenienceSettings getConvenienceSettings() {
         return this.convenience.settings();
     }
