@@ -1,8 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.client.compat.RtsRemoteMenuClientDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.*;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
@@ -242,6 +241,9 @@ final class ClientRtsCommandOwner {
         }
 
     void applyRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload) {
+            RtsRemoteMenuClientDiagnostics.receiveServerHint(
+                    payload == null ? null : payload.pos(),
+                    ClientRtsController.REMOTE_MENU_OPEN_GRACE_TICKS);
             controller.beginRemoteMenuOpenGrace();
         }
 
@@ -336,15 +338,7 @@ final class ClientRtsCommandOwner {
         }
 
     void handleRemoteMenuOpenFailure(Minecraft minecraft, Throwable throwable) {
-            String menuClass = minecraft.player != null && minecraft.player.containerMenu != null
-                    ? minecraft.player.containerMenu.getClass().getName()
-                    : "null";
-            String screenClass = minecraft.screen != null ? minecraft.screen.getClass().getName() : "null";
-            RtsbuildingMod.LOGGER.error(
-                    "RTS remote menu open failed for menu {} on screen {}; closing container to prevent a client crash.",
-                    menuClass,
-                    screenClass,
-                    throwable);
+            RtsRemoteMenuClientDiagnostics.compatFailure(minecraft, throwable);
             controller.clearRemoteMenuValidationState();
             controller.pendingRemoteMenuOpenTicks = 0;
             if (minecraft.player != null) {

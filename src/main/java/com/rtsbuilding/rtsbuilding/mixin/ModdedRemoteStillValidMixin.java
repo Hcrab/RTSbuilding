@@ -27,7 +27,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 }, remap = false)
 abstract class ModdedRemoteStillValidMixin {
 
-    @Inject(method = "stillValid", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "stillValid", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private void rtsbuilding$forceRemoteStillValid(Player player, CallbackInfoReturnable<Boolean> cir) {
         if (RtsRemoteMenuCompat.shouldForceStillValid((AbstractContainerMenu) (Object) this, player)) {
             cir.setReturnValue(true);

@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.client.compat.RtsRemoteMenuClientDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.*;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
@@ -71,6 +71,7 @@ final class ClientRtsLifecycleOwner {
                 controller.closeRangeAllowed = payload.closeRangeAllowed();
 
                 if (freshEnable) {
+                    RtsRemoteMenuClientDiagnostics.reset("rts-enabled");
                     controller.cameraOrbitService.capturePreviousView(minecraft);
                     // Clear stale player input to prevent WASD presses from before entering RTS mode from affecting movement
                     if (minecraft.player instanceof LocalPlayer localPlayer) {
@@ -112,6 +113,7 @@ final class ClientRtsLifecycleOwner {
             }
 
             controller.enabled = false;
+            RtsRemoteMenuClientDiagnostics.reset("rts-disabled");
             controller.cameraOrbitService.resetServerCameraEntityId();
             controller.cameraOrbitService.setLocalStateReady(false);
             controller.homeSelectionMode = false;
@@ -156,6 +158,7 @@ final class ClientRtsLifecycleOwner {
             Minecraft minecraft = Minecraft.getInstance();
             if (minecraft.player == null || !controller.enabled) {
                 controller.clearRemoteMenuValidationState();
+                RtsRemoteMenuClientDiagnostics.reset("player-or-rts-unavailable");
             }
         }
 
@@ -185,6 +188,9 @@ final class ClientRtsLifecycleOwner {
                     && controller.pendingRemoteMenuOpenTicks <= 0) {
                 controller.screenlessRemoteMenuTicks++;
                 if (controller.screenlessRemoteMenuTicks >= ClientRtsController.SCREENLESS_REMOTE_MENU_RECOVERY_TICKS) {
+                    RtsRemoteMenuClientDiagnostics.screenlessRecovery(
+                            minecraft.player.containerMenu,
+                            controller.screenlessRemoteMenuTicks);
                     RtsClientPacketGateway.sendCloseRemoteMenu();
                     minecraft.player.closeContainer();
                     controller.clearRemoteMenuValidationState();
@@ -227,7 +233,9 @@ final class ClientRtsLifecycleOwner {
                 try {
                     AbstractContainerMenu activeRemoteMenu = RtsClientRemoteMenuCompat.install(minecraft, minecraft.player.containerMenu);
                     if (controller.relaxedRemoteMenu != activeRemoteMenu) {
-                        RtsClientRemoteMenuCompat.relaxValidation(activeRemoteMenu);
+                        RtsClientRemoteMenuCompat.RelaxationReport relaxationReport =
+                                RtsClientRemoteMenuCompat.relaxValidation(activeRemoteMenu);
+                        RtsRemoteMenuClientDiagnostics.validationApplied(activeRemoteMenu, relaxationReport);
                         controller.relaxedRemoteMenu = activeRemoteMenu;
                     }
                     if (minecraft.screen instanceof BuilderScreen) {
@@ -245,6 +253,11 @@ final class ClientRtsLifecycleOwner {
                 controller.clearRemoteMenuValidationState();
                 controller.relaxedRemoteMenu = null;
             }
+
+            RtsRemoteMenuClientDiagnostics.observe(
+                    minecraft,
+                    controller.pendingRemoteMenuOpenTicks,
+                    controller.screenlessRemoteMenuTicks);
 
             if (minecraft.screen == null
                     && !controller.suppressBuilderScreenRestoreUntilRtsRestart
@@ -315,6 +328,7 @@ final class ClientRtsLifecycleOwner {
             controller.screenlessRemoteMenuTicks = 0;
             controller.miningOperationService.clearMiningRenderState();
             controller.clearRemoteMenuValidationState();
+            RtsRemoteMenuClientDiagnostics.reset("player-death");
 
             if (minecraft.screen instanceof BuilderScreen
                     || minecraft.screen instanceof RtsHomeScreen

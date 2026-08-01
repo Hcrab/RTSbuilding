@@ -5,11 +5,7 @@ import com.mojang.brigadier.arguments.StringArgumentType;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.commands.Commands;
@@ -55,16 +51,28 @@ public final class RtsGuiCompatProbe {
             "RTSBUILDING_GUI_COMPAT_AUTO_RUN");
     private static final boolean AUTO_EXIT = resolveBoolean("rtsbuilding.guiCompatAutoExit",
             "RTSBUILDING_GUI_COMPAT_AUTO_EXIT");
+    private static final Path SUITE_PATH = resolveOptionalPath("rtsbuilding.guiCompatSuite",
+            "RTSBUILDING_GUI_COMPAT_SUITE");
+    private static final ResolvedSuite RESOLVED_SUITE = resolveSuite();
+    private static final RtsGuiCompatSuiteLoader.RtsGuiCompatSuite SUITE = RESOLVED_SUITE.suite();
+    private static final RtsGuiCompatProbeReport REPORT = new RtsGuiCompatProbeReport(
+            REPORT_PATH,
+            SUITE.suiteId(),
+            resolveConfig("rtsbuilding.guiCompatBaselineSha", "RTSBUILDING_GUI_COMPAT_BASELINE_SHA", "unknown"),
+            resolveConfig("rtsbuilding.guiCompatManifestHash", "RTSBUILDING_GUI_COMPAT_MANIFEST_HASH", "unknown"));
 
     private static long tick;
-    private static boolean headerWritten;
+    private static boolean configErrorReported;
     private static String lastScreenClass = "";
     private static String lastScreenTitle = "";
     private static String lastMenuClass = "";
     private static int lastContainerId = -1;
     private static int screenlessMenuTicks;
     private static SmokeRun activeRun;
-    private static AutoRun autoRun = AUTO_RUN && REPORT_PATH != null ? new AutoRun(CASE_ID) : null;
+    private static RtsGuiCompatCase currentCase = SUITE.cases().getFirst();
+    private static AutoRun autoRun = AUTO_RUN && REPORT_PATH != null && RESOLVED_SUITE.error().isBlank()
+            ? new AutoRun(REPORT.resumeIndex(SUITE.cases().size()))
+            : null;
 
     private RtsGuiCompatProbe() {
     }
@@ -87,6 +95,10 @@ public final class RtsGuiCompatProbe {
         }
 
         tick++;
+        if (!RESOLVED_SUITE.error().isBlank() && !configErrorReported) {
+            configErrorReported = true;
+            writeRow("suite-load", "SKIP_SETUP", "", "", "", -1, RESOLVED_SUITE.error());
+        }
         Minecraft minecraft = Minecraft.getInstance();
         String screenClass = currentScreenClass(minecraft);
         String screenTitle = currentScreenTitle(minecraft);
@@ -114,6 +126,14 @@ public final class RtsGuiCompatProbe {
 
     private static int startFromCommand(String requestedCaseId) {
         Minecraft minecraft = Minecraft.getInstance();
+        RtsGuiCompatCase requestedCase = findCase(requestedCaseId);
+        if (requestedCase == null) {
+            writeRow("run-start", "SKIP_SETUP", currentScreenClass(minecraft), currentScreenTitle(minecraft),
+                    currentMenuClass(minecraft), currentContainerId(minecraft),
+                    "Unknown suite case: " + requestedCaseId);
+            return 0;
+        }
+        currentCase = requestedCase;
         if (minecraft.player == null || minecraft.level == null) {
             writeRow("run-start", "FAIL", "", "", "", -1, "Client world or player is not ready.");
             return 0;
@@ -129,10 +149,10 @@ public final class RtsGuiCompatProbe {
 
         BlockState state = minecraft.level.getBlockState(hit.getBlockPos());
         String targetBlock = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        if (!TARGET_BLOCK.isBlank() && !TARGET_BLOCK.equals(targetBlock)) {
+        if (!currentCase.blockId().isBlank() && !currentCase.blockId().equals(targetBlock)) {
             writeRow("run-start", "FAIL", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                     currentMenuClass(minecraft), currentContainerId(minecraft),
-                    "Target mismatch: expected=" + TARGET_BLOCK + " actual=" + targetBlock);
+                    "Target mismatch: expected=" + currentCase.blockId() + " actual=" + targetBlock);
             return 0;
         }
 
@@ -140,8 +160,7 @@ public final class RtsGuiCompatProbe {
         Vec3 rayDir = hit.getLocation().subtract(origin);
         rayDir = rayDir.lengthSqr() < 1.0E-6D ? minecraft.player.getLookAngle() : rayDir.normalize();
 
-        activeRun = new SmokeRun(requestedCaseId == null || requestedCaseId.isBlank() ? CASE_ID : requestedCaseId,
-                targetBlock, hit, origin, rayDir);
+        activeRun = new SmokeRun(currentCase, hit, origin, rayDir);
         writeRow("run-start", "INFO", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                 currentMenuClass(minecraft), currentContainerId(minecraft),
                 "pos=" + hit.getBlockPos().toShortString() + " block=" + targetBlock);
@@ -161,8 +180,14 @@ public final class RtsGuiCompatProbe {
 
     private static BlockHitResult resolveTargetHit(Minecraft minecraft) {
         if (minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
-            if (TARGET_BLOCK.isBlank() || matchesTargetBlock(minecraft, hit.getBlockPos())) {
+            if (currentCase.blockId().isBlank() || matchesTargetBlock(minecraft, hit.getBlockPos())) {
                 return hit;
+            }
+        }
+        if (minecraft.player != null) {
+            BlockPos expected = minecraft.player.blockPosition().offset(0, 0, currentCase.distance());
+            if (matchesTargetBlock(minecraft, expected)) {
+                return new BlockHitResult(Vec3.atCenterOf(expected), Direction.UP, expected, false);
             }
         }
         return findNearestTargetHit(minecraft);
@@ -173,11 +198,11 @@ public final class RtsGuiCompatProbe {
             return false;
         }
         BlockState state = minecraft.level.getBlockState(pos);
-        return TARGET_BLOCK.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+        return currentCase.blockId().equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
     }
 
     private static BlockHitResult findNearestTargetHit(Minecraft minecraft) {
-        if (minecraft.player == null || minecraft.level == null || TARGET_BLOCK.isBlank()) {
+        if (minecraft.player == null || minecraft.level == null || currentCase.blockId().isBlank()) {
             return null;
         }
         BlockPos playerPos = minecraft.player.blockPosition();
@@ -247,35 +272,64 @@ public final class RtsGuiCompatProbe {
             AbstractContainerMenu menu = minecraft.player == null ? null : minecraft.player.containerMenu;
             boolean hasMenu = menu != null && menu.containerId != 0;
             boolean hasScreen = minecraft.screen != null;
-            boolean menuMatches = hasMenu && matchesRegex(menu.getClass().getName(), EXPECTED_MENU_REGEX);
-            boolean screenMatches = hasScreen && matchesRegex(screenClass, EXPECTED_SCREEN_REGEX);
+            boolean menuMatches = hasMenu && matchesRegex(menu.getClass().getName(), activeRun.guiCase.expectedMenuRegex());
+            boolean screenMatches = hasScreen && matchesRegex(screenClass, activeRun.guiCase.expectedScreenRegex());
             if (hasMenu && !menuMatches) {
                 finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
-                        "Unexpected menu: " + menu.getClass().getName() + " expected=" + EXPECTED_MENU_REGEX);
+                        "Unexpected menu: " + menu.getClass().getName()
+                                + " expected=" + activeRun.guiCase.expectedMenuRegex());
                 return;
             }
             if (hasMenu && hasScreen && !screenMatches) {
                 finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
-                        "Unexpected screen: " + screenClass + " expected=" + EXPECTED_SCREEN_REGEX);
+                        "Unexpected screen: " + screenClass
+                                + " expected=" + activeRun.guiCase.expectedScreenRegex());
                 return;
             }
             if (hasMenu && hasScreen && menuMatches && screenMatches) {
                 activeRun.stableTicks++;
                 activeRun.sawMenu = true;
-                if (activeRun.stableTicks >= REQUIRED_STABLE_TICKS) {
-                    finishActiveRun("PASS", screenClass, screenTitle, menuClass, containerId,
-                            "Expected menu and screen stayed open for " + REQUIRED_STABLE_TICKS + " ticks.");
+                if ("VANILLA_INTERACTION".equals(activeRun.guiCase.depth())
+                        && !activeRun.interactionPassed
+                        && activeRun.stableTicks >= 5) {
+                    if (activeRun.interactionDriver == null) {
+                        activeRun.interactionDriver = new RtsGuiCompatVanillaInteractionDriver(activeRun.guiCase);
+                    }
+                    RtsGuiCompatVanillaInteractionDriver.TickResult interaction =
+                            activeRun.interactionDriver.tick(minecraft, menu);
+                    if (interaction.outcome() == RtsGuiCompatVanillaInteractionDriver.Outcome.FAIL) {
+                        finishActiveRun("INTERACTION_FAIL", screenClass, screenTitle, menuClass, containerId,
+                                interaction.note());
+                        return;
+                    }
+                    if (interaction.outcome() == RtsGuiCompatVanillaInteractionDriver.Outcome.PASS) {
+                        activeRun.interactionPassed = true;
+                        activeRun.interactionNote = interaction.note();
+                        writeRow("run-interaction-pass", "INFO", screenClass, screenTitle, menuClass, containerId,
+                                interaction.note());
+                    }
+                }
+                boolean interactionReady = !"VANILLA_INTERACTION".equals(activeRun.guiCase.depth())
+                        || activeRun.interactionPassed;
+                if (activeRun.stableTicks >= SUITE.stableTicks() && interactionReady) {
+                    String status = activeRun.guiCase.discoveryOnly() ? "DISCOVERED" : "PASS";
+                    finishActiveRun(status, screenClass, screenTitle, menuClass, containerId,
+                            "Expected menu and screen stayed open for " + SUITE.stableTicks()
+                                    + " ticks; actualMenu=" + menuClass + " actualScreen=" + screenClass
+                                    + (activeRun.interactionNote.isBlank()
+                                            ? "" : "; interaction=" + activeRun.interactionNote));
                 }
                 return;
             }
             if (activeRun.sawMenu && !hasScreen) {
                 finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
-                        "Screen closed before " + REQUIRED_STABLE_TICKS + " stable ticks.");
+                        "Screen closed before " + SUITE.stableTicks() + " stable ticks.");
                 return;
             }
-            if (activeRun.stageTicks > 120) {
+            if (activeRun.stageTicks > SUITE.openTimeoutTicks()) {
                 finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
-                        "Expected menu did not open within 120 ticks after interaction.");
+                        "Expected menu did not open within " + SUITE.openTimeoutTicks()
+                                + " ticks after interaction.");
             }
         }
     }
@@ -285,10 +339,10 @@ public final class RtsGuiCompatProbe {
         if (autoRun == null || autoRun.finished) {
             return;
         }
-        autoRun.totalTicks++;
+        autoRun.caseTicks++;
 
         if (minecraft.player == null || minecraft.level == null || minecraft.player.connection == null) {
-            if (autoRun.totalTicks > AUTO_TIMEOUT_TICKS) {
+            if (autoRun.caseTicks > AUTO_TIMEOUT_TICKS) {
                 writeRow("auto-timeout", "FAIL", screenClass, screenTitle, menuClass, containerId,
                         "Timed out waiting for a playable world.");
                 finishAutoRun(minecraft);
@@ -301,10 +355,23 @@ public final class RtsGuiCompatProbe {
             if (autoRun.stageTicks < AUTO_WORLD_READY_DELAY) {
                 return;
             }
-            if (!SETUP_COMMAND.isBlank()) {
-                minecraft.player.connection.sendCommand(SETUP_COMMAND);
+            if (autoRun.caseIndex >= SUITE.cases().size()) {
+                finishAutoRun(minecraft);
+                return;
+            }
+            autoRun.stage = AutoStage.PREPARE_CASE;
+            autoRun.stageTicks = 0;
+        }
+
+        if (autoRun.stage == AutoStage.PREPARE_CASE) {
+            currentCase = SUITE.cases().get(autoRun.caseIndex);
+            autoRun.caseCompleted = false;
+            autoRun.caseTicks = 0;
+            String setupCommand = currentSetupCommand();
+            if (!setupCommand.isBlank()) {
+                minecraft.player.connection.sendCommand(setupCommand);
                 writeRow("auto-setup-command", "INFO", screenClass, screenTitle, menuClass, containerId,
-                        "/" + SETUP_COMMAND);
+                        "/" + setupCommand);
                 autoRun.stage = AutoStage.WAIT_SETUP;
                 autoRun.stageTicks = 0;
                 return;
@@ -322,21 +389,49 @@ public final class RtsGuiCompatProbe {
         }
 
         if (autoRun.stage == AutoStage.START_PROBE) {
-            int result = startFromCommand(autoRun.caseId);
+            int result = startFromCommand(currentCase.id());
             autoRun.stage = AutoStage.WAIT_FINISH;
             autoRun.stageTicks = 0;
             if (result != Command.SINGLE_SUCCESS || activeRun == null) {
-                finishAutoRun(minecraft);
+                completeAutoCase("SKIP_SETUP");
             }
             return;
         }
 
         if (autoRun.stage == AutoStage.WAIT_FINISH) {
-            if (activeRun == null) {
+            if (activeRun == null && autoRun.caseCompleted) {
                 if (autoRun.stageTicks >= AUTO_EXIT_DELAY) {
-                    finishAutoRun(minecraft);
+                    closeProbeMenu(minecraft);
+                    autoRun.caseIndex++;
+                    autoRun.stage = AutoStage.PREPARE_CASE;
+                    autoRun.stageTicks = 0;
+                    autoRun.caseTicks = 0;
+                    if (autoRun.caseIndex >= SUITE.cases().size()) {
+                        finishAutoRun(minecraft);
+                    }
                 }
             }
+        }
+    }
+
+    private static void completeAutoCase(String status) {
+        if (autoRun == null || autoRun.caseCompleted) {
+            return;
+        }
+        autoRun.caseCompleted = true;
+        REPORT.markCompleted(autoRun.caseIndex, currentCase, status);
+    }
+
+    private static void closeProbeMenu(Minecraft minecraft) {
+        if (minecraft != null && minecraft.player != null && minecraft.player.containerMenu != null
+                && minecraft.player.containerMenu.containerId != 0) {
+            RtsClientPacketGateway.sendCloseRemoteMenu();
+            minecraft.player.closeContainer();
+        }
+        if (minecraft != null && minecraft.screen != null
+                && !(minecraft.screen.getClass().getName().equals(
+                        "com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen"))) {
+            minecraft.setScreen(null);
         }
     }
 
@@ -345,6 +440,10 @@ public final class RtsGuiCompatProbe {
             return;
         }
         autoRun.finished = true;
+        writeRow("suite-finish", "INFO", currentScreenClass(minecraft), currentScreenTitle(minecraft),
+                currentMenuClass(minecraft), currentContainerId(minecraft),
+                "Completed " + Math.min(autoRun.caseIndex, SUITE.cases().size())
+                        + "/" + SUITE.cases().size() + " cases.");
         if (AUTO_EXIT) {
             writeRow("auto-exit", "INFO", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                     currentMenuClass(minecraft), currentContainerId(minecraft), "Stopping client.");
@@ -370,6 +469,7 @@ public final class RtsGuiCompatProbe {
     private static void finishActiveRun(String status, String screenClass, String screenTitle,
             String menuClass, int containerId, String note) {
         writeRow("run-finish", status, screenClass, screenTitle, menuClass, containerId, note);
+        completeAutoCase(status);
         activeRun = null;
     }
 
@@ -399,14 +499,36 @@ public final class RtsGuiCompatProbe {
     }
 
     private static Path resolveReportPath() {
-        String configured = System.getProperty("rtsbuilding.guiCompatProbeReport");
-        if (configured == null || configured.isBlank()) {
-            configured = System.getenv("RTSBUILDING_GUI_COMPAT_PROBE_REPORT");
+        return resolveOptionalPath("rtsbuilding.guiCompatProbeReport", "RTSBUILDING_GUI_COMPAT_PROBE_REPORT");
+    }
+
+    private static Path resolveOptionalPath(String propertyName, String environmentName) {
+        String configured = resolveConfig(propertyName, environmentName, "");
+        return configured.isBlank() ? null : Path.of(configured).toAbsolutePath().normalize();
+    }
+
+    private static ResolvedSuite resolveSuite() {
+        RtsGuiCompatCase fallbackCase = new RtsGuiCompatCase(
+                CASE_ID,
+                TARGET_BLOCK,
+                resolveInt("rtsbuilding.guiCompatTargetDistance", "RTSBUILDING_GUI_COMPAT_TARGET_DISTANCE", 20),
+                "OPEN_STABLE",
+                "single_block",
+                EXPECTED_MENU_REGEX,
+                EXPECTED_SCREEN_REGEX);
+        if (SUITE_PATH == null) {
+            return new ResolvedSuite(
+                    RtsGuiCompatSuiteLoader.single(fallbackCase, REQUIRED_STABLE_TICKS, 120), "");
         }
-        if (configured == null || configured.isBlank()) {
-            return null;
+        try {
+            return new ResolvedSuite(RtsGuiCompatSuiteLoader.load(SUITE_PATH), "");
+        } catch (RuntimeException | java.io.IOException exception) {
+            RtsbuildingMod.LOGGER.error("Failed to load RTS GUI compat suite {}; automatic probing is disabled.",
+                    SUITE_PATH, exception);
+            return new ResolvedSuite(
+                    RtsGuiCompatSuiteLoader.single(fallbackCase, REQUIRED_STABLE_TICKS, 120),
+                    exception.getClass().getSimpleName() + ": " + exception.getMessage());
         }
-        return Path.of(configured).toAbsolutePath().normalize();
     }
 
     private static String resolveConfig(String propertyName, String environmentName, String fallback) {
@@ -453,54 +575,33 @@ public final class RtsGuiCompatProbe {
         if (regex == null || regex.isBlank()) {
             return true;
         }
+        if ("DISCOVER_THEN_LOCK".equals(regex)) {
+            return value != null && !value.isBlank();
+        }
         return value != null && value.matches(regex);
+    }
+
+    private static RtsGuiCompatCase findCase(String caseId) {
+        if (caseId == null || caseId.isBlank()) {
+            return currentCase;
+        }
+        return SUITE.cases().stream()
+                .filter(guiCase -> guiCase.id().equals(caseId))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private static String currentSetupCommand() {
+        if (SUITE_PATH == null && !SETUP_COMMAND.isBlank()) {
+            return SETUP_COMMAND;
+        }
+        return currentCase.setupCommand();
     }
 
     private static void writeRow(String event, String status, String screenClass, String screenTitle,
             String menuClass, int containerId, String note) {
-        if (REPORT_PATH == null) {
-            return;
-        }
-        try {
-            Path parent = REPORT_PATH.getParent();
-            if (parent != null) {
-                Files.createDirectories(parent);
-            }
-            if (!headerWritten && !Files.exists(REPORT_PATH)) {
-                Files.writeString(REPORT_PATH,
-                        "timestamp\tcaseId\ttargetBlock\ttick\tevent\tstatus\tscreenClass\tscreenTitle\tmenuClass\tcontainerId\tnote\r\n",
-                        StandardCharsets.UTF_8, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-            }
-            headerWritten = true;
-            String row = System.currentTimeMillis()
-                    + "\t" + escape(currentCaseId())
-                    + "\t" + escape(currentTargetBlock())
-                    + "\t" + tick
-                    + "\t" + escape(event)
-                    + "\t" + escape(status)
-                    + "\t" + escape(screenClass)
-                    + "\t" + escape(screenTitle)
-                    + "\t" + escape(menuClass)
-                    + "\t" + containerId
-                    + "\t" + escape(note)
-                    + "\r\n";
-            Files.writeString(REPORT_PATH, row, StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-        } catch (IOException exception) {
-            RtsbuildingMod.LOGGER.warn("Failed to write RTS GUI compat probe report: {}", REPORT_PATH, exception);
-        }
-    }
-
-    private static String currentCaseId() {
-        return activeRun == null ? CASE_ID : activeRun.caseId;
-    }
-
-    private static String currentTargetBlock() {
-        return activeRun == null ? TARGET_BLOCK : activeRun.targetBlock;
-    }
-
-    private static String escape(String value) {
-        return value == null ? "" : value.replace('\t', ' ').replace('\r', ' ').replace('\n', ' ');
+        RtsGuiCompatCase reportCase = activeRun == null ? currentCase : activeRun.guiCase;
+        REPORT.append(tick, reportCase, event, status, screenClass, screenTitle, menuClass, containerId, note);
     }
 
     private enum SmokeStage {
@@ -511,14 +612,14 @@ public final class RtsGuiCompatProbe {
 
     private enum AutoStage {
         WAIT_WORLD,
+        PREPARE_CASE,
         WAIT_SETUP,
         START_PROBE,
         WAIT_FINISH
     }
 
     private static final class SmokeRun {
-        private final String caseId;
-        private final String targetBlock;
+        private final RtsGuiCompatCase guiCase;
         private final BlockHitResult hit;
         private final Vec3 rayOrigin;
         private final Vec3 rayDir;
@@ -528,10 +629,12 @@ public final class RtsGuiCompatProbe {
         private int stableTicks;
         private boolean toggleSent;
         private boolean sawMenu;
+        private boolean interactionPassed;
+        private String interactionNote = "";
+        private RtsGuiCompatVanillaInteractionDriver interactionDriver;
 
-        private SmokeRun(String caseId, String targetBlock, BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
-            this.caseId = caseId;
-            this.targetBlock = targetBlock;
+        private SmokeRun(RtsGuiCompatCase guiCase, BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
+            this.guiCase = guiCase;
             this.hit = hit;
             this.rayOrigin = rayOrigin;
             this.rayDir = rayDir;
@@ -539,14 +642,20 @@ public final class RtsGuiCompatProbe {
     }
 
     private static final class AutoRun {
-        private final String caseId;
+        private int caseIndex;
         private AutoStage stage = AutoStage.WAIT_WORLD;
-        private int totalTicks;
+        private int caseTicks;
         private int stageTicks;
+        private boolean caseCompleted;
         private boolean finished;
 
-        private AutoRun(String caseId) {
-            this.caseId = caseId;
+        private AutoRun(int caseIndex) {
+            this.caseIndex = Math.max(0, caseIndex);
         }
+    }
+
+    private record ResolvedSuite(
+            RtsGuiCompatSuiteLoader.RtsGuiCompatSuite suite,
+            String error) {
     }
 }

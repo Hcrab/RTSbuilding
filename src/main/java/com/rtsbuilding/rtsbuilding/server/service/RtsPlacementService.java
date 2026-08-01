@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -52,7 +53,20 @@ public final class RtsPlacementService {
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();
         RtsStorageSession session = player == null ? null : ServiceRegistry.getInstance().session().getIfPresent(player);
 
-        if (player != null && session != null && !forceEmptyHand) {
+        if (forceEmptyHand) {
+            if (player == null || clickedPos == null || face == null) {
+                return;
+            }
+            // 空手右键没有工作流身份，必须即时执行，否则 TaskEngine 会把 workflowEntryId=-1 当作无效任务。
+            RtsPlacementExecutor.placeSelectedInternal(
+                    player, session, clickedPos, face, hitX, hitY, hitZ, rotateSteps, "",
+                    forcePlace, skipIfOccupied, itemId, itemPrototype,
+                    rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ,
+                    quickBuild, true, true, true);
+            return;
+        }
+
+        if (player != null && session != null) {
             PipelineRegistry.execute(quickBuild ? RtsWorkflowType.QUICK_BUILD : RtsWorkflowType.PLACE_SINGLE,
                     PlaceContext.builder(player)
                             .clickedPositions(clickedPos == null ? List.of() : List.of(clickedPos))
