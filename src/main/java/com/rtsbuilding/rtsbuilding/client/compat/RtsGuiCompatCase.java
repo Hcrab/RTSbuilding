@@ -12,6 +12,8 @@ record RtsGuiCompatCase(
         int distance,
         String depth,
         String setupAdapter,
+        int setupWaitTicks,
+        String interactionItemId,
         String expectedMenuRegex,
         String expectedScreenRegex) {
 
@@ -21,12 +23,15 @@ record RtsGuiCompatCase(
         distance = Math.max(2, distance);
         depth = normalize(depth, "OPEN_STABLE");
         setupAdapter = normalize(setupAdapter, "single_block");
+        setupWaitTicks = Math.max(1, setupWaitTicks);
+        interactionItemId = normalize(interactionItemId, "");
         expectedMenuRegex = normalize(expectedMenuRegex, "");
         expectedScreenRegex = normalize(expectedScreenRegex, "");
     }
 
     String setupCommand() {
-        return "rtsbuilding_gui_compat_setup " + id + " " + blockId + " " + distance + " " + setupAdapter;
+        String command = "rtsbuilding_gui_compat_setup " + id + " " + blockId + " " + distance + " " + setupAdapter;
+        return interactionItemId.isBlank() ? command : command + " " + interactionItemId;
     }
 
     boolean discoveryOnly() {

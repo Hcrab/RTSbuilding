@@ -38,6 +38,8 @@ class RtsGuiCompatProbeContractTest {
         assertTrue(probe.contains("auto-world-stable"));
         assertTrue(probe.contains("autoRun.stage = AutoStage.WAIT_WORLD"));
         assertTrue(probe.contains("minecraft.screen instanceof AbstractContainerScreen<?>"));
+        assertTrue(probe.contains("sendInteractBlockWithToolSlot"));
+        assertTrue(probe.contains("currentCase.setupWaitTicks()"));
         assertTrue(report.contains("StandardCopyOption.ATOMIC_MOVE"));
         assertTrue(report.contains("baselineSha"));
         assertTrue(report.contains("manifestHash"));

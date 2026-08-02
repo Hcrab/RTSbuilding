@@ -23,7 +23,7 @@ final class RtsGuiCompatSuiteLoader {
             "suiteId", "stableTicks", "openTimeoutTicks", "cases");
     private static final Set<String> CASE_FIELDS = Set.of(
             "id", "blockId", "distanceProfile", "distance", "depth", "setupAdapter",
-            "expectedMenuRegex", "expectedScreenRegex");
+            "setupWaitTicks", "interactionItemId", "expectedMenuRegex", "expectedScreenRegex");
     private static final Set<String> SUPPORTED_ADAPTERS = Set.of(
             "single_block",
             "vanilla_chest",
@@ -34,7 +34,10 @@ final class RtsGuiCompatSuiteLoader {
             "vanilla_smithing",
             "vanilla_stonecutter",
             "vanilla_brewing",
-            "vanilla_grindstone");
+            "vanilla_grindstone",
+            "oritech_assembler",
+            "oritech_centrifuge",
+            "powah_reactor");
 
     private RtsGuiCompatSuiteLoader() {
     }
@@ -73,6 +76,8 @@ final class RtsGuiCompatSuiteLoader {
                     resolveDistance(object),
                     optionalString(object, "depth", "OPEN_STABLE"),
                     adapter,
+                    positiveInt(object, "setupWaitTicks", 40),
+                    optionalString(object, "interactionItemId", ""),
                     optionalString(object, "expectedMenuRegex", "DISCOVER_THEN_LOCK"),
                     optionalString(object, "expectedScreenRegex", "DISCOVER_THEN_LOCK")));
         }

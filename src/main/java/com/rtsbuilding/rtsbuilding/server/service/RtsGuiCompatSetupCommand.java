@@ -18,6 +18,9 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -63,7 +66,15 @@ public final class RtsGuiCompatSetupCommand {
                                                         StringArgumentType.getString(context, "caseId"),
                                                         ResourceLocationArgument.getId(context, "blockId").toString(),
                                                         IntegerArgumentType.getInteger(context, "distance"),
-                                                        StringArgumentType.getString(context, "adapter"))))))));
+                                                        StringArgumentType.getString(context, "adapter"), ""))
+                                                .then(Commands.argument("interactionItemId", ResourceLocationArgument.id())
+                                                        .executes(context -> setupCase(
+                                                                context.getSource(),
+                                                                StringArgumentType.getString(context, "caseId"),
+                                                                ResourceLocationArgument.getId(context, "blockId").toString(),
+                                                                IntegerArgumentType.getInteger(context, "distance"),
+                                                                StringArgumentType.getString(context, "adapter"),
+                                                                ResourceLocationArgument.getId(context, "interactionItemId").toString()))))))));
     }
 
     private static int setupCase(CommandSourceStack source, String caseId) {
@@ -73,11 +84,11 @@ public final class RtsGuiCompatSetupCommand {
             return 0;
         }
         int distance = resolveInt(TARGET_DISTANCE_PROPERTY, TARGET_DISTANCE_ENV, DEFAULT_TARGET_DISTANCE);
-        return setupCase(source, caseId, targetBlock, distance, "single_block");
+        return setupCase(source, caseId, targetBlock, distance, "single_block", "");
     }
 
     private static int setupCase(CommandSourceStack source, String caseId, String targetBlockId,
-            int distance, String adapter) {
+            int distance, String adapter, String interactionItemId) {
         try {
             ResourceLocation blockId = ResourceLocation.parse(targetBlockId);
             Block block = BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
@@ -112,13 +123,22 @@ public final class RtsGuiCompatSetupCommand {
                     level.setBlock(base.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 3);
                 }
             }
-            if (!level.setBlock(targetPos, block.defaultBlockState(), 3)) {
+            BlockState initialState = initialStateForAdapter(block.defaultBlockState(), adapter);
+            if (!level.setBlock(targetPos, initialState, 3)) {
                 source.sendFailure(Component.literal("RTS GUI compat: failed to place target block at "
                         + targetPos.toShortString()));
                 return 0;
             }
+            // 模组方块经常在玩家放置回调里初始化所有者、附件、颜色或多方块构建器。
+            // 探针必须尽量复刻真实放置，而不是只把注册表默认状态塞进世界。
+            block.setPlacedBy(level, targetPos, level.getBlockState(targetPos), player, new ItemStack(block));
             if (!applyAdapter(adapter, level, player, targetPos)) {
                 source.sendFailure(Component.literal("RTS GUI compat: unsupported setup adapter: " + adapter));
+                return 0;
+            }
+            if (!prepareInteractionItem(player, interactionItemId)) {
+                source.sendFailure(Component.literal("RTS GUI compat: interaction item is not registered: "
+                        + interactionItemId));
                 return 0;
             }
 
@@ -132,6 +152,7 @@ public final class RtsGuiCompatSetupCommand {
 
             source.sendSuccess(() -> Component.literal("RTS GUI compat: " + caseId + " ready at "
                     + targetPos.toShortString() + " block=" + targetBlockId + " adapter=" + adapter
+                    + (interactionItemId.isBlank() ? "" : " interactionItem=" + interactionItemId)
                     + " forcedChunk=" + targetChunk.x + "," + targetChunk.z), false);
             return Command.SINGLE_SUCCESS;
         } catch (Exception exception) {
@@ -203,8 +224,94 @@ public final class RtsGuiCompatSetupCommand {
                 give(player, sword);
                 yield true;
             }
+            case "oritech_assembler" -> prepareOritechMachine(level, targetPos,
+                    new BlockPos(0, 0, 1), new BlockPos(0, 1, 0), new BlockPos(0, 1, 1));
+            case "oritech_centrifuge" -> prepareOritechMachine(level, targetPos,
+                    new BlockPos(0, 1, 0));
+            case "powah_reactor" -> hasBooleanPropertyValue(level.getBlockState(targetPos), "core", true);
             default -> false;
         };
+    }
+
+    /**
+     * 为需要“拿着某件物品右键”才开窗的机器准备真实工具槽。
+     * 探针随后走生产用的 tool-slot 远程交互链，不直接调用第三方方块，也不伪造菜单。
+     */
+    private static boolean prepareInteractionItem(ServerPlayer player, String itemId) {
+        if (itemId == null || itemId.isBlank()) {
+            return true;
+        }
+        ResourceLocation id = ResourceLocation.tryParse(itemId);
+        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+            return false;
+        }
+        player.getInventory().setItem(0, new ItemStack(BuiltInRegistries.ITEM.get(id)));
+        player.getInventory().setChanged();
+        return true;
+    }
+
+    /**
+     * Oritech 控制器第一次右键只会组装多方块，第二次才会打开菜单。
+     * 探针的职责是验证一次真实远程右键能否开窗，因此搭建阶段先按机器朝向放好核心并标记完成；
+     * 这里仅使用注册表与原版方块状态，不让主模组在运行时硬依赖 Oritech 类。
+     */
+    private static boolean prepareOritechMachine(ServerLevel level, BlockPos controllerPos, BlockPos... relativeCores) {
+        ResourceLocation coreId = ResourceLocation.parse("oritech:machine_core_1");
+        Block core = BuiltInRegistries.BLOCK.getOptional(coreId).orElse(null);
+        if (core == null || core == Blocks.AIR) {
+            return false;
+        }
+        BlockState controller = level.getBlockState(controllerPos);
+        net.minecraft.core.Direction facing = controller.hasProperty(HorizontalDirectionalBlock.FACING)
+                ? controller.getValue(HorizontalDirectionalBlock.FACING)
+                : net.minecraft.core.Direction.NORTH;
+        for (BlockPos relative : relativeCores) {
+            BlockPos rotated = rotateOritechOffset(relative, facing);
+            level.setBlock(controllerPos.offset(rotated), core.defaultBlockState(), 3);
+        }
+        return setBooleanProperty(level, controllerPos, "machine_assembled", true);
+    }
+
+    private static BlockPos rotateOritechOffset(BlockPos pos, net.minecraft.core.Direction facing) {
+        return switch (facing) {
+            case NORTH -> new BlockPos(pos.getZ(), pos.getY(), pos.getX());
+            case WEST -> new BlockPos(pos.getX(), pos.getY(), -pos.getZ());
+            case SOUTH -> new BlockPos(-pos.getZ(), pos.getY(), -pos.getX());
+            case EAST -> new BlockPos(-pos.getX(), pos.getY(), pos.getZ());
+            default -> pos;
+        };
+    }
+
+    private static boolean setBooleanProperty(ServerLevel level, BlockPos pos, String propertyName, boolean value) {
+        BlockState state = level.getBlockState(pos);
+        BlockState updated = withBooleanProperty(state, propertyName, value);
+        if (updated == state) {
+            return hasBooleanPropertyValue(state, propertyName, value);
+        }
+        level.setBlock(pos, updated, 3);
+        return true;
+    }
+
+    private static BlockState initialStateForAdapter(BlockState state, String adapter) {
+        return "powah_reactor".equals(adapter) ? withBooleanProperty(state, "core", true) : state;
+    }
+
+    private static BlockState withBooleanProperty(BlockState state, String propertyName, boolean value) {
+        for (var property : state.getProperties()) {
+            if (property instanceof BooleanProperty booleanProperty && propertyName.equals(property.getName())) {
+                return state.setValue(booleanProperty, value);
+            }
+        }
+        return state;
+    }
+
+    private static boolean hasBooleanPropertyValue(BlockState state, String propertyName, boolean value) {
+        for (var property : state.getProperties()) {
+            if (property instanceof BooleanProperty booleanProperty && propertyName.equals(property.getName())) {
+                return state.getValue(booleanProperty) == value;
+            }
+        }
+        return false;
     }
 
     private static void give(ServerPlayer player, ItemStack... stacks) {

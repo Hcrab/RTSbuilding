@@ -31,7 +31,7 @@ public final class RtsGuiCompatProbe {
     private static final int SCREENLESS_MENU_TICK_LIMIT = 8;
     private static final int AUTO_WORLD_READY_DELAY = 10;
     private static final int AUTO_PLAYER_POSITION_STABLE_TICKS = 20;
-    private static final int AUTO_SETUP_DELAY = 40;
+    private static final int DEFAULT_AUTO_SETUP_DELAY = 40;
     private static final int AUTO_EXIT_DELAY = 40;
     private static final int AUTO_TIMEOUT_TICKS = 20 * 120;
     private static final int REQUIRED_STABLE_TICKS = resolveInt("rtsbuilding.guiCompatStableTicks",
@@ -329,11 +329,18 @@ public final class RtsGuiCompatProbe {
             if (activeRun.stageTicks < 2) {
                 return;
             }
-            controller.interactEmpty(activeRun.hit, activeRun.rayOrigin, activeRun.rayDir);
+            if (activeRun.guiCase.interactionItemId().isBlank()) {
+                controller.interactEmpty(activeRun.hit, activeRun.rayOrigin, activeRun.rayDir);
+            } else {
+                RtsClientPacketGateway.sendInteractBlockWithToolSlot(
+                        activeRun.hit, 0, activeRun.rayOrigin, activeRun.rayDir, false);
+            }
             activeRun.stage = SmokeStage.OBSERVE;
             activeRun.stageTicks = 0;
             writeRow("run-interact", "INFO", screenClass, screenTitle, menuClass, containerId,
-                    "Sent RTS empty-hand right-click.");
+                    activeRun.guiCase.interactionItemId().isBlank()
+                            ? "Sent RTS empty-hand right-click."
+                            : "Sent RTS tool-slot right-click with " + activeRun.guiCase.interactionItemId() + ".");
             return;
         }
 
@@ -469,7 +476,10 @@ public final class RtsGuiCompatProbe {
         }
 
         if (autoRun.stage == AutoStage.WAIT_SETUP) {
-            if (autoRun.stageTicks < AUTO_SETUP_DELAY) {
+            int waitTicks = currentCase == null
+                    ? DEFAULT_AUTO_SETUP_DELAY
+                    : currentCase.setupWaitTicks();
+            if (autoRun.stageTicks < waitTicks) {
                 return;
             }
             autoRun.stage = AutoStage.START_PROBE;
@@ -602,6 +612,8 @@ public final class RtsGuiCompatProbe {
                 resolveInt("rtsbuilding.guiCompatTargetDistance", "RTSBUILDING_GUI_COMPAT_TARGET_DISTANCE", 20),
                 "OPEN_STABLE",
                 "single_block",
+                DEFAULT_AUTO_SETUP_DELAY,
+                "",
                 EXPECTED_MENU_REGEX,
                 EXPECTED_SCREEN_REGEX);
         if (SUITE_PATH == null) {

@@ -51,7 +51,26 @@ class RtsGuiCompatSuiteLoaderTest {
         assertEquals(60, suite.stableTicks());
         assertEquals(24, suite.cases().get(0).distance());
         assertEquals(160, suite.cases().get(1).distance());
+        assertEquals(40, suite.cases().get(1).setupWaitTicks());
         assertTrue(suite.cases().get(1).setupCommand().contains(" 160 vanilla_enchanting"));
+    }
+
+    @Test
+    void loadsReusableSetupWaitAndInteractionItem() throws Exception {
+        Path suitePath = this.temporaryDirectory.resolve("modded.json");
+        Files.writeString(suitePath, """
+                {"suiteId":"modded","cases":[{
+                  "id":"ars_scribe","blockId":"ars_nouveau:scribes_table",
+                  "setupAdapter":"single_block","setupWaitTicks":80,
+                  "interactionItemId":"ars_nouveau:novice_spell_book"
+                }]}
+                """);
+
+        RtsGuiCompatCase guiCase = RtsGuiCompatSuiteLoader.load(suitePath).cases().getFirst();
+
+        assertEquals(80, guiCase.setupWaitTicks());
+        assertEquals("ars_nouveau:novice_spell_book", guiCase.interactionItemId());
+        assertTrue(guiCase.setupCommand().endsWith("single_block ars_nouveau:novice_spell_book"));
     }
 
     @Test

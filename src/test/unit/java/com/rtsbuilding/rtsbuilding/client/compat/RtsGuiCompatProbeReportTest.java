@@ -18,7 +18,7 @@ class RtsGuiCompatProbeReportTest {
         Path reportPath = this.temporaryDirectory.resolve("results.tsv");
         RtsGuiCompatCase guiCase = new RtsGuiCompatCase(
                 "vanilla_chest_far", "minecraft:chest", 24, "VANILLA_INTERACTION",
-                "vanilla_chest", ".*ChestMenu", ".*ContainerScreen");
+                "vanilla_chest", 40, "", ".*ChestMenu", ".*ContainerScreen");
         RtsGuiCompatProbeReport report = new RtsGuiCompatProbeReport(
                 reportPath, "atm10-p0", "abc123", "manifest-1");
 

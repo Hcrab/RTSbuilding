@@ -17,5 +17,10 @@ class RtsGuiCompatSetupCommandContractTest {
         assertTrue(source.contains("level.setChunkForced(targetChunk.x, targetChunk.z, true)"));
         assertTrue(source.contains("target changed after placement"));
         assertTrue(source.contains("player.getAbilities().invulnerable = true"));
+        assertTrue(source.contains("block.setPlacedBy"));
+        assertTrue(source.contains("prepareInteractionItem"));
+        assertTrue(source.contains("prepareOritechMachine"));
+        assertTrue(source.contains("initialStateForAdapter"));
+        assertTrue(source.contains("withBooleanProperty(state, \"core\", true)"));
     }
 }
