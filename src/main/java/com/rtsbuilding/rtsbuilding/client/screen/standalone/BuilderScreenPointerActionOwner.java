@@ -201,6 +201,11 @@ final class BuilderScreenPointerActionOwner {
             if (screen.bottomPanel.handleClick(mouseX, mouseY)) {
                 return true;
             }
+            if (screen.isWorldArea(mouseX, mouseY)
+                    && screen.cancelQuickBuildSmartFillAnchor()) {
+                // 锚定后的左键专用于取消，必须早于后续挖掘路由，避免误拆目标洞壁。
+                return true;
+            }
             if (screen.pendingGuiBindSlot >= 0 && screen.isWorldArea(mouseX, mouseY)) {
                 BlockHitResult hit = screen.cursorPicker.pickBlockHit();
                 if (hit != null) {

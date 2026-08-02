@@ -1199,29 +1199,45 @@ final class UiMainlineWindowRenderer {
                                 UiLanguageBundle language, QuickBuildUiState state) {
         drawChrome(canvas, bounds, language.text("screen.rtsbuilding.quick_build.title"));
         QuickBuildWindowLayout.Geometry g = QuickBuildWindowLayout.geometry(
-                (int) bounds.getX(), (int) bounds.getY(), state.mode == QuickBuildUiMode.DESTROY);
+                (int) bounds.getX(), (int) bounds.getY(), state.mode);
         drawQuickMode(canvas, g.buildMode,
                 language.text("screen.rtsbuilding.quick_build.mode_build"),
                 state.mode == QuickBuildUiMode.BUILD, true);
         drawQuickMode(canvas, g.destroyMode,
                 language.text("screen.rtsbuilding.quick_build.mode_destroy"),
                 state.mode == QuickBuildUiMode.DESTROY, state.destroyEnabled);
-        canvas.text(language.text("screen.rtsbuilding.quick_build.shape"),
-                bounds.getX() + 10, g.sectionTitleY + 9,
-                UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
-        for (int i = 0; i < state.shapes.size(); i++) {
-            QuickBuildUiShapeOption option = state.shapes.get(i);
-            int slotX = g.shapeX(i);
-            int slotY = g.shapeY(i);
-            canvas.imageRegion(
-                    assets.quickBuild(option.shape.textureName),
-                    new UiRect(0, option.selected ? 450 : 0, 450, 450),
-                    new UiRect(slotX, slotY, 32, 32));
+        drawQuickMode(canvas, g.smartFillMode,
+                language.text("screen.rtsbuilding.quick_build.mode_smart_fill"),
+                state.mode == QuickBuildUiMode.SMART_FILL, true);
+        if (state.mode == QuickBuildUiMode.SMART_FILL) {
+            int sliderW = QuickBuildWindowLayout.smartFillSliderWidth(
+                    QuickBuildWindowLayout.WINDOW_W);
+            drawSmartFillSlider(canvas, language, g, sliderW, 0,
+                    "screen.rtsbuilding.quick_build.smart_fill.max_blocks",
+                    state.smartFillMinBlocks, state.smartFillMaxBlocksLimit,
+                    state.smartFillMaxBlocks);
+            drawSmartFillSlider(canvas, language, g, sliderW, 1,
+                    "screen.rtsbuilding.quick_build.smart_fill.diameter",
+                    state.smartFillMinDiameter, state.smartFillMaxDiameter,
+                    state.smartFillDiameter);
+        } else {
+            canvas.text(language.text("screen.rtsbuilding.quick_build.shape"),
+                    bounds.getX() + 10, g.sectionTitleY + 9,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
+            for (int i = 0; i < state.shapes.size(); i++) {
+                QuickBuildUiShapeOption option = state.shapes.get(i);
+                int slotX = g.shapeX(i);
+                int slotY = g.shapeY(i);
+                canvas.imageRegion(
+                        assets.quickBuild(option.shape.textureName),
+                        new UiRect(0, option.selected ? 450 : 0, 450, 450),
+                        new UiRect(slotX, slotY, 32, 32));
+            }
+            canvas.text(language.text("screen.rtsbuilding.quick_build.fill"),
+                    g.rightX, g.sectionTitleY + 9,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
         }
-        canvas.text(language.text("screen.rtsbuilding.quick_build.fill"),
-                g.rightX, g.sectionTitleY + 9,
-                UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
-        if (state.chainMode()) {
+        if (state.mode != QuickBuildUiMode.SMART_FILL && state.chainMode()) {
             int labelY = g.chainLabelY;
             canvas.text(language.text("screen.rtsbuilding.quick_build.chain_limit_label"),
                     g.rightX, labelY + 9,
@@ -1234,7 +1250,7 @@ final class UiMainlineWindowRenderer {
                     state.chainMinimum, state.chainMaximum, state.chainLimit));
             canvas.text(Integer.toString(state.chainLimit), g.chainValueX(sliderW),
                     sliderY + 13, UiMainlinePreviewStyle.color(QuickBuildStyle.VALUE_TEXT));
-        } else {
+        } else if (state.mode != QuickBuildUiMode.SMART_FILL) {
             int row = 0;
             for (QuickBuildUiControl control : state.controls) {
                 int controlY = g.controlY(row++);
@@ -1265,10 +1281,43 @@ final class UiMainlineWindowRenderer {
                     g.missingTextX(g.contentX + canvas.textWidth(costText)), textY,
                     UiMainlinePreviewStyle.color(QuickBuildStyle.ERROR_TEXT));
         }
-        canvas.text(canvas.trimToWidth(language.format(
-                        "screen.rtsbuilding.quick_build.dimensions", state.dimensions),
-                g.contentW), g.contentX, textY + 14,
-                UiMainlinePreviewStyle.color(QuickBuildStyle.DIMENSION_TEXT));
+        if (state.mode == QuickBuildUiMode.SMART_FILL) {
+            canvas.text(canvas.trimToWidth(language.format(
+                            "screen.rtsbuilding.quick_build.smart_fill.diameter_status",
+                            state.smartFillDiameter),
+                    g.contentW), g.contentX, textY + 14,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.DIMENSION_TEXT));
+            canvas.text(canvas.trimToWidth(language.format(
+                            state.hintKey, state.confirmKeyLabel),
+                    g.contentW), g.contentX, textY + 28,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.HINT_TEXT));
+        } else {
+            canvas.text(canvas.trimToWidth(language.format(
+                            "screen.rtsbuilding.quick_build.dimensions", state.dimensions),
+                    g.contentW), g.contentX, textY + 14,
+                    UiMainlinePreviewStyle.color(QuickBuildStyle.DIMENSION_TEXT));
+        }
+    }
+
+    private void drawSmartFillSlider(
+            BufferedImageUiCanvas canvas,
+            UiLanguageBundle language,
+            QuickBuildWindowLayout.Geometry geometry,
+            int sliderWidth,
+            int index,
+            String labelKey,
+            int minimum,
+            int maximum,
+            int value) {
+        canvas.text(language.text(labelKey), geometry.contentX,
+                geometry.smartFillParameterLabelY(index) + 9,
+                UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
+        int sliderY = geometry.smartFillParameterSliderY(index);
+        WindowSliderChromeRenderer.render(canvas, WindowSliderLayout.geometry(
+                new UiRect(geometry.contentX, sliderY, sliderWidth, 18),
+                minimum, maximum, value));
+        canvas.text(Integer.toString(value), geometry.smartFillValueX(sliderWidth),
+                sliderY + 13, UiMainlinePreviewStyle.color(QuickBuildStyle.VALUE_TEXT));
     }
 
     private void drawQuickMode(BufferedImageUiCanvas canvas, UiRect area,

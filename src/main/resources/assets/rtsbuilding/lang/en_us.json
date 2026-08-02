@@ -528,8 +528,8 @@
   "screen.rtsbuilding.home_select.cooldown": "After choosing, changing RTS Home again needs 20 in-game days unless Field Deployment is unlocked.",
   "screen.rtsbuilding.home_select.target": "Target: %s, %s, %s",
   "screen.rtsbuilding.quick_build.title": "Quick Build",
-  "screen.rtsbuilding.quick_build.mode_build": "Range Build",
-  "screen.rtsbuilding.quick_build.mode_destroy": "Range Destroy",
+  "screen.rtsbuilding.quick_build.mode_build": "Build",
+  "screen.rtsbuilding.quick_build.mode_destroy": "Destroy",
   "screen.rtsbuilding.quick_build.shape": "Shape",
   "screen.rtsbuilding.quick_build.fill": "Fill",
   "screen.rtsbuilding.quick_build.rotation": "Rotation",
@@ -1051,10 +1051,10 @@
   ,"screen.rtsbuilding.quick_build.smart_fill.max_blocks": "Maximum blocks"
   ,"screen.rtsbuilding.quick_build.smart_fill.diameter": "Detection diameter"
   ,"screen.rtsbuilding.quick_build.smart_fill.diameter_status": "Detection diameter: %s"
-  ,"screen.rtsbuilding.quick_build.smart_fill.hint_aim": "Aim at a bounded hole, then click to lock the preview."
-  ,"screen.rtsbuilding.quick_build.smart_fill.hint_ready": "Click to lock this preview; click again to fill it."
-  ,"screen.rtsbuilding.quick_build.smart_fill.hint_partial": "The preview reached a limit. Click to accept this partial fill."
-  ,"screen.rtsbuilding.quick_build.smart_fill.hint_confirm": "Preview locked. Click again to fill; Esc cancels."
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_aim": "Aim at a bounded hole."
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_ready": "Click to lock the preview."
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_partial": "Limit reached; click to lock."
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_confirm": "Fill; L/Esc stop."
   ,"message.rtsbuilding.smart_fill.select_material": "Select a placeable block first."
   ,"message.rtsbuilding.smart_fill.queued": "Queued smart fill for %s blocks."
   ,"message.rtsbuilding.smart_fill.queued_partial": "Queued partial smart fill for %s blocks."

@@ -199,6 +199,13 @@ final class QuickBuildControlSurface {
             return false;
         }
         prepare(state, layout, windowWidth);
+        QuickBuildUiMode mode = layout.modeAt(mouseX, mouseY);
+        if (mode != null) {
+            if (mode != QuickBuildUiMode.DESTROY || state.destroyEnabled) {
+                this.dispatch.accept(QuickBuildUiAction.mode(mode));
+            }
+            return true;
+        }
         if (state.mode == QuickBuildUiMode.DESTROY
                 && click(this.catalogButtons, mouseX, mouseY, button)) {
             return true;
@@ -220,13 +227,6 @@ final class QuickBuildControlSurface {
             return true;
         }
 
-        QuickBuildUiMode mode = layout.modeAt(mouseX, mouseY);
-        if (mode != null) {
-            if (mode != QuickBuildUiMode.DESTROY || state.destroyEnabled) {
-                this.dispatch.accept(QuickBuildUiAction.mode(mode));
-            }
-            return true;
-        }
         if (state.mode == QuickBuildUiMode.SMART_FILL) {
             return this.smartFillMaxBlocksSlider.mouseClicked(mouseX, mouseY, button)
                     || this.smartFillDiameterSlider.mouseClicked(mouseX, mouseY, button);

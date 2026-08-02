@@ -1,12 +1,15 @@
 package com.rtsbuilding.rtsbuilding.gametest;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.api.RtsAPI;
 import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillCandidateClassifier;
 import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillCell;
 import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillLimits;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsConfirmSmartFillPayload;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsSmartFillService;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
+import com.rtsbuilding.rtsbuilding.server.task.TaskType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.gametest.framework.GameTest;
@@ -16,6 +19,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.GameType;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.gametest.GameTestHolder;
 import net.neoforged.neoforge.gametest.PrefixGameTestTemplate;
@@ -67,6 +72,48 @@ public final class RtsSmartFillGameTests {
         });
     }
 
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 200, batch = "smart_fill")
+    public static void survivalFillConsumesAndUndoRefundsLinkedStorage(GameTestHelper helper) {
+        List<BlockPos> cavity = buildBoundedCavity(helper);
+        BlockPos chestRel = new BlockPos(3, 1, 3);
+        BlockPos clickedRel = new BlockPos(9, 3, 7);
+        helper.setBlock(chestRel, Blocks.CHEST);
+        ChestBlockEntity chest = requireChest(helper, chestRel);
+        chest.setItem(0, new ItemStack(Items.STONE, cavity.size()));
+        chest.setChanged();
+
+        ServerPlayer player = RtsServerGameTests.startRtsPlayer(helper, GameType.SURVIVAL);
+        RtsAPI.get().bindings().linkStorage(
+                player,
+                helper.absolutePos(chestRel),
+                RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+        ServerHistoryManager.clear(player.getUUID());
+
+        RtsSmartFillService.ConfirmResult result = RtsSmartFillService.confirm(
+                player,
+                payload(player, helper.absolutePos(clickedRel), Direction.SOUTH));
+        helper.assertTrue(result.queued() && result.targetCount() == cavity.size(),
+                "生存智能填坑应把服务端重规划结果交给正式放置任务");
+
+        helper.succeedWhen(() -> {
+            helper.assertTrue(!RtsServerGameTests.hasActiveTask(player, TaskType.PLACEMENT),
+                    "生存智能填坑任务尚未完成");
+            for (BlockPos target : cavity) {
+                helper.assertBlockPresent(Blocks.STONE, target);
+            }
+            helper.assertValueEqual(0, countChestItem(chest, Items.STONE),
+                    "生存智能填坑必须从 linked storage 精确消耗材料");
+            helper.assertTrue(ServerHistoryManager.executeUndo(player) > 0,
+                    "生存智能填坑必须进入现有 Ctrl+Z 历史");
+            for (BlockPos target : cavity) {
+                helper.assertBlockPresent(Blocks.AIR, target);
+            }
+            helper.assertValueEqual(cavity.size(), countChestItem(chest, Items.STONE),
+                    "生存撤回必须把智能填坑材料退回 linked storage");
+            RtsServerGameTests.stopPlayers(player);
+        });
+    }
+
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80, batch = "smart_fill")
     public static void openPlainIsRejectedWithoutCreatingWork(GameTestHelper helper) {
         BlockPos floorRel = new BlockPos(8, 1, 8);
@@ -87,6 +134,31 @@ public final class RtsSmartFillGameTests {
         helper.assertTrue(!result.queued() && result.targetCount() == 0,
                 "开放地面不能被误判为需要填满的洞穴");
         helper.assertBlockPresent(Blocks.AIR, floorRel.above());
+        RtsServerGameTests.stopPlayers(player);
+        helper.succeed();
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80, batch = "smart_fill")
+    public static void malformedRayIntentIsRejectedBeforePlanning(GameTestHelper helper) {
+        List<BlockPos> cavity = buildBoundedCavity(helper);
+        BlockPos clickedRel = new BlockPos(9, 3, 7);
+        ServerPlayer player = RtsServerGameTests.startRtsPlayer(helper, GameType.CREATIVE);
+        C2SRtsConfirmSmartFillPayload valid =
+                payload(player, helper.absolutePos(clickedRel), Direction.SOUTH);
+        C2SRtsConfirmSmartFillPayload malformed = new C2SRtsConfirmSmartFillPayload(
+                valid.clickedPos(), valid.face(), valid.maxBlocks(), valid.detectionDiameter(),
+                valid.hitOffsetX(), valid.hitOffsetY(), valid.hitOffsetZ(),
+                valid.rotateSteps(), valid.statePreset(), valid.itemId(), valid.itemPrototype(),
+                valid.rayOriginX(), valid.rayOriginY(), valid.rayOriginZ(),
+                Double.NaN, valid.rayDirY(), valid.rayDirZ());
+
+        RtsSmartFillService.ConfirmResult result =
+                RtsSmartFillService.confirm(player, malformed);
+        helper.assertTrue(!result.queued() && result.targetCount() == 0,
+                "非有限射线不得进入智能填坑规划或任务队列");
+        for (BlockPos target : cavity) {
+            helper.assertBlockPresent(Blocks.AIR, target);
+        }
         RtsServerGameTests.stopPlayers(player);
         helper.succeed();
     }
@@ -173,5 +245,23 @@ public final class RtsSmartFillGameTests {
                 rayDirection.x,
                 rayDirection.y,
                 rayDirection.z);
+    }
+
+    private static ChestBlockEntity requireChest(GameTestHelper helper, BlockPos chestRel) {
+        BlockEntity blockEntity = helper.getBlockEntity(chestRel);
+        helper.assertTrue(blockEntity instanceof ChestBlockEntity,
+                "智能填坑生存测试必须存在可访问的箱子");
+        return (ChestBlockEntity) blockEntity;
+    }
+
+    private static int countChestItem(ChestBlockEntity chest, net.minecraft.world.item.Item item) {
+        int count = 0;
+        for (int slot = 0; slot < chest.getContainerSize(); slot++) {
+            ItemStack stack = chest.getItem(slot);
+            if (stack.getItem() == item) {
+                count += stack.getCount();
+            }
+        }
+        return count;
     }
 }

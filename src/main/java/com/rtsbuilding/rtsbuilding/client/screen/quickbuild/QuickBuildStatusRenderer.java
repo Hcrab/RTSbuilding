@@ -71,6 +71,23 @@ final class QuickBuildStatusRenderer {
             }
         }
 
+        if (state.mode == QuickBuildUiMode.SMART_FILL) {
+            int dimensionsY = textY + screen.font().lineHeight
+                    + QuickBuildWindowLayout.INFO_FOLLOWUP_GAP;
+            renderDimensionInfo(
+                    graphics, screen, state, layout.contentX, dimensionsY, layout.contentW);
+            renderSingleLine(
+                    graphics,
+                    screen,
+                    Component.translatable(state.hintKey, state.confirmKeyLabel),
+                    layout.contentX,
+                    dimensionsY + screen.font().lineHeight
+                            + QuickBuildWindowLayout.INFO_FOLLOWUP_GAP,
+                    layout.contentW,
+                    QuickBuildStyle.HINT_TEXT.toArgb());
+            return;
+        }
+
         int nextY = renderWrappedText(
                 graphics,
                 screen,
@@ -144,6 +161,19 @@ final class QuickBuildStatusRenderer {
                     false);
         }
         return y + lineCount * screen.font().lineHeight;
+    }
+
+    private static void renderSingleLine(
+            GuiGraphics graphics,
+            BuilderScreen screen,
+            Component text,
+            int x,
+            int y,
+            int maxWidth,
+            int color) {
+        String trimmed = screen.font().plainSubstrByWidth(
+                text.getString(), Math.max(1, maxWidth));
+        graphics.drawString(screen.font(), trimmed, x, y, color, false);
     }
 
     private static void renderDimensionInfo(

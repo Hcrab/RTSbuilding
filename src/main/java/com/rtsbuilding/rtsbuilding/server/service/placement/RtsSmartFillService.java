@@ -42,6 +42,7 @@ public final class RtsSmartFillService {
         Direction face = direction(payload.face());
         if (session == null || face == null
                 || !validParameters(payload.maxBlocks(), payload.detectionDiameter())
+                || !validInteractionGeometry(payload)
                 || !RtsLinkedStorageResolver.canAccessWorldTarget(player, payload.clickedPos())) {
             notifyFailure(player, SmartFillPlan.Status.INVALID_START);
             return rejected(SmartFillPlan.Status.INVALID_START);
@@ -116,6 +117,28 @@ public final class RtsSmartFillService {
         return blocks >= SmartFillLimits.MIN_BLOCKS && blocks <= SmartFillLimits.MAX_BLOCKS
                 && diameter >= SmartFillLimits.MIN_DIAMETER
                 && diameter <= SmartFillLimits.MAX_DIAMETER;
+    }
+
+    private static boolean validInteractionGeometry(C2SRtsConfirmSmartFillPayload payload) {
+        if (!unitInterval(payload.hitOffsetX())
+                || !unitInterval(payload.hitOffsetY())
+                || !unitInterval(payload.hitOffsetZ())
+                || !Double.isFinite(payload.rayOriginX())
+                || !Double.isFinite(payload.rayOriginY())
+                || !Double.isFinite(payload.rayOriginZ())
+                || !Double.isFinite(payload.rayDirX())
+                || !Double.isFinite(payload.rayDirY())
+                || !Double.isFinite(payload.rayDirZ())) {
+            return false;
+        }
+        double lengthSquared = payload.rayDirX() * payload.rayDirX()
+                + payload.rayDirY() * payload.rayDirY()
+                + payload.rayDirZ() * payload.rayDirZ();
+        return lengthSquared > 1.0E-8D;
+    }
+
+    private static boolean unitInterval(double value) {
+        return Double.isFinite(value) && value >= 0.0D && value <= 1.0D;
     }
 
     private static boolean isBlockMaterial(String itemId) {
