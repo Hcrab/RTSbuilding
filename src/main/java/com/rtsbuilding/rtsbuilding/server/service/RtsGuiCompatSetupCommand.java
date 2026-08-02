@@ -15,6 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.Container;
@@ -88,8 +89,20 @@ public final class RtsGuiCompatSetupCommand {
 
             ServerPlayer player = source.getPlayerOrException();
             ServerLevel level = player.serverLevel();
+            // 大型整合包测试世界可能残留敌对生物。探针只验证 GUI，不应把战斗伤害
+            // 混入兼容结论；每个用例都恢复生命并同步无敌能力。
+            player.getAbilities().invulnerable = true;
+            player.onUpdateAbilities();
+            player.setHealth(player.getMaxHealth());
+            player.getFoodData().setFoodLevel(20);
             BlockPos base = player.blockPosition();
             BlockPos targetPos = base.offset(0, 0, Math.max(2, distance));
+            ChunkPos targetChunk = new ChunkPos(targetPos);
+
+            // 探针必须区分“菜单不兼容”和“远处区块根本没加载”。这里只在显式启用
+            // GUI 探针时注册命令，因此可以安全地强加载目标区块，避免 160 格用例产生假阴性。
+            level.setChunkForced(targetChunk.x, targetChunk.z, true);
+            level.getChunk(targetPos);
 
             for (BlockPos pos : BlockPos.betweenClosed(base.offset(-2, -1, 1), targetPos.offset(2, 3, 2))) {
                 level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
@@ -99,14 +112,27 @@ public final class RtsGuiCompatSetupCommand {
                     level.setBlock(base.offset(x, -1, z), Blocks.STONE.defaultBlockState(), 3);
                 }
             }
-            level.setBlock(targetPos, block.defaultBlockState(), 3);
+            if (!level.setBlock(targetPos, block.defaultBlockState(), 3)) {
+                source.sendFailure(Component.literal("RTS GUI compat: failed to place target block at "
+                        + targetPos.toShortString()));
+                return 0;
+            }
             if (!applyAdapter(adapter, level, player, targetPos)) {
                 source.sendFailure(Component.literal("RTS GUI compat: unsupported setup adapter: " + adapter));
                 return 0;
             }
 
+            ResourceLocation actualBlockId = BuiltInRegistries.BLOCK.getKey(level.getBlockState(targetPos).getBlock());
+            if (!blockId.equals(actualBlockId)) {
+                source.sendFailure(Component.literal("RTS GUI compat: target changed after placement: expected="
+                        + blockId + " actual=" + actualBlockId + " pos=" + targetPos.toShortString()));
+                return 0;
+            }
+            level.sendBlockUpdated(targetPos, level.getBlockState(targetPos), level.getBlockState(targetPos), 3);
+
             source.sendSuccess(() -> Component.literal("RTS GUI compat: " + caseId + " ready at "
-                    + targetPos.toShortString() + " block=" + targetBlockId + " adapter=" + adapter), false);
+                    + targetPos.toShortString() + " block=" + targetBlockId + " adapter=" + adapter
+                    + " forcedChunk=" + targetChunk.x + "," + targetChunk.z), false);
             return Command.SINGLE_SUCCESS;
         } catch (Exception exception) {
             RtsbuildingMod.LOGGER.warn("Failed to prepare GUI compat setup for {}", caseId, exception);

@@ -7,7 +7,9 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import java.nio.file.Path;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.DeathScreen;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -27,7 +29,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsGuiCompatProbe {
     private static final int SCREENLESS_MENU_TICK_LIMIT = 8;
-    private static final int AUTO_WORLD_READY_DELAY = 80;
+    private static final int AUTO_WORLD_READY_DELAY = 10;
     private static final int AUTO_SETUP_DELAY = 40;
     private static final int AUTO_EXIT_DELAY = 40;
     private static final int AUTO_TIMEOUT_TICKS = 20 * 120;
@@ -68,6 +70,7 @@ public final class RtsGuiCompatProbe {
     private static String lastMenuClass = "";
     private static int lastContainerId = -1;
     private static int screenlessMenuTicks;
+    private static boolean respawnRequested;
     private static SmokeRun activeRun;
     private static RtsGuiCompatCase currentCase = SUITE.cases().getFirst();
     private static AutoRun autoRun = AUTO_RUN && REPORT_PATH != null && RESOLVED_SUITE.error().isBlank()
@@ -100,6 +103,7 @@ public final class RtsGuiCompatProbe {
             writeRow("suite-load", "SKIP_SETUP", "", "", "", -1, RESOLVED_SUITE.error());
         }
         Minecraft minecraft = Minecraft.getInstance();
+        recoverProbePlayerFromDeath(minecraft);
         String screenClass = currentScreenClass(minecraft);
         String screenTitle = currentScreenTitle(minecraft);
         String menuClass = currentMenuClass(minecraft);
@@ -140,19 +144,19 @@ public final class RtsGuiCompatProbe {
         }
         closeStaleBuilderScreen(minecraft);
 
-        BlockHitResult hit = resolveTargetHit(minecraft);
-        if (hit == null) {
+        TargetResolution target = resolveTargetHit(minecraft);
+        if (target == null) {
             writeRow("run-start", "FAIL", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                     currentMenuClass(minecraft), currentContainerId(minecraft), "No target block found.");
             return 0;
         }
 
-        BlockState state = minecraft.level.getBlockState(hit.getBlockPos());
-        String targetBlock = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        if (!currentCase.blockId().isBlank() && !currentCase.blockId().equals(targetBlock)) {
+        BlockHitResult hit = target.hit();
+        if (!target.trustedServerSetup() && !currentCase.blockId().isBlank()
+                && !currentCase.blockId().equals(target.observedBlock())) {
             writeRow("run-start", "FAIL", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                     currentMenuClass(minecraft), currentContainerId(minecraft),
-                    "Target mismatch: expected=" + currentCase.blockId() + " actual=" + targetBlock);
+                    "Target mismatch: expected=" + currentCase.blockId() + " actual=" + target.observedBlock());
             return 0;
         }
 
@@ -163,7 +167,10 @@ public final class RtsGuiCompatProbe {
         activeRun = new SmokeRun(currentCase, hit, origin, rayDir);
         writeRow("run-start", "INFO", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                 currentMenuClass(minecraft), currentContainerId(minecraft),
-                "pos=" + hit.getBlockPos().toShortString() + " block=" + targetBlock);
+                "pos=" + hit.getBlockPos().toShortString() + " block=" + currentCase.blockId()
+                        + " clientObserved=" + target.observedBlock()
+                        + " clientChunkLoaded=" + target.clientChunkLoaded()
+                        + " trustedServerSetup=" + target.trustedServerSetup());
         return Command.SINGLE_SUCCESS;
     }
 
@@ -178,19 +185,65 @@ public final class RtsGuiCompatProbe {
         }
     }
 
-    private static BlockHitResult resolveTargetHit(Minecraft minecraft) {
+    private static TargetResolution resolveTargetHit(Minecraft minecraft) {
         if (minecraft.hitResult instanceof BlockHitResult hit && hit.getType() == HitResult.Type.BLOCK) {
             if (currentCase.blockId().isBlank() || matchesTargetBlock(minecraft, hit.getBlockPos())) {
-                return hit;
+                return observedTarget(minecraft, hit);
             }
         }
         if (minecraft.player != null) {
             BlockPos expected = minecraft.player.blockPosition().offset(0, 0, currentCase.distance());
             if (matchesTargetBlock(minecraft, expected)) {
-                return new BlockHitResult(Vec3.atCenterOf(expected), Direction.UP, expected, false);
+                return observedTarget(minecraft,
+                        new BlockHitResult(Vec3.atCenterOf(expected), Direction.UP, expected, false));
             }
         }
-        return findNearestTargetHit(minecraft);
+        TargetResolution nearest = findNearestTargetHit(minecraft);
+        if (nearest != null) {
+            return nearest;
+        }
+
+        // 自动套件刚刚由服务端探针命令完成了精确布置。远距离区块未发送给客户端时，
+        // 客户端看到空气是正常现象；仍应按已确认坐标发包，真正验证服务端远程交互链路。
+        if (autoRun != null && minecraft.player != null && !currentSetupCommand().isBlank()) {
+            BlockPos expected = minecraft.player.blockPosition().offset(0, 0, currentCase.distance());
+            boolean loaded = minecraft.level != null && minecraft.level.hasChunkAt(expected);
+            String observed = loaded ? blockIdAt(minecraft, expected) : "<unloaded>";
+            BlockHitResult blindHit = new BlockHitResult(
+                    Vec3.atCenterOf(expected), Direction.UP, expected, false);
+            return new TargetResolution(blindHit, observed, loaded, true);
+        }
+        return null;
+    }
+
+    private static void recoverProbePlayerFromDeath(Minecraft minecraft) {
+        if (!AUTO_RUN || minecraft.player == null) {
+            respawnRequested = false;
+            return;
+        }
+        if (!(minecraft.screen instanceof DeathScreen)) {
+            respawnRequested = false;
+            return;
+        }
+        if (respawnRequested) {
+            return;
+        }
+        respawnRequested = true;
+        minecraft.player.respawn();
+        writeRow("auto-respawn", "INFO", currentScreenClass(minecraft), currentScreenTitle(minecraft),
+                currentMenuClass(minecraft), currentContainerId(minecraft),
+                "Respawn requested so hostile mobs cannot stall the isolated GUI probe.");
+    }
+
+    private static TargetResolution observedTarget(Minecraft minecraft, BlockHitResult hit) {
+        boolean loaded = minecraft.level != null && minecraft.level.hasChunkAt(hit.getBlockPos());
+        return new TargetResolution(hit, loaded ? blockIdAt(minecraft, hit.getBlockPos()) : "<unloaded>",
+                loaded, false);
+    }
+
+    private static String blockIdAt(Minecraft minecraft, BlockPos pos) {
+        BlockState state = minecraft.level.getBlockState(pos);
+        return BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
     }
 
     private static boolean matchesTargetBlock(Minecraft minecraft, BlockPos pos) {
@@ -201,7 +254,7 @@ public final class RtsGuiCompatProbe {
         return currentCase.blockId().equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
     }
 
-    private static BlockHitResult findNearestTargetHit(Minecraft minecraft) {
+    private static TargetResolution findNearestTargetHit(Minecraft minecraft) {
         if (minecraft.player == null || minecraft.level == null || currentCase.blockId().isBlank()) {
             return null;
         }
@@ -223,7 +276,12 @@ public final class RtsGuiCompatProbe {
         if (nearest == null) {
             return null;
         }
-        return new BlockHitResult(Vec3.atCenterOf(nearest), Direction.UP, nearest, false);
+        return observedTarget(minecraft,
+                new BlockHitResult(Vec3.atCenterOf(nearest), Direction.UP, nearest, false));
+    }
+
+    private record TargetResolution(BlockHitResult hit, String observedBlock,
+            boolean clientChunkLoaded, boolean trustedServerSetup) {
     }
 
     private static void tickActiveRun(Minecraft minecraft, String screenClass, String screenTitle,
@@ -272,6 +330,7 @@ public final class RtsGuiCompatProbe {
             AbstractContainerMenu menu = minecraft.player == null ? null : minecraft.player.containerMenu;
             boolean hasMenu = menu != null && menu.containerId != 0;
             boolean hasScreen = minecraft.screen != null;
+            boolean hasContainerScreen = minecraft.screen instanceof AbstractContainerScreen<?>;
             boolean menuMatches = hasMenu && matchesRegex(menu.getClass().getName(), activeRun.guiCase.expectedMenuRegex());
             boolean screenMatches = hasScreen && matchesRegex(screenClass, activeRun.guiCase.expectedScreenRegex());
             if (hasMenu && !menuMatches) {
@@ -286,7 +345,12 @@ public final class RtsGuiCompatProbe {
                                 + " expected=" + activeRun.guiCase.expectedScreenRegex());
                 return;
             }
-            if (hasMenu && hasScreen && menuMatches && screenMatches) {
+            if (hasMenu && hasScreen && !hasContainerScreen) {
+                finishActiveRun("FAIL", screenClass, screenTitle, menuClass, containerId,
+                        "Menu remained open behind a non-container screen: " + screenClass);
+                return;
+            }
+            if (hasMenu && hasContainerScreen && menuMatches && screenMatches) {
                 activeRun.stableTicks++;
                 activeRun.sawMenu = true;
                 if ("VANILLA_INTERACTION".equals(activeRun.guiCase.depth())

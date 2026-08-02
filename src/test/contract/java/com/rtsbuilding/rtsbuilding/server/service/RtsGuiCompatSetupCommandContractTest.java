@@ -14,5 +14,8 @@ class RtsGuiCompatSetupCommandContractTest {
 
         assertTrue(source.contains("Commands.argument(\"blockId\", ResourceLocationArgument.id())"));
         assertTrue(source.contains("ResourceLocationArgument.getId(context, \"blockId\").toString()"));
+        assertTrue(source.contains("level.setChunkForced(targetChunk.x, targetChunk.z, true)"));
+        assertTrue(source.contains("target changed after placement"));
+        assertTrue(source.contains("player.getAbilities().invulnerable = true"));
     }
 }

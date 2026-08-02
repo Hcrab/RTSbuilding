@@ -31,6 +31,10 @@ class RtsGuiCompatProbeContractTest {
 
         assertTrue(probe.contains("REPORT.markCompleted"));
         assertTrue(probe.contains("INTERACTION_FAIL"));
+        assertTrue(probe.contains("trustedServerSetup"));
+        assertTrue(probe.contains("clientChunkLoaded"));
+        assertTrue(probe.contains("minecraft.player.respawn()"));
+        assertTrue(probe.contains("minecraft.screen instanceof AbstractContainerScreen<?>"));
         assertTrue(report.contains("StandardCopyOption.ATOMIC_MOVE"));
         assertTrue(report.contains("baselineSha"));
         assertTrue(report.contains("manifestHash"));
