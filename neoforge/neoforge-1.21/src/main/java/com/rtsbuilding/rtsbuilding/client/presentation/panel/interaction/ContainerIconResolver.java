@@ -1,16 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.panel.interaction;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
 
+import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -20,7 +19,7 @@ import java.util.Map;
  * <p>解析顺序：</p>
  * <ol>
  *   <li>按 {@link MenuType} 映射（覆盖原版所有容器类型）。</li>
- *   <li>若为模组自定义菜单类型，则尝试取玩家视线命中的方块物品。</li>
+ *   <li>若为模组自定义菜单类型，则尝试取关联条目（{@link SelectableEntry}）的自身图标。</li>
  *   <li>兜底使用箱子图标。</li>
  * </ol>
  */
@@ -64,29 +63,31 @@ public final class ContainerIconResolver {
 
     /**
      * 解析给定容器屏幕的图标，永不返回 null（失败时返回空栈）。
+     *
+     * @param entry 与该容器关联的目标条目；外部打开的容器可传 null。
      */
-    public static ItemStack resolve(AbstractContainerScreen<?> screen) {
+    public static ItemStack resolve(AbstractContainerScreen<?> screen, @Nullable SelectableEntry entry) {
         if (screen != null && screen.getMenu() != null) {
             ItemStack mapped = MENU_ICONS.get(screen.getMenu().getType());
             if (mapped != null) return mapped;
         }
-        ItemStack fromTarget = fromTargetBlock();
-        if (!fromTarget.isEmpty()) return fromTarget;
+        ItemStack fromEntry = resolveForEntry(entry);
+        if (!fromEntry.isEmpty()) return fromEntry;
         return fromItemId("minecraft:chest");
     }
 
     /**
-     * 尝试从玩家视线命中的方块解析图标。
+     * 解析条目自身的图标（用于标签页展示），失败返回空栈。
      */
-    private static ItemStack fromTargetBlock() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.level == null) return ItemStack.EMPTY;
-        if (!(mc.hitResult instanceof BlockHitResult bhr)) return ItemStack.EMPTY;
-        BlockState state = mc.level.getBlockState(bhr.getBlockPos());
-        if (state == null || state.isAir()) return ItemStack.EMPTY;
-        Item item = state.getBlock().asItem();
-        if (item == null || item == Items.AIR) return ItemStack.EMPTY;
-        return new ItemStack(item);
+    public static ItemStack resolveForEntry(@Nullable SelectableEntry entry) {
+        if (entry == null) return ItemStack.EMPTY;
+        return switch (entry) {
+            case BlockEntry be -> be.createStack();
+            case EntityEntry ee -> {
+                Entity entity = ee.entity();
+                yield entity == null ? ItemStack.EMPTY : entity.getPickResult();
+            }
+        };
     }
 
     private static ItemStack fromItemId(String id) {

@@ -13,22 +13,10 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.util.Mth;
-import net.minecraft.world.MenuProvider;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.animal.horse.AbstractHorse;
-import net.minecraft.world.entity.npc.AbstractVillager;
-import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.entity.npc.VillagerProfession;
-import net.minecraft.world.entity.vehicle.ContainerEntity;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.LecternBlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
@@ -40,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreenConstants.TOP_H;
 
@@ -51,44 +38,83 @@ import static com.rtsbuilding.rtsbuilding.client.presentation.standalone.Builder
  *
  * <p>交互流程：框选目标后弹出本面板（标签栏列出全部框选容器并自动打开第一个）→
  * 点击其他标签关闭旧容器并打开新容器 → 容器关闭后面板自动关闭。</p>
+ *
+ * <p>职责划分：容器页状态机见 {@link ContainerPageState}，目标能力探测见 {@link TargetProbe}，
+ * 图标解析见 {@link ContainerIconResolver}，输入转发见 {@link ContainerInputForwarder}，
+ * 标签栏渲染见 {@link PageTabBar}。本类仅负责协调与窗口管理。</p>
  */
 public final class InteractionPanel extends RtsPanel {
 
-    // ==================== 容器页常量 ====================
+    // ==================== 布局常量 ====================
 
     private static final int PANEL_PAD_H = 10;
     private static final int PANEL_PAD_V = 4;
     private static final int WIDGET_SCAN_MARGIN = 50;
     private static final int CONTENT_INSET = 4;
+    /** 面板最小宽度。 */
+    private static final int MIN_WINDOW_WIDTH = 88;
     private static final int DEFAULT_W = 320;
     private static final int DEFAULT_H = 120;
     private static final Component FIXED_TITLE = Component.literal("容器面板");
 
     private static final int TAB_BAR_H = PageTabBar.TAB_BAR_H;
 
+    /** 窗口宽 → 容器区宽的水平差值（窗口边框 2 + 内容内缩 2×CONTENT_INSET）。 */
+    private static final int WINDOW_TO_CONTAINER_DX = 2 + CONTENT_INSET * 2;
+    /** 窗口高 → 容器区高的垂直差值（标题栏下沿 3 + 内容底部 4 + 标签栏高），不含标题栏自身。 */
+    private static final int WINDOW_TO_CONTAINER_DY = 3 + 4 + TAB_BAR_H;
+
     // ==================== 状态 ====================
 
     private final PageTabBar pageTabBar = new PageTabBar();
+    /** 容器页状态机：等待打开 / 已打开 / 超时 / 关闭。 */
+    private final ContainerPageState pageState = new ContainerPageState();
 
     private List<SelectableEntry> entries = List.of();
     private Vec3 rayOrigin = Vec3.ZERO;
     private Vec3 rayDir = Vec3.ZERO;
 
-    private boolean containerPageOpen;
     @Nullable
     private ContainerInputForwarder inputForwarder;
+    /** 当前打开容器（外部打开、无关联条目时）的标签图标。 */
     private ItemStack containerIcon = ItemStack.EMPTY;
-    @Nullable
-    private int[] computedPanelSize;
 
-    /** 当前打开的容器对应的条目 GUI 归一化键（外部打开时为 null）。 */
-    @Nullable
-    private Object activeContainerId;
-    /** 等待服务端打开的条目 GUI 归一化键（点击标签后置位，打开成功或超时后清除）。 */
-    @Nullable
-    private Object pendingOpenId;
-    private int pendingOpenTicks;
+    /** 容器内容尺寸缓存：key = 归一化标识，value = {内容宽, 内容高}；面板大小取所有标签缓存的最大值。 */
+    private final Map<Object, int[]> containerSizeCache = new HashMap<>();
 
+    /**
+     * 内容适配尺寸（"natural"）：仅在内容扫描（打开容器、自动增长）时更新，
+     * 作为默认尺寸与"恢复适配尺寸"的依据，不被用户缩放/拖动覆盖。
+     */
+    @Nullable
+    private int[] naturalPanelSize;
+    /** 已同步容器基准的转发器实例：实例变化（打开新容器）时强制重建布局。 */
+    private ContainerInputForwarder syncedForwarder;
+    /** 已同步容器基准时的窗口尺寸。 */
+    private int syncedWindowW = -1;
+    private int syncedWindowH = -1;
+    /** 本次打开请求是否由面板从关闭态发起：容器页提交时按内容适配尺寸创建面板，不沿用旧尺寸。 */
+    private boolean panelReopened;
+
+    /** 单点记录模式：标签由玩家单点右键容器逐个累积，与框选状态无关。 */
+    private boolean directInteractMode;
+
+    // ==================== 标签列表缓存 ====================
+
+    /** 标签缓存：entries 引用或"外部容器标签可见性"变化时失效，避免渲染热路径每帧重建。 */
+    @Nullable
+    private List<PageTabBar.Tab> tabsCache;
+    private List<SelectableEntry> tabsCacheEntries = List.of();
+    private boolean tabsCacheExternalTab;
+
+    /**
+     * 渲染期标志：当本面板将容器屏幕作为子覆盖层渲染时置位，供
+     * {@code ScreenRenderBgMixin} 跳过深色背景。
+     *
+     * <p>该标志的正确性不依赖"面板单例"约定：渲染在同一线程串行执行，
+     * 且置位/复位在 try-finally 中成对出现，即使将来出现多面板实例，
+     * 标志也只影响各自渲染调用栈内的子屏幕背景绘制。</p>
+     */
     private static volatile boolean renderingOverlay;
 
     public InteractionPanel() {
@@ -109,16 +135,15 @@ public final class InteractionPanel extends RtsPanel {
         this.entries = List.copyOf(newEntries);
         this.rayOrigin = rayOrigin;
         this.rayDir = rayDir;
+        this.directInteractMode = false;
 
         int first = firstGuiEntryIndex();
         if (first < 0) return false;
 
-        boolean wasOpen = isOpen();
-        setOpen(true);
-        if (!wasOpen) {
-            positionNearMouse(mouseX, mouseY);
+        // 与单点模式共用同一打开流程：面板未开时自动定位，已开时按尺寸策略适配
+        if (openContainerEntry(entries.get(first), mouseX, mouseY)) {
+            interactWithEntry(first);
         }
-        requestOpenContainer(first);
         if (screen != null) screen.getFloatingWindowLayer().markSortDirty();
         return true;
     }
@@ -137,37 +162,43 @@ public final class InteractionPanel extends RtsPanel {
     public void openContainerPage(AbstractContainerScreen<?> containerScreen) {
         if (containerScreen == null) return;
         boolean wasOpen = isOpen();
+        // 面板从关闭态首次打开（含外部打开）：直接以标签中最大的容器尺寸创建面板，
+        // 避免沿用上次会话残留尺寸导致框选/单点两条路径大小不一致
+        boolean firstOpen = !wasOpen || panelReopened;
         this.inputForwarder = new ContainerInputForwarder(containerScreen);
-        this.containerIcon = ContainerIconResolver.resolve(containerScreen);
-        this.computedPanelSize = null;
-        this.containerPageOpen = true;
-        this.activeContainerId = pendingOpenId;
-        this.pendingOpenId = null;
-        this.pendingOpenTicks = 0;
+
+        // 先提交打开结果（active = 等待中的归一化键；外部打开时为 null），再按活动条目解析图标
+        Object openedId = pageState.getPendingId();
+        pageState.opened(openedId);
+        this.containerIcon = ContainerIconResolver.resolve(containerScreen, activeEntry());
         setOpen(true);
         if (screen == null) return;
 
         int[] contentBounds = scanContentBounds(containerScreen);
-        int naturalW = Math.max(getMinWindowWidth(), contentBounds[0] + PANEL_PAD_H + 2);
-        int naturalH = Math.max(getMinWindowHeight(),
-                contentBounds[1] + PANEL_PAD_V + TAB_BAR_H + getTitleBarHeight() + 8);
-
-        this.computedPanelSize = new int[]{naturalW, naturalH};
+        // 记录当前容器内容尺寸，并重算"所有标签最大"的自然尺寸（面板以最大容器为准）
+        cacheContainerSize(openedId, contentBounds[0], contentBounds[1]);
+        updateNaturalSize(contentBounds[0], contentBounds[1]);
+        int naturalW = naturalPanelSize[0];
+        int naturalH = naturalPanelSize[1];
         this.bounds.setDefaults(naturalW, naturalH);
 
         if (!isResizing()) {
-            setWindowWidth(Math.min(Math.max(getWindowWidth(), naturalW), getMaxWindowWidth()));
-            setWindowHeight(Math.min(Math.max(getWindowHeight(), naturalH), getMaxWindowHeight()));
+            if (firstOpen) {
+                // 面板从关闭态首次打开：直接以标签中最大的容器为准（范围/单点两条路径行为一致）
+                setWindowWidth(Math.min(naturalW, getMaxWindowWidth()));
+                setWindowHeight(Math.min(naturalH, getMaxWindowHeight()));
+            } else {
+                // 容器页间切换：新容器更大则递进，否则保持当前尺寸
+                setWindowWidth(Math.min(Math.max(getWindowWidth(), naturalW), getMaxWindowWidth()));
+                setWindowHeight(Math.min(Math.max(getWindowHeight(), naturalH), getMaxWindowHeight()));
+            }
         }
         if (!wasOpen) {
             computeDefaultPosition();
         }
         clampWindowToScreen();
 
-        int cw = Math.max(1, getWindowWidth() - 2);
-        int ch = Math.max(1, getWindowHeight() - TAB_BAR_H - getTitleBarHeight() - 8);
-        inputForwarder.init(cw, ch);
-        onBoundsChanged();
+        syncContainerScreen();
         markBroughtToFront();
         if (screen != null) screen.getFloatingWindowLayer().markSortDirty();
     }
@@ -177,15 +208,8 @@ public final class InteractionPanel extends RtsPanel {
      */
     public void closePanel() {
         if (!isOpen()) return;
-        if (containerPageOpen) {
-            closeContainerOnServer();
-        }
-        if (inputForwarder != null) inputForwarder.clear();
-        containerPageOpen = false;
-        activeContainerId = null;
-        pendingOpenId = null;
-        pendingOpenTicks = 0;
-        entries = List.of();
+        closeContainerIfOpen();
+        resetState();
         setOpen(false);
     }
 
@@ -193,22 +217,92 @@ public final class InteractionPanel extends RtsPanel {
      * 仅关闭容器页（向服务端发送关闭包），随后关闭整个面板。
      */
     public void closeContainerPage() {
-        if (!containerPageOpen) return;
+        if (!pageState.isPageOpen()) return;
         closeContainerOnServer();
-        if (inputForwarder != null) inputForwarder.clear();
-        containerPageOpen = false;
-        activeContainerId = null;
-        pendingOpenId = null;
-        pendingOpenTicks = 0;
+        resetState();
         setOpen(false);
     }
 
     public boolean isContainerPageOpen() {
-        return isOpen() && containerPageOpen;
+        return isOpen() && pageState.isPageOpen();
     }
 
     public List<SelectableEntry> getEntries() {
         return entries;
+    }
+
+    public boolean isDirectInteractMode() {
+        return directInteractMode;
+    }
+
+    /**
+     * 单点模式右键记录：将目标条目加入标签列表（按归一化键去重）并打开面板，
+     * 随后准备打开该容器（关闭旧容器、置位等待键）。
+     *
+     * <p>返回 {@code true} 表示调用方应继续发送交互包以打开容器；
+     * {@code false} 表示目标已记录且正在打开/已打开，无需重复交互。</p>
+     */
+    public boolean recordDirectInteract(SelectableEntry entry, Vec3 rayOrigin, Vec3 rayDir,
+                                        int mouseX, int mouseY) {
+        Object key = entry.identifier();
+
+        boolean exists = false;
+        for (SelectableEntry e : entries) {
+            if (Objects.equals(e.identifier(), key)) {
+                exists = true;
+                break;
+            }
+        }
+        if (!exists) {
+            List<SelectableEntry> newEntries = new ArrayList<>(entries);
+            newEntries.add(entry);
+            this.entries = newEntries;
+        }
+        this.rayOrigin = rayOrigin;
+        this.rayDir = rayDir;
+        this.directInteractMode = true;
+
+        // 与框选模式共用同一打开流程（面板打开/定位/去重/切换判定全部统一）
+        return openContainerEntry(entry, mouseX, mouseY);
+    }
+
+    /**
+     * 统一"打开/切换到指定容器条目"流程：面板未开时自动打开并定位到鼠标附近，
+     * 与当前打开的容器相同时仅恢复适配尺寸，正在打开同一容器时跳过重复交互；
+     * 否则关闭旧容器、置位等待键。框选、单点、点标签三条入口共用，保证行为一致。
+     *
+     * @return 是否需要发送交互包以打开容器（{@code false} 表示已打开/正在打开，无需重复交互）。
+     */
+    private boolean openContainerEntry(SelectableEntry entry, int mouseX, int mouseY) {
+        Object key = entry.identifier();
+        // 在 openRequested 之前捕获"从关闭态发起"：容器页提交时据此直接适配内容尺寸
+        this.panelReopened = !pageState.isPageOpen();
+
+        boolean wasOpen = isOpen();
+        setOpen(true);
+        if (!wasOpen) {
+            positionNearMouse(mouseX, mouseY);
+        }
+
+        // 已打开同一容器：仅同步尺寸
+        if (pageState.sameAsActive(key)) {
+            applyContainerPageSize();
+            if (screen != null) screen.getFloatingWindowLayer().markSortDirty();
+            return false;
+        }
+        // 正在打开同一容器：等待服务端结果，无需重复交互
+        if (pageState.sameAsPending(key)) {
+            return false;
+        }
+
+        // 切换容器：先关闭旧容器，再等待服务端打开新容器
+        if (pageState.isPageOpen()) {
+            closeContainerOnServer();
+            if (inputForwarder != null) inputForwarder.clear();
+        }
+        pageState.openRequested(key);
+        if (screen != null) screen.getFloatingWindowLayer().markSortDirty();
+        return true;
     }
 
     /**
@@ -218,24 +312,48 @@ public final class InteractionPanel extends RtsPanel {
         return renderingOverlay;
     }
 
-    // ==================== 内部工具 ====================
+    // ==================== 状态清理 ====================
 
     /**
-     * 计算条目的 GUI 归一化键：多方块共用同一个 GUI 的条目（如大箱子的左右两半）
-     * 归一化为同一键，用于标签去重与容器匹配；普通条目退化为原标识。
+     * 统一重置面板状态（输入转发器、状态机、目标列表、图标与尺寸缓存）。
+     * 各关闭入口（关闭按钮、Esc、服务端关闭、超时）共用，避免清理序列漂移。
      */
-    private static Object guiKey(SelectableEntry entry) {
-        return switch (entry) {
-            case BlockEntry be -> ContainerGroupResolver.normalize(be.blockPos());
-            case EntityEntry ee -> ee.identifier();
-        };
+    private void resetState() {
+        if (inputForwarder != null) inputForwarder.clear();
+        pageState.reset();
+        containerIcon = ItemStack.EMPTY;
+        naturalPanelSize = null;
+        containerSizeCache.clear();
+        entries = List.of();
+        directInteractMode = false;
+        panelReopened = false;
     }
+
+    /** 容器页打开时先向服务端发送关闭包。 */
+    private void closeContainerIfOpen() {
+        if (pageState.isPageOpen()) {
+            closeContainerOnServer();
+        }
+    }
+
+    // ==================== 内部工具 ====================
 
     private int firstGuiEntryIndex() {
         for (int i = 0; i < entries.size(); i++) {
-            if (hasGuiInteraction(entries.get(i))) return i;
+            if (TargetProbe.hasGuiInteraction(entries.get(i))) return i;
         }
         return -1;
+    }
+
+    /** 当前打开的容器对应的条目；外部打开的容器（无关联键）返回 null。 */
+    @Nullable
+    private SelectableEntry activeEntry() {
+        Object id = pageState.getActiveId();
+        if (id == null) return null;
+        for (SelectableEntry e : entries) {
+            if (Objects.equals(e.identifier(), id)) return e;
+        }
+        return null;
     }
 
     private void positionNearMouse(int mouseX, int mouseY) {
@@ -248,34 +366,35 @@ public final class InteractionPanel extends RtsPanel {
     }
 
     private List<PageTabBar.Tab> buildTabs() {
+        boolean externalTab = pageState.isPageOpen() && pageState.getActiveId() == null
+                && inputForwarder != null && inputForwarder.hasScreen();
+        // 缓存命中：entries 引用未变且外部标签可见性未变（entries 每次修改都会替换引用）
+        if (tabsCache != null && tabsCacheEntries == entries && tabsCacheExternalTab == externalTab) {
+            return tabsCache;
+        }
+
         List<PageTabBar.Tab> tabs = new ArrayList<>();
         Map<String, Integer> nameCounts = new HashMap<>();
         Set<Object> seenKeys = new HashSet<>();
         for (int i = 0; i < entries.size(); i++) {
             SelectableEntry entry = entries.get(i);
-            if (!hasGuiInteraction(entry)) continue;
+            if (!TargetProbe.hasGuiInteraction(entry)) continue;
             // 多方块共用同一个 GUI 的条目（如大箱子）只生成一个标签
-            if (!seenKeys.add(guiKey(entry))) continue;
+            if (!seenKeys.add(entry.identifier())) continue;
             String base = entry.displayName();
             int n = nameCounts.merge(base, 1, Integer::sum);
             String label = n == 1 ? base : base + " (" + n + ")";
-            tabs.add(new PageTabBar.Tab(containerIconFor(entry), Component.literal(label), i));
+            tabs.add(new PageTabBar.Tab(entry.identifier(),
+                    ContainerIconResolver.resolveForEntry(entry), Component.literal(label), i));
         }
-        if (containerPageOpen && activeContainerId == null
-                && inputForwarder != null && inputForwarder.hasScreen()) {
-            tabs.add(new PageTabBar.Tab(containerIcon, FIXED_TITLE, -1));
+        if (externalTab) {
+            tabs.add(new PageTabBar.Tab(null, containerIcon, FIXED_TITLE, -1));
         }
-        return tabs;
-    }
 
-    private static ItemStack containerIconFor(SelectableEntry entry) {
-        return switch (entry) {
-            case BlockEntry be -> be.createStack();
-            case EntityEntry ee -> {
-                Entity entity = ee.entity();
-                yield entity == null ? ItemStack.EMPTY : entity.getPickResult();
-            }
-        };
+        this.tabsCache = tabs;
+        this.tabsCacheEntries = entries;
+        this.tabsCacheExternalTab = externalTab;
+        return tabs;
     }
 
     private void handleTabClick(PageTabBar.Tab tab) {
@@ -283,42 +402,83 @@ public final class InteractionPanel extends RtsPanel {
     }
 
     /**
-     * 请求打开（或切换到）指定下标的容器条目：
+     * 关闭标签：按归一化键从目标列表中移除对应条目（大箱子等左右两半一并移除）。
+     * 若关闭的是当前打开的容器，先关闭容器并自动打开剩余的第一个容器；
+     * 若标签正在等待打开则取消等待；所有标签关闭后整个面板自动关闭。
+     */
+    private void handleTabClose(PageTabBar.Tab tab) {
+        int entryIndex = tab.entryIndex();
+        if (entryIndex < 0 || entryIndex >= entries.size()) return;
+        Object key = entries.get(entryIndex).identifier();
+        // 标签关闭后不再参与"最大容器"尺寸计算
+        containerSizeCache.remove(key);
+
+        List<SelectableEntry> remaining = new ArrayList<>(entries.size());
+        for (SelectableEntry e : entries) {
+            if (!Objects.equals(e.identifier(), key)) remaining.add(e);
+        }
+        this.entries = remaining;
+
+        boolean wasActive = pageState.sameAsActive(key);
+        boolean wasPending = pageState.sameAsPending(key);
+        if (!wasActive && !wasPending) return;
+
+        // 取消等待中的打开请求
+        if (wasPending) {
+            pageState.cancelPending();
+        }
+        // 关闭当前打开的容器
+        if (wasActive) {
+            closeContainerOnServer();
+            if (inputForwarder != null) inputForwarder.clear();
+            pageState.closed();
+        }
+
+        if (remaining.isEmpty()) {
+            resetState();
+            setOpen(false);
+            return;
+        }
+
+        // 关闭的是当前容器时，自动打开剩余的第一个可交互容器
+        if (wasActive) {
+            int next = firstGuiEntryIndex();
+            if (next < 0) {
+                resetState();
+                setOpen(false);
+                return;
+            }
+            requestOpenContainer(next);
+        }
+    }
+
+    /**
+     * 请求打开（或切换到）指定下标的容器条目（点标签入口）：
      * 与当前打开的容器相同时仅切换视图；否则先关闭旧容器，再发送交互包等待服务端打开新容器。
      */
     private void requestOpenContainer(int entryIndex) {
         if (entryIndex < 0 || entryIndex >= entries.size()) return;
         SelectableEntry target = entries.get(entryIndex);
-        Object targetId = guiKey(target);
-
-        if (containerPageOpen && Objects.equals(activeContainerId, targetId)) {
-            applyContainerPageSize();
-            return;
+        // 点标签时面板必然开着：传 0,0 不会触发重新定位，与框选/单点共用同一打开流程
+        if (openContainerEntry(target, 0, 0)) {
+            interactWithEntry(entryIndex);
         }
-
-        if (containerPageOpen) {
-            closeContainerOnServer();
-            if (inputForwarder != null) inputForwarder.clear();
-        }
-        this.pendingOpenId = targetId;
-        this.pendingOpenTicks = 0;
-        this.activeContainerId = null;
-        this.containerPageOpen = true;
-        interactWithEntry(entryIndex);
     }
 
     private void applyContainerPageSize() {
-        if (computedPanelSize == null) return;
-        setSize(Math.max(getWindowWidth(), computedPanelSize[0]),
-                Math.max(getWindowHeight(), computedPanelSize[1]));
+        if (naturalPanelSize == null) return;
+        setSize(Math.max(getWindowWidth(), naturalPanelSize[0]),
+                Math.max(getWindowHeight(), naturalPanelSize[1]));
+        syncContainerScreen();
     }
 
     @Nullable
     private PageTabBar.Tab findActiveTab(List<PageTabBar.Tab> tabs) {
+        Object activeId = pageState.getActiveId();
         for (PageTabBar.Tab t : tabs) {
             int idx = t.entryIndex();
             if (idx >= 0 && idx < entries.size()
-                    && Objects.equals(guiKey(entries.get(idx)), activeContainerId)) {
+                    && Objects.equals(entries.get(idx).identifier(), activeId)) {
                 return t;
             }
         }
@@ -356,6 +516,7 @@ public final class InteractionPanel extends RtsPanel {
 
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        syncContainerScreen();
         int cx = contentX();
         int cy = contentY();
         int cw = contentWidth();
@@ -373,9 +534,9 @@ public final class InteractionPanel extends RtsPanel {
     private void renderContainerPage(GuiGraphics g, int mouseX, int mouseY, float partialTick,
                                      int cx, int cy, int cw) {
         if (inputForwarder == null || !inputForwarder.hasScreen()) {
-            String msg = pendingOpenId != null ? "正在打开容器…" : "点击上方标签打开容器";
+            String msg = pageState.hasPending() ? "正在打开容器…" : "点击上方标签打开容器";
             int tx = cx + Math.max(0, (cw - Minecraft.getInstance().font.width(msg)) / 2);
-            int ty = cy + Math.max(8, (TAB_BAR_H + 24) / 2);
+            int ty = cy + Math.max(0, (containerAreaHeight() - Minecraft.getInstance().font.lineHeight) / 2);
             TextRenderer.draw(g, msg, tx, ty, ThemeManager.getTextColor());
             return;
         }
@@ -412,8 +573,14 @@ public final class InteractionPanel extends RtsPanel {
 
         if (isOverPageTabBar(mouseY)) {
             if (button == 0) {
-                PageTabBar.Tab tab = pageTabBar.handleClick(mouseX, mouseY, cx, cy, cw, TAB_BAR_H, buildTabs());
-                if (tab != null) handleTabClick(tab);
+                PageTabBar.TabHit hit = pageTabBar.handleClick(mouseX, mouseY, cx, cy, cw, TAB_BAR_H, buildTabs());
+                if (hit != null) {
+                    if (hit.onCloseButton()) {
+                        handleTabClose(hit.tab());
+                    } else {
+                        handleTabClick(hit.tab());
+                    }
+                }
             }
             return;
         }
@@ -498,7 +665,7 @@ public final class InteractionPanel extends RtsPanel {
     @Override
     protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            if (containerPageOpen) {
+            if (pageState.isPageOpen()) {
                 closeContainerPage();
                 return true;
             }
@@ -523,13 +690,8 @@ public final class InteractionPanel extends RtsPanel {
     @Override
     public void init(BuilderScreen screen) {
         super.init(screen);
-        if (containerPageOpen && inputForwarder != null && inputForwarder.hasScreen()) {
-            int panelW = Math.max(getMinWindowWidth(), getDefaultWidth());
-            int panelH = Math.max(getMinWindowHeight(), getDefaultHeight());
-            int cw = Math.max(1, panelW - 2);
-            int ch = Math.max(1, panelH - TAB_BAR_H - getTitleBarHeight() - 8);
-            inputForwarder.init(cw, ch);
-        }
+        // 容器页打开时窗口尺寸必然已初始化，直接按实际窗口同步容器基准
+        syncContainerScreen();
     }
 
     @Override
@@ -539,30 +701,23 @@ public final class InteractionPanel extends RtsPanel {
 
         Minecraft mc = Minecraft.getInstance();
 
-        // 等待服务端打开新容器：保持容器页视图，直到打开成功或超时（2 秒）
-        if (pendingOpenId != null) {
-            if (mc.player != null && mc.player.containerMenu.containerId != 0) {
-                pendingOpenId = null;
-                pendingOpenTicks = 0;
-            } else if (++pendingOpenTicks > 40) {
-                pendingOpenId = null;
-                pendingOpenTicks = 0;
-                containerPageOpen = false;
-                if (inputForwarder != null) inputForwarder.clear();
-                activeContainerId = null;
+        // 等待服务端打开新容器：保持容器页视图，直到打开成功或超时
+        if (pageState.hasPending()) {
+            boolean containerOpen = mc.player != null && mc.player.containerMenu.containerId != 0;
+            if (pageState.tickPending(containerOpen) == ContainerPageState.TickResult.TIMED_OUT) {
+                resetState();
                 setOpen(false);
             }
             return;
         }
 
-        if (containerPageOpen && inputForwarder != null && inputForwarder.hasScreen()) {
+        if (pageState.isPageOpen() && inputForwarder != null && inputForwarder.hasScreen()) {
             inputForwarder.tick();
             autoGrowIfNeeded();
 
+            // 服务端已关闭容器：兜底关闭面板
             if (mc.player != null && mc.player.containerMenu.containerId == 0) {
-                inputForwarder.clear();
-                containerPageOpen = false;
-                activeContainerId = null;
+                resetState();
                 setOpen(false);
             }
         }
@@ -571,15 +726,8 @@ public final class InteractionPanel extends RtsPanel {
     @Override
     protected void onClose() {
         super.onClose();
-        if (containerPageOpen) {
-            closeContainerOnServer();
-        }
-        if (inputForwarder != null) inputForwarder.clear();
-        containerPageOpen = false;
-        entries = List.of();
-        activeContainerId = null;
-        pendingOpenId = null;
-        pendingOpenTicks = 0;
+        closeContainerIfOpen();
+        resetState();
     }
 
     private void closeContainerOnServer() {
@@ -599,12 +747,11 @@ public final class InteractionPanel extends RtsPanel {
         var cs = inputForwarder.getScreen();
 
         int[] contentBounds = scanContentBounds(cs);
-        int neededContentW = contentBounds[0] + PANEL_PAD_H;
-        int neededContentH = contentBounds[1] + PANEL_PAD_V;
-
-        int neededPanelW = Math.max(getMinWindowWidth(), neededContentW + 2);
-        int neededPanelH = Math.max(getMinWindowHeight(),
-                neededContentH + TAB_BAR_H + getTitleBarHeight() + 8);
+        // 更新当前容器内容尺寸缓存，并重算"所有标签最大"的自然尺寸
+        cacheContainerSize(pageState.getActiveId(), contentBounds[0], contentBounds[1]);
+        updateNaturalSize(contentBounds[0], contentBounds[1]);
+        int neededPanelW = naturalPanelSize[0];
+        int neededPanelH = naturalPanelSize[1];
 
         if (neededPanelW <= getWindowWidth() && neededPanelH <= getWindowHeight()) return;
 
@@ -614,25 +761,62 @@ public final class InteractionPanel extends RtsPanel {
         if (newW > getWindowWidth() || newH > getWindowHeight()) {
             setWindowWidth(newW);
             setWindowHeight(newH);
-
-            int cw = Math.max(1, newW - 2);
-            int ch = Math.max(1, newH - TAB_BAR_H - getTitleBarHeight() - 8);
-            inputForwarder.init(cw, ch);
-
-            this.computedPanelSize = new int[]{newW, newH};
-            onBoundsChanged();
+            syncContainerScreen();
         }
     }
 
-    @Override
-    protected void onBoundsChanged() {
-        super.onBoundsChanged();
-        if (containerPageOpen && inputForwarder != null) {
-            int cw = Math.max(1, getWindowWidth() - 2);
-            int ch = Math.max(1, getWindowHeight() - TAB_BAR_H - getTitleBarHeight() - 8);
-            inputForwarder.init(cw, ch);
-            this.computedPanelSize = new int[]{getWindowWidth(), getWindowHeight()};
+    /**
+     * 缓存容器内容尺寸：key 为归一化标识（外部打开的容器为 null，跳过缓存）。
+     */
+    private void cacheContainerSize(@Nullable Object key, int contentW, int contentH) {
+        if (key == null) return;
+        containerSizeCache.put(key, new int[]{contentW, contentH});
+    }
+
+    /**
+     * 重算自然尺寸：取"当前容器内容 + 所有标签已缓存内容"的最大值，
+     * 使面板始终以标签栏中最大的容器 GUI 为准；新加入更大的容器时自然递进。
+     */
+    private void updateNaturalSize(int contentW, int contentH) {
+        int maxContentW = contentW;
+        int maxContentH = contentH;
+        for (SelectableEntry e : entries) {
+            if (!TargetProbe.hasGuiInteraction(e)) continue;
+            int[] cached = containerSizeCache.get(e.identifier());
+            if (cached != null) {
+                maxContentW = Math.max(maxContentW, cached[0]);
+                maxContentH = Math.max(maxContentH, cached[1]);
+            }
         }
+        setNaturalPanelSize(naturalPanelWidth(maxContentW), naturalPanelHeight(maxContentH));
+    }
+
+    /**
+     * 记录内容适配尺寸（natural）：仅在内容扫描结果更新时调用，不受用户缩放影响。
+     */
+    private void setNaturalPanelSize(int w, int h) {
+        if (naturalPanelSize == null) naturalPanelSize = new int[2];
+        naturalPanelSize[0] = w;
+        naturalPanelSize[1] = h;
+    }
+
+    /**
+     * 统一同步容器屏幕布局基准：仅当转发器实例或窗口尺寸变化时才重建。
+     * 所有尺寸入口（打开、自动增长、恢复、拖拽缩放、屏幕重建）最终都汇聚到这里，
+     * 保证容器 GUI 始终按当前实际窗口尺寸居中。
+     */
+    private void syncContainerScreen() {
+        if (inputForwarder == null || !inputForwarder.hasScreen()) return;
+        if (!pageState.isPageOpen()) return;
+        int windowW = getWindowWidth();
+        int windowH = getWindowHeight();
+        if (inputForwarder == syncedForwarder && windowW == syncedWindowW && windowH == syncedWindowH) {
+            return;
+        }
+        inputForwarder.init(containerAreaWidth(), containerAreaHeight());
+        syncedForwarder = inputForwarder;
+        syncedWindowW = windowW;
+        syncedWindowH = windowH;
     }
 
     // ==================== 窗口规范 ====================
@@ -644,26 +828,25 @@ public final class InteractionPanel extends RtsPanel {
 
     @Override
     protected int getDefaultWidth() {
-        if (computedPanelSize != null) return computedPanelSize[0];
+        if (naturalPanelSize != null) return naturalPanelSize[0];
         if (inputForwarder != null && inputForwarder.hasScreen()) {
-            return Math.max(88, inputForwarder.getScreen().getXSize() + 8);
+            return naturalPanelWidth(inputForwarder.getScreen().getXSize());
         }
         return DEFAULT_W;
     }
 
     @Override
     protected int getDefaultHeight() {
-        if (computedPanelSize != null) return computedPanelSize[1];
+        if (naturalPanelSize != null) return naturalPanelSize[1];
         if (inputForwarder != null && inputForwarder.hasScreen()) {
-            var cs = inputForwarder.getScreen();
-            return TAB_BAR_H + getTitleBarHeight() + cs.getYSize() + PANEL_PAD_V + 8;
+            return naturalPanelHeight(inputForwarder.getScreen().getYSize());
         }
         return DEFAULT_H;
     }
 
     @Override
     public int getMinWindowWidth() {
-        return 88;
+        return MIN_WINDOW_WIDTH;
     }
 
     @Override
@@ -674,6 +857,37 @@ public final class InteractionPanel extends RtsPanel {
     @Override
     protected int getMaxWindowHeight() {
         return Integer.MAX_VALUE;
+    }
+
+    /** 容器区可见宽度：与渲染平移、鼠标坐标转发共用同一基准（内容区宽度）。 */
+    private int containerAreaWidth() {
+        return containerAreaWidthFor(getWindowWidth());
+    }
+
+    /** 容器区可见高度：与渲染平移、鼠标坐标转发共用同一基准（内容区高度扣除标签栏）。 */
+    private int containerAreaHeight() {
+        return containerAreaHeightFor(getWindowHeight());
+    }
+
+    /** 给定窗口宽时的容器区宽度。 */
+    private int containerAreaWidthFor(int windowW) {
+        return Math.max(1, windowW - WINDOW_TO_CONTAINER_DX);
+    }
+
+    /** 给定窗口高时的容器区高度。 */
+    private int containerAreaHeightFor(int windowH) {
+        return Math.max(1, windowH - getTitleBarHeight() - WINDOW_TO_CONTAINER_DY);
+    }
+
+    /** 按容器内容宽度计算面板自然宽度（容器区 = 内容宽 + 两侧总留白，内容在容器区内居中）。 */
+    private int naturalPanelWidth(int contentW) {
+        return Math.max(MIN_WINDOW_WIDTH, contentW + PANEL_PAD_H + WINDOW_TO_CONTAINER_DX);
+    }
+
+    /** 按容器内容高度计算面板自然高度（容器区 = 内容高 + 底部留白）。 */
+    private int naturalPanelHeight(int contentH) {
+        return Math.max(getMinWindowHeight(),
+                contentH + PANEL_PAD_V + getTitleBarHeight() + WINDOW_TO_CONTAINER_DY);
     }
 
     @Override
@@ -722,6 +936,11 @@ public final class InteractionPanel extends RtsPanel {
 
     // ==================== 目标扫描与交互 ====================
 
+    /**
+     * 扫描容器屏幕内容边界（启发式）：以容器背景区域为中心、外扩 {@value #WIDGET_SCAN_MARGIN}
+     * 像素，圈定附近所有控件的最小包围盒。对特殊布局（如 JEI 侧栏控件较多）可能误圈，
+     * 但仅影响面板自然尺寸的估算。
+     */
     private int[] scanContentBounds(AbstractContainerScreen<?> cs) {
         int bgLeft = cs.getGuiLeft();
         int bgTop = cs.getGuiTop();
@@ -756,85 +975,10 @@ public final class InteractionPanel extends RtsPanel {
         return new int[]{maxX - minX, maxY - minY};
     }
 
-    private static boolean hasGuiInteraction(SelectableEntry entry) {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) return false;
-
-        return switch (entry) {
-            case EntityEntry ee -> hasEntityGui(ee.entity());
-            case BlockEntry be -> hasBlockGui(mc, be.blockPos());
-        };
-    }
-
-    private static boolean hasEntityGui(@Nullable Entity entity) {
-        if (entity == null || !entity.isAlive()) return false;
-
-        if (entity instanceof AbstractVillager) {
-            if (entity instanceof Villager villager) {
-                return villager.getVillagerData().getProfession() != VillagerProfession.NONE;
-            }
-            return true;
-        }
-        if (entity instanceof AbstractHorse) return true;
-        if (entity instanceof ContainerEntity) return true;
-        if (entity instanceof MenuProvider) return true;
-        return false;
-    }
-
-    private static final Map<Class<?>, Boolean> USE_OVERRIDE_CACHE = new ConcurrentHashMap<>();
-
-    private static boolean hasBlockGui(Minecraft mc, BlockPos blockPos) {
-        BlockState state = mc.level.getBlockState(blockPos);
-        if (state.getMenuProvider(mc.level, blockPos) != null) return true;
-
-        BlockEntity be = mc.level.getBlockEntity(blockPos);
-        if (be instanceof MenuProvider) {
-            if (be instanceof LecternBlockEntity lectern && lectern.getBook().isEmpty()) return false;
-            return true;
-        }
-
-        return hasUseOverride(state.getBlock());
-    }
-
-    private static boolean hasUseOverride(net.minecraft.world.level.block.Block block) {
-        Class<?> clazz = block.getClass();
-        if (clazz == net.minecraft.world.level.block.Block.class) return false;
-        return USE_OVERRIDE_CACHE.computeIfAbsent(clazz, c -> {
-            Class<?> current = c;
-            while (current != net.minecraft.world.level.block.Block.class && current != null) {
-                try {
-                    current.getDeclaredMethod("use",
-                            net.minecraft.world.level.block.state.BlockState.class,
-                            net.minecraft.world.level.Level.class,
-                            BlockPos.class,
-                            net.minecraft.world.entity.player.Player.class,
-                            net.minecraft.world.InteractionHand.class,
-                            BlockHitResult.class);
-                    return true;
-                } catch (NoSuchMethodException e) {
-                    try {
-                        current.getDeclaredMethod("useWithoutItem",
-                                net.minecraft.world.level.block.state.BlockState.class,
-                                net.minecraft.world.level.Level.class,
-                                BlockPos.class,
-                                net.minecraft.world.entity.player.Player.class,
-                                BlockHitResult.class);
-                        return true;
-                    } catch (NoSuchMethodException e2) {
-                        // 继续向上查找
-                    }
-                }
-                current = current.getSuperclass();
-            }
-            return false;
-        });
-    }
-
+    /** 向服务端发送空手交互包以打开目标容器（打开结果由 {@link #openContainerPage} 提交）。 */
     private void interactWithEntry(int index) {
         if (index < 0 || index >= entries.size()) return;
         SelectableEntry entry = entries.get(index);
-        this.pendingOpenId = entry.identifier();
-        this.pendingOpenTicks = 0;
         switch (entry) {
             case EntityEntry ee -> RtsClientPacketGateway.sendInteractEntityEmptyHand(
                     ee.entityId(), ee.hitLocation(), null, rayOrigin, rayDir);

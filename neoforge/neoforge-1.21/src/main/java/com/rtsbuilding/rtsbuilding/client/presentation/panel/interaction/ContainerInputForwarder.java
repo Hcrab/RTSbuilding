@@ -12,7 +12,9 @@ public final class ContainerInputForwarder {
         this.screen = screen;
     }
 
-    
+    /**
+     * 释放当前容器屏幕并清空引用。
+     */
     public void clear() {
         if (screen != null) {
             screen.removed();
@@ -20,12 +22,6 @@ public final class ContainerInputForwarder {
         }
     }
 
-    
-    public void swap(AbstractContainerScreen<?> newScreen) {
-        screen = newScreen;
-    }
-
-    
     public boolean hasScreen() {
         return screen != null;
     }
@@ -54,22 +50,18 @@ public final class ContainerInputForwarder {
         if (screen != null) screen.mouseClicked(mx, my, button);
     }
 
-    
+    /**
+     * 转发鼠标拖拽事件，返回被转发屏幕的处理结果。
+     */
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
-        if (screen != null) {
-            screen.mouseDragged(mx, my, button, dx, dy);
-            return true;
-        }
-        return false;
+        return screen != null && screen.mouseDragged(mx, my, button, dx, dy);
     }
 
-    
+    /**
+     * 转发鼠标释放事件，返回被转发屏幕的处理结果。
+     */
     public boolean mouseReleased(double mx, double my, int button) {
-        if (screen != null) {
-            screen.mouseReleased(mx, my, button);
-            return true;
-        }
-        return false;
+        return screen != null && screen.mouseReleased(mx, my, button);
     }
 
     

@@ -15,7 +15,12 @@ import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
+import net.minecraft.world.MenuProvider;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.entity.LecternBlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.jetbrains.annotations.Nullable;
@@ -47,11 +52,18 @@ public final class EntityInteractionHandler {
         if (!screen.isInteractiveMode()) return PASS;
         if (isAltDown() || isShiftDown()) return PASS;
 
-        // 容器标签面板打开期间不响应新的框选交互
-        if (isInteractionPanelOpen()) return PASS;
+        boolean clickMode = leftSidebarPanel.isClickButtonSelected()
+                && !leftSidebarPanel.isBindModeActive();
 
-        if (leftSidebarPanel.isClickButtonSelected() && !leftSidebarPanel.isBindModeActive()) {
-            return handleDirectInteract(screen);
+        // 容器标签面板打开期间：单点模式允许继续右键追加标签记录；
+        // 已切出点击模式（框选/绑定模式）：关闭面板并放行，避免面板拦截框选交互
+        if (isInteractionPanelOpen() && !clickMode) {
+            closeInteractionPanel();
+            return PASS;
+        }
+
+        if (clickMode) {
+            return handleDirectInteract(screen, event.x(), event.y());
         }
 
         if (!leftSidebarPanel.isClickButtonSelected()) {
@@ -73,6 +85,13 @@ public final class EntityInteractionHandler {
 
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) { panel.closePanel(); return; }
+
+        // 单点记录模式（且当前仍处于点击模式）：标签由玩家右键逐个累积，与框选状态无关，无需框选校验。
+        // 切出点击模式后按框选规则校验——切换模式时框选已重置为非 COMPLETE，面板随即关闭。
+        if (panel.isDirectInteractMode()
+                && screen.isClickButtonSelected() && !screen.isBindModeActive()) {
+            return;
+        }
 
         var sel = RtsClientKernel.get().renderPipeline().boxSelector;
         if (sel.getPhase() != BoxSelector.Phase.COMPLETE) {
@@ -116,7 +135,7 @@ public final class EntityInteractionHandler {
         if (interactionPanel != null) interactionPanel.closePanel();
     }
 
-    private EventResult handleDirectInteract(BuilderScreen screen) {
+    private EventResult handleDirectInteract(BuilderScreen screen, double mouseX, double mouseY) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.getCameraEntity() == null) return PASS;
 
@@ -137,6 +156,22 @@ public final class EntityInteractionHandler {
 
         if (hit.hasBlock() && hit.blockHit() != null) {
             BlockHitResult blockHit = hit.blockHit();
+            BlockPos pos = blockHit.getBlockPos();
+
+            // 容器：先记录到标签面板（单点模式累积标签），再发送交互包打开
+            if (hasContainerMenu(mc.level, pos)) {
+                interactionPanel = screen.getOrCreateInteractionPanel();
+                boolean shouldInteract = interactionPanel.recordDirectInteract(
+                        new BlockEntry(pos, blockHit,
+                                containerDisplayName(mc.level, pos), blockHit.getLocation()),
+                        ray.origin(), ray.direction(), (int) mouseX, (int) mouseY);
+                if (shouldInteract) {
+                    RtsClientPacketGateway.sendInteractEntityEmptyHand(
+                            NetworkConstants.NO_ENTITY,
+                            blockHit.getLocation(), blockHit, ray.origin(), ray.direction());
+                }
+                return CONSUMED;
+            }
 
             RtsClientPacketGateway.sendInteractEntityEmptyHand(
                     NetworkConstants.NO_ENTITY,
@@ -145,6 +180,31 @@ public final class EntityInteractionHandler {
         }
 
         return PASS;
+    }
+
+    /**
+     * 判断方块是否有容器菜单（与框选收集 {@code guiBlocks} 的判定一致）：
+     * 方块状态或方块实体提供 {@link MenuProvider} 即视为容器，讲台无书除外。
+     */
+    private static boolean hasContainerMenu(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        if (state.getMenuProvider(level, pos) != null) return true;
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof MenuProvider) {
+            if (be instanceof LecternBlockEntity lectern && lectern.getBook().isEmpty()) return false;
+            return true;
+        }
+        return false;
+    }
+
+    /** 获取容器的显示名称（标签标题用），优先使用菜单提供者的名称。 */
+    private static String containerDisplayName(Level level, BlockPos pos) {
+        BlockState state = level.getBlockState(pos);
+        MenuProvider provider = state.getMenuProvider(level, pos);
+        if (provider != null) return provider.getDisplayName().getString();
+        BlockEntity be = level.getBlockEntity(pos);
+        if (be instanceof MenuProvider mp) return mp.getDisplayName().getString();
+        return state.getBlock().getName().getString();
     }
 
     private EventResult handleBoxSelectInteract(BuilderScreen screen, BoxSelector sel,

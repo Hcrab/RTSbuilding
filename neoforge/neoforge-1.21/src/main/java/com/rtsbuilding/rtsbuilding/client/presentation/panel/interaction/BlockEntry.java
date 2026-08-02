@@ -11,9 +11,13 @@ import net.minecraft.world.phys.Vec3;
 public record BlockEntry(BlockPos blockPos, BlockHitResult blockHit, String displayName, Vec3 hitLocation)
         implements SelectableEntry {
 
+    /**
+     * 归一化标识：多方块共用一个 GUI 的方块（如大箱子左右两半）统一返回组内代表坐标，
+     * 用于标签去重与容器匹配（语义与 {@link ContainerGroupResolver} 一致）。
+     */
     @Override
     public Object identifier() {
-        return blockPos;
+        return ContainerGroupResolver.normalize(blockPos);
     }
 
     

@@ -29,7 +29,13 @@ public final class SelectionHighlight {
         this.blockHit = null;
     }
 
-    
+    /**
+     * 设置高亮目标。
+     *
+     * <p>优先级语义：实体优先——传入非空实体时方块命中被忽略（{@code blockHit} 置 null）；
+     * 仅当实体为 null 时才接受方块命中。调用方需保证每次调用只表达一个意图，
+     * 实体与方块不会同时高亮。</p>
+     */
     public void set(@Nullable Entity entity, @Nullable BlockHitResult blockHit) {
         if (entity != null) {
             this.entity = entity;

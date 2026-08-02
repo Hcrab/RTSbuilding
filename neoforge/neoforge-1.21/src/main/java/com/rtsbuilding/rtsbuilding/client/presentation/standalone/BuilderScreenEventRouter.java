@@ -74,8 +74,9 @@ public final class BuilderScreenEventRouter {
         }, EventDispatcher.P_FLOATING_WINDOW);
 
         d.onMouseClick(event -> {
+            // 点击面板内部：交给浮动窗口处理并消费；点击外部：放行（不关闭面板、不吞事件），
+            // 世界/左栏/顶栏等操作正常生效，面板仅通过 ESC、关闭按钮或容器关闭退出。
             if (fw.mouseClicked(event.x(), event.y(), event.button())) return CONSUMED;
-            if (eih.isInteractionPanelOpen()) { eih.closeInteractionPanel(); return CONSUMED; }
             return PASS;
         }, EventDispatcher.P_FLOATING_WINDOW);
 
