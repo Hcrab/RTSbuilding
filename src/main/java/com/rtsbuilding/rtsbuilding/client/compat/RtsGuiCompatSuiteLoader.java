@@ -41,7 +41,11 @@ final class RtsGuiCompatSuiteLoader {
             "oritech_assembler",
             "oritech_centrifuge",
             "powah_reactor",
-            "pipez_item_extract");
+            "pipez_item_extract",
+            "securitycraft_inventory_scanner_pair",
+            "productive_metalworks_minimal_foundry",
+            "extreme_reactors_minimal_reactor",
+            "integrated_terminal_storage_part");
 
     private RtsGuiCompatSuiteLoader() {
     }

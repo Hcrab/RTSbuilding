@@ -16,6 +16,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
 import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -23,12 +25,16 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.alchemy.Potions;
+import net.minecraft.world.item.context.UseOnContext;
 import net.minecraft.world.item.enchantment.Enchantments;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
@@ -232,6 +238,14 @@ public final class RtsGuiCompatSetupCommand {
                     new BlockPos(0, 1, 0));
             case "powah_reactor" -> hasBooleanPropertyValue(level.getBlockState(targetPos), "core", true);
             case "pipez_item_extract" -> preparePipezItemExtract(level, targetPos);
+            case "securitycraft_inventory_scanner_pair" -> prepareSecurityCraftInventoryScannerPair(
+                    level, player, targetPos);
+            case "productive_metalworks_minimal_foundry" -> prepareProductiveMetalworksFoundry(
+                    level, player, targetPos);
+            case "extreme_reactors_minimal_reactor" -> prepareExtremeReactorsMinimalReactor(
+                    level, targetPos);
+            case "integrated_terminal_storage_part" -> prepareIntegratedTerminalStoragePart(
+                    level, player, targetPos);
             default -> false;
         };
     }
@@ -300,6 +314,123 @@ public final class RtsGuiCompatSetupCommand {
         }
     }
 
+    /**
+     * SecurityCraft 的物品扫描器只有找到扫描方向上另一台反向扫描器时才会打开菜单。
+     * 这里搭建最短的两端结构并走双方真实放置回调，使所有者与中间扫描区域都由模组自己初始化。
+     */
+    private static boolean prepareSecurityCraftInventoryScannerPair(
+            ServerLevel level, ServerPlayer player, BlockPos scannerPos) {
+        Block scanner = level.getBlockState(scannerPos).getBlock();
+        BlockState first = withDirectionProperty(scanner.defaultBlockState(), "facing", Direction.SOUTH);
+        BlockPos partnerPos = scannerPos.relative(Direction.SOUTH, 2);
+        BlockState partner = withDirectionProperty(scanner.defaultBlockState(), "facing", Direction.NORTH);
+
+        level.setBlock(scannerPos, first, 3);
+        scanner.setPlacedBy(level, scannerPos, level.getBlockState(scannerPos), player, new ItemStack(scanner));
+        level.setBlock(partnerPos, partner, 3);
+        scanner.setPlacedBy(level, partnerPos, level.getBlockState(partnerPos), player, new ItemStack(scanner));
+        level.sendBlockUpdated(scannerPos, level.getBlockState(scannerPos), level.getBlockState(scannerPos), 3);
+        level.sendBlockUpdated(partnerPos, level.getBlockState(partnerPos), level.getBlockState(partnerPos), 3);
+        return level.getBlockState(partnerPos).is(scanner);
+    }
+
+    /**
+     * Productive Metalworks 在开窗前会重新扫描真实多方块，不能通过伪造方块实体状态绕过。
+     * 探针搭建最小 3×3 铸造厂：底层加热线圈、两层耐火砖外墙、正面中央保留控制器，
+     * 内部保持为空。所有方块均从注册表取得，因此主模组不会硬依赖该可选模组的类。
+     */
+    private static boolean prepareProductiveMetalworksFoundry(
+            ServerLevel level, ServerPlayer player, BlockPos controllerPos) {
+        Block wall = registeredBlock("productivemetalworks:black_fire_bricks");
+        Block coil = registeredBlock("productivemetalworks:powered_heating_coil");
+        if (wall == null || coil == null) {
+            return false;
+        }
+
+        // 控制器位于北侧墙中央；结构向南延伸，避免覆盖玩家与远程射线起点。
+        for (int x = -1; x <= 1; x++) {
+            for (int z = 0; z <= 2; z++) {
+                level.setBlock(controllerPos.offset(x, -1, z), coil.defaultBlockState(), 3);
+            }
+        }
+        for (int y = 0; y <= 1; y++) {
+            for (int x = -1; x <= 1; x++) {
+                for (int z = 0; z <= 2; z++) {
+                    boolean wallCell = x == -1 || x == 1 || z == 0 || z == 2;
+                    if (!wallCell || (x == 0 && z == 0 && y == 0)) {
+                        continue;
+                    }
+                    level.setBlock(controllerPos.offset(x, y, z), wall.defaultBlockState(), 3);
+                }
+            }
+        }
+        Block controller = level.getBlockState(controllerPos).getBlock();
+        controller.setPlacedBy(level, controllerPos, level.getBlockState(controllerPos), player,
+                new ItemStack(controller));
+        return level.getBlockState(controllerPos).is(controller);
+    }
+
+    /**
+     * Extreme Reactors 控制器只有在多方块完成组装后才允许打开 GUI。这里搭建标准最小
+     * 3×3×3 被动反应堆：单格燃料棒、顶部控制棒、一个被动能量口，其余外壳使用基础机壳。
+     * 结构向目标南侧延伸，控制器仍位于玩家可命中的北侧墙中央。
+     */
+    private static boolean prepareExtremeReactorsMinimalReactor(
+            ServerLevel level, BlockPos controllerPos) {
+        Block casing = registeredBlock("bigreactors:basic_reactorcasing");
+        Block fuelRod = registeredBlock("bigreactors:basic_reactorfuelrod");
+        Block controlRod = registeredBlock("bigreactors:basic_reactorcontrolrod");
+        Block powerTap = registeredBlock("bigreactors:basic_reactorpowertapfe_passive");
+        if (casing == null || fuelRod == null || controlRod == null || powerTap == null) {
+            return false;
+        }
+        Block controller = level.getBlockState(controllerPos).getBlock();
+
+        for (int x = -1; x <= 1; x++) {
+            for (int y = -1; y <= 1; y++) {
+                for (int z = 0; z <= 2; z++) {
+                    boolean boundary = x == -1 || x == 1 || y == -1 || y == 1 || z == 0 || z == 2;
+                    if (boundary) {
+                        level.setBlock(controllerPos.offset(x, y, z), casing.defaultBlockState(), 3);
+                    }
+                }
+            }
+        }
+
+        level.setBlock(controllerPos,
+                withDirectionProperty(controller.defaultBlockState(), "facing", Direction.NORTH), 3);
+        level.setBlock(controllerPos.offset(0, 0, 1), fuelRod.defaultBlockState(), 3);
+        level.setBlock(controllerPos.offset(0, 1, 1), controlRod.defaultBlockState(), 3);
+        level.setBlock(controllerPos.offset(1, 0, 1), powerTap.defaultBlockState(), 3);
+        return level.getBlockState(controllerPos).is(controller);
+    }
+
+    /**
+     * Integrated Terminals 的存储终端不是独立方块，而是安装在 Integrated Dynamics 线缆表面的部件。
+     * 通过其注册物品的真实 {@code useOn} 路径把终端装到朝向玩家的 NORTH 面，避免反射修改部件容器；
+     * ATM10 Sky 将 Integrated Dynamics 的全局耗能倍率设为 0，因此单线缆网络即可正常启用该终端。
+     */
+    private static boolean prepareIntegratedTerminalStoragePart(
+            ServerLevel level, ServerPlayer player, BlockPos cablePos) {
+        ResourceLocation partId = ResourceLocation.parse("integratedterminals:part_terminal_storage");
+        var partItem = BuiltInRegistries.ITEM.getOptional(partId).orElse(null);
+        if (partItem == null || partItem == Items.AIR) {
+            return false;
+        }
+
+        ItemStack partStack = new ItemStack(partItem);
+        player.setItemInHand(InteractionHand.MAIN_HAND, partStack);
+        BlockHitResult hit = new BlockHitResult(
+                Vec3.atCenterOf(cablePos).add(0.0D, 0.0D, -0.5D),
+                Direction.NORTH,
+                cablePos,
+                false);
+        InteractionResult result = partStack.useOn(new UseOnContext(player, InteractionHand.MAIN_HAND, hit));
+        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+        level.sendBlockUpdated(cablePos, level.getBlockState(cablePos), level.getBlockState(cablePos), 3);
+        return result.consumesAction();
+    }
+
     private static BlockPos rotateOritechOffset(BlockPos pos, net.minecraft.core.Direction facing) {
         return switch (facing) {
             case NORTH -> new BlockPos(pos.getZ(), pos.getY(), pos.getX());
@@ -331,6 +462,28 @@ public final class RtsGuiCompatSetupCommand {
             }
         }
         return state;
+    }
+
+    private static BlockState withDirectionProperty(
+            BlockState state, String propertyName, Direction value) {
+        for (var property : state.getProperties()) {
+            if (property instanceof DirectionProperty directionProperty
+                    && propertyName.equals(property.getName())
+                    && directionProperty.getPossibleValues().contains(value)) {
+                return state.setValue(directionProperty, value);
+            }
+        }
+        return state;
+    }
+
+    private static Block registeredBlock(String id) {
+        ResourceLocation key = ResourceLocation.tryParse(id);
+        if (key == null) {
+            return null;
+        }
+        return BuiltInRegistries.BLOCK.getOptional(key)
+                .filter(block -> block != Blocks.AIR)
+                .orElse(null);
     }
 
     private static boolean hasBooleanPropertyValue(BlockState state, String propertyName, boolean value) {

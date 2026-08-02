@@ -120,4 +120,47 @@ class RtsGuiCompatSuiteLoaderTest {
 
         assertThrows(IllegalArgumentException.class, () -> RtsGuiCompatSuiteLoader.load(suitePath));
     }
+
+    @Test
+    void acceptsSpecialStructureAdapters() throws Exception {
+        Path suitePath = this.temporaryDirectory.resolve("special-structures.json");
+        Files.writeString(suitePath, """
+                {
+                  "suiteId": "special-structures",
+                  "cases": [
+                    {
+                      "id": "scanner",
+                      "blockId": "securitycraft:inventory_scanner",
+                      "distanceProfile": "FAR_24",
+                      "setupAdapter": "securitycraft_inventory_scanner_pair"
+                    },
+                    {
+                      "id": "foundry",
+                      "blockId": "productivemetalworks:black_foundry_controller",
+                      "distanceProfile": "COLD_160",
+                      "setupAdapter": "productive_metalworks_minimal_foundry"
+                    },
+                    {
+                      "id": "reactor",
+                      "blockId": "bigreactors:basic_reactorcontroller",
+                      "distanceProfile": "FAR_24",
+                      "setupAdapter": "extreme_reactors_minimal_reactor"
+                    },
+                    {
+                      "id": "integrated-terminal",
+                      "blockId": "integrateddynamics:cable",
+                      "distanceProfile": "COLD_160",
+                      "setupAdapter": "integrated_terminal_storage_part"
+                    }
+                  ]
+                }
+                """);
+
+        var loaded = RtsGuiCompatSuiteLoader.load(suitePath);
+
+        assertEquals("securitycraft_inventory_scanner_pair", loaded.cases().get(0).setupAdapter());
+        assertEquals("productive_metalworks_minimal_foundry", loaded.cases().get(1).setupAdapter());
+        assertEquals("extreme_reactors_minimal_reactor", loaded.cases().get(2).setupAdapter());
+        assertEquals("integrated_terminal_storage_part", loaded.cases().get(3).setupAdapter());
+    }
 }

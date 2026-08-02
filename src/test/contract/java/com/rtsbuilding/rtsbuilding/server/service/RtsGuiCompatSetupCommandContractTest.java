@@ -23,6 +23,13 @@ class RtsGuiCompatSetupCommandContractTest {
         assertTrue(source.contains("preparePipezItemExtract"));
         assertTrue(source.contains("\"setExtracting\""));
         assertTrue(source.contains("Direction.NORTH"));
+        assertTrue(source.contains("prepareSecurityCraftInventoryScannerPair"));
+        assertTrue(source.contains("prepareProductiveMetalworksFoundry"));
+        assertTrue(source.contains("productivemetalworks:powered_heating_coil"));
+        assertTrue(source.contains("prepareExtremeReactorsMinimalReactor"));
+        assertTrue(source.contains("bigreactors:basic_reactorfuelrod"));
+        assertTrue(source.contains("prepareIntegratedTerminalStoragePart"));
+        assertTrue(source.contains("integratedterminals:part_terminal_storage"));
         assertTrue(source.contains("initialStateForAdapter"));
         assertTrue(source.contains("withBooleanProperty(state, \"core\", true)"));
     }
