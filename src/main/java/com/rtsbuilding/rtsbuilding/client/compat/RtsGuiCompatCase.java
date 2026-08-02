@@ -14,6 +14,10 @@ record RtsGuiCompatCase(
         String setupAdapter,
         int setupWaitTicks,
         String interactionItemId,
+        String hitFace,
+        double hitOffsetX,
+        double hitOffsetY,
+        double hitOffsetZ,
         String expectedMenuRegex,
         String expectedScreenRegex) {
 
@@ -25,6 +29,10 @@ record RtsGuiCompatCase(
         setupAdapter = normalize(setupAdapter, "single_block");
         setupWaitTicks = Math.max(1, setupWaitTicks);
         interactionItemId = normalize(interactionItemId, "");
+        hitFace = normalize(hitFace, "UP").toUpperCase(java.util.Locale.ROOT);
+        hitOffsetX = requireHitOffset(hitOffsetX, "hitOffsetX");
+        hitOffsetY = requireHitOffset(hitOffsetY, "hitOffsetY");
+        hitOffsetZ = requireHitOffset(hitOffsetZ, "hitOffsetZ");
         expectedMenuRegex = normalize(expectedMenuRegex, "");
         expectedScreenRegex = normalize(expectedScreenRegex, "");
     }
@@ -48,5 +56,12 @@ record RtsGuiCompatCase(
 
     private static String normalize(String value, String fallback) {
         return value == null || value.isBlank() ? fallback : value.trim();
+    }
+
+    private static double requireHitOffset(double value, String field) {
+        if (!Double.isFinite(value) || value < -0.5D || value > 0.5D) {
+            throw new IllegalArgumentException(field + " must be finite and within [-0.5, 0.5]");
+        }
+        return value;
     }
 }

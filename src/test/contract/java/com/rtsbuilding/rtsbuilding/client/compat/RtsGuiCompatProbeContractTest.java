@@ -40,6 +40,8 @@ class RtsGuiCompatProbeContractTest {
         assertTrue(probe.contains("minecraft.screen instanceof AbstractContainerScreen<?>"));
         assertTrue(probe.contains("sendInteractBlockWithToolSlot"));
         assertTrue(probe.contains("currentCase.setupWaitTicks()"));
+        assertTrue(probe.contains("applyCaseHitGeometry"));
+        assertTrue(probe.contains("guiCase.hitOffsetZ()"));
         assertTrue(report.contains("StandardCopyOption.ATOMIC_MOVE"));
         assertTrue(report.contains("baselineSha"));
         assertTrue(report.contains("manifestHash"));

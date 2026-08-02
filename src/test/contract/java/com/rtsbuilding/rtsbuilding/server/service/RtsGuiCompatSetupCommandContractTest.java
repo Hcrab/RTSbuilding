@@ -20,6 +20,9 @@ class RtsGuiCompatSetupCommandContractTest {
         assertTrue(source.contains("block.setPlacedBy"));
         assertTrue(source.contains("prepareInteractionItem"));
         assertTrue(source.contains("prepareOritechMachine"));
+        assertTrue(source.contains("preparePipezItemExtract"));
+        assertTrue(source.contains("\"setExtracting\""));
+        assertTrue(source.contains("Direction.NORTH"));
         assertTrue(source.contains("initialStateForAdapter"));
         assertTrue(source.contains("withBooleanProperty(state, \"core\", true)"));
     }

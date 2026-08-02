@@ -23,7 +23,10 @@ final class RtsGuiCompatSuiteLoader {
             "suiteId", "stableTicks", "openTimeoutTicks", "cases");
     private static final Set<String> CASE_FIELDS = Set.of(
             "id", "blockId", "distanceProfile", "distance", "depth", "setupAdapter",
-            "setupWaitTicks", "interactionItemId", "expectedMenuRegex", "expectedScreenRegex");
+            "setupWaitTicks", "interactionItemId", "hitFace", "hitOffsetX", "hitOffsetY", "hitOffsetZ",
+            "expectedMenuRegex", "expectedScreenRegex");
+    private static final Set<String> HIT_FACES = Set.of(
+            "DOWN", "UP", "NORTH", "SOUTH", "WEST", "EAST");
     private static final Set<String> SUPPORTED_ADAPTERS = Set.of(
             "single_block",
             "vanilla_chest",
@@ -37,7 +40,8 @@ final class RtsGuiCompatSuiteLoader {
             "vanilla_grindstone",
             "oritech_assembler",
             "oritech_centrifuge",
-            "powah_reactor");
+            "powah_reactor",
+            "pipez_item_extract");
 
     private RtsGuiCompatSuiteLoader() {
     }
@@ -70,6 +74,11 @@ final class RtsGuiCompatSuiteLoader {
                 throw new IllegalArgumentException("Unsupported setupAdapter " + adapter
                         + " in cases[" + index + "]");
             }
+            String hitFace = optionalString(object, "hitFace", "UP").toUpperCase(java.util.Locale.ROOT);
+            if (!HIT_FACES.contains(hitFace)) {
+                throw new IllegalArgumentException("Unsupported hitFace " + hitFace
+                        + " in cases[" + index + "]");
+            }
             cases.add(new RtsGuiCompatCase(
                     requiredString(object, "id"),
                     requiredString(object, "blockId"),
@@ -78,6 +87,10 @@ final class RtsGuiCompatSuiteLoader {
                     adapter,
                     positiveInt(object, "setupWaitTicks", 40),
                     optionalString(object, "interactionItemId", ""),
+                    hitFace,
+                    optionalDouble(object, "hitOffsetX", 0.0D),
+                    optionalDouble(object, "hitOffsetY", 0.0D),
+                    optionalDouble(object, "hitOffsetZ", 0.0D),
                     optionalString(object, "expectedMenuRegex", "DISCOVER_THEN_LOCK"),
                     optionalString(object, "expectedScreenRegex", "DISCOVER_THEN_LOCK")));
         }
@@ -132,6 +145,11 @@ final class RtsGuiCompatSuiteLoader {
             throw new IllegalArgumentException(key + " must be positive");
         }
         return value;
+    }
+
+    private static double optionalDouble(JsonObject object, String key, double fallback) {
+        JsonElement element = object.get(key);
+        return element == null || element.isJsonNull() ? fallback : element.getAsDouble();
     }
 
     record RtsGuiCompatSuite(String suiteId, int stableTicks, int openTimeoutTicks,

@@ -62,7 +62,8 @@ class RtsGuiCompatSuiteLoaderTest {
                 {"suiteId":"modded","cases":[{
                   "id":"ars_scribe","blockId":"ars_nouveau:scribes_table",
                   "setupAdapter":"single_block","setupWaitTicks":80,
-                  "interactionItemId":"ars_nouveau:novice_spell_book"
+                  "interactionItemId":"ars_nouveau:novice_spell_book",
+                  "hitFace":"north","hitOffsetY":0.25,"hitOffsetZ":-0.45
                 }]}
                 """);
 
@@ -70,6 +71,10 @@ class RtsGuiCompatSuiteLoaderTest {
 
         assertEquals(80, guiCase.setupWaitTicks());
         assertEquals("ars_nouveau:novice_spell_book", guiCase.interactionItemId());
+        assertEquals("NORTH", guiCase.hitFace());
+        assertEquals(0.0D, guiCase.hitOffsetX());
+        assertEquals(0.25D, guiCase.hitOffsetY());
+        assertEquals(-0.45D, guiCase.hitOffsetZ());
         assertTrue(guiCase.setupCommand().endsWith("single_block ars_nouveau:novice_spell_book"));
     }
 
@@ -87,6 +92,20 @@ class RtsGuiCompatSuiteLoaderTest {
                 "setupAdapter":"invent_something"}]}
                 """);
         assertThrows(IllegalArgumentException.class, () -> RtsGuiCompatSuiteLoader.load(unsupportedAdapter));
+
+        Path unsupportedFace = this.temporaryDirectory.resolve("face.json");
+        Files.writeString(unsupportedFace, """
+                {"suiteId":"bad","cases":[{"id":"x","blockId":"minecraft:chest",
+                "hitFace":"diagonal"}]}
+                """);
+        assertThrows(IllegalArgumentException.class, () -> RtsGuiCompatSuiteLoader.load(unsupportedFace));
+
+        Path invalidOffset = this.temporaryDirectory.resolve("offset.json");
+        Files.writeString(invalidOffset, """
+                {"suiteId":"bad","cases":[{"id":"x","blockId":"minecraft:chest",
+                "hitOffsetX":0.75}]}
+                """);
+        assertThrows(IllegalArgumentException.class, () -> RtsGuiCompatSuiteLoader.load(invalidOffset));
     }
 
     @Test

@@ -152,7 +152,7 @@ public final class RtsGuiCompatProbe {
             return 0;
         }
 
-        BlockHitResult hit = target.hit();
+        BlockHitResult hit = applyCaseHitGeometry(target.hit(), currentCase);
         if (!target.trustedServerSetup() && !currentCase.blockId().isBlank()
                 && !currentCase.blockId().equals(target.observedBlock())) {
             writeRow("run-start", "FAIL", currentScreenClass(minecraft), currentScreenTitle(minecraft),
@@ -215,6 +215,18 @@ public final class RtsGuiCompatProbe {
             return new TargetResolution(blindHit, observed, loaded, true);
         }
         return null;
+    }
+
+    /**
+     * 将测试清单里的点击面与方块内偏移应用到服务端真实交互射线。
+     * 默认仍命中方块中心；只有 Pipez 抽取臂等按局部碰撞体分派菜单的方块才需要覆盖。
+     */
+    private static BlockHitResult applyCaseHitGeometry(BlockHitResult source, RtsGuiCompatCase guiCase) {
+        BlockPos pos = source.getBlockPos();
+        Vec3 location = Vec3.atCenterOf(pos).add(
+                guiCase.hitOffsetX(), guiCase.hitOffsetY(), guiCase.hitOffsetZ());
+        Direction face = Direction.valueOf(guiCase.hitFace());
+        return new BlockHitResult(location, face, pos, false);
     }
 
     private static void recoverProbePlayerFromDeath(Minecraft minecraft) {
@@ -614,6 +626,10 @@ public final class RtsGuiCompatProbe {
                 "single_block",
                 DEFAULT_AUTO_SETUP_DELAY,
                 "",
+                "UP",
+                0.0D,
+                0.0D,
+                0.0D,
                 EXPECTED_MENU_REGEX,
                 EXPECTED_SCREEN_REGEX);
         if (SUITE_PATH == null) {

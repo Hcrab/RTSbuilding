@@ -9,6 +9,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.arguments.ResourceLocationArgument;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -16,6 +17,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
@@ -229,6 +231,7 @@ public final class RtsGuiCompatSetupCommand {
             case "oritech_centrifuge" -> prepareOritechMachine(level, targetPos,
                     new BlockPos(0, 1, 0));
             case "powah_reactor" -> hasBooleanPropertyValue(level.getBlockState(targetPos), "core", true);
+            case "pipez_item_extract" -> preparePipezItemExtract(level, targetPos);
             default -> false;
         };
     }
@@ -270,6 +273,31 @@ public final class RtsGuiCompatSetupCommand {
             level.setBlock(controllerPos.offset(rotated), core.defaultBlockState(), 3);
         }
         return setBooleanProperty(level, controllerPos, "machine_assembled", true);
+    }
+
+    /**
+     * Pipez 只有点中已启用的抽取臂才会打开配置界面。这里在朝向玩家的 NORTH 侧放置真实箱子，
+     * 再调用 Pipez 自己公开的状态 API；反射仅用于避免主模组对整合包可选模组产生硬依赖。
+     */
+    private static boolean preparePipezItemExtract(ServerLevel level, BlockPos pipePos) {
+        Direction extractSide = Direction.NORTH;
+        level.setBlock(pipePos.relative(extractSide), Blocks.CHEST.defaultBlockState(), 3);
+        Block pipe = level.getBlockState(pipePos).getBlock();
+        try {
+            var setExtracting = pipe.getClass().getMethod(
+                    "setExtracting", Level.class, BlockPos.class, Direction.class, boolean.class);
+            var setDisconnected = pipe.getClass().getMethod(
+                    "setDisconnected", Level.class, BlockPos.class, Direction.class, boolean.class);
+            setDisconnected.invoke(pipe, level, pipePos, extractSide, false);
+            setExtracting.invoke(pipe, level, pipePos, extractSide, true);
+            level.sendBlockUpdated(pipePos, level.getBlockState(pipePos), level.getBlockState(pipePos), 3);
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            RtsbuildingMod.LOGGER.warn(
+                    "[RTS-GUI-PROBE] failed to prepare Pipez extraction side at {}",
+                    pipePos.toShortString(), exception);
+            return false;
+        }
     }
 
     private static BlockPos rotateOritechOffset(BlockPos pos, net.minecraft.core.Direction facing) {
