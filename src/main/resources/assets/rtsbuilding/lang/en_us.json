@@ -1046,6 +1046,8 @@
   ,"screen.rtsbuilding.craft_terminal.deposit_hotbar": "Store hotbar"
   ,"screen.rtsbuilding.craft_terminal.sort": "Change storage sorting"
   ,"screen.rtsbuilding.craft_terminal.sort_direction": "Reverse storage sorting"
+  ,"screen.rtsbuilding.craft_terminal.sort_button": "Left: change sorting · Right: reverse sorting"
+  ,"screen.rtsbuilding.craft_terminal.utility_button": "Left/Right: clear grid to storage/inventory · Shift+Left/Right: store inventory/hotbar"
   ,"screen.rtsbuilding.craft_terminal.rows": "Change visible storage rows"
   ,"screen.rtsbuilding.quick_build.mode_smart_fill": "Fill"
   ,"screen.rtsbuilding.quick_build.smart_fill.max_blocks": "Maximum blocks"

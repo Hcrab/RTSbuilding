@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiRow;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiState;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
@@ -1202,15 +1203,28 @@ final class UiMainlineWindowRenderer {
                 (int) bounds.getX(), (int) bounds.getY(), state.mode);
         drawQuickMode(canvas, g.buildMode,
                 language.text("screen.rtsbuilding.quick_build.mode_build"),
-                state.mode == QuickBuildUiMode.BUILD, true);
+                state.mode != QuickBuildUiMode.DESTROY, true);
         drawQuickMode(canvas, g.destroyMode,
                 language.text("screen.rtsbuilding.quick_build.mode_destroy"),
                 state.mode == QuickBuildUiMode.DESTROY, state.destroyEnabled);
-        drawQuickMode(canvas, g.smartFillMode,
-                language.text("screen.rtsbuilding.quick_build.mode_smart_fill"),
-                state.mode == QuickBuildUiMode.SMART_FILL, true);
+        drawQuickChoice(canvas,
+                new UiRect(g.catalogX(0), g.catalogY, g.catalogW,
+                        QuickBuildWindowLayout.CATALOG_H),
+                language.text("screen.rtsbuilding.quick_build.catalog_shapes"),
+                state.catalogPage == QuickBuildUiCatalogPage.SHAPES);
+        drawQuickChoice(canvas,
+                new UiRect(g.catalogX(1), g.catalogY, g.catalogW,
+                        QuickBuildWindowLayout.CATALOG_H),
+                language.text("screen.rtsbuilding.quick_build.catalog_tools"),
+                state.catalogPage == QuickBuildUiCatalogPage.CONVENIENCE_TOOLS);
         if (state.mode == QuickBuildUiMode.SMART_FILL) {
-            int sliderW = QuickBuildWindowLayout.smartFillSliderWidth(
+            drawQuickChoice(canvas,
+                    new UiRect(g.contentX, g.convenienceToolY(0),
+                            QuickBuildWindowLayout.CONVENIENCE_TOOL_W,
+                            QuickBuildWindowLayout.CONVENIENCE_TOOL_H),
+                    language.text("screen.rtsbuilding.quick_build.mode_smart_fill"),
+                    true);
+            int sliderW = QuickBuildWindowLayout.chainSliderWidth(
                     QuickBuildWindowLayout.WINDOW_W);
             drawSmartFillSlider(canvas, language, g, sliderW, 0,
                     "screen.rtsbuilding.quick_build.smart_fill.max_blocks",
@@ -1221,9 +1235,6 @@ final class UiMainlineWindowRenderer {
                     state.smartFillMinDiameter, state.smartFillMaxDiameter,
                     state.smartFillDiameter);
         } else {
-            canvas.text(language.text("screen.rtsbuilding.quick_build.shape"),
-                    bounds.getX() + 10, g.sectionTitleY + 9,
-                    UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
             for (int i = 0; i < state.shapes.size(); i++) {
                 QuickBuildUiShapeOption option = state.shapes.get(i);
                 int slotX = g.shapeX(i);
@@ -1233,9 +1244,6 @@ final class UiMainlineWindowRenderer {
                         new UiRect(0, option.selected ? 450 : 0, 450, 450),
                         new UiRect(slotX, slotY, 32, 32));
             }
-            canvas.text(language.text("screen.rtsbuilding.quick_build.fill"),
-                    g.rightX, g.sectionTitleY + 9,
-                    UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
         }
         if (state.mode != QuickBuildUiMode.SMART_FILL && state.chainMode()) {
             int labelY = g.chainLabelY;
@@ -1309,15 +1317,30 @@ final class UiMainlineWindowRenderer {
             int minimum,
             int maximum,
             int value) {
-        canvas.text(language.text(labelKey), geometry.contentX,
+        canvas.text(language.text(labelKey), geometry.rightX,
                 geometry.smartFillParameterLabelY(index) + 9,
                 UiMainlinePreviewStyle.color(QuickBuildStyle.SECTION_TEXT));
         int sliderY = geometry.smartFillParameterSliderY(index);
         WindowSliderChromeRenderer.render(canvas, WindowSliderLayout.geometry(
-                new UiRect(geometry.contentX, sliderY, sliderWidth, 18),
+                new UiRect(geometry.rightX, sliderY, sliderWidth, 18),
                 minimum, maximum, value));
-        canvas.text(Integer.toString(value), geometry.smartFillValueX(sliderWidth),
+        canvas.text(Integer.toString(value), geometry.chainValueX(sliderWidth),
                 sliderY + 13, UiMainlinePreviewStyle.color(QuickBuildStyle.VALUE_TEXT));
+    }
+
+    private void drawQuickChoice(
+            BufferedImageUiCanvas canvas,
+            UiRect area,
+            String label,
+            boolean selected) {
+        UiControlVisualStyle visual = controlVisual(
+                UiControlRole.CHOICE, selected, true);
+        WindowButtonChromeRenderer.renderSolid(canvas, area, visual);
+        canvas.centeredText(
+                canvas.trimToWidth(label, (int) area.getWidth() - 4),
+                area.getX() + area.getWidth() / 2.0D,
+                area.getY() + 13,
+                UiMainlinePreviewStyle.color(visual.getText()));
     }
 
     private void drawQuickMode(BufferedImageUiCanvas canvas, UiRect area,

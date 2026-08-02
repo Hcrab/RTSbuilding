@@ -20,7 +20,7 @@ public final class QuickBuildWindowLayout {
     public static final int MODE_GAP = 4;
     public static final int MODE_TOP = 5;
     public static final int SECTION_TOP = 31;
-    public static final int CATALOG_TOP = SECTION_TOP + 14;
+    public static final int CATALOG_TOP = SECTION_TOP;
     public static final int CATALOG_H = 18;
     public static final int CATALOG_GAP = 4;
     public static final int CATALOG_TOOLS_GAP = 8;
@@ -93,20 +93,15 @@ public final class QuickBuildWindowLayout {
                 destroy ? QuickBuildUiMode.DESTROY : QuickBuildUiMode.BUILD);
     }
 
-    public static int smartFillSliderWidth(int windowWidth) {
-        return Math.max(60, windowWidth - CONTENT_INSET * 2 - 40);
-    }
-
     public static Geometry geometry(int windowX, int windowY, QuickBuildUiMode mode) {
         int bodyY = windowY + TITLE_H;
         int totalW = WINDOW_W - CONTENT_INSET * 2;
-        int modeW = (totalW - MODE_GAP * 2) / 3;
+        int modeW = (totalW - MODE_GAP) / 2;
         int buildX = windowX + CONTENT_INSET;
         int destroyX = buildX + modeW + MODE_GAP;
-        int smartFillX = destroyX + modeW + MODE_GAP;
         boolean destroy = mode == QuickBuildUiMode.DESTROY;
         return new Geometry(windowX, windowY, bodyY,
-                buildX, destroyX, smartFillX,
+                buildX, destroyX,
                 bodyY + MODE_TOP, modeW,
                 bodyY + SECTION_TOP,
                 windowX + RIGHT_COL_X,
@@ -116,36 +111,34 @@ public final class QuickBuildWindowLayout {
 
     public static final class Geometry {
         public final int windowX, windowY, bodyY;
-        public final int buildModeX, destroyModeX, smartFillModeX, modeY, modeW;
+        public final int buildModeX, destroyModeX, modeY, modeW;
         public final int sectionTitleY, rightX, dividerY, windowH;
         public final boolean destroy;
         public final int chainLabelY, chainSliderY, statusTextY, statusItemY;
         public final int catalogY, catalogW, convenienceContentY;
         public final int contentX, contentW, sectionLabelX;
-        public final UiRect buildMode, destroyMode, smartFillMode, divider, progress;
+        public final UiRect buildMode, destroyMode, divider, progress;
 
-        private Geometry(int windowX,int windowY,int bodyY,int buildModeX,int destroyModeX,int smartFillModeX,
+        private Geometry(int windowX,int windowY,int bodyY,int buildModeX,int destroyModeX,
                          int modeY,int modeW,int sectionTitleY,int rightX,int dividerY,int windowH,
                          boolean destroy) {
             this.windowX=windowX; this.windowY=windowY; this.bodyY=bodyY;
             this.buildModeX=buildModeX; this.destroyModeX=destroyModeX;
-            this.smartFillModeX=smartFillModeX;
             this.modeY=modeY; this.modeW=modeW; this.sectionTitleY=sectionTitleY;
             this.rightX=rightX; this.dividerY=dividerY; this.windowH=windowH;
             this.destroy=destroy;
-            this.chainLabelY = bodyY + CHAIN_LABEL_TOP;
-            this.chainSliderY = chainLabelY + CHAIN_SLIDER_GAP;
-            this.statusTextY = dividerY + STATUS_TEXT_TOP;
-            this.statusItemY = statusTextY + STATUS_ITEM_Y_OFFSET;
             this.contentX = windowX + CONTENT_INSET;
             this.contentW = WINDOW_W - CONTENT_INSET * 2;
             this.sectionLabelX = windowX + SECTION_LABEL_INSET;
             this.catalogY = bodyY + CATALOG_TOP;
             this.catalogW = (contentW - CATALOG_GAP) / 2;
             this.convenienceContentY = catalogY + CATALOG_H + CATALOG_TOOLS_GAP;
+            this.chainLabelY = convenienceContentY;
+            this.chainSliderY = chainLabelY + CHAIN_SLIDER_GAP;
+            this.statusTextY = dividerY + STATUS_TEXT_TOP;
+            this.statusItemY = statusTextY + STATUS_ITEM_Y_OFFSET;
             this.buildMode = new UiRect(buildModeX, modeY, modeW, MODE_H);
             this.destroyMode = new UiRect(destroyModeX, modeY, modeW, MODE_H);
-            this.smartFillMode = new UiRect(smartFillModeX, modeY, modeW, MODE_H);
             this.divider = new UiRect(
                     windowX + DIVIDER_INSET, dividerY - 1,
                     WINDOW_W - DIVIDER_INSET * 2, 1);
@@ -158,13 +151,11 @@ public final class QuickBuildWindowLayout {
             return contentX + (index % 2) * (SHAPE_SLOT + SHAPE_GAP);
         }
         public int shapeY(int index) {
-            return bodyY + CONTROL_LIST_TOP + (destroy ? 26 : 0)
-                    + (index / 2) * SHAPE_ROW_PITCH;
+            return convenienceContentY + (index / 2) * SHAPE_ROW_PITCH;
         }
 
         public int controlY(int index) {
-            return bodyY + CONTROL_LIST_TOP + (destroy ? 26 : 0)
-                    + index * SHAPE_ROW_PITCH;
+            return convenienceContentY + index * SHAPE_ROW_PITCH;
         }
 
         public int catalogX(int index) {
@@ -184,15 +175,11 @@ public final class QuickBuildWindowLayout {
         }
 
         public int smartFillParameterLabelY(int index) {
-            return bodyY + CONTROL_LIST_TOP + index * CONVENIENCE_PARAMETER_PITCH;
+            return convenienceParameterLabelY(index);
         }
 
         public int smartFillParameterSliderY(int index) {
             return smartFillParameterLabelY(index) + CONVENIENCE_PARAMETER_LABEL_GAP;
-        }
-
-        public int smartFillValueX(int sliderWidth) {
-            return contentX + sliderWidth + CHAIN_VALUE_GAP;
         }
 
         public int chainValueX(int sliderWidth) {
@@ -211,7 +198,7 @@ public final class QuickBuildWindowLayout {
             if (mode == QuickBuildUiMode.DESTROY) {
                 return destroyMode;
             }
-            return mode == QuickBuildUiMode.SMART_FILL ? smartFillMode : buildMode;
+            return buildMode;
         }
 
         /** 模式按钮使用半开边界；两个按钮之间的空隙不会误触任意模式。 */
@@ -222,8 +209,7 @@ public final class QuickBuildWindowLayout {
             if (destroyMode.contains(mouseX, mouseY)) {
                 return QuickBuildUiMode.DESTROY;
             }
-            return smartFillMode.contains(mouseX, mouseY)
-                    ? QuickBuildUiMode.SMART_FILL : null;
+            return null;
         }
     }
 }

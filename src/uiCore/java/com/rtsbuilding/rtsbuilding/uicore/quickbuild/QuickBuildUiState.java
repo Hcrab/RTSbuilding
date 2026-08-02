@@ -100,8 +100,10 @@ public final class QuickBuildUiState {
         this.destroyShape=destroyShape == null ? QuickBuildUiShape.CHAIN : destroyShape;
         this.shapes=immutable(shapes);
         this.controls=immutable(controls);
-        this.catalogPage=this.mode == QuickBuildUiMode.DESTROY && catalogPage != null
-                ? catalogPage : QuickBuildUiCatalogPage.SHAPES;
+        this.catalogPage=this.mode == QuickBuildUiMode.SMART_FILL
+                ? QuickBuildUiCatalogPage.CONVENIENCE_TOOLS
+                : (this.mode == QuickBuildUiMode.DESTROY && catalogPage != null
+                ? catalogPage : QuickBuildUiCatalogPage.SHAPES);
         this.convenienceTool=convenienceTool == null
                 ? QuickBuildUiConvenienceTool.REPEAT_BOX : convenienceTool;
         this.convenienceSettings=convenienceSettings == null
@@ -209,7 +211,10 @@ public final class QuickBuildUiState {
             int nextLimit) {
         return new QuickBuildUiState(nextOpen,nextMode,destroyEnabled,destroyDisabledReason,
                 nextBuild,nextDestroy,nextShapes,nextControls,
-                nextMode == QuickBuildUiMode.DESTROY ? catalogPage : QuickBuildUiCatalogPage.SHAPES,
+                nextMode == QuickBuildUiMode.DESTROY ? catalogPage
+                        : (nextMode == QuickBuildUiMode.SMART_FILL
+                        ? QuickBuildUiCatalogPage.CONVENIENCE_TOOLS
+                        : QuickBuildUiCatalogPage.SHAPES),
                 convenienceTool, convenienceSettings,
                 nextLimit,chainMinimum,chainMaximum,
                 progressCompleted,progressTotal,remainingBlocks,progressText,costText,selectedItemId,

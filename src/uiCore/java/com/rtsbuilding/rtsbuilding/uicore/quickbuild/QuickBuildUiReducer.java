@@ -25,10 +25,18 @@ public final class QuickBuildUiReducer {
                 return state.chainMode() ? result(state.withChainLimit(action.value),
                         QuickBuildUiTransition.Command.SET_CHAIN_LIMIT, action) : none(state, action);
             case SELECT_CATALOG_PAGE:
-                return state.mode == QuickBuildUiMode.DESTROY && action.catalogPage != null
-                        ? result(state.withCatalogPage(action.catalogPage),
-                        QuickBuildUiTransition.Command.SELECT_CATALOG_PAGE, action)
-                        : none(state, action);
+                if (action.catalogPage == null) {
+                    return none(state, action);
+                }
+                if (state.mode == QuickBuildUiMode.DESTROY) {
+                    return result(state.withCatalogPage(action.catalogPage),
+                            QuickBuildUiTransition.Command.SELECT_CATALOG_PAGE, action);
+                }
+                QuickBuildUiMode buildMode =
+                        action.catalogPage == QuickBuildUiCatalogPage.CONVENIENCE_TOOLS
+                                ? QuickBuildUiMode.SMART_FILL : QuickBuildUiMode.BUILD;
+                return result(state.withMode(buildMode),
+                        QuickBuildUiTransition.Command.SELECT_CATALOG_PAGE, action);
             case SELECT_CONVENIENCE_TOOL:
                 return state.mode == QuickBuildUiMode.DESTROY && action.convenienceTool != null
                         ? result(state.withConvenienceTool(action.convenienceTool),

@@ -138,7 +138,10 @@ final class QuickBuildUiAdapter {
         return new QuickBuildUiState(panel.isOpen(), mode, panel.canUseRangeDestroy(),
                 panel.canUseRangeDestroy() ? "" : "plugin_required",
                 buildShape, destroyShape, shapes, controls,
-                panel.getCatalogPage(), panel.getConvenienceTool(), convenienceSettings,
+                mode == QuickBuildUiMode.SMART_FILL
+                        ? QuickBuildUiCatalogPage.CONVENIENCE_TOOLS
+                        : panel.getCatalogPage(),
+                panel.getConvenienceTool(), convenienceSettings,
                 panel.getChainDestroyLimit(), ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT,
                 completed, total, remaining, progress, cost, selectedId, missing,
                 hint, panel.confirmKeyLabel(mode == QuickBuildUiMode.DESTROY),
@@ -175,7 +178,14 @@ final class QuickBuildUiAdapter {
             }
             case ACTIVATE_CONTROL -> activateControl(panel, action.control, transition.state.mode);
             case SET_CHAIN_LIMIT -> panel.setChainDestroyLimit(transition.state.chainLimit);
-            case SELECT_CATALOG_PAGE -> panel.setCatalogPage(transition.state.catalogPage);
+            case SELECT_CATALOG_PAGE -> {
+                if (panel.effectiveMode() == QuickBuildMode.DESTROY) {
+                    panel.setCatalogPage(transition.state.catalogPage);
+                } else {
+                    panel.setMode(transition.state.mode == QuickBuildUiMode.SMART_FILL
+                            ? QuickBuildMode.SMART_FILL : QuickBuildMode.BUILD);
+                }
+            }
             case SELECT_CONVENIENCE_TOOL -> panel.setConvenienceTool(transition.state.convenienceTool);
             case SET_CONVENIENCE_PARAMETER -> panel.setConvenienceParameter(
                     action.convenienceParameter,

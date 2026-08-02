@@ -1,10 +1,12 @@
 package com.rtsbuilding.rtsbuilding.uikit.layout;
 
 import com.rtsbuilding.rtsbuilding.uicore.craftterminal.CraftTerminalUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class CraftTerminalLayoutTest {
     @Test
@@ -36,19 +38,52 @@ final class CraftTerminalLayoutTest {
         CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(6);
         assertEquals(CraftTerminalUiAction.CYCLE_ROWS, layout.actionAt(200, 5));
         assertEquals(CraftTerminalUiAction.SORT, layout.actionAt(200, 22));
-        assertEquals(CraftTerminalUiAction.CLEAR_TO_STORAGE, layout.actionAt(200, 176));
-        assertEquals(CraftTerminalUiAction.DEPOSIT_HOTBAR, layout.actionAt(200, 240));
+        assertEquals(CraftTerminalUiAction.CLEAR_TO_STORAGE, layout.actionAt(200, 194));
+        assertNull(layout.actionAt(200, 176));
+        assertNull(layout.actionAt(200, 240));
         assertNull(layout.actionAt(194, 176));
     }
 
     @Test
     void 菜单槽位位于共享槽框的内沿() {
         CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(6);
-        assertEquals(CraftTerminalLayout.CRAFT_GRID_X - 1,
-                layout.craftingGridFrame.getX());
-        assertEquals(CraftTerminalLayout.CRAFT_GRID_Y - 1,
-                layout.craftingGridFrame.getY());
+        assertEquals(24, layout.craftingGridFrame.getX());
+        assertEquals(143, layout.craftingGridFrame.getY());
         assertEquals(221, CraftTerminalLayout.INVENTORY_Y - 1);
-        assertEquals(278, CraftTerminalLayout.HOTBAR_Y - 1);
+        assertEquals(279, CraftTerminalLayout.HOTBAR_Y - 1);
+    }
+
+    @Test
+    void 贡献者纹理切片保持原像素尺寸() {
+        CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(4);
+        assertEquals(195, CraftTerminalLayout.WIDTH);
+        assertEquals(304, CraftTerminalLayout.IMAGE_HEIGHT);
+        for (CraftTerminalLayout.TextureSlice slice : layout.skinSlices()) {
+            assertEquals(slice.source.getWidth(), slice.target.getWidth());
+            assertEquals(slice.source.getHeight(), slice.target.getHeight());
+        }
+    }
+
+    @Test
+    void 图二滑块保持十乘十五并在轨道内移动() {
+        CraftTerminalLayout.Geometry full = CraftTerminalLayout.geometry(6);
+        CraftTerminalLayout.Geometry compact = CraftTerminalLayout.geometry(2);
+
+        assertEquals(new UiRect(176, 19, 10, 15), full.scrollbarHandle(0.0D));
+        assertEquals(new UiRect(176, 66, 10, 15), full.scrollbarHandle(0.5D));
+        assertEquals(new UiRect(176, 112, 10, 15), full.scrollbarHandle(1.0D));
+        assertEquals(new UiRect(176, 91, 10, 15), compact.scrollbarHandle(-1.0D));
+        assertEquals(new UiRect(176, 112, 10, 15), compact.scrollbarHandle(2.0D));
+
+        CraftTerminalLayout.TextureSlice slice = full.scrollbarHandleSlice(0.25D);
+        assertEquals(new UiRect(197, 20, 10, 15), slice.source);
+        assertEquals(new UiRect(176, 42, 10, 15), slice.target);
+        assertTrue(full.scrollbar.contains(slice.target));
+
+        double grabOffset = 6.0D;
+        assertEquals(0.0D, full.scrollbarFractionForPointer(19 + grabOffset, grabOffset));
+        assertEquals(1.0D, full.scrollbarFractionForPointer(112 + grabOffset, grabOffset));
+        assertEquals(0.0D, compact.scrollbarFractionForPointer(-100, grabOffset));
+        assertEquals(1.0D, compact.scrollbarFractionForPointer(1000, grabOffset));
     }
 }

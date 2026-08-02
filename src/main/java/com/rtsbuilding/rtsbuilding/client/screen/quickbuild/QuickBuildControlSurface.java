@@ -43,6 +43,7 @@ final class QuickBuildControlSurface {
     private WindowSlider chainLimitSlider;
     private WindowSlider smartFillMaxBlocksSlider;
     private WindowSlider smartFillDiameterSlider;
+    private WindowButton smartFillToolButton;
     private final WindowButton[] catalogButtons = new WindowButton[2];
     private final WindowButton[] convenienceToolButtons = new WindowButton[3];
     private final EnumMap<QuickBuildUiConvenienceParameter, WindowSlider> convenienceSliders =
@@ -201,13 +202,16 @@ final class QuickBuildControlSurface {
         prepare(state, layout, windowWidth);
         QuickBuildUiMode mode = layout.modeAt(mouseX, mouseY);
         if (mode != null) {
+            if (mode == QuickBuildUiMode.BUILD
+                    && state.mode == QuickBuildUiMode.SMART_FILL) {
+                return true;
+            }
             if (mode != QuickBuildUiMode.DESTROY || state.destroyEnabled) {
                 this.dispatch.accept(QuickBuildUiAction.mode(mode));
             }
             return true;
         }
-        if (state.mode == QuickBuildUiMode.DESTROY
-                && click(this.catalogButtons, mouseX, mouseY, button)) {
+        if (click(this.catalogButtons, mouseX, mouseY, button)) {
             return true;
         }
         if (state.convenienceMode()) {
@@ -228,7 +232,8 @@ final class QuickBuildControlSurface {
         }
 
         if (state.mode == QuickBuildUiMode.SMART_FILL) {
-            return this.smartFillMaxBlocksSlider.mouseClicked(mouseX, mouseY, button)
+            return this.smartFillToolButton.mouseClicked(mouseX, mouseY, button)
+                    || this.smartFillMaxBlocksSlider.mouseClicked(mouseX, mouseY, button)
                     || this.smartFillDiameterSlider.mouseClicked(mouseX, mouseY, button);
         }
         if (click(this.shapeButtons, mouseX, mouseY, button)
@@ -269,6 +274,8 @@ final class QuickBuildControlSurface {
         // 松开事件也必须广播给全部按钮，否则点过的按钮会永久显示为 pressed。
         boolean handled = release(this.catalogButtons, mouseX, mouseY, button);
         handled |= release(this.convenienceToolButtons, mouseX, mouseY, button);
+        handled |= this.smartFillToolButton != null
+                && this.smartFillToolButton.mouseReleased(mouseX, mouseY, button);
         handled |= release(this.shapeButtons, mouseX, mouseY, button);
         handled |= release(this.controlButtons, mouseX, mouseY, button);
         if (this.connectToggle != null) {
@@ -332,6 +339,10 @@ final class QuickBuildControlSurface {
         return this.smartFillDiameterSlider;
     }
 
+    WindowButton smartFillToolButton() {
+        return this.smartFillToolButton;
+    }
+
     WindowButton catalogButton(int index) {
         return this.catalogButtons[index];
     }
@@ -364,10 +375,13 @@ final class QuickBuildControlSurface {
         syncConvenienceSettings(state.convenienceSettings);
         syncSmartFill(state.smartFillMaxBlocks, state.smartFillDiameter);
         for (int i = 0; i < this.catalogButtons.length; i++) {
-            this.catalogButtons[i].active = state.mode == QuickBuildUiMode.DESTROY;
+            this.catalogButtons[i].active = true;
             this.catalogButtons[i].setSelectedVisual(state.catalogPage
                     == QuickBuildUiCatalogPage.values()[i]);
         }
+        this.smartFillToolButton.active = state.mode == QuickBuildUiMode.SMART_FILL;
+        this.smartFillToolButton.setSelectedVisual(
+                state.mode == QuickBuildUiMode.SMART_FILL);
         for (int i = 0; i < this.convenienceToolButtons.length; i++) {
             this.convenienceToolButtons[i].active = state.convenienceMode();
             this.convenienceToolButtons[i].setSelectedVisual(state.convenienceTool
@@ -403,6 +417,8 @@ final class QuickBuildControlSurface {
             this.convenienceToolButtons[i].setX(layout.contentX);
             this.convenienceToolButtons[i].setY(layout.convenienceToolY(i));
         }
+        this.smartFillToolButton.setX(layout.contentX);
+        this.smartFillToolButton.setY(layout.convenienceToolY(0));
         int sliderWidth = QuickBuildWindowLayout.chainSliderWidth(windowWidth);
         int index = 0;
         for (QuickBuildUiConvenienceParameter parameter : activeParameters(state.convenienceTool)) {
@@ -432,12 +448,12 @@ final class QuickBuildControlSurface {
                 QuickBuildWindowLayout.chainSliderWidth(windowWidth));
         this.chainLimitSlider.setX(layout.rightX);
         this.chainLimitSlider.setY(layout.chainSliderY);
-        int smartWidth = QuickBuildWindowLayout.smartFillSliderWidth(windowWidth);
+        int smartWidth = QuickBuildWindowLayout.chainSliderWidth(windowWidth);
         this.smartFillMaxBlocksSlider.setWidth(smartWidth);
-        this.smartFillMaxBlocksSlider.setX(layout.contentX);
+        this.smartFillMaxBlocksSlider.setX(layout.rightX);
         this.smartFillMaxBlocksSlider.setY(layout.smartFillParameterSliderY(0));
         this.smartFillDiameterSlider.setWidth(smartWidth);
-        this.smartFillDiameterSlider.setX(layout.contentX);
+        this.smartFillDiameterSlider.setX(layout.rightX);
         this.smartFillDiameterSlider.setY(layout.smartFillParameterSliderY(1));
     }
 
@@ -469,7 +485,7 @@ final class QuickBuildControlSurface {
         if (this.smartFillMaxBlocksSlider == null) {
             this.smartFillMaxBlocksSlider = new WindowSlider(
                     0, 0,
-                    QuickBuildWindowLayout.smartFillSliderWidth(QuickBuildWindowLayout.WINDOW_W),
+                    QuickBuildWindowLayout.chainSliderWidth(QuickBuildWindowLayout.WINDOW_W),
                     QuickBuildWindowLayout.CHAIN_SLIDER_H,
                     state.smartFillMinBlocks,
                     state.smartFillMaxBlocksLimit,
@@ -481,7 +497,7 @@ final class QuickBuildControlSurface {
             });
             this.smartFillDiameterSlider = new WindowSlider(
                     0, 0,
-                    QuickBuildWindowLayout.smartFillSliderWidth(QuickBuildWindowLayout.WINDOW_W),
+                    QuickBuildWindowLayout.chainSliderWidth(QuickBuildWindowLayout.WINDOW_W),
                     QuickBuildWindowLayout.CHAIN_SLIDER_H,
                     state.smartFillMinDiameter,
                     state.smartFillMaxDiameter,
@@ -515,6 +531,15 @@ final class QuickBuildControlSurface {
                     ignored -> this.dispatch.accept(QuickBuildUiAction.catalog(page)));
             this.catalogButtons[i].setVisualRole(UiControlRole.CHOICE);
         }
+        this.smartFillToolButton = new WindowButton(
+                0, 0,
+                QuickBuildWindowLayout.CONVENIENCE_TOOL_W,
+                QuickBuildWindowLayout.CONVENIENCE_TOOL_H,
+                Component.translatable(
+                        "screen.rtsbuilding.quick_build.mode_smart_fill"),
+                ignored -> this.dispatch.accept(
+                        QuickBuildUiAction.mode(QuickBuildUiMode.SMART_FILL)));
+        this.smartFillToolButton.setVisualRole(UiControlRole.CHOICE);
         for (int i = 0; i < this.convenienceToolButtons.length; i++) {
             QuickBuildUiConvenienceTool tool = QuickBuildUiConvenienceTool.values()[i];
             this.convenienceToolButtons[i] = new WindowButton(

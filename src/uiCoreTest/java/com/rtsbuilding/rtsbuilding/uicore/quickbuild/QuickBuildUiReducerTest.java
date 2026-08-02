@@ -96,6 +96,28 @@ class QuickBuildUiReducerTest {
                         build, QuickBuildUiAction.smartFillMaxBlocks(32)).command);
     }
 
+    @Test
+    void buildCatalogOpensSmartFillAsItsFirstToolAndReturnsToShapes() {
+        QuickBuildUiState build = state(
+                true, QuickBuildUiMode.BUILD, QuickBuildUiShape.BLOCK);
+        QuickBuildUiTransition tools = QuickBuildUiReducer.apply(
+                build,
+                QuickBuildUiAction.catalog(
+                        QuickBuildUiCatalogPage.CONVENIENCE_TOOLS));
+        assertEquals(QuickBuildUiTransition.Command.SELECT_CATALOG_PAGE,
+                tools.command);
+        assertEquals(QuickBuildUiMode.SMART_FILL, tools.state.mode);
+        assertEquals(QuickBuildUiCatalogPage.CONVENIENCE_TOOLS,
+                tools.state.catalogPage);
+
+        QuickBuildUiTransition shapes = QuickBuildUiReducer.apply(
+                tools.state,
+                QuickBuildUiAction.catalog(QuickBuildUiCatalogPage.SHAPES));
+        assertEquals(QuickBuildUiMode.BUILD, shapes.state.mode);
+        assertEquals(QuickBuildUiCatalogPage.SHAPES,
+                shapes.state.catalogPage);
+    }
+
     private static QuickBuildUiState state(boolean destroyEnabled, QuickBuildUiMode mode,
                                            QuickBuildUiShape destroyShape) {
         return new QuickBuildUiState(true, mode, destroyEnabled, "",

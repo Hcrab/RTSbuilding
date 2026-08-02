@@ -256,8 +256,6 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java")
                 + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/craftterminal/"
                 + "CraftTerminalRenderer.java");
-        String chrome = read(
-                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/canvas/CraftTerminalChromeRenderer.java");
         String layout = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/CraftTerminalLayout.java");
         String preview = read(
@@ -266,11 +264,17 @@ class UiProductionAdapterContractTest {
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/CraftTerminalStyle.java");
 
         assertTrue(terminal.contains("CraftTerminalStyle."));
-        assertTrue(terminal.contains("CraftTerminalChromeRenderer.render("));
-        assertTrue(chrome.contains("UiChromeRenderer.frame("));
+        assertTrue(terminal.contains("textures/gui/ui/terminal.png"));
+        assertTrue(terminal.contains("layout.skinSlices()"));
+        assertTrue(terminal.contains("graphics.blit("));
         assertTrue(layout.contains("CraftTerminalUiAction actionAt("));
         assertTrue(layout.contains("int storageCellAt("));
-        assertTrue(preview.contains("CraftTerminalChromeRenderer.render("));
+        assertTrue(layout.contains("TextureSlice[] skinSlices()"));
+        assertTrue(layout.contains("TextureSlice scrollbarHandleSlice(double fraction)"));
+        assertTrue(terminal.contains("layout.scrollbarHandleSlice(scrollFraction)"));
+        assertTrue(preview.contains("layout.skinSlices()"));
+        assertTrue(preview.contains("layout.scrollbarHandleSlice(scrollFraction)"));
+        assertTrue(preview.contains("canvas.imageRegion("));
         assertFalse(terminal.matches("(?s).*0x[0-9A-Fa-f]{6,8}.*"));
         assertFalse(terminal.contains("RtsClientUiUtil.drawPanelFrame("));
         assertTrue(style.contains("importBackground(boolean carriedStackPresent)"));

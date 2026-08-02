@@ -49,6 +49,9 @@ final class QuickBuildControlRenderer {
             float partialTick) {
         renderModeToggles(graphics, canvas, screen, state, layout, mouseX, mouseY);
 
+        for (int i = 0; i < 2; i++) {
+            controls.catalogButton(i).render(graphics, mouseX, mouseY, partialTick);
+        }
         if (state.mode == QuickBuildUiMode.SMART_FILL) {
             renderSmartFillControls(
                     controls, graphics, screen, state, layout,
@@ -56,11 +59,6 @@ final class QuickBuildControlRenderer {
             return;
         }
 
-        if (state.mode == QuickBuildUiMode.DESTROY) {
-            for (int i = 0; i < 2; i++) {
-                controls.catalogButton(i).render(graphics, mouseX, mouseY, partialTick);
-            }
-        }
         if (state.convenienceMode()) {
             renderConvenienceTools(
                     controls, graphics, screen, state, layout,
@@ -68,16 +66,8 @@ final class QuickBuildControlRenderer {
             return;
         }
 
-        graphics.drawString(screen.font(),
-                Component.translatable("screen.rtsbuilding.quick_build.shape"),
-                layout.sectionLabelX, layout.sectionTitleY,
-                QuickBuildStyle.SECTION_TEXT.toArgb(), false);
         renderShapes(controls, graphics, state, layout, mouseX, mouseY, partialTick);
 
-        graphics.drawString(screen.font(),
-                Component.translatable("screen.rtsbuilding.quick_build.fill"),
-                layout.rightX, layout.sectionTitleY,
-                QuickBuildStyle.SECTION_TEXT.toArgb(), false);
         if (state.chainMode()) {
             renderChainLimit(controls, graphics, screen, state, layout,
                     mouseX, mouseY, partialTick);
@@ -123,10 +113,6 @@ final class QuickBuildControlRenderer {
                 layout.destroyMode, QuickBuildUiMode.DESTROY,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_destroy"),
                 mouseX, mouseY);
-        renderModeToggle(graphics, canvas, screen, state,
-                layout.smartFillMode, QuickBuildUiMode.SMART_FILL,
-                Component.translatable("screen.rtsbuilding.quick_build.mode_smart_fill"),
-                mouseX, mouseY);
     }
 
     private void renderModeToggle(
@@ -140,7 +126,9 @@ final class QuickBuildControlRenderer {
             int mouseX,
             int mouseY) {
         boolean enabled = mode != QuickBuildUiMode.DESTROY || state.destroyEnabled;
-        boolean active = state.mode == mode && enabled;
+        boolean active = (mode == QuickBuildUiMode.BUILD
+                ? state.mode != QuickBuildUiMode.DESTROY
+                : state.mode == mode) && enabled;
         boolean hovered = area.contains(mouseX, mouseY);
         double strength = this.modeAnimations.value(
                 mode, active, Config.isUiAnimationsEnabled());
@@ -219,11 +207,13 @@ final class QuickBuildControlRenderer {
             int mouseX,
             int mouseY,
             float partialTick) {
+        controls.smartFillToolButton().render(
+                graphics, mouseX, mouseY, partialTick);
         int sliderWidth = controls.smartFillMaxBlocksSlider().getWidth();
         graphics.drawString(
                 screen.font(),
                 Component.translatable("screen.rtsbuilding.quick_build.smart_fill.max_blocks"),
-                layout.contentX,
+                layout.rightX,
                 layout.smartFillParameterLabelY(0),
                 QuickBuildStyle.SECTION_TEXT.toArgb(),
                 false);
@@ -231,7 +221,7 @@ final class QuickBuildControlRenderer {
         graphics.drawString(
                 screen.font(),
                 Integer.toString(state.smartFillMaxBlocks),
-                layout.smartFillValueX(sliderWidth),
+                layout.chainValueX(sliderWidth),
                 layout.smartFillParameterSliderY(0) + QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET,
                 QuickBuildStyle.VALUE_TEXT.toArgb(),
                 false);
@@ -239,7 +229,7 @@ final class QuickBuildControlRenderer {
         graphics.drawString(
                 screen.font(),
                 Component.translatable("screen.rtsbuilding.quick_build.smart_fill.diameter"),
-                layout.contentX,
+                layout.rightX,
                 layout.smartFillParameterLabelY(1),
                 QuickBuildStyle.SECTION_TEXT.toArgb(),
                 false);
@@ -247,7 +237,7 @@ final class QuickBuildControlRenderer {
         graphics.drawString(
                 screen.font(),
                 Integer.toString(state.smartFillDiameter),
-                layout.smartFillValueX(controls.smartFillDiameterSlider().getWidth()),
+                layout.chainValueX(controls.smartFillDiameterSlider().getWidth()),
                 layout.smartFillParameterSliderY(1) + QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET,
                 QuickBuildStyle.VALUE_TEXT.toArgb(),
                 false);

@@ -20,7 +20,7 @@ class CraftTerminalLayoutTest {
 
         CraftTerminalLayout.Geometry compact = CraftTerminalLayout.geometry(3);
         assertEquals(54, compact.visualTop);
-        assertEquals(249, compact.visibleHeight());
+        assertEquals(250, compact.visibleHeight());
         assertEquals(127, compact.storageGrid.bottom(),
                 "固定合成槽不能随储存显示行数漂移");
     }

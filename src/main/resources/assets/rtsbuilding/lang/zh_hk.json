@@ -542,7 +542,7 @@
   "screen.rtsbuilding.quick_build.chain_hint": "預覽相連同類方塊；滿意嘅話，按 %s 破壞。",
   "screen.rtsbuilding.quick_build.chain_limit": "上限：%s",
   "screen.rtsbuilding.quick_build.chain_limit_label": "上限",
-  "screen.rtsbuilding.quick_build.catalog_shapes": "一般形狀",
+  "screen.rtsbuilding.quick_build.catalog_shapes": "形狀",
   "screen.rtsbuilding.quick_build.catalog_tools": "工具",
   "screen.rtsbuilding.quick_build.tool.repeat_box": "重複 XYZ",
   "screen.rtsbuilding.quick_build.tool.chunk_quarry": "區塊挖掘",
@@ -1046,6 +1046,8 @@
   ,"screen.rtsbuilding.craft_terminal.deposit_hotbar": "存入快捷列"
   ,"screen.rtsbuilding.craft_terminal.sort": "切換存儲排序"
   ,"screen.rtsbuilding.craft_terminal.sort_direction": "反轉存儲排序"
+  ,"screen.rtsbuilding.craft_terminal.sort_button": "左鍵：切換排序 · 右鍵：反轉排序"
+  ,"screen.rtsbuilding.craft_terminal.utility_button": "左/右鍵：清格至存儲/背包 · Shift+左/右鍵：存入背包/快捷列"
   ,"screen.rtsbuilding.craft_terminal.rows": "切換存儲顯示行數"
   ,"screen.rtsbuilding.quick_build.mode_smart_fill": "填坑"
   ,"screen.rtsbuilding.quick_build.smart_fill.max_blocks": "最大方塊數"

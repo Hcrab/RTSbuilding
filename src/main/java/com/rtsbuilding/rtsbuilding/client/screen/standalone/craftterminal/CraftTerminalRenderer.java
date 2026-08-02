@@ -1,15 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal;
 
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
-import com.rtsbuilding.rtsbuilding.uicore.craftterminal.CraftTerminalUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.CraftTerminalChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftTerminalLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftTerminalStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * Minecraft 侧的合成终端内容适配器。
@@ -18,6 +16,10 @@ import net.minecraft.client.gui.GuiGraphics;
  * 它不拥有按钮坐标、不处理输入，也不发送网络包。</p>
  */
 public final class CraftTerminalRenderer {
+    private static final ResourceLocation TERMINAL_TEXTURE = ResourceLocation.fromNamespaceAndPath(
+            "rtsbuilding", "textures/gui/ui/terminal.png");
+    private static final int TEXTURE_SIZE = 512;
+
     private CraftTerminalRenderer() {
     }
 
@@ -37,31 +39,12 @@ public final class CraftTerminalRenderer {
             boolean ascending,
             int mouseX,
             int mouseY) {
-        double relativeX = mouseX - left;
-        double relativeY = mouseY - top;
-        CraftTerminalUiAction hoveredAction = layout.actionAt(relativeX, relativeY);
-        int hoveredStorageCell = layout.storageCellAt(relativeX, relativeY);
-
-        MinecraftUiCanvas canvas = new MinecraftUiCanvas(graphics, font);
-        canvas.pushTransform();
-        canvas.translate(left, top);
-        try {
-            CraftTerminalChromeRenderer.render(
-                    canvas,
-                    layout,
-                    hoveredAction,
-                    hoveredStorageCell,
-                    searchFocused,
-                    searchHasText,
-                    searchPinned,
-                    searchMode.ordinal(),
-                    sortMode,
-                    ascending,
-                    scrollState.fraction(totalEntries, layout.rows),
-                    scrollState.thumbFraction(totalEntries, layout.rows));
-        } finally {
-            canvas.popTransform();
-        }
+        renderContributorSkin(
+                graphics,
+                left,
+                top,
+                layout,
+                scrollState.fraction(totalEntries, layout.rows));
 
         int cellCount = layout.rows * CraftTerminalLayout.COLUMNS;
         for (int cell = 0; cell < cellCount; cell++) {
@@ -82,5 +65,38 @@ public final class CraftTerminalRenderer {
                     RtsClientUiUtil.compactCount(entry.count()),
                     CraftTerminalStyle.COUNT_TEXT.toArgb());
         }
+    }
+
+    /** 按贡献者原图像素 1:1 贴合终端主体，禁止运行时拉伸。 */
+    private static void renderContributorSkin(
+            GuiGraphics graphics,
+            int left,
+            int top,
+            CraftTerminalLayout.Geometry layout,
+            double scrollFraction) {
+        for (CraftTerminalLayout.TextureSlice slice : layout.skinSlices()) {
+            renderSlice(graphics, left, top, slice);
+        }
+        renderSlice(graphics, left, top, layout.scrollbarHandleSlice(scrollFraction));
+    }
+
+    /** 统一执行原尺寸切片，防止静态骨架和动态滑块走出两套采样规则。 */
+    private static void renderSlice(
+            GuiGraphics graphics,
+            int left,
+            int top,
+            CraftTerminalLayout.TextureSlice slice) {
+        UiRect source = slice.source;
+        UiRect target = slice.target;
+        graphics.blit(
+                TERMINAL_TEXTURE,
+                left + (int) target.getX(),
+                top + (int) target.getY(),
+                (int) source.getX(),
+                (int) source.getY(),
+                (int) source.getWidth(),
+                (int) source.getHeight(),
+                TEXTURE_SIZE,
+                TEXTURE_SIZE);
     }
 }

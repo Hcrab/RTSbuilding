@@ -57,6 +57,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
     private CraftTerminalSearchMode searchMode = CraftTerminalSearchMode.STANDARD;
     private int previousPageSize = 90;
     private boolean draggingScrollbar;
+    private double scrollbarDragOffset = CraftTerminalLayout.SCROLLBAR_HANDLE_HEIGHT / 2.0D;
     private String lastSearchSentToJei = "";
 
     public RtsCraftTerminalScreen(RtsCraftTerminalMenu menu, Inventory inventory, Component title) {
@@ -151,12 +152,22 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            if (handleChromeActionClick(mouseX, mouseY)) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+            if (handleChromeActionClick(mouseX, mouseY, button)) {
                 return true;
             }
+        }
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             if (isInsideScrollbar(mouseX, mouseY)) {
                 this.draggingScrollbar = true;
+                double relativeX = mouseX - this.leftPos;
+                double relativeY = mouseY - this.topPos;
+                ClientRtsController controller = ClientRtsController.get();
+                UiRect handle = this.layout.scrollbarHandle(this.scrollState.fraction(
+                        controller.getStorageTotalEntries(), this.layout.rows));
+                this.scrollbarDragOffset = handle.contains(relativeX, relativeY)
+                        ? relativeY - handle.getY()
+                        : CraftTerminalLayout.SCROLLBAR_HANDLE_HEIGHT / 2.0D;
                 updateScrollbarFromMouse(mouseY);
                 return true;
             }
@@ -195,6 +206,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         this.draggingScrollbar = false;
+        this.scrollbarDragOffset = CraftTerminalLayout.SCROLLBAR_HANDLE_HEIGHT / 2.0D;
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -237,7 +249,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
         return super.charTyped(codePoint, modifiers);
     }
 
-    private boolean handleChromeActionClick(double mouseX, double mouseY) {
+    private boolean handleChromeActionClick(double mouseX, double mouseY, int button) {
         CraftTerminalUiAction action = actionAt(mouseX, mouseY);
         if (action == null || action == CraftTerminalUiAction.SEARCH
                 || action == CraftTerminalUiAction.SEARCH_CLEAR
@@ -262,7 +274,11 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
                 return true;
             case SORT:
                 ClientRtsController sortController = ClientRtsController.get();
-                sortController.cycleSort();
+                if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
+                    sortController.toggleSortDirection();
+                } else {
+                    sortController.cycleSort();
+                }
                 this.scrollState.expectFreshPage(sortController, 0);
                 return true;
             case SORT_DIRECTION:
@@ -271,7 +287,14 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
                 this.scrollState.expectFreshPage(directionController, 0);
                 return true;
             case CLEAR_TO_STORAGE:
-                PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(false));
+                if (Screen.hasShiftDown()) {
+                    sendBulkDeposit(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
+                            ? C2SRtsBulkStorageOpPayload.DEPOSIT_HOTBAR
+                            : C2SRtsBulkStorageOpPayload.DEPOSIT_ALL);
+                } else {
+                    PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(
+                            button == GLFW.GLFW_MOUSE_BUTTON_RIGHT));
+                }
                 return true;
             case CLEAR_TO_INVENTORY:
                 PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(true));
@@ -386,7 +409,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
 
     /** 只按当前真实可见区域居中；Slot 仍使用菜单定义的固定相对坐标。 */
     private void recenterVisibleArea() {
-        this.leftPos = (this.width - CraftTerminalLayout.WIDTH) / 2;
+        this.leftPos = (this.width - CraftTerminalLayout.VISIBLE_WIDTH) / 2;
         this.topPos = (this.height - this.layout.visibleHeight()) / 2 - this.layout.visualTop;
     }
 
@@ -475,7 +498,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
                     key = "screen.rtsbuilding.craft_terminal.rows";
                     break;
                 case CLEAR_TO_STORAGE:
-                    key = "screen.rtsbuilding.craft_terminal.clear_to_storage";
+                    key = "screen.rtsbuilding.craft_terminal.utility_button";
                     break;
                 case CLEAR_TO_INVENTORY:
                     key = "screen.rtsbuilding.craft_terminal.clear_to_inventory";
@@ -487,7 +510,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
                     key = "screen.rtsbuilding.craft_terminal.deposit_hotbar";
                     break;
                 case SORT:
-                    key = "screen.rtsbuilding.craft_terminal.sort";
+                    key = "screen.rtsbuilding.craft_terminal.sort_button";
                     break;
                 case SORT_DIRECTION:
                     key = "screen.rtsbuilding.craft_terminal.sort_direction";
@@ -581,8 +604,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
     }
 
     private void updateScrollbarFromMouse(double mouseY) {
-        double fraction = (mouseY - (this.topPos + this.layout.scrollbar.getY()))
-                / Math.max(1.0D, this.layout.scrollbar.getHeight());
+        double fraction = this.layout.scrollbarFractionForPointer(
+                mouseY - this.topPos, this.scrollbarDragOffset);
         this.scrollState.setFromFraction(
                 ClientRtsController.get(), fraction, this.layout.rows);
     }

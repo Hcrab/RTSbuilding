@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.uipreview;
 
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.CraftTerminalChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftTerminalLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftTerminalStyle;
 
@@ -41,26 +40,37 @@ public final class CraftTerminalPreviewMain {
         }
         BufferedImage source = requireImage(new File(args[1]));
         BufferedImage reference = cropReference(source);
-        BufferedImage empty = render(false);
-        BufferedImage populated = render(true);
+        BufferedImage empty = render(source, false);
+        BufferedImage populated = render(source, true);
 
         ImageIO.write(reference, "png", new File(output, "craft-terminal-reference.png"));
         ImageIO.write(empty, "png", new File(output, "craft-terminal-empty.png"));
         ImageIO.write(populated, "png", new File(output, "craft-terminal-populated.png"));
-        ImageIO.write(sideBySide(reference, empty, populated), "png",
+        ImageIO.write(sideBySide(reference, empty), "png",
                 new File(output, "craft-terminal-side-by-side.png"));
+        ImageIO.write(overallReview(reference, empty, populated), "png",
+                new File(output, "craft-terminal-overall-review.png"));
+        ImageIO.write(scrollbarSideBySide(empty, populated), "png",
+                new File(output, "craft-terminal-scrollbar-side-by-side.png"));
+        ImageIO.write(crop(source, 197, 20,
+                        CraftTerminalLayout.SCROLLBAR_HANDLE_WIDTH,
+                        CraftTerminalLayout.SCROLLBAR_HANDLE_HEIGHT),
+                "png", new File(output, "craft-terminal-scrollbar-source.png"));
+        ImageIO.write(crop(empty, 176, 19,
+                        CraftTerminalLayout.SCROLLBAR_HANDLE_WIDTH,
+                        CraftTerminalLayout.SCROLLBAR_HANDLE_HEIGHT),
+                "png", new File(output, "craft-terminal-scrollbar-rendered.png"));
         ImageIO.write(edgeDiff(reference, empty), "png",
                 new File(output, "craft-terminal-edge-diff.png"));
         writeReport(new File(output, "craft-terminal-structure-report.txt"), reference, empty);
         System.out.println("Rendered craft terminal concept comparison to " + output);
     }
 
-    private static BufferedImage render(boolean populated) {
+    private static BufferedImage render(BufferedImage source, boolean populated) {
         BufferedImageUiCanvas canvas = new BufferedImageUiCanvas(WIDTH, HEIGHT);
         canvas.clear(new Color(0, 0, 0, 255));
         CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(6);
-        CraftTerminalChromeRenderer.render(canvas, layout, null, populated ? 11 : -1,
-                populated, populated, true, 2, 1, true, 0.24D, 0.42D);
+        renderContributorSkin(canvas, source, layout, populated ? 0.24D : 0.0D);
         if (populated) {
             drawFixtureItems(canvas, layout);
             canvas.text("合成终端", 7, 4, CraftTerminalStyle.TEXT);
@@ -68,6 +78,19 @@ public final class CraftTerminalPreviewMain {
         }
         canvas.close();
         return canvas.image();
+    }
+
+    /** 与正式客户端消费同一组 1:1 纹理切片，预览不再维护另一套手绘 chrome。 */
+    private static void renderContributorSkin(
+            BufferedImageUiCanvas canvas,
+            BufferedImage source,
+            CraftTerminalLayout.Geometry layout,
+            double scrollFraction) {
+        for (CraftTerminalLayout.TextureSlice slice : layout.skinSlices()) {
+            canvas.imageRegion(source, slice.source, slice.target);
+        }
+        CraftTerminalLayout.TextureSlice handle = layout.scrollbarHandleSlice(scrollFraction);
+        canvas.imageRegion(source, handle.source, handle.target);
     }
 
     private static void drawFixtureItems(
@@ -96,12 +119,47 @@ public final class CraftTerminalPreviewMain {
         graphics.setColor(Color.BLACK);
         graphics.fillRect(0, 0, WIDTH, HEIGHT);
         graphics.drawImage(source, 0, 0, WIDTH, HEIGHT, 0, 0, WIDTH, HEIGHT, null);
+        CraftTerminalLayout.TextureSlice handle = CraftTerminalLayout.geometry(6)
+                .scrollbarHandleSlice(0.0D);
+        graphics.drawImage(
+                source,
+                (int) handle.target.getX(),
+                (int) handle.target.getY(),
+                (int) handle.target.right(),
+                (int) handle.target.bottom(),
+                (int) handle.source.getX(),
+                (int) handle.source.getY(),
+                (int) handle.source.right(),
+                (int) handle.source.bottom(),
+                null);
         graphics.dispose();
         return result;
     }
 
     private static BufferedImage sideBySide(
-            BufferedImage reference, BufferedImage empty, BufferedImage populated) {
+            BufferedImage reference, BufferedImage empty) {
+        int gap = 8;
+        int scale = 3;
+        int panelWidth = WIDTH * scale;
+        int panelHeight = HEIGHT * scale;
+        BufferedImage result = new BufferedImage(panelWidth * 2 + gap * 3,
+                panelHeight + gap * 2, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = result.createGraphics();
+        graphics.setColor(new Color(10, 14, 19));
+        graphics.fillRect(0, 0, result.getWidth(), result.getHeight());
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        drawScaled(graphics, reference, gap, gap, panelWidth, panelHeight);
+        drawScaled(graphics, empty, panelWidth + gap * 2, gap, panelWidth, panelHeight);
+        graphics.dispose();
+        return result;
+    }
+
+    /** 概念组合、空态和填充态的完整终端对照，只用于整体 look 审查。 */
+    private static BufferedImage overallReview(
+            BufferedImage reference,
+            BufferedImage empty,
+            BufferedImage populated) {
         int gap = 8;
         int scale = 3;
         int panelWidth = WIDTH * scale;
@@ -116,6 +174,63 @@ public final class CraftTerminalPreviewMain {
         drawScaled(graphics, reference, gap, gap, panelWidth, panelHeight);
         drawScaled(graphics, empty, panelWidth + gap * 2, gap, panelWidth, panelHeight);
         drawScaled(graphics, populated, panelWidth * 2 + gap * 3, gap, panelWidth, panelHeight);
+        graphics.dispose();
+        return result;
+    }
+
+    /** 放大右侧轨道，避免 10×15 原像素滑块在自动视觉审查中被误认成轨道底色。 */
+    private static BufferedImage scrollbarSideBySide(
+            BufferedImage empty, BufferedImage populated) {
+        int cropX = 170;
+        int cropY = 15;
+        int cropWidth = 22;
+        int cropHeight = 116;
+        int gap = 16;
+        int scale = 8;
+        int panelWidth = cropWidth * scale;
+        int panelHeight = cropHeight * scale;
+        BufferedImage result = new BufferedImage(panelWidth * 2 + gap * 3,
+                panelHeight + gap * 2, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = result.createGraphics();
+        graphics.setColor(new Color(10, 14, 19));
+        graphics.fillRect(0, 0, result.getWidth(), result.getHeight());
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        drawCrop(graphics, empty, cropX, cropY, cropWidth, cropHeight,
+                gap, gap, panelWidth, panelHeight);
+        drawCrop(graphics, populated, cropX, cropY, cropWidth, cropHeight,
+                gap * 2 + panelWidth, gap, panelWidth, panelHeight);
+        graphics.dispose();
+        return result;
+    }
+
+    private static void drawCrop(
+            Graphics2D graphics,
+            BufferedImage image,
+            int sourceX,
+            int sourceY,
+            int sourceWidth,
+            int sourceHeight,
+            int targetX,
+            int targetY,
+            int targetWidth,
+            int targetHeight) {
+        graphics.drawImage(image,
+                targetX, targetY, targetX + targetWidth, targetY + targetHeight,
+                sourceX, sourceY, sourceX + sourceWidth, sourceY + sourceHeight,
+                null);
+    }
+
+    private static BufferedImage crop(
+            BufferedImage image,
+            int x,
+            int y,
+            int width,
+            int height) {
+        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = result.createGraphics();
+        graphics.drawImage(image, 0, 0, width, height,
+                x, y, x + width, y + height, null);
         graphics.dispose();
         return result;
     }
@@ -159,8 +274,8 @@ public final class CraftTerminalPreviewMain {
         Writer writer = new OutputStreamWriter(new FileOutputStream(file), "UTF-8");
         try {
             writer.write("RTSBuilding craft terminal concept comparison\n");
-            writer.write("Reference crop: 0,0 " + WIDTH + "x" + HEIGHT + "\n");
-            writer.write("Production source: CraftTerminalLayout + CraftTerminalChromeRenderer\n");
+            writer.write("Reference composite: contributor terminal body + figure 2 scrollbar handle\n");
+            writer.write("Production source: terminal.png + static skin slices + dynamic scrollbar handle\n");
             writer.write("changed>16=" + changed + "/" + total + "\n");
             writer.write("structuralEdge changed>10=" + edgeChanged + "/" + total + "\n");
             writer.write("meanMaxChannelDelta=" + (deltaSum / (double) total) + "\n");

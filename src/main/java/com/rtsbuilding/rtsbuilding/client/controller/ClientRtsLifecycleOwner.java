@@ -252,8 +252,11 @@ final class ClientRtsLifecycleOwner {
             }
 
             controller.cameraOrbitService.tick(minecraft, controller.anchorX, controller.anchorY, controller.anchorZ, controller.maxRadius);
-            boolean storageViewVisible = minecraft.screen instanceof BuilderScreen builderScreen
-                    && builderScreen.isStorageViewVisible();
+            // 合成终端上半区同样是持续可见的储存视图。服务端的储存变更通知必须在这里
+            // 触发当前页刷新，否则终端只能在重开或手动操作后看到最新数量。
+            boolean storageViewVisible = minecraft.screen instanceof RtsCraftTerminalScreen
+                    || (minecraft.screen instanceof BuilderScreen builderScreen
+                        && builderScreen.isStorageViewVisible());
             controller.storageStateManager.tickStorageAutoRefresh(storageViewVisible);
 
             // Don't override player.input in RTS mode so the player entity can
