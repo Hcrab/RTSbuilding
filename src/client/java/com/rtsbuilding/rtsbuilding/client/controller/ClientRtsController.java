@@ -209,6 +209,7 @@ public static ClientRtsController get() {
     public boolean hasGuiBinding(int index) { return this.stateQueryOwner.hasGuiBinding(index); }
     public void applyServerCameraState(S2CRtsCameraStatePayload payload) { this.lifecycleOwner.applyServerCameraState(payload); }
     public void applyServerCameraAnchor(S2CRtsCameraAnchorPayload payload) { this.lifecycleOwner.applyServerCameraAnchor(payload); }
+    public void resetForConnectionChange() { this.lifecycleOwner.resetForConnectionChange(); }
     public void preTick() { this.lifecycleOwner.preTick(); }
     public void tick() { this.lifecycleOwner.tick(); }
     boolean handleDeathScreenHandoff(Minecraft minecraft) { return this.lifecycleOwner.handleDeathScreenHandoff(minecraft); }

@@ -192,6 +192,10 @@ Open RTS Settings and enable Jade Follow Mouse or Hide Jade in RTS.
 
 # Technical Information Appendix
 
+## Fabric Alpha safety notice
+
+The Minecraft 1.21.1 Fabric build is currently an Alpha testing line, not a stable release. Make a complete world backup before opening an existing save. If input, rendering, task recovery, or third-party compatibility behaves incorrectly, stop further actions, keep `latest.log`, and return to the stable build. RTS mouse actions may own the left, right, and middle buttons only inside BuilderScreen; vanilla attack, use, and pick must recover immediately after leaving RTS, disconnecting, or joining again.
+
 This appendix is for maintainers, modpack authors, and AI-assisted troubleshooting. New players do not need it; player-facing guides remain the source for step-by-step instructions.
 
 It documents stable responsibility chains, validation order, and setting semantics rather than line numbers. Review it against production code before every release.

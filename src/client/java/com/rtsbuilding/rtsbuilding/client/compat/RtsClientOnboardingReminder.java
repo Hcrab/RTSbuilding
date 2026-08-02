@@ -122,12 +122,10 @@ public final class RtsClientOnboardingReminder {
      * Patch/Pilot 构建自身仍保留完整限定符的 JAR 元数据，便于日志诊断。
      */
     private static String currentDisplayVersion() {
-        String version = FabricLoader.getInstance()
+        return FabricLoader.getInstance()
                 .getModContainer(RtsbuildingMod.MODID)
                 .map(container -> container.getMetadata().getVersion().getFriendlyString())
                 .orElse("unknown");
-        int qualifier = version.indexOf('-');
-        return qualifier > 0 ? version.substring(0, qualifier) : version;
     }
 
     private static Component websiteComponent() {

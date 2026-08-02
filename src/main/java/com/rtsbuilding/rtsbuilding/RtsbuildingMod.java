@@ -102,7 +102,9 @@ public final class RtsbuildingMod {
         ServerLifecycleEvents.SERVER_STOPPING.register(RtsbuildingMod::onServerStopping);
         ServerLifecycleEvents.SERVER_STOPPED.register(RtsbuildingMod::onServerStopped);
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> onPlayerLogin(handler.player));
-        ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> onPlayerLogout(handler.player));
+        // Fabric 的断开回调可能来自 Netty IO 线程；durable task 冲刷必须回到服务器主线程。
+        ServerPlayConnectionEvents.DISCONNECT.register(
+                (handler, server) -> server.execute(() -> onPlayerLogout(handler.player)));
         ServerEntityWorldChangeEvents.AFTER_PLAYER_CHANGE_WORLD.register(
                 RtsbuildingMod::onPlayerChangedDimension);
         ServerChunkEvents.CHUNK_LOAD.register(RtsbuildingMod::onChunkLoad);

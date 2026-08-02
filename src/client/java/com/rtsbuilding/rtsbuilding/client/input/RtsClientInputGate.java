@@ -89,11 +89,13 @@ public final class RtsClientInputGate {
     }
 
     public static void onClientLoggingIn() {
+        ClientRtsController.get().resetForConnectionChange();
         // 登录也主动清一次，覆盖崩服或异常断线时未完整收到退出事件的情况。
         RtsCullingClientState.resetForWorldChange();
     }
 
     public static void onClientLoggingOut() {
+        ClientRtsController.get().resetForConnectionChange();
         overlayBootstrapRequested = false;
         activeOverlayScreen = null;
         RtsCullingClientState.resetForWorldChange();

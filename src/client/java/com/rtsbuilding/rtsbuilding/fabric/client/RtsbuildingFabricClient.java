@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientModEvents;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientOnboardingReminder;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsGuiCompatProbe;
+import com.rtsbuilding.rtsbuilding.client.compat.RtsOptimizationSuiteClientAudit;
 import com.rtsbuilding.rtsbuilding.client.input.ClientInputHandler;
 import com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate;
 import com.rtsbuilding.rtsbuilding.client.input.event.RtsScreenEvent;
@@ -35,8 +36,12 @@ public final class RtsbuildingFabricClient implements ClientModInitializer {
         RtsClientModEvents.initialize();
         RtsClientOnboardingReminder.initialize();
         RtsGuiCompatProbe.initialize();
+        RtsOptimizationSuiteClientAudit.verifyIfRequested();
 
-        ClientTickEvents.START_CLIENT_TICK.register(client -> ClientInputHandler.onClientTickPre());
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            FabricVanillaMouseRouting.restoreOutsideRts();
+            ClientInputHandler.onClientTickPre();
+        });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             ClientInputHandler.onClientTickPost();
             RtsClientOnboardingReminder.onClientTickPost();

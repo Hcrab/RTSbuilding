@@ -21,7 +21,7 @@ class PilotPatchContractTest {
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
-        assertTrue(properties.lines().anyMatch("mod_version=1.1.6-patch2"::equals));
+        assertTrue(properties.lines().anyMatch("mod_version=1.1.6-patch2-fabric-alpha.1"::equals));
         assertTrue(config.contains(".define(\"useBlockGhostPreview\", false)"));
         assertTrue(camera.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(camera.contains("\"item.rtsbuilding.rts_control_core\""));
@@ -31,9 +31,10 @@ class PilotPatchContractTest {
         assertTrue(onboarding.contains("getModContainer(RtsbuildingMod.MODID)"));
         assertTrue(onboarding.contains("Component.literal(currentDisplayVersion())"));
         assertTrue(onboarding.contains("STABLE_VERSION = \"1.1.6\""));
-        assertTrue(onboarding.contains("version.indexOf('-')"));
-        assertTrue(zhCn.contains("当前测试版本：%1$s；稳定版：%2$s"));
-        assertTrue(zhCn.contains("请退回稳定版"));
+        assertFalse(onboarding.contains("version.indexOf('-')"));
+        assertTrue(zhCn.contains("Fabric Alpha %1$s"));
+        assertTrue(zhCn.contains("尚不稳定"));
+        assertTrue(zhCn.contains("请备份存档"));
         assertTrue(Files.isRegularFile(Path.of(".github/workflows/publish-mod-release.yml")));
     }
 }

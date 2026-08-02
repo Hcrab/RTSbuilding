@@ -22,6 +22,7 @@
     ],
     "fabric-gametest": [
       "com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests",
+      "com.rtsbuilding.rtsbuilding.gametest.RtsOptimizationSuiteGameTests",
       "com.rtsbuilding.rtsbuilding.gametest.CreateBlueprintCompatibilityGameTests",
       "com.rtsbuilding.rtsbuilding.gametest.MekanismToolsCompatibilityGameTests"
     ]

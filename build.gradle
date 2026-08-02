@@ -91,6 +91,8 @@ sourceSets {
 
 apply from: 'gradle/rts-test-reporting.gradle'
 
+def localRuntimeMods = fileTree(dir: 'run/mods', include: ['*.jar'])
+
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
     mappings loom.layered {
@@ -99,6 +101,9 @@ dependencies {
     }
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    // 本地兼容矩阵统一放在 run/mods；只进入开发运行与 GameTest，不参与发布 JAR。
+    modRuntimeOnly localRuntimeMods
 
     // 可选客户端兼容只进入编译类路径；发布 JAR 不捆绑，也不强制玩家安装。
     modCompileOnly "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
@@ -134,6 +139,16 @@ fabricApi {
         enableGameTests = true
         enableClientGameTests = true
         eula = true
+    }
+}
+
+// 本地全家桶存在时才启用严格环境审计；普通构建与 CI 没有这些 JAR 时保持原行为。
+if (!localRuntimeMods.files.isEmpty()) {
+    tasks.named('runClient').configure {
+        jvmArgs('-Drtsbuilding.optimizationSuite=true')
+    }
+    tasks.named('runGameTest').configure {
+        jvmArgs('-Drtsbuilding.optimizationSuite=true')
     }
 }
 

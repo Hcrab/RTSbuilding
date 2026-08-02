@@ -111,6 +111,15 @@ final class ClientRtsLifecycleOwner {
                 return;
             }
 
+            disableClientSession(minecraft);
+        }
+
+    /** 登录、断线和切换服务器时也必须 fail-open，不能把 RTS 输入拦截带入下一连接。 */
+    void resetForConnectionChange() {
+            disableClientSession(Minecraft.getInstance());
+        }
+
+    private void disableClientSession(Minecraft minecraft) {
             controller.enabled = false;
             controller.cameraOrbitService.resetServerCameraEntityId();
             controller.cameraOrbitService.setLocalStateReady(false);
