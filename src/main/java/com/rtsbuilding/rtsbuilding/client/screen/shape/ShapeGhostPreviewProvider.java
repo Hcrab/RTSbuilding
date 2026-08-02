@@ -53,6 +53,9 @@ public final class ShapeGhostPreviewProvider {
     }
 
     public ShapeDataRecords.GhostPreview snapshot() {
+        if (this.screen.isQuickBuildSmartFillMode()) {
+            return this.screen.getSmartFillGhostPreview();
+        }
         if (this.screen.isQuickBuildRangeDestroyMode()) {
             return destroyPreview();
         }

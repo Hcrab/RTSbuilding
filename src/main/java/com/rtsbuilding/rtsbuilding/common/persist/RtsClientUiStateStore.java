@@ -65,7 +65,7 @@ public final class RtsClientUiStateStore {
     }
 
     /** 当前数据版本，用于未来兼容性迁移 */
-    static final int CURRENT_STORE_VERSION = 5;
+    static final int CURRENT_STORE_VERSION = 6;
 
     /** 持久化配置文件路径：config/rts_building/rtsbuilding-client-ui.rtsd（二进制编译格式） */
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
@@ -184,6 +184,11 @@ public final class RtsClientUiStateStore {
             state.storage.craftTerminalSearchMode = "STANDARD";
             state.storage.craftTerminalSearch = "";
             version = 5;
+        }
+        if (version < 6) {
+            state.quickBuild.smartFillMaxBlocks = 512;
+            state.quickBuild.smartFillDiameter = 16;
+            version = 6;
         }
         if (version < CURRENT_STORE_VERSION) {
             state._storeVersion = CURRENT_STORE_VERSION;
@@ -438,6 +443,8 @@ public final class RtsClientUiStateStore {
         public static final class QuickBuildState {
             public boolean quickBuildOpen = true;
             public String quickBuildMode = "BUILD";
+            public int smartFillMaxBlocks = 512;
+            public int smartFillDiameter = 16;
 
             /** BUILD 模式独立状态 */
             public BuildingState building = new BuildingState();
@@ -599,6 +606,10 @@ public final class RtsClientUiStateStore {
             // quickBuild — building
             clean.quickBuild.quickBuildOpen = this.quickBuild.quickBuildOpen;
             clean.quickBuild.quickBuildMode = sanitizeEnum(this.quickBuild.quickBuildMode, "BUILD");
+            clean.quickBuild.smartFillMaxBlocks = Math.max(1,
+                    Math.min(1024, this.quickBuild.smartFillMaxBlocks));
+            clean.quickBuild.smartFillDiameter = Math.max(3,
+                    Math.min(32, this.quickBuild.smartFillDiameter));
             clean.quickBuild.building.buildShape = sanitizeEnum(this.quickBuild.building.buildShape, "BLOCK");
             clean.quickBuild.building.buildFillMode = sanitizeEnum(this.quickBuild.building.buildFillMode, "FILL");
             clean.quickBuild.building.buildRotationDegrees = Math.floorMod(this.quickBuild.building.buildRotationDegrees, 360);

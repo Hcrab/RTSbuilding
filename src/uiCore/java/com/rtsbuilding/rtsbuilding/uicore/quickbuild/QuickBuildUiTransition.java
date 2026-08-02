@@ -5,6 +5,7 @@ public final class QuickBuildUiTransition {
     public enum Command {
         NONE, SELECT_MODE, SELECT_SHAPE, ACTIVATE_CONTROL, SET_CHAIN_LIMIT,
         SELECT_CATALOG_PAGE, SELECT_CONVENIENCE_TOOL, SET_CONVENIENCE_PARAMETER,
+        SET_SMART_FILL_MAX_BLOCKS, SET_SMART_FILL_DIAMETER,
         CLOSE
     }
     public final QuickBuildUiState state;

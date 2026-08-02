@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
+import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillLimits;
 
 import java.util.EnumMap;
 
@@ -25,6 +26,8 @@ final class QuickBuildPreferenceState {
     private QuickBuildUiConvenienceSettings convenienceSettings =
             QuickBuildUiConvenienceSettings.DEFAULT;
     private boolean overwrite;
+    private int smartFillMaxBlocks = SmartFillLimits.DEFAULT_BLOCKS;
+    private int smartFillDiameter = SmartFillLimits.DEFAULT_DIAMETER;
     private final EnumMap<BuildShape, Boolean> advanced =
             new EnumMap<BuildShape, Boolean>(BuildShape.class);
     private final EnumMap<BuildShape, Boolean> vertical =
@@ -98,6 +101,26 @@ final class QuickBuildPreferenceState {
 
     void overwrite(boolean value) {
         overwrite = value;
+    }
+
+    int smartFillMaxBlocks() {
+        return smartFillMaxBlocks;
+    }
+
+    void smartFillMaxBlocks(int value) {
+        smartFillMaxBlocks = Math.max(
+                SmartFillLimits.MIN_BLOCKS,
+                Math.min(SmartFillLimits.MAX_BLOCKS, value));
+    }
+
+    int smartFillDiameter() {
+        return smartFillDiameter;
+    }
+
+    void smartFillDiameter(int value) {
+        smartFillDiameter = Math.max(
+                SmartFillLimits.MIN_DIAMETER,
+                Math.min(SmartFillLimits.MAX_DIAMETER, value));
     }
 
     boolean advanced(BuildShape shape) {

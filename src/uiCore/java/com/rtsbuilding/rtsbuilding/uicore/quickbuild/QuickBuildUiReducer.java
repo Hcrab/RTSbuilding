@@ -40,6 +40,16 @@ public final class QuickBuildUiReducer {
                         action.convenienceParameter, action.value),
                         QuickBuildUiTransition.Command.SET_CONVENIENCE_PARAMETER, action)
                         : none(state, action);
+            case SET_SMART_FILL_MAX_BLOCKS:
+                return state.mode == QuickBuildUiMode.SMART_FILL
+                        ? result(state.withSmartFillMaxBlocks(action.value),
+                        QuickBuildUiTransition.Command.SET_SMART_FILL_MAX_BLOCKS, action)
+                        : none(state, action);
+            case SET_SMART_FILL_DIAMETER:
+                return state.mode == QuickBuildUiMode.SMART_FILL
+                        ? result(state.withSmartFillDiameter(action.value),
+                        QuickBuildUiTransition.Command.SET_SMART_FILL_DIAMETER, action)
+                        : none(state, action);
             case CLOSE:
                 return result(state.closed(), QuickBuildUiTransition.Command.CLOSE, action);
             default:

@@ -26,6 +26,11 @@ public final class QuickBuildUiState {
     public final String hintKey;
     public final String confirmKeyLabel;
     public final String dimensions;
+    public final int smartFillMaxBlocks, smartFillMinBlocks, smartFillMaxBlocksLimit;
+    public final int smartFillDiameter, smartFillMinDiameter, smartFillMaxDiameter;
+    public final int smartFillTargetCount;
+    public final boolean smartFillAnchored;
+    public final String smartFillStatus;
 
     public QuickBuildUiState(boolean open, QuickBuildUiMode mode,
             boolean destroyEnabled, String destroyDisabledReason,
@@ -44,7 +49,8 @@ public final class QuickBuildUiState {
                 chainLimit, chainMinimum, chainMaximum,
                 progressCompleted, progressTotal, remainingBlocks,
                 progressText, costText, selectedItemId, missingBlocks,
-                hintKey, confirmKeyLabel, dimensions);
+                hintKey, confirmKeyLabel, dimensions,
+                512, 1, 1024, 16, 3, 32, 0, false, "");
     }
 
     public QuickBuildUiState(boolean open, QuickBuildUiMode mode,
@@ -59,6 +65,31 @@ public final class QuickBuildUiState {
             String progressText, String costText, String selectedItemId,
             long missingBlocks, String hintKey, String confirmKeyLabel,
             String dimensions) {
+        this(open, mode, destroyEnabled, destroyDisabledReason,
+                buildShape, destroyShape, shapes, controls,
+                catalogPage, convenienceTool, convenienceSettings,
+                chainLimit, chainMinimum, chainMaximum,
+                progressCompleted, progressTotal, remainingBlocks,
+                progressText, costText, selectedItemId, missingBlocks,
+                hintKey, confirmKeyLabel, dimensions,
+                512, 1, 1024, 16, 3, 32, 0, false, "");
+    }
+
+    public QuickBuildUiState(boolean open, QuickBuildUiMode mode,
+            boolean destroyEnabled, String destroyDisabledReason,
+            QuickBuildUiShape buildShape, QuickBuildUiShape destroyShape,
+            List<QuickBuildUiShapeOption> shapes, List<QuickBuildUiControl> controls,
+            QuickBuildUiCatalogPage catalogPage,
+            QuickBuildUiConvenienceTool convenienceTool,
+            QuickBuildUiConvenienceSettings convenienceSettings,
+            int chainLimit, int chainMinimum, int chainMaximum,
+            int progressCompleted, int progressTotal, int remainingBlocks,
+            String progressText, String costText, String selectedItemId,
+            long missingBlocks, String hintKey, String confirmKeyLabel,
+            String dimensions,
+            int smartFillMaxBlocks, int smartFillMinBlocks, int smartFillMaxBlocksLimit,
+            int smartFillDiameter, int smartFillMinDiameter, int smartFillMaxDiameter,
+            int smartFillTargetCount, boolean smartFillAnchored, String smartFillStatus) {
         this.open=open;
         this.destroyEnabled=destroyEnabled;
         this.mode=mode == QuickBuildUiMode.DESTROY && !destroyEnabled
@@ -85,6 +116,17 @@ public final class QuickBuildUiState {
         this.selectedItemId=safe(selectedItemId); this.missingBlocks=Math.max(0L, missingBlocks);
         this.hintKey=safe(hintKey); this.confirmKeyLabel=safe(confirmKeyLabel);
         this.dimensions=safe(dimensions);
+        this.smartFillMinBlocks=Math.max(1, smartFillMinBlocks);
+        this.smartFillMaxBlocksLimit=Math.max(this.smartFillMinBlocks, smartFillMaxBlocksLimit);
+        this.smartFillMaxBlocks=clamp(smartFillMaxBlocks,
+                this.smartFillMinBlocks, this.smartFillMaxBlocksLimit);
+        this.smartFillMinDiameter=Math.max(1, smartFillMinDiameter);
+        this.smartFillMaxDiameter=Math.max(this.smartFillMinDiameter, smartFillMaxDiameter);
+        this.smartFillDiameter=clamp(smartFillDiameter,
+                this.smartFillMinDiameter, this.smartFillMaxDiameter);
+        this.smartFillTargetCount=Math.max(0, smartFillTargetCount);
+        this.smartFillAnchored=smartFillAnchored;
+        this.smartFillStatus=safe(smartFillStatus);
     }
 
     public QuickBuildUiShape activeShape() {
@@ -151,6 +193,12 @@ public final class QuickBuildUiState {
                 progressCompleted, progressTotal, remainingBlocks, progressText, costText,
                 selectedItemId, missingBlocks, hintKey, confirmKeyLabel, dimensions);
     }
+    public QuickBuildUiState withSmartFillMaxBlocks(int value) {
+        return smartFillCopy(value, smartFillDiameter);
+    }
+    public QuickBuildUiState withSmartFillDiameter(int value) {
+        return smartFillCopy(smartFillMaxBlocks, value);
+    }
     public QuickBuildUiState closed() {
         return copy(false, mode, buildShape, destroyShape, shapes, controls, chainLimit);
     }
@@ -165,7 +213,21 @@ public final class QuickBuildUiState {
                 convenienceTool, convenienceSettings,
                 nextLimit,chainMinimum,chainMaximum,
                 progressCompleted,progressTotal,remainingBlocks,progressText,costText,selectedItemId,
-                missingBlocks,hintKey,confirmKeyLabel,dimensions);
+                missingBlocks,hintKey,confirmKeyLabel,dimensions,
+                smartFillMaxBlocks,smartFillMinBlocks,smartFillMaxBlocksLimit,
+                smartFillDiameter,smartFillMinDiameter,smartFillMaxDiameter,
+                smartFillTargetCount,smartFillAnchored,smartFillStatus);
+    }
+    private QuickBuildUiState smartFillCopy(int nextMaxBlocks, int nextDiameter) {
+        return new QuickBuildUiState(open,mode,destroyEnabled,destroyDisabledReason,
+                buildShape,destroyShape,shapes,controls,
+                catalogPage,convenienceTool,convenienceSettings,
+                chainLimit,chainMinimum,chainMaximum,
+                progressCompleted,progressTotal,remainingBlocks,progressText,costText,
+                selectedItemId,missingBlocks,hintKey,confirmKeyLabel,dimensions,
+                nextMaxBlocks,smartFillMinBlocks,smartFillMaxBlocksLimit,
+                nextDiameter,smartFillMinDiameter,smartFillMaxDiameter,
+                smartFillTargetCount,smartFillAnchored,smartFillStatus);
     }
     private static String safe(String v){return v == null ? "" : v;}
     private static int clamp(int v,int min,int max){return Math.max(min,Math.min(max,v));}

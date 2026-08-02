@@ -38,6 +38,14 @@ final class BuilderScreenPrimaryActionHost {
         return screen.isQuickBuildRangeDestroyMode();
     }
 
+    boolean isSmartFillMode() {
+        return screen.isQuickBuildSmartFillMode();
+    }
+
+    boolean handleSmartFillWorldAction() {
+        return screen.handleQuickBuildSmartFillClick();
+    }
+
     boolean isAdvancedShapeMode() {
         return screen.isAdvancedShapeMode();
     }

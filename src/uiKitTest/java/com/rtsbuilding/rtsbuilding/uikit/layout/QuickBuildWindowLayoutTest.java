@@ -9,16 +9,19 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class QuickBuildWindowLayoutTest {
     @Test
-    void geometryMatchesProductionTwoColumnPanel() {
+    void geometryMatchesProductionThreeModePanel() {
         QuickBuildWindowLayout.Geometry g = QuickBuildWindowLayout.geometry(100, 50, false);
         assertEquals(108, g.buildModeX);
-        assertEquals(191, g.destroyModeX);
+        assertEquals(163, g.destroyModeX);
+        assertEquals(218, g.smartFillModeX);
         assertEquals(108, g.shapeX(0));
         assertEquals(148, g.shapeX(1));
         assertEquals(108, g.shapeX(2));
         assertEquals(154, g.shapeY(2));
         assertEquals(332, g.windowH);
-        assertEquals(new UiRect(108, 75, 79, 18), g.buildMode);
+        assertEquals(new UiRect(108, 75, 51, 18), g.buildMode);
+        assertEquals(new UiRect(163, 75, 51, 18), g.destroyMode);
+        assertEquals(new UiRect(218, 75, 51, 18), g.smartFillMode);
         assertEquals(new UiRect(108, 314, 162, 4), g.progress);
         assertEquals(118, g.chainLabelY);
         assertEquals(132, g.chainSliderY);
@@ -53,10 +56,15 @@ class QuickBuildWindowLayoutTest {
                 QuickBuildWindowLayout.geometry(100, 50, false);
 
         assertEquals(QuickBuildUiMode.BUILD, g.modeAt(108, 75));
-        assertEquals(QuickBuildUiMode.BUILD, g.modeAt(186.999D, 92.999D));
-        assertNull(g.modeAt(187, 80));
-        assertNull(g.modeAt(190.999D, 80));
-        assertEquals(QuickBuildUiMode.DESTROY, g.modeAt(191, 75));
+        assertEquals(QuickBuildUiMode.BUILD, g.modeAt(158.999D, 92.999D));
+        assertNull(g.modeAt(159, 80));
+        assertNull(g.modeAt(162.999D, 80));
+        assertEquals(QuickBuildUiMode.DESTROY, g.modeAt(163, 75));
+        assertEquals(QuickBuildUiMode.DESTROY, g.modeAt(213.999D, 92.999D));
+        assertNull(g.modeAt(214, 80));
+        assertNull(g.modeAt(217.999D, 80));
+        assertEquals(QuickBuildUiMode.SMART_FILL, g.modeAt(218, 75));
+        assertEquals(QuickBuildUiMode.SMART_FILL, g.modeAt(268.999D, 92.999D));
         assertNull(g.modeAt(270, 80));
         assertNull(g.modeAt(200, 93));
     }

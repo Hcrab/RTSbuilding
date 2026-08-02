@@ -5,6 +5,7 @@ public final class QuickBuildUiAction {
     public enum Type {
         SELECT_MODE, SELECT_SHAPE, ACTIVATE_CONTROL, SET_CHAIN_LIMIT,
         SELECT_CATALOG_PAGE, SELECT_CONVENIENCE_TOOL, SET_CONVENIENCE_PARAMETER,
+        SET_SMART_FILL_MAX_BLOCKS, SET_SMART_FILL_DIAMETER,
         CLOSE
     }
     public final Type type;
@@ -31,5 +32,7 @@ public final class QuickBuildUiAction {
     public static QuickBuildUiAction catalog(QuickBuildUiCatalogPage v){return new QuickBuildUiAction(Type.SELECT_CATALOG_PAGE,null,null,null,0,v,null,null);}
     public static QuickBuildUiAction convenienceTool(QuickBuildUiConvenienceTool v){return new QuickBuildUiAction(Type.SELECT_CONVENIENCE_TOOL,null,null,null,0,null,v,null);}
     public static QuickBuildUiAction convenienceParameter(QuickBuildUiConvenienceParameter p,int v){return new QuickBuildUiAction(Type.SET_CONVENIENCE_PARAMETER,null,null,null,v,null,null,p);}
+    public static QuickBuildUiAction smartFillMaxBlocks(int v){return new QuickBuildUiAction(Type.SET_SMART_FILL_MAX_BLOCKS,null,null,null,v,null,null,null);}
+    public static QuickBuildUiAction smartFillDiameter(int v){return new QuickBuildUiAction(Type.SET_SMART_FILL_DIAMETER,null,null,null,v,null,null,null);}
     public static QuickBuildUiAction close(){return new QuickBuildUiAction(Type.CLOSE,null,null,null,0,null,null,null);}
 }

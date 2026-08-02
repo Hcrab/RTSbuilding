@@ -154,6 +154,10 @@ final class BuilderScreenKeyboardActionOwner {
                 screen.pendingGuiBindSlot = -1;
                 return true;
             }
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE
+                    && screen.cancelQuickBuildSmartFillAnchor()) {
+                return true;
+            }
             if (!screen.isSearchFocused() && screen.hasControlDown() && keyCode == GLFW.GLFW_KEY_Z) {
                 return screen.shapeController.undoLastPlacementBatch();
             }

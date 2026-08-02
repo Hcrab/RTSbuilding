@@ -4,6 +4,8 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillLimits;
+import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillPlan;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
@@ -32,8 +34,11 @@ final class QuickBuildUiAdapter {
     private QuickBuildUiAdapter() {}
 
     static QuickBuildUiState snapshot(QuickBuildPanel panel) {
-        QuickBuildUiMode mode = panel.effectiveMode() == QuickBuildMode.DESTROY
-                ? QuickBuildUiMode.DESTROY : QuickBuildUiMode.BUILD;
+        QuickBuildUiMode mode = switch (panel.effectiveMode()) {
+            case DESTROY -> QuickBuildUiMode.DESTROY;
+            case SMART_FILL -> QuickBuildUiMode.SMART_FILL;
+            case BUILD -> QuickBuildUiMode.BUILD;
+        };
         QuickBuildUiShape buildShape = toCore(panel.getBuildModeShape());
         QuickBuildUiShape destroyShape = toCore(panel.getRangeDestroyShape());
         List<QuickBuildUiShapeOption> shapes = new ArrayList<>();
@@ -42,7 +47,7 @@ final class QuickBuildUiAdapter {
                 QuickBuildUiShape id = toCore(shape);
                 shapes.add(new QuickBuildUiShapeOption(id, id == buildShape, true, ""));
             }
-        } else {
+        } else if (mode == QuickBuildUiMode.DESTROY) {
             AreaMineShape[] order = { AreaMineShape.CHAIN, AreaMineShape.BLOCK, AreaMineShape.LINE,
                     AreaMineShape.SQUARE, AreaMineShape.WALL, AreaMineShape.CIRCLE,
                     AreaMineShape.CYLINDER, AreaMineShape.BALL, AreaMineShape.BOX };
@@ -61,7 +66,7 @@ final class QuickBuildUiAdapter {
         List<QuickBuildUiControl> controls = new ArrayList<>();
         boolean convenience = mode == QuickBuildUiMode.DESTROY
                 && panel.getCatalogPage() == QuickBuildUiCatalogPage.CONVENIENCE_TOOLS;
-        if (!convenience
+        if (mode != QuickBuildUiMode.SMART_FILL && !convenience
                 && !(mode == QuickBuildUiMode.DESTROY && destroyShape == QuickBuildUiShape.CHAIN)) {
             for (ShapeFillMode option : ShapeGeometryUtil.availableFillModes(panel.uiController().getBuildShape())) {
                 controls.add(new QuickBuildUiControl(control(option),
@@ -97,17 +102,24 @@ final class QuickBuildUiAdapter {
         int total = workflow == null ? 0 : workflow.totalBlocks();
         int remaining = workflow == null ? 0 : workflow.remainingBlocks();
         String progress = workflow == null ? "" : workflow.progressText();
-        String cost = panel.uiScreen().currentShapeCostText();
+        SmartFillPlan smartFillPlan = mode == QuickBuildUiMode.SMART_FILL
+                ? panel.smartFillPlan() : null;
+        String cost = smartFillPlan == null
+                ? panel.uiScreen().currentShapeCostText()
+                : Integer.toString(smartFillPlan.targets().size());
         String selectedId = panel.uiController().getSelectedItemId();
         long missing = 0L;
-        if (mode == QuickBuildUiMode.BUILD && !selectedId.isBlank()) {
+        if ((mode == QuickBuildUiMode.BUILD || mode == QuickBuildUiMode.SMART_FILL)
+                && !selectedId.isBlank()) {
             try {
                 missing = Math.max(0L, Long.parseLong(cost)
                         - panel.uiController().getStorageTotalCount(selectedId));
             } catch (NumberFormatException ignored) { }
         }
         boolean keyboardFinalConfirm = Config.isKeyboardBatchConfirmEnabled();
-        String hint = convenience
+        String hint = mode == QuickBuildUiMode.SMART_FILL
+                ? smartFillHint(panel, smartFillPlan)
+                : convenience
                 ? panel.convenienceHintKey()
                 : mode == QuickBuildUiMode.BUILD
                 ? keyboardFinalConfirm
@@ -130,16 +142,30 @@ final class QuickBuildUiAdapter {
                 panel.getChainDestroyLimit(), ULTIMINE_MIN_LIMIT, ULTIMINE_MAX_LIMIT,
                 completed, total, remaining, progress, cost, selectedId, missing,
                 hint, panel.confirmKeyLabel(mode == QuickBuildUiMode.DESTROY),
-                convenience ? panel.convenienceDimensionLabel()
-                        : panel.uiScreen().currentShapeSizeText());
+                mode == QuickBuildUiMode.SMART_FILL
+                        ? Integer.toString(panel.getSmartFillDiameter())
+                        : convenience ? panel.convenienceDimensionLabel()
+                        : panel.uiScreen().currentShapeSizeText(),
+                panel.getSmartFillMaxBlocks(),
+                SmartFillLimits.MIN_BLOCKS,
+                SmartFillLimits.MAX_BLOCKS,
+                panel.getSmartFillDiameter(),
+                SmartFillLimits.MIN_DIAMETER,
+                SmartFillLimits.MAX_DIAMETER,
+                smartFillPlan == null ? 0 : smartFillPlan.targets().size(),
+                panel.isSmartFillAnchored(),
+                smartFillPlan == null ? "" : smartFillPlan.status().name());
     }
 
     static void apply(QuickBuildPanel panel, QuickBuildUiTransition transition) {
         if (transition == null || transition.command == QuickBuildUiTransition.Command.NONE) return;
         QuickBuildUiAction action = transition.action;
         switch (transition.command) {
-            case SELECT_MODE -> panel.setMode(action.mode == QuickBuildUiMode.DESTROY
-                    ? QuickBuildMode.DESTROY : QuickBuildMode.BUILD);
+            case SELECT_MODE -> panel.setMode(switch (action.mode) {
+                case DESTROY -> QuickBuildMode.DESTROY;
+                case SMART_FILL -> QuickBuildMode.SMART_FILL;
+                case BUILD -> QuickBuildMode.BUILD;
+            });
             case SELECT_SHAPE -> {
                 if (transition.state.mode == QuickBuildUiMode.DESTROY) {
                     panel.setRangeDestroyShape(toArea(action.shape));
@@ -154,9 +180,25 @@ final class QuickBuildUiAdapter {
             case SET_CONVENIENCE_PARAMETER -> panel.setConvenienceParameter(
                     action.convenienceParameter,
                     transition.state.convenienceSettings.value(action.convenienceParameter));
+            case SET_SMART_FILL_MAX_BLOCKS -> panel.setSmartFillMaxBlocks(
+                    transition.state.smartFillMaxBlocks);
+            case SET_SMART_FILL_DIAMETER -> panel.setSmartFillDiameter(
+                    transition.state.smartFillDiameter);
             case CLOSE -> panel.setOpen(false);
             default -> { }
         }
+    }
+
+    private static String smartFillHint(QuickBuildPanel panel, SmartFillPlan plan) {
+        if (panel.isSmartFillAnchored()) {
+            return "screen.rtsbuilding.quick_build.smart_fill.hint_confirm";
+        }
+        if (plan != null && plan.canSubmit()) {
+            return plan.partial()
+                    ? "screen.rtsbuilding.quick_build.smart_fill.hint_partial"
+                    : "screen.rtsbuilding.quick_build.smart_fill.hint_ready";
+        }
+        return "screen.rtsbuilding.quick_build.smart_fill.hint_aim";
     }
 
     private static void activateControl(QuickBuildPanel panel, QuickBuildUiControl.Id id,

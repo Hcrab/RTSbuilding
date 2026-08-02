@@ -41,6 +41,8 @@ final class QuickBuildControlSurface {
     private WindowButton[] controlButtons = new WindowButton[0];
     private WindowButton connectToggle;
     private WindowSlider chainLimitSlider;
+    private WindowSlider smartFillMaxBlocksSlider;
+    private WindowSlider smartFillDiameterSlider;
     private final WindowButton[] catalogButtons = new WindowButton[2];
     private final WindowButton[] convenienceToolButtons = new WindowButton[3];
     private final EnumMap<QuickBuildUiConvenienceParameter, WindowSlider> convenienceSliders =
@@ -49,6 +51,7 @@ final class QuickBuildControlSurface {
     private String controlSignature = "";
     private boolean syncingChainLimit;
     private boolean syncingConvenience;
+    private boolean syncingSmartFill;
 
     QuickBuildControlSurface(Consumer<QuickBuildUiAction> dispatch) {
         if (dispatch == null) {
@@ -63,6 +66,7 @@ final class QuickBuildControlSurface {
         refreshControlButtons(state);
         ensureChainLimitSlider(state);
         ensureConvenienceSliders(state);
+        ensureSmartFillSliders(state);
     }
 
     void refreshShapeButtons(QuickBuildUiState state) {
@@ -143,6 +147,19 @@ final class QuickBuildControlSurface {
         }
     }
 
+    void syncSmartFill(int maxBlocks, int diameter) {
+        if (this.smartFillMaxBlocksSlider == null || this.smartFillDiameterSlider == null) {
+            return;
+        }
+        this.syncingSmartFill = true;
+        try {
+            this.smartFillMaxBlocksSlider.setValue(maxBlocks);
+            this.smartFillDiameterSlider.setValue(diameter);
+        } finally {
+            this.syncingSmartFill = false;
+        }
+    }
+
     void render(
             GuiGraphics graphics,
             MinecraftUiCanvas canvas,
@@ -210,6 +227,10 @@ final class QuickBuildControlSurface {
             }
             return true;
         }
+        if (state.mode == QuickBuildUiMode.SMART_FILL) {
+            return this.smartFillMaxBlocksSlider.mouseClicked(mouseX, mouseY, button)
+                    || this.smartFillDiameterSlider.mouseClicked(mouseX, mouseY, button);
+        }
         if (click(this.shapeButtons, mouseX, mouseY, button)
                 || click(this.controlButtons, mouseX, mouseY, button)) {
             return true;
@@ -235,6 +256,10 @@ final class QuickBuildControlSurface {
             }
             return false;
         }
+        if (state.mode == QuickBuildUiMode.SMART_FILL) {
+            return this.smartFillMaxBlocksSlider.mouseDragged(mouseX, mouseY, button)
+                    || this.smartFillDiameterSlider.mouseDragged(mouseX, mouseY, button);
+        }
         return state.chainMode()
                 && this.chainLimitSlider.mouseDragged(mouseX, mouseY, button);
     }
@@ -251,6 +276,10 @@ final class QuickBuildControlSurface {
         }
         handled |= this.chainLimitSlider != null
                 && this.chainLimitSlider.mouseReleased(mouseX, mouseY, button);
+        handled |= this.smartFillMaxBlocksSlider != null
+                && this.smartFillMaxBlocksSlider.mouseReleased(mouseX, mouseY, button);
+        handled |= this.smartFillDiameterSlider != null
+                && this.smartFillDiameterSlider.mouseReleased(mouseX, mouseY, button);
         for (WindowSlider slider : this.convenienceSliders.values()) {
             handled |= slider.mouseReleased(mouseX, mouseY, button);
         }
@@ -295,6 +324,14 @@ final class QuickBuildControlSurface {
         return this.chainLimitSlider;
     }
 
+    WindowSlider smartFillMaxBlocksSlider() {
+        return this.smartFillMaxBlocksSlider;
+    }
+
+    WindowSlider smartFillDiameterSlider() {
+        return this.smartFillDiameterSlider;
+    }
+
     WindowButton catalogButton(int index) {
         return this.catalogButtons[index];
     }
@@ -319,9 +356,13 @@ final class QuickBuildControlSurface {
         }
         ensureChainLimitSlider(state);
         ensureConvenienceSliders(state);
+        ensureSmartFillSliders(state);
         this.chainLimitSlider.setVisible(state.chainMode() && !state.convenienceMode());
+        this.smartFillMaxBlocksSlider.setVisible(state.mode == QuickBuildUiMode.SMART_FILL);
+        this.smartFillDiameterSlider.setVisible(state.mode == QuickBuildUiMode.SMART_FILL);
         syncChainLimit(state.chainLimit);
         syncConvenienceSettings(state.convenienceSettings);
+        syncSmartFill(state.smartFillMaxBlocks, state.smartFillDiameter);
         for (int i = 0; i < this.catalogButtons.length; i++) {
             this.catalogButtons[i].active = state.mode == QuickBuildUiMode.DESTROY;
             this.catalogButtons[i].setSelectedVisual(state.catalogPage
@@ -391,6 +432,13 @@ final class QuickBuildControlSurface {
                 QuickBuildWindowLayout.chainSliderWidth(windowWidth));
         this.chainLimitSlider.setX(layout.rightX);
         this.chainLimitSlider.setY(layout.chainSliderY);
+        int smartWidth = QuickBuildWindowLayout.smartFillSliderWidth(windowWidth);
+        this.smartFillMaxBlocksSlider.setWidth(smartWidth);
+        this.smartFillMaxBlocksSlider.setX(layout.contentX);
+        this.smartFillMaxBlocksSlider.setY(layout.smartFillParameterSliderY(0));
+        this.smartFillDiameterSlider.setWidth(smartWidth);
+        this.smartFillDiameterSlider.setX(layout.contentX);
+        this.smartFillDiameterSlider.setY(layout.smartFillParameterSliderY(1));
     }
 
     private void ensureChainLimitSlider(QuickBuildUiState state) {
@@ -414,6 +462,45 @@ final class QuickBuildControlSurface {
                     state.chainMinimum, state.chainMaximum);
         } finally {
             this.syncingChainLimit = false;
+        }
+    }
+
+    private void ensureSmartFillSliders(QuickBuildUiState state) {
+        if (this.smartFillMaxBlocksSlider == null) {
+            this.smartFillMaxBlocksSlider = new WindowSlider(
+                    0, 0,
+                    QuickBuildWindowLayout.smartFillSliderWidth(QuickBuildWindowLayout.WINDOW_W),
+                    QuickBuildWindowLayout.CHAIN_SLIDER_H,
+                    state.smartFillMinBlocks,
+                    state.smartFillMaxBlocksLimit,
+                    state.smartFillMaxBlocks);
+            this.smartFillMaxBlocksSlider.onChange(value -> {
+                if (!this.syncingSmartFill) {
+                    this.dispatch.accept(QuickBuildUiAction.smartFillMaxBlocks(value));
+                }
+            });
+            this.smartFillDiameterSlider = new WindowSlider(
+                    0, 0,
+                    QuickBuildWindowLayout.smartFillSliderWidth(QuickBuildWindowLayout.WINDOW_W),
+                    QuickBuildWindowLayout.CHAIN_SLIDER_H,
+                    state.smartFillMinDiameter,
+                    state.smartFillMaxDiameter,
+                    state.smartFillDiameter);
+            this.smartFillDiameterSlider.onChange(value -> {
+                if (!this.syncingSmartFill) {
+                    this.dispatch.accept(QuickBuildUiAction.smartFillDiameter(value));
+                }
+            });
+            return;
+        }
+        this.syncingSmartFill = true;
+        try {
+            this.smartFillMaxBlocksSlider.setRange(
+                    state.smartFillMinBlocks, state.smartFillMaxBlocksLimit);
+            this.smartFillDiameterSlider.setRange(
+                    state.smartFillMinDiameter, state.smartFillMaxDiameter);
+        } finally {
+            this.syncingSmartFill = false;
         }
     }
 

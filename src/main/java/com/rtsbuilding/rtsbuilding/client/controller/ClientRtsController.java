@@ -289,6 +289,7 @@ public static ClientRtsController get() {
     public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
     public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied, boolean overwriteExisting) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, overwriteExisting); }
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir); }
+    public void confirmSmartFill(BlockHitResult hit, int maxBlocks, int detectionDiameter, Vec3 rayOrigin, Vec3 rayDirection) { this.interactionOwner.confirmSmartFill(hit, maxBlocks, detectionDiameter, rayOrigin, rayDirection); }
     public void storeFluidFromStorageItem(String itemId) { this.interactionOwner.storeFluidFromStorageItem(itemId); }
     public void storeFluidFromPinnedItem(String itemId) { this.interactionOwner.storeFluidFromPinnedItem(itemId); }
     public void storeFluidFromToolSlot(int toolSlot) { this.interactionOwner.storeFluidFromToolSlot(toolSlot); }

@@ -189,6 +189,16 @@ final class ClientRtsInteractionOwner {
             controller.buildPlacementService.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
         }
 
+    void confirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        controller.buildPlacementService.confirmSmartFill(
+                hit, maxBlocks, detectionDiameter, rayOrigin, rayDirection);
+    }
+
     void storeFluidFromStorageItem(String itemId) {
             controller.buildPlacementService.storeFluidFromStorageItem(itemId);
         }

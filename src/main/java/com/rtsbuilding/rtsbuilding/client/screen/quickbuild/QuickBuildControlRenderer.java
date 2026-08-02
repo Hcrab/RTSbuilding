@@ -49,6 +49,13 @@ final class QuickBuildControlRenderer {
             float partialTick) {
         renderModeToggles(graphics, canvas, screen, state, layout, mouseX, mouseY);
 
+        if (state.mode == QuickBuildUiMode.SMART_FILL) {
+            renderSmartFillControls(
+                    controls, graphics, screen, state, layout,
+                    mouseX, mouseY, partialTick);
+            return;
+        }
+
         if (state.mode == QuickBuildUiMode.DESTROY) {
             for (int i = 0; i < 2; i++) {
                 controls.catalogButton(i).render(graphics, mouseX, mouseY, partialTick);
@@ -115,6 +122,10 @@ final class QuickBuildControlRenderer {
         renderModeToggle(graphics, canvas, screen, state,
                 layout.destroyMode, QuickBuildUiMode.DESTROY,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_destroy"),
+                mouseX, mouseY);
+        renderModeToggle(graphics, canvas, screen, state,
+                layout.smartFillMode, QuickBuildUiMode.SMART_FILL,
+                Component.translatable("screen.rtsbuilding.quick_build.mode_smart_fill"),
                 mouseX, mouseY);
     }
 
@@ -197,6 +208,49 @@ final class QuickBuildControlRenderer {
                 layout.chainValueX(controls.chainLimitSlider().getWidth()),
                 layout.chainSliderY + QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET,
                 QuickBuildStyle.VALUE_TEXT.toArgb(), false);
+    }
+
+    private static void renderSmartFillControls(
+            QuickBuildControlSurface controls,
+            GuiGraphics graphics,
+            BuilderScreen screen,
+            QuickBuildUiState state,
+            QuickBuildWindowLayout.Geometry layout,
+            int mouseX,
+            int mouseY,
+            float partialTick) {
+        int sliderWidth = controls.smartFillMaxBlocksSlider().getWidth();
+        graphics.drawString(
+                screen.font(),
+                Component.translatable("screen.rtsbuilding.quick_build.smart_fill.max_blocks"),
+                layout.contentX,
+                layout.smartFillParameterLabelY(0),
+                QuickBuildStyle.SECTION_TEXT.toArgb(),
+                false);
+        controls.smartFillMaxBlocksSlider().render(graphics, mouseX, mouseY, partialTick);
+        graphics.drawString(
+                screen.font(),
+                Integer.toString(state.smartFillMaxBlocks),
+                layout.smartFillValueX(sliderWidth),
+                layout.smartFillParameterSliderY(0) + QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET,
+                QuickBuildStyle.VALUE_TEXT.toArgb(),
+                false);
+
+        graphics.drawString(
+                screen.font(),
+                Component.translatable("screen.rtsbuilding.quick_build.smart_fill.diameter"),
+                layout.contentX,
+                layout.smartFillParameterLabelY(1),
+                QuickBuildStyle.SECTION_TEXT.toArgb(),
+                false);
+        controls.smartFillDiameterSlider().render(graphics, mouseX, mouseY, partialTick);
+        graphics.drawString(
+                screen.font(),
+                Integer.toString(state.smartFillDiameter),
+                layout.smartFillValueX(controls.smartFillDiameterSlider().getWidth()),
+                layout.smartFillParameterSliderY(1) + QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET,
+                QuickBuildStyle.VALUE_TEXT.toArgb(),
+                false);
     }
 
     private static void renderControls(

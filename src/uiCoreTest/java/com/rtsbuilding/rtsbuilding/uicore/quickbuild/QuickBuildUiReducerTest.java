@@ -80,6 +80,22 @@ class QuickBuildUiReducerTest {
         assertEquals(QuickBuildUiShape.BOX, limit.state.destroyShape);
     }
 
+    @Test
+    void smartFillParametersOnlyChangeInSmartFillMode() {
+        QuickBuildUiState smart = state(true, QuickBuildUiMode.SMART_FILL, QuickBuildUiShape.BLOCK);
+        QuickBuildUiTransition maxBlocks = QuickBuildUiReducer.apply(
+                smart, QuickBuildUiAction.smartFillMaxBlocks(99_999));
+        QuickBuildUiTransition diameter = QuickBuildUiReducer.apply(
+                maxBlocks.state, QuickBuildUiAction.smartFillDiameter(1));
+        assertEquals(1024, diameter.state.smartFillMaxBlocks);
+        assertEquals(3, diameter.state.smartFillDiameter);
+
+        QuickBuildUiState build = state(true, QuickBuildUiMode.BUILD, QuickBuildUiShape.BLOCK);
+        assertEquals(QuickBuildUiTransition.Command.NONE,
+                QuickBuildUiReducer.apply(
+                        build, QuickBuildUiAction.smartFillMaxBlocks(32)).command);
+    }
+
     private static QuickBuildUiState state(boolean destroyEnabled, QuickBuildUiMode mode,
                                            QuickBuildUiShape destroyShape) {
         return new QuickBuildUiState(true, mode, destroyEnabled, "",

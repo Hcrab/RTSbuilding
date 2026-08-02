@@ -131,6 +131,33 @@ final class BuilderScreenWindowActionOwner {
             return screen.isQuickBuildOpen() && screen.quickBuildPanel.isRangeDestroyMode();
         }
 
+    boolean isQuickBuildSmartFillMode() {
+        return screen.isQuickBuildOpen() && screen.quickBuildPanel.isSmartFillMode();
+    }
+
+    ShapeDataRecords.GhostPreview getSmartFillGhostPreview() {
+        return screen.quickBuildPanel.smartFillGhostPreview();
+    }
+
+    boolean handleQuickBuildSmartFillClick() {
+        if (!isQuickBuildSmartFillMode()) {
+            return false;
+        }
+        BlockHitResult hit = screen.cursorPicker.pickBlockHit();
+        if (hit != null) {
+            screen.quickBuildPanel.submitOrAnchorSmartFill(
+                    hit,
+                    screen.cursorPicker.currentRayOrigin(),
+                    screen.cursorPicker.computeCursorRayDirection());
+        }
+        return true;
+    }
+
+    boolean cancelQuickBuildSmartFillAnchor() {
+        return screen.isQuickBuildOpen()
+                && screen.quickBuildPanel.cancelSmartFillAnchor();
+    }
+
     boolean isQuickBuildRangeDestroyChainMode() {
             return screen.isQuickBuildOpen() && screen.quickBuildPanel.isRangeDestroyChainMode();
     }
@@ -165,6 +192,9 @@ final class BuilderScreenWindowActionOwner {
         }
 
     String activeQuickBuildShapeLabel() {
+            if (screen.isQuickBuildSmartFillMode()) {
+                return screen.text("screen.rtsbuilding.quick_build.mode_smart_fill");
+            }
             if (screen.isQuickBuildConvenienceDestroyMode()) {
                 return screen.quickBuildPanel.getConvenienceToolLabel();
             }

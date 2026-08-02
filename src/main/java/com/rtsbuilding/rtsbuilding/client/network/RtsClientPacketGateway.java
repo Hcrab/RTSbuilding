@@ -370,6 +370,44 @@ public final class RtsClientPacketGateway {
                 itemId, itemPrototype, rotateSteps, "", rayOrigin, rayDir);
     }
 
+    /** 只发送智能填坑意图；客户端预览坐标不会进入网络包。 */
+    public static void sendConfirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            String itemId,
+            ItemStack itemPrototype,
+            int rotateSteps,
+            String statePreset,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        if (hit == null || rayOrigin == null || rayDirection == null) {
+            return;
+        }
+        ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
+        if (!prototype.isEmpty()) {
+            prototype.setCount(1);
+        }
+        PacketDistributor.sendToServer(new C2SRtsConfirmSmartFillPayload(
+                hit.getBlockPos(),
+                (byte) hit.getDirection().get3DDataValue(),
+                maxBlocks,
+                detectionDiameter,
+                hit.getLocation().x - hit.getBlockPos().getX(),
+                hit.getLocation().y - hit.getBlockPos().getY(),
+                hit.getLocation().z - hit.getBlockPos().getZ(),
+                (byte) rotateSteps,
+                statePreset == null ? "" : statePreset,
+                itemId == null ? "" : itemId,
+                prototype,
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDirection.x,
+                rayDirection.y,
+                rayDirection.z));
+    }
+
     public static void sendPlaceBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
             boolean skipIfOccupied, boolean overwriteExisting, String itemId, ItemStack itemPrototype, int rotateSteps, String statePreset,
             Vec3 rayOrigin, Vec3 rayDir) {

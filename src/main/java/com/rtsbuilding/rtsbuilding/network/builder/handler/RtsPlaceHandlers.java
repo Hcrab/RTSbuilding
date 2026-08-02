@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsSmartFillService;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -117,6 +118,16 @@ public final class RtsPlaceHandlers {
                         payload.rayDirX(),
                         payload.rayDirY(),
                         payload.rayDirZ());
+            }
+        });
+    }
+
+    public static void handleConfirmSmartFill(
+            C2SRtsConfirmSmartFillPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsSmartFillService.confirm(serverPlayer, payload);
             }
         });
     }

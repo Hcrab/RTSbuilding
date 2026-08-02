@@ -71,6 +71,10 @@ public final class QuickBuildWindowLayout {
         return (destroy ? DESTROY_BASE_H : BUILD_BASE_H) + BOTTOM_INFO_H;
     }
 
+    public static int windowHeight(QuickBuildUiMode mode) {
+        return windowHeight(mode == QuickBuildUiMode.DESTROY);
+    }
+
     public static int chainSliderWidth(int windowWidth) {
         return Math.max(CHAIN_SLIDER_MIN_W,
                 windowWidth - RIGHT_COL_X - CHAIN_SLIDER_RIGHT_RESERVE);
@@ -85,12 +89,24 @@ public final class QuickBuildWindowLayout {
     }
 
     public static Geometry geometry(int windowX, int windowY, boolean destroy) {
+        return geometry(windowX, windowY,
+                destroy ? QuickBuildUiMode.DESTROY : QuickBuildUiMode.BUILD);
+    }
+
+    public static int smartFillSliderWidth(int windowWidth) {
+        return Math.max(60, windowWidth - CONTENT_INSET * 2 - 40);
+    }
+
+    public static Geometry geometry(int windowX, int windowY, QuickBuildUiMode mode) {
         int bodyY = windowY + TITLE_H;
         int totalW = WINDOW_W - CONTENT_INSET * 2;
-        int modeW = (totalW - MODE_GAP) / 2;
+        int modeW = (totalW - MODE_GAP * 2) / 3;
+        int buildX = windowX + CONTENT_INSET;
+        int destroyX = buildX + modeW + MODE_GAP;
+        int smartFillX = destroyX + modeW + MODE_GAP;
+        boolean destroy = mode == QuickBuildUiMode.DESTROY;
         return new Geometry(windowX, windowY, bodyY,
-                windowX + CONTENT_INSET,
-                windowX + CONTENT_INSET + modeW + MODE_GAP,
+                buildX, destroyX, smartFillX,
                 bodyY + MODE_TOP, modeW,
                 bodyY + SECTION_TOP,
                 windowX + RIGHT_COL_X,
@@ -100,19 +116,20 @@ public final class QuickBuildWindowLayout {
 
     public static final class Geometry {
         public final int windowX, windowY, bodyY;
-        public final int buildModeX, destroyModeX, modeY, modeW;
+        public final int buildModeX, destroyModeX, smartFillModeX, modeY, modeW;
         public final int sectionTitleY, rightX, dividerY, windowH;
         public final boolean destroy;
         public final int chainLabelY, chainSliderY, statusTextY, statusItemY;
         public final int catalogY, catalogW, convenienceContentY;
         public final int contentX, contentW, sectionLabelX;
-        public final UiRect buildMode, destroyMode, divider, progress;
+        public final UiRect buildMode, destroyMode, smartFillMode, divider, progress;
 
-        private Geometry(int windowX,int windowY,int bodyY,int buildModeX,int destroyModeX,
+        private Geometry(int windowX,int windowY,int bodyY,int buildModeX,int destroyModeX,int smartFillModeX,
                          int modeY,int modeW,int sectionTitleY,int rightX,int dividerY,int windowH,
                          boolean destroy) {
             this.windowX=windowX; this.windowY=windowY; this.bodyY=bodyY;
             this.buildModeX=buildModeX; this.destroyModeX=destroyModeX;
+            this.smartFillModeX=smartFillModeX;
             this.modeY=modeY; this.modeW=modeW; this.sectionTitleY=sectionTitleY;
             this.rightX=rightX; this.dividerY=dividerY; this.windowH=windowH;
             this.destroy=destroy;
@@ -128,6 +145,7 @@ public final class QuickBuildWindowLayout {
             this.convenienceContentY = catalogY + CATALOG_H + CATALOG_TOOLS_GAP;
             this.buildMode = new UiRect(buildModeX, modeY, modeW, MODE_H);
             this.destroyMode = new UiRect(destroyModeX, modeY, modeW, MODE_H);
+            this.smartFillMode = new UiRect(smartFillModeX, modeY, modeW, MODE_H);
             this.divider = new UiRect(
                     windowX + DIVIDER_INSET, dividerY - 1,
                     WINDOW_W - DIVIDER_INSET * 2, 1);
@@ -165,6 +183,18 @@ public final class QuickBuildWindowLayout {
             return convenienceParameterLabelY(index) + CONVENIENCE_PARAMETER_LABEL_GAP;
         }
 
+        public int smartFillParameterLabelY(int index) {
+            return bodyY + CONTROL_LIST_TOP + index * CONVENIENCE_PARAMETER_PITCH;
+        }
+
+        public int smartFillParameterSliderY(int index) {
+            return smartFillParameterLabelY(index) + CONVENIENCE_PARAMETER_LABEL_GAP;
+        }
+
+        public int smartFillValueX(int sliderWidth) {
+            return contentX + sliderWidth + CHAIN_VALUE_GAP;
+        }
+
         public int chainValueX(int sliderWidth) {
             return rightX + sliderWidth + CHAIN_VALUE_GAP;
         }
@@ -178,7 +208,10 @@ public final class QuickBuildWindowLayout {
         }
 
         public UiRect modeArea(QuickBuildUiMode mode) {
-            return mode == QuickBuildUiMode.DESTROY ? destroyMode : buildMode;
+            if (mode == QuickBuildUiMode.DESTROY) {
+                return destroyMode;
+            }
+            return mode == QuickBuildUiMode.SMART_FILL ? smartFillMode : buildMode;
         }
 
         /** 模式按钮使用半开边界；两个按钮之间的空隙不会误触任意模式。 */
@@ -186,9 +219,11 @@ public final class QuickBuildWindowLayout {
             if (buildMode.contains(mouseX, mouseY)) {
                 return QuickBuildUiMode.BUILD;
             }
-            return destroyMode.contains(mouseX, mouseY)
-                    ? QuickBuildUiMode.DESTROY
-                    : null;
+            if (destroyMode.contains(mouseX, mouseY)) {
+                return QuickBuildUiMode.DESTROY;
+            }
+            return smartFillMode.contains(mouseX, mouseY)
+                    ? QuickBuildUiMode.SMART_FILL : null;
         }
     }
 }

@@ -153,7 +153,11 @@ final class QuickBuildStatusRenderer {
             int x,
             int y,
             int maxWidth) {
-        Component text = Component.translatable(
+        Component text = state.mode == QuickBuildUiMode.SMART_FILL
+                ? Component.translatable(
+                "screen.rtsbuilding.quick_build.smart_fill.diameter_status",
+                state.smartFillDiameter)
+                : Component.translatable(
                 "screen.rtsbuilding.quick_build.dimensions", state.dimensions);
         String trimmed = screen.font().plainSubstrByWidth(
                 text.getString(), Math.max(1, maxWidth));

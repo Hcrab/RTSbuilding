@@ -112,7 +112,11 @@ final class BuilderScreenLifecycleOwner {
                 screen.ensureFillModeForShape(BuildShape.BLOCK);
                 return;
             }
-            if (screen.quickBuildPanel.isRangeDestroyMode()) {
+            if (screen.quickBuildPanel.isSmartFillMode()) {
+                screen.controller.setBuildShape(BuildShape.BLOCK);
+                screen.controller.clearAreaMineSession();
+                screen.shapeController.clearShapeBuildSession();
+            } else if (screen.quickBuildPanel.isRangeDestroyMode()) {
                 screen.shapeController.applyDestroyStateAsActive();
             } else {
                 screen.shapeController.applyBuildStateAsActive();

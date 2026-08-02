@@ -39,6 +39,18 @@ final class QuickBuildPersistenceBindings {
                         (state, value) -> state.quickBuild.mining.ultimineLimit = value,
                         preferences::chainLimit,
                         preferences::chainLimit),
+                PersistableProperty.intField(
+                        "smart_fill_max_blocks",
+                        state -> state.quickBuild.smartFillMaxBlocks,
+                        (state, value) -> state.quickBuild.smartFillMaxBlocks = value,
+                        preferences::smartFillMaxBlocks,
+                        preferences::smartFillMaxBlocks),
+                PersistableProperty.intField(
+                        "smart_fill_diameter",
+                        state -> state.quickBuild.smartFillDiameter,
+                        (state, value) -> state.quickBuild.smartFillDiameter = value,
+                        preferences::smartFillDiameter,
+                        preferences::smartFillDiameter),
                 PersistableProperty.enumField(
                         "quick_build_catalog_page",
                         state -> state.quickBuild.mining.catalogPage,

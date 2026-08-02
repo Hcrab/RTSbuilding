@@ -43,6 +43,11 @@ public final class RtsBuilderPackets {
                 RtsPlaceHandlers::handlePlaceBatch);
 
         registrar.playToServer(
+                C2SRtsConfirmSmartFillPayload.TYPE,
+                C2SRtsConfirmSmartFillPayload.STREAM_CODEC,
+                RtsPlaceHandlers::handleConfirmSmartFill);
+
+        registrar.playToServer(
                 C2SRtsPlaceFluidPayload.TYPE,
                 C2SRtsPlaceFluidPayload.STREAM_CODEC,
                 RtsPlaceHandlers::handlePlaceFluid);

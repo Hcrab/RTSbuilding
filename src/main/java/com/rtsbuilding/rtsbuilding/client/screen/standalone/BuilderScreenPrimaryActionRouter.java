@@ -100,6 +100,9 @@ final class BuilderScreenPrimaryActionRouter {
         }
         boolean forcePlace = Screen.hasShiftDown();
         boolean rangeDestroyMode = host.isRangeDestroyMode();
+        if (host.isSmartFillMode()) {
+            return host.handleSmartFillWorldAction();
+        }
         if ((mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0)
                 && !rangeDestroyMode
                 && host.isAdvancedShapeMode()

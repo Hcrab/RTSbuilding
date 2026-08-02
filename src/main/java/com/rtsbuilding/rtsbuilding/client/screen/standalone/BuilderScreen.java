@@ -465,6 +465,10 @@ static boolean hasRecipeViewerLoaded() {
     public RtsFloatingWindowLayer getFloatingWindowLayer() { return this.windowActionOwner.getFloatingWindowLayer(); }
     public ClientRtsController uiController() { return this.windowActionOwner.uiController(); }
     public boolean isQuickBuildRangeDestroyMode() { return this.windowActionOwner.isQuickBuildRangeDestroyMode(); }
+    public boolean isQuickBuildSmartFillMode() { return this.windowActionOwner.isQuickBuildSmartFillMode(); }
+    public ShapeDataRecords.GhostPreview getSmartFillGhostPreview() { return this.windowActionOwner.getSmartFillGhostPreview(); }
+    boolean handleQuickBuildSmartFillClick() { return this.windowActionOwner.handleQuickBuildSmartFillClick(); }
+    boolean cancelQuickBuildSmartFillAnchor() { return this.windowActionOwner.cancelQuickBuildSmartFillAnchor(); }
     public boolean isQuickBuildRangeDestroyChainMode() { return this.windowActionOwner.isQuickBuildRangeDestroyChainMode(); }
     public boolean isQuickBuildConvenienceDestroyMode() { return this.windowActionOwner.isQuickBuildConvenienceDestroyMode(); }
     public ShapeDataRecords.GhostPreview getConvenienceDestroyGhostPreview() {

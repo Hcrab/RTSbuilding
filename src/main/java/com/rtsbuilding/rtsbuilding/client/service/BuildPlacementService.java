@@ -272,6 +272,28 @@ public final class BuildPlacementService {
         }
     }
 
+    /**
+     * 提交智能填坑意图。这里解析当前 RTS 材料或快捷栏方块，但不提交客户端扫描出的坐标。
+     */
+    public void confirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        PlacementMaterial material = resolvePlacementMaterial();
+        RtsClientPacketGateway.sendConfirmSmartFill(
+                hit,
+                maxBlocks,
+                detectionDiameter,
+                material.itemId(),
+                material.prototype(),
+                material.itemId().isBlank() ? 0 : this.placeRotateSteps,
+                material.itemId().isBlank() ? "" : this.placementStatePreset,
+                rayOrigin,
+                rayDirection);
+    }
+
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
         if (hit == null || this.selectedFluidId.isBlank()) {
             return;
@@ -430,6 +452,39 @@ public final class BuildPlacementService {
         if (itemId == null || itemId.isBlank()) return Long.MAX_VALUE;
         if (isLocalPlayerCreative) return Long.MAX_VALUE;
         return hasStoragePageSnapshot ? storageTotalCount : Long.MAX_VALUE;
+    }
+
+    private PlacementMaterial resolvePlacementMaterial() {
+        String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
+        if (!itemId.isBlank()) {
+            return new PlacementMaterial(itemId, this.selectedItemPreview);
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.player == null) {
+            return PlacementMaterial.EMPTY;
+        }
+        int slot = Mth.clamp(minecraft.player.getInventory().selected, 0, 8);
+        ItemStack stack = minecraft.player.getInventory().getItem(slot);
+        if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem)) {
+            return PlacementMaterial.EMPTY;
+        }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return id == null
+                ? PlacementMaterial.EMPTY
+                : new PlacementMaterial(id.toString(), stack);
+    }
+
+    private record PlacementMaterial(String itemId, ItemStack prototype) {
+        private static final PlacementMaterial EMPTY =
+                new PlacementMaterial("", ItemStack.EMPTY);
+
+        private PlacementMaterial {
+            itemId = itemId == null ? "" : itemId;
+            prototype = prototype == null ? ItemStack.EMPTY : prototype.copy();
+            if (!prototype.isEmpty()) {
+                prototype.setCount(1);
+            }
+        }
     }
 
     private void setSelectedItem(String itemId, String label, ItemStack preview) {
