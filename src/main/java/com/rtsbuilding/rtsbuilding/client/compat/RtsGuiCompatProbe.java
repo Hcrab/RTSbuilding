@@ -30,6 +30,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 public final class RtsGuiCompatProbe {
     private static final int SCREENLESS_MENU_TICK_LIMIT = 8;
     private static final int AUTO_WORLD_READY_DELAY = 10;
+    private static final int AUTO_PLAYER_POSITION_STABLE_TICKS = 20;
     private static final int AUTO_SETUP_DELAY = 40;
     private static final int AUTO_EXIT_DELAY = 40;
     private static final int AUTO_TIMEOUT_TICKS = 20 * 120;
@@ -230,6 +231,16 @@ public final class RtsGuiCompatProbe {
         }
         respawnRequested = true;
         minecraft.player.respawn();
+        if (autoRun != null && !autoRun.finished) {
+            // 重生包发出后客户端玩家对象会先恢复，坐标随后才同步到出生点。放弃当前的
+            // 临时运行并重试同一 case，必须重新经过坐标稳定门，不能把环境死亡记成兼容失败。
+            activeRun = null;
+            autoRun.caseCompleted = false;
+            autoRun.caseTicks = 0;
+            autoRun.stageTicks = 0;
+            autoRun.stage = AutoStage.WAIT_WORLD;
+            autoRun.worldStability.reset();
+        }
         writeRow("auto-respawn", "INFO", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                 currentMenuClass(minecraft), currentContainerId(minecraft),
                 "Respawn requested so hostile mobs cannot stall the isolated GUI probe.");
@@ -405,7 +416,13 @@ public final class RtsGuiCompatProbe {
         }
         autoRun.caseTicks++;
 
-        if (minecraft.player == null || minecraft.level == null || minecraft.player.connection == null) {
+        boolean playable = minecraft.player != null
+                && minecraft.level != null
+                && minecraft.player.connection != null
+                && minecraft.player.isAlive()
+                && !(minecraft.screen instanceof DeathScreen);
+        if (!playable) {
+            autoRun.worldStability.reset();
             if (autoRun.caseTicks > AUTO_TIMEOUT_TICKS) {
                 writeRow("auto-timeout", "FAIL", screenClass, screenTitle, menuClass, containerId,
                         "Timed out waiting for a playable world.");
@@ -419,10 +436,17 @@ public final class RtsGuiCompatProbe {
             if (autoRun.stageTicks < AUTO_WORLD_READY_DELAY) {
                 return;
             }
+            if (!autoRun.worldStability.tick(true, minecraft.player.blockPosition())) {
+                return;
+            }
             if (autoRun.caseIndex >= SUITE.cases().size()) {
                 finishAutoRun(minecraft);
                 return;
             }
+            writeRow("auto-world-stable", "INFO", screenClass, screenTitle, menuClass, containerId,
+                    "Player position stayed at " + minecraft.player.blockPosition().toShortString()
+                            + " for " + autoRun.worldStability.stableTicks()
+                            + " ticks before setup.");
             autoRun.stage = AutoStage.PREPARE_CASE;
             autoRun.stageTicks = 0;
         }
@@ -708,6 +732,8 @@ public final class RtsGuiCompatProbe {
     private static final class AutoRun {
         private int caseIndex;
         private AutoStage stage = AutoStage.WAIT_WORLD;
+        private final RtsGuiCompatWorldStabilityGate worldStability =
+                new RtsGuiCompatWorldStabilityGate(AUTO_PLAYER_POSITION_STABLE_TICKS);
         private int caseTicks;
         private int stageTicks;
         private boolean caseCompleted;

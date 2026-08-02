@@ -34,6 +34,9 @@ class RtsGuiCompatProbeContractTest {
         assertTrue(probe.contains("trustedServerSetup"));
         assertTrue(probe.contains("clientChunkLoaded"));
         assertTrue(probe.contains("minecraft.player.respawn()"));
+        assertTrue(probe.contains("RtsGuiCompatWorldStabilityGate"));
+        assertTrue(probe.contains("auto-world-stable"));
+        assertTrue(probe.contains("autoRun.stage = AutoStage.WAIT_WORLD"));
         assertTrue(probe.contains("minecraft.screen instanceof AbstractContainerScreen<?>"));
         assertTrue(report.contains("StandardCopyOption.ATOMIC_MOVE"));
         assertTrue(report.contains("baselineSha"));
