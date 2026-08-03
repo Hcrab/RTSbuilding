@@ -27,6 +27,6 @@ description='''${mod_description}'''
 [[dependencies.${mod_id}]]
     modId="jade"
     mandatory=false
-    versionRange="[11.13.1,)"
+    versionRange="[8.9.2,)"
     ordering="AFTER"
     side="CLIENT"
