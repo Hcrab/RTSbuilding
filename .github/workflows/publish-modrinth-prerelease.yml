@@ -12,6 +12,7 @@ on:
         required: true
         type: choice
         options:
+          - 1.12.2
           - 1.21.1
           - 26.1.2
       version:
@@ -54,17 +55,36 @@ jobs:
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          actual_minecraft="$(sed -n 's/^minecraft_version=//p' gradle.properties)"
-          actual_version="$(sed -n 's/^mod_version=//p' gradle.properties)"
+          read_property() {
+            grep -E "^[[:space:]]*$1[[:space:]]*=" gradle.properties \
+              | tail -n 1 \
+              | cut -d= -f2- \
+              | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+          }
+          actual_minecraft="$(read_property minecraft_version)"
+          actual_version="$(read_property mod_version)"
           test "$actual_minecraft" = "$MINECRAFT_VERSION"
           test "$actual_version" = "$RELEASE_VERSION"
           case "$MINECRAFT_VERSION" in
+            1.12.2)
+              echo "java_version=21" >> "$GITHUB_OUTPUT"
+              echo "java_release=8" >> "$GITHUB_OUTPUT"
+              echo "loader=forge" >> "$GITHUB_OUTPUT"
+              echo "display_loader=Forge" >> "$GITHUB_OUTPUT"
+              echo "artifact=build/libs/rtsbuilding-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
+              ;;
             1.21.1)
               echo "java_version=21" >> "$GITHUB_OUTPUT"
+              echo "java_release=21" >> "$GITHUB_OUTPUT"
+              echo "loader=neoforge" >> "$GITHUB_OUTPUT"
+              echo "display_loader=NeoForge" >> "$GITHUB_OUTPUT"
               echo "artifact=build/libs/rtsbuilding-neoforge-1.21.1-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
               ;;
             26.1.2)
               echo "java_version=25" >> "$GITHUB_OUTPUT"
+              echo "java_release=25" >> "$GITHUB_OUTPUT"
+              echo "loader=neoforge" >> "$GITHUB_OUTPUT"
+              echo "display_loader=NeoForge" >> "$GITHUB_OUTPUT"
               echo "artifact=build/libs/rtsbuilding-neoforge-26.1.2-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
               ;;
             *)
@@ -105,14 +125,14 @@ jobs:
           modrinth-id: 5PkY7RJI
           modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
           files: ${{ steps.release.outputs.artifact }}
-          name: RTS Building ${{ inputs.version }} for NeoForge ${{ inputs.minecraft_version }}
+          name: RTS Building ${{ inputs.version }} for ${{ steps.release.outputs.display_loader }} ${{ inputs.minecraft_version }}
           version: ${{ inputs.version }}
           version-type: ${{ inputs.version_type }}
           changelog-file: release-notes.md
-          loaders: neoforge
+          loaders: ${{ steps.release.outputs.loader }}
           game-versions: ${{ inputs.minecraft_version }}
           game-version-filter: none
           environment: client | server
-          java: ${{ steps.release.outputs.java_version }}
+          java: ${{ steps.release.outputs.java_release }}
           retry-attempts: 3
           retry-delay: 10000
