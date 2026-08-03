@@ -81,6 +81,15 @@ point I already cannot play without it.
 - It has received some light gameplay testing on adventure modpacks like Closing
   Song, but not as much as 1.21.1.
 
+#### Minecraft 1.12.2
+
+- A broad Forge backport of the current RTS Building feature set.
+- Tested in a clean development client and in the Multiblock Madness modpack.
+- Includes dedicated compatibility work for remote menus, legacy rendering,
+  container overlays, JEI recipe transfer, and far-distance mining drops.
+- This first public port is a beta: keep a backup and report compatibility
+  failures with `logs/latest.log`.
+
 ### Contributors and credits
 
 **Hcrab** is the project author and primary maintainer, responsible for the
@@ -107,8 +116,10 @@ Special thanks to the following contributors:
 
 - `main`: Minecraft 1.21.1 / NeoForge.
 - `forge-1.20.1`: Minecraft 1.20.1 / Forge.
+- `forge-1.12.2`: Minecraft 1.12.2 / Forge.
 
-To build from source, install Java 21 and run:
+The `forge-1.12.2` branch uses the Gradle wrapper and pinned toolchains to emit a
+Java 8-compatible mod JAR. Run:
 
 ```bash
 ./gradlew build --no-daemon --no-configuration-cache
@@ -182,6 +193,15 @@ On Windows:
 - 进行过少量游玩测试，比如玩了一阵子落幕曲，但还没有像 1.21.1 那样充分在
   科技整合包中测试。
 
+#### Minecraft 1.12.2
+
+- 从当前 RTS Building 功能集完整回移到 Forge 1.12.2 的版本。
+- 已在纯净开发客户端与 Multiblock Madness 整合包中进行实际测试。
+- 针对远程 GUI、旧版渲染、容器 Overlay、JEI 配方填充和远距离挖掘掉落做了
+  专门兼容处理。
+- 首个公开移植版仍为 Beta；请先备份存档，并在报告兼容问题时附上
+  `logs/latest.log`。
+
 ### 贡献者与鸣谢
 
 **Hcrab** 是项目作者与主要维护者，负责整体设计方向、核心玩法、主要功能实现、
@@ -204,8 +224,10 @@ On Windows:
 
 - `main`：Minecraft 1.21.1 / NeoForge。
 - `forge-1.20.1`：Minecraft 1.20.1 / Forge。
+- `forge-1.12.2`：Minecraft 1.12.2 / Forge。
 
-如果要从源码构建，请安装 Java 21，然后运行：
+`forge-1.12.2` 分支使用 Gradle Wrapper 与锁定的工具链，最终输出兼容 Java 8 的
+模组 JAR。构建命令：
 
 ```powershell
 .\gradlew.bat build --no-daemon --no-configuration-cache

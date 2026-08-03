@@ -28,7 +28,7 @@ class RtsBatchPlacementQuickBuildContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementBatch.java"));
         String enqueue = methodBody(batch,
                 "boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting");
-        assertTrue(enqueue.contains("quickBuild && (itemId == null || itemId.isBlank())"));
+        assertTrue(enqueue.contains("quickBuild && (itemId == null || itemId.trim().isEmpty())"));
         assertTrue(enqueue.contains("message.rtsbuilding.quick_build.select_material"));
 
         String pipe = Files.readString(Path.of(
@@ -40,9 +40,23 @@ class RtsBatchPlacementQuickBuildContractTest {
                 "入队失败必须回滚，不能显示为完成 0 个方块");
     }
 
+    @Test
+    void overwriteChecksHarvestabilityBeforeReplacingTheWorldBlockWithAir() throws IOException {
+        String batch = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementBatch.java"));
+        String overwrite = methodBody(batch, "private static boolean prepareOverwriteConflict(");
+
+        int harvestCheck = overwrite.indexOf("canHarvestBlock(level, pos, player)");
+        int removeBlock = overwrite.indexOf("level.setBlockToAir(pos)");
+        assertTrue(harvestCheck >= 0 && harvestCheck < removeBlock,
+                "1.12 的 canHarvestBlock 会查询世界状态，必须在方块被清空前判断工具是否合格");
+        assertTrue(overwrite.contains("if (canHarvest)"),
+                "只有预先计算出的合格工具结果才能放出覆盖方块的掉落");
+    }
+
     private static void assertBatchEntryUsesQuickBuild(Path sourcePath) throws IOException {
         String source = Files.readString(sourcePath);
-        String method = methodBody(source, "enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions");
+        String method = methodBody(source, "enqueuePlaceBatch(EntityPlayerMP player, List<BlockPos> clickedPositions");
         int pipeline = method.indexOf("PipelineRegistry.execute(RtsWorkflowType.PLACE_BATCH");
         int quickBuild = method.indexOf(".quickBuild(true)", pipeline);
         int build = method.indexOf(".build())", pipeline);

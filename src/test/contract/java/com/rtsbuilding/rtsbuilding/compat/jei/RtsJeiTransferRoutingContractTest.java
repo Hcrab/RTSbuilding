@@ -10,22 +10,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsJeiTransferRoutingContractTest {
     @Test
-    void vanillaCraftingMenusDelegateBackToJeiTransferChecks() throws IOException {
+    void terminalSurvivesOpeningTheJeiRecipeScreen() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/compat/jei/RtsCraftTerminalJeiTransferHandler.java"));
+        String context = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/compat/jei/RtsJeiScreenContext.java"));
         String body = methodBody(source,
-                "public IRecipeTransferError transferRecipe(CraftingMenu container, RecipeHolder<CraftingRecipe> recipe,");
+                "public IRecipeTransferError transferRecipe(");
 
-        int rtsScreenGuard = body.indexOf("if (!isRtsCraftTerminalScreen(container))");
-        int delegateCall = body.indexOf("this.vanillaDelegate.transferRecipe", rtsScreenGuard);
-        int customPacket = body.indexOf("new C2SRtsJeiTransferPayload", delegateCall);
+        int rtsScreenGuard = body.indexOf("if (!RtsJeiScreenContext.isRtsCraftTerminal(container))");
+        int overlayDelegate = body.indexOf("transferWithOverlay", rtsScreenGuard);
+        int customPacket = body.indexOf("new C2SRtsJeiTransferPayload", overlayDelegate);
 
         assertTrue(rtsScreenGuard >= 0,
                 "普通工作台不能被 RTS handler 直接宣称可转入，必须先区分 RTS 终端屏幕。");
-        assertTrue(delegateCall > rtsScreenGuard,
-                "非 RTS 终端应委托 JEI 原生 transfer handler，这样缺材料时加号会正确禁用。");
-        assertTrue(customPacket > delegateCall,
+        assertTrue(overlayDelegate > rtsScreenGuard,
+                "非 RTS 终端仍需经过 overlay 感知委托，才能把链接存储纳入材料来源。");
+        assertTrue(customPacket > overlayDelegate,
                 "RTS 自己的转入包只能在确认当前屏幕是 RTS 合成终端后发送。");
+        assertTrue(context.contains("getParentScreen")
+                        && context.contains("parent.inventorySlots == container"),
+                "HEI 配方页替换 currentScreen 后，必须沿 parentScreen 找回真实 RTS 终端容器。");
     }
 
     @Test
@@ -33,14 +38,14 @@ class RtsJeiTransferRoutingContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/compat/jei/RtsCraftTerminalJeiTransferHandler.java"));
 
-        assertTrue(source.contains("CRAFT_GRID_SLOT_START = 1"),
+        assertTrue(source.contains("JEI_FIRST_INPUT_SLOT = 1"),
                 "原版工作台合成输入槽应从菜单 slot 1 开始。");
-        assertTrue(source.contains("CRAFT_GRID_SLOT_COUNT = 9"),
+        assertTrue(source.contains("GRID_SIZE = 9"),
                 "原版工作台应暴露 3x3 共 9 个输入槽给 JEI 原生转入。");
-        assertTrue(source.contains("INVENTORY_SLOT_START = 10"),
-                "玩家背包槽在 CraftingMenu 中应从 slot 10 开始。");
-        assertTrue(source.contains("INVENTORY_SLOT_COUNT = 36"),
-                "玩家背包和快捷栏共 36 个槽，供 JEI 原生材料检查使用。");
+        assertTrue(source.contains("ingredients.get(JEI_FIRST_INPUT_SLOT + i)"),
+                "JEI 4 必须从 slot 1 起逐一读取九宫格原料原型。");
+        assertTrue(source.contains("WORKBENCH_TRANSFER_INFO"),
+                "普通工作台必须保留原版 1-9 输入槽与 10+ 背包槽布局供 overlay 转移复用。");
     }
 
     private static String methodBody(String source, String signatureStart) {

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.service;
 
+import com.rtsbuilding.rtsbuilding.client.compat.RtsClientOnlyBlockGuiCompat;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.record.RecentEntry;
@@ -305,8 +306,10 @@ public final class BuildPlacementService {
 
     public void interactEmpty(RayTraceResult hit, Vec3d rayOrigin, Vec3d rayDir,
                               Runnable beginRemoteMenuOpenGrace) {
+        if (hit == null) return;
         beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendEmptyHandPlace(hit, rayOrigin, rayDir);
+        RtsClientPacketGateway.sendInteractBlockEmptyHand(hit, rayOrigin, rayDir);
+        RtsClientOnlyBlockGuiCompat.tryOpenAfterAuthoritativeSend(hit);
     }
 
     public void interactEntityEmpty(int entityId, Vec3d hitLocation, Vec3d rayOrigin, Vec3d rayDir,

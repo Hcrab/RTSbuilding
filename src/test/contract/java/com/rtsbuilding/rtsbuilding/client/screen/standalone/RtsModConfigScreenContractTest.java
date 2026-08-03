@@ -31,11 +31,12 @@ class RtsModConfigScreenContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java"));
 
         assertTrue(source.contains("config.rtsbuilding.section.area_mining"));
-        assertTrue(source.contains("config.rtsbuilding.area_mine_max_width"));
-        assertTrue(source.contains("config.rtsbuilding.area_mine_max_height"));
-        assertTrue(source.contains("config.rtsbuilding.area_mine_max_depth"));
-        assertTrue(source.contains("config.rtsbuilding.area_mine_max_volume"));
-        assertTrue(source.contains("config.rtsbuilding.area_destroy_max_targets"));
+        assertTrue(source.contains("\"area_mine_max_width\""));
+        assertTrue(source.contains("\"area_mine_max_height\""));
+        assertTrue(source.contains("\"area_mine_max_depth\""));
+        assertTrue(source.contains("\"area_mine_max_volume\""));
+        assertTrue(source.contains("\"area_destroy_max_targets\""));
+        assertTrue(source.contains("\"config.rtsbuilding.\" + key"));
         assertTrue(source.contains("Config.saveAreaMineLimitSettings"));
     }
 
@@ -45,10 +46,10 @@ class RtsModConfigScreenContractTest {
         String generalSave = slice(config, "public static void saveGeneralSettings", "public static void saveAreaMineLimitSettings");
         String areaSave = slice(config, "public static void saveAreaMineLimitSettings", "public static boolean isPlacementBlockGhostPreviewEnabled");
 
-        assertFalse(generalSave.contains("CLIENT_SPEC.save()"));
+        assertFalse(generalSave.contains("clientConfiguration"));
         assertFalse(generalSave.contains("USE_BLOCK_GHOST_PREVIEW"));
         assertFalse(generalSave.contains("USE_WIREFRAME_PREVIEW"));
-        assertTrue(areaSave.contains("SERVER_SPEC.save()"));
+        assertTrue(areaSave.contains("saveIfChanged(serverConfiguration)"));
         assertTrue(areaSave.contains("AREA_MINE_MAX_WIDTH.set"));
         assertTrue(areaSave.contains("AREA_DESTROY_MAX_TARGETS.set"));
     }

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import net.minecraft.client.gui.GuiScreen;
@@ -23,16 +24,26 @@ public final class OverlayInputHandler {
     }
 
     public static void setOverlaySearchFocused(boolean focused) {
+        boolean changed = overlaySearchFocused != focused;
         overlaySearchFocused = focused;
         if (focused) {
             overlayCraftSearchFocused = false;
         }
+        if (changed) {
+            RtsbuildingMod.LOGGER.info(
+                    "[RTS-OVERLAY] side=C event=SEARCH_FOCUS target=STORAGE focused={}", focused);
+        }
     }
 
     public static void setOverlayCraftSearchFocused(boolean focused) {
+        boolean changed = overlayCraftSearchFocused != focused;
         overlayCraftSearchFocused = focused;
         if (focused) {
             overlaySearchFocused = false;
+        }
+        if (changed) {
+            RtsbuildingMod.LOGGER.info(
+                    "[RTS-OVERLAY] side=C event=SEARCH_FOCUS target=CRAFT focused={}", focused);
         }
     }
 

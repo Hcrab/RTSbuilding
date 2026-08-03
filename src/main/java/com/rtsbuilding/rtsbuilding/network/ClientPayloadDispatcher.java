@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHarvestTierSkippedPaylo
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsRemoteMenuResultPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
@@ -128,6 +129,16 @@ public final class ClientPayloadDispatcher {
         @Override public IMessage onMessage(final S2CRtsRemoteMenuHintPayload message, MessageContext context) {
             schedule(context, new Runnable() {@Override public void run() {
                 invokeController("applyRemoteMenuHint", S2CRtsRemoteMenuHintPayload.class, message);
+            }});
+            return null;
+        }
+    }
+
+    public static final class RemoteMenuResultHandler
+            implements IMessageHandler<S2CRtsRemoteMenuResultPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsRemoteMenuResultPayload message, MessageContext context) {
+            schedule(context, new Runnable() {@Override public void run() {
+                invokeController("applyRemoteMenuResult", S2CRtsRemoteMenuResultPayload.class, message);
             }});
             return null;
         }

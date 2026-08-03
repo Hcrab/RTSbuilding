@@ -1,0 +1,13 @@
+{
+  "required": false,
+  "minVersion": "0.8",
+  "package": "com.rtsbuilding.rtsbuilding.mixin",
+  "refmap": "mixins.rtsbuilding.refmap.json",
+  "compatibilityLevel": "JAVA_8",
+  "client": [
+    "RecipeRegistryOverlayTransferMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 0
+  }
+}

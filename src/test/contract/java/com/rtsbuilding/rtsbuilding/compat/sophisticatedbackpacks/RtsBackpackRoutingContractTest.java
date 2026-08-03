@@ -23,8 +23,9 @@ class RtsBackpackRoutingContractTest {
         String remoteMenuMixin = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/mixin/ModdedRemoteStillValidMixin.java"));
 
-        assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
-                        && compat.contains("findCarriedBackpack(player, uuid)"),
+        assertTrue(compat.contains("findBackpackHandlerByUuid(EntityPlayerMP player, UUID uuid)")
+                        && compat.contains("player.inventory.getStackInSlot(slot)")
+                        && compat.contains("REFLECTION.findBaubleBackpack(player, uuid)"),
                 "UUID resolution must cover Sophisticated Backpacks' carried and accessory slots.");
         assertTrue(itemActions.contains("forcePlace || forceBackpackPlacement")
                         && itemActions.contains(
@@ -32,7 +33,7 @@ class RtsBackpackRoutingContractTest {
                 "Right-clicking a backpack must bypass interaction and enter placement.");
         assertTrue(placement.contains("forcePlace || sophisticatedBackpackPlacementOnly")
                         && placement.contains(
-                        "!sophisticatedBackpackPlacementOnly && !selectedOutcome.result().consumesAction()"),
+                        "!sophisticatedBackpackPlacementOnly && !consumesAction(selectedOutcome.result())"),
                 "Failed backpack placement must not fall back to opening the backpack.");
         assertTrue(lifecycle.contains("markDetached(ref)"),
                 "Moving a backpack off the ground must preserve its UUID binding.");

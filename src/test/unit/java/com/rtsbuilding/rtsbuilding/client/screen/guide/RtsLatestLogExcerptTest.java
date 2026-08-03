@@ -93,4 +93,17 @@ class RtsLatestLogExcerptTest {
 
         assertFalse(result.available());
     }
+
+    @Test
+    void traceLinesWithoutLoggerModIdStillReachCopiedAiContext() throws IOException {
+        Path log = tempDir.resolve("latest.log");
+        Files.writeString(log,
+                "[Server thread/INFO] [RTS-TRACE] side=S event=MENU_MARKED trace=1234567890abcdef",
+                StandardCharsets.UTF_8);
+
+        RtsLatestLogExcerpt.Result result = RtsLatestLogExcerpt.read(log);
+
+        assertTrue(result.available());
+        assertTrue(result.rtsLines().contains("trace=1234567890abcdef"));
+    }
 }

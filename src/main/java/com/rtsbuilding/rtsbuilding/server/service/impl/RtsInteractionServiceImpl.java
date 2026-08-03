@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsRemoteMenuResultPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
@@ -8,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.SoundService;
 import com.rtsbuilding.rtsbuilding.server.service.api.InteractionService;
@@ -53,17 +57,22 @@ public final class RtsInteractionServiceImpl implements InteractionService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
-    public void interactTarget(EntityPlayerMP player, int entityId, BlockPos clickedPos, EnumFacing face,
+    public RtsRemoteInteractionResult interactTarget(EntityPlayerMP player, int entityId, BlockPos clickedPos, EnumFacing face,
                                double hitX, double hitY, double hitZ,
                                byte sourceType, byte toolSlot, String itemId,
                                double rayOriginX, double rayOriginY, double rayOriginZ,
-                               double rayDirX, double rayDirY, double rayDirZ) {
+                               double rayDirX, double rayDirY, double rayDirZ,
+                               long traceId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.INTERACT)) {
-            return;
+            return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_PROGRESSION_LOCKED,
+                    "PROGRESSION_LOCKED");
         }
         RtsStorageSession session = registry.session().getIfPresent(player);
         if (session == null || !RtsCameraManager.isActive(player)) {
-            return;
+            return rejected(traceId, session == null
+                    ? S2CRtsRemoteMenuResultPayload.REASON_NO_SESSION
+                    : S2CRtsRemoteMenuResultPayload.REASON_RTS_INACTIVE,
+                    session == null ? "NO_SESSION" : "RTS_INACTIVE");
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         RayContext rayContext = TemporaryContextSwitcher.parseRayContext(
@@ -78,19 +87,32 @@ public final class RtsInteractionServiceImpl implements InteractionService {
         BlockPos adjacentPos = null;
         IBlockState beforeAdjacent = null;
         boolean useItemInAir = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR;
+        boolean preparedRemoteChunk = false;
 
         if (entityId >= 0) {
             targetEntity = level.getEntityByID(entityId);
             if (targetEntity == null || !targetEntity.isEntityAlive()) {
-                return;
+                return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_TARGET_MISSING,
+                        "TARGET_MISSING");
             }
             effectiveBlockPos = targetEntity.getPosition();
             if (!level.isBlockLoaded(effectiveBlockPos) || !level.isBlockModifiable(player, effectiveBlockPos)) {
-                return;
+                return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_TARGET_UNAVAILABLE,
+                        "TARGET_UNAVAILABLE");
             }
         } else {
-            if (clickedPos == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, clickedPos)) {
-                return;
+            if (clickedPos == null || !RtsCameraManager.isWithinActionRange(player, clickedPos)
+                    || clickedPos.getY() < 0 || clickedPos.getY() >= level.getHeight()) {
+                return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_OUT_OF_RANGE,
+                        "OUT_OF_RANGE");
+            }
+            preparedRemoteChunk = RtsRemoteMenuService.prepareTargetChunk(player, clickedPos, traceId);
+            if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, clickedPos)) {
+                if (preparedRemoteChunk) {
+                    RtsRemoteMenuService.releasePreparedTarget(player, traceId, "TARGET_UNAVAILABLE");
+                }
+                return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_TARGET_UNAVAILABLE,
+                        "TARGET_UNAVAILABLE");
             }
             effectiveBlockPos = clickedPos.toImmutable();
             if (!useItemInAir) {
@@ -113,42 +135,78 @@ public final class RtsInteractionServiceImpl implements InteractionService {
         ItemStack protectionStack = oneItemCopy(soundStack);
         if (targetEntity != null && !RtsClaimProtectionService.canInteractEntity(
                 player, targetEntity, EnumHand.MAIN_HAND, protectionStack, false)) {
-            return;
+            return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_CLAIM_DENIED,
+                    "CLAIM_DENIED_ENTITY");
         }
         if (blockHit != null) {
             EnumFacing hitFace = blockHit.sideHit;
             if (!RtsClaimProtectionService.canInteractBlock(
                     player, effectiveBlockPos, hitFace, EnumHand.MAIN_HAND, protectionStack)) {
-                return;
+                if (preparedRemoteChunk) {
+                    RtsRemoteMenuService.releasePreparedTarget(player, traceId, "CLAIM_DENIED");
+                }
+                return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_CLAIM_DENIED,
+                        "CLAIM_DENIED_BLOCK");
             }
             if (!protectionStack.isEmpty() && protectionStack.getItem() instanceof ItemBlock
                     && !RtsClaimProtectionService.canPlaceBlock(
                             player, interactionPlacementTarget(level, effectiveBlockPos, hitFace))) {
-                return;
+                if (preparedRemoteChunk) {
+                    RtsRemoteMenuService.releasePreparedTarget(player, traceId, "CLAIM_DENIED");
+                }
+                return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_CLAIM_DENIED,
+                        "CLAIM_DENIED_PLACE");
             }
         }
 
         EnumActionResult result = EnumActionResult.PASS;
         Vec3d hit = new Vec3d(hitX, hitY, hitZ);
         if (blockHit != null) {
-            RtsRemoteMenuService.sendRemoteMenuOpenHint(player, effectiveBlockPos);
+            RtsRemoteMenuService.sendRemoteMenuOpenHint(player, effectiveBlockPos, traceId);
         }
         Container menuBeforeInteract = player.openContainer;
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-TRACE] side=S event=INTERACTION_BEGIN trace={} kind=REMOTE_GUI target={} source={} menuBefore={} windowBefore={}",
+                RtsTraceIds.format(traceId), effectiveBlockPos, sourceName(sourceType),
+                menuName(menuBeforeInteract), windowId(menuBeforeInteract));
 
-        if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
-            result = RtsToolSlotInteractor.interactWithToolSlot(player, level, targetEntity, blockHit, hit, toolSlot, rayContext);
-        } else if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR) {
-            result = RtsToolSlotInteractor.useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
-        } else if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM) {
-            result = RtsLinkedItemInteractor.interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
-        } else if (sourceType == C2SRtsInteractPayload.SOURCE_EMPTY_HAND) {
-            result = RtsEmptyHandInteractor.interactWithEmptyHand(player, level, targetEntity, blockHit, hit, rayContext);
+        try {
+            if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT) {
+                result = RtsToolSlotInteractor.interactWithToolSlot(player, level, targetEntity, blockHit, hit, toolSlot, rayContext);
+            } else if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR) {
+                result = RtsToolSlotInteractor.useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
+            } else if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM) {
+                result = RtsLinkedItemInteractor.interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
+            } else if (sourceType == C2SRtsInteractPayload.SOURCE_EMPTY_HAND) {
+                result = RtsEmptyHandInteractor.interactWithEmptyHand(player, level, targetEntity, blockHit, hit, rayContext);
+            }
+        } catch (RuntimeException | LinkageError failure) {
+            if (preparedRemoteChunk) {
+                RtsRemoteMenuService.releasePreparedTarget(player, traceId, "EXCEPTION");
+            }
+            RtsbuildingMod.LOGGER.error(
+                    "[RTS-TRACE] side=S event=INTERACTION_FAILED trace={} kind=REMOTE_GUI target={} failure={}",
+                    RtsTraceIds.format(traceId), effectiveBlockPos, failure.getClass().getName(), failure);
+            throw failure;
         }
 
         Container menuAfterInteract = player.openContainer;
+        RtsRemoteInteractionResult interactionResult;
         if (menuAfterInteract != menuBeforeInteract) {
-            RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterInteract, effectiveBlockPos);
+            RtsRemoteMenuService.markRemoteMenuOpen(
+                    player, session, menuAfterInteract, effectiveBlockPos, traceId);
+            preparedRemoteChunk = false;
+            interactionResult = RtsRemoteInteractionResult.menuOpened(menuAfterInteract.windowId);
+        } else {
+            interactionResult = RtsRemoteInteractionResult.noMenu(
+                    consumesAction(result)
+                            ? S2CRtsRemoteMenuResultPayload.REASON_ACTION_CONSUMED
+                            : S2CRtsRemoteMenuResultPayload.REASON_NO_EFFECT);
         }
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-TRACE] side=S event=INTERACTION_RETURN trace={} kind=REMOTE_GUI result={} menuAfter={} windowAfter={} changed={}",
+                RtsTraceIds.format(traceId), result, menuName(menuAfterInteract),
+                windowId(menuAfterInteract), menuAfterInteract != menuBeforeInteract);
 
         boolean playedSpecificSound = false;
         if (consumesAction(result) && blockHit != null && beforeClicked != null) {
@@ -181,6 +239,35 @@ public final class RtsInteractionServiceImpl implements InteractionService {
         }
 
         registry.page().requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
+        if (preparedRemoteChunk) {
+            RtsRemoteMenuService.releasePreparedTarget(player, traceId, "NO_MENU");
+        }
+        return interactionResult;
+    }
+
+    private static RtsRemoteInteractionResult rejected(long traceId, short reason, String stage) {
+        RtsbuildingMod.LOGGER.warn(
+                "[RTS-TRACE] side=S event=INTERACTION_REJECTED trace={} kind=REMOTE_GUI reason={} stage={}",
+                RtsTraceIds.format(traceId), S2CRtsRemoteMenuResultPayload.reasonName(reason), stage);
+        return RtsRemoteInteractionResult.rejected(reason);
+    }
+
+    private static String sourceName(byte sourceType) {
+        switch (sourceType) {
+            case C2SRtsInteractPayload.SOURCE_TOOL_SLOT: return "TOOL_SLOT";
+            case C2SRtsInteractPayload.SOURCE_PIN_ITEM: return "PINNED_ITEM";
+            case C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR: return "TOOL_SLOT_AIR";
+            case C2SRtsInteractPayload.SOURCE_EMPTY_HAND: return "EMPTY_HAND";
+            default: return "UNKNOWN";
+        }
+    }
+
+    private static String menuName(Container menu) {
+        return menu == null ? "null" : menu.getClass().getName();
+    }
+
+    private static int windowId(Container menu) {
+        return menu == null ? -1 : menu.windowId;
     }
 
     private static BlockPos interactionPlacementTarget(WorldServer level, BlockPos clickedPos, EnumFacing face) {

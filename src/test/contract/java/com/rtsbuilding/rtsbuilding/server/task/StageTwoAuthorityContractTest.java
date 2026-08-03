@@ -47,6 +47,20 @@ class StageTwoAuthorityContractTest {
     }
 
     @Test
+    void placementAndDestructionRejectMissingRatherThanExistingWorkflows() throws IOException {
+        String engine = source("server/task/RtsDurableTaskExecutionRuntime.java");
+        String placement = between(engine, "executeDurablePlacement(", "executeDurableDestruction(")
+                .replaceAll("\\s+", "");
+        String destruction = between(engine, "executeDurableDestruction(", "executeDurableMining(")
+                .replaceAll("\\s+", "");
+
+        String missingWorkflow = "!com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine"
+                + ".getInstance().from(player,payload.workflowEntryId()).isPresent()";
+        assertTrue(placement.contains(missingWorkflow));
+        assertTrue(destruction.contains(missingWorkflow));
+    }
+
+    @Test
     void earlyChunkLoadsDoNotOpenTaskStoreBeforeServerStarting() throws IOException {
         String engine = source("server/task/RtsTaskEngine.java");
         String body = between(engine, "public void resumeLoadedChunk(", "private static void resumeWaitKey(");
@@ -75,6 +89,17 @@ class StageTwoAuthorityContractTest {
         assertFalse(execute.contains("session.destruction.destroyJobs.peekLast"));
         assertFalse(execute.contains("session.mining.ultimineTotalTargets"));
         assertTrue(execute.contains("workflowTaskTotalUnits"));
+    }
+
+    @Test
+    void destructionQueueCapacityFailureIsVisibleToThePlayer() throws IOException {
+        String engine = source("server/task/RtsTaskEngine.java");
+        String destruction = between(engine, "public boolean submitDestructionJob(",
+                "public boolean submitMiningTargets(");
+
+        assertTrue(destruction.contains("message.rtsbuilding.range_destroy.queue_full"));
+        assertTrue(destruction.contains("player.sendStatusMessage"));
+        assertTrue(destruction.contains("RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS"));
     }
 
     private static String source(String relative) throws IOException {

@@ -145,7 +145,8 @@ final class RtsClientPointerRouter {
                 }
                 if (inside(mx, my, layout.clearX(), layout.headerY(), OVERLAY_SEARCH_CLEAR_W, OVERLAY_HEADER_H)) {
                     overlaySearchDraft = "";
-                    clearOverlaySearchFocus();
+                    // 清空后继续允许直接输入，避免窄搜索框右侧的清除区变成隐蔽的失焦陷阱。
+                    setOverlaySearchFocused(true);
                     ClientRtsController.get().setStorageSearch("");
                     captureLeftRelease = true;
                     event.setCanceled(true);
@@ -209,7 +210,8 @@ final class RtsClientPointerRouter {
             }
             if (inside(mx, my, layout.clearX(), layout.headerY(), OVERLAY_SEARCH_CLEAR_W, OVERLAY_HEADER_H)) {
                 overlaySearchDraft = "";
-                clearOverlaySearchFocus();
+                // 清空后继续允许直接输入，行为与常规搜索框一致。
+                setOverlaySearchFocused(true);
                 ClientRtsController.get().setStorageSearch("");
                 captureLeftRelease = true;
                 event.setCanceled(true);

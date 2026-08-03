@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.craft.handler;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRecipePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRefillPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiContainerTransferPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsRequestCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
@@ -97,6 +98,24 @@ public final class RtsCraftNetworkHandlers {
                     ServiceRegistry.getInstance().crafting().applyJeiTransfer(player,
                             message.recipeId(), message.ingredientPrototypes(),
                             message.maxTransfer(), message.clearGridFirst());
+                }
+            });
+            return null;
+        }
+    }
+
+    /** 普通机器 GUI 的 JEI/HEI 转移仍在服务端当前容器与链接存储上重新验证。 */
+    public static final class JeiContainerTransfer
+            implements IMessageHandler<C2SRtsJeiContainerTransferPayload, IMessage> {
+        @Override public IMessage onMessage(final C2SRtsJeiContainerTransferPayload message,
+                                            MessageContext context) {
+            if (!message.isValid()) return null;
+            scheduleServer(context, new ServerAction() {
+                @Override public void run(EntityPlayerMP player) {
+                    ServiceRegistry.getInstance().crafting().applyJeiContainerTransfer(
+                            player, message.windowId(), message.targetSlots(),
+                            message.alternatives(), message.maxTransfer(),
+                            message.requireCompleteSets());
                 }
             });
             return null;

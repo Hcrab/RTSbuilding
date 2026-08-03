@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -120,7 +122,7 @@ public final class ChunkGuideRenderer {
     }
 
     private static void uploadOrReset(BufferBuilder buffer) {
-        if (buffer.getVertexCount() > 0) UPLOADER.draw(buffer); else discard(buffer);
+        if (buffer.getVertexCount() > 0) RtsOwnedBufferUploader.draw(buffer); else discard(buffer);
     }
 
     private static void discardOwnedBuffers() {
@@ -166,7 +168,7 @@ public final class ChunkGuideRenderer {
             GlStateManager.resetColor();
         }
         private static void set(int cap, boolean enabled) {
-            if (enabled) GL11.glEnable(cap); else GL11.glDisable(cap);
+            RtsGlStateRestorer.restoreCapability(cap, enabled);
         }
     }
 }

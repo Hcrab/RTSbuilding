@@ -14,11 +14,13 @@ class DestructionDetachedBoundaryContractTest {
     @Test
     void payloadContainsOnlyStableIdentityDimensionAndPureState() throws IOException {
         String payload = read("server/task/DestructionTaskPayload.java");
-        String declaration = payload.substring(payload.indexOf("public record DestructionTaskPayload"));
-        assertTrue(declaration.contains("UUID ownerId"));
-        assertTrue(declaration.contains("ResourceKey<Level> dimension"));
-        assertTrue(declaration.contains("DestructionTaskState state"));
-        assertFalse(declaration.contains("ServerPlayer"));
+        int declarationStart = payload.indexOf("public final class DestructionTaskPayload");
+        assertTrue(declarationStart >= 0);
+        String declaration = payload.substring(declarationStart);
+        assertTrue(declaration.contains("private final UUID ownerId"));
+        assertTrue(declaration.contains("private final int dimension"));
+        assertTrue(declaration.contains("private final DestructionTaskState state"));
+        assertFalse(declaration.contains("EntityPlayerMP"));
         assertFalse(declaration.contains("RtsStorageSession"));
         assertFalse(declaration.contains("DestructionJob job"));
     }

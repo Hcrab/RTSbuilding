@@ -16,12 +16,13 @@ class RtsCreativeItemCatalogContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsCreativeItemCatalog.java")),
                 StandardCharsets.UTF_8);
         int loop = source.indexOf("for (CreativeTabs tab : CreativeTabs.CREATIVE_TAB_ARRAY)");
-        int collect = source.indexOf("tab.displayAllRelevantItems(stacks)", loop);
-        int metadata = source.indexOf("preview.getMetadata()", loop);
-        int nbt = source.indexOf("preview.getTagCompound()", loop);
+        int collect = source.indexOf("safeDisplayItems(tab)", loop);
+        int metadata = source.indexOf("preview.getMetadata()", collect);
+        int nbt = source.indexOf("preview.getTagCompound()", metadata);
 
         assertTrue(loop >= 0 && collect > loop,
                 "1.12 必须通过 CreativeTabs 正式入口收集每个标签的物品");
+        assertTrue(source.contains("tab.displayAllRelevantItems(stacks)"));
         assertTrue(metadata > collect && nbt > metadata,
                 "创造目录去重必须保留同注册名物品的 metadata 与 NBT 子类型");
     }

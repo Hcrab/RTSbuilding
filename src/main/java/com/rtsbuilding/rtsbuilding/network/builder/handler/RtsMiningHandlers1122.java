@@ -96,11 +96,16 @@ public final class RtsMiningHandlers1122 {
             if (!message.isValid()) return null;
             schedule(context, new ServerAction() {
                 @Override public void run(EntityPlayerMP player) {
-                    if (!allPositionsInRange(player, message.positions())) return;
+                    List<BlockPos> positions = RtsPositionBatchAssembler1122.accept(
+                            player.getUniqueID(), "area_destroy", message.submissionId(),
+                            message.chunkIndex(), message.chunkCount(), message.totalPositions(),
+                            C2SRtsAreaDestroyPayload.MAX_POSITIONS, message.metadataSignature(),
+                            message.positions());
+                    if (positions == null || !allPositionsInRange(player, positions)) return;
                     invokeMining("areaDestroy", new Class<?>[]{
                                     EntityPlayerMP.class, List.class, byte.class, String.class,
                                     ItemStack.class, boolean.class},
-                            player, message.positions(), message.toolSlot(), message.toolItemId(),
+                            player, positions, message.toolSlot(), message.toolItemId(),
                             message.toolPrototype().copy(), message.toolProtectionEnabled());
                 }
             });

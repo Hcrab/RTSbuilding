@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiFormats;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
@@ -13,7 +14,6 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftTerminalStyle;
-import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.Gui;
@@ -323,13 +323,9 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
     }
 
     private void drawCountOverlay(LegacyGuiGraphics g, int x, int y, String count) {
-        if (count == null || count.isEmpty()) return;
-        g.fill(x + 1, y + LINK_SLOT_SIZE - 7, x + LINK_SLOT_SIZE - 1, y + LINK_SLOT_SIZE - 1,
-                RtsMainlineTheme.SLOT_COUNT_BACKGROUND.toArgb());
-        float scale = .65F; g.pushPose(); g.scale(scale, scale, 1F);
-        int sx = Math.round((x + LINK_SLOT_SIZE - 2) / scale), sy = Math.round((y + LINK_SLOT_SIZE - 7) / scale);
-        g.drawString(fontRenderer, count, sx - fontRenderer.getStringWidth(count), sy, CraftTerminalStyle.COUNT_TEXT.toArgb(), false);
-        g.popPose();
+        RtsClientUiUtil.drawSlotCountOverlay(
+                g, fontRenderer, x, y, LINK_SLOT_SIZE, count,
+                CraftTerminalStyle.COUNT_TEXT.toArgb());
     }
     private void drawMiniButton(LegacyGuiGraphics g, int x, int y, String label) { drawSmallButton(g, x, y, MINI_BUTTON_W, MINI_BUTTON_H, label, CraftTerminalStyle.MINI_BUTTON_BACKGROUND); }
     private void drawSmallButton(LegacyGuiGraphics g, int x, int y, int w, int h, String label, UiColor fill) {

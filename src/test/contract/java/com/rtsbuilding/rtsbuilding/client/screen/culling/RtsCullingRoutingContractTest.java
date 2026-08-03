@@ -25,25 +25,25 @@ class RtsCullingRoutingContractTest {
         assertTrue(invalidator.contains("Class.forName("),
                 "optional Embeddium compatibility must not create a hard class link");
         assertTrue(invalidator.contains("scheduleRebuildForBlockArea"));
-        assertTrue(invalidator.contains("minecraft.levelRenderer.setBlocksDirty"),
+        assertTrue(invalidator.contains("minecraft.renderGlobal.markBlockRangeForRenderUpdate"),
                 "vanilla rendering must retain its own dirty-region path");
     }
 
     @Test
-    void sodium0613UsesLevelSliceAndItsOwnAreaRebuildEntry() throws IOException {
-        String mixin = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/SodiumLevelSliceMixin.java"));
-        String config = Files.readString(Path.of("src/main/resources/rtsbuilding.mixins.json"));
-        String invalidator = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/culling/RtsCullingRenderInvalidator.java"));
+    void legacyDispatcherMixinsCullBlocksAndBlockEntities() throws IOException {
+        String blockMixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/BlockRenderDispatcherMixin.java"));
+        String blockEntityMixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/BlockEntityRenderDispatcherMixin.java"));
+        String config = Files.readString(Path.of("src/main/resources/mixins.rtsbuilding.json"));
 
-        assertTrue(mixin.contains("net.caffeinemc.mods.sodium.client.world.LevelSlice"));
-        assertTrue(mixin.contains("getBlockState(III)"));
-        assertTrue(mixin.contains("getFluidState("));
-        assertTrue(mixin.contains("getBlockEntity(III)"));
-        assertTrue(config.contains("SodiumLevelSliceMixin"));
-        assertTrue(invalidator.contains("net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer"));
-        assertTrue(invalidator.contains("scheduleRebuildForBlockArea"));
+        assertTrue(blockMixin.contains("@Mixin(BlockRendererDispatcher.class)"));
+        assertTrue(blockMixin.contains("@Inject(method = \"renderBlock\""));
+        assertTrue(blockMixin.contains("RtsCullingClientState.shouldCull(pos)"));
+        assertTrue(blockEntityMixin.contains("@Mixin(TileEntityRendererDispatcher.class)"));
+        assertTrue(blockEntityMixin.contains("RtsCullingClientState.shouldCull(tileEntity.getPos())"));
+        assertTrue(config.contains("BlockRenderDispatcherMixin"));
+        assertTrue(config.contains("BlockEntityRenderDispatcherMixin"));
     }
 
     @Test
@@ -61,7 +61,7 @@ class RtsCullingRoutingContractTest {
     void screenCursorPickerCullingAwareContractUsesNormalBlockHit() throws IOException {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/ScreenCursorPicker.java"));
-        String body = methodBody(source, "public BlockHitResult pickCullingAwareBlockHit");
+        String body = methodBody(source, "public RayTraceResult pickCullingAwareBlockHit");
 
         assertTrue(body.contains("return pickBlockHit(false);"));
         assertFalse(body.contains("pickBlockHitIgnoringRangeCulling"));
@@ -72,9 +72,9 @@ class RtsCullingRoutingContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/overlay/InteractionTargetRenderer.java"));
 
-        assertTrue(source.contains("raycastBlockFromCursorThroughCulling"),
+        assertTrue(source.contains("RtsCullingRayClipper.clip(origin, direction, MAX_REACH"),
                 "yellow interaction target must use the culling-aware raycast");
-        assertFalse(source.contains("BlockHitResult blockHit = RaycastHelper.raycastBlockFromCursor(minecraft, camPos, rayEnd, false);"));
+        assertTrue(source.contains("RtsCullingClientState.shouldCull(pos)"));
     }
 
     @Test
@@ -83,7 +83,7 @@ class RtsCullingRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java"));
         String body = methodBody(source, "public boolean mouseDragged");
 
-        assertTrue(body.contains("screen.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT"),
+        assertTrue(body.contains("screen.cullingManager.isManagementMode() && button == 0"),
                 "range-culling mode should only consume left-button box-selection drags");
     }
 
@@ -94,7 +94,7 @@ class RtsCullingRoutingContractTest {
         String body = methodBody(source, "public boolean mouseDragged");
 
         int handleDrag = body.indexOf("handleBoxHandleDrag(button, dragX, dragY)");
-        int cullingSwallow = body.indexOf("screen.cullingManager.isManagementMode() && button == GLFW.GLFW_MOUSE_BUTTON_LEFT");
+        int cullingSwallow = body.indexOf("screen.cullingManager.isManagementMode() && button == 0");
         assertTrue(handleDrag >= 0, "active blueprint/culling handles should receive drag input");
         assertTrue(cullingSwallow >= 0, "range-culling left drag guard should still exist");
         assertTrue(handleDrag < cullingSwallow,
@@ -113,7 +113,7 @@ class RtsCullingRoutingContractTest {
         assertTrue(constructor.contains("this.closable = true"));
         assertTrue(closeBody.contains("CullingUiAction.Type.CLOSE"),
                 "关闭按钮必须提交共享 Core 的 CLOSE 动作");
-        assertTrue(adapter.contains("case CLOSE -> manager.closeManagementMode()"),
+        assertTrue(adapter.contains("case CLOSE: manager.closeManagementMode(); break;"),
                 "生产适配器必须把共享 CLOSE 命令落到真实管理器");
     }
 
@@ -122,7 +122,7 @@ class RtsCullingRoutingContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/network/RtsClientPacketGateway.java"));
 
-        assertTrue(source.contains("RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection())"),
+        assertTrue(source.contains("RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.sideHit)"),
                 "client placement packets should reveal likely placement positions inside culling boxes");
     }
 
@@ -147,19 +147,20 @@ class RtsCullingRoutingContractTest {
 
     @Test
     void selectedCullingBoxAxisHandlesRenderWithoutDepthTesting() throws IOException {
-        String overlay = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/RtsVisualOverlayRenderer.java"));
         String renderer = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/culling/RtsCullingRenderer.java"));
+        String handleRenderer = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/selection/RtsBoxHandleRenderer.java"));
+        String drawOwnedBuffers = methodBody(handleRenderer, "private static void drawOwnedBuffers");
 
-        assertTrue(overlay.contains("CULLING_HANDLE_NO_DEPTH_FILL"),
-                "range-culling axis handle fill should have a dedicated no-depth render type");
-        assertTrue(overlay.contains("CULLING_HANDLE_NO_DEPTH_LINES"),
-                "range-culling axis handle lines should have a dedicated no-depth render type");
-        assertTrue(overlay.contains("drawNoDepth(CULLING_HANDLE_NO_DEPTH_FILL, cullingHandleFillBuffer)"));
-        assertTrue(overlay.contains("drawNoDepth(CULLING_HANDLE_NO_DEPTH_LINES, cullingHandleLineBuffer)"));
-        assertTrue(renderer.contains("handleLineBuffer"));
-        assertTrue(renderer.contains("handleFillBuffer"));
+        assertTrue(renderer.contains("private static final BufferBuilder FILL_BUFFER"));
+        assertTrue(renderer.contains("private static final BufferBuilder LINE_BUFFER"));
+        assertTrue(renderer.contains("RtsBoxHandleRenderer.renderAxisHandles"));
+        assertTrue(handleRenderer.contains("private static final BufferBuilder FILL_BUFFER"));
+        assertTrue(handleRenderer.contains("private static final BufferBuilder LINE_BUFFER"));
+        assertTrue(drawOwnedBuffers.contains("GlStateManager.disableDepth()"),
+                "range-culling axis handles should render without depth testing");
+        assertTrue(drawOwnedBuffers.contains("GlStateManager.depthMask(false)"));
     }
 
     @Test

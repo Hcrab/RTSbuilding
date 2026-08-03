@@ -17,6 +17,15 @@ class RtsUltimineStorageBatchingContractTest {
         String absorber = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsDropAbsorber.java"));
 
+        assertTrue(absorber.contains("RtsBoundedItemEntityQuery.query("),
+                "批量掉落扫描必须复用有界实体查询");
+        assertTrue(absorber.contains(
+                        "int queryLimit = RtsMiningDropBufferState.MAX_STACKS - unique.size()")
+                        && absorber.contains("if (queryLimit <= 0) break;"),
+                "每个扫描位置必须只使用全批次剩余预算");
+        assertFalse(absorber.contains("player.getServerWorld().getEntitiesWithinAABB("),
+                "掉落吸收器不得绕过有界 helper 直接构造无界实体列表");
+
         assertTrue(processor.contains("dropsToAbsorb")
                         && processor.contains("absorbMinedDropsBatch(player, session, dropsToAbsorb)"),
                 "连锁挖掘每 tick 应先收集本 tick 破坏目标，再批量吸收掉落物。");
@@ -34,7 +43,7 @@ class RtsUltimineStorageBatchingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsDropAbsorber.java"));
         String drainBody = methodBody(dropAbsorber, "public static int drainDropBuffer");
 
-        assertTrue(dropAbsorber.contains("RtsStorageTickService.INSTANCE.alert(player.getUniqueId())"),
+        assertTrue(dropAbsorber.contains("RtsStorageTickService.INSTANCE.alert(player.getUniqueID())"),
                 "缓存写入储存后只应唤醒下一次储存 tick。");
         assertFalse(drainBody.contains("forceRefresh("),
                 "缓存写回热路径不得同步刷新全部 linked storage。");

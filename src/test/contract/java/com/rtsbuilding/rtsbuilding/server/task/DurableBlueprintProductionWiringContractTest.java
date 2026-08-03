@@ -37,14 +37,14 @@ class DurableBlueprintProductionWiringContractTest {
         String engine = read("server/task/RtsTaskEngine.java");
         String mod = read("RtsbuildingMod.java");
         String scheduler = read("server/task/TaskScheduler.java");
-        String stopping = between(mod, "static void onServerStopping(", "static void onServerStopped(");
-        String stopped = mod.substring(mod.indexOf("static void onServerStopped("));
+        String stopping = between(mod, "void onServerStopping(", "void onServerStopped(");
+        String stopped = mod.substring(mod.indexOf("void onServerStopped("));
 
-        assertTrue(bridge.contains("TaskId.fromSubmission(player.getUniqueId(), submissionId)"));
+        assertTrue(bridge.contains("TaskId.fromSubmission(player.getUniqueID(), submissionId)"));
         assertTrue(engine.contains("new TaskRecord(taskId.value()"));
         assertTrue(bridge.contains("persistence.coordinator().replace(next)"));
         assertTrue(bridge.contains("requestTombstone(entry.getKey(), gameTime)"));
-        assertTrue(stopping.contains("checkpointAllDurableExecutions(event.getServer())"));
+        assertTrue(stopping.contains("checkpointAllDurableExecutions(server)"));
         assertFalse(stopping.contains("TaskPersistenceRuntime.INSTANCE.stop()"),
                 "PlayerLoggedOutEvent 发生前不能关闭 durable writer");
         assertTrue(stopped.indexOf("TaskPersistenceRuntime.INSTANCE.isStarted()")
@@ -72,13 +72,12 @@ class DurableBlueprintProductionWiringContractTest {
         String bridge = read("server/task/DurableBlueprintTaskBridge.java");
 
         assertTrue(persistence.contains("SubmissionId.fromLegacy("));
-        assertTrue(persistence.contains("sourceDimension.location() + \":\" + entry.id()"));
+        assertTrue(persistence.contains("sourceDimension + \":\" + entry.id()"));
         assertTrue(persistence.contains("queueLegacyDurableBlueprint(ctx)"));
         assertFalse(persistence.contains("INSTANCE.submitBlueprint(\n                ctx"));
         assertTrue(persistence.contains("if (!preparing) ctx.setRemainingQueue(remaining)"));
-        assertTrue(bridge.contains("root ACK 可能先于 legacy heavy→thin 投影"));
         assertTrue(bridge.contains("ProjectionClaimDecision.DEFER_UNCLAIMED_HEAVY) return false"));
-        assertTrue(bridge.contains("projection.setUniqueId(WORKFLOW_TASK_ID, taskId.value())"));
+        assertTrue(bridge.contains("NbtCompat.setUuid(projection, WORKFLOW_TASK_ID, taskId.value())"));
     }
 
     @Test

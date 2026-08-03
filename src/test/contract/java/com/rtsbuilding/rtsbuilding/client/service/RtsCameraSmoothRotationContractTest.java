@@ -43,16 +43,36 @@ class RtsCameraSmoothRotationContractTest {
         String controllerSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java"));
 
-        assertTrue(renderSyncSource.contains("RenderFrameEvent.Pre"),
-                "视觉镜头必须在 GameRenderer 开始本帧之前更新。");
-        assertFalse(renderSyncSource.contains("RenderLevelStageEvent"),
-                "世界渲染阶段事件已经太晚，不能用来驱动本帧镜头。");
+        assertTrue(renderSyncSource.contains("TickEvent.RenderTickEvent"),
+                "1.12.2 视觉镜头必须挂接 Forge 的渲染 tick 入口。");
+        assertTrue(renderSyncSource.contains("event.phase != TickEvent.Phase.START"),
+                "视觉镜头必须在 1.12.2 GameRenderer 使用视角前、START 阶段更新。");
+        assertFalse(renderSyncSource.contains("TickEvent.Phase.END"),
+                "END 阶段已经太晚，不能用来驱动本帧镜头。");
         assertFalse(controllerSource.contains(
                         "this.cameraOrbitService.syncVisualCameraFrame(minecraft, this.anchorX, this.anchorY, this.anchorZ, this.maxRadius, this.enabled);"
                                 + System.lineSeparator() + "    }"
                                 + System.lineSeparator()
                                 + System.lineSeparator() + "    private boolean handleDeathScreenHandoff"),
                 "客户端 tick 不能再重置按帧平滑的时间基，否则会周期性卡顿。");
+    }
+
+    @Test
+    void mirrorCameraSnapsEveryInterpolationBaselineTogether() throws IOException {
+        String entitySource = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/common/entity/RtsCameraEntity.java"));
+
+        assertTrue(entitySource.contains("prevPosX = x")
+                        && entitySource.contains("prevPosY = y")
+                        && entitySource.contains("prevPosZ = z"),
+                "本帧视觉镜头必须同步 prevPos，避免位置插值在旧坐标和新坐标之间闪烁。");
+        assertTrue(entitySource.contains("lastTickPosX = x")
+                        && entitySource.contains("lastTickPosY = y")
+                        && entitySource.contains("lastTickPosZ = z"),
+                "1.12.2 还必须同步 lastTickPos，避免 GameRenderer 使用过期 tick 基线。");
+        assertTrue(entitySource.contains("prevRotationYaw = yaw")
+                        && entitySource.contains("prevRotationPitch = pitch"),
+                "镜头旋转的上一帧基线必须与当前姿态一起推进。");
     }
 
     @Test

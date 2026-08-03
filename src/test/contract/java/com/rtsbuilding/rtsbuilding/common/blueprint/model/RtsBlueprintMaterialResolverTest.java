@@ -31,14 +31,18 @@ class RtsBlueprintMaterialResolverTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/common/blueprint/material/BlueprintMaterialResolver.java"));
 
-        assertTrue(source.contains("Blocks.FARMLAND") && source.contains("Items.DIRT"),
+        assertTrue(source.contains("Blocks.FARMLAND")
+                        && source.contains("Item.getItemFromBlock(Blocks.DIRT)"),
                 "Farmland should still cost dirt after removing imported material overrides.");
-        assertTrue(source.contains("Blocks.DIRT_PATH") && source.contains("Items.DIRT"),
+        assertTrue(source.contains("Blocks.GRASS_PATH")
+                        && source.contains("Item.getItemFromBlock(Blocks.DIRT)"),
                 "Dirt path should still cost dirt after removing imported material overrides.");
-        assertTrue(source.contains("Blocks.TALL_GRASS") && source.contains("Items.SHORT_GRASS"),
-                "Tall grass should still cost short grass after removing imported material overrides.");
-        assertTrue(source.contains("Blocks.LARGE_FERN") && source.contains("Items.FERN"),
-                "Large fern should still cost fern after removing imported material overrides.");
+        assertTrue(source.contains("Blocks.TALLGRASS")
+                        && source.contains("Item.getItemFromBlock(block)"),
+                "1.12 tall grass should still resolve through its registered subtype item.");
+        assertTrue(source.contains("Blocks.DOUBLE_PLANT")
+                        && source.contains("Item.getItemFromBlock(block)"),
+                "1.12 double plants should still resolve through their registered subtype item.");
     }
 
     private static String methodBody(String source, String signatureStart) {

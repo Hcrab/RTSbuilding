@@ -149,7 +149,7 @@ class BatchHotPathContractTest {
         String absorber = readMain("server/service/mining/RtsDropAbsorber.java");
         String engine = readMain("server/task/RtsTaskEngine.java");
         String types = readMain("server/task/TaskType.java");
-        assertTrue(absorber.contains("private static boolean enqueueDrops"));
+        assertTrue(absorber.contains("private static boolean enqueueEntities"));
         assertTrue(engine.contains("drainDropBuffer(player, session, 16, deadline)"));
         assertFalse(runtime.contains("BufferEscrow"));
         assertFalse(types.contains("BUFFER_DRAIN"));
@@ -186,8 +186,11 @@ class BatchHotPathContractTest {
                         < projectionBody.lastIndexOf(
                                 "projectedDurableStates.put(snapshot.id(), snapshot.revision())"),
                 "重建失败时不能把状态误记为已投影");
-        assertTrue(projectionBody.contains("case COMPLETED -> token.complete()"));
-        assertTrue(projectionBody.contains("case FAILED, CANCELLED -> token.cancel()"));
+        assertTrue(projectionBody.contains("case COMPLETED:")
+                && projectionBody.contains("token.complete();"));
+        assertTrue(projectionBody.contains("case FAILED:")
+                && projectionBody.contains("case CANCELLED:")
+                && projectionBody.contains("token.cancel();"));
 
         String runtime = readMain("server/task/RtsDurableTaskExecutionRuntime.java");
         int placementExecutor = runtime.indexOf("executeDurablePlacement(");
@@ -217,8 +220,10 @@ class BatchHotPathContractTest {
 
     @Test
     void workflowUiCommandsMutateTaskEngineFirst() throws IOException {
-        String handlers = readMain("network/builder/handler/RtsInteractionHandlers.java");
-        assertTrue(handlers.contains("RtsTaskEngine.INSTANCE.setWorkflowPaused"));
+        String handlers = readMain("network/builder/handler/RtsBuilderSyncHandlers1122.java");
+        assertTrue(handlers.contains("staticField(TASK_ENGINE, \"INSTANCE\")")
+                        && handlers.contains("invoke(taskEngine, \"setWorkflowPaused\""),
+                "1.12 网络边界可以反射隔离服务类，但仍必须先调用真实 TaskEngine");
         String workflows = readMain("server/workflow/core/RtsWorkflowEngine.java");
         int delete = workflows.indexOf("public void deleteWorkflow(");
         int cancelAll = workflows.indexOf("public void cancelAll(", delete);
@@ -236,6 +241,30 @@ class BatchHotPathContractTest {
         String session = readMain("server/service/impl/RtsSessionServiceImpl.java");
         assertTrue(session.indexOf("RtsTaskEngine.INSTANCE.pauseAllWorkflowTasks(player)")
                 < session.indexOf("RtsWorkflowEngine.getInstance().pauseAllActive"));
+    }
+
+    @Test
+    void cancellingDestructionMergesAndClearsWriteBehindOverlay() throws IOException {
+        String engine = readMain("server/task/RtsTaskEngine.java");
+        int cancel = engine.indexOf("public boolean cancelWorkflowTask(");
+        int resume = engine.indexOf("public void resumeWaitingPlacementItems(", cancel);
+        String cancelBody = engine.substring(cancel, resume);
+        assertTrue(cancelBody.contains("durable.type() == TaskType.DESTRUCTION"));
+        assertTrue(cancelBody.contains("durableRuntime.transitionDestructionSnapshot(durable"),
+                "取消范围拆除必须先合并尚未 checkpoint 的执行镜像");
+
+        String runtime = readMain("server/task/RtsDurableTaskExecutionRuntime.java");
+        int transition = runtime.indexOf("transitionDestructionSnapshot(");
+        int currentState = runtime.indexOf("currentDestructionState(", transition);
+        String transitionBody = runtime.substring(transition, currentState);
+        assertTrue(transitionBody.contains("destructionProgressOverlays.remove(snapshot.id())"),
+                "合并取消快照时必须同步清除 write-behind overlay");
+        assertTrue(transitionBody.contains(
+                "state.cursorUnits(), state.succeededUnits(), state.failedUnits()"),
+                "取消快照必须保留 overlay 中的最新 cursor 与成功/失败计数");
+        assertTrue(transitionBody.indexOf("destructionProgressOverlays.remove(snapshot.id())")
+                        < transitionBody.indexOf("snapshot.nextRevision("),
+                "overlay 必须在生成终态 revision 前被取出并消费");
     }
 
     @Test

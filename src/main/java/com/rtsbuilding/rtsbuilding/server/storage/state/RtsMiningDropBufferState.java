@@ -22,6 +22,8 @@ public final class RtsMiningDropBufferState {
     public boolean fullNoticeSent;
     private boolean fallbackNoticeSent;
     private long fullSinceGameTime = -1L;
+    /** 远距离安全入库提示的节流时间；仅属于本次在线会话，不需要持久化。 */
+    private long lastRemoteSafetyNoticeGameTime = Long.MIN_VALUE;
     public int remainingCapacity() {
         return RtsMiningDropBufferPolicy.remainingCapacity(bufferedItems);
     }
@@ -103,6 +105,18 @@ public final class RtsMiningDropBufferState {
         if (fallbackNoticeSent) return false;
         fallbackNoticeSent = true;
         return true;
+    }
+
+    /** 范围挖掘可能每 tick 捕获很多方块，提示只按冷却周期发送一次。 */
+    public boolean shouldNotifyRemoteSafety(long gameTime, long cooldownTicks) {
+        long cooldown = Math.max(0L, cooldownTicks);
+        if (lastRemoteSafetyNoticeGameTime == Long.MIN_VALUE
+                || gameTime < lastRemoteSafetyNoticeGameTime
+                || gameTime - lastRemoteSafetyNoticeGameTime >= cooldown) {
+            lastRemoteSafetyNoticeGameTime = gameTime;
+            return true;
+        }
+        return false;
     }
 
     public void clearTimingWhenEmpty() {

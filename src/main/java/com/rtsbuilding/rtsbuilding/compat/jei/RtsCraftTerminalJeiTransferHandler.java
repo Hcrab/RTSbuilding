@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
 import mezz.jei.api.gui.IGuiIngredient;
@@ -9,12 +8,13 @@ import mezz.jei.api.recipe.VanillaRecipeCategoryUid;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandlerHelper;
+import mezz.jei.api.recipe.transfer.IRecipeTransferInfo;
 import mezz.jei.api.recipe.transfer.IRecipeTransferRegistry;
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
@@ -24,6 +24,7 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +40,8 @@ public final class RtsCraftTerminalJeiTransferHandler
         implements IRecipeTransferHandler<ContainerWorkbench> {
     private static final int GRID_SIZE = 9;
     private static final int JEI_FIRST_INPUT_SLOT = 1;
+    private static final IRecipeTransferInfo<ContainerWorkbench> WORKBENCH_TRANSFER_INFO =
+            new WorkbenchTransferInfo();
 
     private final IRecipeTransferHandlerHelper transferHelper;
     private final IRecipeTransferHandler<ContainerWorkbench> vanillaDelegate;
@@ -66,9 +69,15 @@ public final class RtsCraftTerminalJeiTransferHandler
             EntityPlayer player,
             boolean maxTransfer,
             boolean doTransfer) {
-        if (!isRtsCraftTerminalScreen(container)) {
-            return this.vanillaDelegate.transferRecipe(
-                    container, recipeLayout, player, maxTransfer, doTransfer);
+        if (!RtsJeiScreenContext.isRtsCraftTerminal(container)) {
+            return RtsOverlayAwareJeiTransferHandler.transferWithOverlay(
+                    this.vanillaDelegate,
+                    WORKBENCH_TRANSFER_INFO,
+                    container,
+                    recipeLayout,
+                    player,
+                    maxTransfer,
+                    doTransfer);
         }
 
         ResolvedRecipe resolved = resolveRecipe(recipeLayout, player);
@@ -81,13 +90,6 @@ public final class RtsCraftTerminalJeiTransferHandler
                     resolved.recipeId, resolved.prototypes, maxTransfer, true));
         }
         return null;
-    }
-
-    private static boolean isRtsCraftTerminalScreen(ContainerWorkbench container) {
-        Minecraft minecraft = Minecraft.getMinecraft();
-        return minecraft != null
-                && minecraft.currentScreen instanceof RtsCraftTerminalScreen
-                && ((RtsCraftTerminalScreen) minecraft.currentScreen).inventorySlots == container;
     }
 
     @Nullable
@@ -199,6 +201,47 @@ public final class RtsCraftTerminalJeiTransferHandler
         private ResolvedRecipe(String recipeId, List<ItemStack> prototypes) {
             this.recipeId = recipeId;
             this.prototypes = prototypes;
+        }
+    }
+
+    /** 与 JEI 4 原版工作台注册保持一致，只描述槽位，不拥有任何转移动作。 */
+    private static final class WorkbenchTransferInfo
+            implements IRecipeTransferInfo<ContainerWorkbench> {
+        @Override
+        public Class<ContainerWorkbench> getContainerClass() {
+            return ContainerWorkbench.class;
+        }
+
+        @Override
+        public String getRecipeCategoryUid() {
+            return VanillaRecipeCategoryUid.CRAFTING;
+        }
+
+        @Override
+        public boolean canHandle(ContainerWorkbench container) {
+            return container != null && container.inventorySlots.size() >= 10;
+        }
+
+        @Override
+        public List<Slot> getRecipeSlots(ContainerWorkbench container) {
+            return immutableSlotSlice(container, 1,
+                    Math.min(10, container.inventorySlots.size()));
+        }
+
+        @Override
+        public List<Slot> getInventorySlots(ContainerWorkbench container) {
+            return immutableSlotSlice(container,
+                    Math.min(10, container.inventorySlots.size()),
+                    container.inventorySlots.size());
+        }
+
+        private static List<Slot> immutableSlotSlice(
+                ContainerWorkbench container, int start, int end) {
+            if (container == null || start >= end) {
+                return Collections.emptyList();
+            }
+            return Collections.unmodifiableList(
+                    new ArrayList<Slot>(container.inventorySlots.subList(start, end)));
         }
     }
 }

@@ -308,11 +308,12 @@ public final class RtsPlacedRecoveryService {
         if (level == null || pos == null) return new NearbyDropSnapshot(Collections.<UUID>emptySet(), false);
         AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.5D);
         int safeLimit = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
-        List<EntityItem> nearby = level.getEntitiesWithinAABB(EntityItem.class, box,
+        RtsBoundedItemEntityQuery.Result query = RtsBoundedItemEntityQuery.query(level, box, safeLimit,
                 entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty());
-        if (nearby.size() > safeLimit) {
+        if (query.saturated()) {
             return new NearbyDropSnapshot(Collections.<UUID>emptySet(), true);
         }
+        List<EntityItem> nearby = query.entities();
         Set<UUID> ids = new HashSet<>(nearby.size());
         for (EntityItem entity : nearby) {
             ids.add(entity.getUniqueID());
@@ -326,20 +327,13 @@ public final class RtsPlacedRecoveryService {
         Set<UUID> safeExistingIds = existingIds == null ? Collections.<UUID>emptySet() : existingIds;
         AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.5D);
         int maxNewDrops = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
-        int queryLimit = safeExistingIds.size() + maxNewDrops + 1;
-        List<EntityItem> all = level.getEntitiesWithinAABB(EntityItem.class, box,
-                entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty());
-        List<EntityItem> fresh = new ArrayList<>();
-        for (EntityItem entity : all) {
-            if (!safeExistingIds.contains(entity.getUniqueID())) {
-                fresh.add(entity);
-                if (fresh.size() > maxNewDrops) {
-                    return new NearbyDropCollection(Collections.<EntityItem>emptyList(), true);
-                }
-            }
+        RtsBoundedItemEntityQuery.Result query = RtsBoundedItemEntityQuery.query(level, box, maxNewDrops,
+                entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty()
+                        && !safeExistingIds.contains(entity.getUniqueID()));
+        if (query.saturated()) {
+            return new NearbyDropCollection(Collections.<EntityItem>emptyList(), true);
         }
-        if (all.size() >= queryLimit) return new NearbyDropCollection(Collections.<EntityItem>emptyList(), true);
-        return new NearbyDropCollection(Collections.unmodifiableList(new ArrayList<>(fresh)), false);
+        return new NearbyDropCollection(query.entities(), false);
     }
 
     static final class NearbyDropSnapshot {

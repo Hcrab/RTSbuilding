@@ -165,6 +165,8 @@ public final class BuilderScreenConstants {
     public static final int STORAGE_SCAN_POPUP_H = 30;
 
     // ======================== Input / Render control ========================
+    /** 右键旋转手势阈值（相对按下起点的像素距离）。 */
+    public static final double RIGHT_CLICK_DRAG_THRESHOLD = 4.0D;
     /** Middle-click drag threshold (pixels) */
     public static final double MIDDLE_CLICK_DRAG_THRESHOLD = 1.5D;
     /** Default RTS GUI scale */

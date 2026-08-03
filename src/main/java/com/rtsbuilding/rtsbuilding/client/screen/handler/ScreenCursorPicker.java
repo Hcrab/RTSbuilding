@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsCursorRay;
 import com.rtsbuilding.rtsbuilding.common.blueprint.rule.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
@@ -17,7 +18,6 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
-import org.lwjgl.input.Mouse;
 
 import java.util.List;
 
@@ -177,27 +177,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         if (RtsPlacementRayFreeze.isFrozen()) {
             return RtsPlacementRayFreeze.directionOr(new Vec3d(0.0D, 0.0D, 1.0D));
         }
-        double width = Math.max(1.0D, mc.displayWidth);
-        double height = Math.max(1.0D, mc.displayHeight);
-        double mouseX = Mouse.getX();
-        double mouseY = height - Mouse.getY() - 1.0D;
-        double nx = (mouseX / width) * 2.0D - 1.0D;
-        double ny = 1.0D - (mouseY / height) * 2.0D;
-        Entity camera = mc.getRenderViewEntity();
-        float yawDeg = camera == null ? 0.0F : camera.rotationYaw;
-        float pitchDeg = camera == null ? 0.0F : camera.rotationPitch;
-        double yaw = Math.toRadians(yawDeg);
-        double pitch = Math.toRadians(pitchDeg);
-        Vec3d forward = new Vec3d(
-                -Math.sin(yaw) * Math.cos(pitch),
-                -Math.sin(pitch),
-                Math.cos(yaw) * Math.cos(pitch)).normalize();
-        Vec3d right = new Vec3d(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
-        Vec3d up = forward.crossProduct(right).normalize();
-        double fovY = Math.toRadians(mc.gameSettings.fovSetting);
-        double tanY = Math.tan(fovY * 0.5D);
-        double tanX = tanY * (width / height);
-        return forward.add(right.scale(-nx * tanX)).add(up.scale(ny * tanY)).normalize();
+        return RtsCursorRay.capture(mc).direction();
     }
 
     public Vec3d currentRayOrigin() {
@@ -368,8 +348,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     private static Vec3d cameraPosition(Minecraft mc) {
-        Entity camera = mc == null ? null : mc.getRenderViewEntity();
-        return camera == null ? Vec3d.ZERO : camera.getPositionEyes(1.0F);
+        return RtsCursorRay.capture(mc).origin();
     }
 
     private static Vec3d centerOf(BlockPos pos) {

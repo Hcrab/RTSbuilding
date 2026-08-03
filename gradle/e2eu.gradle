@@ -1,0 +1,318 @@
+import groovy.json.JsonSlurper
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
+import java.util.jar.Attributes
+import java.util.jar.JarEntry
+import java.util.jar.JarFile
+import java.util.jar.JarOutputStream
+import java.util.jar.Manifest
+
+/**
+ * E2E Unofficial 1.3.9.2 的本地开发实例装配入口。
+ *
+ * 本脚本只管理 run/e2eu-client 下的整合包覆盖文件和 mods 目录，不会改动
+ * run/clean-client，也不会把下载的第三方模组打进 RTSBuilding 发布 JAR。
+ */
+def e2euVersion = '1.3.9.2'
+def e2euLock = file("gradle/e2eu-${e2euVersion}.lock")
+def e2euFallbackLock = file("gradle/e2eu-${e2euVersion}-fallback.sha256")
+def e2euPackRoot = layout.buildDirectory.dir("e2eu-pack-${e2euVersion}")
+def e2euFallbackRoot = layout.buildDirectory.dir("e2eu-direct-cache-${e2euVersion}")
+def e2euRunRoot = layout.projectDirectory.dir('run/e2eu-client')
+// 这两个锁定版本同时声明了 TweakClass 与 FMLCorePlugin。MixinBooter 的
+// CoremodsRescuer 会在 LaunchWrapper 遍历 tweaker 列表时修改同一列表，导致 CME。
+// 这里只规范化专用运行实例里的副本，绝不改下载缓存或整合包锁文件。
+def e2euDualLaunchManifestArtifacts = [
+        'e2eu-419286-5079135.jar', // MixinBooter
+        'e2eu-460609-4800875.jar'  // LoliASM
+].asImmutable()
+
+def e2euEntries = providers.provider {
+    if (!e2euLock.isFile()) {
+        throw new GradleException("Missing E2EU lock file: ${e2euLock}")
+    }
+    def entries = e2euLock.readLines('UTF-8')
+            .collect { it.trim() }
+            .findAll { !it.isEmpty() && !it.startsWith('#') }
+    entries.each { entry ->
+        if (!(entry ==~ /\d+:\d+/)) {
+            throw new GradleException("Invalid E2EU lock entry: ${entry}")
+        }
+    }
+    if (entries.size() != 249 || entries.toSet().size() != entries.size()) {
+        throw new GradleException(
+                "E2EU ${e2euVersion} lock must contain 249 unique entries, found ${entries.size()}")
+    }
+    entries
+}
+
+def e2euFallbackEntries = providers.provider {
+    if (!e2euFallbackLock.isFile()) {
+        throw new GradleException("Missing E2EU fallback lock file: ${e2euFallbackLock}")
+    }
+    def entries = new LinkedHashMap<String, String>()
+    e2euFallbackLock.readLines('UTF-8')
+            .collect { it.trim() }
+            .findAll { !it.isEmpty() && !it.startsWith('#') }
+            .each { line ->
+                def parts = line.split(/\s+/)
+                if (parts.length != 2 || !(parts[0] ==~ /\d+:\d+/)
+                        || !(parts[1] ==~ /[0-9a-f]{64}/)) {
+                    throw new GradleException("Invalid E2EU fallback lock entry: ${line}")
+                }
+                if (entries.put(parts[0], parts[1]) != null) {
+                    throw new GradleException("Duplicate E2EU fallback entry: ${parts[0]}")
+                }
+            }
+    if (entries.size() != 6 || !e2euEntries.get().containsAll(entries.keySet())) {
+        throw new GradleException('E2EU fallback lock must contain 6 entries from the main lock')
+    }
+    entries
+}
+
+def e2euArtifactName = { String entry ->
+    def parts = entry.split(':')
+    "e2eu-${parts[0]}-${parts[1]}.jar"
+}
+def e2euFallbackFile = { String entry ->
+    e2euFallbackRoot.get().file(e2euArtifactName(entry)).asFile
+}
+def e2euFallbackFiles = files(e2euFallbackEntries.map { entries ->
+    entries.keySet().collect { e2euFallbackFile(it) }
+})
+def e2euSha256 = { File target ->
+    MessageDigest digest = MessageDigest.getInstance('SHA-256')
+    target.withInputStream { input ->
+        byte[] buffer = new byte[64 * 1024]
+        int read
+        while ((read = input.read(buffer)) >= 0) {
+            if (read > 0) digest.update(buffer, 0, read)
+        }
+    }
+    digest.digest().collect { String.format('%02x', it & 0xff) }.join()
+}
+
+configurations {
+    e2euMods {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
+dependencies {
+    def fallbacks = e2euFallbackEntries.get().keySet()
+    e2euEntries.get().findAll { !fallbacks.contains(it) }.each { entry ->
+        def parts = entry.split(':')
+        // CurseForge 发布 JAR 使用生产混淆名；runClient 是 MCP stable_39 开发命名，
+        // 必须经 RFG 官方 artifact transform 后才能放进开发实例。
+        e2euMods(rfg.deobf("curse.maven:e2eu-${parts[0]}:${parts[1]}")) {
+            transitive = false
+        }
+    }
+    // 六个断点续传的大文件同样进入 RFG 的文件依赖反混淆路径。
+    e2euMods(rfg.deobf(e2euFallbackFiles))
+}
+
+tasks.register('downloadE2EUFallbackMods') {
+    group = 'rts 1.12.2 development'
+    description = '以断点续传方式下载并校验 E2EU 的 6 个大体积模组。'
+    dependsOn 'verifyE2EUPack'
+    inputs.file(e2euFallbackLock)
+    outputs.files(e2euFallbackEntries.map { entries ->
+        entries.keySet().collect { e2euFallbackFile(it) }
+    })
+    outputs.upToDateWhen {
+        e2euFallbackEntries.get().every { entry, expected ->
+            File target = e2euFallbackFile(entry)
+            target.isFile() && e2euSha256(target) == expected
+        }
+    }
+
+    doLast {
+        File targetDirectory = e2euFallbackRoot.get().asFile
+        targetDirectory.mkdirs()
+        String curl = System.getProperty('os.name').toLowerCase(Locale.ROOT).contains('windows')
+                ? 'curl.exe' : 'curl'
+        e2euFallbackEntries.get().each { entry, expected ->
+            File target = e2euFallbackFile(entry)
+            if (target.isFile() && e2euSha256(target) == expected) return
+
+            def parts = entry.split(':')
+            String artifact = e2euArtifactName(entry)
+            String url = "https://curse.cleanroommc.com/curse/maven/" +
+                    "e2eu-${parts[0]}/${parts[1]}/${artifact}"
+            File partial = new File(target.parentFile, target.name + '.part')
+            List<String> command = [curl, '-fL', '--retry', '30', '--retry-delay', '2',
+                    '--retry-all-errors', '--connect-timeout', '15', '-C', '-',
+                    '-o', partial.absolutePath, url]
+            Process process = new ProcessBuilder(command).inheritIO().start()
+            int exitCode = process.waitFor()
+            if (exitCode != 0) {
+                throw new GradleException("E2EU fallback download failed (${exitCode}): ${entry}")
+            }
+            String actual = e2euSha256(partial)
+            if (actual != expected) {
+                partial.delete()
+                throw new GradleException(
+                        "E2EU fallback checksum mismatch: ${entry}, expected=${expected}, actual=${actual}")
+            }
+            Files.move(partial.toPath(), target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        }
+    }
+}
+
+tasks.register('verifyE2EUPack') {
+    group = 'rts 1.12.2 development'
+    description = '验证本地 E2EU 1.3.9.2 清单与锁文件。'
+    inputs.file(e2euLock)
+    inputs.file(e2euPackRoot.map { it.file('manifest.json') })
+
+    doLast {
+        File manifestFile = e2euPackRoot.get().file('manifest.json').asFile
+        if (!manifestFile.isFile()) {
+            throw new GradleException(
+                    "E2EU ${e2euVersion} pack is missing. Extract its CurseForge client zip to "
+                            + e2euPackRoot.get().asFile)
+        }
+        def manifest = new JsonSlurper().parse(manifestFile)
+        def manifestEntries = manifest.files.collect {
+            "${it.projectID}:${it.fileID}"
+        }
+        if (manifest.version != e2euVersion || manifest.minecraft?.version != '1.12.2') {
+            throw new GradleException(
+                    "Unexpected E2EU manifest: version=${manifest.version}, minecraft=${manifest.minecraft?.version}")
+        }
+        if (manifestEntries != e2euEntries.get()) {
+            throw new GradleException('E2EU manifest and gradle lock do not match')
+        }
+    }
+}
+
+tasks.register('syncE2EUMods', Sync) {
+    group = 'rts 1.12.2 development'
+    description = '解析并同步 E2EU 的 249 个锁定模组到专用运行实例。'
+    dependsOn tasks.named('verifyE2EUPack'), tasks.named('downloadE2EUFallbackMods')
+    from(configurations.e2euMods)
+    into(e2euRunRoot.dir('mods'))
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+tasks.register('normalizeE2EULaunchManifests') {
+    group = 'rts 1.12.2 development'
+    description = '仅在 E2EU 运行实例副本中移除会令 LaunchWrapper 崩溃的重复 TweakClass 声明。'
+    // copyE2EUOverrides 把整个运行目录声明为输出；让它先完成，避免 Gradle 9
+    // 将 mods 下这两个精确目标判定为未声明的任务依赖。
+    dependsOn tasks.named('syncE2EUMods'), tasks.named('copyE2EUOverrides')
+    inputs.files(e2euDualLaunchManifestArtifacts.collect { e2euRunRoot.file("mods/${it}") })
+    outputs.files(e2euDualLaunchManifestArtifacts.collect { e2euRunRoot.file("mods/${it}") })
+    // syncE2EUMods 可能在本任务前恢复原始 JAR；每次准备实例都重新核验，开销仅两个 JAR。
+    outputs.upToDateWhen { false }
+
+    doLast {
+        File modsDirectory = e2euRunRoot.dir('mods').asFile.canonicalFile
+        e2euDualLaunchManifestArtifacts.each { artifactName ->
+            File target = new File(modsDirectory, artifactName).canonicalFile
+            if (target.parentFile != modsDirectory || !target.isFile()) {
+                throw new GradleException("Missing locked E2EU launch artifact: ${artifactName}")
+            }
+
+            File temporary = null
+            JarFile sourceJar = new JarFile(target, false)
+            try {
+                Manifest manifest = sourceJar.manifest
+                if (manifest == null) {
+                    throw new GradleException("E2EU launch artifact has no manifest: ${artifactName}")
+                }
+                Attributes attributes = manifest.mainAttributes
+                String corePlugin = attributes.getValue('FMLCorePlugin')
+                String tweakClass = attributes.getValue('TweakClass')
+                if (corePlugin == null || corePlugin.trim().isEmpty()) {
+                    throw new GradleException(
+                            "E2EU launch artifact no longer declares FMLCorePlugin: ${artifactName}")
+                }
+                if (tweakClass == null) {
+                    logger.info("E2EU launch manifest already normalized: ${artifactName}")
+                    return
+                }
+
+                def signatureEntries = sourceJar.entries().findAll { JarEntry entry ->
+                    entry.name ==~ /(?i)META-INF\/.*\.(SF|RSA|DSA|EC)/
+                }.collect { it.name }
+                if (!signatureEntries.isEmpty()) {
+                    throw new GradleException(
+                            "Refusing to rewrite signed E2EU artifact ${artifactName}: ${signatureEntries}")
+                }
+
+                attributes.remove(new Attributes.Name('TweakClass'))
+                temporary = File.createTempFile("${artifactName}.normalize-", '.tmp', modsDirectory)
+                temporary.withOutputStream { rawOutput ->
+                    JarOutputStream output = new JarOutputStream(rawOutput, manifest)
+                    try {
+                        byte[] buffer = new byte[64 * 1024]
+                        def entries = sourceJar.entries()
+                        while (entries.hasMoreElements()) {
+                            JarEntry original = entries.nextElement()
+                            if (original.name.equalsIgnoreCase('META-INF/MANIFEST.MF')) continue
+
+                            JarEntry copy = new JarEntry(original.name)
+                            if (original.time >= 0) copy.time = original.time
+                            if (original.comment != null) copy.comment = original.comment
+                            if (original.extra != null) copy.extra = original.extra
+                            output.putNextEntry(copy)
+                            if (!original.directory) {
+                                sourceJar.getInputStream(original).withCloseable { input ->
+                                    int read
+                                    while ((read = input.read(buffer)) >= 0) {
+                                        if (read > 0) output.write(buffer, 0, read)
+                                    }
+                                }
+                            }
+                            output.closeEntry()
+                        }
+                    } finally {
+                        output.close()
+                    }
+                }
+            } finally {
+                sourceJar.close()
+            }
+
+            try {
+                Files.move(temporary.toPath(), target.toPath(),
+                        StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } finally {
+                if (temporary != null && temporary.exists()) temporary.delete()
+            }
+
+            JarFile verifiedJar = new JarFile(target, false)
+            try {
+                Attributes verified = verifiedJar.manifest?.mainAttributes
+                if (verified?.getValue('FMLCorePlugin') == null
+                        || verified.getValue('TweakClass') != null) {
+                    throw new GradleException(
+                            "Failed to normalize E2EU launch manifest: ${artifactName}")
+                }
+            } finally {
+                verifiedJar.close()
+            }
+            logger.lifecycle("Normalized E2EU LaunchWrapper manifest: ${artifactName}")
+        }
+    }
+}
+
+tasks.register('copyE2EUOverrides', Copy) {
+    group = 'rts 1.12.2 development'
+    description = '复制 E2EU 的 configs、scripts、资源与其他 overrides。'
+    dependsOn tasks.named('verifyE2EUPack')
+    from(e2euPackRoot.map { it.dir('overrides') })
+    into(e2euRunRoot)
+}
+
+tasks.register('prepareE2EUClient') {
+    group = 'rts 1.12.2 development'
+    description = '准备可由本工作区 runClient 启动的 E2EU 1.3.9.2 实例。'
+    dependsOn tasks.named('normalizeE2EULaunchManifests')
+}

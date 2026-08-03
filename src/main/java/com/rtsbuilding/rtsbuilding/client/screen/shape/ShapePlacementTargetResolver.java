@@ -1,7 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import net.minecraft.block.BlockSlab;
+import net.minecraft.block.BlockSnow;
 import net.minecraft.client.Minecraft;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemSnow;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.item.ItemStack;
@@ -10,6 +14,7 @@ import net.minecraft.util.math.RayTraceResult;
 
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * 统一形状放置前的 Minecraft 目标位置解析。
@@ -125,14 +130,11 @@ public final class ShapePlacementTargetResolver {
         BlockPos clickedPos = hit.getBlockPos();
         EnumFacing face = hit.sideHit;
         if (clickedPos == null || face == null) return null;
-        BlockPos placePos = minecraft.world.isBlockLoaded(clickedPos)
-                && minecraft.world.getBlockState(clickedPos).getBlock().isReplaceable(minecraft.world, clickedPos)
-                ? clickedPos : clickedPos.offset(face);
-        if (minecraft.world.isBlockLoaded(placePos)) {
-            IBlockState state = minecraft.world.getBlockState(placePos);
-            if (!state.getBlock().isReplaceable(minecraft.world, placePos)) {
-                return null;
-            }
+        PlacementWorld world = minecraftWorld(minecraft, placementStack);
+        BlockPos placePos = resolveClickedTarget(clickedPos, face, world);
+        if (placePos == null) return null;
+        if (world.hasChunkAt(placePos) && !world.canReplace(placePos, face)) {
+            return null;
         }
         return placePos;
     }
@@ -209,7 +211,49 @@ public final class ShapePlacementTargetResolver {
                 return false;
             }
             IBlockState state = this.minecraft.world.getBlockState(pos);
-            return state.getBlock().isReplaceable(this.minecraft.world, pos);
+            boolean blockReplaceable = state.getBlock().isReplaceable(this.minecraft.world, pos);
+            if (this.placementStack.isEmpty() || !(this.placementStack.getItem() instanceof ItemBlock)) {
+                return blockReplaceable;
+            }
+
+            ItemBlock itemBlock = (ItemBlock) this.placementStack.getItem();
+            if (isMatchingSnowStack(state, itemBlock, face)) {
+                return true;
+            }
+            if (isMatchingSlabMerge(state, itemBlock, face, this.placementStack)) {
+                return true;
+            }
+            if (!blockReplaceable || this.minecraft.player == null) {
+                return false;
+            }
+            return itemBlock.canPlaceBlockOnSide(this.minecraft.world, pos, face,
+                    this.minecraft.player, this.placementStack);
+        }
+
+        /** 复现 ItemSnow#onItemUse 对多层雪的原位置堆叠规则，不执行任何世界修改。 */
+        private static boolean isMatchingSnowStack(IBlockState state, ItemBlock itemBlock,
+                EnumFacing face) {
+            if (!(itemBlock instanceof ItemSnow) || state.getBlock() != itemBlock.getBlock()) {
+                return false;
+            }
+            int layers = state.getValue(BlockSnow.LAYERS);
+            return layers < 8 && (face == EnumFacing.UP || layers == 1);
+        }
+
+        /** 1.12 的半砖合并语义位于 ItemSlab，而不在 Block#isReplaceable。 */
+        private static boolean isMatchingSlabMerge(IBlockState state, ItemBlock itemBlock,
+                EnumFacing face, ItemStack placementStack) {
+            if (!(itemBlock.getBlock() instanceof BlockSlab)
+                    || state.getBlock() != itemBlock.getBlock()) {
+                return false;
+            }
+            BlockSlab slab = (BlockSlab) itemBlock.getBlock();
+            boolean matchingVariant = Objects.equals(
+                    state.getValue(slab.getVariantProperty()), slab.getTypeForItem(placementStack));
+            if (!matchingVariant) return false;
+            BlockSlab.EnumBlockHalf half = state.getValue(BlockSlab.HALF);
+            return face == EnumFacing.UP && half == BlockSlab.EnumBlockHalf.BOTTOM
+                    || face == EnumFacing.DOWN && half == BlockSlab.EnumBlockHalf.TOP;
         }
     }
 

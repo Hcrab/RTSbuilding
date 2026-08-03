@@ -33,7 +33,7 @@ class RtsPlacementExecutorPriorityContractTest {
         String body = methodBody(source, "private static boolean placeWithStorageItem");
 
         int firstFallback = body.indexOf(
-                "if (forcePlace && !sophisticatedBackpackPlacementOnly && !finalOutcome.result().consumesAction())");
+                "if (forcePlace && !sophisticatedBackpackPlacementOnly && !consumesAction(finalOutcome.result()))");
         int remainderCarry = body.indexOf("nextAttemptStack(finalOutcome, lastAttemptStack)", firstFallback);
         int blockInteractFallback = body.indexOf(
                 "useItemOnWithMainHand(player, level, storageInteractStack, hit, false)",

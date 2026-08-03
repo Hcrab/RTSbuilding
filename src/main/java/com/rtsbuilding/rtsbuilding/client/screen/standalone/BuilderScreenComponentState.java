@@ -88,6 +88,9 @@ abstract class BuilderScreenComponentState extends GuiScreen {
     double placementWheelRestoreMouseY = Double.NaN;
     int lastMouseX = 0;
     int lastMouseY = 0;
+    int legacyDragButton = -1;
+    double legacyDragLastX = Double.NaN;
+    double legacyDragLastY = Double.NaN;
     int pendingGuiBindSlot = -1;
     long lastCtrlRightClickTime = 0;
     static final long CTRL_DOUBLE_CLICK_THRESHOLD_MS = 300;

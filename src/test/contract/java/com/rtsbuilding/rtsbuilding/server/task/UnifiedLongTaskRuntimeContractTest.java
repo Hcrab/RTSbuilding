@@ -34,9 +34,8 @@ class UnifiedLongTaskRuntimeContractTest {
     @Test
     void funnelEntityQueryHasHardResultLimit() throws IOException {
         String source = read("server/service/impl/RtsFunnelServiceImpl.java");
-        assertTrue(source.contains("EntityTypeTest.forClass(ItemEntity.class)"));
-        assertTrue(source.contains("drops, queryLimit"));
-        assertFalse(source.contains("getEntitiesOfClass("));
+        assertTrue(source.contains("RtsBoundedItemEntityQuery.query("));
+        assertFalse(source.contains("getEntitiesWithinAABB("));
     }
 
     @Test
@@ -48,12 +47,12 @@ class UnifiedLongTaskRuntimeContractTest {
         assertTrue(state.contains("Deque<PlacedRecoveryClaim> claims"));
         assertTrue(state.contains("int ordinal"));
         assertTrue(state.contains("ItemStack expectedStack"));
-        assertTrue(state.contains("ItemStack.isSameItemSameComponents(actual, expectedStack)"));
-        assertTrue(service.contains("droppedEntity.getUniqueId()"));
+        assertTrue(state.contains("ItemStack.areItemStacksEqual(actual, expectedStack)"));
+        assertTrue(service.contains("droppedEntity.getUniqueID()"));
         assertTrue(service.contains("claim.matches(droppedStack)"));
-        assertTrue(serializer.contains("putUUID(\"operation_id\""));
-        assertTrue(serializer.contains("putInt(\"ordinal\""));
-        assertTrue(serializer.contains("put(\"stack\""));
+        assertTrue(serializer.contains("setUniqueId(\"operation_id\""));
+        assertTrue(serializer.contains("setInteger(\"ordinal\""));
+        assertTrue(serializer.contains("setTag(\"stack\""));
         assertFalse(service.contains("stacks.addLast(droppedStack.copy())"));
     }
 
@@ -64,8 +63,8 @@ class UnifiedLongTaskRuntimeContractTest {
         String persistence = read("server/pipeline/blueprint/BlueprintPersistence.java");
         String executor = read("server/pipeline/blueprint/BlueprintTickPipe.java");
 
-        assertTrue(payload.contains("ResourceKey<Level> dimension"));
-        assertTrue(engine.contains("equals(payload.dimension())"));
+        assertTrue(payload.contains("private final int dimension"));
+        assertTrue(engine.contains("payload.player().dimension != payload.dimension()"));
         assertTrue(engine.contains("blueprintRecords.entrySet().removeIf"));
         assertTrue(persistence.contains("KEY_SOURCE_DIMENSION"));
         assertTrue(persistence.contains("bctx.getData(BlueprintContext.KEY_SOURCE_DIMENSION)"));
@@ -82,13 +81,16 @@ class UnifiedLongTaskRuntimeContractTest {
         String engine = read("server/task/RtsTaskEngine.java");
         String durableRuntime = read("server/task/RtsDurableTaskExecutionRuntime.java");
 
-        assertTrue(placement.contains("ResourceKey<Level> dimension"));
-        assertTrue(destruction.contains("ResourceKey<Level> dimension"));
-        assertTrue(mining.contains("ResourceKey<Level> dimension"));
-        assertTrue(count(engine, "equals(payload.dimension())")
-                        + count(durableRuntime, "equals(payload.dimension())") >= 4,
+        assertTrue(placement.contains("private final int dimension"));
+        assertTrue(destruction.contains("private final int dimension"));
+        assertTrue(mining.contains("private final int dimension"));
+        assertTrue(count(engine, "dimension != payload.dimension()")
+                        + count(durableRuntime, "dimension != payload.dimension()") >= 4,
                 "placement/destruction/mining/blueprint 均须在切维时让出执行");
-        assertTrue(engine.contains("return payload.dimension()"));
+        assertTrue(engine.contains("return ((PlacementTaskPayload) record.payload()).dimension()"));
+        assertTrue(engine.contains("return ((DestructionTaskPayload) record.payload()).dimension()"));
+        assertTrue(engine.contains("return ((MiningTaskPayload) record.payload()).dimension()"));
+        assertTrue(engine.contains("return ((BlueprintTaskPayload) record.payload()).dimension()"));
     }
 
     @Test
@@ -96,11 +98,11 @@ class UnifiedLongTaskRuntimeContractTest {
         String service = read("server/service/RtsPlacedRecoveryService.java");
         String serializer = read("server/data/SessionSerializer.java");
 
-        assertTrue(service.contains("setUnlimitedLifetime()"));
-        assertTrue(service.contains("hasChunkAt(candidate.targetPos())"));
-        assertTrue(service.contains("EntityTypeTest.forClass(ItemEntity.class)"));
-        assertTrue(service.contains("safeLimit + 1"));
-        assertFalse(service.contains("getEntitiesOfClass("));
+        assertTrue(service.contains("setNoDespawn()"));
+        assertTrue(service.contains("isBlockLoaded(candidate.targetPos())"));
+        assertTrue(count(service, "RtsBoundedItemEntityQuery.query(") >= 2,
+                "恢复前后两次实体查询都必须使用 1.12 专用硬上限 helper");
+        assertFalse(service.contains("getEntitiesWithinAABB("));
         assertTrue(service.contains("PLACED_RECOVERY_MAX_QUEUED_JOBS"));
         assertTrue(service.contains("PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS"));
         assertTrue(serializer.contains("PLACED_RECOVERY_MAX_ENTITIES_PER_JOB"));
@@ -127,9 +129,9 @@ class UnifiedLongTaskRuntimeContractTest {
         String serializer = read("server/data/SessionSerializer.java");
         String tickSource = service.substring(service.indexOf("public FunnelTickResult tickBudgeted"));
 
-        assertTrue(state.contains("ResourceKey<Level> funnelTargetDimension"));
+        assertTrue(state.contains("Integer funnelTargetDimension"));
         assertTrue(serializer.contains("funnel_target_dimension"));
-        assertTrue(tickSource.contains("player.serverLevel().dimension().equals(session.funnel.funnelTargetDimension)"));
+        assertTrue(tickSource.contains("player.dimension != session.funnel.funnelTargetDimension.intValue()"));
         assertTrue(tickSource.indexOf("funnelTargetDimension == null")
                 < tickSource.indexOf("sanitizeSessionDimension(player, session)"));
         assertTrue(service.contains("saveFunnelToPlayerNbt(player, session)"));

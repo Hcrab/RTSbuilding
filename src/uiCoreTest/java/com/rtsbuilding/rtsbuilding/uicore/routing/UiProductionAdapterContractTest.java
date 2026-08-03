@@ -43,8 +43,10 @@ class UiProductionAdapterContractTest {
     @Test
     void 浮动窗口使用独立深度带遮住底栏物品与数量() throws IOException {
         String layer = floatingLayerSource();
-        assertTrue(layer.contains("WINDOW_BASE_Z = 400.0F"));
-        assertTrue(layer.contains("WINDOW_Z_STRIDE = 400.0F"));
+        assertTrue(layer.contains("WINDOW_BASE_Z = 32.0F"));
+        assertTrue(layer.contains("WINDOW_Z_STRIDE = 8.0F"));
+        assertTrue(layer.contains("WINDOW_MAX_Z = 384.0F"));
+        assertTrue(layer.contains("Math.min(WINDOW_MAX_Z"));
         assertTrue(layer.contains("windowLayerZ(i)"));
         assertTrue(layer.contains("windowLayerZ(i) + WINDOW_Z_STRIDE - 1.0F"));
         // 1.12.2 没有 PoseStack；GlStateManager 的矩阵栈是同一隔离边界。

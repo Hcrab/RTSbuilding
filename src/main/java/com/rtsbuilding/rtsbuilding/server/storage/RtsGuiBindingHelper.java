@@ -84,6 +84,11 @@ final class RtsGuiBindingHelper {
 
     static RtsStorageBindings.UpdateResult openGuiBinding(EntityPlayerMP player, RtsStorageSession session,
             byte slotId, double remotePovBlockReach) {
+        return openGuiBinding(player, session, slotId, remotePovBlockReach, 0L);
+    }
+
+    static RtsStorageBindings.UpdateResult openGuiBinding(EntityPlayerMP player, RtsStorageSession session,
+            byte slotId, double remotePovBlockReach, long traceId) {
         if (player == null || !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_GUI_BINDING)
                 || session == null || !RtsCameraManager.isActive(player)
                 || !isValidGuiBindingSlot(slotId)) {
@@ -108,19 +113,19 @@ final class RtsGuiBindingHelper {
         }
 
         WorldServer level = player.getServerWorld();
-        RtsRemoteMenuService.sendRemoteMenuOpenHint(player, pos);
+        RtsRemoteMenuService.sendRemoteMenuOpenHint(player, pos, traceId);
         GuiBindingInteraction interaction = createGuiBindingInteraction(player, pos, face);
         Container before = player.openContainer;
 
         EnumActionResult result = interactWithBoundGui(
                 player, level, interaction, false, remotePovBlockReach);
-        if (markOpenedMenu(player, session, before, pos)) {
+        if (markOpenedMenu(player, session, before, pos, traceId)) {
             return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
         }
 
         if (result != EnumActionResult.SUCCESS) {
             result = interactWithBoundGui(player, level, interaction, true, remotePovBlockReach);
-            if (markOpenedMenu(player, session, before, pos)) {
+            if (markOpenedMenu(player, session, before, pos, traceId)) {
                 return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
             }
         }
@@ -129,7 +134,7 @@ final class RtsGuiBindingHelper {
             IInteractionObject provider = resolveBindableInteractionObject(level, pos);
             if (provider != null) {
                 player.displayGui(provider);
-                if (markOpenedMenu(player, session, before, pos)) {
+                if (markOpenedMenu(player, session, before, pos, traceId)) {
                     return RtsStorageBindings.UpdateResult.refreshCurrent(session, false);
                 }
             }
@@ -246,11 +251,16 @@ final class RtsGuiBindingHelper {
 
     private static boolean markOpenedMenu(EntityPlayerMP player, RtsStorageSession session,
             Container before, BlockPos pos) {
+        return markOpenedMenu(player, session, before, pos, 0L);
+    }
+
+    private static boolean markOpenedMenu(EntityPlayerMP player, RtsStorageSession session,
+            Container before, BlockPos pos, long traceId) {
         Container opened = player.openContainer;
         if (opened == null || opened == before) {
             return false;
         }
-        RtsRemoteMenuService.markRemoteMenuOpen(player, session, opened, pos);
+        RtsRemoteMenuService.markRemoteMenuOpen(player, session, opened, pos, traceId);
         return true;
     }
 

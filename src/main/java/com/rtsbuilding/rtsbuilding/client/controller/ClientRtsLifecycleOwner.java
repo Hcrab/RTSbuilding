@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.controller;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientTraceTracker;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.*;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
@@ -61,6 +62,9 @@ final class ClientRtsLifecycleOwner {
 
             if (payload.enabled()) {
                 boolean freshEnable = !controller.enabled;
+                if (freshEnable) {
+                    RtsClientTraceTracker.reset("RTS_ENABLED");
+                }
                 controller.enabled = true;
                 controller.cameraOrbitService.setServerCameraEntityId(payload.cameraEntityId());
                 controller.anchorX = payload.anchorX();
@@ -113,6 +117,7 @@ final class ClientRtsLifecycleOwner {
             }
 
             controller.enabled = false;
+            RtsClientTraceTracker.reset("RTS_DISABLED");
             controller.cameraOrbitService.resetServerCameraEntityId();
             controller.cameraOrbitService.setLocalStateReady(false);
             controller.homeSelectionMode = false;
@@ -185,7 +190,16 @@ final class ClientRtsLifecycleOwner {
                     && minecraft.currentScreen == null
                     && controller.pendingRemoteMenuOpenTicks <= 0) {
                 controller.screenlessRemoteMenuTicks++;
+                if (controller.screenlessRemoteMenuTicks == 1) {
+                    RtsClientTraceTracker.screenMissing(
+                            minecraft.player.openContainer.windowId,
+                            minecraft.player.openContainer.getClass().getName(),
+                            ClientRtsController.SCREENLESS_REMOTE_MENU_RECOVERY_TICKS);
+                }
                 if (controller.screenlessRemoteMenuTicks >= ClientRtsController.SCREENLESS_REMOTE_MENU_RECOVERY_TICKS) {
+                    RtsClientTraceTracker.screenlessRecovery(
+                            minecraft.player.openContainer.windowId,
+                            minecraft.player.openContainer.getClass().getName());
                     RtsClientPacketGateway.sendCloseRemoteMenu();
                     minecraft.player.closeScreen();
                     controller.clearRemoteMenuValidationState();
@@ -234,12 +248,20 @@ final class ClientRtsLifecycleOwner {
                 try {
                     Container activeRemoteMenu = RtsClientRemoteMenuCompat.install(minecraft, minecraft.player.openContainer);
                     if (controller.relaxedRemoteMenu != activeRemoteMenu) {
+                        RtsClientTraceTracker.menuInstalled(
+                                activeRemoteMenu.windowId,
+                                activeRemoteMenu.getClass().getName(),
+                                minecraft.currentScreen == null
+                                        ? "null" : minecraft.currentScreen.getClass().getName());
                         RtsClientRemoteMenuCompat.relaxValidation(activeRemoteMenu);
                         controller.relaxedRemoteMenu = activeRemoteMenu;
                     }
                     if (minecraft.currentScreen instanceof BuilderScreen) {
                         // First-open GUI construction can leave a brief null-screen handoff. Once a real
                         // container menu exists, let it take over instead of keeping BuilderScreen active.
+                        RtsClientTraceTracker.builderHandoff(
+                                activeRemoteMenu.windowId,
+                                activeRemoteMenu.getClass().getName());
                         minecraft.displayGuiScreen(null);
                     }
                 } catch (Throwable throwable) {
@@ -248,7 +270,21 @@ final class ClientRtsLifecycleOwner {
                 }
             } else if (controller.pendingRemoteMenuOpenTicks > 0) {
                 controller.pendingRemoteMenuOpenTicks--;
+                if (controller.pendingRemoteMenuOpenTicks == 0) {
+                    RtsClientTraceTracker.hintTimeout(
+                            minecraft.player.openContainer == null
+                                    ? "null" : minecraft.player.openContainer.getClass().getName(),
+                            minecraft.currentScreen == null
+                                    ? "null" : minecraft.currentScreen.getClass().getName());
+                }
             } else {
+                if (controller.relaxedRemoteMenu != null) {
+                    RtsClientTraceTracker.menuClosed(
+                            controller.relaxedRemoteMenu.windowId,
+                            controller.relaxedRemoteMenu.getClass().getName(),
+                            minecraft.currentScreen == null
+                                    ? "null" : minecraft.currentScreen.getClass().getName());
+                }
                 controller.clearRemoteMenuValidationState();
                 controller.relaxedRemoteMenu = null;
             }
@@ -326,6 +362,7 @@ final class ClientRtsLifecycleOwner {
             controller.cameraOrbitService.restorePreviousView(minecraft, minecraft.player);
 
             controller.enabled = false;
+            RtsClientTraceTracker.reset("PLAYER_DEAD");
             controller.closeRangeAllowed = false;
             controller.cameraOrbitService.clearStateOnDeath();
             controller.cameraOrbitService.resetServerCameraEntityId();

@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.RtsBoxHandleRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateQueries;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import net.minecraft.client.Minecraft;
@@ -12,11 +14,8 @@ import net.minecraft.client.renderer.entity.RenderManager;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
-
-import java.nio.FloatBuffer;
 import java.util.List;
 
 /**
@@ -159,7 +158,7 @@ public final class BlueprintCaptureRenderer {
     }
 
     private static void uploadOrReset(BufferBuilder buffer) {
-        if (buffer.getVertexCount() > 0) UPLOADER.draw(buffer); else discard(buffer);
+        if (buffer.getVertexCount() > 0) RtsOwnedBufferUploader.draw(buffer); else discard(buffer);
     }
 
     private static void discardOwnedBuffers() {
@@ -193,7 +192,7 @@ public final class BlueprintCaptureRenderer {
         private final int blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
         private final int blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
         private final int blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
-        private final float[] color = currentColor();
+        private final float[] color = RtsGlStateQueries.currentColor();
 
         private static GlSnapshot capture() { return new GlSnapshot(); }
 
@@ -203,12 +202,6 @@ public final class BlueprintCaptureRenderer {
             GlStateManager.depthMask(depthMask);
             GlStateManager.glLineWidth(lineWidth);
             GlStateManager.color(color[0], color[1], color[2], color[3]);
-        }
-
-        private static float[] currentColor() {
-            FloatBuffer values = BufferUtils.createFloatBuffer(4);
-            GL11.glGetFloat(GL11.GL_CURRENT_COLOR, values);
-            return new float[] {values.get(0), values.get(1), values.get(2), values.get(3)};
         }
 
         private static void setBlend(boolean enabled) {

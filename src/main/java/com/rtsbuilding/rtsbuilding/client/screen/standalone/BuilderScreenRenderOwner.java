@@ -17,6 +17,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGuiRenderState;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.text.TextComponentString;
@@ -51,48 +52,50 @@ final class BuilderScreenRenderOwner {
                             guiGraphics, mouseX, mouseY, partialTick, screen::render)) {
                 return;
             }
-            screen.lastMouseX = mouseX;
-            screen.lastMouseY = mouseY;
-            screen.guiScaleCoordinator.recordViewport();
-            screen.resetHoverStates();
-            guiGraphics.fill(0, 0, screen.uiWidth(), TOP_H, RtsMainlineTheme.TOP_BAR_BACKGROUND.toArgb());
-            if (screen.controller.isHomeSelectionMode()) {
-                screen.overlayRenderer.renderHomeSelectionOverlay(guiGraphics, mouseX, mouseY);
+            try (RtsGuiRenderState.Scope ignored = RtsGuiRenderState.beginFrame()) {
+                screen.lastMouseX = mouseX;
+                screen.lastMouseY = mouseY;
+                screen.guiScaleCoordinator.recordViewport();
+                screen.resetHoverStates();
+                guiGraphics.fill(0, 0, screen.uiWidth(), TOP_H, RtsMainlineTheme.TOP_BAR_BACKGROUND.toArgb());
+                if (screen.controller.isHomeSelectionMode()) {
+                    screen.overlayRenderer.renderHomeSelectionOverlay(guiGraphics, mouseX, mouseY);
+                    screen.overlayRenderer.renderDamageFlash(guiGraphics);
+                    return;
+                }
+                screen.topBarPanel.render(guiGraphics, mouseX, mouseY);
+                if (screen.controller.isPlayerStatusOverlayEnabled()) {
+                    screen.playerStatusRenderer.render(guiGraphics);
+                }
+                screen.storageLinkDetailHandler.updateVisibility(mouseX, mouseY);
+                screen.updateRangeCullingHover(mouseX, mouseY);
+                screen.bottomPanel.render(guiGraphics, mouseX, mouseY, partialTick);
+                screen.funnelBufferPanel.render(guiGraphics, mouseX, mouseY);
+                if (screen.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
+                    RayTraceResult hit = screen.isWorldArea(mouseX, mouseY) ? screen.cursorPicker.pickBlockHit() : null;
+                    BlueprintPanel.updateCaptureHover(
+                            screen.isWorldArea(mouseX, mouseY) ? screen.cursorPicker.currentRayOrigin() : null,
+                            screen.isWorldArea(mouseX, mouseY) ? screen.cursorPicker.computeCursorRayDirection() : null,
+                            hit == null ? null : hit.getBlockPos());
+                }
+                screen.blueprintWindowPanel.syncWithBlueprintState();
+                screen.blueprintMaterialWindowPanel.syncWithBlueprintState();
+                screen.blueprintNameWindowPanel.syncWithBlueprintState();
+                screen.floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
+                screen.floatingWindowLayer.renderFloatingWindowOverlays(guiGraphics, mouseX, mouseY);
+                screen.overlayRenderer.renderQuestDetectPopup(guiGraphics);
+                screen.overlayRenderer.renderStorageScanPopup(guiGraphics);
+                screen.renderHoveredItemTooltips(guiGraphics, mouseX, mouseY);
+                screen.overlayRenderer.updateNativeCursor(screen.floatingWindowLayer.resizeCursorAt(mouseX, mouseY));
+                screen.bottomPanel.renderCraftFeedback(guiGraphics);
                 screen.overlayRenderer.renderDamageFlash(guiGraphics);
-                return;
-            }
-            screen.topBarPanel.render(guiGraphics, mouseX, mouseY);
-            if (screen.controller.isPlayerStatusOverlayEnabled()) {
-                screen.playerStatusRenderer.render(guiGraphics);
-            }
-            screen.storageLinkDetailHandler.updateVisibility(mouseX, mouseY);
-            screen.updateRangeCullingHover(mouseX, mouseY);
-            screen.bottomPanel.render(guiGraphics, mouseX, mouseY, partialTick);
-            screen.funnelBufferPanel.render(guiGraphics, mouseX, mouseY);
-            if (screen.bottomPanel.bottomPanelTab == BottomPanelLayoutTypes.BottomPanelTab.BLUEPRINTS && BlueprintPanel.isCaptureModeActive()) {
-                RayTraceResult hit = screen.isWorldArea(mouseX, mouseY) ? screen.cursorPicker.pickBlockHit() : null;
-                BlueprintPanel.updateCaptureHover(
-                        screen.isWorldArea(mouseX, mouseY) ? screen.cursorPicker.currentRayOrigin() : null,
-                        screen.isWorldArea(mouseX, mouseY) ? screen.cursorPicker.computeCursorRayDirection() : null,
-                        hit == null ? null : hit.getBlockPos());
-            }
-            screen.blueprintWindowPanel.syncWithBlueprintState();
-            screen.blueprintMaterialWindowPanel.syncWithBlueprintState();
-            screen.blueprintNameWindowPanel.syncWithBlueprintState();
-            screen.floatingWindowLayer.renderFloatingWindows(guiGraphics, mouseX, mouseY);
-            screen.floatingWindowLayer.renderFloatingWindowOverlays(guiGraphics, mouseX, mouseY);
-            screen.overlayRenderer.renderQuestDetectPopup(guiGraphics);
-            screen.overlayRenderer.renderStorageScanPopup(guiGraphics);
-            screen.renderHoveredItemTooltips(guiGraphics, mouseX, mouseY);
-            screen.overlayRenderer.updateNativeCursor(screen.floatingWindowLayer.resizeCursorAt(mouseX, mouseY));
-            screen.bottomPanel.renderCraftFeedback(guiGraphics);
-            screen.overlayRenderer.renderDamageFlash(guiGraphics);
-            if (screen.placementStateWheel.isOpen()) {
-                screen.overlayRenderer.updateNativeCursorVisibility(false);
-                screen.placementStateWheel.render(guiGraphics, screen.font(), mouseX, mouseY);
-            } else if (screen.modeWheel.isOpen()) {
-                screen.overlayRenderer.updateNativeCursorVisibility(false);
-                screen.modeWheel.render(guiGraphics, screen.font(), mouseX, mouseY, screen.controller.getMode());
+                if (screen.placementStateWheel.isOpen()) {
+                    screen.overlayRenderer.updateNativeCursorVisibility(false);
+                    screen.placementStateWheel.render(guiGraphics, screen.font(), mouseX, mouseY);
+                } else if (screen.modeWheel.isOpen()) {
+                    screen.overlayRenderer.updateNativeCursorVisibility(false);
+                    screen.modeWheel.render(guiGraphics, screen.font(), mouseX, mouseY, screen.controller.getMode());
+                }
             }
         }
 

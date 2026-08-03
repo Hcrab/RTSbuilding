@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
@@ -17,6 +18,9 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.world.GameType;
+import net.minecraft.world.WorldSettings;
+import net.minecraft.world.WorldType;
 import net.minecraftforge.client.ClientCommandHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
@@ -47,12 +51,17 @@ public final class RtsGuiCompatProbe {
     private static final int SCREENLESS_MENU_TICK_LIMIT = 8;
     private static final int AUTO_WORLD_READY_DELAY = 80;
     private static final int AUTO_SETUP_DELAY = 40;
+    private static final int AUTO_SETUP_SYNC_TIMEOUT = 200;
     private static final int AUTO_EXIT_DELAY = 40;
     private static final int AUTO_TIMEOUT_TICKS = 20 * 120;
+    private static final int AUTO_MAIN_MENU_STABLE_TICKS = 20;
+    private static final String AUTO_WORLD_DIRECTORY = "RTSBuildingGuiCompat";
     private static final int REQUIRED_STABLE_TICKS = resolveInt("rtsbuilding.guiCompatStableTicks",
             "RTSBUILDING_GUI_COMPAT_STABLE_TICKS", 40);
     private static final int TARGET_SEARCH_RADIUS = resolveInt("rtsbuilding.guiCompatTargetSearchRadius",
             "RTSBUILDING_GUI_COMPAT_TARGET_SEARCH_RADIUS", 32);
+    private static final int TARGET_DISTANCE = resolveInt("rtsbuilding.guiCompatTargetDistance",
+            "RTSBUILDING_GUI_COMPAT_TARGET_DISTANCE", 20);
 
     private static final Path REPORT_PATH = resolveReportPath();
     private static final String CASE_ID = resolveConfig("rtsbuilding.guiCompatCaseId",
@@ -177,6 +186,13 @@ public final class RtsGuiCompatProbe {
     }
 
     private static RayTraceResult resolveTargetHit(Minecraft minecraft) {
+        if (autoRun != null && autoRun.targetPos != null
+                && matchesTargetBlock(minecraft, autoRun.targetPos)) {
+            BlockPos target = autoRun.targetPos;
+            Vec3d center = new Vec3d(target.getX() + 0.5D, target.getY() + 0.5D,
+                    target.getZ() + 0.5D);
+            return new RayTraceResult(center, EnumFacing.UP, target);
+        }
         RayTraceResult hit = minecraft.objectMouseOver;
         if (hit != null && hit.typeOfHit == RayTraceResult.Type.BLOCK
                 && (isBlank(TARGET_BLOCK) || matchesTargetBlock(minecraft, hit.getBlockPos()))) {
@@ -312,6 +328,19 @@ public final class RtsGuiCompatProbe {
         if (autoRun == null || autoRun.finished) return;
         autoRun.totalTicks++;
         if (minecraft.player == null || minecraft.world == null || minecraft.player.connection == null) {
+            if (!autoRun.worldLaunchSent && minecraft.currentScreen instanceof GuiMainMenu) {
+                autoRun.mainMenuTicks++;
+                if (autoRun.mainMenuTicks >= AUTO_MAIN_MENU_STABLE_TICKS) {
+                    WorldSettings settings = new WorldSettings(
+                            0x525453475549L, GameType.CREATIVE, true, false, WorldType.DEFAULT);
+                    settings.enableCommands();
+                    minecraft.launchIntegratedServer(
+                            AUTO_WORLD_DIRECTORY, "RTSBuilding GUI Compat", settings);
+                    autoRun.worldLaunchSent = true;
+                    writeRow("auto-world-launch", "INFO", screenClass, screenTitle,
+                            menuClass, containerId, AUTO_WORLD_DIRECTORY);
+                }
+            }
             if (autoRun.totalTicks > AUTO_TIMEOUT_TICKS) {
                 writeRow("auto-timeout", "FAIL", screenClass, screenTitle, menuClass, containerId,
                         "Timed out waiting for a playable world.");
@@ -324,9 +353,10 @@ public final class RtsGuiCompatProbe {
         if (autoRun.stage == AutoStage.WAIT_WORLD) {
             if (autoRun.stageTicks < AUTO_WORLD_READY_DELAY) return;
             if (!isBlank(SETUP_COMMAND)) {
-                minecraft.player.sendChatMessage("/" + SETUP_COMMAND);
+                String setupCommand = prepareAutoSetupCommand(minecraft);
+                minecraft.player.sendChatMessage("/" + setupCommand);
                 writeRow("auto-setup-command", "INFO", screenClass, screenTitle, menuClass,
-                        containerId, "/" + SETUP_COMMAND);
+                        containerId, "/" + setupCommand);
                 autoRun.stage = AutoStage.WAIT_SETUP;
                 autoRun.stageTicks = 0;
                 return;
@@ -336,7 +366,21 @@ public final class RtsGuiCompatProbe {
         }
 
         if (autoRun.stage == AutoStage.WAIT_SETUP) {
-            if (autoRun.stageTicks < AUTO_SETUP_DELAY) return;
+            if (autoRun.targetPos != null) {
+                if (!matchesTargetBlock(minecraft, autoRun.targetPos)) {
+                    if (autoRun.stageTicks >= AUTO_SETUP_SYNC_TIMEOUT) {
+                        String actual = registryName(minecraft.world
+                                .getBlockState(autoRun.targetPos).getBlock());
+                        writeRow("auto-setup-sync", "FAIL", screenClass, screenTitle,
+                                menuClass, containerId, "pos=" + autoRun.targetPos
+                                        + " expected=" + TARGET_BLOCK + " actual=" + actual);
+                        finishAutoRun(minecraft);
+                    }
+                    return;
+                }
+            } else if (autoRun.stageTicks < AUTO_SETUP_DELAY) {
+                return;
+            }
             autoRun.stage = AutoStage.START_PROBE;
             autoRun.stageTicks = 0;
         }
@@ -352,6 +396,61 @@ public final class RtsGuiCompatProbe {
         if (autoRun.stage == AutoStage.WAIT_FINISH && activeRun == null
                 && autoRun.stageTicks >= AUTO_EXIT_DELAY) {
             finishAutoRun(minecraft);
+        }
+    }
+
+    /**
+     * 自动探针必须让服务端放置与客户端校验共享同一组绝对坐标。
+     * 大型整合包进服时玩家位置可能在相邻 tick 发生同步，若两端分别推导坐标，
+     * 会把“目标没找到”误报成远程 GUI 失败。
+     */
+    private static String prepareAutoSetupCommand(Minecraft minecraft) {
+        String[] parts = SETUP_COMMAND.trim().split("\\s+");
+        if (parts.length == 0 || !"rtsbuilding_gui_compat_setup".equals(parts[0])) {
+            return SETUP_COMMAND;
+        }
+
+        String caseId = parts.length >= 2 ? parts[1] : autoRun.caseId;
+        String targetBlock = parts.length >= 3 ? parts[2] : TARGET_BLOCK;
+        int distance = parts.length >= 4 ? parsePositiveInt(parts[3], TARGET_DISTANCE)
+                : TARGET_DISTANCE;
+        int meta = parts.length >= 5 ? parseNonNegativeInt(parts[4], 0) : 0;
+
+        BlockPos targetPos;
+        if (parts.length >= 8) {
+            targetPos = new BlockPos(parseSignedInt(parts[5], minecraft.player.posX),
+                    parseSignedInt(parts[6], minecraft.player.posY),
+                    parseSignedInt(parts[7], minecraft.player.posZ));
+        } else {
+            targetPos = minecraft.player.getPosition().add(0, 0, Math.max(2, distance));
+        }
+        autoRun.targetPos = targetPos;
+        return "rtsbuilding_gui_compat_setup " + caseId + " " + targetBlock + " "
+                + distance + " " + meta + " " + targetPos.getX() + " "
+                + targetPos.getY() + " " + targetPos.getZ();
+    }
+
+    private static int parsePositiveInt(String value, int fallback) {
+        try {
+            return Math.max(1, Integer.parseInt(value));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private static int parseNonNegativeInt(String value, int fallback) {
+        try {
+            return Math.max(0, Integer.parseInt(value));
+        } catch (NumberFormatException ignored) {
+            return fallback;
+        }
+    }
+
+    private static int parseSignedInt(String value, double fallback) {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException ignored) {
+            return (int) Math.floor(fallback);
         }
     }
 
@@ -561,7 +660,10 @@ public final class RtsGuiCompatProbe {
         private AutoStage stage = AutoStage.WAIT_WORLD;
         private int totalTicks;
         private int stageTicks;
+        private int mainMenuTicks;
+        private boolean worldLaunchSent;
         private boolean finished;
+        private BlockPos targetPos;
 
         private AutoRun(String caseId) {
             this.caseId = caseId;

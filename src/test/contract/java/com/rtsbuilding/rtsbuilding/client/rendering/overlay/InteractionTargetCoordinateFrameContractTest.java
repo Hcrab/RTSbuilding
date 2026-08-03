@@ -17,22 +17,31 @@ class InteractionTargetCoordinateFrameContractTest {
     @Test
     void uiOcclusionUsesBuilderScreensRecordedCursorInsteadOfConvertingRawMouseAgain() throws IOException {
         String source = Files.readString(SOURCE);
-        String method = between(source,
-                "private static boolean isInteractionBlockedByUI", "// ══════════════════════════════════════════════");
+        String method = methodBody(source, "private static boolean isInteractionBlockedByUi");
 
-        assertTrue(method.contains("builderScreen.getCurrentMouseX()"));
-        assertTrue(method.contains("builderScreen.getCurrentMouseY()"));
-        assertTrue(method.contains("builderScreen.isWorldArea(mouseX, mouseY)"));
-        assertFalse(method.contains("minecraft.mouseHandler"));
-        assertFalse(method.contains("getGuiScaledWidth"));
-        assertFalse(method.contains("getGuiScaledHeight"));
+        assertTrue(method.contains("getMethod(\"getCurrentMouseX\")"));
+        assertTrue(method.contains("getMethod(\"getCurrentMouseY\")"));
+        assertTrue(method.contains("getMethod(\"isWorldArea\",double.class,double.class)"));
+        assertFalse(method.contains("Mouse.getX()"));
+        assertFalse(method.contains("Mouse.getY()"));
+        assertFalse(method.contains("minecraft.displayWidth"));
+        assertFalse(method.contains("minecraft.displayHeight"));
     }
 
-    private static String between(String source, String start, String end) {
-        int startIndex = source.indexOf(start);
-        int endIndex = source.indexOf(end, startIndex + start.length());
-        assertTrue(startIndex >= 0 && endIndex > startIndex,
-                () -> "无法定位源码片段: " + start + " ... " + end);
-        return source.substring(startIndex, endIndex);
+    private static String methodBody(String source, String signatureStart) {
+        int start = source.indexOf(signatureStart);
+        assertTrue(start >= 0, "method not found: " + signatureStart);
+        int bodyStart = source.indexOf('{', start);
+        assertTrue(bodyStart >= 0, "method body not found: " + signatureStart);
+        int depth = 0;
+        for (int i = bodyStart; i < source.length(); i++) {
+            char c = source.charAt(i);
+            if (c == '{') {
+                depth++;
+            } else if (c == '}' && --depth == 0) {
+                return source.substring(bodyStart, i + 1);
+            }
+        }
+        throw new AssertionError("method body is not closed: " + signatureStart);
     }
 }

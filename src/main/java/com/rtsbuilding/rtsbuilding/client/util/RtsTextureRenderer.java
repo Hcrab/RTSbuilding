@@ -1,17 +1,16 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateQueries;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
-
-import java.nio.FloatBuffer;
 
 /**
  * Forge 1.12 GUI 的高精度纹理绘制器。
@@ -55,12 +54,11 @@ public final class RtsTextureRenderer {
         int blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
         int blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
         int blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
-        FloatBuffer previousColor = BufferUtils.createFloatBuffer(4);
-        GL11.glGetFloat(GL11.GL_CURRENT_COLOR, previousColor);
-        float oldRed = previousColor.get(0);
-        float oldGreen = previousColor.get(1);
-        float oldBlue = previousColor.get(2);
-        float oldAlpha = previousColor.get(3);
+        float[] previousColor = RtsGlStateQueries.currentColor();
+        float oldRed = previousColor[0];
+        float oldGreen = previousColor[1];
+        float oldBlue = previousColor[2];
+        float oldAlpha = previousColor[3];
 
         int previousMinFilter = GL11.GL_NEAREST;
         int previousMagFilter = GL11.GL_NEAREST;
@@ -114,8 +112,9 @@ public final class RtsTextureRenderer {
                 GL11.glTexParameteri(
                         GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, previousMagFilter);
             }
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, previousTexture);
-            GL14.glBlendFuncSeparate(blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
+            RtsGlStateRestorer.restoreTextureBinding(previousTexture);
+            GlStateManager.tryBlendFuncSeparate(
+                    blendSrcRgb, blendDstRgb, blendSrcAlpha, blendDstAlpha);
             if (blendEnabled) {
                 GlStateManager.enableBlend();
             } else {

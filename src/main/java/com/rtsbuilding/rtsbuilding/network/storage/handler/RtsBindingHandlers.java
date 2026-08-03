@@ -1,12 +1,19 @@
 package com.rtsbuilding.rtsbuilding.network.storage.handler;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
+import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsRemoteMenuResultPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsCloseRemoteMenuPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsOpenGuiBindingPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetBdNetworkPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetGuiBindingPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsSetQuickSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsStoreHotbarSlotPayload;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
+import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.Container;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
@@ -64,8 +71,31 @@ public final class RtsBindingHandlers {
         @Override public IMessage onMessage(final C2SRtsOpenGuiBindingPayload message, MessageContext context) {
             if (!message.isValid()) return null;
             schedule(context, true, new Action() { @Override public void run(EntityPlayerMP player) {
-                // 绑定所有权、维度和目标距离由服务端绑定服务按该玩家会话重新校验。
-                callBinding("openGuiBinding", new Class<?>[]{EntityPlayerMP.class, byte.class}, player, message.slot());
+                long traceId = message.traceId();
+                Container before = player.openContainer;
+                RtsbuildingMod.LOGGER.info(
+                        "[RTS-TRACE] side=S event=C2S_RECEIVED trace={} kind=REMOTE_GUI source=GUI_BINDING slot={} windowBefore={}",
+                        RtsTraceIds.format(traceId), message.slot(), before == null ? -1 : before.windowId);
+                RtsRemoteMenuCompat.beginServerRemoteMenuOpen(player, traceId);
+                try {
+                    // 绑定所有权、维度和目标距离由服务端绑定服务按该玩家会话重新校验。
+                    callBinding("openGuiBinding",
+                            new Class<?>[]{EntityPlayerMP.class, byte.class, long.class},
+                            player, message.slot(), traceId);
+                    Container after = player.openContainer;
+                    RtsRemoteInteractionResult result = after != null && after != before
+                            ? RtsRemoteInteractionResult.menuOpened(after.windowId)
+                            : RtsRemoteInteractionResult.noMenu(
+                                    S2CRtsRemoteMenuResultPayload.REASON_NO_EFFECT);
+                    sendTerminal(player, traceId, result);
+                    if (result.outcome() != S2CRtsRemoteMenuResultPayload.MENU_OPENED) {
+                        RtsRemoteMenuCompat.cancelServerRemoteMenuOpen(player, traceId, "NO_MENU");
+                    }
+                } catch (RuntimeException | LinkageError failure) {
+                    sendTerminal(player, traceId, RtsRemoteInteractionResult.failed());
+                    RtsRemoteMenuCompat.cancelServerRemoteMenuOpen(player, traceId, "EXCEPTION");
+                    throw failure;
+                }
             }}); return null;
         }
     }
@@ -107,6 +137,21 @@ public final class RtsBindingHandlers {
             throw new IllegalStateException("1.12 binding service adapter unavailable: " + method, exception);
         } catch (InvocationTargetException exception) { throw propagate("Binding service failed", exception); }
     }
+
+    private static void sendTerminal(
+            EntityPlayerMP player, long traceId, RtsRemoteInteractionResult result) {
+        if (result == null) result = RtsRemoteInteractionResult.failed();
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-TRACE] side=S event=RESULT trace={} kind=REMOTE_GUI source=GUI_BINDING outcome={} reason={} window={}",
+                RtsTraceIds.format(traceId),
+                S2CRtsRemoteMenuResultPayload.outcomeName(result.outcome()),
+                S2CRtsRemoteMenuResultPayload.reasonName(result.reason()), result.windowId());
+        if (RtsTraceIds.isPresent(traceId)) {
+            RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuResultPayload(
+                    traceId, result.outcome(), result.reason(), result.windowId()));
+        }
+    }
+
     private static RuntimeException propagate(String message, InvocationTargetException exception) {
         Throwable cause = exception.getCause();
         return cause instanceof RuntimeException ? (RuntimeException) cause : new IllegalStateException(message, cause);

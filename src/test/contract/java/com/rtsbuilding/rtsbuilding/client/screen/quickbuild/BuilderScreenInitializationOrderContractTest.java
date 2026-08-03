@@ -38,7 +38,7 @@ class BuilderScreenInitializationOrderContractTest {
 
         assertTrue(!adapter.contains("uiScreen().getMinecraft()"),
                 "BuilderScreen 构造期快照不能读取尚未挂载的 Screen.minecraft");
-        assertTrue(panel.contains("Minecraft.getInstance().player"),
+        assertTrue(panel.contains("Minecraft.getMinecraft().player"),
                 "构造期需要玩家模式时应通过客户端单例安全读取");
     }
 }

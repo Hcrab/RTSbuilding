@@ -123,6 +123,9 @@ public interface BindingService {
      */
     void openGuiBinding(EntityPlayerMP player, byte slotId);
 
+    /** 与旧入口相同，但把客户端请求的诊断身份传给远程菜单链路。 */
+    void openGuiBinding(EntityPlayerMP player, byte slotId, long traceId);
+
     /**
      * 将玩家快捷栏中指定槽位的物品存入链接存储。
      * 用于快速将手中的物品转移到远程存储系统中。

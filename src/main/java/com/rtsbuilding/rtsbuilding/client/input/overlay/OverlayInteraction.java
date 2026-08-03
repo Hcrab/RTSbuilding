@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
@@ -141,6 +142,9 @@ public final class OverlayInteraction {
         ItemStack request = entry.stack().copy();
         request.setCount(1);
         RtsPayloadRegistrar.sendToServer(new C2SRtsLinkedPickupPayload(request, wanted));
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-OVERLAY] side=C event=TRANSFER_SENT action=PICKUP item={} amount={} index={}",
+                entry.itemId(), wanted, index);
         ClientRtsController.get().selectStorageEntry(index);
         pendingOverlayCarriedItemId = entry.itemId();
         return true;
@@ -161,6 +165,9 @@ public final class OverlayInteraction {
         }
         int amount = Math.max(1, Math.min(requestedAmount, carried.getCount()));
         RtsPayloadRegistrar.sendToServer(new C2SRtsReturnCarriedPayload(itemId.toString(), amount));
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-OVERLAY] side=C event=TRANSFER_SENT action=DEPOSIT item={} amount={}",
+                itemId, amount);
         ItemStack preview = carried.copy();
         preview.setCount(amount);
         enqueueReturnPreview(preview);
@@ -247,6 +254,9 @@ public final class OverlayInteraction {
             return false;
         }
         RtsPayloadRegistrar.sendToServer(new C2SRtsImportMenuSlotPayload(menuSlot));
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-OVERLAY] side=C event=TRANSFER_SENT action=IMPORT_MENU_SLOT menu={} slot={}",
+                screen.inventorySlots.getClass().getName(), menuSlot);
         return true;
     }
 
@@ -342,6 +352,9 @@ public final class OverlayInteraction {
         ItemStack request = entry.stack().copy();
         request.setCount(1);
         RtsPayloadRegistrar.sendToServer(new C2SRtsLinkedQuickMovePayload(request));
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-OVERLAY] side=C event=TRANSFER_SENT action=QUICK_MOVE item={} index={}",
+                entry.itemId(), idx);
         ClientRtsController.get().selectStorageEntry(idx);
         pendingOverlayCarriedItemId = "";
         return true;

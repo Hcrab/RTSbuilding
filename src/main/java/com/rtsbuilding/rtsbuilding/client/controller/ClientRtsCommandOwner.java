@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.controller;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientTraceTracker;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.*;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
@@ -231,7 +232,32 @@ final class ClientRtsCommandOwner {
         }
 
     void applyRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload) {
-            controller.beginRemoteMenuOpenGrace();
+            Minecraft minecraft = Minecraft.getMinecraft();
+            BlockPos target = payload == null ? null : payload.pos();
+            long traceId = payload == null ? 0L : payload.traceId();
+            long distance = target != null && minecraft.player != null
+                    ? Math.round(Math.sqrt(minecraft.player.getDistanceSqToCenter(target)))
+                    : -1L;
+            if (traceId != 0L) {
+                RtsClientTraceTracker.hintReceived(
+                        traceId, target, distance, ClientRtsController.REMOTE_MENU_OPEN_GRACE_TICKS);
+                controller.beginRemoteMenuOpenGrace();
+            } else {
+                // 旧式提示仍可预放宽客户端校验，但不制造无法归因的 HINT_TIMEOUT。
+                RtsRemoteMenuCompat.beginClientRemoteMenuOpen();
+            }
+        }
+
+    void applyRemoteMenuResult(S2CRtsRemoteMenuResultPayload payload) {
+            if (payload == null) return;
+            RtsClientTraceTracker.resultReceived(payload);
+            if (payload.outcome() == S2CRtsRemoteMenuResultPayload.MENU_OPENED) {
+                controller.beginRemoteMenuOpenGrace();
+                return;
+            }
+            controller.pendingRemoteMenuOpenTicks = 0;
+            controller.screenlessRemoteMenuTicks = 0;
+            controller.clearRemoteMenuValidationState();
         }
 
     void applyDamageFeedback(S2CRtsDamageFeedbackPayload payload) {
@@ -330,11 +356,7 @@ final class ClientRtsCommandOwner {
                     ? minecraft.player.openContainer.getClass().getName()
                     : "null";
             String screenClass = minecraft.currentScreen != null ? minecraft.currentScreen.getClass().getName() : "null";
-            RtsbuildingMod.LOGGER.error(
-                    "RTS remote menu open failed for menu {} on screen {}; closing container to prevent a client crash.",
-                    menuClass,
-                    screenClass,
-                    throwable);
+            RtsClientTraceTracker.openFailed(menuClass, screenClass, throwable);
             controller.clearRemoteMenuValidationState();
             controller.pendingRemoteMenuOpenTicks = 0;
             if (minecraft.player != null) {

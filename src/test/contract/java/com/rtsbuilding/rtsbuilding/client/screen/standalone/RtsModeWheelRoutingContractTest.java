@@ -22,10 +22,10 @@ class RtsModeWheelRoutingContractTest {
                 "轮盘必须提交到统一 BuilderMode，不能维护独立显示状态");
         assertTrue(topBar.contains("TopBarUiAdapter.snapshot(screen, controller)"));
         assertTrue(topBarAdapter.contains("mode(controller.getMode())"));
-        assertTrue(topBarAdapter.contains("case INTERACT -> TopBarUiState.Mode.INTERACT"));
-        assertTrue(topBarAdapter.contains("case LINK_STORAGE -> TopBarUiState.Mode.LINK_STORAGE"));
-        assertTrue(topBarAdapter.contains("case FUNNEL -> TopBarUiState.Mode.FUNNEL"));
-        assertTrue(topBarAdapter.contains("case ROTATE -> TopBarUiState.Mode.ROTATE"));
+        assertTrue(topBarAdapter.contains("case INTERACT: return TopBarUiState.Mode.INTERACT"));
+        assertTrue(topBarAdapter.contains("case LINK_STORAGE: return TopBarUiState.Mode.LINK_STORAGE"));
+        assertTrue(topBarAdapter.contains("case FUNNEL: return TopBarUiState.Mode.FUNNEL"));
+        assertTrue(topBarAdapter.contains("case ROTATE: return TopBarUiState.Mode.ROTATE"));
         assertTrue(topBarAdapter.contains("controller.getMode()"),
                 "顶部栏选中样式必须直接读取统一 BuilderMode");
     }
@@ -39,7 +39,7 @@ class RtsModeWheelRoutingContractTest {
         String keyPressed = methodBody(
                 screen, "public boolean keyPressed(int keyCode, int scanCode, int modifiers)");
         String render = methodBody(
-                owner("BuilderScreenRenderOwner.java"), "public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)");
+                owner("BuilderScreenRenderOwner.java"), "public void render(LegacyGuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)");
 
         assertTrue(altState.contains("screen.cameraInput.cancelPointerGestures()"),
                 "轮盘打开时必须取消此前未完成的鼠标手势");
@@ -70,8 +70,9 @@ class RtsModeWheelRoutingContractTest {
                 "旋转箭头只响应左键，不能在鼠标按下时抢走右键拖动");
         assertTrue(!mouseDown.contains("screen.controller.linkStorage("),
                 "关联模式不能在鼠标按下时抢走右键拖动");
-        assertTrue(rightDrag.contains("if (this.rightDragDistance <= 1.5D)"));
-        assertTrue(rightDrag.contains("queueRotateDrag(this.pendingRightDragX, this.pendingRightDragY)"));
+        assertTrue(rightDrag.contains("PointerGestureClassifier.isIntentionalDrag("));
+        assertTrue(rightDrag.contains("RIGHT_CLICK_DRAG_THRESHOLD"));
+        assertTrue(rightDrag.contains("this.controller.queueRotateDrag(this.pendingRightDragX, this.pendingRightDragY)"));
     }
 
     @Test
@@ -131,8 +132,8 @@ class RtsModeWheelRoutingContractTest {
         String cameraInput = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java");
 
-        assertTrue(renderer.contains("RenderingUtil.quad("));
-        assertTrue(renderer.contains("renderArc("));
+        assertTrue(renderer.contains("appendArcGeometry("));
+        assertTrue(renderer.contains("addQuad("));
         assertTrue(renderer.contains("screen.computeCursorRayDirection()"));
         assertTrue(cameraInput.contains("queueRotateDrag("),
                 "旋转模式中的箭头不能抢走原有右键拖动镜头");
@@ -186,7 +187,7 @@ class RtsModeWheelRoutingContractTest {
         assertTrue(wheel.contains("hoverProgress"));
         assertTrue(wheel.contains("RtsGuiVectorRenderer.drawRing("));
         assertTrue(wheel.contains("RtsGuiVectorRenderer.fillDisc("));
-        assertTrue(!wheel.contains("private static void fillCircle("));
+        assertTrue(!wheel.contains("private static void fillDisc("));
         assertTrue(vectorRenderer.contains("SUBPIXEL_SCALE = 2"));
         assertTrue(vectorRenderer.contains("multiplyAlpha(color, 0.24F)"));
     }

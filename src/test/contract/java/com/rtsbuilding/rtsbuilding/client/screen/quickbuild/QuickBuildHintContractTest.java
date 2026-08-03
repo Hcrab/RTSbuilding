@@ -24,7 +24,7 @@ class QuickBuildHintContractTest {
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"))).getAsJsonObject();
 
         assertTrue(panel.contains("QuickBuildStatusRenderer.render("));
-        assertTrue(renderer.contains("Component.translatable(state.hintKey, state.confirmKeyLabel)"));
+        assertTrue(renderer.contains("I18n.format(state.hintKey, state.confirmKeyLabel)"));
         assertTrue(adapter.contains("Config.isKeyboardBatchConfirmEnabled()"));
         assertTrue(adapter.contains("\"screen.rtsbuilding.quick_build.build_hint_auto\""));
         assertEquals("预览满意的话，按右键锁定，然后按 %s 建造。",

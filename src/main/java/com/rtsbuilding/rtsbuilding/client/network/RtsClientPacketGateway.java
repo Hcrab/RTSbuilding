@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientTraceTracker;
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
@@ -35,9 +36,12 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @SideOnly(Side.CLIENT)
 public final class RtsClientPacketGateway {
+    private static final AtomicInteger POSITION_BATCH_SEQUENCE = new AtomicInteger();
+
     private RtsClientPacketGateway() {
     }
 
@@ -161,6 +165,7 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendCloseRemoteMenu() {
+        RtsbuildingMod.LOGGER.info("[RTS-CLIENT][REMOTE-GUI] event=CLOSE_SENT");
         send(new C2SRtsCloseRemoteMenuPayload());
     }
 
@@ -304,7 +309,9 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendOpenGuiBinding(int index) {
-        send(new C2SRtsOpenGuiBindingPayload((byte) index));
+        long traceId = RtsClientTraceTracker.beginRemoteInteraction(
+                "GUI_BINDING", null, "SLOT_" + index, -1, -1L);
+        send(new C2SRtsOpenGuiBindingPayload(traceId, (byte) index));
     }
 
     public static void sendPlace(RayTraceResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
@@ -394,25 +401,34 @@ public final class RtsClientPacketGateway {
         if (!prototype.isEmpty()) {
             prototype.setCount(1);
         }
-        send(new C2SRtsPlaceBatchPayload(
-                positions,
-                (byte) face.getIndex(),
-                hitOffsetX,
-                hitOffsetY,
-                hitOffsetZ,
-                (byte) rotateSteps,
-                statePreset == null ? "" : statePreset,
-                forcePlace,
-                skipIfOccupied,
-                overwriteExisting,
-                itemId == null ? "" : itemId,
-                prototype,
-                rayOrigin.x,
-                rayOrigin.y,
-                rayOrigin.z,
-                rayDir.x,
-                rayDir.y,
-                rayDir.z));
+        int total = positions.size();
+        int chunkSize = C2SRtsPlaceBatchPayload.MAX_POSITIONS_PER_PACKET;
+        int chunkCount = (total + chunkSize - 1) / chunkSize;
+        int submissionId = POSITION_BATCH_SEQUENCE.incrementAndGet();
+        for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
+            int from = chunkIndex * chunkSize;
+            int to = Math.min(total, from + chunkSize);
+            send(new C2SRtsPlaceBatchPayload(
+                    submissionId, chunkIndex, chunkCount, total,
+                    positions.subList(from, to),
+                    (byte) face.getIndex(),
+                    hitOffsetX,
+                    hitOffsetY,
+                    hitOffsetZ,
+                    (byte) rotateSteps,
+                    statePreset == null ? "" : statePreset,
+                    forcePlace,
+                    skipIfOccupied,
+                    overwriteExisting,
+                    itemId == null ? "" : itemId,
+                    prototype,
+                    rayOrigin.x,
+                    rayOrigin.y,
+                    rayOrigin.z,
+                    rayDir.x,
+                    rayDir.y,
+                    rayDir.z));
+        }
     }
 
     public static void sendPlaceFluid(RayTraceResult hit, boolean forcePlace, String fluidId, Vec3d rayOrigin, Vec3d rayDir) {
@@ -441,7 +457,10 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendInteractBlockWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) {
+        long traceId = beginRemoteInteraction("TOOL_SLOT", hit.getBlockPos(), hit.sideHit,
+                C2SRtsInteractPayload.NO_ENTITY);
         send(new C2SRtsInteractPayload(
+                traceId,
                 C2SRtsInteractPayload.NO_ENTITY,
                 hit.getBlockPos(),
                 (byte) hit.sideHit.getIndex(),
@@ -459,8 +478,42 @@ public final class RtsClientPacketGateway {
                 rayDir.z));
     }
 
-    public static void sendUseItemInAirWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) {
+    /**
+     * 发送方块空手交互意图。
+     *
+     * <p>1.12 的容器打开必须进入专用交互服务，才能在菜单创建后登记远程菜单会话；
+     * 不能复用放置队列，否则点击可能被当作一次无物品放置并在批处理边界提前结束。</p>
+     */
+    public static void sendInteractBlockEmptyHand(RayTraceResult hit, Vec3d rayOrigin, Vec3d rayDir) {
+        if (hit == null || rayOrigin == null || rayDir == null) {
+            return;
+        }
+        long traceId = beginRemoteInteraction("EMPTY_HAND", hit.getBlockPos(), hit.sideHit,
+                C2SRtsInteractPayload.NO_ENTITY);
         send(new C2SRtsInteractPayload(
+                traceId,
+                C2SRtsInteractPayload.NO_ENTITY,
+                hit.getBlockPos(),
+                (byte) hit.sideHit.getIndex(),
+                hit.hitVec.x,
+                hit.hitVec.y,
+                hit.hitVec.z,
+                C2SRtsInteractPayload.SOURCE_EMPTY_HAND,
+                (byte) 0,
+                "",
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDir.x,
+                rayDir.y,
+                rayDir.z));
+    }
+
+    public static void sendUseItemInAirWithToolSlot(RayTraceResult hit, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) {
+        long traceId = beginRemoteInteraction("TOOL_SLOT_AIR", hit.getBlockPos(), hit.sideHit,
+                C2SRtsInteractPayload.NO_ENTITY);
+        send(new C2SRtsInteractPayload(
+                traceId,
                 C2SRtsInteractPayload.NO_ENTITY,
                 hit.getBlockPos(),
                 (byte) hit.sideHit.getIndex(),
@@ -479,7 +532,10 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendInteractBlockWithPinnedItem(RayTraceResult hit, String itemId, Vec3d rayOrigin, Vec3d rayDir) {
+        long traceId = beginRemoteInteraction("PINNED_ITEM", hit.getBlockPos(), hit.sideHit,
+                C2SRtsInteractPayload.NO_ENTITY);
         send(new C2SRtsInteractPayload(
+                traceId,
                 C2SRtsInteractPayload.NO_ENTITY,
                 hit.getBlockPos(),
                 (byte) hit.sideHit.getIndex(),
@@ -498,9 +554,12 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendInteractEntityWithToolSlot(int entityId, Vec3d hitLocation, int toolSlot, Vec3d rayOrigin, Vec3d rayDir) {
+        BlockPos target = new BlockPos(hitLocation);
+        long traceId = beginRemoteInteraction("TOOL_SLOT", target, EnumFacing.UP, entityId);
         send(new C2SRtsInteractPayload(
+                traceId,
                 entityId,
-                new BlockPos(hitLocation),
+                target,
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,
@@ -517,9 +576,12 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendInteractEntityEmptyHand(int entityId, Vec3d hitLocation, Vec3d rayOrigin, Vec3d rayDir) {
+        BlockPos target = new BlockPos(hitLocation);
+        long traceId = beginRemoteInteraction("EMPTY_HAND", target, EnumFacing.UP, entityId);
         send(new C2SRtsInteractPayload(
+                traceId,
                 entityId,
-                new BlockPos(hitLocation),
+                target,
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,
@@ -536,9 +598,12 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendInteractEntityWithPinnedItem(int entityId, Vec3d hitLocation, String itemId, Vec3d rayOrigin, Vec3d rayDir) {
+        BlockPos target = new BlockPos(hitLocation);
+        long traceId = beginRemoteInteraction("PINNED_ITEM", target, EnumFacing.UP, entityId);
         send(new C2SRtsInteractPayload(
+                traceId,
                 entityId,
-                new BlockPos(hitLocation),
+                target,
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,
@@ -581,12 +646,29 @@ public final class RtsClientPacketGateway {
         if (positions == null || positions.isEmpty()) {
             return;
         }
-        send(new C2SRtsAreaDestroyPayload(
-                positions,
-                (byte) MathHelper.clamp(toolSlot, 0, 8),
-                toolItemId == null ? "" : toolItemId,
-                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                toolProtectionEnabled));
+        int total = Math.min(positions.size(), C2SRtsAreaDestroyPayload.MAX_POSITIONS);
+        List<BlockPos> sanitized = new ArrayList<BlockPos>(total);
+        for (BlockPos pos : positions) {
+            if (pos != null) sanitized.add(pos.toImmutable());
+            if (sanitized.size() >= total) break;
+        }
+        if (sanitized.isEmpty()) return;
+
+        total = sanitized.size();
+        int chunkSize = C2SRtsAreaDestroyPayload.MAX_POSITIONS_PER_PACKET;
+        int chunkCount = (total + chunkSize - 1) / chunkSize;
+        int submissionId = POSITION_BATCH_SEQUENCE.incrementAndGet();
+        for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
+            int from = chunkIndex * chunkSize;
+            int to = Math.min(total, from + chunkSize);
+            send(new C2SRtsAreaDestroyPayload(
+                    submissionId, chunkIndex, chunkCount, total,
+                    sanitized.subList(from, to),
+                    (byte) MathHelper.clamp(toolSlot, 0, 8),
+                    toolItemId == null ? "" : toolItemId,
+                    toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                    toolProtectionEnabled));
+        }
     }
 
     public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
@@ -641,6 +723,15 @@ public final class RtsClientPacketGateway {
         ItemStack copy = stack.copy();
         copy.setCount(1);
         return copy;
+    }
+
+    private static long beginRemoteInteraction(String source, BlockPos target, EnumFacing face, int entityId) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        long distance = minecraft != null && minecraft.player != null && target != null
+                ? Math.round(Math.sqrt(minecraft.player.getDistanceSqToCenter(target)))
+                : -1L;
+        return RtsClientTraceTracker.beginRemoteInteraction(
+                source, target, face == null ? "null" : face.getName(), entityId, distance);
     }
 
     private static boolean isBlank(String value) {

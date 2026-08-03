@@ -21,7 +21,7 @@ class BlueprintCaptureInputRouterContractTest {
         int inactive = body.indexOf("if (!capture.isActive())");
         int saving = body.indexOf("if (capture.isSaving())");
         int cancel = body.indexOf("if (cancelKey)");
-        int confirm = body.indexOf("if (keyCode == GLFW.GLFW_KEY_ENTER");
+        int confirm = body.indexOf("if (keyCode == Keyboard.KEY_RETURN");
         int nudge = body.indexOf("RtsSelectionNudge.fromKey");
         int finalConsume = body.lastIndexOf("return true;");
 

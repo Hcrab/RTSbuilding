@@ -36,9 +36,11 @@ class SurvivalPluginGateContractTest {
         String gate = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/pipeline/validation/ProgressionGatePipe.java"));
 
-        assertTrue(handler.contains("RtsPluginService.syncToPlayer(player)"));
+        assertTrue(handler.contains("for (EntityPlayerMP onlinePlayer")
+                && handler.contains("RtsPluginService.syncToPlayer(onlinePlayer)")
+                && handler.contains("RtsProgressionManager.syncToPlayer(onlinePlayer)"));
         assertTrue(gate.contains("message.rtsbuilding.plugin_required"));
-        assertTrue(gate.contains("displayClientMessage"));
+        assertTrue(gate.contains("sendStatusMessage"));
     }
 
     private static String methodBody(String source, String signature) {

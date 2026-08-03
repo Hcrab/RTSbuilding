@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.mode;
 
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.util.RtsGuiVectorRenderer;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
 import net.minecraft.client.Minecraft;
@@ -75,11 +76,11 @@ public final class BuilderModeWheel {
         float distance = lerp(progress, OPTION_START_DISTANCE, OPTION_DISTANCE);
         float ringRadius = lerp(progress, 15.0F, 41.0F);
 
-        drawRing(graphics, this.centerX, this.centerY, ringRadius, 8.0F,
+        RtsGuiVectorRenderer.drawRing(graphics, this.centerX, this.centerY, ringRadius, 8.0F,
                 color(ModeWheelStyle.TRACK_BACKGROUND.toArgb(), alpha));
-        drawRing(graphics, this.centerX, this.centerY, ringRadius, 1.25F,
+        RtsGuiVectorRenderer.drawRing(graphics, this.centerX, this.centerY, ringRadius, 1.25F,
                 color(ModeWheelStyle.TRACK_BORDER.toArgb(), alpha));
-        fillDisc(graphics, this.centerX, this.centerY, 2.0F + progress,
+        RtsGuiVectorRenderer.fillDisc(graphics, this.centerX, this.centerY, 2.0F + progress,
                 color(ModeWheelStyle.CENTER_DOT.toArgb(), alpha * 0.78F));
 
         drawOption(graphics, BuilderMode.INTERACT, 0, -1, 0, distance, currentMode, hovered, alpha, progress);
@@ -103,9 +104,9 @@ public final class BuilderModeWheel {
         float hover = this.hoverProgress[optionIndex];
         float scale = (0.72F + openingProgress * 0.28F) * (1.0F + hover * 0.12F);
         float radius = OPTION_RADIUS * scale;
-        fillDisc(graphics, cx, cy, radius + 1.25F,
+        RtsGuiVectorRenderer.fillDisc(graphics, cx, cy, radius + 1.25F,
                 color(ModeWheelStyle.optionBorder(current, hover).toArgb(), alpha));
-        fillDisc(graphics, cx, cy, Math.max(4.0F, radius - 1.25F),
+        RtsGuiVectorRenderer.fillDisc(graphics, cx, cy, Math.max(4.0F, radius - 1.25F),
                 color(ModeWheelStyle.optionBackground(current, hover).toArgb(), alpha));
 
         String visual = current ? "active" : hovered ? "hover" : "inactive";
@@ -138,7 +139,7 @@ public final class BuilderModeWheel {
     private static void drawLabelPill(LegacyGuiGraphics graphics, FontRenderer font, String text,
             int centerX, int centerY, float alpha) {
         int width = font.getStringWidth(text) + 16;
-        fillCapsule(graphics, centerX - width / 2, centerX + (width + 1) / 2,
+        RtsGuiVectorRenderer.fillCapsule(graphics, centerX - width / 2, centerX + (width + 1) / 2,
                 centerY, 15.0F, color(ModeWheelStyle.LABEL_BACKGROUND.toArgb(), alpha * 0.88F));
         graphics.drawCenteredString(font, text, centerX, centerY - 4,
                 color(ModeWheelStyle.LABEL_TEXT.toArgb(), alpha));
@@ -168,45 +169,4 @@ public final class BuilderModeWheel {
         return new com.rtsbuilding.rtsbuilding.uikit.theme.UiColor(argb).withAlpha(alpha).toArgb();
     }
 
-    private static void fillDisc(LegacyGuiGraphics graphics, float cx, float cy, float radius, int color) {
-        int r = Math.max(1, Math.round(radius));
-        int r2 = r * r;
-        for (int y = -r; y <= r; y++) {
-            int half = (int) Math.floor(Math.sqrt(Math.max(0, r2 - y * y)));
-            graphics.fill(Math.round(cx) - half, Math.round(cy) + y,
-                    Math.round(cx) + half + 1, Math.round(cy) + y + 1, color);
-        }
-    }
-
-    private static void drawRing(LegacyGuiGraphics graphics, float cx, float cy,
-            float radius, float thickness, int color) {
-        int outer = Math.max(1, Math.round(radius));
-        int inner = Math.max(0, Math.round(radius - thickness));
-        int outer2 = outer * outer;
-        int inner2 = inner * inner;
-        for (int y = -outer; y <= outer; y++) {
-            int oh = (int) Math.floor(Math.sqrt(Math.max(0, outer2 - y * y)));
-            if (inner == 0 || Math.abs(y) >= inner) {
-                graphics.fill(Math.round(cx) - oh, Math.round(cy) + y,
-                        Math.round(cx) + oh + 1, Math.round(cy) + y + 1, color);
-            } else {
-                int ih = (int) Math.floor(Math.sqrt(Math.max(0, inner2 - y * y)));
-                graphics.fill(Math.round(cx) - oh, Math.round(cy) + y,
-                        Math.round(cx) - ih, Math.round(cy) + y + 1, color);
-                graphics.fill(Math.round(cx) + ih + 1, Math.round(cy) + y,
-                        Math.round(cx) + oh + 1, Math.round(cy) + y + 1, color);
-            }
-        }
-    }
-
-    private static void fillCapsule(LegacyGuiGraphics graphics, int left, int right,
-            float centerY, float height, int color) {
-        float radius = height * 0.5F;
-        int innerLeft = Math.round(left + radius);
-        int innerRight = Math.round(right - radius);
-        graphics.fill(innerLeft, Math.round(centerY - radius), innerRight,
-                Math.round(centerY + radius), color);
-        fillDisc(graphics, innerLeft, centerY, radius, color);
-        fillDisc(graphics, innerRight, centerY, radius, color);
-    }
 }

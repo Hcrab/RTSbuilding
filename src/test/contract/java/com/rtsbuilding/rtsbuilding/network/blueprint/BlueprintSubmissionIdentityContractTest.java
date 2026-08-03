@@ -17,8 +17,8 @@ class BlueprintSubmissionIdentityContractTest {
         String payload = read("network/blueprint/C2SBlueprintPlacePayload.java");
 
         assertTrue(payload.contains("UUID submissionId"));
-        assertTrue(payload.contains("buf.writeUUID(payload.submissionId())"));
-        assertTrue(payload.contains("buf.readUUID()"));
+        assertTrue(payload.contains("RtsPacketBuffer.writeUuid(buffer, submissionId)"));
+        assertTrue(payload.contains("RtsPacketBuffer.readUuid(buffer)"));
     }
 
     @Test
@@ -30,7 +30,7 @@ class BlueprintSubmissionIdentityContractTest {
         assertTrue(panel.contains("PLACEMENT.confirmPinnedPreview()"));
         assertTrue(placement.contains("C2SBlueprintPlacePayload payload = new C2SBlueprintPlacePayload("));
         assertTrue(placement.contains("UUID.randomUUID()"));
-        assertTrue(placement.contains("PacketDistributor.sendToServer(payload)"));
+        assertTrue(placement.contains("RtsPayloadRegistrar.sendToServer(payload)"));
     }
 
     @Test

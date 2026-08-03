@@ -1,0 +1,574 @@
+import org.gradle.api.tasks.JavaExec
+
+/** 真正进入单人世界并执行客户端 tick/网络/RTS 渲染的自动烟测。 */
+def clientSmokeRunDir = layout.projectDirectory.dir('run/client-smoke').asFile
+def clientSmokeReport = new File(clientSmokeRunDir, 'rtsbuilding-client-smoke.txt')
+def clientSmokeWorld = new File(clientSmokeRunDir, 'saves/RTSBuildingClientSmoke')
+def baseRunClient = tasks.named('runClient', JavaExec)
+// MM 只是一套可选的兼容性探针来源，不应把维护者本机的绝对路径写进公开分支。
+// 默认使用仓库内的 run/mm-source；需要复用现有实例时可传 -PmmInstanceDir=<路径>。
+def mmInstanceDirectory = providers.gradleProperty('mmInstanceDir')
+        .getOrElse(layout.projectDirectory.dir('run/mm-source').asFile.absolutePath)
+
+tasks.register('runClientSmoke', JavaExec) { smoke ->
+    group = 'verification'
+    description = '启动真实 1.12.2 客户端、进入隔离单人世界、开关 RTS 并验证无客户端崩溃。'
+
+    // 复用 RFG 官方 runClient 的全部准备任务，但不执行交互式 runClient 本身。
+    dependsOn {
+        JavaExec base = baseRunClient.get()
+        base.taskDependencies.getDependencies(base)
+    }
+    workingDir clientSmokeRunDir
+    minHeapSize = '1g'
+    maxHeapSize = '3g'
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    })
+
+    doFirst {
+        JavaExec base = baseRunClient.get()
+        classpath = base.classpath
+        mainClass.set(base.mainClass.get())
+        setArgs(base.args)
+        setJvmArgs(base.jvmArgs)
+        // 该整包在进入首个世界时会同时保留模型、HEI 索引和服务端注册表。限制堆外与
+        // JIT 预留，避免 Windows 提交内存在短暂峰值时先于 Java heap 耗尽。
+        jvmArgs '-XX:+UseG1GC', '-XX:MaxDirectMemorySize=1536m',
+                '-XX:ReservedCodeCacheSize=192m', '-XX:MaxMetaspaceSize=1024m', '-Xss512k'
+        environment(base.environment)
+        systemProperties(base.systemProperties)
+
+        clientSmokeRunDir.mkdirs()
+        java.nio.file.Path normalizedRoot =
+                clientSmokeRunDir.toPath().toAbsolutePath().normalize()
+        java.nio.file.Path normalizedWorld =
+                clientSmokeWorld.toPath().toAbsolutePath().normalize()
+        if (!normalizedWorld.startsWith(normalizedRoot)) {
+            throw new GradleException("Refusing to clean client smoke world outside ${normalizedRoot}")
+        }
+        delete clientSmokeReport
+        delete clientSmokeWorld
+
+        systemProperty 'rtsbuilding.clientStartupSmoke', 'true'
+        systemProperty 'rtsbuilding.clientStartupSmokeReport', clientSmokeReport.absolutePath
+    }
+
+    doLast {
+        if (!clientSmokeReport.isFile()) {
+            throw new GradleException("Client smoke report was not created: ${clientSmokeReport}")
+        }
+        List<String> reportLines = clientSmokeReport.readLines('UTF-8')
+        String finalLine = reportLines.isEmpty() ? '' : reportLines.last()
+        if (!finalLine.startsWith('PASS ')) {
+            throw new GradleException("Client smoke failed: ${finalLine}\n${reportLines.join('\n')}")
+        }
+
+        File latestLog = new File(clientSmokeRunDir, 'logs/latest.log')
+        if (!latestLog.isFile()) {
+            throw new GradleException("Client smoke log was not created: ${latestLog}")
+        }
+        String log = latestLog.getText('UTF-8')
+        List<String> required = [
+                'Forge Mod Loader has successfully loaded',
+                'RTSBuilding 通用初始化完成',
+                'joined the game',
+                'RTS_112_CLIENT_SMOKE PASS'
+        ]
+        required.each { marker ->
+            if (!log.contains(marker)) {
+                throw new GradleException("Client smoke log is missing marker: ${marker}")
+            }
+        }
+        List<String> fatalMarkers = [
+                '[Client thread/FATAL]',
+                'Unreported exception thrown',
+                '---- Minecraft Crash Report ----'
+        ]
+        fatalMarkers.each { marker ->
+            if (log.contains(marker)) {
+                throw new GradleException("Client smoke log contains fatal marker: ${marker}")
+            }
+        }
+        logger.lifecycle("RTS 1.12.2 client smoke passed: ${finalLine}")
+    }
+}
+
+tasks.register('clientCheck') {
+    group = 'verification'
+    description = '运行需要真实图形环境的 1.12.2 客户端世界烟测。'
+    dependsOn tasks.named('runClientSmoke')
+}
+
+/**
+ * 在真实客户端/集成服务端中打开一个 GUI 方块，并验证 RTS 远程菜单至少稳定保持若干 tick。
+ * 参数均通过 -PguiCompat* 传入，因此同一套入口可被干净实例、MM 和以后其它整合包矩阵复用。
+ */
+tasks.register('runGuiCompatProbe', JavaExec) { probe ->
+    group = 'verification'
+    description = '启动真实 1.12.2 客户端并验证一个近距或远距 GUI 方块。'
+    dependsOn {
+        JavaExec base = baseRunClient.get()
+        base.taskDependencies.getDependencies(base)
+    }
+
+    File probeRunDir = layout.projectDirectory.dir('run/gui-compat-probe').asFile
+    File probeReport = new File(probeRunDir, 'rtsbuilding-gui-compat.tsv')
+    File probeWorld = new File(probeRunDir, 'saves/RTSBuildingGuiCompat')
+    workingDir probeRunDir
+    minHeapSize = '1g'
+    maxHeapSize = '3g'
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    })
+
+    doFirst {
+        JavaExec base = baseRunClient.get()
+        classpath = base.classpath
+        mainClass.set(base.mainClass.get())
+        setArgs(base.args)
+        setJvmArgs(base.jvmArgs)
+        // MM 的模型、配方与 HEI 索引在 Full GC 后仍常驻约 5.3GB。扩大老年代比例，
+        // 避免总堆尚有空间时先因 Parallel GC 默认年轻代过大而耗尽老年代。
+        jvmArgs "-XX:NewRatio=${providers.gradleProperty('guiCompatMatrixNewRatio').getOrElse('4')}"
+        environment(base.environment)
+        systemProperties(base.systemProperties)
+
+        String caseId = providers.gradleProperty('guiCompatCaseId').getOrElse('vanilla_chest')
+        String targetBlock = providers.gradleProperty('guiCompatTargetBlock').getOrElse('minecraft:chest')
+        int targetDistance = providers.gradleProperty('guiCompatTargetDistance').getOrElse('20') as int
+        String menuRegex = providers.gradleProperty('guiCompatExpectedMenuRegex')
+                .getOrElse(caseId == 'vanilla_chest'
+                        ? 'net\\.minecraft\\.inventory\\.ContainerChest' : '')
+        String screenRegex = providers.gradleProperty('guiCompatExpectedScreenRegex').getOrElse('')
+
+        probeRunDir.mkdirs()
+        java.nio.file.Path normalizedRoot = probeRunDir.toPath().toAbsolutePath().normalize()
+        java.nio.file.Path normalizedWorld = probeWorld.toPath().toAbsolutePath().normalize()
+        if (!normalizedWorld.startsWith(normalizedRoot)) {
+            throw new GradleException("Refusing to clean GUI compat world outside ${normalizedRoot}")
+        }
+        delete probeReport
+        delete probeWorld
+
+        systemProperty 'rtsbuilding.guiCompatProbeReport', probeReport.absolutePath
+        systemProperty 'rtsbuilding.guiCompatAutoRun', 'true'
+        systemProperty 'rtsbuilding.guiCompatAutoExit', 'true'
+        systemProperty 'rtsbuilding.guiCompatCaseId', caseId
+        systemProperty 'rtsbuilding.guiCompatTargetBlock', targetBlock
+        systemProperty 'rtsbuilding.guiCompatTargetDistance', Integer.toString(targetDistance)
+        systemProperty 'rtsbuilding.guiCompatTargetSearchRadius', Integer.toString(targetDistance + 12)
+        systemProperty 'rtsbuilding.guiCompatExpectedMenuRegex', menuRegex
+        systemProperty 'rtsbuilding.guiCompatExpectedScreenRegex', screenRegex
+        systemProperty 'rtsbuilding.guiCompatSetupCommand',
+                "rtsbuilding_gui_compat_setup ${caseId} ${targetBlock} ${targetDistance}"
+    }
+
+    doLast {
+        if (!probeReport.isFile()) {
+            throw new GradleException("GUI compat report was not created: ${probeReport}")
+        }
+        List<String> lines = probeReport.readLines('UTF-8')
+        boolean passed = lines.any { line ->
+            String[] columns = line.split('\\t', -1)
+            columns.length >= 6 && columns[4] == 'run-finish' && columns[5] == 'PASS'
+        }
+        if (!passed) {
+            throw new GradleException("GUI compat probe failed:\n${lines.join('\n')}")
+        }
+        File latestLog = new File(probeRunDir, 'logs/latest.log')
+        if (latestLog.isFile()) {
+            String log = latestLog.getText('UTF-8')
+            ['[Client thread/FATAL]', '---- Minecraft Crash Report ----'].each { marker ->
+                if (log.contains(marker)) throw new GradleException("GUI compat log contains ${marker}")
+            }
+        }
+        logger.lifecycle("RTS 1.12.2 GUI compat probe passed: ${probeReport}")
+    }
+}
+
+// -----------------------------------------------------------------------------
+//  Multiblock Madness 全注册表 GUI 矩阵
+// -----------------------------------------------------------------------------
+
+def mmMatrixRunDir = layout.projectDirectory.dir('run/mm-gui-matrix').asFile
+def mmMatrixReport = new File(mmMatrixRunDir, 'rtsbuilding-mm-gui-matrix.tsv')
+def mmFarMiningStorageReport = new File(mmMatrixRunDir, 'rtsbuilding-far-mining-storage.tsv')
+def mmMatrixWorld = new File(mmMatrixRunDir, 'saves/RTSBuildingMmGuiMatrix')
+def mmDevelopmentOnlyExclusions = [
+        'tickcentral-3.2.jar',
+        '!mixinbooter-5.0.jar',
+        'mixinbootstrap-1.0.5.jar',
+        // BetterFps 把面向生产混淆名的补丁模板一并打进 JAR；RFG 只能转换普通类，
+        // 其补丁模板仍引用 bib，在 MCP 客户端里会于 Main 初始化前崩溃。它不注册内容或 GUI。
+        'betterfps-1.4.8.jar',
+        // FoamFix 在该整包与现代 MixinBooter/RFG 组合下会重复注册 splice transformer，
+        // 导致 TileEntity 出现重复 getKey_foamfix_old；它同样只做性能补丁，不贡献 GUI 内容。
+        'foamfix-0.10.15-1.12.2.jar',
+        // Forgix 打包的 CraftPresence 在 MCP+MixinBooter 11 下会被 Forge 发现两次；
+        // 该 Discord 状态插件不注册方块、容器或待测机器界面。
+        'craftpresence-2.0.7+1.12.2.jar',
+        // TickCentral 已因 LaunchWrapper 开发环境不兼容而排除，依赖它的 LagGoggles
+        // 也必须成对排除；两者只负责性能分析，不注册待测方块 GUI。
+        'laggoggles-1.12.2-5.9-140.jar',
+        // 该版 VanillaFix 会反射旧 MixinProcessor.prepareConfigs(MixinEnvironment)，
+        // 与构建链提供的 Mixin 0.8.7 私有签名不兼容；它只负责崩溃处理和通用修补，
+        // 不注册方块、容器或机器界面，因此不影响 GUI 兼容矩阵的覆盖边界。
+        'vanillafix-1.0.10-150.jar',
+        // Engineers' Doors 在 MCP 环境中于静态方块初始化时先调用尚未赋值的模组日志器，
+        // 只贡献门和栅栏门等无容器方块；这些方块近程不会打开 GUI，本来也会被矩阵跳过。
+        'engineers_doors-1.12.2-0.9.1.jar'
+] as Set<String>
+def mmCraftTweakerName = 'CraftTweaker2-1.12-4.1.20.689.jar'
+def mmNormalizedCraftTweaker = layout.buildDirectory
+        .file("mm-gui-matrix-normalized/${mmCraftTweakerName}")
+def mmToolProgressionName = 'toolprogression-1.12.2-1.6.12.jar'
+def mmToolProgressionCoreEntry = 'META-INF/libraries/toolprogression-1.12.2-1.6.12-core.jar'
+def mmExtractedToolProgressionCore = layout.buildDirectory
+        .file('mm-gui-matrix-normalized/toolprogression-core-1.12.2-1.6.12.jar')
+def mmNormalizedToolProgression = layout.buildDirectory
+        .file("mm-gui-matrix-normalized/${mmToolProgressionName}")
+
+def extractMmToolProgressionCore = tasks.register('extractMmToolProgressionCore') {
+    group = 'verification'
+    description = '提取 Tool Progression 内嵌核心，供 RFG 单独反混淆。'
+    File source = file(mmInstanceDirectory)
+    File inputJar = new File(source, "mods/${mmToolProgressionName}")
+    inputs.file(inputJar)
+    outputs.file(mmExtractedToolProgressionCore)
+
+    doLast {
+        File outputJar = mmExtractedToolProgressionCore.get().asFile
+        outputJar.parentFile.mkdirs()
+        java.util.jar.JarFile input = new java.util.jar.JarFile(inputJar)
+        try {
+            java.util.jar.JarEntry core = input.getJarEntry(mmToolProgressionCoreEntry)
+            if (core == null) {
+                throw new GradleException("Tool Progression embedded core is missing: ${mmToolProgressionCoreEntry}")
+            }
+            input.getInputStream(core).withCloseable { stream ->
+                outputJar.withOutputStream { output -> stream.transferTo(output) }
+            }
+        } finally {
+            input.close()
+        }
+    }
+}
+
+def normalizeMmGuiMatrixArtifacts = tasks.register('normalizeMmGuiMatrixArtifacts') {
+    group = 'verification'
+    description = '规范化少数含重复 ZIP 条目的 MM 旧模组，供 RFG 反混淆转换使用。'
+    File source = file(mmInstanceDirectory)
+    File inputJar = new File(source, "mods/${mmCraftTweakerName}")
+    inputs.file(inputJar)
+    outputs.file(mmNormalizedCraftTweaker)
+
+    doLast {
+        File outputJar = mmNormalizedCraftTweaker.get().asFile
+        outputJar.parentFile.mkdirs()
+        Set<String> seen = new HashSet<String>()
+        java.util.jar.JarFile input = new java.util.jar.JarFile(inputJar)
+        java.util.jar.JarOutputStream output = new java.util.jar.JarOutputStream(
+                new BufferedOutputStream(new FileOutputStream(outputJar)))
+        try {
+            byte[] buffer = new byte[64 * 1024]
+            input.entries().each { java.util.jar.JarEntry entry ->
+                if (!seen.add(entry.name)) return
+                java.util.jar.JarEntry copy = new java.util.jar.JarEntry(entry.name)
+                copy.time = entry.time
+                output.putNextEntry(copy)
+                if (!entry.directory) {
+                    InputStream stream = input.getInputStream(entry)
+                    try {
+                        int read
+                        while ((read = stream.read(buffer)) >= 0) {
+                            if (read > 0) output.write(buffer, 0, read)
+                        }
+                    } finally {
+                        stream.close()
+                    }
+                }
+                output.closeEntry()
+            }
+        } finally {
+            output.close()
+            input.close()
+        }
+        logger.lifecycle("Normalized duplicate ZIP entries for ${inputJar.name}: ${outputJar}")
+    }
+}
+def mmSourceRoot = file(mmInstanceDirectory).canonicalFile
+def mmModsDirectory = new File(mmSourceRoot, 'mods')
+def mmSourceJars = providers.provider {
+    if (!mmModsDirectory.isDirectory()) return []
+    fileTree(mmModsDirectory) {
+        include '*.jar'
+    }.files.findAll { File jar ->
+        String lowerName = jar.name.toLowerCase(Locale.ROOT)
+        !lowerName.startsWith('rtsbuilding-') && !mmDevelopmentOnlyExclusions.contains(lowerName)
+    }.collect { File jar ->
+        if (jar.name == mmCraftTweakerName) return mmNormalizedCraftTweaker.get().asFile
+        if (jar.name == mmToolProgressionName) return mmNormalizedToolProgression.get().asFile
+        jar
+    }.sort { a, b -> a.name <=> b.name }
+}
+
+configurations {
+    mmGuiMatrixMods {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+    mmToolProgressionCore {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
+dependencies {
+    // MM 实例中的发布 JAR 使用生产混淆名；runClient 使用 MCP 开发命名。
+    // 必须先交给 RFG 的官方 artifact transform，不能把原 JAR 直接硬链接进开发实例。
+    // 普通 build 不要求用户先安装整合包；只有实例确实存在时才注册这组可选依赖。
+    if (mmModsDirectory.isDirectory()) {
+        mmGuiMatrixMods(rfg.deobf(files(mmSourceJars)))
+        // 外层模组经过 RFG 后，Jar-in-Jar 内核仍保留生产混淆名；必须再单独转换一次。
+        mmToolProgressionCore(rfg.deobf(
+                files(mmExtractedToolProgressionCore).builtBy(extractMmToolProgressionCore)))
+    }
+}
+
+def normalizeMmToolProgression = tasks.register('normalizeMmToolProgression') {
+    group = 'verification'
+    description = '把已反混淆的 Tool Progression 内核重新装回开发态外层 JAR。'
+    dependsOn extractMmToolProgressionCore
+    inputs.file(file(mmInstanceDirectory)
+            .toPath().resolve("mods/${mmToolProgressionName}").toFile())
+    inputs.files(configurations.mmToolProgressionCore)
+    outputs.file(mmNormalizedToolProgression)
+
+    doLast {
+        File source = file(mmInstanceDirectory)
+        File inputJar = new File(source, "mods/${mmToolProgressionName}")
+        File deobfCore = configurations.mmToolProgressionCore.singleFile
+        File outputJar = mmNormalizedToolProgression.get().asFile
+        outputJar.parentFile.mkdirs()
+
+        java.util.jar.JarFile input = new java.util.jar.JarFile(inputJar)
+        java.util.jar.JarOutputStream output = new java.util.jar.JarOutputStream(
+                new BufferedOutputStream(new FileOutputStream(outputJar)))
+        try {
+            byte[] buffer = new byte[64 * 1024]
+            input.entries().each { java.util.jar.JarEntry entry ->
+                // 修改嵌套依赖后旧签名不再成立；开发副本应去掉签名元数据。
+                String upper = entry.name.toUpperCase(Locale.ROOT)
+                if (upper.startsWith('META-INF/')
+                        && (upper.endsWith('.SF') || upper.endsWith('.RSA') || upper.endsWith('.DSA'))) {
+                    return
+                }
+                java.util.jar.JarEntry copy = new java.util.jar.JarEntry(entry.name)
+                copy.time = entry.time
+                output.putNextEntry(copy)
+                if (!entry.directory) {
+                    InputStream stream = entry.name == mmToolProgressionCoreEntry
+                            ? new FileInputStream(deobfCore)
+                            : input.getInputStream(entry)
+                    try {
+                        int read
+                        while ((read = stream.read(buffer)) >= 0) {
+                            if (read > 0) output.write(buffer, 0, read)
+                        }
+                    } finally {
+                        stream.close()
+                    }
+                }
+                output.closeEntry()
+            }
+        } finally {
+            output.close()
+            input.close()
+        }
+        logger.lifecycle("Repacked Tool Progression with deobfuscated embedded core: ${outputJar}")
+    }
+}
+
+/**
+ * 为矩阵建立隔离的 MM 运行目录。配置和脚本来自玩家实例，模组 JAR 则使用 RFG
+ * 生成的开发命名副本；整个过程不会改动玩家正在使用的实例。
+ */
+tasks.register('prepareMmGuiMatrixRun') {
+    group = 'verification'
+    description = '从本地 Multiblock Madness 实例准备隔离的 GUI 矩阵运行目录。'
+    dependsOn normalizeMmGuiMatrixArtifacts, normalizeMmToolProgression
+    inputs.files(configurations.mmGuiMatrixMods)
+
+    doLast {
+        File source = file(mmInstanceDirectory).canonicalFile
+        File destination = mmMatrixRunDir.canonicalFile
+        java.nio.file.Path projectRoot = projectDir.toPath().toAbsolutePath().normalize()
+        java.nio.file.Path destinationPath = destination.toPath().toAbsolutePath().normalize()
+        if (!destinationPath.startsWith(projectRoot.resolve('run'))) {
+            throw new GradleException("Refusing to prepare MM matrix outside project run/: ${destination}")
+        }
+        if (!new File(source, 'mods').isDirectory()) {
+            throw new GradleException("MM instance has no mods directory: ${source}")
+        }
+
+        destination.mkdirs()
+        copy {
+            from source
+            into destination
+            exclude 'mods/**', 'saves/**', 'logs/**', 'crash-reports/**',
+                    'journeymap/**', 'local/**', '*.log', 'hs_err_pid*.log', 'replay_pid*.log'
+        }
+
+        // HEI 的全 tooltip 后缀树在本包约有 38 万节点，单次构建会额外占用数 GB 并耗时数分钟。
+        // GUI 矩阵不测试物品搜索；只修改隔离副本，保留 HEI 本体、配方插件和玩家实例原配置。
+        File heiConfig = new File(destination, 'config/jei/jei.cfg')
+        if (heiConfig.isFile()) {
+            String original = heiConfig.getText('UTF-8')
+            String tuned = original.replaceAll(/(?m)^(\s*S:tooltipSearchMode=).+$/) { all, prefix ->
+                prefix + 'DISABLED'
+            }
+            if (tuned != original) heiConfig.setText(tuned, 'UTF-8')
+        }
+
+        File destinationMods = new File(destination, 'mods')
+        delete destinationMods
+        destinationMods.mkdirs()
+        Set<File> transformedJars = configurations.mmGuiMatrixMods.files
+        transformedJars.each { File jar ->
+            java.nio.file.Files.copy(jar.toPath(), new File(destinationMods, jar.name).toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        }
+
+        if (providers.gradleProperty('guiCompatMatrixFresh').getOrElse('false').toBoolean()) {
+            delete mmMatrixReport
+            delete mmMatrixWorld
+        }
+        logger.lifecycle("Prepared MM GUI matrix with ${transformedJars.size()} deobfuscated JARs: ${destination}")
+        logger.lifecycle("Excluded deobf-incompatible/bootstrap-only JARs: ${mmDevelopmentOnlyExclusions}")
+    }
+}
+
+tasks.register('runMmGuiCompatMatrix', JavaExec) { matrix ->
+    group = 'verification'
+    description = '在真实 Multiblock Madness 全模组环境中运行近距/120 格远距 GUI 矩阵。'
+    dependsOn tasks.named('prepareMmGuiMatrixRun')
+    dependsOn {
+        JavaExec base = baseRunClient.get()
+        base.taskDependencies.getDependencies(base)
+    }
+    workingDir mmMatrixRunDir
+    minHeapSize = '2g'
+    // 312 模组客户端还需要给纹理、LWJGL 和 JIT 留原生内存；8G 堆会在 32G 主机上挤爆原生分配。
+    maxHeapSize = providers.gradleProperty('guiCompatMatrixHeap').getOrElse('7g')
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion.set(JavaLanguageVersion.of(8))
+    })
+
+    doFirst {
+        JavaExec base = baseRunClient.get()
+        classpath = base.classpath
+        mainClass.set(base.mainClass.get())
+        setArgs(base.args)
+        setJvmArgs(base.jvmArgs)
+        environment(base.environment)
+        systemProperties(base.systemProperties)
+
+        systemProperty 'rtsbuilding.guiCompatMatrixReport', mmMatrixReport.absolutePath
+        systemProperty 'rtsbuilding.guiCompatMatrixAutoExit', 'true'
+        systemProperty 'rtsbuilding.guiCompatMatrixNearDistance',
+                providers.gradleProperty('guiCompatMatrixNearDistance').getOrElse('3')
+        systemProperty 'rtsbuilding.guiCompatMatrixFarDistance',
+                providers.gradleProperty('guiCompatMatrixFarDistance').getOrElse('120')
+        systemProperty 'rtsbuilding.guiCompatMatrixStableTicks',
+                providers.gradleProperty('guiCompatMatrixStableTicks').getOrElse('20')
+        systemProperty 'rtsbuilding.guiCompatMatrixSetupWaitTicks',
+                providers.gradleProperty('guiCompatMatrixSetupWaitTicks').getOrElse('2')
+        systemProperty 'rtsbuilding.guiCompatMatrixOpenTimeoutTicks',
+                providers.gradleProperty('guiCompatMatrixOpenTimeoutTicks').getOrElse('8')
+        systemProperty 'rtsbuilding.guiCompatMatrixCloseWaitTicks',
+                providers.gradleProperty('guiCompatMatrixCloseWaitTicks').getOrElse('2')
+        systemProperty 'rtsbuilding.guiCompatMatrixMenuScreenTimeoutTicks',
+                providers.gradleProperty('guiCompatMatrixMenuScreenTimeoutTicks').getOrElse('60')
+        systemProperty 'rtsbuilding.guiCompatMatrixGuiStabilityTimeoutTicks',
+                providers.gradleProperty('guiCompatMatrixGuiStabilityTimeoutTicks').getOrElse('100')
+        systemProperty 'rtsbuilding.guiCompatMatrixLimit',
+                providers.gradleProperty('guiCompatMatrixLimit').getOrElse(Integer.toString(Integer.MAX_VALUE))
+        systemProperty 'rtsbuilding.guiCompatMatrixNamespaces',
+                providers.gradleProperty('guiCompatMatrixNamespaces').getOrElse('')
+        systemProperty 'rtsbuilding.guiCompatMatrixBlocks',
+                providers.gradleProperty('guiCompatMatrixBlocks').getOrElse('')
+        delete mmFarMiningStorageReport
+        systemProperty 'rtsbuilding.farMiningStorageSmokeReport',
+                mmFarMiningStorageReport.absolutePath
+    }
+
+    doLast {
+        if (!mmMatrixReport.isFile()) {
+            throw new GradleException("MM GUI matrix report was not created: ${mmMatrixReport}")
+        }
+        List<String> lines = mmMatrixReport.readLines('UTF-8')
+        String requestedBlocks = providers.gradleProperty('guiCompatMatrixBlocks').getOrElse('')
+        String requestedNamespaces = providers.gradleProperty('guiCompatMatrixNamespaces').getOrElse('')
+        String requestedLimit = providers.gradleProperty('guiCompatMatrixLimit')
+                .getOrElse(Integer.toString(Integer.MAX_VALUE))
+        boolean focusedRun = !requestedBlocks.trim().isEmpty()
+                || !requestedNamespaces.trim().isEmpty()
+                || requestedLimit.trim() != Integer.toString(Integer.MAX_VALUE)
+
+        String[] summary = null
+        lines.each { line ->
+            String[] c = line.split('\\t', -1)
+            if (c.length >= 4 && c[1] == 'SUMMARY') summary = c
+        }
+        if (summary == null) {
+            throw new GradleException("MM GUI matrix did not reach SUMMARY; rerun to resume: ${mmMatrixReport}")
+        }
+        int expectedTotal = summary[3] as int
+        if (!focusedRun && expectedTotal != 14606) {
+            throw new GradleException("Full MM GUI matrix reported ${expectedTotal} / 14606 candidates: "
+                    + mmMatrixReport)
+        }
+        String expectedTotalText = Integer.toString(expectedTotal)
+        Map<String, String[]> latestResults = [:]
+        Set<String> openedNear = [] as Set
+        Set<String> passedBothDistances = [] as Set
+        lines.each { line ->
+            String[] c = line.split('\\t', -1)
+            if (c.length >= 20 && c[1] == 'RESULT' && c[3] == expectedTotalText) {
+                latestResults[c[4]] = c
+                if (c[12] == 'OPEN_STABLE') openedNear.add(c[4])
+                if (c[12] == 'OPEN_STABLE' && c[16] == 'OPEN_STABLE') {
+                    passedBothDistances.add(c[4])
+                }
+            }
+        }
+        if (latestResults.size() != expectedTotal) {
+            throw new GradleException("MM GUI matrix has ${latestResults.size()} / ${expectedTotal} terminal candidates. "
+                    + "Rerun to resume: ${mmMatrixReport}")
+        }
+        List<String[]> remoteFailures = latestResults.values().findAll { c ->
+            c[12] == 'OPEN_STABLE' && c[16] != 'OPEN_STABLE'
+        }
+        Set<String> unstableKnownGui = openedNear.findAll { key ->
+            !passedBothDistances.contains(key)
+        } as Set
+        if (!remoteFailures.isEmpty() || !unstableKnownGui.isEmpty()) {
+            throw new GradleException("MM GUI matrix found ${remoteFailures.size()} latest near-pass/far-fail "
+                    + "and ${unstableKnownGui.size()} historically-opened candidates without a full pass. "
+                    + "See ${mmMatrixReport}")
+        }
+        if (!mmFarMiningStorageReport.isFile()) {
+            throw new GradleException("MM far mining storage report was not created: ${mmFarMiningStorageReport}")
+        }
+        String farMiningStorage = mmFarMiningStorageReport.getText('UTF-8').trim()
+        if (!farMiningStorage.startsWith('PASS\t')) {
+            throw new GradleException("MM far mining storage smoke failed: ${farMiningStorage}")
+        }
+        logger.lifecycle("MM GUI matrix completed ${expectedTotal} candidates without near-pass/far-fail regressions: "
+                + mmMatrixReport)
+        logger.lifecycle("MM far mining storage smoke passed: ${farMiningStorage}")
+    }
+}

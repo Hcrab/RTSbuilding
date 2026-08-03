@@ -28,9 +28,14 @@ public final class RtsMiningNetworkHelper {
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsUltimineProgressPayload(processed, total));
     }
     public static void sendHarvestTierSkipped(EntityPlayerMP player, List<BlockPos> positions) {
-        if (player != null && positions != null && !positions.isEmpty())
+        if (player == null || positions == null || positions.isEmpty()) return;
+        int chunkSize = S2CRtsHarvestTierSkippedPayload.MAX_POSITIONS;
+        for (int from = 0; from < positions.size(); from += chunkSize) {
+            int to = Math.min(positions.size(), from + chunkSize);
             RtsClientboundPackets.sendToPlayer(player,
-                    new S2CRtsHarvestTierSkippedPayload(new ArrayList<BlockPos>(positions)));
+                    new S2CRtsHarvestTierSkippedPayload(
+                            new ArrayList<BlockPos>(positions.subList(from, to))));
+        }
     }
     public static void notifyHarvestTierLimit(EntityPlayerMP player, List<BlockPos> positions) {
         if (player == null || positions == null || positions.isEmpty()) return;

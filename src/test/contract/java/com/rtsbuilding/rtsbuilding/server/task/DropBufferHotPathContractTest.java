@@ -13,26 +13,29 @@ class DropBufferHotPathContractTest {
     @Test
     void timeoutMakesOneFinalStorageAttemptAndLimitsDroppedEntities() throws IOException {
         String source = read("server/service/mining/RtsDropAbsorber.java");
-        assertTrue(source.contains("DropInsertContext insertContext = createInsertContext"));
-        assertTrue(source.contains("int stackLimit = fallbackEligible ? Math.min(maxStacks, 16) : maxStacks"));
-        assertTrue(source.contains("if (stored <= 0 && fallbackEligible"));
-        assertTrue(source.contains("mergeRemainder(timedOutRemainders, remainder)"));
+        assertTrue(source.contains("DropInsertContext context = createInsertContext"));
+        assertTrue(source.contains("int limit = fallback ? Math.min(maxStacks, 16) : maxStacks"));
+        assertTrue(source.contains("if (stored <= 0 && fallback"));
+        assertTrue(source.contains("mergeRemainder(worldRemainders, remainder)"));
     }
 
     @Test
     void bufferIsPersistedWithFullStackComponents() throws IOException {
         String source = read("server/data/SessionSerializer.java");
         assertTrue(source.contains("serializeDropBuffer"));
-        assertTrue(source.contains("save(player.registryAccess())"));
-        assertTrue(source.contains("ItemStack.parseOptional(player.registryAccess()"));
+        assertTrue(source.contains("writeToNBT(new NBTTagCompound())"));
+        assertTrue(source.contains("new ItemStack(stacks.getCompoundTagAt(i))"));
     }
 
     @Test
-    void miningCapturesExactPreSpawnDropsInsteadOfScanningWorldEntities() throws IOException {
+    void miningCapturesStandardAndDirectEntityDropsWithoutScanningExistingWorldEntities() throws IOException {
         String capture = read("server/service/mining/RtsMiningDropCapture.java");
         String mining = read("server/service/mining/RtsMiningStateMachine.java");
 
-        assertTrue(capture.contains("BlockDropsEvent"));
+        assertTrue(capture.contains("BlockEvent.HarvestDropsEvent"));
+        assertTrue(capture.contains("EntityJoinWorldEvent"));
+        assertTrue(capture.contains("instanceof EntityItem"));
+        assertTrue(capture.contains("event.setCanceled(true)"));
         assertTrue(capture.contains("EventPriority.LOWEST"));
         assertTrue(capture.contains("enqueueCapturedDrops"));
         assertTrue(mining.contains("RtsMiningDropCapture.capture(player, session"));

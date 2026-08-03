@@ -9,19 +9,16 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/**
- * 固化网络存储处理器的所有权边界，防止配置切换、切维度和退出流程重新引入悬空引用。
- */
+/** 固化网络存储处理器的所有权边界，防止生命周期重新引入悬空引用。 */
 class StorageHandlerLifecycleContractTest {
-
     @Test
     void endpointOwnerMustDetachTickBorrowerBeforeDestructiveRelease() throws IOException {
         String source = read("server/storage/cache/RtsEndpointLeaseCache.java");
         int detach = source.indexOf("detachHandler(playerId, handler)");
         int release = source.indexOf("releaseNetworkHandler(handler)");
 
-        assertTrue(detach >= 0, "端点销毁前必须通知 Tick 聚合缓存卸载借用对象");
-        assertTrue(release > detach, "必须先卸载借用方，再清空 AE 网络处理器内部引用");
+        assertTrue(detach >= 0, "端点销毁前必须通知 tick 聚合缓存卸载借用对象");
+        assertTrue(release > detach, "必须先卸载借用方，再清空网络处理器内部引用");
     }
 
     @Test
@@ -29,30 +26,48 @@ class StorageHandlerLifecycleContractTest {
         String source = read("server/service/RtsStorageTickService.java");
 
         assertFalse(source.contains("RtsAe2Compat.releaseNetworkHandler"),
-                "Tick 服务只拥有快照，不拥有 AE Handler 的销毁权");
+                "tick 服务只拥有快照，不拥有 AE handler 的销毁权");
         assertFalse(source.contains("RtsBdCompat.releaseNetworkHandler"),
-                "Tick 服务只拥有快照，不拥有 BD Handler 的销毁权");
+                "tick 服务只拥有快照，不拥有 BD handler 的销毁权");
+    }
+
+    @Test
+    void aggregateCacheMustKeepExtractOnlyPolicyViewMounted() throws IOException {
+        String resolver = read("server/service/resolver/RtsLinkedHandlerResolutionService.java");
+        int method = resolver.indexOf("void registerStorageCaches");
+        int nextSection = resolver.indexOf("//  Fluid handler resolution", method);
+        String body = resolver.substring(method, nextSection);
+
+        assertTrue(body.contains("policyHandlers.add(lh.handler())"),
+                "聚合缓存必须挂载带 Extract-only 权限的 handler 视图");
+        assertFalse(body.contains("getRawHandler()"),
+                "注册聚合缓存时不得把权限视图剥成原始 capability");
+
+        String tickService = read("server/service/RtsStorageTickService.java");
+        assertTrue(tickService.contains("endpointIdentity(handler)")
+                        && tickService.contains("currentView.allowsStore() == requestedView.allowsStore()"),
+                "Tick 缓存必须分别跟踪稳定端点身份和可变写入权限");
     }
 
     @Test
     void playerLifecycleMustClearBorrowerBeforeInvalidatingEndpointOwner() throws IOException {
         String session = read("server/service/impl/RtsSessionServiceImpl.java");
         assertOrderedInMethod(session, "void onRtsDisabled", "cleanupPlayerCaches(player)",
-                "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer", "关闭 RTS");
+                "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUniqueID())", "关闭 RTS");
         assertOrderedInMethod(session, "void onPlayerLogout", "cleanupPlayerCaches(player)",
-                "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer", "玩家退出");
+                "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUniqueID())", "玩家退出");
 
         String mod = read("RtsbuildingMod.java");
-        assertOrderedInMethod(mod, "void onPlayerChangedDimension", "unregisterPlayer(serverPlayer)",
-                "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer", "切换维度");
+        assertOrderedInMethod(mod, "void onPlayerChangedDimension", "unregisterPlayer(player)",
+                "RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUniqueID())", "切换维度");
     }
 
     @Test
     void releasedAeHandlerAndNullReflectionTargetMustFailClosed() throws IOException {
         String aeSource = read("compat/ae2/RtsAe2Compat.java");
 
-        assertTrue(aeSource.contains("if (this.released || this.storageService == null) return;"),
-                "已释放的 AE 快照刷新必须直接停止");
+        assertTrue(aeSource.contains("if (this.released || this.inventory == null)"),
+                "已释放或失去 1.12 AE inventory 的快照刷新必须直接停止");
         assertTrue(aeSource.contains("target == null && !Modifier.isStatic(method.getModifiers())"),
                 "反射层不得对空实例调用非静态方法");
 
@@ -67,7 +82,7 @@ class StorageHandlerLifecycleContractTest {
         int borrower = source.indexOf(borrowerCleanup, method);
         int owner = source.indexOf(ownerCleanup, method);
         assertTrue(method >= 0 && borrower > method && owner > borrower,
-                scenario + "必须先清理 Tick 借用方，再销毁端点所有者");
+                scenario + "必须先清理 tick 借用方，再销毁端点所有者");
     }
 
     private static String read(String relative) throws IOException {

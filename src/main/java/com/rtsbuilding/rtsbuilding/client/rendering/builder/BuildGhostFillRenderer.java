@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -32,7 +33,7 @@ public final class BuildGhostFillRenderer {
                 pos.getX()+.97D,pos.getY()+.97D,pos.getZ()+.97D,r,g,b,a);
         UltimineGhostRenderer.GlSnapshot gl=UltimineGhostRenderer.GlSnapshot.capture(); try {
             GlStateManager.enableBlend(); GlStateManager.disableTexture2D(); GlStateManager.disableCull();
-            GlStateManager.depthMask(false); UPLOADER.draw(BUFFER);
+            GlStateManager.depthMask(false); RtsOwnedBufferUploader.draw(BUFFER);
         } finally {
             BUFFER.setTranslation(0,0,0); gl.restore();
         }

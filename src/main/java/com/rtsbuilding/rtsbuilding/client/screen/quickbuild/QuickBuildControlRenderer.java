@@ -18,8 +18,6 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.resources.I18n;
 
 import java.util.ArrayList;
@@ -81,16 +79,14 @@ final class QuickBuildControlRenderer {
             WindowButton button = controls.shapeButton(i);
             if (contains(button, QuickBuildWindowLayout.SHAPE_SLOT,
                     QuickBuildWindowLayout.SHAPE_SLOT, mouseX, mouseY)) {
-                Minecraft minecraft = Minecraft.getMinecraft();
-                ScaledResolution scaled = new ScaledResolution(minecraft);
                 String label = I18n.format(
                         QuickBuildIconCatalog.tooltipKey(state.shapes.get(i).shape));
                 int tooltipWidth = screen.font().getStringWidth(label) + 8;
                 int tooltipHeight = screen.font().FONT_HEIGHT + 6;
                 int tooltipX = Math.min(mouseX + TOOLTIP_CURSOR_OFFSET,
-                        Math.max(0, scaled.getScaledWidth() - tooltipWidth - 2));
+                        Math.max(0, screen.width - tooltipWidth - 2));
                 int tooltipY = Math.min(mouseY - TOOLTIP_CURSOR_OFFSET,
-                        Math.max(0, scaled.getScaledHeight() - tooltipHeight - 2));
+                        Math.max(0, screen.height - tooltipHeight - 2));
                 graphics.fill(tooltipX, tooltipY,
                         tooltipX + tooltipWidth, tooltipY + tooltipHeight,
                         QuickBuildStyle.TOOLTIP_BACKGROUND.toArgb());

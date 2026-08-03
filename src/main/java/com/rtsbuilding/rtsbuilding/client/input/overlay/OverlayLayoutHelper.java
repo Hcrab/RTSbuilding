@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
@@ -410,6 +411,16 @@ public final class OverlayLayoutHelper {
         return new OverlayProfile(guiScale, renderScale, rows, highScale);
     }
 
+    /**
+     * 返回容器 overlay 一页能够完整画出的物品数。
+     *
+     * <p>分页请求必须和响应式布局使用同一份行列定义；否则服务端会切出比界面更多的条目，
+     * 那些未绘制条目会在翻页时被永久跳过。收起面板只改变临时可见区域，不改变分页边界。</p>
+     */
+    public static int overlayStoragePageCapacity(OverlayProfile profile) {
+        return STORAGE_COLS * Math.max(1, profile.storageRows());
+    }
+
     public static double currentGuiScale() {
         Minecraft minecraft = Minecraft.getMinecraft();
         if (minecraft == null || minecraft.displayWidth <= 0) {
@@ -612,9 +623,11 @@ public final class OverlayLayoutHelper {
 
     public static void drawSlotCountOverlay(LegacyGuiGraphics g, FontRenderer font, int slotX, int slotY,
             int slotSize, String countText, UiColor color) {
-        if (countText == null || countText.isEmpty()) return;
-        int x = slotX + slotSize - font.getStringWidth(countText) - 1;
-        g.drawString(font, countText, x, slotY + slotSize - 8, color.toArgb());
+        // 容器 Overlay 与 RTS 底栏必须共享同一数量覆盖层：先画物品，再在高 Z 层画
+        // 深色底带和缩放后的无阴影数字。旧版在槽位平面直接画文字，1.12 RenderItem
+        // 开启深度后会让后续方块模型遮住数量，且与底栏视觉逻辑分叉。
+        RtsClientUiUtil.drawSlotCountOverlay(
+                g, font, slotX, slotY, slotSize, countText, color.toArgb());
     }
 
     public static String sortShort(com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort sort) {

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
@@ -34,8 +36,34 @@ public final class RtsRemoteMenuService {
         // 标记必须同时具备玩家身份，因此由 markRemoteMenuOpen 完成。
     }
 
+    /**
+     * 在真正执行远程右键前准备目标区块。近距离目标保持原版轻量路径；远距离目标由
+     * 单区块租约完成服务端强加载和客户端完整 Chunk 同步。
+     */
+    public static boolean prepareTargetChunk(EntityPlayerMP player, BlockPos pos) {
+        return prepareTargetChunk(player, pos, RtsTraceIds.NONE);
+    }
+
+    public static boolean prepareTargetChunk(EntityPlayerMP player, BlockPos pos, long traceId) {
+        return RtsRemoteMenuChunkLease.prepare(player, pos, traceId);
+    }
+
+    /** 远程交互未打开菜单时释放刚准备的区块，避免普通按钮或拉杆长期占票。 */
+    public static void releasePreparedTarget(EntityPlayerMP player) {
+        releasePreparedTarget(player, RtsTraceIds.NONE, "UNSPECIFIED");
+    }
+
+    public static void releasePreparedTarget(EntityPlayerMP player, long traceId, String reason) {
+        RtsRemoteMenuChunkLease.release(player, traceId, reason);
+    }
+
     public static void markRemoteMenuOpen(EntityPlayerMP player, RtsStorageSession session,
             Container menu, BlockPos pos) {
+        markRemoteMenuOpen(player, session, menu, pos, RtsTraceIds.NONE);
+    }
+
+    public static void markRemoteMenuOpen(EntityPlayerMP player, RtsStorageSession session,
+            Container menu, BlockPos pos, long traceId) {
         if (menu == null) {
             return;
         }
@@ -45,28 +73,48 @@ public final class RtsRemoteMenuService {
         }
         if (session != null) {
             session.transfer.remoteMenuContainerId = remoteMenu.windowId;
+            session.transfer.remoteMenuTraceId = traceId;
             session.transfer.remoteMenuPos = pos == null ? null : pos.toImmutable();
         }
         if (session != null && RtsRemoteMenuCompat.isSupportedRemoteMenu(remoteMenu)) {
-            RtsRemoteMenuCompat.markServerRemoteMenu(player, remoteMenu);
+            RtsRemoteMenuCompat.markServerRemoteMenu(player, remoteMenu, traceId);
+            if (RtsTraceIds.isPresent(traceId)) {
+                RtsbuildingMod.LOGGER.info(
+                        "[RTS-TRACE] side=S event=MENU_MARKED trace={} kind=REMOTE_GUI window={} menu={} target={}",
+                        RtsTraceIds.format(traceId), remoteMenu.windowId,
+                        remoteMenu.getClass().getName(), pos);
+            }
         } else {
             RtsRemoteMenuCompat.clearServerRemoteMenu(player);
+            RtsRemoteMenuChunkLease.release(player, traceId, "UNSUPPORTED_MENU");
         }
     }
 
     public static void clearValidation(EntityPlayerMP player, RtsStorageSession session) {
+        clearValidation(player, session, "UNSPECIFIED");
+    }
+
+    public static void clearValidation(EntityPlayerMP player, RtsStorageSession session, String reason) {
+        long traceId = session == null ? RtsTraceIds.NONE : session.transfer.remoteMenuTraceId;
+        int windowId = session == null ? -1 : session.transfer.remoteMenuContainerId;
+        if (RtsTraceIds.isPresent(traceId)) {
+            RtsbuildingMod.LOGGER.info(
+                    "[RTS-TRACE] side=S event=MENU_CLEARED trace={} kind=REMOTE_GUI window={} reason={}",
+                    RtsTraceIds.format(traceId), windowId, reason);
+        }
         if (session != null) {
             session.transfer.remoteMenuContainerId = -1;
+            session.transfer.remoteMenuTraceId = RtsTraceIds.NONE;
             session.transfer.remoteMenuPos = null;
         }
         RtsRemoteMenuCompat.clearServerRemoteMenu(player);
+        RtsRemoteMenuChunkLease.release(player, traceId, reason);
     }
 
     public static void closeTracked(EntityPlayerMP player, RtsStorageSession session) {
-        if (player == null || session == null || session.transfer.remoteMenuContainerId < 0) {
-            return;
-        }
-        if (player.openContainer != null
+        if (player == null) return;
+        if (session != null && session.transfer.remoteMenuContainerId >= 0
+                && player.openContainer != null
                 && player.openContainer.windowId == session.transfer.remoteMenuContainerId
                 && player.openContainer != player.inventoryContainer) {
             player.closeContainer();
@@ -79,10 +127,19 @@ public final class RtsRemoteMenuService {
      * 这保持原版 1.12.2 开窗前的同步顺序，避免客户端用陈旧 TE 数据创建 GUI。
      */
     public static void sendRemoteMenuOpenHint(EntityPlayerMP player, BlockPos pos) {
+        sendRemoteMenuOpenHint(player, pos, RtsTraceIds.NONE);
+    }
+
+    public static void sendRemoteMenuOpenHint(EntityPlayerMP player, BlockPos pos, long traceId) {
         if (player == null || pos == null) {
             return;
         }
-        RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(traceId, pos));
+        if (RtsTraceIds.isPresent(traceId)) {
+            RtsbuildingMod.LOGGER.info(
+                    "[RTS-TRACE] side=S event=HINT_SENT trace={} kind=REMOTE_GUI target={}",
+                    RtsTraceIds.format(traceId), pos);
+        }
         WorldServer level = player.getServerWorld();
         if (level == null || !level.isBlockLoaded(pos)) {
             return;

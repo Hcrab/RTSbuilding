@@ -290,7 +290,9 @@ public GuiTextField getCraftSearchBox() {
     }
     @Override
     public void onGuiClosed() {
-        this.lifecycleOwner.onClose();
+        // 1.12 的 onGuiClosed 同时覆盖“玩家主动关闭”和“被容器 GUI 替换”。
+        // 主线只在主动 onClose 时退出 RTS；远程箱子覆盖屏幕时只能执行 removed 清理，
+        // 否则随后按 Esc 关闭箱子就已经收到了错误的相机关闭状态。
         this.lifecycleOwner.removed();
         super.onGuiClosed();
     }
@@ -314,6 +316,9 @@ public GuiTextField getCraftSearchBox() {
     }
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int button) {
+        this.legacyDragButton = button;
+        this.legacyDragLastX = mouseX;
+        this.legacyDragLastY = mouseY;
         mouseClicked((double) mouseX, (double) mouseY, button);
     }
 
@@ -337,10 +342,24 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) { return this.pointerGestureOwner.mouseDragged(mouseX, mouseY, button, dragX, dragY); }
     public void mouseMoved(double mouseX, double mouseY) { this.pointerGestureOwner.mouseMoved(mouseX, mouseY); }
     @Override
-    protected void mouseReleased(int mouseX, int mouseY, int button) { mouseReleased((double) mouseX, (double) mouseY, button); }
+    protected void mouseReleased(int mouseX, int mouseY, int button) {
+        mouseReleased((double) mouseX, (double) mouseY, button);
+        if (button == this.legacyDragButton) {
+            this.legacyDragButton = -1;
+            this.legacyDragLastX = Double.NaN;
+            this.legacyDragLastY = Double.NaN;
+        }
+    }
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int button, long timeSinceLastClick) {
-        mouseDragged(mouseX, mouseY, button, 0.0D, 0.0D);
+        double dragX = button == this.legacyDragButton && Double.isFinite(this.legacyDragLastX)
+                ? mouseX - this.legacyDragLastX : 0.0D;
+        double dragY = button == this.legacyDragButton && Double.isFinite(this.legacyDragLastY)
+                ? mouseY - this.legacyDragLastY : 0.0D;
+        this.legacyDragButton = button;
+        this.legacyDragLastX = mouseX;
+        this.legacyDragLastY = mouseY;
+        mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
     public boolean isCameraUpActionHeld() { return this.pointerGestureOwner.isCameraUpActionHeld(); }
     public boolean isCameraDownActionHeld() { return this.pointerGestureOwner.isCameraDownActionHeld(); }
@@ -387,8 +406,15 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
     }
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws java.io.IOException {
-        if (keyPressed(keyCode, 0, 0)) return;
-        if (charTyped(typedChar, 0)) return;
+        // 1.12 把物理按键和字符输入合并在同一次 keyTyped 回调里。
+        // 即使文本框已经消费了按键阶段，也必须继续投递可打印字符；否则搜索、AI 和插件输入框只能获得空字符。
+        boolean keyHandled = keyPressed(keyCode, 0, 0);
+        boolean charHandled = !Character.isISOControl(typedChar) && charTyped(typedChar, 0);
+        if (keyHandled || charHandled) return;
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            // 旧版没有独立 Screen#onClose；只在未被子面板消费的 Esc 上补主线主动关闭语义。
+            this.lifecycleOwner.onClose();
+        }
         super.keyTyped(typedChar, keyCode);
     }
     @Override

@@ -15,15 +15,15 @@ class GhostBlockModelRendererContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/util/GhostBlockModelRenderer.java"));
 
-        assertTrue(source.contains("tesselateBlock("),
+        assertTrue(source.contains("renderModel(minecraft.world, model, state, pos,"),
                 "Ghost block previews must use the world-position-aware model tessellator.");
-        assertTrue(source.contains("minecraft.level"),
+        assertTrue(source.contains("minecraft.world"),
                 "Position-sensitive block colors, such as TFC seasonal leaves, need a real client world.");
         assertTrue(source.contains("BlockPos pos"),
                 "The shared renderer must keep the target BlockPos in its public contract.");
-        assertTrue(source.contains("state.getSeed(pos)"),
+        assertTrue(source.contains("MathHelper.getPositionRandom(pos)"),
                 "Model randomness must remain tied to the rendered world position.");
-        assertFalse(source.contains(".renderSingleBlock("),
+        assertFalse(source.contains("renderBlockBrightness("),
                 "renderSingleBlock can call BlockColors with a null position and crash position-sensitive mods.");
     }
 
@@ -31,18 +31,17 @@ class GhostBlockModelRendererContractTest {
     void ghostModelCallSitesUseTheSharedPositionAwareRenderer() throws Exception {
         for (String file : ghostModelCallSites()) {
             String source = Files.readString(Path.of(file));
-            assertTrue(source.contains("GhostBlockModelRenderer.renderAt("),
-                    file + " should render ghost block models through the shared context-aware helper.");
-            assertFalse(source.contains(".renderSingleBlock("),
+            assertTrue(source.contains("renderModel(") && source.contains(".world")
+                            && source.contains("getPositionRandom("),
+                    file + " should render ghost block models with the real world and target position.");
+            assertFalse(source.contains("renderBlockBrightness("),
                     file + " must not reintroduce null-position block color rendering.");
         }
     }
 
     private static List<String> ghostModelCallSites() {
         return List.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/animation/DestroyGhostRenderer.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/animation/PendingGhostRenderer.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/animation/ConfirmedPlacementRenderer.java",
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/animation/PlacementAnimationRenderer.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/builder/BuildGhostModelRenderer.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/blueprint/BlueprintGhostBlockModelRenderer.java"
         );

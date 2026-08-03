@@ -1,14 +1,24 @@
 package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
+import com.rtsbuilding.rtsbuilding.compat.RtsGuiCompatMatrixSync;
+import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlacePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsRemoteMenuResultPayload;
+import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
+import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
@@ -59,13 +69,18 @@ public final class RtsPlacementActionHandlers1122 {
             if (!message.isValid()) return null;
             schedule(context, new Action() {
                 @Override public void run(EntityPlayerMP player) {
-                    if (!allInRange(player, message.clickedPositions())) return;
+                    List<BlockPos> positions = RtsPositionBatchAssembler1122.accept(
+                            player.getUniqueID(), "place_batch", message.submissionId(),
+                            message.chunkIndex(), message.chunkCount(), message.totalPositions(),
+                            C2SRtsPlaceBatchPayload.MAX_POSITIONS, message.metadataSignature(),
+                            message.clickedPositions());
+                    if (positions == null || !allInRange(player, positions)) return;
                     invokeService("placement", "enqueuePlaceBatch", new Class<?>[]{
                                     EntityPlayerMP.class, List.class, EnumFacing.class,
                                     double.class, double.class, double.class, byte.class, String.class,
                                     boolean.class, boolean.class, boolean.class, String.class, ItemStack.class,
                                     double.class, double.class, double.class, double.class, double.class, double.class},
-                            player, message.clickedPositions(), EnumFacing.byIndex(message.face()),
+                            player, positions, EnumFacing.byIndex(message.face()),
                             message.hitOffsetX(), message.hitOffsetY(), message.hitOffsetZ(),
                             message.rotateSteps(), message.statePreset(), message.forcePlace(),
                             message.skipIfOccupied(), message.overwriteExisting(), message.itemId(),
@@ -100,28 +115,104 @@ public final class RtsPlacementActionHandlers1122 {
     public static final class Interact implements IMessageHandler<C2SRtsInteractPayload, IMessage> {
         @Override public IMessage onMessage(final C2SRtsInteractPayload message, MessageContext context) {
             if (!message.isValid()) return null;
-            schedule(context, new Action() {
-                @Override public void run(EntityPlayerMP player) {
+            final EntityPlayerMP player = context.getServerHandler().player;
+            player.getServerWorld().addScheduledTask(new Runnable() {
+                @Override public void run() {
+                    // 不在 Netty 线程读取世界状态；诊断上下文和交互都在服务端计划任务中处理。
+                    logReceived(player, message);
+                    if (!cameraBoolean("isActive", new Class<?>[]{EntityPlayerMP.class}, player)) {
+                        sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.rejected(
+                                S2CRtsRemoteMenuResultPayload.REASON_RTS_INACTIVE));
+                        return;
+                    }
                     BlockPos authorityTarget = message.clickedPos();
                     if (message.entityId() >= 0) {
                         Entity entity = player.getServerWorld().getEntityByID(message.entityId());
-                        if (entity == null) return;
+                        if (entity == null) {
+                            sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.rejected(
+                                    S2CRtsRemoteMenuResultPayload.REASON_TARGET_MISSING));
+                            return;
+                        }
                         authorityTarget = entity.getPosition();
                     }
-                    if (!inRange(player, authorityTarget)) return;
-                    invokeService("interaction", "interactTarget", new Class<?>[]{
-                                    EntityPlayerMP.class, int.class, BlockPos.class, EnumFacing.class,
-                                    double.class, double.class, double.class, byte.class, byte.class,
-                                    String.class, double.class, double.class, double.class,
-                                    double.class, double.class, double.class},
-                            player, message.entityId(), message.clickedPos(),
-                            EnumFacing.byIndex(message.face()), message.hitX(), message.hitY(),
-                            message.hitZ(), message.sourceType(), message.toolSlot(), message.itemId(),
-                            message.rayOriginX(), message.rayOriginY(), message.rayOriginZ(),
-                            message.rayDirX(), message.rayDirY(), message.rayDirZ());
+                    if (!inRange(player, authorityTarget)) {
+                        sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.rejected(
+                                S2CRtsRemoteMenuResultPayload.REASON_OUT_OF_RANGE));
+                        return;
+                    }
+                    RtsRemoteMenuCompat.beginServerRemoteMenuOpen(player, message.traceId());
+                    try {
+                        RtsRemoteInteractionResult result = (RtsRemoteInteractionResult) invokeService(
+                                "interaction", "interactTarget", new Class<?>[]{
+                                        EntityPlayerMP.class, int.class, BlockPos.class, EnumFacing.class,
+                                        double.class, double.class, double.class, byte.class, byte.class,
+                                        String.class, double.class, double.class, double.class,
+                                        double.class, double.class, double.class, long.class},
+                                player, message.entityId(), message.clickedPos(),
+                                EnumFacing.byIndex(message.face()), message.hitX(), message.hitY(),
+                                message.hitZ(), message.sourceType(), message.toolSlot(), message.itemId(),
+                                message.rayOriginX(), message.rayOriginY(), message.rayOriginZ(),
+                                message.rayDirX(), message.rayDirY(), message.rayDirZ(), message.traceId());
+                        sendTerminal(player, message.traceId(), result);
+                        if (result == null || result.outcome() != S2CRtsRemoteMenuResultPayload.MENU_OPENED) {
+                            RtsRemoteMenuCompat.cancelServerRemoteMenuOpen(player, message.traceId(), "NO_MENU");
+                        }
+                        RtsGuiCompatMatrixSync.markInteractionProcessed(message.clickedPos());
+                    } catch (RuntimeException | LinkageError failure) {
+                        RtsbuildingMod.LOGGER.error(
+                                "[RTS-TRACE] side=S event=RESULT trace={} kind=REMOTE_GUI outcome=FAILED reason=EXCEPTION failure={}",
+                                RtsTraceIds.format(message.traceId()), failure.getClass().getName(), failure);
+                        sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.failed());
+                        RtsRemoteMenuCompat.cancelServerRemoteMenuOpen(player, message.traceId(), "EXCEPTION");
+                        // 真实矩阵会故意激活缺少结构或物品前置的孤立方块。仅在探针模式下把第三方异常
+                        // 变成可报告 ACK；普通玩家路径仍按原语义抛出，避免吞掉实际服务端故障。
+                        if (!RtsGuiCompatMatrixSync.isEnabled()) throw failure;
+                        RtsGuiCompatMatrixSync.markInteractionFailed(message.clickedPos(), failure);
+                    }
                 }
             });
             return null;
+        }
+
+        private static void logReceived(EntityPlayerMP player, C2SRtsInteractPayload message) {
+            BlockPos pos = message.clickedPos();
+            boolean loaded = pos != null && player.getServerWorld().isBlockLoaded(pos);
+            String blockId = "unloaded";
+            if (loaded) {
+                IBlockState state = player.getServerWorld().getBlockState(pos);
+                ResourceLocation id = Block.REGISTRY.getNameForObject(state.getBlock());
+                blockId = id == null ? state.getBlock().getClass().getName() : id.toString();
+            }
+            long distance = pos == null ? -1L
+                    : Math.round(Math.sqrt(player.getDistanceSqToCenter(pos)));
+            RtsbuildingMod.LOGGER.info(
+                    "[RTS-TRACE] side=S event=C2S_RECEIVED trace={} kind=REMOTE_GUI player={} target={} entity={} source={} distance={} loadedBefore={} block={}",
+                    RtsTraceIds.format(message.traceId()), player.getName(), pos, message.entityId(),
+                    sourceName(message.sourceType()), distance, loaded, blockId);
+        }
+
+        private static void sendTerminal(
+                EntityPlayerMP player, long traceId, RtsRemoteInteractionResult result) {
+            if (result == null) result = RtsRemoteInteractionResult.failed();
+            RtsbuildingMod.LOGGER.info(
+                    "[RTS-TRACE] side=S event=RESULT trace={} kind=REMOTE_GUI outcome={} reason={} window={}",
+                    RtsTraceIds.format(traceId),
+                    S2CRtsRemoteMenuResultPayload.outcomeName(result.outcome()),
+                    S2CRtsRemoteMenuResultPayload.reasonName(result.reason()), result.windowId());
+            if (RtsTraceIds.isPresent(traceId)) {
+                RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuResultPayload(
+                        traceId, result.outcome(), result.reason(), result.windowId()));
+            }
+        }
+
+        private static String sourceName(byte source) {
+            switch (source) {
+                case C2SRtsInteractPayload.SOURCE_TOOL_SLOT: return "TOOL_SLOT";
+                case C2SRtsInteractPayload.SOURCE_PIN_ITEM: return "PINNED_ITEM";
+                case C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR: return "TOOL_SLOT_AIR";
+                case C2SRtsInteractPayload.SOURCE_EMPTY_HAND: return "EMPTY_HAND";
+                default: return "UNKNOWN";
+            }
         }
     }
 
@@ -170,12 +261,12 @@ public final class RtsPlacementActionHandlers1122 {
         }
     }
 
-    private static void invokeService(String accessor, String name, Class<?>[] types, Object... arguments) {
+    private static Object invokeService(String accessor, String name, Class<?>[] types, Object... arguments) {
         try {
             Class<?> registryClass = Class.forName(REGISTRY);
             Object registry = registryClass.getMethod("getInstance").invoke(null);
             Object service = registryClass.getMethod(accessor).invoke(registry);
-            service.getClass().getMethod(name, types).invoke(service, arguments);
+            return service.getClass().getMethod(name, types).invoke(service, arguments);
         } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException exception) {
             throw new IllegalStateException("1.12.2 service adapter is unavailable: " + accessor + "." + name,
                     exception);

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.Config;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
@@ -180,7 +181,7 @@ public final class PlacementAnimationRenderer {
         GlStateManager.depthMask(false);
         GlStateManager.disableCull();
         try {
-            MODEL_UPLOADER.draw(MODEL_BUFFER);
+            RtsOwnedBufferUploader.draw(MODEL_BUFFER);
         } finally {
             GlStateManager.enableCull();
             GlStateManager.depthMask(true);
@@ -203,7 +204,7 @@ public final class PlacementAnimationRenderer {
         GlStateManager.depthMask(false);
         if (lines) GlStateManager.glLineWidth(1.5F);
         try {
-            COLOR_UPLOADER.draw(buffer);
+            RtsOwnedBufferUploader.draw(buffer);
         } finally {
             if (lines) GlStateManager.glLineWidth(1.0F);
             GlStateManager.depthMask(true);

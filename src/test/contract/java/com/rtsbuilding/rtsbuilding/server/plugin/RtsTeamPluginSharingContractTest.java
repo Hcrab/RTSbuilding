@@ -19,7 +19,7 @@ class RtsTeamPluginSharingContractTest {
                 "team plugin state should be persisted on shared progression data");
         assertTrue(sharedData.contains("KEY_PLUGIN_OWNER") && sharedData.contains("KEY_PLUGIN_OWNER_NAME"),
                 "shared plugin persistence must retain contributor identity");
-        assertTrue(teamService.contains("isOwnedBy(ServerPlayer player)"),
+        assertTrue(teamService.contains("isOwnedBy(EntityPlayerMP player)"),
                 "uninstall ownership should be decided by contributor UUID");
         assertTrue(pluginService.contains("message.rtsbuilding.plugin.not_yours"),
                 "uninstalling a teammate's plugin should be rejected with a player-facing message");

@@ -1,4 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsCursorRay;
 
 import com.google.common.base.Predicate;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
@@ -21,7 +24,6 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
-import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
@@ -66,9 +68,9 @@ public final class InteractionTargetRenderer {
                 || isInteractionBlockedByUi(minecraft)) return;
 
         Entity camera = minecraft.getRenderViewEntity();
-        float partialTicks = minecraft.getRenderPartialTicks();
-        Vec3d origin = camera.getPositionEyes(partialTicks);
-        Vec3d direction = computeCursorDirection(minecraft, camera, partialTicks);
+        RtsCursorRay.Snapshot cursorRay = RtsCursorRay.capture(minecraft);
+        Vec3d origin = cursorRay.origin();
+        Vec3d direction = cursorRay.direction();
         Vec3d end = origin.add(direction.scale(MAX_REACH));
         RayTraceResult blockHit = RtsCullingRayClipper.clip(origin, direction, MAX_REACH,
                 new RtsCullingRayClipper.BlockClip() {
@@ -280,20 +282,6 @@ public final class InteractionTargetRenderer {
         return best;
     }
 
-    private static Vec3d computeCursorDirection(Minecraft minecraft, Entity camera, float partialTicks) {
-        double width = Math.max(1.0D, minecraft.displayWidth);
-        double height = Math.max(1.0D, minecraft.displayHeight);
-        double nx = Mouse.isCreated() ? Mouse.getX() / width * 2.0D - 1.0D : 0.0D;
-        double ny = Mouse.isCreated() ? Mouse.getY() / height * 2.0D - 1.0D : 0.0D;
-        Vec3d forward = camera.getLook(partialTicks).normalize();
-        Vec3d worldUp = Math.abs(forward.y) > 0.999D ? new Vec3d(0, 0, 1) : new Vec3d(0, 1, 0);
-        Vec3d right = forward.crossProduct(worldUp).normalize();
-        Vec3d up = right.crossProduct(forward).normalize();
-        double tanY = Math.tan(Math.toRadians(minecraft.gameSettings.fovSetting) * 0.5D);
-        double tanX = tanY * width / height;
-        return forward.add(right.scale(nx * tanX)).add(up.scale(ny * tanY)).normalize();
-    }
-
     private static boolean isWithinBounds(ClientRtsController controller, BlockPos pos) {
         if (!controller.hasBounds()) return true;
         int minX=(int)Math.floor(controller.getAnchorX()-controller.getMaxRadius());
@@ -384,7 +372,7 @@ public final class InteractionTargetRenderer {
     }
 
     private static void uploadOrReset(BufferBuilder buffer) {
-        if(buffer.getVertexCount()>0) UPLOADER.draw(buffer); else discard(buffer);
+        if(buffer.getVertexCount()>0) RtsOwnedBufferUploader.draw(buffer); else discard(buffer);
     }
     private static void discardOwnedBuffers(){discard(DEPTH_BUFFER);discard(NO_DEPTH_BUFFER);resetTranslations();}
     private static void discard(BufferBuilder buffer){try{buffer.finishDrawing();}catch(IllegalStateException ignored){}buffer.reset();}
@@ -406,6 +394,6 @@ public final class InteractionTargetRenderer {
             set(GL11.GL_CULL_FACE,cull);set(GL11.GL_DEPTH_TEST,depth);set(GL11.GL_POLYGON_OFFSET_FILL,polygon);
             GlStateManager.doPolygonOffset(polygonFactor,polygonUnits);GlStateManager.depthMask(depthMask);
             GlStateManager.glLineWidth(lineWidth);GlStateManager.resetColor();}
-        static void set(int cap,boolean on){if(on)GL11.glEnable(cap);else GL11.glDisable(cap);}
+        static void set(int cap,boolean on){RtsGlStateRestorer.restoreCapability(cap,on);}
     }
 }

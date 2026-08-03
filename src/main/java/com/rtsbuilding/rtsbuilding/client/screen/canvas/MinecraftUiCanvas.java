@@ -15,6 +15,7 @@ import org.lwjgl.opengl.GL11;
 public final class MinecraftUiCanvas implements UiCanvas2D {
     private final LegacyGuiGraphics graphics;
     private final FontRenderer font;
+    private final BuilderScreen screen;
     private final UiClipStack clips = new UiClipStack();
 
     public MinecraftUiCanvas(LegacyGuiGraphics graphics, FontRenderer font) {
@@ -25,6 +26,7 @@ public final class MinecraftUiCanvas implements UiCanvas2D {
         if (graphics == null || font == null) throw new IllegalArgumentException("graphics and font must not be null");
         this.graphics = graphics;
         this.font = font;
+        this.screen = screen;
     }
 
     @Override public void fill(UiRect rect, UiColor color) {
@@ -49,14 +51,19 @@ public final class MinecraftUiCanvas implements UiCanvas2D {
     }
     @Override public void scale(double x, double y) { graphics.scale((float) x, (float) y, 1.0F); }
 
-    private static void applyClip(UiRect clip) {
-        Minecraft minecraft = Minecraft.getMinecraft();
-        ScaledResolution scaled = new ScaledResolution(minecraft);
-        int factor = scaled.getScaleFactor();
+    private void applyClip(UiRect clip) {
         int x = round(clip.getX());
         int y = round(clip.getY());
         int width = Math.max(0, round(clip.getWidth()));
         int height = Math.max(0, round(clip.getHeight()));
+        if (this.screen != null) {
+            this.screen.enableRtsScissor(
+                    this.graphics, x, y, x + width, y + height);
+            return;
+        }
+        Minecraft minecraft = Minecraft.getMinecraft();
+        ScaledResolution scaled = new ScaledResolution(minecraft);
+        int factor = scaled.getScaleFactor();
         GL11.glEnable(GL11.GL_SCISSOR_TEST);
         GL11.glScissor(x * factor, minecraft.displayHeight - (y + height) * factor,
                 width * factor, height * factor);

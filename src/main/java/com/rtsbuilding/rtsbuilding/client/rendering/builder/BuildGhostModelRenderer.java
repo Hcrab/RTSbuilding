@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import net.minecraft.block.BlockBed;
 import net.minecraft.block.BlockDoor;
 import net.minecraft.block.BlockDoublePlant;
@@ -58,7 +59,7 @@ public final class BuildGhostModelRenderer {
             ByteBuffer bytes=BUFFER.getByteBuffer();int stride=BUFFER.getVertexFormat().getSize(),off=BUFFER.getVertexFormat().getColorOffset(),a=Math.round(GHOST_ALPHA*255F);
             for(int i=0;i<BUFFER.getVertexCount();i++)bytes.put(i*stride+off+3,(byte)a);
             UltimineGhostRenderer.GlSnapshot gl=UltimineGhostRenderer.GlSnapshot.capture();mc.getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE); GlStateManager.enableBlend(); GlStateManager.depthMask(false); GlStateManager.disableCull();
-            try{UPLOADER.draw(BUFFER);closed=true;}finally{gl.restore();GlStateManager.resetColor();}
+            try{RtsOwnedBufferUploader.draw(BUFFER);closed=true;}finally{gl.restore();GlStateManager.resetColor();}
             return true;
         }finally{ForgeHooksClient.setRenderLayer(null);BUFFER.setTranslation(0,0,0);if(!closed){try{BUFFER.finishDrawing();}catch(IllegalStateException ignored){}BUFFER.reset();}}
     }

@@ -32,7 +32,7 @@ class MiningReleaseContractTest {
         String body = methodBody(source, "public boolean keyReleased");
 
         int keyboardMiningGuard = body.indexOf("screen.cameraInput.isKeyboardMining()");
-        int breakReleaseGuard = body.indexOf("ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)", keyboardMiningGuard);
+        int breakReleaseGuard = body.indexOf("matches(ClientKeyMappings.ACTION_BREAK, keyCode)", keyboardMiningGuard);
         int stopMining = body.indexOf("screen.cameraInput.stopActiveMining()", breakReleaseGuard);
 
         assertTrue(keyboardMiningGuard >= 0, "keyboard mining release guard missing");
@@ -40,6 +40,34 @@ class MiningReleaseContractTest {
                 "keyboard mining release must be tied to the break key");
         assertTrue(stopMining > breakReleaseGuard,
                 "releasing the keyboard break key must stop mining immediately");
+    }
+
+    @Test
+    void screenRemovalStopsHeldMiningWithoutExitingRtsCamera() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java"));
+        String body = methodBody(source, "void removed()");
+
+        assertTrue(body.contains("screen.cameraInput.stopActiveMining();"),
+                "replacing or closing the 1.12 screen must release a half-finished mining hold");
+        assertTrue(!body.contains("sendToggleCamera"),
+                "container replacement cleanup must not exit RTS camera mode");
+    }
+
+    @Test
+    void submittedChainDestroyIsDetachedFromMouseRelease() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java"));
+        String body = methodBody(source, "public boolean startMiningAt");
+
+        int chainBranch = body.indexOf("screen.isQuickBuildRangeDestroyChainMode()");
+        int submit = body.indexOf("UltimineUiAdapter.confirmPreview", chainBranch);
+        int detachedReturn = body.indexOf("return true;", submit);
+        int heldMiningState = body.indexOf("this.leftMiningActive = true;", submit);
+
+        assertTrue(chainBranch >= 0 && submit > chainBranch, "chain destroy submission branch missing");
+        assertTrue(detachedReturn > submit && detachedReturn < heldMiningState,
+                "submitted chain workflow must return before entering held single-block mining state");
     }
 
     @Test

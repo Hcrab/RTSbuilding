@@ -16,12 +16,12 @@ class DetachedMiningTaskContractTest {
     @Test
     void miningPayloadContainsNoRuntimeObjects() throws IOException {
         String payload = read("server/task/MiningTaskPayload.java");
-        assertTrue(payload.contains("UUID ownerId"));
-        assertTrue(payload.contains("ResourceKey<Level> dimension"));
-        assertTrue(payload.contains("MiningTaskState state"));
-        assertFalse(payload.contains("import net.minecraft.server.level.ServerPlayer"));
+        assertTrue(payload.contains("private final UUID ownerId"));
+        assertTrue(payload.contains("private final int dimension"));
+        assertTrue(payload.contains("private final MiningTaskState state"));
+        assertFalse(payload.contains("import net.minecraft.entity.player.EntityPlayerMP"));
         assertFalse(payload.contains("import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession"));
-        assertFalse(payload.contains("ServerPlayer player,"));
+        assertFalse(payload.contains("EntityPlayerMP player,"));
         assertFalse(payload.contains("RtsStorageSession session,"));
     }
 
@@ -50,7 +50,8 @@ class DetachedMiningTaskContractTest {
         assertTrue(result.contains("MiningWaitHint waitHint"));
         assertTrue(wait.contains("\"buffer\", \"mining_drop_buffer\""));
         assertTrue(wait.contains("\"tool\", \"usable_mining_tool\""));
-        assertTrue(wait.contains("\"chunk\", dimension.location()"));
+        assertTrue(wait.contains("new MiningWaitHint(\"chunk\", dimensionId + \":\""));
+        assertTrue(wait.contains("return chunk(Integer.toString(dimensionId), target)"));
     }
 
     private static String read(String relative) throws IOException {

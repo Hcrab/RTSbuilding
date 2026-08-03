@@ -41,10 +41,8 @@ public final class LeftDockedTooltipRenderer {
             return;
         }
         LeftDockedTooltipLayout.Geometry geometry = geometry();
-        GuiUtils.drawHoveringText(
-                Collections.singletonList(text.getFormattedText()),
-                geometry.anchorX(), geometry.anchorY(),
-                this.screen.width, this.screen.height, 300, this.screen.font());
+        graphics.renderTooltipText(
+                text.getFormattedText(), geometry.anchorX(), geometry.anchorY());
     }
 
     public void renderDetail(LegacyGuiGraphics graphics, String detail, UiColor color) {

@@ -116,6 +116,15 @@ public interface CraftingService {
                           boolean maxTransfer, boolean clearGridFirst);
 
     /**
+     * 将标准 JEI/HEI 机器输入槽从链接存储填充；槽位和物品仍由服务端当前窗口验证。
+     */
+    void applyJeiContainerTransfer(EntityPlayerMP player, int windowId,
+                                   List<Integer> targetSlots,
+                                   List<List<ItemStack>> alternatives,
+                                   boolean maxTransfer,
+                                   boolean requireCompleteSets);
+
+    /**
      * 快照当前合成格的配方蓝图（材料栈数组）。
      * 用于在自动合成前或合成后记录/恢复合成格状态。
      *

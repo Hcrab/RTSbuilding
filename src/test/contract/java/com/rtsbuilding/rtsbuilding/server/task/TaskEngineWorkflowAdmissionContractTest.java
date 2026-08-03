@@ -19,7 +19,7 @@ class TaskEngineWorkflowAdmissionContractTest {
         assertTrue(source.contains("snapshot.dimensionId().equals(dimensionId)"));
         assertTrue(source.contains("occupiesQuickBuildSlot"));
         assertTrue(source.contains("entry == null || !entry.protectedWorkflow()"));
-        assertTrue(source.contains("cancelWorkflowTask(player, player.serverLevel().dimension()"));
+        assertTrue(source.contains("cancelWorkflowTask(player, player.dimension"));
         assertTrue(source.contains("TaskLifecycleState.CANCELLED"));
         assertTrue(source.contains("reconcileHiddenDurableWorkflows(player, coordinator)"));
         assertTrue(source.contains("TaskType.DESTRUCTION,"));

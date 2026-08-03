@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsBoundedItemEntityQuery;
 import com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.FunnelService;
@@ -170,7 +171,11 @@ public final class RtsFunnelServiceImpl implements FunnelService {
     private WorkResult absorbDrops(EntityPlayerMP player, BlockPos target, List<IItemHandler> handlers,
             RtsStorageSession session, int maxUnits, long deadlineNanos) {
         AxisAlignedBB box = new AxisAlignedBB(target).grow(RtsServiceConstants.FUNNEL_RADIUS);
-        List<EntityItem> drops = player.getServerWorld().getEntitiesWithinAABB(EntityItem.class, box);
+        int queryLimit = Math.min(RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK, Math.max(0, maxUnits));
+        if (queryLimit == 0) return new WorkResult(0, false);
+        List<EntityItem> drops = RtsBoundedItemEntityQuery.query(
+                player.getServerWorld(), box, queryLimit,
+                entity -> entity != null && entity.isEntityAlive() && !entity.getItem().isEmpty()).entities();
 
         int processedEntities = 0;
         int processedItems = 0;

@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsPositionBatchAssembler1122;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
@@ -17,6 +18,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperScenarioCommand;
 import com.rtsbuilding.rtsbuilding.gametest.RtsGameTestCommand;
+import com.rtsbuilding.rtsbuilding.server.service.RtsFarMiningStorageSmokeCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsGuiCompatSetupCommand;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
@@ -123,6 +125,9 @@ public final class RtsbuildingMod {
         if (RtsGuiCompatSetupCommand.isProbeEnabled()) {
             event.registerServerCommand(new RtsGuiCompatSetupCommand());
         }
+        if (RtsFarMiningStorageSmokeCommand.isEnabled()) {
+            event.registerServerCommand(new RtsFarMiningStorageSmokeCommand());
+        }
         try {
             // 必须先于 durable task admission 读取；损坏时拒绝以空仓继续启动。
             TaskPersistenceRuntime.INSTANCE.start(activeServer);
@@ -154,6 +159,9 @@ public final class RtsbuildingMod {
                 TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUniqueID());
                 RtsTaskEngine.INSTANCE.reconcilePlayerDetach(player);
             }
+            // Forge 1.12.2 在 ServerStopped 事件前已经卸载全部 WorldServer。
+            // 工作流仓库可能在保存时首次创建 DataCluster，因此必须趁世界仍然可用时落盘。
+            RtsWorkflowEngine.getInstance().saveAll(server);
         } catch (RuntimeException failure) {
             LOGGER.error("停服时 durable task 冻结失败；未确认的 dirty 不会被伪装成已落盘", failure);
             throw failure;
@@ -176,12 +184,12 @@ public final class RtsbuildingMod {
         }
 
         try {
-            RtsWorkflowEngine.getInstance().saveAll(server);
             SaveScheduler.INSTANCE.onServerStopped();
             RtsWorkflowEngine.getInstance().clearAllData();
             RtsStoragePageRequestCoalescer.clearAll();
             RtsEffectAccumulator.INSTANCE.clearAll();
             RtsDeveloperMetrics.clearAll();
+            RtsPositionBatchAssembler1122.clearAll();
         } finally {
             activeServer = null;
         }
@@ -234,6 +242,7 @@ public final class RtsbuildingMod {
             RtsProgressRefresher.clearPlayerCache(player.getUniqueID());
             RtsStoragePageRequestCoalescer.clearPlayer(player.getUniqueID());
             RtsDeveloperMetrics.clearPlayer(player.getUniqueID());
+            RtsPositionBatchAssembler1122.clearPlayer(player.getUniqueID());
             RtsPluginService.syncRelatedPlayers(player);
             RtsEffectAccumulator.INSTANCE.clearPlayer(player.getUniqueID());
             ServerHistoryManager.clear(player.getUniqueID());

@@ -724,11 +724,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         int y1 = contentY();
         int x2 = x1 + contentWidth();
         int y2 = y1 + contentHeight();
-        Minecraft minecraft = Minecraft.getMinecraft();
-        int factor = new ScaledResolution(minecraft).getScaleFactor();
-        GL11.glEnable(GL11.GL_SCISSOR_TEST);
-        GL11.glScissor(x1 * factor, minecraft.displayHeight - y2 * factor,
-                Math.max(0, x2 - x1) * factor, Math.max(0, y2 - y1) * factor);
+        this.screen.enableRtsScissor(g, x1, y1, x2, y2);
     }
 
     private boolean isInsideTitleBar(double mouseX, double mouseY) {

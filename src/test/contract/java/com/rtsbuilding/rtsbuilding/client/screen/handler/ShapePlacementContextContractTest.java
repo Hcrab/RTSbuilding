@@ -24,6 +24,7 @@ class ShapePlacementContextContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeGhostPreviewProvider.java"));
         String operationSource = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/shape/ShapeWorldOperationPlanner.java"));
+        String canReplaceBody = methodBody(resolverSource, "public boolean canReplace");
 
         assertTrue(controllerSource.contains("ShapePlacementTargetResolver.resolveClickedTarget"),
                 "单方块点击目标应委托给统一放置目标解析器。");
@@ -52,10 +53,21 @@ class ShapePlacementContextContractTest {
 
         assertTrue(resolverSource.contains("interface PlacementWorld"),
                 "解析器应通过只读世界边界支持纯内存测试。");
-        assertTrue(resolverSource.contains("BlockPlaceContext"),
+        assertTrue(resolverSource.contains("getBlock().isReplaceable(this.minecraft.world, pos)"),
                 "台阶、雪层等上下文相关方块应通过 BlockPlaceContext 判断。");
-        assertTrue(resolverSource.contains("state.canBeReplaced(context)"),
+        assertTrue(canReplaceBody.contains("this.placementStack"),
                 "上下文相关替换判断必须保留。");
+        assertTrue(resolverSource.contains("itemBlock instanceof ItemSnow")
+                        && resolverSource.contains("BlockSnow.LAYERS"),
+                "1.12 多层雪必须按物品和点击面判断继续堆叠，不能只看 Block#isReplaceable");
+        assertTrue(resolverSource.contains("isMatchingSlabMerge("),
+                "1.12 同种半砖合并必须保留 variant、上下半区和点击面语义");
+        assertFalse(resolverSource.contains("placeBlockAt("),
+                "只读目标解析器不能执行 ItemBlock 放置");
+        assertFalse(resolverSource.contains(".onItemUse("),
+                "只读目标解析器不能调用会修改世界或物品栈的使用入口");
+        assertFalse(resolverSource.contains("setBlockState("),
+                "只读目标解析器不能直接修改客户端世界");
         assertFalse(resolverSource.contains("ClientRtsController"),
                 "放置目标解析器不应拥有 RTS 控制器或网络发送职责。");
         assertFalse(resolverSource.contains("BuilderScreen"),
@@ -79,6 +91,23 @@ class ShapePlacementContextContractTest {
                 "会话解析器不应自行读取配置。");
     }
 
+    private static String methodBody(String source, String signatureStart) {
+        int start = source.indexOf(signatureStart);
+        assertTrue(start >= 0, "method not found: " + signatureStart);
+        int bodyStart = source.indexOf('{', start);
+        assertTrue(bodyStart >= 0, "method body not found: " + signatureStart);
+        int depth = 0;
+        for (int i = bodyStart; i < source.length(); i++) {
+            char c = source.charAt(i);
+            if (c == '{') {
+                depth++;
+            } else if (c == '}' && --depth == 0) {
+                return source.substring(bodyStart, i + 1);
+            }
+        }
+        throw new AssertionError("method body is not closed: " + signatureStart);
+    }
+
     @Test
     void creativePlacementKeepsInfiniteClientAndServerMaterialPaths() throws IOException {
         String clientSource = Files.readString(Path.of(
@@ -88,7 +117,7 @@ class ShapePlacementContextContractTest {
 
         assertTrue(clientSource.contains("if (isLocalPlayerCreative) return Long.MAX_VALUE;"),
                 "客户端快速放置数量判断中，创造模式应视为无限材料。");
-        assertTrue(quickBuildSource.contains("boolean creativeSource = player.isCreative();"),
+        assertTrue(quickBuildSource.contains("boolean creativeSource = player.capabilities.isCreativeMode;"),
                 "服务端批量快速建造也必须识别创造模式来源。");
         assertTrue(quickBuildSource.contains("? RtsPlacementExtractor.creativeStack"),
                 "创造模式批量放置应构造创造模式物品栏，而不是从远程存储扣材料。");

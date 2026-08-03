@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGuiRenderState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
@@ -55,9 +56,11 @@ public final class LegacyGuiGraphics {
 
     public void renderItem(ItemStack stack, int x, int y) {
         if (stack == null || stack.isEmpty()) return;
-        GlStateManager.enableDepth();
-        minecraft.getRenderItem().renderItemAndEffectIntoGUI(stack, x, y);
-        minecraft.getRenderItem().renderItemOverlayIntoGUI(minecraft.fontRenderer, stack, x, y, null);
+        try (RtsGuiRenderState.Scope ignored = RtsGuiRenderState.beginItem()) {
+            minecraft.getRenderItem().renderItemAndEffectIntoGUI(stack, x, y);
+            minecraft.getRenderItem().renderItemOverlayIntoGUI(
+                    minecraft.fontRenderer, stack, x, y, null);
+        }
     }
 
     public void renderTooltip(ItemStack stack, int mouseX, int mouseY) {
@@ -65,6 +68,19 @@ public final class LegacyGuiGraphics {
         List<String> lines = stack.getTooltip(minecraft.player, minecraft.gameSettings.advancedItemTooltips
                 ? net.minecraft.client.util.ITooltipFlag.TooltipFlags.ADVANCED
                 : net.minecraft.client.util.ITooltipFlag.TooltipFlags.NORMAL);
-        GuiUtils.drawHoveringText(lines, mouseX, mouseY, screenWidth, screenHeight, 300, minecraft.fontRenderer);
+        renderTooltipLines(lines, mouseX, mouseY);
+    }
+
+    public void renderTooltipText(String text, int mouseX, int mouseY) {
+        if (text == null || text.isEmpty()) return;
+        renderTooltipLines(java.util.Collections.singletonList(text), mouseX, mouseY);
+    }
+
+    public void renderTooltipLines(List<String> lines, int mouseX, int mouseY) {
+        if (lines == null || lines.isEmpty()) return;
+        try (RtsGuiRenderState.Scope ignored = RtsGuiRenderState.preserveForExternalGuiCall()) {
+            GuiUtils.drawHoveringText(
+                    lines, mouseX, mouseY, screenWidth, screenHeight, 300, minecraft.fontRenderer);
+        }
     }
 }

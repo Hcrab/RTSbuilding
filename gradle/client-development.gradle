@@ -1,0 +1,20 @@
+/**
+ * 由 Gradle 明确声明的轻量开发客户端模组。
+ *
+ * 与现代 NeoGradle 的 runtimeOnly 模式相同，这些依赖只进入 dev-client 的运行
+ * classpath，不会复制进仓库、不会污染纯净 smoke，也不会打进发布 JAR。
+ */
+configurations {
+    rtsDevelopmentMods {
+        canBeConsumed = false
+        canBeResolved = true
+        transitive = false
+    }
+}
+
+dependencies {
+    // 完整 JEI 运行模组；compileOnly 的 :api 仍负责生产源码编译边界。
+    rtsDevelopmentMods(rfg.deobf('mezz.jei:jei_1.12.2:4.16.1.1013')) {
+        transitive = false
+    }
+}

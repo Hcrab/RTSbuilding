@@ -1,13 +1,16 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.compat.RtsGuiCompatMatrixSync;
 import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentString;
@@ -18,6 +21,8 @@ import net.minecraftforge.fml.common.registry.ForgeRegistries;
 public final class RtsGuiCompatSetupCommand extends CommandBase {
     private static final String PROBE_REPORT_PROPERTY = "rtsbuilding.guiCompatProbeReport";
     private static final String PROBE_REPORT_ENV = "RTSBUILDING_GUI_COMPAT_PROBE_REPORT";
+    private static final String MATRIX_REPORT_PROPERTY = "rtsbuilding.guiCompatMatrixReport";
+    private static final String MATRIX_REPORT_ENV = "RTSBUILDING_GUI_COMPAT_MATRIX_REPORT";
     private static final String TARGET_BLOCK_PROPERTY = "rtsbuilding.guiCompatTargetBlock";
     private static final String TARGET_BLOCK_ENV = "RTSBUILDING_GUI_COMPAT_TARGET_BLOCK";
     private static final String TARGET_DISTANCE_PROPERTY = "rtsbuilding.guiCompatTargetDistance";
@@ -26,25 +31,37 @@ public final class RtsGuiCompatSetupCommand extends CommandBase {
     private static final int DEFAULT_TARGET_DISTANCE = 20;
 
     @Override public String getName() { return COMMAND_NAME; }
-    @Override public String getUsage(ICommandSender sender) { return "/" + COMMAND_NAME + " <caseId>"; }
+    @Override public String getUsage(ICommandSender sender) {
+        return "/" + COMMAND_NAME + " <caseId> [targetBlock] [distance] [meta] [x y z]";
+    }
     @Override public int getRequiredPermissionLevel() { return 2; }
 
     @Override
     public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 1) throw new CommandException(getUsage(sender));
-        setupCase(getCommandSenderAsPlayer(sender), args[0]);
+        if (args.length < 1 || args.length > 7 || (args.length > 4 && args.length < 7)) {
+            throw new CommandException(getUsage(sender));
+        }
+        String targetBlock = args.length >= 2 ? args[1] : resolveTargetBlock(args[0]);
+        Integer distance = args.length >= 3 ? parseDistance(args[2]) : null;
+        int meta = args.length >= 4 ? parseMeta(args[3]) : 0;
+        BlockPos explicitTarget = args.length == 7
+                ? new BlockPos(parseCoordinate(args[4]), parseCoordinate(args[5]), parseCoordinate(args[6]))
+                : null;
+        setupCase(getCommandSenderAsPlayer(sender), args[0], targetBlock, distance, meta, explicitTarget);
     }
 
-    private static void setupCase(EntityPlayerMP player, String caseId) throws CommandException {
-        String targetBlock = resolveTargetBlock(caseId);
+    private static void setupCase(EntityPlayerMP player, String caseId, String targetBlock,
+            Integer distanceOverride, int meta, BlockPos explicitTarget) throws CommandException {
         if (isBlank(targetBlock)) {
             throw new CommandException("RTS GUI compat: no target block configured for " + caseId);
         }
-        setupSingleBlock(player, caseId, targetBlock);
+        setupSingleBlock(player, caseId, targetBlock, distanceOverride, meta, explicitTarget);
     }
 
-    private static void setupSingleBlock(EntityPlayerMP player, String caseId, String targetBlockId)
+    private static void setupSingleBlock(EntityPlayerMP player, String caseId, String targetBlockId,
+            Integer distanceOverride, int meta, BlockPos explicitTarget)
             throws CommandException {
+        BlockPos acknowledgedTarget = explicitTarget;
         try {
             ResourceLocation blockId = new ResourceLocation(targetBlockId);
             Block block = ForgeRegistries.BLOCKS.getValue(blockId);
@@ -54,27 +71,68 @@ public final class RtsGuiCompatSetupCommand extends CommandBase {
 
             WorldServer level = player.getServerWorld();
             BlockPos base = player.getPosition();
-            int distance = resolveInt(TARGET_DISTANCE_PROPERTY, TARGET_DISTANCE_ENV, DEFAULT_TARGET_DISTANCE);
-            BlockPos targetPos = base.add(0, 0, Math.max(2, distance));
+            int distance = distanceOverride == null
+                    ? resolveInt(TARGET_DISTANCE_PROPERTY, TARGET_DISTANCE_ENV, DEFAULT_TARGET_DISTANCE)
+                    : distanceOverride.intValue();
+            // 矩阵探针显式传绝对坐标，避免客户端与服务端在相机/登录同步的不同 tick
+            // 分别用玩家位置推导目标，最终把方块放在校验位置之外。
+            BlockPos targetPos = explicitTarget == null
+                    ? base.add(0, 0, Math.max(2, distance))
+                    : explicitTarget;
+            acknowledgedTarget = targetPos;
 
-            for (BlockPos pos : BlockPos.getAllInBox(base.add(-2, -1, 1), targetPos.add(2, 3, 2))) {
-                level.setBlockState(pos, Blocks.AIR.getDefaultState(), 3);
+            // 矩阵会连续测试数百种方块；这里只维护目标及脚下平台，避免每个候选都
+            // 重写整条 120 格走廊并触发数千次邻居更新。
+            level.getChunkProvider().provideChunk(targetPos.getX() >> 4, targetPos.getZ() >> 4);
+            // 两个固定测试格会被上万个候选反复复用；按钮、门和特殊机器可能在交互时改变邻格。
+            // 潜影箱一类 GUI 会在打开前检查顶部伸展空间，因此每次必须先清掉上方残留，
+            // 否则会把场地污染误报为“远距离打不开”。
+            clearProbeBlock(level, targetPos.up());
+            level.setBlockState(targetPos.down(), Blocks.STONE.getDefaultState(), 3);
+            IBlockState desiredState = block.getStateFromMeta(meta);
+            // 连续矩阵会在同一坐标替换数千种机器。必须先让旧方块带着自己的 TE
+            // 完成原版 breakBlock：Blood Arsenal 等旧模组会在该回调里强制转换
+            // world.getTileEntity。随后再明确 invalid/remove 捕获的旧实例，避免
+            // Embers Breaker 仍留在本 tick 的更新队列里并对 air 读取 facing。
+            clearProbeBlock(level, targetPos);
+            boolean placed = level.setBlockState(targetPos, desiredState, 3);
+            IBlockState actualState = level.getBlockState(targetPos);
+            if (!placed || actualState.getBlock() != block) {
+                throw new CommandException("RTS GUI compat: target state was rejected: "
+                        + targetBlockId + " meta=" + meta + " actual="
+                        + String.valueOf(actualState.getBlock().getRegistryName()));
             }
-            for (int x = -2; x <= 2; x++) {
-                for (int z = 1; z <= Math.max(4, distance + 2); z++) {
-                    level.setBlockState(base.add(x, -1, z), Blocks.STONE.getDefaultState(), 3);
-                }
-            }
-            level.setBlockState(targetPos, block.getDefaultState(), 3);
+            RtsGuiCompatMatrixSync.markSetupComplete(targetPos, targetBlockId, meta);
             player.sendMessage(new TextComponentString("RTS GUI compat: " + caseId + " ready at "
                     + targetPos.getX() + "," + targetPos.getY() + "," + targetPos.getZ()
-                    + " block=" + targetBlockId));
+                    + " block=" + targetBlockId + " meta=" + meta));
         } catch (CommandException exception) {
+            RtsGuiCompatMatrixSync.markSetupFailed(
+                    acknowledgedTarget, targetBlockId, meta, exception.getMessage());
             throw exception;
         } catch (Exception exception) {
+            RtsGuiCompatMatrixSync.markSetupFailed(
+                    acknowledgedTarget, targetBlockId, meta, exception.getMessage());
             RtsbuildingMod.LOGGER.warn("Failed to prepare GUI compat setup for {}", caseId, exception);
             throw new CommandException("RTS GUI compat setup failed: " + exception.getMessage());
         }
+    }
+
+    /**
+     * 清理一个会被矩阵复用的测试格，同时保留旧方块先执行 breakBlock、再失效旧 TE 的顺序。
+     * 该顺序兼容 Blood Arsenal 对旧 TE 的强制转换，也避免 Embers 把旧 TE 留在本 tick 更新队列。
+     */
+    private static void clearProbeBlock(WorldServer level, BlockPos pos) {
+        TileEntity previousTile = level.getTileEntity(pos);
+        level.setBlockToAir(pos);
+        if (previousTile != null) {
+            previousTile.invalidate();
+        }
+        TileEntity residualTile = level.getTileEntity(pos);
+        if (residualTile != null) {
+            residualTile.invalidate();
+        }
+        level.removeTileEntity(pos);
     }
 
     private static String resolveTargetBlock(String caseId) {
@@ -97,7 +155,14 @@ public final class RtsGuiCompatSetupCommand extends CommandBase {
 
     public static boolean isProbeEnabled() {
         return !isBlank(System.getProperty(PROBE_REPORT_PROPERTY))
-                || !isBlank(System.getenv(PROBE_REPORT_ENV));
+                || !isBlank(System.getenv(PROBE_REPORT_ENV))
+                || isMatrixEnabled();
+    }
+
+    /** 仅用于真实整合包矩阵，生产客户端不会进入该分支。 */
+    public static boolean isMatrixEnabled() {
+        return !isBlank(System.getProperty(MATRIX_REPORT_PROPERTY))
+                || !isBlank(System.getenv(MATRIX_REPORT_ENV));
     }
 
     private static String resolveConfig(String propertyName, String environmentName, String fallback) {
@@ -113,6 +178,32 @@ public final class RtsGuiCompatSetupCommand extends CommandBase {
             return Math.max(1, Integer.parseInt(configured));
         } catch (NumberFormatException ignored) {
             return fallback;
+        }
+    }
+
+    private static int parseDistance(String value) throws CommandException {
+        try {
+            return Math.max(2, Math.min(128, Integer.parseInt(value)));
+        } catch (NumberFormatException invalid) {
+            throw new CommandException("RTS GUI compat: invalid distance " + value);
+        }
+    }
+
+    private static int parseMeta(String value) throws CommandException {
+        try {
+            int meta = Integer.parseInt(value);
+            if (meta < 0 || meta > 15) throw new NumberFormatException("outside 0..15");
+            return meta;
+        } catch (NumberFormatException invalid) {
+            throw new CommandException("RTS GUI compat: invalid block meta " + value);
+        }
+    }
+
+    private static int parseCoordinate(String value) throws CommandException {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException invalid) {
+            throw new CommandException("RTS GUI compat: invalid coordinate " + value);
         }
     }
 

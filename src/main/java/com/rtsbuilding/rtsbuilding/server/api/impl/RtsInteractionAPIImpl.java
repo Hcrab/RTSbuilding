@@ -22,7 +22,7 @@ public final class RtsInteractionAPIImpl implements RtsInteractionAPI {
                                double rayDirX, double rayDirY, double rayDirZ) {
         REGISTRY.interaction().interactTarget(player, entityId, clickedPos, face,
                 hitX, hitY, hitZ, sourceType, toolSlot, itemId,
-                rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
+                rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ, 0L);
     }
 
     @Override

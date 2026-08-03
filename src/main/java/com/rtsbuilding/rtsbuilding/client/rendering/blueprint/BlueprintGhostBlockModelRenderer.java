@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
@@ -148,7 +149,7 @@ public final class BlueprintGhostBlockModelRenderer {
         GlStateManager.depthMask(false);
         GlStateManager.disableCull();
         try {
-            UPLOADER.draw(MODEL_BUFFER);
+            RtsOwnedBufferUploader.draw(MODEL_BUFFER);
         } finally {
             GlStateManager.enableCull();
             GlStateManager.depthMask(true);

@@ -121,6 +121,9 @@ final class BuilderScreenLifecycleOwner {
             screen.floatingWindowLayer.clearTransientInputState();
             screen.topBarPanel.clearTransientInputState();
             screen.cameraInput.resetCameraVerticalHeld();
+            // 屏幕被箱子替换或 RTS 被关闭时都终止按住式单块挖掘，但这里不切换 RTS 相机。
+            // stopActiveMining 是幂等的，主动 Esc 已在 onClose 中停止时再次调用也不会重复发包。
+            screen.cameraInput.stopActiveMining();
             screen.modeWheel.close();
             screen.modeWheelAltWasDown = false;
             screen.modeWheelConsumedMouseButton = -1;

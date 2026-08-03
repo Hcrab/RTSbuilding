@@ -303,9 +303,12 @@ public final class RtsPlacementBatch {
         WorldServer level = player.getServerWorld();
         if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.UP)) return false;
 
+        // 1.12 的 canHarvestBlock 会重新查询世界状态，必须在清空气方块前完成判断。
+        boolean canHarvest = player.capabilities.isCreativeMode
+                || current.getBlock().canHarvestBlock(level, pos, player);
         List<ItemStack> drops = current.getBlock().getDrops(level, pos, current, 0);
         level.setBlockToAir(pos);
-        if (current.getBlock().canHarvestBlock(level, pos, player) || player.capabilities.isCreativeMode) {
+        if (canHarvest) {
             for (ItemStack drop : drops) {
                 if (!drop.isEmpty()) {
                     Block.spawnAsEntity(level, pos, drop);

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
@@ -101,7 +102,7 @@ public final class BlueprintGhostRenderer {
         GlStateManager.depthMask(false);
         GlStateManager.glLineWidth(1.5F);
         try {
-            LINE_UPLOADER.draw(LINE_BUFFER);
+            RtsOwnedBufferUploader.draw(LINE_BUFFER);
         } finally {
             LINE_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
             GlStateManager.glLineWidth(1.0F);

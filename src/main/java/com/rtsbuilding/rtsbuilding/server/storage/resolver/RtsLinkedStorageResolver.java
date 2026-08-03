@@ -230,6 +230,17 @@ public final class RtsLinkedStorageResolver {
                 && sanitizeLinkMode(session.linkedStorageInfo.getMode(ref)) == LINK_MODE_EXTRACT_ONLY;
     }
 
+    /**
+     * 最终写入边界使用的实时权限检查。
+     * 引用已解绑、会话缺失或模式为 Extract Only 时都拒绝写入，避免旧 handler 缓存重新放开权限。
+     */
+    public static boolean isStoreAllowed(RtsStorageSession session, LinkedStorageRef ref) {
+        return session != null
+                && ref != null
+                && session.linkedStorageInfo.contains(ref)
+                && !isExtractOnlyLink(session, ref);
+    }
+
     public static int sanitizeLinkedStoragePriority(int priority) {
         return net.minecraft.util.math.MathHelper.clamp(priority, -9999, 9999);
     }

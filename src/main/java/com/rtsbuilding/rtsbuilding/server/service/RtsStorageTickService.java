@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
+import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedItemHandlerView;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.items.IItemHandler;
 
@@ -80,39 +81,54 @@ public final class RtsStorageTickService {
     /** 以玩家 ID 注册处理器，供生命周期边界和无游戏运行时的回归测试复用。 */
     public RtsAggregateStorage registerPlayer(UUID uuid, List<IItemHandler> handlers) {
         if (uuid == null) return null;
-        List<IItemHandler> normalizedHandlers = distinctByIdentity(handlers);
+        List<IItemHandler> normalizedHandlers = distinctByEndpointIdentity(handlers);
         RtsAggregateStorage storage = this.playerStorage.computeIfAbsent(uuid, k -> new RtsAggregateStorage());
 
         // Unmount stale handlers
         List<HandlerCachePair> existing = this.playerHandlers.getOrDefault(
                 uuid, Collections.<HandlerCachePair>emptyList());
         Set<IItemHandler> newSet = Collections.newSetFromMap(new IdentityHashMap<>());
-        newSet.addAll(normalizedHandlers);
+        for (IItemHandler handler : normalizedHandlers) newSet.add(endpointIdentity(handler));
 
         // Unmount removed handlers
         for (HandlerCachePair p : existing) {
-            if (!newSet.contains(p.handler)) {
+            if (!newSet.contains(p.identity)) {
                 storage.unmount(p.handler);
                 p.cache.release();
             }
         }
 
-        // Mount new handlers (reuse existing cache if available)
-        Map<IItemHandler, RtsHandlerCache> cacheMap = new IdentityHashMap<>();
+        // 以原始端点身份复用快照，但聚合存储挂载的始终是带权限的 handler 视图。
+        Map<IItemHandler, HandlerCachePair> existingByIdentity = new IdentityHashMap<>();
         for (HandlerCachePair p : existing) {
-            cacheMap.put(p.handler, p.cache);
+            existingByIdentity.put(p.identity, p);
         }
 
         List<HandlerCachePair> newPairs = new ArrayList<>();
-        for (int priority = 0; priority < normalizedHandlers.size(); priority++) {
-            IItemHandler handler = normalizedHandlers.get(priority);
-            RtsHandlerCache cache = cacheMap.getOrDefault(handler, new RtsHandlerCache());
-            if (!cacheMap.containsKey(handler)) {
-                storage.mount(normalizedHandlers.size() - priority, handler, cache); // reverse priority: first = highest
+        for (int index = 0; index < normalizedHandlers.size(); index++) {
+            IItemHandler requestedHandler = normalizedHandlers.get(index);
+            IItemHandler identity = endpointIdentity(requestedHandler);
+            int mountPriority = normalizedHandlers.size() - index;
+            HandlerCachePair previous = existingByIdentity.get(identity);
+            RtsHandlerCache cache = previous == null ? new RtsHandlerCache() : previous.cache;
+            IItemHandler mountedHandler;
+
+            if (previous == null) {
+                mountedHandler = requestedHandler;
+                storage.mount(mountPriority, mountedHandler, cache);
                 // Immediately populate the cache so page builds don't skip this handler
-                cache.update(handler);
+                cache.update(mountedHandler);
+            } else if (previous.mountPriority != mountPriority
+                    || !sameMountSemantics(previous.handler, requestedHandler)) {
+                // 模式或优先级在线变化时替换挂载视图；快照仍按原始端点身份复用。
+                storage.unmount(previous.handler);
+                mountedHandler = requestedHandler;
+                storage.mount(mountPriority, mountedHandler, cache);
+            } else {
+                // 同一端点、同一权限无需每次页面刷新都制造新挂载对象。
+                mountedHandler = previous.handler;
             }
-            newPairs.add(new HandlerCachePair(handler, cache));
+            newPairs.add(new HandlerCachePair(identity, mountedHandler, cache, mountPriority));
         }
 
         this.playerHandlers.put(uuid, newPairs);
@@ -165,8 +181,9 @@ public final class RtsStorageTickService {
         List<HandlerCachePair> retained = new ArrayList<>(existing.size());
         boolean detached = false;
         RtsAggregateStorage storage = this.playerStorage.get(playerId);
+        IItemHandler targetIdentity = endpointIdentity(handler);
         for (HandlerCachePair pair : existing) {
-            if (pair.handler == handler) {
+            if (pair.identity == targetIdentity) {
                 if (storage != null) storage.unmount(pair.handler);
                 pair.cache.release();
                 detached = true;
@@ -281,14 +298,31 @@ public final class RtsStorageTickService {
         return this.playerStorage.get(player.getUniqueID());
     }
 
-    private static List<IItemHandler> distinctByIdentity(List<IItemHandler> handlers) {
+    private static List<IItemHandler> distinctByEndpointIdentity(List<IItemHandler> handlers) {
         if (handlers == null || handlers.isEmpty()) return Collections.emptyList();
         Set<IItemHandler> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         List<IItemHandler> result = new ArrayList<>(handlers.size());
         for (IItemHandler handler : handlers) {
-            if (handler != null && seen.add(handler)) result.add(handler);
+            if (handler != null && seen.add(endpointIdentity(handler))) result.add(handler);
         }
         return result;
+    }
+
+    private static IItemHandler endpointIdentity(IItemHandler handler) {
+        return handler instanceof LinkedItemHandlerView
+                ? ((LinkedItemHandlerView) handler).getRawHandler()
+                : handler;
+    }
+
+    private static boolean sameMountSemantics(IItemHandler current, IItemHandler requested) {
+        if (current == requested) return true;
+        if (current instanceof LinkedItemHandlerView && requested instanceof LinkedItemHandlerView) {
+            LinkedItemHandlerView currentView = (LinkedItemHandlerView) current;
+            LinkedItemHandlerView requestedView = (LinkedItemHandlerView) requested;
+            return currentView.getRawHandler() == requestedView.getRawHandler()
+                    && currentView.allowsStore() == requestedView.allowsStore();
+        }
+        return false;
     }
 
     /**
@@ -324,12 +358,16 @@ public final class RtsStorageTickService {
     // ---- 值类型 -----------------------------------------------------------
 
     private static final class HandlerCachePair {
+        final IItemHandler identity;
         final IItemHandler handler;
         final RtsHandlerCache cache;
+        final int mountPriority;
 
-        HandlerCachePair(IItemHandler handler, RtsHandlerCache cache) {
+        HandlerCachePair(IItemHandler identity, IItemHandler handler, RtsHandlerCache cache, int mountPriority) {
+            this.identity = identity;
             this.handler = handler;
             this.cache = cache;
+            this.mountPriority = mountPriority;
         }
     }
 

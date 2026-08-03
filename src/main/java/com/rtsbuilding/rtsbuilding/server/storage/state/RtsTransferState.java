@@ -26,6 +26,9 @@ public class RtsTransferState {
     /** 远程 GUI 菜单的容器 ID；-1 = 无活动远程菜单 */
     public int remoteMenuContainerId = -1;
 
+    /** 打开当前远程菜单的诊断追踪号；0 表示旧调用或当前没有可追踪菜单。 */
+    public long remoteMenuTraceId;
+
     /** 远程 GUI 菜单对应的方块坐标 */
     public BlockPos remoteMenuPos;
 

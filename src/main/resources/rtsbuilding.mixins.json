@@ -1,15 +1,17 @@
 {
   "required": true,
+  "minVersion": "0.8",
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "compatibilityLevel": "JAVA_8",
   "client": [
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
+    "GuiScreenOverlayInputMixin",
     "LocalPlayerMixin"
   ],
   "mixins": [
-    "ChestMenuMixin",
-    "ModdedRemoteStillValidMixin"
+    "RemoteBasePlayerContainerMixin",
+    "RemoteContainerPlayerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

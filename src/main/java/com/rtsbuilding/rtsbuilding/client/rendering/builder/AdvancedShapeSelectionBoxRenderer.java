@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.RtsBoxHandleRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.BufferBuilder;
@@ -61,7 +62,7 @@ public final class AdvancedShapeSelectionBoxRenderer {
             GlStateManager.enableBlend();
             GlStateManager.disableTexture2D();
             GlStateManager.depthMask(false);
-            UPLOADER.draw(OUTLINE_BUFFER);
+            RtsOwnedBufferUploader.draw(OUTLINE_BUFFER);
         } finally {
             OUTLINE_BUFFER.setTranslation(0, 0, 0);
             gl.restore();

@@ -100,7 +100,13 @@ public final class RtsStorageBindings {
      * 从 RTS 相机模式重新打开已保存的 GUI 绑定。
      */
     public static UpdateResult openGuiBinding(EntityPlayerMP player, RtsStorageSession session, byte slotId, double remotePovBlockReach) {
-        return RtsGuiBindingHelper.openGuiBinding(player, session, slotId, remotePovBlockReach);
+        return openGuiBinding(player, session, slotId, remotePovBlockReach, 0L);
+    }
+
+    public static UpdateResult openGuiBinding(EntityPlayerMP player, RtsStorageSession session,
+            byte slotId, double remotePovBlockReach, long traceId) {
+        return RtsGuiBindingHelper.openGuiBinding(
+                player, session, slotId, remotePovBlockReach, traceId);
     }
 
     /**

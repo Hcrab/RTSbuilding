@@ -25,7 +25,7 @@ class RtsRemoteMenuCompatSmokeTest {
 
         assertTrue(source.contains("RtsRemoteMenuCompat.isLocalSophisticatedMenu(menu, player)"),
                 "Shift 导入本地 Sophisticated 菜单时必须直接 return，避免把同一份槽位同时当来源和目标。");
-        assertTrue(source.contains("RtsRemoteMenuCompat.isLocalSophisticatedMenu(player.containerMenu, player)"),
+        assertTrue(source.contains("RtsRemoteMenuCompat.isLocalSophisticatedMenu(player.openContainer, player)"),
                 "从 linked storage 快速移动到本地 Sophisticated 菜单时必须改走玩家背包，避免向打开的背包菜单回灌。");
     }
 

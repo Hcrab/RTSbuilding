@@ -165,7 +165,7 @@ final class RtsDurableTaskExecutionRuntime {
                     payload.state().failedUnits(), snapshot.payload());
         }
         if (payload.workflowEntryId() >= 0
-                && com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+                && !com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                         .from(player, payload.workflowEntryId()).isPresent()) {
             var failed = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,
@@ -227,7 +227,7 @@ final class RtsDurableTaskExecutionRuntime {
             return durableNoProgress(snapshot, payload.state().cursorUnits(), payload.state().succeededUnits(),
                     payload.state().failedUnits(), snapshot.payload());
         }
-        if (com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
+        if (!com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
                 .from(player, payload.workflowEntryId()).isPresent()) {
             var failed = snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.FAILED,

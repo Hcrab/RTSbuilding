@@ -1,4 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
 
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import net.minecraft.client.Minecraft;
@@ -66,7 +68,7 @@ public final class PlayerMoveTargetRenderer {
         try{NO_DEPTH_BUFFER.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_COLOR);NO_DEPTH_BUFFER.setTranslation(x,y,z);}
         catch(RuntimeException exception){discard(DEPTH_BUFFER);throw exception;}
     }
-    private static void uploadOrReset(BufferBuilder b){if(b.getVertexCount()>0)UPLOADER.draw(b);else discard(b);}
+    private static void uploadOrReset(BufferBuilder b){if(b.getVertexCount()>0)RtsOwnedBufferUploader.draw(b);else discard(b);}
     private static void discardOwnedBuffers(){discard(DEPTH_BUFFER);discard(NO_DEPTH_BUFFER);resetTranslations();}
     private static void discard(BufferBuilder b){try{b.finishDrawing();}catch(IllegalStateException ignored){}b.reset();}
     private static void resetTranslations(){DEPTH_BUFFER.setTranslation(0,0,0);NO_DEPTH_BUFFER.setTranslation(0,0,0);}
@@ -82,6 +84,6 @@ public final class PlayerMoveTargetRenderer {
         void restore(){GlStateManager.tryBlendFuncSeparate(sr,dr,sa,da);set(GL11.GL_BLEND,blend);set(GL11.GL_TEXTURE_2D,texture);
             set(GL11.GL_CULL_FACE,cull);set(GL11.GL_DEPTH_TEST,depth);GlStateManager.depthMask(depthMask);
             GlStateManager.glLineWidth(lineWidth);GlStateManager.resetColor();}
-        static void set(int cap,boolean on){if(on)GL11.glEnable(cap);else GL11.glDisable(cap);}
+        static void set(int cap,boolean on){RtsGlStateRestorer.restoreCapability(cap,on);}
     }
 }

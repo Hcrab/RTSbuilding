@@ -56,6 +56,27 @@ class AreaMineLimitBoxContractTest {
     }
 
     @Test
+    void configuredSelectionLimitsStayInsideFeatureEnvelopeWhileWireUsesSafeChunks() throws IOException {
+        String config = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/Config.java"));
+        String minePayload = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/C2SRtsAreaMinePayload.java"));
+        String destroyPayload = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/C2SRtsAreaDestroyPayload.java"));
+
+        assertTrue(config.contains("RtsProtocolLimits.AREA_MINE_MAX_VOLUME"));
+        assertTrue(config.contains("RtsProtocolLimits.AREA_DESTROY_MAX_POSITIONS"));
+        assertTrue(minePayload.contains("MAX_VOLUME=RtsProtocolLimits.AREA_MINE_MAX_VOLUME"));
+        assertTrue(destroyPayload.contains(
+                "MAX_POSITIONS = RtsProtocolLimits.AREA_DESTROY_MAX_POSITIONS"));
+        assertTrue(destroyPayload.contains("MAX_POSITIONS_PER_PACKET = 2048"),
+                "1.12 自定义包必须把大范围破坏拆成远低于 32767 字节上限的分片");
+        assertTrue(destroyPayload.contains("chunkCount")
+                        && destroyPayload.contains("totalPositions"),
+                "分片协议必须保留整次提交的总量与顺序元数据");
+    }
+
+    @Test
     void explicitRoundAreaDestroyEnvelopeAllowsCenteredDiameterMargin() {
         List<BlockPos> centeredDiameter = new ArrayList<>();
         for (int x = -6; x <= 6; x++) {

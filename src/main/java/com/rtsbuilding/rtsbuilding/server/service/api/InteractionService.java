@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
+import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
@@ -28,9 +29,10 @@ public interface InteractionService {
      * @param rayOriginX,rayOriginY,rayOriginZ 射线起点
      * @param rayDirX,rayDirY,rayDirZ 射线方向
      */
-    void interactTarget(EntityPlayerMP player, int entityId, BlockPos clickedPos, EnumFacing face,
+    RtsRemoteInteractionResult interactTarget(EntityPlayerMP player, int entityId, BlockPos clickedPos, EnumFacing face,
                         double hitX, double hitY, double hitZ,
                         byte sourceType, byte toolSlot, String itemId,
                         double rayOriginX, double rayOriginY, double rayOriginZ,
-                        double rayDirX, double rayDirY, double rayDirZ);
+                        double rayDirX, double rayDirY, double rayDirZ,
+                        long traceId);
 }

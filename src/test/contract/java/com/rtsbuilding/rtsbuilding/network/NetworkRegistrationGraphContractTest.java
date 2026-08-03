@@ -31,9 +31,12 @@ class NetworkRegistrationGraphContractTest {
     private static final Pattern REGISTER_CALL = Pattern.compile(
             "\\b([A-Za-z0-9_]+)\\s*\\.\\s*register\\s*\\(\\s*\\)\\s*;");
     private static final Pattern MESSAGE_REGISTRATION = Pattern.compile(
-            "RtsPayloadRegistrar\\s*\\.\\s*registerMessage\\s*\\(\\s*(\\d+)\\s*,.*?"
+            "RtsPayloadRegistrar\\s*\\.\\s*registerMessage\\s*\\(\\s*([A-Za-z_][A-Za-z0-9_]*|\\d+)\\s*,.*?"
                     + "([A-Za-z0-9_]+Payload)\\s*\\.\\s*class\\s*,\\s*Side\\s*\\.\\s*(CLIENT|SERVER)",
             Pattern.DOTALL);
+    private static final Pattern INTEGER_CONSTANT = Pattern.compile(
+            "\\b(?:public\\s+|protected\\s+|private\\s+)?(?:static\\s+)?(?:final\\s+)?int\\s+"
+                    + "([A-Za-z_][A-Za-z0-9_]*)\\s*=\\s*(\\d+)\\s*;");
 
     @Test
     void everyPacketRegistrarIsReachableAndProtocolKeysAreUnique() throws IOException {
@@ -44,12 +47,13 @@ class NetworkRegistrationGraphContractTest {
         int registrations = 0;
 
         for (Map.Entry<String, String> source : sources.entrySet()) {
+            Map<String, Integer> integerConstants = readIntegerConstants(source.getValue());
             Matcher messages = MESSAGE_REGISTRATION.matcher(source.getValue());
             boolean ownsMessages = false;
             while (messages.find()) {
                 ownsMessages = true;
                 registrations++;
-                int discriminator = Integer.parseInt(messages.group(1));
+                int discriminator = resolveDiscriminator(messages.group(1), integerConstants, source.getKey());
                 String payload = messages.group(2);
                 String owner = source.getKey();
 
@@ -65,6 +69,24 @@ class NetworkRegistrationGraphContractTest {
         }
 
         assertTrue(registrations >= 50, "协议注册数量异常偏低，可能是扫描规则或根接线退化");
+    }
+
+    private static Map<String, Integer> readIntegerConstants(String source) {
+        Map<String, Integer> constants = new HashMap<>();
+        Matcher matcher = INTEGER_CONSTANT.matcher(source);
+        while (matcher.find()) {
+            constants.put(matcher.group(1), Integer.parseInt(matcher.group(2)));
+        }
+        return constants;
+    }
+
+    private static int resolveDiscriminator(String token, Map<String, Integer> constants, String owner) {
+        if (Character.isDigit(token.charAt(0))) {
+            return Integer.parseInt(token);
+        }
+        Integer value = constants.get(token);
+        assertTrue(value != null, owner + " 的 packet discriminator 常量无法解析：" + token);
+        return value;
     }
 
     private static Map<String, String> readSourcesByClass() throws IOException {

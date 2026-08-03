@@ -1,4 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.LinkedStorageEntry;
@@ -196,7 +198,7 @@ public final class StorageRenderer {
         try{GlStateManager.enableBlend();GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
                 GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,GlStateManager.SourceFactor.ONE,GlStateManager.DestFactor.ZERO);
             GlStateManager.disableTexture2D();GlStateManager.disableCull();GlStateManager.enableDepth();GlStateManager.depthMask(false);
-            if(BUFFER.getVertexCount()>0)UPLOADER.draw(BUFFER);else discard();
+            if(BUFFER.getVertexCount()>0)RtsOwnedBufferUploader.draw(BUFFER);else discard();
         }finally{BUFFER.setTranslation(0,0,0);state.restore();}
     }
     private static void discard(){try{BUFFER.finishDrawing();}catch(IllegalStateException ignored){}BUFFER.reset();}
@@ -225,6 +227,6 @@ public final class StorageRenderer {
         void restore(){GlStateManager.tryBlendFuncSeparate(sr,dr,sa,da);set(GL11.GL_BLEND,blend);set(GL11.GL_TEXTURE_2D,texture);
             set(GL11.GL_CULL_FACE,cull);set(GL11.GL_DEPTH_TEST,depth);GlStateManager.depthMask(depthMask);
             GlStateManager.glLineWidth(lineWidth);GlStateManager.resetColor();}
-        static void set(int cap,boolean on){if(on)GL11.glEnable(cap);else GL11.glDisable(cap);}
+        static void set(int cap,boolean on){RtsGlStateRestorer.restoreCapability(cap,on);}
     }
 }

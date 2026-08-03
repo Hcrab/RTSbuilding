@@ -303,13 +303,18 @@ public final class RtsCraftingGridFiller {
                 Ingredient ingredient = ingredients != null && i < ingredients.length ? ingredients[i] : Ingredient.EMPTY;
                 boolean hasBlueprint = blueprintStack != null && !blueprintStack.isEmpty();
                 boolean hasIngredient = !RtsCraftingUtils.isIngredientEmpty(ingredient);
-                if (!hasBlueprint && !hasIngredient) {
+                // 玩家实际摆放的 3x3 蓝图决定哪些槽需要回填。配方 Ingredient 通常被归一化到左上角，
+                // 不能让它在蓝图为空的槽凭空生成材料，否则中排摆放的台阶配方会被搬到最上排。
+                if (!hasBlueprint) {
                     continue;
                 }
+                boolean ingredientMatchesBlueprint = hasIngredient && ingredient.apply(blueprintStack);
                 Slot grid = menu.getSlot(1 + i);
                 ItemStack current = grid.getStack();
                 if (!current.isEmpty()) {
-                    if (hasIngredient ? !ingredient.apply(current) : !RtsCraftingUtils.sameStack(current, blueprintStack)) {
+                    if (ingredientMatchesBlueprint
+                            ? !ingredient.apply(current)
+                            : !RtsCraftingUtils.sameStack(current, blueprintStack)) {
                         continue;
                     }
                     if (current.getCount() >= current.getMaxStackSize()) {
@@ -332,7 +337,9 @@ public final class RtsCraftingGridFiller {
                 }
 
                 ItemStack extracted = extractCraftGridRefillStack(
-                        handlers, player, ingredient, blueprintStack, includePlayerFallback);
+                        handlers, player,
+                        ingredientMatchesBlueprint ? ingredient : Ingredient.EMPTY,
+                        blueprintStack, includePlayerFallback);
                 if (extracted.isEmpty()) {
                     continue;
                 }

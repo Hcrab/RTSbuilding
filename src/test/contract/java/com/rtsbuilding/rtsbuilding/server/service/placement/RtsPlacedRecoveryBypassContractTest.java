@@ -14,18 +14,18 @@ class RtsPlacedRecoveryBypassContractTest {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsPlacedRecoveryService.java"));
 
-        assertTrue(source.contains("getCloneItemStack(level, pos, state)"));
-        assertTrue(source.contains("CommonHooks.fireBlockBreak("));
-        assertTrue(source.contains("level.destroyBlock(pos, false, player)"));
+        assertTrue(source.contains("state.getBlock().getItem(level, pos, state)"));
+        assertTrue(source.contains("ForgeHooks.onBlockBreakEvent("));
+        assertTrue(source.contains("level.destroyBlock(pos, false)"));
         assertTrue(source.contains("if (recoveredBlock.isEmpty())"));
         assertTrue(source.contains("tracker.mark(targetPos);"));
         assertTrue(source.contains("materializeRecoveredBlock(level, targetPos, recoveredBlock)"));
         assertTrue(source.contains("new PlacedRecoveryClaim("));
         assertTrue(source.contains("requiredPersistedRevision() <= persistedPlacementRevision"));
         assertTrue(source.contains("claim.matches(droppedStack)"));
-        assertFalse(source.contains("Items.NETHERITE_PICKAXE"));
+        assertFalse(source.contains("Items.DIAMOND_PICKAXE"));
         assertFalse(source.contains("SILK_TOUCH"));
-        assertFalse(source.contains("player.gameMode.destroyBlock(pos)"));
+        assertFalse(source.contains("player.interactionManager.tryHarvestBlock(pos)"));
         assertFalse(source.contains("stacks.addLast(recoveredBlock.copy())"));
 
         String trackingSource = Files.readString(Path.of(

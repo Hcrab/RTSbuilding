@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedItemHandlerView;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,6 +75,46 @@ class RtsNetworkStorageOptimizationTest {
             mounted.storage.tickUpdate();
             assertEquals(475L, mounted.storage.getTotalCount(Items.DIAMOND),
                     kind + " cache should reflect the extracted count after refresh");
+        }
+    }
+
+    @Test
+    void bidirectionalPolicyViewMustPreserveNetworkBulkPaths() {
+        for (NetworkKind kind : NetworkKind.values()) {
+            FakeNetworkHandler endpoint = FakeNetworkHandler.seeded(kind, Map.of(Items.DIAMOND, 64L));
+            MountedNetwork mounted = mount(new LinkedItemHandlerView(endpoint, true));
+
+            assertTrue(mounted.storage.insert(new ItemStack(STONE, 8), false).isEmpty());
+            ItemStack extracted = mounted.storage.extract(Items.DIAMOND, 7);
+
+            assertEquals(8L, endpoint.stored.get(STONE));
+            assertEquals(7, extracted.getCount());
+            assertEquals(1, endpoint.insertAnywhereCalls,
+                    kind + " 的权限视图不能让网络写入退化为逐槽扫描");
+            assertEquals(1, endpoint.extractAnywhereCalls,
+                    kind + " 的权限视图不能让网络提取退化为逐槽扫描");
+            assertEquals(0, endpoint.perSlotInsertCalls);
+            assertEquals(0, endpoint.perSlotExtractCalls);
+        }
+    }
+
+    @Test
+    void extractOnlyPolicyViewMustRejectBulkInsertButKeepBulkExtract() {
+        for (NetworkKind kind : NetworkKind.values()) {
+            FakeNetworkHandler endpoint = FakeNetworkHandler.seeded(kind, Map.of(Items.DIAMOND, 64L));
+            MountedNetwork mounted = mount(new LinkedItemHandlerView(endpoint, false));
+
+            ItemStack rejected = mounted.storage.insert(new ItemStack(STONE, 8), false);
+            ItemStack extracted = mounted.storage.extract(Items.DIAMOND, 7);
+
+            assertEquals(8, rejected.getCount());
+            assertEquals(0L, endpoint.stored.getOrDefault(STONE, 0L));
+            assertEquals(7, extracted.getCount(), "Extract-only 仍应允许走网络批量提取");
+            assertEquals(0, endpoint.insertAnywhereCalls,
+                    kind + " 的原始网络写入 API 不得被调用");
+            assertEquals(1, endpoint.extractAnywhereCalls);
+            assertEquals(0, endpoint.perSlotInsertCalls);
+            assertEquals(0, endpoint.perSlotExtractCalls);
         }
     }
 
@@ -158,6 +199,10 @@ class RtsNetworkStorageOptimizationTest {
     }
 
     private static MountedNetwork mount(FakeNetworkHandler handler) {
+        return mount((IItemHandler) handler);
+    }
+
+    private static MountedNetwork mount(IItemHandler handler) {
         RtsHandlerCache cache = new RtsHandlerCache();
         cache.update(handler);
         RtsAggregateStorage storage = new RtsAggregateStorage();

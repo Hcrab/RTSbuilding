@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.BooleanSupplier;
 
 /**
  * 链接处理器解析服务——将链接存储引用解析为实时的物品/流体处理器。
@@ -67,8 +68,7 @@ public final class RtsLinkedHandlerResolutionService {
                 boolean sameDimension = currentDimension == ref.dimension();
                 IItemHandler handler = null;
 
-                if (sameDimension && !session.linkedStorageInfo.isDetached(ref)
-                        && RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+                if (sameDimension && RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref)) {
                     Object endpointIdentity = player.getServerWorld().getTileEntity(pos);
                     handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
                             player.getUniqueID(), currentDimension, pos, backpackUuid, endpointIdentity,
@@ -89,8 +89,9 @@ public final class RtsLinkedHandlerResolutionService {
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
                         ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), pos));
-                boolean allowStore = !RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
-                out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, allowStore), allowStore,
+                BooleanSupplier storePermission = () -> RtsLinkedStorageResolver.isStoreAllowed(session, ref);
+                boolean allowStore = storePermission.getAsBoolean();
+                out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, storePermission), allowStore,
                         linkedPriority(session, ref)));
             }
         }
@@ -122,13 +123,14 @@ public final class RtsLinkedHandlerResolutionService {
     }
 
     /**
-     * 将解析后的链接处理器的原始（未包装）物品处理器注册到
-     * {@link RtsStorageTickService} 缓存系统中，以便后续的页面构建
+     * 将解析后的带权限视图注册到 {@link RtsStorageTickService} 缓存系统中，
+     * 以便后续的页面构建
      * 和传输操作可以从槽位缓存中读取，而不是每次操作都在每个处理器上
      * 调用 {@code getStackInSlot()}。
      *
-     * <p>在 {@link #resolveLinkedHandlers(EntityPlayerMP, RtsStorageSession)}
-     * 之后调用此方法，以播种每玩家的聚合存储。
+     * <p>不能在这里剥离 {@link LinkedItemHandlerView}：聚合缓存也承担远程掉落
+     * 快速入库，若挂载原始 capability，Extract-only 会被绕过。Tick 服务会用
+     * 视图的原始端点身份复用快照，同时让所有写入继续经过权限视图。
      */
     public static void registerStorageCaches(EntityPlayerMP player, List<LinkedHandler> handlers) {
         if (player == null) {
@@ -138,17 +140,11 @@ public final class RtsLinkedHandlerResolutionService {
             RtsStorageTickService.INSTANCE.unregisterPlayer(player);
             return;
         }
-        List<IItemHandler> rawHandlers = new ArrayList<>(handlers.size());
+        List<IItemHandler> policyHandlers = new ArrayList<>(handlers.size());
         for (LinkedHandler lh : handlers) {
-            IItemHandler h = lh.handler();
-            if (h instanceof LinkedItemHandlerView) {
-                LinkedItemHandlerView view = (LinkedItemHandlerView) h;
-                rawHandlers.add(view.getRawHandler());
-            } else {
-                rawHandlers.add(h);
-            }
+            if (lh != null && lh.handler() != null) policyHandlers.add(lh.handler());
         }
-        RtsStorageTickService.INSTANCE.registerPlayer(player, rawHandlers);
+        RtsStorageTickService.INSTANCE.registerPlayer(player, policyHandlers);
     }
 
     // ======================================================================
@@ -171,7 +167,7 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 BlockPos pos = ref.pos();
-                if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+                if (!RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref)) {
                     continue;
                 }
                 IFluidHandler handler = RtsLinkedCapabilities.findFluidHandler(player, pos);
@@ -180,8 +176,9 @@ public final class RtsLinkedHandlerResolutionService {
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
                         ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), pos));
-                boolean allowStore = !RtsLinkedStorageResolver.isExtractOnlyLink(session, ref);
-                out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, allowStore), allowStore,
+                BooleanSupplier storePermission = () -> RtsLinkedStorageResolver.isStoreAllowed(session, ref);
+                boolean allowStore = storePermission.getAsBoolean();
+                out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, storePermission), allowStore,
                         linkedPriority(session, ref)));
             }
         }
@@ -222,11 +219,11 @@ public final class RtsLinkedHandlerResolutionService {
     }
 
     public static List<IItemHandler> itemHandlersForInsert(List<LinkedHandler> handlers) {
-        return toItemHandlers(orderHandlersForInsert(handlers));
+        return toItemHandlers(orderHandlersForInsert(handlers), true);
     }
 
     public static List<IItemHandler> itemHandlersForExtract(List<LinkedHandler> handlers) {
-        return toItemHandlers(orderHandlersForExtract(handlers));
+        return toItemHandlers(orderHandlersForExtract(handlers), false);
     }
 
     public static List<LinkedFluidHandler> orderFluidHandlersForInsert(List<LinkedFluidHandler> handlers) {
@@ -273,12 +270,14 @@ public final class RtsLinkedHandlerResolutionService {
         return ordered;
     }
 
-    private static List<IItemHandler> toItemHandlers(List<LinkedHandler> handlers) {
+    private static List<IItemHandler> toItemHandlers(List<LinkedHandler> handlers, boolean requireStorePermission) {
         if (handlers == null || handlers.isEmpty()) {
             return java.util.Collections.emptyList();
         }
         List<IItemHandler> out = new ArrayList<>(handlers.size());
         for (LinkedHandler linked : handlers) {
+            if (linked == null || linked.handler() == null) continue;
+            if (requireStorePermission && !linked.allowStore()) continue;
             out.add(linked.handler());
         }
         return out;

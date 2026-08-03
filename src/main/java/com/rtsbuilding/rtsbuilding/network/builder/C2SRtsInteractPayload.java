@@ -1,16 +1,18 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
+import com.rtsbuilding.rtsbuilding.network.RtsTracedPayload;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
 /** 远程交互意图；实体、工具槽、链接物品及权限全部由服务端当前状态决定。 */
-public final class C2SRtsInteractPayload implements IMessage {
+public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {
     public static final byte SOURCE_TOOL_SLOT = 0, SOURCE_PIN_ITEM = 1;
     public static final byte SOURCE_TOOL_SLOT_AIR = 2, SOURCE_EMPTY_HAND = 3;
     public static final int NO_ENTITY = -1;
+    private long traceId;
     private int entityId = NO_ENTITY;
     private BlockPos clickedPos;
     private byte face;
@@ -22,10 +24,11 @@ public final class C2SRtsInteractPayload implements IMessage {
     public C2SRtsInteractPayload() {
     }
 
-    public C2SRtsInteractPayload(int entityId, BlockPos clickedPos, byte face,
+    public C2SRtsInteractPayload(long traceId, int entityId, BlockPos clickedPos, byte face,
             double hitX, double hitY, double hitZ, byte sourceType, byte toolSlot,
             String itemId, double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ) {
+        this.traceId = traceId;
         this.entityId = entityId; this.clickedPos = clickedPos; this.face = face;
         this.hitX = hitX; this.hitY = hitY; this.hitZ = hitZ;
         this.sourceType = sourceType; this.toolSlot = toolSlot;
@@ -34,7 +37,17 @@ public final class C2SRtsInteractPayload implements IMessage {
         this.rayDirX = rayDirX; this.rayDirY = rayDirY; this.rayDirZ = rayDirZ;
     }
 
+    /** 仅供旧测试/内部构造使用；生产客户端必须传入正数 traceId。 */
+    public C2SRtsInteractPayload(int entityId, BlockPos clickedPos, byte face,
+            double hitX, double hitY, double hitZ, byte sourceType, byte toolSlot,
+            String itemId, double rayOriginX, double rayOriginY, double rayOriginZ,
+            double rayDirX, double rayDirY, double rayDirZ) {
+        this(0L, entityId, clickedPos, face, hitX, hitY, hitZ, sourceType, toolSlot,
+                itemId, rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
+    }
+
     @Override public void fromBytes(ByteBuf b) {
+        traceId = b.readLong();
         entityId = b.readInt(); clickedPos = BlockPos.fromLong(b.readLong()); face = b.readByte();
         hitX = b.readDouble(); hitY = b.readDouble(); hitZ = b.readDouble();
         sourceType = b.readByte(); toolSlot = b.readByte();
@@ -46,6 +59,7 @@ public final class C2SRtsInteractPayload implements IMessage {
 
     @Override public void toBytes(ByteBuf b) {
         if (!isValid()) throw new IllegalArgumentException("invalid RTS interaction");
+        b.writeLong(traceId);
         b.writeInt(entityId); b.writeLong(clickedPos.toLong()); b.writeByte(face);
         b.writeDouble(hitX); b.writeDouble(hitY); b.writeDouble(hitZ);
         b.writeByte(sourceType); b.writeByte(toolSlot);
@@ -55,7 +69,7 @@ public final class C2SRtsInteractPayload implements IMessage {
     }
 
     public boolean isValid() {
-        return entityId >= NO_ENTITY && clickedPos != null && face >= 0
+        return traceId >= 0L && entityId >= NO_ENTITY && clickedPos != null && face >= 0
                 && face < EnumFacing.values().length && sourceType >= SOURCE_TOOL_SLOT
                 && sourceType <= SOURCE_EMPTY_HAND && toolSlot >= 0 && toolSlot <= 8
                 && itemId != null && itemId.length() <= 128
@@ -66,6 +80,7 @@ public final class C2SRtsInteractPayload implements IMessage {
         return true;
     }
 
+    @Override public long traceId(){return traceId;}
     public int entityId(){return entityId;} public BlockPos clickedPos(){return clickedPos;}
     public byte face(){return face;} public double hitX(){return hitX;}
     public double hitY(){return hitY;} public double hitZ(){return hitZ;}

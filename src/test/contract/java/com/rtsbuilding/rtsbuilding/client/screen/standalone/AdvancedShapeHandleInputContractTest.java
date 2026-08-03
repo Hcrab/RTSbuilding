@@ -32,7 +32,7 @@ class AdvancedShapeHandleInputContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"));
         String body = methodBody(source, "boolean handleAdvancedShapeHandleClick");
 
-        assertTrue(body.contains("button != GLFW.GLFW_MOUSE_BUTTON_LEFT"));
+        assertTrue(body.contains("button != 0"));
         assertTrue(body.contains("isAdvancedShapeMode()"));
         assertTrue(body.contains("isWorldArea(mouseX, mouseY)"));
         assertTrue(body.contains("isMouseOverFloatingWindow(mouseX, mouseY)"));

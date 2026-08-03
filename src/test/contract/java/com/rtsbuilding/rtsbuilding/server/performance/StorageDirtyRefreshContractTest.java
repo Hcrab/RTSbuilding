@@ -21,8 +21,10 @@ class StorageDirtyRefreshContractTest {
         String screen = source("com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String bottomPanel = source("com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
 
-        assertTrue(controller.contains("builderScreen.isStorageViewVisible()"));
-        assertTrue(screen.contains("this.bottomPanel.isStorageBrowserVisible()"));
+        assertTrue(controller.contains("minecraft.currentScreen instanceof BuilderScreen")
+                && controller.contains("((BuilderScreen) minecraft.currentScreen).isStorageViewVisible()"));
+        assertTrue(screen.contains("this.bottomPanel.isStorageBrowserVisible()")
+                && screen.contains("this.linkedStoragePanel.isOpen()"));
         assertTrue(bottomPanel.contains("activeBottomPanelTab() == BottomPanelLayoutTypes.BottomPanelTab.STORAGE"),
                 "BuilderScreen 虽已打开，创造/蓝图标签仍必须保持 0 次自动构页");
         assertFalse(controller.contains("tickStorageAutoRefresh(controller.storageStateManager.isStorageViewDirty())"));

@@ -256,6 +256,7 @@ public static ClientRtsController get() {
     public void applyStorageDirty(S2CRtsStorageDirtyPayload payload) { this.commandOwner.applyStorageDirty(payload); }
     void refreshSelectedItemPreviewFromStorage() { this.commandOwner.refreshSelectedItemPreviewFromStorage(); }
     public void applyRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload) { this.commandOwner.applyRemoteMenuHint(payload); }
+    public void applyRemoteMenuResult(S2CRtsRemoteMenuResultPayload payload) { this.commandOwner.applyRemoteMenuResult(payload); }
     public void applyDamageFeedback(S2CRtsDamageFeedbackPayload payload) { this.commandOwner.applyDamageFeedback(payload); }
     public void applyQuestDetectStatus(S2CRtsQuestDetectStatusPayload payload) { this.commandOwner.applyQuestDetectStatus(payload); }
     public void applyMineProgress(S2CRtsMineProgressPayload payload) { this.commandOwner.applyMineProgress(payload); }

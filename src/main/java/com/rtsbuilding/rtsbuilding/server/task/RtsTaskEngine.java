@@ -312,11 +312,15 @@ public final class RtsTaskEngine {
                         ? durableRuntime.transitionMiningSnapshot(durable,
                                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
                                 gameTime(player))
-                        : durable.nextRevision(
-                                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
-                                null, gameTime(player), durable.cursorUnits(),
-                                durable.succeededUnits(), durable.failedUnits(), durable.payload());
-            } catch (RuntimeException malformedMining) {
+                        : durable.type() == TaskType.DESTRUCTION
+                                ? durableRuntime.transitionDestructionSnapshot(durable,
+                                        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
+                                        gameTime(player))
+                                : durable.nextRevision(
+                                        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
+                                        null, gameTime(player), durable.cursorUnits(),
+                                        durable.succeededUnits(), durable.failedUnits(), durable.payload());
+            } catch (RuntimeException malformedTransition) {
                 cancelled = durable.nextRevision(
                         com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.CANCELLED,
                         null, gameTime(player), durable.cursorUnits(),
@@ -823,7 +827,14 @@ public final class RtsTaskEngine {
         reconcileHiddenDurableWorkflows(player, coordinator);
         if (!makeRoomForDurableTaskFamily(
                 player, coordinator, TaskType.DESTRUCTION,
-                RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS, ignored -> true)) return false;
+                RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS, ignored -> true)) {
+            player.sendStatusMessage(
+                    new net.minecraft.util.text.TextComponentTranslation(
+                            "message.rtsbuilding.range_destroy.queue_full",
+                            RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS),
+                    true);
+            return false;
+        }
         DestructionTaskPayload payload = new DestructionTaskPayload(
                 player.getUniqueID(), player.dimension, job.workflowEntryId(),
                 RtsDestructionBatch.snapshotDetachedState(job));

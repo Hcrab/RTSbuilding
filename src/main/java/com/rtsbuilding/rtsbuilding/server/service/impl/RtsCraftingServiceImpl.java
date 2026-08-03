@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.CraftingService;
+import com.rtsbuilding.rtsbuilding.server.service.crafting.RtsGenericJeiContainerFiller;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageCrafting;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -106,6 +107,20 @@ public final class RtsCraftingServiceImpl implements CraftingService {
                 ingredientPrototypes,
                 maxTransfer,
                 clearGridFirst);
+    }
+
+    @Override
+    public void applyJeiContainerTransfer(EntityPlayerMP player, int windowId,
+                                          List<Integer> targetSlots,
+                                          List<List<ItemStack>> alternatives,
+                                          boolean maxTransfer,
+                                          boolean requireCompleteSets) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.JEI_TRANSFER)) {
+            return;
+        }
+        RtsGenericJeiContainerFiller.apply(
+                player, registry.session().getOrCreate(player), windowId,
+                targetSlots, alternatives, maxTransfer, requireCompleteSets);
     }
 
     @Override

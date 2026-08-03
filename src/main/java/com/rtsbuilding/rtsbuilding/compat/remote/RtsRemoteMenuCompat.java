@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.compat.remote;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
@@ -17,7 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 的强制转换失效。</p>
  */
 public final class RtsRemoteMenuCompat {
-    private static final Map<UUID, Integer> SERVER_WINDOW_IDS = new ConcurrentHashMap<>();
+    private static final Map<UUID, ServerMarker> SERVER_MARKERS = new ConcurrentHashMap<>();
     private static volatile int clientWindowId = -1;
     private static volatile boolean clientWindowPending;
 
@@ -39,10 +41,9 @@ public final class RtsRemoteMenuCompat {
     }
 
     public static boolean isSupportedRemoteMenu(Container menu) {
-        return isVanillaChestMenu(menu)
-                || isIronFurnacesMenu(menu)
-                || isGeneratorGaloreMenu(menu)
-                || isSophisticatedMenu(menu);
+        // 资格来自“这个 windowId 是由一次 RTS 远程交互明确打开的”，而不是容器类名。
+        // windowId 0 是玩家自身 inventoryContainer，绝不能被标成远程菜单。
+        return menu != null && menu.windowId != 0;
     }
 
     public static boolean isVanillaChestMenu(Container menu) {
@@ -83,16 +84,39 @@ public final class RtsRemoteMenuCompat {
     }
 
     public static void markServerRemoteMenu(EntityPlayerMP player, Container menu) {
+        markServerRemoteMenu(player, menu, RtsTraceIds.NONE);
+    }
+
+    /** 在服务端交互开始前保留 trace，使早于菜单标记发生的校验也能出现在同一条时间线中。 */
+    public static void beginServerRemoteMenuOpen(EntityPlayerMP player, long traceId) {
+        if (player == null) return;
+        SERVER_MARKERS.put(player.getUniqueID(), new ServerMarker(-1, traceId, true));
+    }
+
+    public static void markServerRemoteMenu(EntityPlayerMP player, Container menu, long traceId) {
         if (player == null) return;
         if (!isSupportedRemoteMenu(menu)) {
             clearServerRemoteMenu(player);
             return;
         }
-        SERVER_WINDOW_IDS.put(player.getUniqueID(), menu.windowId);
+        SERVER_MARKERS.put(player.getUniqueID(), new ServerMarker(menu.windowId, traceId, false));
+    }
+
+    public static void cancelServerRemoteMenuOpen(EntityPlayerMP player, long traceId, String reason) {
+        if (player == null) return;
+        UUID playerId = player.getUniqueID();
+        ServerMarker marker = SERVER_MARKERS.get(playerId);
+        if (marker == null || !marker.pending || marker.traceId != traceId) return;
+        SERVER_MARKERS.remove(playerId, marker);
+        if (RtsTraceIds.isPresent(traceId)) {
+            RtsbuildingMod.LOGGER.info(
+                    "[RTS-TRACE] side=S event=MENU_PENDING_CLEARED trace={} kind=REMOTE_GUI reason={}",
+                    RtsTraceIds.format(traceId), reason);
+        }
     }
 
     public static void clearServerRemoteMenu(EntityPlayerMP player) {
-        if (player != null) SERVER_WINDOW_IDS.remove(player.getUniqueID());
+        if (player != null) SERVER_MARKERS.remove(player.getUniqueID());
     }
 
     public static void beginClientRemoteMenuOpen() {
@@ -122,8 +146,18 @@ public final class RtsRemoteMenuCompat {
             return clientWindowPending || menu.windowId == clientWindowId;
         }
         if (player instanceof EntityPlayerMP) {
-            Integer marked = SERVER_WINDOW_IDS.get(player.getUniqueID());
-            return marked != null && marked.intValue() == menu.windowId;
+            ServerMarker marker = SERVER_MARKERS.get(player.getUniqueID());
+            if (marker == null) return false;
+            if (marker.pending) {
+                marker.logPendingValidation(menu);
+                return false;
+            }
+            if (marker.windowId == menu.windowId) {
+                marker.logForcedValidation(menu);
+                return true;
+            }
+            marker.logWindowMismatch(menu);
+            return false;
         }
         return false;
     }
@@ -149,6 +183,46 @@ public final class RtsRemoteMenuCompat {
             return Class.forName(className).isInstance(instance);
         } catch (ClassNotFoundException | LinkageError ignored) {
             return false;
+        }
+    }
+
+    /** 每名玩家只保留一个远程菜单标记，并对高频 stillValid 检查实行一次性日志。 */
+    private static final class ServerMarker {
+        private final int windowId;
+        private final long traceId;
+        private final boolean pending;
+        private volatile boolean pendingValidationLogged;
+        private volatile boolean forcedValidationLogged;
+        private volatile boolean mismatchLogged;
+
+        private ServerMarker(int windowId, long traceId, boolean pending) {
+            this.windowId = windowId;
+            this.traceId = traceId;
+            this.pending = pending;
+        }
+
+        private void logPendingValidation(Container menu) {
+            if (pendingValidationLogged || !RtsTraceIds.isPresent(traceId)) return;
+            pendingValidationLogged = true;
+            RtsbuildingMod.LOGGER.warn(
+                    "[RTS-TRACE] side=S event=STILL_VALID_BEFORE_MARK trace={} kind=REMOTE_GUI checkedWindow={} menu={} forced=false",
+                    RtsTraceIds.format(traceId), menu.windowId, menu.getClass().getName());
+        }
+
+        private void logForcedValidation(Container menu) {
+            if (forcedValidationLogged || !RtsTraceIds.isPresent(traceId)) return;
+            forcedValidationLogged = true;
+            RtsbuildingMod.LOGGER.info(
+                    "[RTS-TRACE] side=S event=STILL_VALID_FORCED trace={} kind=REMOTE_GUI window={} menu={}",
+                    RtsTraceIds.format(traceId), menu.windowId, menu.getClass().getName());
+        }
+
+        private void logWindowMismatch(Container menu) {
+            if (mismatchLogged || !RtsTraceIds.isPresent(traceId)) return;
+            mismatchLogged = true;
+            RtsbuildingMod.LOGGER.warn(
+                    "[RTS-TRACE] side=S event=STILL_VALID_MISMATCH trace={} kind=REMOTE_GUI expectedWindow={} checkedWindow={} menu={} forced=false",
+                    RtsTraceIds.format(traceId), windowId, menu.windowId, menu.getClass().getName());
         }
     }
 }

@@ -17,7 +17,7 @@ class DetachedPlacementTaskContractTest {
     void placementPayloadContainsOnlyStableIdsAndPureState() throws IOException {
         String payload = read("server/task/PlacementTaskPayload.java");
         assertTrue(payload.contains("UUID ownerId"));
-        assertTrue(payload.contains("ResourceKey<Level> dimension"));
+        assertTrue(payload.contains("int dimension"));
         assertTrue(payload.contains("PlacementTaskState state"));
         assertFalse(payload.contains("import net.minecraft.server.level.ServerPlayer"));
         assertFalse(payload.contains("import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession"));
@@ -47,7 +47,7 @@ class DetachedPlacementTaskContractTest {
         assertTrue(state.contains("int cursorUnits"));
         assertTrue(state.contains("int succeededUnits"));
         assertTrue(state.contains("int failedUnits"));
-        assertTrue(state.contains("CompoundTag definition"));
+        assertTrue(state.contains("NBTTagCompound definition"));
         assertTrue(state.contains("definition.copy()"));
         assertTrue(state.contains("PlacementResumePolicy resumePolicy"));
     }

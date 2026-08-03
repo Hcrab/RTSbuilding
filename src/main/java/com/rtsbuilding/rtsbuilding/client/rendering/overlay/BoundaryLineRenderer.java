@@ -8,6 +8,8 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
@@ -110,7 +112,7 @@ public final class BoundaryLineRenderer {
             GlStateManager.disableCull();
             GlStateManager.depthMask(false);
             Minecraft.getMinecraft().getTextureManager().bindTexture(FORCEFIELD);
-            UPLOADER.draw(BUFFER);
+            RtsOwnedBufferUploader.draw(BUFFER);
         } finally {
             state.restore();
         }
@@ -144,12 +146,12 @@ public final class BoundaryLineRenderer {
             set(GL11.GL_DEPTH_TEST, depth);
             GlStateManager.depthMask(depthMask);
             GlStateManager.glLineWidth(lineWidth);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, textureBinding);
+            RtsGlStateRestorer.restoreTextureBinding(textureBinding);
             GlStateManager.resetColor();
         }
 
         private static void set(int capability, boolean enabled) {
-            if (enabled) GL11.glEnable(capability); else GL11.glDisable(capability);
+            RtsGlStateRestorer.restoreCapability(capability, enabled);
         }
     }
 }

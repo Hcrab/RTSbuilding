@@ -19,8 +19,8 @@ class DurableTaskLogoutDetachContractTest {
         String taskEngine = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/task/RtsTaskEngine.java"));
 
-        assertTrue(sessionService.contains("RtsTaskEngine.INSTANCE.detachPlayer(player.getUniqueId())"));
-        assertFalse(sessionService.contains("RtsTaskEngine.INSTANCE.onPlayerLogout(player.getUniqueId())"));
+        assertTrue(sessionService.contains("RtsTaskEngine.INSTANCE.detachPlayer(player.getUniqueID())"));
+        assertFalse(sessionService.contains("RtsTaskEngine.INSTANCE.onPlayerLogout(player.getUniqueID())"));
         assertTrue(taskEngine.contains("scheduler.detachOwner(playerId)"));
         assertTrue(taskEngine.contains("if (!isPhaseOneDurable(detached.type())) detached.cancel(now)"));
     }

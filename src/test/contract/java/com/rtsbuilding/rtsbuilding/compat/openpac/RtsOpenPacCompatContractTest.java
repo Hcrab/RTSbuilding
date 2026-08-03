@@ -11,35 +11,45 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsOpenPacCompatContractTest {
     @Test
-    void openPacCompatStaysOptionalAndUsesServerApiReflection() throws IOException {
+    void openPacCompatStaysOptionalAndRejectsUnsupportedModernApi() throws IOException {
         String facade = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/openpac/RtsOpenPacCompat.java");
         String impl = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/openpac/RtsOpenPacCompatImpl.java");
 
-        assertTrue(facade.contains("ModList.get().isLoaded(MOD_ID)"),
+        assertTrue(facade.contains("Loader.isModLoaded(MOD_ID)"),
                 "OpenPAC compat must stay disabled unless the mod is present");
-        assertTrue(impl.contains("Class.forName(\"xaero.pac.common.server.api.OpenPACServerAPI\")"),
-                "OpenPAC API should be loaded reflectively, not as a hard dependency");
+        assertTrue(impl.contains("has no official Minecraft 1.12.2 release or API"),
+                "1.12 must explicitly report that the modern OpenPAC API is unavailable");
+        assertFalse(impl.contains("Class.forName(\"xaero."),
+                "1.12 must not pretend a modern OpenPAC API can be loaded reflectively");
         assertFalse(impl.contains("import xaero."),
                 "runtime compat should not import OpenPAC classes directly");
     }
 
     @Test
-    void openPacCompatChecksPartiesAndActionSpecificClaimProtection() throws IOException {
-        String impl = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/openpac/RtsOpenPacCompatImpl.java");
+    void unsupportedOpenPacFailsClosedWhileFtbClaimsRemainActionSpecific() throws IOException {
+        String facade = read("src/main/java/com/rtsbuilding/rtsbuilding/compat/openpac/RtsOpenPacCompat.java");
 
-        assertTrue(impl.contains("getPartyByMember"),
-                "OpenPAC party lookup should use the player's current party");
-        assertTrue(impl.contains("getDefaultName"),
-                "OpenPAC team label should come from the party name");
-        assertTrue(impl.contains("onBlockInteraction"),
-                "block interaction and break checks must use OpenPAC action API");
-        assertTrue(impl.contains("onEntityPlaceBlock"),
-                "block placement must use OpenPAC placement API");
-        assertTrue(impl.contains("onEntityInteraction"),
-                "entity interaction must use OpenPAC entity interaction API");
+        assertTrue(facade.contains("RtsFtbCompat.canEditBlock(player, pos)"),
+                "1.12 block break/place claims must use the supported FTB Utilities bridge");
+        assertTrue(facade.contains("RtsFtbCompat.canInteractBlock(player, pos, face, hand, heldItem)"),
+                "1.12 block interaction claims must preserve action context");
+        assertTrue(facade.contains("RtsFtbCompat.canInteractEntity(player, target, hand, heldItem, attack)"),
+                "1.12 entity claims must preserve interaction/attack intent");
+        assertTrue(count(facade, "&& !OPENPAC_LOADED") == 4,
+                "an unknown OpenPAC backport must fail closed for every world action");
     }
 
     private static String read(String path) throws IOException {
         return Files.readString(Path.of(path));
+    }
+
+    private static int count(String source, String token) {
+        int count = 0;
+        int cursor = 0;
+        while ((cursor = source.indexOf(token, cursor)) >= 0) {
+            count++;
+            cursor += token.length();
+        }
+        return count;
     }
 }

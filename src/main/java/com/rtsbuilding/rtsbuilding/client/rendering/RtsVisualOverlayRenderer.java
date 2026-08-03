@@ -13,6 +13,9 @@ import com.rtsbuilding.rtsbuilding.client.rendering.overlay.InteractionTargetRen
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.PlayerMoveTargetRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.StorageRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.PlacedBlockRotationHandleRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateQueries;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -22,11 +25,8 @@ import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
-
-import java.nio.FloatBuffer;
 
 /**
  * Forge 1.12 世界末尾阶段的 RTS 视觉总入口。
@@ -126,7 +126,7 @@ public final class RtsVisualOverlayRenderer {
 
     private static void uploadOrDiscard(BufferBuilder buffer) {
         if (buffer.getVertexCount() > 0) {
-            UPLOADER.draw(buffer);
+            RtsOwnedBufferUploader.draw(buffer);
         } else {
             discard(buffer);
         }
@@ -158,7 +158,7 @@ public final class RtsVisualOverlayRenderer {
         private final int blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
         private final int blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
         private final int blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
-        private final float[] color = currentColor();
+        private final float[] color = RtsGlStateQueries.currentColor();
 
         private static GlSnapshot capture() {
             return new GlSnapshot();
@@ -176,14 +176,8 @@ public final class RtsVisualOverlayRenderer {
             GlStateManager.color(this.color[0], this.color[1], this.color[2], this.color[3]);
         }
 
-        private static float[] currentColor() {
-            FloatBuffer values = BufferUtils.createFloatBuffer(4);
-            GL11.glGetFloat(GL11.GL_CURRENT_COLOR, values);
-            return new float[] {values.get(0), values.get(1), values.get(2), values.get(3)};
-        }
-
         private static void set(int capability, boolean enabled) {
-            if (enabled) GL11.glEnable(capability); else GL11.glDisable(capability);
+            RtsGlStateRestorer.restoreCapability(capability, enabled);
         }
     }
 }

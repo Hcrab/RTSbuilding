@@ -39,13 +39,13 @@ class WorkflowLocalizationContractTest {
                 Path.of("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsWorkflowPanel.java"),
                 Path.of("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsResumePlacementPanel.java"),
                 Path.of("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/workflow/RtsBlueprintResumePanel.java"),
-                Path.of("src/main/java/com/rtsbuilding/rtsbuilding/network/builder/handler/RtsInteractionHandlers.java"),
+                Path.of("src/main/java/com/rtsbuilding/rtsbuilding/server/storage/RtsGuiBindingHelper.java"),
                 Path.of("src/main/java/com/rtsbuilding/rtsbuilding/server/workflow/core/RtsWorkflowEngine.java"),
                 Path.of("src/main/java/com/rtsbuilding/rtsbuilding/server/workflow/model/RtsWorkflowStatus.java"));
 
         List<String> forbidden = List.of(
-                "Component.literal(\"\u6062\u590d\u653e\u7f6e\")",
-                "Component.literal(\"\u84dd\u56fe\u6750\u6599\u6e05\u5355\")",
+                "new TextComponentString(\"\u6062\u590d\u653e\u7f6e\")",
+                "new TextComponentString(\"\u84dd\u56fe\u6750\u6599\u6e05\u5355\")",
                 "-> \"\u6316\u6398\"",
                 "-> \"\u8fde\u9501\u6316\u6398\"",
                 "-> \"\u533a\u57df\u6316\u6398\"",

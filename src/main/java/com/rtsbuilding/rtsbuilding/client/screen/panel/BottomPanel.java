@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.layout.CategoryTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCraftablesUiHelper;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
+import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelBrowseLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelBlueprintLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCategoryLayout;
@@ -147,7 +148,11 @@ public final class BottomPanel {
             sb.y = browseLayout.searchField.y;
             sb.width = browseLayout.searchField.width;
             sb.height = browseLayout.searchField.height;
-            sb.drawTextBox();
+            if (sb instanceof WindowTextBox) {
+                ((WindowTextBox) sb).renderWidget(g, mouseX, mouseY, partialTick);
+            } else {
+                sb.drawTextBox();
+            }
         }
 
         BottomPanelBrowseRenderer.renderControls(

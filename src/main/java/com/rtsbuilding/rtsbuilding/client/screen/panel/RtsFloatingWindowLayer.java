@@ -15,8 +15,13 @@ import java.util.List;
  * 1.12 的 GUI 使用立即绘制，因此通过独立矩阵和深度带隔离每个窗口，而不调用现代缓冲区 flush。
  */
 public final class RtsFloatingWindowLayer {
-    private static final float WINDOW_BASE_Z = 400.0F;
-    private static final float WINDOW_Z_STRIDE = 400.0F;
+    /*
+     * 1.12.2 的 GUI 正交投影只有有限的可见深度。窗口仍按从后到前的顺序立即绘制，
+     * 因而这里只需要很小的 Z 间距；旧值 400 会把刚置顶的窗口推到数千格之外并被裁剪。
+     */
+    private static final float WINDOW_BASE_Z = 32.0F;
+    private static final float WINDOW_Z_STRIDE = 8.0F;
+    private static final float WINDOW_MAX_Z = 384.0F;
 
     private final List<RtsWindowPanel> frontToBackWindows;
     private final RtsFloatingWindowInputRouter inputRouter;
@@ -92,7 +97,8 @@ public final class RtsFloatingWindowLayer {
     }
 
     private static float windowLayerZ(int index) {
-        return WINDOW_BASE_Z + Math.max(0, index) * WINDOW_Z_STRIDE;
+        return Math.min(WINDOW_MAX_Z,
+                WINDOW_BASE_Z + Math.max(0, index) * WINDOW_Z_STRIDE);
     }
 
     public RtsWindowPanel.ResizeCursor resizeCursorAt(double mouseX, double mouseY) {

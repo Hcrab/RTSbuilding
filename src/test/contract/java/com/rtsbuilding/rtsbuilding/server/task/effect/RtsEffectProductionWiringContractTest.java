@@ -33,15 +33,15 @@ class RtsEffectProductionWiringContractTest {
 
         String mod = read("RtsbuildingMod.java");
         assertOrdered(mod,
-                "ServerTickOrchestrator.getInstance().tickMining(event.getServer())",
-                "SaveScheduler.INSTANCE.onTick(event.getServer())",
+                "ServerTickOrchestrator.getInstance().tickMining(server)",
+                "SaveScheduler.INSTANCE.onTick(server)",
                 "TaskPersistenceRuntime.INSTANCE.tick()");
     }
 
     @Test
     void ordinaryServiceTemplateOnlyMarksStorageDirty() throws IOException {
         String template = read("server/service/ServiceOperationTemplate.java");
-        assertTrue(template.contains("RtsStorageTickService.INSTANCE.alert(player.getUniqueId())"));
+        assertTrue(template.contains("RtsStorageTickService.INSTANCE.alert(player.getUniqueID())"));
         assertFalse(template.contains("RtsStorageTickService.INSTANCE.forceRefresh("));
     }
 
@@ -51,12 +51,12 @@ class RtsEffectProductionWiringContractTest {
         String plugin = read("server/plugin/RtsPluginService.java");
         String progression = read("server/progression/RtsProgressionManager.java");
 
-        assertTrue(history.contains("markHistory(player.getUniqueId())"));
-        assertTrue(history.contains("sendSyncNow(ServerPlayer player)"));
-        assertTrue(plugin.contains("markPluginState(player.getUniqueId())"));
-        assertTrue(plugin.contains("syncToPlayerNow(ServerPlayer player)"));
-        assertTrue(progression.contains("markProgressionState(player.getUniqueId())"));
-        assertTrue(progression.contains("syncToPlayerNow(ServerPlayer player)"));
+        assertTrue(history.contains("markHistory(player.getUniqueID())"));
+        assertTrue(history.contains("sendSyncNow(EntityPlayerMP player)"));
+        assertTrue(plugin.contains("markPluginState(player.getUniqueID())"));
+        assertTrue(plugin.contains("syncToPlayerNow(EntityPlayerMP player)"));
+        assertTrue(progression.contains("markProgressionState(player.getUniqueID())"));
+        assertTrue(progression.contains("syncToPlayerNow(EntityPlayerMP player)"));
     }
 
     @Test

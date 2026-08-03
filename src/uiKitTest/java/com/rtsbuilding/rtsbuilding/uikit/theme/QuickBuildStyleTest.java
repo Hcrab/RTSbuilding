@@ -22,6 +22,21 @@ class QuickBuildStyleTest {
     }
 
     @Test
+    void 模式色板与主线启用和未启用风格完全一致() {
+        assertEquals(0xFF29583E, QuickBuildStyle.MODE_ACTIVE_BACKGROUND.toArgb());
+        assertEquals(0xFF5FE36C, QuickBuildStyle.MODE_ACTIVE_BORDER.toArgb());
+        assertEquals(0xFFD8FFE0, QuickBuildStyle.MODE_ACTIVE_TEXT.toArgb());
+        assertEquals(0x4A7CCB93, QuickBuildStyle.MODE_ANIMATION_OVERLAY.toArgb());
+
+        assertNotEquals(QuickBuildStyle.MODE_IDLE_BACKGROUND,
+                QuickBuildStyle.MODE_ACTIVE_BACKGROUND);
+        assertNotEquals(QuickBuildStyle.MODE_IDLE_BORDER,
+                QuickBuildStyle.MODE_ACTIVE_BORDER);
+        assertNotEquals(QuickBuildStyle.MODE_DISABLED_BACKGROUND,
+                QuickBuildStyle.MODE_ACTIVE_BACKGROUND);
+    }
+
+    @Test
     void 空闲和悬停只改变按钮chrome而不伪装为活动模式() {
         QuickBuildStyle.ModeVisual idle =
                 QuickBuildStyle.mode(true, false, false);

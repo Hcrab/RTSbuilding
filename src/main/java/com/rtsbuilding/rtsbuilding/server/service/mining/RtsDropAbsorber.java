@@ -2,11 +2,13 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsBoundedItemEntityQuery;
 import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState;
@@ -47,10 +49,15 @@ public final class RtsDropAbsorber {
         double radius = Config.dropScanRadius();
         for (BlockPos pos : positions) {
             if (pos == null) continue;
+            int queryLimit = RtsMiningDropBufferState.MAX_STACKS - unique.size();
+            if (queryLimit <= 0) break;
             AxisAlignedBB box = new AxisAlignedBB(pos).grow(radius);
-            for (EntityItem entity : player.getServerWorld().getEntitiesWithinAABB(EntityItem.class, box)) {
-                if (entity != null && !entity.isDead && !entity.getItem().isEmpty()) unique.add(entity);
-            }
+            RtsBoundedItemEntityQuery.Result query = RtsBoundedItemEntityQuery.query(
+                    player.getServerWorld(), box, queryLimit,
+                    entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty()
+                            && !unique.contains(entity));
+            unique.addAll(query.entities());
+            if (query.saturated()) break;
         }
         return new ArrayList<EntityItem>(unique);
     }
@@ -226,11 +233,26 @@ public final class RtsDropAbsorber {
     }
 
     private static DropInsertContext createInsertContext(EntityPlayerMP player, RtsStorageSession session) {
+        // 聚合缓存是挖掘热路径的性能快路，但权限必须比性能优先。
+        // 只要存在 Extract Only 链接，就实时解析可写端点，避免模式刚切换、
+        // 页面尚未重挂载或第三方 capability 身份变化时，旧聚合视图继续收货。
+        if (hasExtractOnlyLinkedStorage(session)) {
+            List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+            return new DropInsertContext(null, RtsLinkedStorageResolver.itemHandlersForInsert(linked));
+        }
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
         if (aggregate != null && !aggregate.isEmpty())
             return new DropInsertContext(aggregate, Collections.<IItemHandler>emptyList());
         List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         return new DropInsertContext(null, RtsLinkedStorageResolver.itemHandlersForInsert(linked));
+    }
+
+    static boolean hasExtractOnlyLinkedStorage(RtsStorageSession session) {
+        if (session == null || session.linkedStorageInfo.isEmpty()) return false;
+        for (LinkedStorageRef ref : session.linkedStorageInfo.getAll()) {
+            if (ref != null && RtsLinkedStorageResolver.isExtractOnlyLink(session, ref)) return true;
+        }
+        return false;
     }
 
     private static void notifyStorageChanged(EntityPlayerMP player, DropInsertContext context, boolean changed) {

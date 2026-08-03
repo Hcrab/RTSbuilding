@@ -17,11 +17,11 @@ class RtsMiningThroughputContractTest {
 
         assertEquals(32, RtsMiningValidator.ULTIMINE_BLOCKS_PER_TICK);
         assertTrue(config.contains(
-                "defineInRange(\"mining.ultimineBlocksPerTick\", 32, 1, 128)"));
+                "\"ultimineBlocksPerTick\", 32, 1, 128"));
         assertTrue(config.contains(
-                "defineInRange(\"taskEngine.maxUnitsPerSlice\", 32, 1, 512)"));
+                "\"maxUnitsPerSlice\", 32, 1, 512"));
         assertTrue(config.contains(
-                "defineInRange(\"taskEngine.maxNanosPerTick\", 8_000_000L, 250_000L, 20_000_000L)"));
+                "\"maxNanosPerTick\", 8_000_000L, 250_000L, 20_000_000L"));
         assertEquals(32, RtsMiningValidator.ULTIMINE_BLOCKS_PER_TICK,
                 "单个挖掘任务应能完整使用一次公平切片，不再浪费一半配额");
         assertTrue(RtsMiningValidator.ULTIMINE_BLOCKS_PER_TICK * 2 <= 256,

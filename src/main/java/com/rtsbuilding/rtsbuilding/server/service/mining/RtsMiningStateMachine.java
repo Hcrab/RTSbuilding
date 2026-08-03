@@ -744,7 +744,7 @@ public final class RtsMiningStateMachine {
                 beforeState, RtsMiningValidator.activeMiningTool(player, session, toolSlot), player.isCreative())) {
             return new MiningBreakResult(false, ItemStack.EMPTY);
         }
-        return RtsMiningDropCapture.capture(player, session, () -> {
+        return RtsMiningDropCapture.capture(player, session, pos, () -> {
             boolean broken;
             ItemStack remainder;
             if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {

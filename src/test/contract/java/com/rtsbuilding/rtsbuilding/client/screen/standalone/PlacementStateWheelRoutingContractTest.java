@@ -40,7 +40,7 @@ class PlacementStateWheelRoutingContractTest {
         assertTrue(source.contains("cyclePlacementPage(1)"));
         assertTrue(source.contains("screen.controller.rotateBlockStep("));
         assertTrue(source.contains("RtsPlacementRayFreeze.freeze("));
-        assertTrue(source.contains("GLFW.glfwSetCursorPos("));
+        assertTrue(source.contains("Mouse.setCursorPosition("));
 
         String picker = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/input/CameraInputHandler.java"));
@@ -52,8 +52,9 @@ class PlacementStateWheelRoutingContractTest {
         assertTrue(placementService.contains("private String placementStateItemId = \"\";"));
         assertTrue(placementService.contains("!nextItemId.equals(this.placementStateItemId)"),
                 "手持方块先选 R 状态、再从 RTS 列表选择同一物品时，不得把预选状态清空");
-        assertTrue(preset.contains("public static String fromBlockState(BlockState state)"));
-        assertTrue(preset.contains("state.getBlock() instanceof SlabBlock && !\"double\".equals(valueName)"));
+        assertTrue(preset.contains("public static String fromBlockState(IBlockState state)"));
+        assertTrue(preset.contains("state.getBlock() instanceof BlockSlab"));
+        assertTrue(preset.contains("!((BlockSlab) state.getBlock()).isDouble()"));
 
         String wheel = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacementStateWheel.java"));

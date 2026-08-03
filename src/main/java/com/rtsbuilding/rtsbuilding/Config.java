@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding;
 
 import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
+import com.rtsbuilding.rtsbuilding.network.RtsProtocolLimits;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 import net.minecraftforge.fluids.Fluid;
@@ -88,7 +89,8 @@ public final class Config {
             36, 1, 64, "Maximum block count per dimension for RTS area mining selections.",
             "rtsbuilding.configuration.areaMineMaxSize");
     public static final IntValue AREA_MINE_MAX_VOLUME = integer(Domain.SERVER, "mining", "areaMineMaxVolume",
-            46656, 1, 262144, "Maximum covered volume accepted by one RTS area mining selection.",
+            46656, 1, RtsProtocolLimits.AREA_MINE_MAX_VOLUME,
+            "Maximum covered volume accepted by one RTS area mining selection.",
             "rtsbuilding.configuration.areaMineMaxVolume");
     public static final IntValue AREA_MINE_MAX_WIDTH = integer(Domain.SERVER, "mining", "areaMineMaxWidth",
             36, 1, 256, "Maximum X-axis width accepted by one RTS area mining selection.",
@@ -121,7 +123,7 @@ public final class Config {
             180, 1, 8192, "Maximum entries accepted by an RTS storage page request.",
             "rtsbuilding.configuration.maxStoragePageSize");
     public static final IntValue AREA_DESTROY_MAX_TARGETS = integer(Domain.SERVER, "mining",
-            "areaDestroyMaxTargets", 98304, 1, 262144,
+            "areaDestroyMaxTargets", 98304, 1, RtsProtocolLimits.AREA_DESTROY_MAX_POSITIONS,
             "Maximum explicit positions accepted by one RTS area destroy request.",
             "rtsbuilding.configuration.areaDestroyMaxTargets");
     public static final IntValue ULTIMINE_BLOCKS_PER_TICK = integer(Domain.SERVER, "mining",

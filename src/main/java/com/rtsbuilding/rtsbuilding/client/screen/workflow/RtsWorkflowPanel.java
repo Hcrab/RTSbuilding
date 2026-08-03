@@ -85,13 +85,12 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
         WorkflowUiRow hovered =
                 workflowAtProtectionButton(mouseX, mouseY);
         if (hovered == null) return;
-        GuiUtils.drawHoveringText(
-                Collections.singletonList(WorkflowResumeRenderSupport.text(
+        graphics.renderTooltipText(
+                WorkflowResumeRenderSupport.text(
                         hovered.protectedWorkflow
                                 ? "screen.rtsbuilding.workflow.allow_replace"
-                                : "screen.rtsbuilding.workflow.keep")),
-                mouseX, mouseY, this.screen.width, this.screen.height,
-                300, this.screen.font());
+                                : "screen.rtsbuilding.workflow.keep"),
+                mouseX, mouseY);
     }
 
     @Override

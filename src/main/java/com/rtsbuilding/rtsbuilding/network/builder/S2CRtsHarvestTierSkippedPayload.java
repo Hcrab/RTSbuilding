@@ -11,7 +11,7 @@ import java.util.List;
 
 /** 回传因采掘等级不足而从范围破坏预览中剔除的坐标。 */
 public final class S2CRtsHarvestTierSkippedPayload implements IMessage {
-    public static final int MAX_POSITIONS = C2SRtsAreaDestroyPayload.MAX_POSITIONS;
+    public static final int MAX_POSITIONS = C2SRtsAreaDestroyPayload.MAX_POSITIONS_PER_PACKET;
     private List<BlockPos> positions = Collections.emptyList();
     public S2CRtsHarvestTierSkippedPayload() {}
     public S2CRtsHarvestTierSkippedPayload(List<BlockPos> positions) {

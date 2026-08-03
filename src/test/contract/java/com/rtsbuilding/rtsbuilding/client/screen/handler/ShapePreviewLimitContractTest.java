@@ -72,10 +72,10 @@ class ShapePreviewLimitContractTest {
         assertTrue(controller.contains("this.worldOperations.generatedBounds()"));
         assertTrue(operations.contains("return this.generationPlans.bounds()"));
         assertTrue(selectionBox.contains("this.animator.renderAabb(generatedBounds)"));
-        assertTrue(selectionRenderer.contains("shapeSelectionRenderAabb()"));
-        assertTrue(selectionRenderer.contains("if (!screen.isAdvancedShapeMode())"),
+        assertTrue(selectionRenderer.contains("getMethod(\"shapeSelectionRenderAabb\")"));
+        assertTrue(selectionRenderer.contains("if (!advanced) return;"),
                 "普通模式应保留平滑范围框，但不显示高级箭头");
-        assertTrue(ghostRenderer.contains("screen.getShapeController().shapeSelectionRenderAabb()"),
+        assertTrue(ghostRenderer.contains("getMethod(\"shapeSelectionRenderAabb\")"),
                 "范围破坏外框也必须使用同一份平滑 AABB");
     }
 
@@ -90,7 +90,7 @@ class ShapePreviewLimitContractTest {
         assertFalse(planner.contains("import net.minecraft.client"));
         assertFalse(planner.contains("ItemStack"));
         assertFalse(planner.contains("Packet"));
-        assertTrue(planner.contains("List.copyOf(positions)"),
+        assertTrue(planner.contains("Collections.unmodifiableList(new java.util.ArrayList<>(positions))"),
                 "缓存不得向尺寸、成本或渲染调用方暴露可变坐标列表");
     }
 

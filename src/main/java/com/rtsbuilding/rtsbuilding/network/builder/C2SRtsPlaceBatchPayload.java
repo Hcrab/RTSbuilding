@@ -13,6 +13,11 @@ import java.util.List;
 /** 有严格数量上限的批量放置意图。 */
 public final class C2SRtsPlaceBatchPayload implements IMessage {
     public static final int MAX_POSITIONS = 32768;
+    public static final int MAX_POSITIONS_PER_PACKET = 2048;
+    private int submissionId;
+    private int chunkIndex;
+    private int chunkCount = 1;
+    private int totalPositions;
     private List<BlockPos> clickedPositions = Collections.emptyList();
     private byte face;
     private double hitOffsetX, hitOffsetY, hitOffsetZ;
@@ -32,6 +37,23 @@ public final class C2SRtsPlaceBatchPayload implements IMessage {
             boolean overwriteExisting, String itemId, ItemStack itemPrototype,
             double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ) {
+        this(0, 0, 1, positions == null ? 0 : positions.size(), positions, face,
+                hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps, statePreset,
+                forcePlace, skipIfOccupied, overwriteExisting, itemId, itemPrototype,
+                rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
+    }
+
+    public C2SRtsPlaceBatchPayload(int submissionId, int chunkIndex, int chunkCount,
+            int totalPositions, List<BlockPos> positions, byte face,
+            double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps,
+            String statePreset, boolean forcePlace, boolean skipIfOccupied,
+            boolean overwriteExisting, String itemId, ItemStack itemPrototype,
+            double rayOriginX, double rayOriginY, double rayOriginZ,
+            double rayDirX, double rayDirY, double rayDirZ) {
+        this.submissionId = submissionId;
+        this.chunkIndex = chunkIndex;
+        this.chunkCount = chunkCount;
+        this.totalPositions = totalPositions;
         clickedPositions = positions == null ? Collections.<BlockPos>emptyList()
                 : Collections.unmodifiableList(new ArrayList<BlockPos>(positions));
         this.face = face;
@@ -46,7 +68,11 @@ public final class C2SRtsPlaceBatchPayload implements IMessage {
     }
 
     @Override public void fromBytes(ByteBuf b) {
-        int size = RtsPacketBuffer.readBoundedCount(b, MAX_POSITIONS, "place positions");
+        submissionId = b.readInt();
+        chunkIndex = RtsPacketBuffer.readVarInt(b);
+        chunkCount = RtsPacketBuffer.readVarInt(b);
+        totalPositions = RtsPacketBuffer.readVarInt(b);
+        int size = RtsPacketBuffer.readBoundedCount(b, MAX_POSITIONS_PER_PACKET, "place positions chunk");
         if (size == 0) throw new IllegalArgumentException("empty place batch");
         List<BlockPos> positions = new ArrayList<BlockPos>(size);
         for (int i = 0; i < size; i++) positions.add(BlockPos.fromLong(b.readLong()));
@@ -66,6 +92,10 @@ public final class C2SRtsPlaceBatchPayload implements IMessage {
 
     @Override public void toBytes(ByteBuf b) {
         if (!isValid()) throw new IllegalArgumentException("invalid RTS place batch");
+        b.writeInt(submissionId);
+        RtsPacketBuffer.writeVarInt(b, chunkIndex);
+        RtsPacketBuffer.writeVarInt(b, chunkCount);
+        RtsPacketBuffer.writeVarInt(b, totalPositions);
         RtsPacketBuffer.writeVarInt(b, clickedPositions.size());
         for (BlockPos pos : clickedPositions) b.writeLong(pos.toLong());
         b.writeByte(face); b.writeDouble(hitOffsetX); b.writeDouble(hitOffsetY); b.writeDouble(hitOffsetZ);
@@ -80,7 +110,14 @@ public final class C2SRtsPlaceBatchPayload implements IMessage {
 
     public boolean isValid() {
         if (clickedPositions == null || clickedPositions.isEmpty()
-                || clickedPositions.size() > MAX_POSITIONS || face < 0
+                || clickedPositions.size() > MAX_POSITIONS_PER_PACKET
+                || totalPositions <= 0 || totalPositions > MAX_POSITIONS
+                || chunkIndex < 0 || chunkCount <= 0 || chunkIndex >= chunkCount
+                || chunkCount != (totalPositions + MAX_POSITIONS_PER_PACKET - 1) / MAX_POSITIONS_PER_PACKET
+                || clickedPositions.size() != (chunkIndex == chunkCount - 1
+                        ? totalPositions - chunkIndex * MAX_POSITIONS_PER_PACKET
+                        : MAX_POSITIONS_PER_PACKET)
+                || face < 0
                 || face >= EnumFacing.values().length || statePreset == null
                 || statePreset.length() > 256 || itemId == null || itemId.length() > 128) return false;
         for (BlockPos pos : clickedPositions) if (pos == null) return false;
@@ -94,6 +131,8 @@ public final class C2SRtsPlaceBatchPayload implements IMessage {
     }
 
     public List<BlockPos> clickedPositions(){return clickedPositions;} public byte face(){return face;}
+    public int submissionId(){return submissionId;} public int chunkIndex(){return chunkIndex;}
+    public int chunkCount(){return chunkCount;} public int totalPositions(){return totalPositions;}
     public double hitOffsetX(){return hitOffsetX;} public double hitOffsetY(){return hitOffsetY;}
     public double hitOffsetZ(){return hitOffsetZ;} public byte rotateSteps(){return rotateSteps;}
     public String statePreset(){return statePreset;} public boolean forcePlace(){return forcePlace;}
@@ -103,4 +142,13 @@ public final class C2SRtsPlaceBatchPayload implements IMessage {
     public double rayOriginY(){return rayOriginY;} public double rayOriginZ(){return rayOriginZ;}
     public double rayDirX(){return rayDirX;} public double rayDirY(){return rayDirY;}
     public double rayDirZ(){return rayDirZ;}
+
+    public String metadataSignature() {
+        return face + "|" + hitOffsetX + "|" + hitOffsetY + "|" + hitOffsetZ + "|"
+                + rotateSteps + "|" + statePreset + "|" + forcePlace + "|" + skipIfOccupied
+                + "|" + overwriteExisting + "|" + itemId + "|" + rayOriginX + "|"
+                + rayOriginY + "|" + rayOriginZ + "|" + rayDirX + "|" + rayDirY + "|"
+                + rayDirZ + "|" + itemPrototype.toString() + "|"
+                + String.valueOf(itemPrototype.getTagCompound());
+    }
 }

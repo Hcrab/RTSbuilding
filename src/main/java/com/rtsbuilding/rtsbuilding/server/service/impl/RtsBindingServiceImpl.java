@@ -1,10 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BindingService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
@@ -85,8 +87,20 @@ public final class RtsBindingServiceImpl implements BindingService {
     public void updateLinkedStorageSettings(EntityPlayerMP player, BlockPos pos, byte linkMode, int priority) {
         if (player == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
-        applyUpdate(player, session,
-                RtsStorageBindings.updateLinkedStorageSettings(player, session, pos, linkMode, priority));
+        RtsStorageBindings.UpdateResult update = RtsStorageBindings.updateLinkedStorageSettings(
+                player, session, pos, linkMode, priority);
+        if (update != null && update.saveSession()) {
+            // 权限变更必须立即使旧聚合挂载失效；下一次页面请求会按新模式重建。
+            // 这是低频设置操作，牺牲一次快照复用可换取 Extract Only 的失败关闭语义。
+            RtsStorageTickService.INSTANCE.unregisterPlayer(player);
+        }
+        LinkedStorageRef ref = new LinkedStorageRef(player.dimension, pos);
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-STORAGE] side=S event=LINK_POLICY_UPDATED player={} pos={} linked={} requestedMode={} appliedMode={} priority={} cacheReset={}",
+                player.getGameProfile().getName(), pos, session.linkedStorageInfo.contains(ref), linkMode,
+                session.linkedStorageInfo.getMode(ref), session.linkedStorageInfo.getPriority(ref),
+                update != null && update.saveSession());
+        applyUpdate(player, session, update);
     }
 
     @Override
@@ -143,10 +157,15 @@ public final class RtsBindingServiceImpl implements BindingService {
 
     @Override
     public void openGuiBinding(EntityPlayerMP player, byte slotId) {
+        openGuiBinding(player, slotId, 0L);
+    }
+
+    @Override
+    public void openGuiBinding(EntityPlayerMP player, byte slotId, long traceId) {
         RtsStorageSession session = registry.session().getIfPresent(player);
         if (session == null) return;
         RtsStorageBindings.UpdateResult result = RtsStorageBindings.openGuiBinding(
-                player, session, slotId, 4.0D);
+                player, session, slotId, 4.0D, traceId);
         if (result != null && result.refreshPage()) {
             registry.page().requestPage(player, result.page(), session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         }

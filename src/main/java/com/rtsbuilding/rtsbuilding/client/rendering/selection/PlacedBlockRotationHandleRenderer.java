@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.selection;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationHandles;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
@@ -168,7 +169,7 @@ public final class PlacedBlockRotationHandleRenderer {
 
     private static void uploadOrReset(BufferBuilder buffer) {
         if (buffer.getVertexCount() > 0) {
-            UPLOADER.draw(buffer);
+            RtsOwnedBufferUploader.draw(buffer);
         } else {
             discard(buffer);
         }

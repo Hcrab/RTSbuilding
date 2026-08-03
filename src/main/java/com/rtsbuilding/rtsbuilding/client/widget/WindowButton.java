@@ -70,7 +70,9 @@ public class WindowButton extends GuiButton {
         LegacyGuiGraphics graphics = new LegacyGuiGraphics(minecraft,
                 new net.minecraft.client.gui.ScaledResolution(minecraft).getScaledWidth(),
                 new net.minecraft.client.gui.ScaledResolution(minecraft).getScaledHeight());
-        if (textureLocation != null && textureWidth > 0 && textureHeight > 0) renderTexture(minecraft, graphics);
+        if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
+            renderTexture(minecraft, graphics, visual, effectiveHovered);
+        }
         else WindowButtonChromeRenderer.renderSolid(new MinecraftUiCanvas(graphics, minecraft.fontRenderer),
                 new UiRect(x, y, width, height), visual);
 
@@ -87,29 +89,44 @@ public class WindowButton extends GuiButton {
         drawButton(Minecraft.getMinecraft(), mouseX, mouseY, partialTick);
     }
 
-    private void renderTexture(Minecraft minecraft, LegacyGuiGraphics graphics) {
+    private void renderTexture(Minecraft minecraft, LegacyGuiGraphics graphics,
+            UiControlVisualStyle visual, boolean effectiveHovered) {
         try {
             minecraft.getTextureManager().bindTexture(textureLocation);
         } catch (RuntimeException exception) {
             graphics.fill(x, y, x + width, y + height, WindowButtonStyle.MISSING_TEXTURE.toArgb());
             return;
         }
-        int currentV = hovered && !globalSkipHover ? hoverTextureV : textureV;
-        int currentHeight = hovered && !globalSkipHover ? hoverTextureHeight : textureHeight;
+        boolean activeTexture = useActiveTexture(
+                selectedVisual, effectiveHovered, pressedVisual);
+        int currentV = activeTexture ? hoverTextureV : textureV;
+        int currentHeight = activeTexture ? hoverTextureHeight : textureHeight;
         GlStateManager.enableBlend();
         GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
                 GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
                 GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
         try {
+            // 旧版 OpenGL 会继承调用方颜色；纹理按钮必须像主线一样从白色无染色状态开始。
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
             Gui.drawScaledCustomSizeModalRect(x, y, textureU, currentV, textureWidth, currentHeight,
                     width, height, fullTextureWidth, fullTextureHeight);
         } finally {
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_NEAREST);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_NEAREST);
             GlStateManager.disableBlend();
         }
+        if (visual.getOverlay().alpha() > 0) {
+            // 锁定按钮沿用主线通用控件的 disabled overlay，不再与可用按钮长得一样。
+            graphics.fill(x, y, x + width, y + height, visual.getOverlay().toArgb());
+        }
+    }
+
+    /** 纹理下半区同时承担主线的 hover、按下与持续选中状态。 */
+    static boolean useActiveTexture(boolean selected, boolean hovered, boolean pressed) {
+        return selected || hovered || pressed;
     }
 
     private UiControlVisualStyle resolveVisual(boolean hoveredNow) {

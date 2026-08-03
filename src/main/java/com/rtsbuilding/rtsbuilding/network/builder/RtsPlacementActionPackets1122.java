@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
+import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsPlacementActionHandlers1122;
 import net.minecraftforge.fml.relauncher.Side;
 
@@ -18,5 +19,7 @@ public final class RtsPlacementActionPackets1122 {
                 C2SRtsPlaceFluidPayload.class, Side.SERVER);
         RtsPayloadRegistrar.registerMessage(164, RtsPlacementActionHandlers1122.Interact.class,
                 C2SRtsInteractPayload.class, Side.SERVER);
+        RtsPayloadRegistrar.registerMessage(166, ClientPayloadDispatcher.RemoteMenuResultHandler.class,
+                S2CRtsRemoteMenuResultPayload.class, Side.CLIENT);
     }
 }

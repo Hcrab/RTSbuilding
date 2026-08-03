@@ -299,8 +299,7 @@ public final class TopBarPanel {
             if (UiRect.contains(button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H,
                     mouseX, mouseY)) {
                 String tooltip = I18n.format(TopBarIconRenderer.tooltipKey(button.id()));
-                GuiUtils.drawHoveringText(Collections.singletonList(tooltip), mouseX, mouseY,
-                        screen.width, screen.height, 300, screen.font());
+                g.renderTooltipText(tooltip, mouseX, mouseY);
                 return;
             }
         }

@@ -20,11 +20,11 @@ class RtsPluginDurabilityContractTest {
                 "个人与队伍插件保存入口都必须经过即时耐久化检查点。");
         assertTrue(durability.contains("SaveScheduler.INSTANCE.player(player).flush()"),
                 "个人插件状态必须立即写入 session.dat。");
-        assertTrue(durability.contains("storageLevel.getDataStorage().save()"),
+        assertTrue(durability.contains("storageLevel.getMapStorage().saveAllData()"),
                 "队伍共享插件必须立即提交 SavedData 保存。");
-        assertTrue(durability.contains("IOUtilities.waitUntilIOWorkerComplete()"),
+        assertTrue(durability.contains("ThreadedFileIOBase.getThreadedIOInstance().waitForFinish()"),
                 "队伍 SavedData 的异步写入必须在操作返回前完成。");
-        assertTrue(durability.contains("server.getPlayerList().saveAll()"),
+        assertTrue(durability.contains("server.getPlayerList().saveAllPlayerData()"),
                 "插件物品的背包增减必须与插件状态一起保存。");
     }
 }

@@ -14,7 +14,7 @@ class RtsPlacedBlockRotationContractTest {
         String payload = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/C2SRtsOrientBlockPayload.java");
         String handler = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/handler/RtsPlaceHandlers.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/handler/RtsPlacementControlHandlers.java");
         String helper = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementHelper.java");
         String rotationStep = source(
@@ -22,20 +22,21 @@ class RtsPlacedBlockRotationContractTest {
 
         assertTrue(payload.contains("byte axisDirection"));
         assertTrue(payload.contains("byte quarterTurns"));
-        assertFalse(payload.contains("BlockState state"));
-        assertTrue(handler.contains("Math.abs(payload.quarterTurns()) == 1"));
-        assertTrue(handler.contains("Direction.from3DDataValue(payload.axisDirection())"));
+        assertFalse(payload.contains("IBlockState state"));
+        assertTrue(payload.contains("Math.abs((int) quarterTurns) == 1"));
+        assertTrue(handler.contains("EnumFacing.byIndex(message.axisDirection())"));
+        assertTrue(handler.contains("(int) message.quarterTurns()"));
         assertTrue(helper.contains("PlacedBlockRotationStep.rotate("),
                 "客户端圆弧预判和服务端落地必须共用增量旋转器");
         assertTrue(helper.contains("RtsPlacedBlockRotation.applyResolvedState("),
                 "共享转换器只表达意图，结构安全仍由服务端统一校验");
-        assertTrue(rotationStep.contains("state.rotate(rotation)"),
-                "水平旋转优先采用方块注册的原生旋转实现");
-        assertTrue(rotationStep.contains("BlockStateProperties.HALF"));
-        assertTrue(rotationStep.contains("step > 0 ? Half.TOP : Half.BOTTOM"),
-                "楼梯等无竖直 facing 的方块必须由上/下手势切换 top/bottom");
-        assertTrue(rotationStep.contains("BlockStateProperties.SLAB_TYPE"));
-        assertTrue(rotationStep.contains("BlockStateProperties.ATTACH_FACE"));
+        assertTrue(rotationStep.contains("state.getBlock().withRotation(state, rotation)"),
+                "1.12 水平旋转必须优先使用方块注册的原生旋转实现");
+        assertTrue(rotationStep.contains("findProperty(result, \"half\")"));
+        assertTrue(rotationStep.contains("step > 0 ? new String[]{\"top\", \"upper\"}"),
+                "楼梯等无垂直 facing 的方块必须由上下手势切换 half");
+        assertTrue(rotationStep.contains("result.getBlock() instanceof BlockSlab"));
+        assertTrue(rotationStep.contains("findProperty(result, \"attach_face\")"));
     }
 
     @Test
@@ -45,34 +46,34 @@ class RtsPlacedBlockRotationContractTest {
         String implementation = source(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/impl/RtsPlacementServiceImpl.java");
         String handler = source(
-                "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/handler/RtsPlaceHandlers.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/network/builder/handler/RtsPlacementControlHandlers.java");
 
-        assertTrue(handler.contains("context.enqueueWork("));
-        assertTrue(handler.contains(
-                "placement().rotateBlock(serverPlayer, payload.pos())"),
-                "旧顺时针接口应保持单一位置载荷，不再携带废弃的属性选择");
+        assertTrue(handler.contains("player.getServerWorld().addScheduledTask("));
+        assertTrue(handler.contains("invoke(placement, \"rotateBlock\""),
+                "旧顺时针接口必须保持单位置载荷，不携带客户端方块状态");
         assertTrue(implementation.contains("RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)"));
         assertTrue(implementation.contains("registry.session().getIfPresent(player)"));
-        assertTrue(implementation.contains("session.mode != com.rtsbuilding.rtsbuilding.common.build.BuilderMode.ROTATE"));
+        assertTrue(implementation.contains(
+                "session.mode != com.rtsbuilding.rtsbuilding.common.build.BuilderMode.ROTATE"));
         assertTrue(implementation.contains("player.isSpectator()"));
-        assertTrue(implementation.contains("!player.mayBuild()"));
+        assertTrue(implementation.contains("!player.capabilities.allowEdit"));
         assertTrue(implementation.contains("RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)"));
         assertTrue(implementation.contains("RtsClaimProtectionService.canInteractBlock("));
-        assertTrue(rotation.contains("level.hasChunkAt(pos)"));
-        assertTrue(rotation.contains("level.hasChunkAt(pos.relative(direction))"));
-        assertTrue(rotation.contains("Block.updateFromNeighbourShapes(requested, level, pos)"));
-        assertTrue(rotation.contains("adjusted.getBlock() != current.getBlock()"));
-        assertTrue(rotation.contains("!adjusted.canSurvive(level, pos)"));
-        assertTrue(rotation.contains("level.setBlock(pos, adjusted, Block.UPDATE_ALL)"));
-        assertTrue(rotation.contains("block instanceof BedBlock"));
-        assertTrue(rotation.contains("block instanceof DoorBlock"));
-        assertTrue(rotation.contains("ChestType.SINGLE"));
-        assertTrue(rotation.contains("block instanceof PistonBaseBlock"));
-        assertTrue(rotation.contains("state.getValue(BlockStateProperties.EXTENDED)"));
+        assertTrue(rotation.contains("!world.isBlockLoaded(pos)"));
+        assertTrue(rotation.contains("!world.isBlockLoaded(pos.offset(side))"));
+        assertTrue(rotation.contains("current.getBlock() != requested.getBlock()"));
+        assertTrue(rotation.contains("!requested.getBlock().canPlaceBlockAt(world, pos)"));
+        assertTrue(rotation.contains("world.setBlockState(pos, requested, 3)"));
+        assertTrue(rotation.contains("block instanceof BlockBed"));
+        assertTrue(rotation.contains("block instanceof BlockDoor"));
+        assertTrue(rotation.contains("block instanceof BlockDoublePlant"));
+        assertTrue(rotation.contains("block instanceof BlockPistonBase"));
+        assertTrue(rotation.contains("state.getValue(BlockPistonBase.EXTENDED)"));
         assertTrue(rotation.contains("ROTATION_BLACKLIST"));
-        assertTrue(rotation.contains("state.is(ROTATION_BLACKLIST)"));
-        assertTrue(rotation.contains("switchCreateKineticState(level, pos, adjusted)"));
-        assertTrue(rotation.contains("level.getBlockEntity(pos) != blockEntity"));
+        assertTrue(rotation.contains("current.getBlock() instanceof BlockChest"));
+        assertTrue(rotation.contains("hasSameBlockNeighbor(world, pos, current.getBlock())"));
+        assertTrue(rotation.contains("after != before"));
+        assertTrue(rotation.contains("world.setBlockState(pos, current, 3)"));
     }
 
     private static String source(String path) throws Exception {

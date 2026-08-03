@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.MIDDLE_CLICK_DRAG_THRESHOLD;
+import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.RIGHT_CLICK_DRAG_THRESHOLD;
 
 /**
  * Handles RTS camera and input interaction state management.
@@ -58,6 +59,9 @@ public final class CameraInputHandler {
     private boolean rightDragRotated = false;
     /** Accumulated right-click drag distance */
     private double rightDragDistance = 0.0D;
+    /** 本次右键按下的起点；点击/拖动必须按总位移判断，不能累加鼠标抖动。 */
+    private double rightPressStartX = Double.NaN;
+    private double rightPressStartY = Double.NaN;
     /** 跨过拖动阈值前暂存的水平位移，避免微拖既转镜头又触发点击。 */
     private double pendingRightDragX = 0.0D;
     /** 跨过拖动阈值前暂存的垂直位移。 */
@@ -191,6 +195,8 @@ public final class CameraInputHandler {
         this.rightPressCanRotate = false;
         this.rightDragRotated = false;
         this.rightDragDistance = 0.0D;
+        this.rightPressStartX = Double.NaN;
+        this.rightPressStartY = Double.NaN;
         this.pendingRightDragX = 0.0D;
         this.pendingRightDragY = 0.0D;
         this.middlePressActive = false;
@@ -207,6 +213,8 @@ public final class CameraInputHandler {
         this.rightPressCanRotate = rotateMouse;
         this.rightDragRotated = false;
         this.rightDragDistance = 0.0D;
+        this.rightPressStartX = mouseX;
+        this.rightPressStartY = mouseY;
         this.pendingRightDragX = 0.0D;
         this.pendingRightDragY = 0.0D;
     }
@@ -229,10 +237,13 @@ public final class CameraInputHandler {
                 && button == this.rightPressButton
                 && screen.isWorldArea(mouseX, mouseY)
                 && !isAltDown()) {
-            this.rightDragDistance += Math.abs(dragX) + Math.abs(dragY);
+            this.rightDragDistance = PointerGestureClassifier.distanceFromPress(
+                    this.rightPressStartX, this.rightPressStartY, mouseX, mouseY);
             this.pendingRightDragX += dragX;
             this.pendingRightDragY += dragY;
-            if (this.rightDragDistance <= 1.5D) {
+            if (!PointerGestureClassifier.isIntentionalDrag(
+                    this.rightPressStartX, this.rightPressStartY,
+                    mouseX, mouseY, RIGHT_CLICK_DRAG_THRESHOLD)) {
                 return true;
             }
             this.rightDragRotated = true;
@@ -267,6 +278,8 @@ public final class CameraInputHandler {
         this.rightPressButton = -1;
         this.rightPressCanPrimary = false;
         this.rightPressCanRotate = false;
+        this.rightPressStartX = Double.NaN;
+        this.rightPressStartY = Double.NaN;
         this.pendingRightDragX = 0.0D;
         this.pendingRightDragY = 0.0D;
         if (this.rightDragRotated) {
@@ -438,6 +451,9 @@ public final class CameraInputHandler {
                 if (!UltimineUiAdapter.confirmPreview(screen, hit, preview)) {
                     return false;
                 }
+                // 连锁破坏提交后属于独立工作流，不再受本次鼠标按住/松开生命周期控制。
+                // 若继续标记 leftMiningActive，1.12 的 mouseReleased 会立刻发送 abort 并取消整个工作流。
+                return true;
             } else {
                 // 记录普通挖掘操作到撤回栈（等待服务端确认）
                 screen.getShapeController().recordPendingBreakForUndo(

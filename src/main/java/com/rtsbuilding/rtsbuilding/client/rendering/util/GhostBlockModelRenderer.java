@@ -16,12 +16,10 @@ import net.minecraft.util.EnumBlockRenderType;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.client.ForgeHooksClient;
-import org.lwjgl.BufferUtils;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 
 /**
  * 使用真实客户端世界和坐标烘焙 1.12 半透明方块模型。
@@ -112,7 +110,7 @@ public final class GhostBlockModelRenderer {
                     GlStateManager.DestFactor.ZERO);
             GlStateManager.depthMask(false);
             GlStateManager.disableCull();
-            UPLOADER.draw(MODEL_BUFFER);
+            RtsOwnedBufferUploader.draw(MODEL_BUFFER);
         } finally {
             snapshot.restore();
         }
@@ -138,7 +136,7 @@ public final class GhostBlockModelRenderer {
         private final int blendDstRgb = GL11.glGetInteger(GL14.GL_BLEND_DST_RGB);
         private final int blendSrcAlpha = GL11.glGetInteger(GL14.GL_BLEND_SRC_ALPHA);
         private final int blendDstAlpha = GL11.glGetInteger(GL14.GL_BLEND_DST_ALPHA);
-        private final float[] color = currentColor();
+        private final float[] color = RtsGlStateQueries.currentColor();
 
         private static GlSnapshot capture() { return new GlSnapshot(); }
 
@@ -150,18 +148,12 @@ public final class GhostBlockModelRenderer {
             set(GL11.GL_CULL_FACE, this.cull);
             set(GL11.GL_DEPTH_TEST, this.depth);
             GlStateManager.depthMask(this.depthMask);
-            GL11.glBindTexture(GL11.GL_TEXTURE_2D, this.textureBinding);
+            RtsGlStateRestorer.restoreTextureBinding(this.textureBinding);
             GlStateManager.color(this.color[0], this.color[1], this.color[2], this.color[3]);
         }
 
-        private static float[] currentColor() {
-            FloatBuffer values = BufferUtils.createFloatBuffer(4);
-            GL11.glGetFloat(GL11.GL_CURRENT_COLOR, values);
-            return new float[] {values.get(0), values.get(1), values.get(2), values.get(3)};
-        }
-
         private static void set(int capability, boolean enabled) {
-            if (enabled) GL11.glEnable(capability); else GL11.glDisable(capability);
+            RtsGlStateRestorer.restoreCapability(capability, enabled);
         }
     }
 }

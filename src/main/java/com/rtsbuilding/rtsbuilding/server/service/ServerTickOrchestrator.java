@@ -35,12 +35,15 @@ public final class ServerTickOrchestrator {
         if (session == null) return;
         if (session.transfer.remoteMenuContainerId < 0
                 && !RtsRemoteMenuCompat.isSupportedRemoteMenu(player.openContainer)) {
-            RtsRemoteMenuService.clearValidation(player, session);
+            RtsRemoteMenuService.clearValidation(player, session, "NO_REMOTE_WINDOW");
         }
         if (session.transfer.remoteMenuContainerId >= 0
                 && (player.openContainer == null
                 || player.openContainer.windowId != session.transfer.remoteMenuContainerId)) {
-            RtsRemoteMenuService.clearValidation(player, session);
+            int actualWindow = player.openContainer == null ? -1 : player.openContainer.windowId;
+            RtsRemoteMenuService.clearValidation(player, session,
+                    "WINDOW_MISMATCH expected=" + session.transfer.remoteMenuContainerId
+                            + " actual=" + actualWindow);
         }
     }
 

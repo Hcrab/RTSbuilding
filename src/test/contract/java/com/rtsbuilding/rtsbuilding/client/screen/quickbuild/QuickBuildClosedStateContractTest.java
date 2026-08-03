@@ -110,7 +110,7 @@ class QuickBuildClosedStateContractTest {
 
         assertTrue(source.contains("RtsFeature.REMOTE_PLACE"),
                 "server placement fallback must still be gated by remote placement");
-        assertTrue(source.contains("sendRemoteHint") && source.contains("displayClientMessage"),
+        assertTrue(source.contains("sendRemoteHint") && source.contains("sendStatusMessage"),
                 "server fallback should use the lightweight actionbar hint path");
         assertTrue(source.contains("message.rtsbuilding.quick_build.remote_place_locked"),
                 "server fallback should use the shared translated locked-feature message");

@@ -93,6 +93,10 @@ public final class RtsLatestLogExcerpt {
         }
         String normalized = line.toLowerCase(Locale.ROOT);
         return normalized.contains("rtsbuilding")
+                || normalized.contains("[rts-trace]")
+                || normalized.contains("[rts-diag]")
+                || normalized.contains("[rts-client]")
+                || normalized.contains("[rts-drop]")
                 || normalized.contains("[workflow]")
                 || normalized.contains("[pipeline]")
                 || normalized.contains("[ultimine")

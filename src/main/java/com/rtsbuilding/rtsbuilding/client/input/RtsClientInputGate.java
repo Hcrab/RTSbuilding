@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftFeedbackPopup;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftQuantityDialog;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGuiRenderState;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
@@ -179,6 +180,13 @@ public final class RtsClientInputGate {
             return;
         }
 
+        try (RtsGuiRenderState.Scope ignored = RtsGuiRenderState.beginFrame()) {
+            renderContainerOverlay(event);
+        }
+    }
+
+    /** overlay 每帧在确定的 GUI 固定管线基线上绘制，避免继承机器 GUI 的灰暗颜色与光照。 */
+    private static void renderContainerOverlay(GuiScreenEvent.DrawScreenEvent.Post event) {
         Minecraft minecraft = Minecraft.getMinecraft();
         ScaledResolution resolution = new ScaledResolution(minecraft);
         LegacyGuiGraphics g = new LegacyGuiGraphics(minecraft, resolution.getScaledWidth(), resolution.getScaledHeight());
@@ -192,13 +200,15 @@ public final class RtsClientInputGate {
         }
 
         ClientRtsController controller = ClientRtsController.get();
+        OverlayProfile profile = overlayProfile();
+        // 先同步真实可见容量，再触发首次快照，避免默认 90 格响应被 15 格 overlay 截断。
+        controller.updateStoragePageSize(overlayStoragePageCapacity(profile));
         if (!controller.canUseStorageOverlay()) {
             requestOverlayBootstrap(event.getGui(), controller);
             return;
         }
         syncOverlayScreen(event.getGui(), controller);
 
-        OverlayProfile profile = overlayProfile();
         double mouseX = toOverlayMouse(event.getMouseX(), profile);
         double mouseY = toOverlayMouse(event.getMouseY(), profile);
         OverlayLayout layout = resolveOverlayLayout(profile);

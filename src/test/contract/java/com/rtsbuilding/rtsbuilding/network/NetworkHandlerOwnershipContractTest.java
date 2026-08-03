@@ -30,10 +30,10 @@ class NetworkHandlerOwnershipContractTest {
             "src/main/java/com/rtsbuilding/rtsbuilding/network");
     private static final Path ROOT_REGISTRAR = NETWORK_ROOT.resolve("RtsPayloadRegistrar.java");
     private static final Pattern C2S_REGISTRATION = Pattern.compile(
-            "registrar\\s*\\.\\s*playToServer\\s*\\(\\s*"
-                    + "(C2S[A-Za-z0-9_]+Payload)\\s*\\.\\s*TYPE\\s*,\\s*"
-                    + "\\1\\s*\\.\\s*STREAM_CODEC\\s*,\\s*"
-                    + "([A-Za-z0-9_]+)\\s*::\\s*([A-Za-z0-9_]+)\\s*\\)",
+            "RtsPayloadRegistrar\\s*\\.\\s*registerMessage\\s*\\(\\s*\\d+\\s*,\\s*"
+                    + "([A-Za-z0-9_.]+)\\s*\\.\\s*class\\s*,\\s*"
+                    + "(C2S[A-Za-z0-9_]+Payload)\\s*\\.\\s*class\\s*,\\s*"
+                    + "Side\\s*\\.\\s*SERVER\\s*\\)",
             Pattern.DOTALL);
     private static final Pattern IMPORT = Pattern.compile(
             "(?m)^\\s*import\\s+([A-Za-z0-9_.*]+)\\s*;");
@@ -44,18 +44,19 @@ class NetworkHandlerOwnershipContractTest {
                     "RtsCameraPackets",
                     "RtsCameraNetworkHandlers",
                     orderedMap(
-                            "C2SRtsToggleCameraPayload", "handleToggle",
-                            "C2SRtsCameraMovePayload", "handleMove")),
+                            "C2SRtsToggleCameraPayload", "RtsCameraNetworkHandlers.ToggleHandler",
+                            "C2SRtsCameraMovePayload", "RtsCameraNetworkHandlers.MoveHandler")),
             new DomainContract(
                     "craft",
                     "RtsCraftPackets",
                     "RtsCraftNetworkHandlers",
                     orderedMap(
-                            "C2SRtsRequestCraftablesPayload", "handleRequestCraftables",
-                            "C2SRtsOpenCraftTerminalPayload", "handleOpenCraftTerminal",
-                            "C2SRtsCraftRefillPayload", "handleCraftRefill",
-                            "C2SRtsCraftRecipePayload", "handleCraftRecipe",
-                            "C2SRtsJeiTransferPayload", "handleJeiTransfer")));
+                            "C2SRtsRequestCraftablesPayload", "RtsCraftNetworkHandlers.RequestCraftables",
+                            "C2SRtsOpenCraftTerminalPayload", "RtsCraftNetworkHandlers.OpenTerminal",
+                            "C2SRtsCraftRefillPayload", "RtsCraftNetworkHandlers.CraftRefill",
+                            "C2SRtsCraftRecipePayload", "RtsCraftNetworkHandlers.CraftRecipe",
+                            "C2SRtsJeiTransferPayload", "RtsCraftNetworkHandlers.JeiTransfer",
+                            "C2SRtsJeiContainerTransferPayload", "RtsCraftNetworkHandlers.JeiContainerTransfer")));
 
     @Test
     void everyCameraAndCraftC2sPayloadHasOneProductionRegistration() throws IOException {
@@ -69,7 +70,7 @@ class NetworkHandlerOwnershipContractTest {
             assertEquals(payloadFiles, domainRegistrations.keySet(),
                     domain.name() + " 的每个 C2S Payload 都必须由领域 Registrar 完整注册");
             assertEquals(domain.expectedHandlers(), domainRegistrations,
-                    domain.name() + " 的 Payload 必须指向约定的唯一 Handler 方法");
+                    domain.name() + " 的 Payload 必须指向约定的唯一 IMessageHandler 类");
 
             for (String payload : payloadFiles) {
                 List<Registration> registrations = allRegistrations.getOrDefault(payload, List.of());
@@ -77,7 +78,7 @@ class NetworkHandlerOwnershipContractTest {
                 Registration registration = registrations.getFirst();
                 assertEquals(registrar.normalize(), registration.source().normalize(),
                         payload + " 不得绕开领域 Registrar 从其他入口重复注册");
-                assertEquals(domain.handlerClass(), registration.handlerClass(),
+                assertEquals(domainRegistrations.get(payload), registration.handlerClass(),
                         payload + " 必须交给约定的领域 Handler，不能改接到另一套实现");
             }
         }
@@ -105,7 +106,7 @@ class NetworkHandlerOwnershipContractTest {
         String source = Files.readString(ROOT_REGISTRAR);
         for (DomainContract domain : DOMAINS) {
             Pattern call = Pattern.compile("\\b" + Pattern.quote(domain.registrarClass())
-                    + "\\s*\\.\\s*register\\s*\\(\\s*registrar\\s*\\)");
+                    + "\\s*\\.\\s*register\\s*\\(\\s*\\)");
             assertEquals(1, count(call.matcher(source)),
                     domain.registrarClass() + " 必须由主 Registrar 恰好接入一次");
         }
@@ -134,8 +135,8 @@ class NetworkHandlerOwnershipContractTest {
                     .toList()) {
                 Matcher matcher = C2S_REGISTRATION.matcher(Files.readString(source));
                 while (matcher.find()) {
-                    registrations.computeIfAbsent(matcher.group(1), ignored -> new ArrayList<>())
-                            .add(new Registration(source, matcher.group(2), matcher.group(3)));
+                    registrations.computeIfAbsent(matcher.group(2), ignored -> new ArrayList<>())
+                            .add(new Registration(source, matcher.group(1)));
                 }
             }
         }
@@ -146,9 +147,9 @@ class NetworkHandlerOwnershipContractTest {
         Map<String, String> registrations = new LinkedHashMap<>();
         Matcher matcher = C2S_REGISTRATION.matcher(Files.readString(source));
         while (matcher.find()) {
-            String previous = registrations.put(matcher.group(1), matcher.group(3));
+            String previous = registrations.put(matcher.group(2), matcher.group(1));
             if (previous != null) {
-                throw new AssertionError(matcher.group(1) + " 在 " + source + " 中重复注册");
+                throw new AssertionError(matcher.group(2) + " 在 " + source + " 中重复注册");
             }
         }
         return registrations;
@@ -181,7 +182,7 @@ class NetworkHandlerOwnershipContractTest {
         return Map.copyOf(values);
     }
 
-    private record Registration(Path source, String handlerClass, String handlerMethod) {
+    private record Registration(Path source, String handlerClass) {
     }
 
     private record DomainContract(

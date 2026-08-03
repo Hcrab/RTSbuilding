@@ -8,6 +8,7 @@ import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
+import net.minecraft.server.integrated.IntegratedServer;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
@@ -21,8 +22,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
-
-import java.nio.file.Path;
 
 /**
  * Forge 1.12.2 客户端入门提醒。
@@ -147,9 +146,13 @@ public final class RtsClientOnboardingReminder {
         if (minecraft == null) {
             return "";
         }
-        if (minecraft.isSingleplayer() && minecraft.world != null && minecraft.world.getSaveHandler() != null) {
-            Path worldRoot = minecraft.world.getSaveHandler().getWorldDirectory().toPath();
-            return RtsIntroReminderScope.singleplayerKey(worldRoot);
+        if (minecraft.isSingleplayer()) {
+            IntegratedServer server = minecraft.getIntegratedServer();
+            if (server == null || minecraft.gameDir == null) {
+                return "";
+            }
+            return RtsIntroReminderScope.singleplayerKey(
+                    minecraft.gameDir.toPath(), server.getFolderName());
         }
         ServerData server = minecraft.getCurrentServerData();
         return server == null ? "" : RtsIntroReminderScope.serverKey(server.serverIP);
