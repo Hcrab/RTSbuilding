@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.ultimine;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiPhase;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiReducer;
@@ -40,7 +41,7 @@ public final class UltimineUiAdapter {
 
     /** 通过 Core 确认绿色连锁预览，再执行原有撤回记录与服务端请求。 */
     public static boolean confirmPreview(BuilderScreen screen, BlockHitResult hit,
-            List<BlockPos> preview) {
+            List<BlockPos> preview, RtsTraceInputKind inputKind) {
         if (screen == null || hit == null || preview == null || preview.isEmpty()) {
             return false;
         }
@@ -53,7 +54,7 @@ public final class UltimineUiAdapter {
         screen.getShapeController().recordPendingBreakForUndo(
                 preview, hit.getDirection(), screen.getSelectedToolSlot());
         screen.uiController().startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
-                screen.getSelectedToolSlot(), transition.state.limit, (byte) 0);
+                screen.getSelectedToolSlot(), transition.state.limit, (byte) 0, inputKind);
         return true;
     }
 }

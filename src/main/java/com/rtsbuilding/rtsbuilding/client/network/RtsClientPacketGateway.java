@@ -1,10 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
@@ -617,10 +620,13 @@ public final class RtsClientPacketGateway {
 
     public static void sendAreaMine(int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
             int toolSlot, String toolItemId, ItemStack toolPrototype, byte shapeType, byte fillType,
-            boolean toolProtectionEnabled) {
+            boolean toolProtectionEnabled, long traceId, RtsTraceInputKind inputKind) {
         long volume = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
         RtsDeveloperScenarioTracker.getInstance().record("mine_request", "volume=" + volume);
-        PacketDistributor.sendToServer(new C2SRtsAreaMinePayload(
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "AREA_MINE", 0, inputKind, RtsMiningStopOrigin.NONE, (int) Math.min(Integer.MAX_VALUE, volume));
+        PacketDistributor.sendToServer(new C2SRtsAreaMineTracePayload(
+                traceId, sequence, clientTick(), 0, inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(),
                 minX, maxX, minY, maxY, minZ, maxZ,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
@@ -631,12 +637,14 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            boolean toolProtectionEnabled) {
+            boolean toolProtectionEnabled, long traceId, RtsTraceInputKind inputKind) {
         if (positions == null || positions.isEmpty()) {
             return;
         }
-        PacketDistributor.sendToServer(new C2SRtsAreaDestroyPayload(
-                positions,
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "AREA_DESTROY", 0, inputKind, RtsMiningStopOrigin.NONE, positions.size());
+        PacketDistributor.sendToServer(new C2SRtsAreaDestroyTracePayload(
+                traceId, sequence, clientTick(), 0, inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(), positions,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
@@ -646,11 +654,16 @@ public final class RtsClientPacketGateway {
     public static void sendConvenienceDestroy(long requestId,
             RtsConvenienceDestroyMode mode, BlockPos anchor, Direction face,
             RtsConvenienceDestroySettings settings, int toolSlot,
-            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled) {
+            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled,
+            long traceId, RtsTraceInputKind inputKind) {
         if (mode == null || anchor == null) {
             return;
         }
-        PacketDistributor.sendToServer(new C2SRtsConvenienceDestroyPayload(
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "CONVENIENCE_DESTROY", 0, inputKind, RtsMiningStopOrigin.NONE, 1);
+        PacketDistributor.sendToServer(new C2SRtsConvenienceDestroyTracePayload(
+                traceId, sequence, clientTick(), 0,
+                inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(),
                 requestId,
                 mode,
                 anchor.immutable(),
@@ -664,7 +677,7 @@ public final class RtsClientPacketGateway {
 
     public static void sendMineStart(BlockHitResult hit, int toolSlot, String toolItemId, ItemStack toolPrototype,
             boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled, boolean shiftDown,
-            Vec3 rayOrigin, Vec3 rayDir) {
+            Vec3 rayOrigin, Vec3 rayDir, long traceId, RtsTraceInputKind inputKind) {
         if (hit == null) {
             return;
         }
@@ -673,8 +686,10 @@ public final class RtsClientPacketGateway {
         Vec3 safeRayOrigin = rayOrigin == null ? Vec3.ZERO : rayOrigin;
         Vec3 safeRayDir = rayDir == null ? Vec3.ZERO : rayDir;
         RtsDeveloperScenarioTracker.getInstance().record("mine_request", "kind=single");
-        PacketDistributor.sendToServer(new C2SRtsMinePayload(
-                pos,
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "MINE_START", 0, inputKind, RtsMiningStopOrigin.NONE, 1);
+        PacketDistributor.sendToServer(new C2SRtsMineTracePayload(
+                traceId, sequence, clientTick(), 0, inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(), pos,
                 (byte) hit.getDirection().get3DDataValue(),
                 true,
                 (byte) Mth.clamp(toolSlot, 0, 8),
@@ -689,10 +704,13 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            int limit, byte mode, boolean toolProtectionEnabled) {
+            int limit, byte mode, boolean toolProtectionEnabled,
+            long traceId, RtsTraceInputKind inputKind) {
         RtsDeveloperScenarioTracker.getInstance().record("mine_request", "kind=ultimine;limit=" + limit);
-        PacketDistributor.sendToServer(new C2SRtsUltiminePayload(
-                pos,
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "ULTIMINE", 0, inputKind, RtsMiningStopOrigin.NONE, limit);
+        PacketDistributor.sendToServer(new C2SRtsUltimineTracePayload(
+                traceId, sequence, clientTick(), 0, inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(), pos,
                 (byte) face,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
@@ -714,9 +732,13 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(new C2SRtsPathfindingPayload(target));
     }
 
-    public static void sendMineAbort(BlockPos pos, int face, int toolSlot) {
-        PacketDistributor.sendToServer(new C2SRtsMinePayload(
-                pos,
+    public static void sendMineAbort(BlockPos pos, int face, int toolSlot,
+            long traceId, int heldMs, RtsTraceInputKind inputKind, RtsMiningStopOrigin stopOrigin) {
+        RtsClientOperationDiagnostics.inputRelease(traceId, heldMs, inputKind, stopOrigin);
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "MINE_STOP", heldMs, inputKind, stopOrigin, 1);
+        PacketDistributor.sendToServer(new C2SRtsMineTracePayload(
+                traceId, sequence, clientTick(), heldMs, inputKind.wireId(), stopOrigin.wireId(), pos,
                 (byte) face,
                 false,
                 (byte) Mth.clamp(toolSlot, 0, 8),
@@ -728,5 +750,10 @@ public final class RtsClientPacketGateway {
                 pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
                 0.0D, 0.0D, 0.0D,
                 0.0D, 0.0D, 0.0D));
+    }
+
+    private static long clientTick() {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null && minecraft.level != null ? minecraft.level.getGameTime() : -1L;
     }
 }

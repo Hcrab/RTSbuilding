@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMineTracePayload;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
@@ -69,6 +70,22 @@ public final class RtsNativeLeftClickBridge {
             rejectMining(player, pos);
         }
         return consumed;
+    }
+
+    /**
+     * v2 只在旧载荷前增加诊断头；这里复用同一条原生左键桥接，避免诊断协议改变业务判定。
+     */
+    public static boolean interceptMiningStart(ServerPlayer player, C2SRtsMineTracePayload payload) {
+        if (payload == null) {
+            return false;
+        }
+        return interceptMiningStart(player, new C2SRtsMinePayload(
+                payload.pos(), payload.face(), payload.start(), payload.toolSlot(),
+                payload.toolItemId(), payload.toolPrototype(), payload.allowPlacedBlockRecovery(),
+                payload.toolProtectionEnabled(), payload.shiftDown(),
+                payload.hitX(), payload.hitY(), payload.hitZ(),
+                payload.rayOriginX(), payload.rayOriginY(), payload.rayOriginZ(),
+                payload.rayDirX(), payload.rayDirY(), payload.rayDirZ()));
     }
 
     private static boolean postLeftClickAndCheckMining(ServerPlayer player, BlockPos pos, Direction face) {

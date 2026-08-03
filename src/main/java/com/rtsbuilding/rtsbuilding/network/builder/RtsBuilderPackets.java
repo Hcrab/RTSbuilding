@@ -78,14 +78,29 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleMine);
 
         registrar.playToServer(
+                C2SRtsMineTracePayload.TYPE,
+                C2SRtsMineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleMineTrace);
+
+        registrar.playToServer(
                 C2SRtsUltiminePayload.TYPE,
                 C2SRtsUltiminePayload.STREAM_CODEC,
                 RtsMiningHandlers::handleUltimine);
 
         registrar.playToServer(
+                C2SRtsUltimineTracePayload.TYPE,
+                C2SRtsUltimineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleUltimineTrace);
+
+        registrar.playToServer(
                 C2SRtsAreaMinePayload.TYPE,
                 C2SRtsAreaMinePayload.STREAM_CODEC,
                 RtsMiningHandlers::handleAreaMine);
+
+        registrar.playToServer(
+                C2SRtsAreaMineTracePayload.TYPE,
+                C2SRtsAreaMineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaMineTrace);
 
         registrar.playToServer(
                 C2SRtsAreaDestroyPayload.TYPE,
@@ -96,6 +111,16 @@ public final class RtsBuilderPackets {
                 C2SRtsConvenienceDestroyPayload.TYPE,
                 C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
                 RtsMiningHandlers::handleConvenienceDestroy);
+
+        registrar.playToServer(
+                C2SRtsConvenienceDestroyTracePayload.TYPE,
+                C2SRtsConvenienceDestroyTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleConvenienceDestroyTrace);
+
+        registrar.playToServer(
+                C2SRtsAreaDestroyTracePayload.TYPE,
+                C2SRtsAreaDestroyTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaDestroyTrace);
 
         registrar.playToClient(
                 S2CRtsMineProgressPayload.TYPE,
@@ -125,6 +150,11 @@ public final class RtsBuilderPackets {
         registrar.playToClient(
                 S2CRtsHarvestTierSkippedPayload.TYPE,
                 S2CRtsHarvestTierSkippedPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchBuilder);
+
+        registrar.playToClient(
+                S2CRtsOperationTerminalPayload.TYPE,
+                S2CRtsOperationTerminalPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);
 
         // ===== Undo =====

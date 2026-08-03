@@ -188,9 +188,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return this.convenience.ghostPreview(isDestroyModeActive());
     }
 
-    public boolean submitConvenienceDestroy(BlockHitResult hit) {
+    public boolean submitConvenienceDestroy(BlockHitResult hit,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind inputKind) {
         return this.convenience.submit(
-                isDestroyModeActive(), hit, this.screen.getSelectedToolSlot());
+                isDestroyModeActive(), hit, this.screen.getSelectedToolSlot(), inputKind);
     }
 
     String convenienceDimensionLabel() {

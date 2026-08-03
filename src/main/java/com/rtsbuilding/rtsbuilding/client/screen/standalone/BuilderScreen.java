@@ -481,6 +481,10 @@ static boolean hasRecipeViewerLoaded() {
     public boolean isRoundShapeVertical(BuildShape shape) { return this.windowActionOwner.isRoundShapeVertical(shape); }
     public String activeQuickBuildShapeLabel() { return this.windowActionOwner.activeQuickBuildShapeLabel(); }
     public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) { return this.windowActionOwner.handleQuickBuildRangeDestroyClick(mouseX, mouseY); }
+    public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind inputKind) {
+        return this.windowActionOwner.handleQuickBuildRangeDestroyClick(mouseX, mouseY, inputKind);
+    }
     public void setQuickBuildMode(QuickBuildMode mode) { this.windowActionOwner.setQuickBuildMode(mode); }
     public int getUltimineLimit() { return this.windowActionOwner.getUltimineLimit(); }
     public boolean isAreaMineHeightPreview() { return this.windowActionOwner.isAreaMineHeightPreview(); }

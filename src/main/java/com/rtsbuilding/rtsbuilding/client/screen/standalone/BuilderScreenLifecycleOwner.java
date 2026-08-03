@@ -28,6 +28,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
@@ -179,7 +180,7 @@ final class BuilderScreenLifecycleOwner {
             screen.closePlacementStateWheelImmediately();
             screen.placementStateWheelConsumedMouseButton = -1;
             screen.cameraInput.resetCameraVerticalHeld();
-            screen.cameraInput.stopActiveMining();
+            screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.SCREEN_CLOSE);
             if (screen.controller.isFunnelEnabled()) {
                 screen.controller.setFunnelEnabled(false);
             }
@@ -251,7 +252,7 @@ final class BuilderScreenLifecycleOwner {
                 return;
             }
             if (screen.getMinecraft() == null || !screen.controller.isEnabled()) {
-                screen.cameraInput.stopActiveMining();
+                screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.RTS_DISABLED);
                 return;
             }
             long window = screen.getMinecraft().getWindow().getWindow();
@@ -260,7 +261,9 @@ final class BuilderScreenLifecycleOwner {
                     : screen.cameraInput.getActiveMiningMouseButton() >= 0
                             && GLFW.glfwGetMouseButton(window, screen.cameraInput.getActiveMiningMouseButton()) == GLFW.GLFW_PRESS;
             if (!miningInputDown) {
-                screen.cameraInput.stopActiveMining();
+                screen.cameraInput.stopActiveMining(screen.cameraInput.isKeyboardMining()
+                        ? RtsMiningStopOrigin.LIFECYCLE_KEY_NOT_DOWN
+                        : RtsMiningStopOrigin.LIFECYCLE_MOUSE_NOT_DOWN);
                 return;
             }
         }

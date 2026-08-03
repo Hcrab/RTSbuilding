@@ -1,13 +1,23 @@
 package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsConvenienceDestroyPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsConvenienceDestroyTracePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMineTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMineTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltimineTracePayload;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
+import com.rtsbuilding.rtsbuilding.network.RtsTracedPayload;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsConvenienceDestroyService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsNativeLeftClickBridge;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -25,8 +35,15 @@ public final class RtsMiningHandlers {
     }
 
     public static void handleMine(C2SRtsMinePayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = RtsServerTraceRegistry.acceptNetwork(
+                        serverPlayer, null, -1L, 0,
+                        RtsTraceInputKind.UNKNOWN.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                        payload.start() ? "MINE_START_LEGACY" : "MINE_STOP_LEGACY",
+                        receivedNanos, receivedTick);
                 if (RtsNativeLeftClickBridge.interceptMiningStart(serverPlayer, payload)) {
                     return;
                 }
@@ -40,14 +57,42 @@ public final class RtsMiningHandlers {
                         payload.toolItemId(),
                         payload.toolPrototype(),
                         payload.allowPlacedBlockRecovery(),
-                        payload.toolProtectionEnabled());
+                        payload.toolProtectionEnabled(), trace);
+            }
+        });
+    }
+
+    public static void handleMineTrace(C2SRtsMineTracePayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = trace(serverPlayer, payload, payload.clientTick(), payload.heldMs(),
+                        payload.inputKind(), payload.stopOrigin(),
+                        payload.start() ? "MINE_START" : "MINE_STOP", receivedNanos, receivedTick);
+                if (RtsNativeLeftClickBridge.interceptMiningStart(serverPlayer, payload)) {
+                    RtsServerTraceRegistry.terminalWithoutWorkflow(
+                            serverPlayer, trace, RtsWorkflowType.MINE_SINGLE,
+                            "COMPLETED", "NATIVE_LEFT_CLICK_HANDLED");
+                    return;
+                }
+                ServiceRegistry.getInstance().mining().mine(
+                        serverPlayer, payload.pos(), Direction.from3DDataValue(payload.face()),
+                        payload.start(), payload.toolSlot(), payload.toolItemId(), payload.toolPrototype(),
+                        payload.allowPlacedBlockRecovery(), payload.toolProtectionEnabled(), trace);
             }
         });
     }
 
     public static void handleUltimine(C2SRtsUltiminePayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = RtsServerTraceRegistry.acceptNetwork(
+                        serverPlayer, null, -1L, 0,
+                        RtsTraceInputKind.UNKNOWN.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                        "ULTIMINE_LEGACY", receivedNanos, receivedTick);
                 Direction face = Direction.from3DDataValue(payload.face());
                 ServiceRegistry.getInstance().mining().startUltimine(
                         serverPlayer,
@@ -58,14 +103,35 @@ public final class RtsMiningHandlers {
                         payload.toolPrototype(),
                         payload.limit(),
                         payload.mode(),
-                        payload.toolProtectionEnabled());
+                        payload.toolProtectionEnabled(), trace);
+            }
+        });
+    }
+
+    public static void handleUltimineTrace(C2SRtsUltimineTracePayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = trace(serverPlayer, payload, payload.clientTick(), payload.heldMs(),
+                        payload.inputKind(), payload.stopOrigin(), "ULTIMINE", receivedNanos, receivedTick);
+                ServiceRegistry.getInstance().mining().startUltimine(
+                        serverPlayer, payload.pos(), Direction.from3DDataValue(payload.face()),
+                        payload.toolSlot(), payload.toolItemId(), payload.toolPrototype(),
+                        payload.limit(), payload.mode(), payload.toolProtectionEnabled(), trace);
             }
         });
     }
 
     public static void handleAreaMine(C2SRtsAreaMinePayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = RtsServerTraceRegistry.acceptNetwork(
+                        serverPlayer, null, -1L, 0,
+                        RtsTraceInputKind.UNKNOWN.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                        "AREA_MINE_LEGACY", receivedNanos, receivedTick);
                 ServiceRegistry.getInstance().mining().areaMine(
                         serverPlayer,
                         payload.minX(), payload.maxX(),
@@ -76,29 +142,57 @@ public final class RtsMiningHandlers {
                         payload.toolPrototype(),
                         payload.shapeType(),
                         payload.fillType(),
-                        payload.toolProtectionEnabled());
+                        payload.toolProtectionEnabled(), trace);
+            }
+        });
+    }
+
+    public static void handleAreaMineTrace(C2SRtsAreaMineTracePayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = trace(serverPlayer, payload, payload.clientTick(), payload.heldMs(),
+                        payload.inputKind(), payload.stopOrigin(), "AREA_MINE", receivedNanos, receivedTick);
+                ServiceRegistry.getInstance().mining().areaMine(
+                        serverPlayer, payload.minX(), payload.maxX(), payload.minY(), payload.maxY(),
+                        payload.minZ(), payload.maxZ(), payload.toolSlot(), payload.toolItemId(),
+                        payload.toolPrototype(), payload.shapeType(), payload.fillType(),
+                        payload.toolProtectionEnabled(), trace);
             }
         });
     }
 
     public static void handleAreaDestroy(C2SRtsAreaDestroyPayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = RtsServerTraceRegistry.acceptNetwork(
+                        serverPlayer, null, -1L, 0,
+                        RtsTraceInputKind.UNKNOWN.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                        "AREA_DESTROY_LEGACY", receivedNanos, receivedTick);
                 ServiceRegistry.getInstance().mining().areaDestroy(
                         serverPlayer,
                         payload.positions(),
                         payload.toolSlot(),
                         payload.toolItemId(),
                         payload.toolPrototype(),
-                        payload.toolProtectionEnabled());
+                        payload.toolProtectionEnabled(), trace);
             }
         });
     }
 
     public static void handleConvenienceDestroy(
             C2SRtsConvenienceDestroyPayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = RtsServerTraceRegistry.acceptNetwork(
+                        serverPlayer, null, -1L, 0,
+                        RtsTraceInputKind.UNKNOWN.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                        "CONVENIENCE_DESTROY_LEGACY", receivedNanos, receivedTick);
                 RtsConvenienceDestroyService.INSTANCE.submit(
                         serverPlayer,
                         payload.mode(),
@@ -108,8 +202,52 @@ public final class RtsMiningHandlers {
                         payload.toolSlot(),
                         payload.toolItemId(),
                         payload.toolPrototype(),
-                        payload.toolProtectionEnabled());
+                        payload.toolProtectionEnabled(), trace);
             }
         });
+    }
+
+    public static void handleConvenienceDestroyTrace(
+            C2SRtsConvenienceDestroyTracePayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = trace(serverPlayer, payload, payload.clientTick(), payload.heldMs(),
+                        payload.inputKind(), payload.stopOrigin(),
+                        "CONVENIENCE_DESTROY", receivedNanos, receivedTick);
+                RtsConvenienceDestroyService.INSTANCE.submit(
+                        serverPlayer, payload.mode(), payload.anchor(),
+                        Direction.from3DDataValue(payload.face()), payload.settings(), payload.toolSlot(),
+                        payload.toolItemId(), payload.toolPrototype(), payload.toolProtectionEnabled(), trace);
+            }
+        });
+    }
+
+    public static void handleAreaDestroyTrace(C2SRtsAreaDestroyTracePayload payload, IPayloadContext context) {
+        long receivedNanos = System.nanoTime();
+        long receivedTick = receiveTick(context);
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                var trace = trace(serverPlayer, payload, payload.clientTick(), payload.heldMs(),
+                        payload.inputKind(), payload.stopOrigin(), "AREA_DESTROY", receivedNanos, receivedTick);
+                ServiceRegistry.getInstance().mining().areaDestroy(
+                        serverPlayer, payload.positions(), payload.toolSlot(), payload.toolItemId(),
+                        payload.toolPrototype(), payload.toolProtectionEnabled(), trace);
+            }
+        });
+    }
+
+    private static com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext trace(
+            ServerPlayer player, RtsTracedPayload payload, long clientTick, int heldMs,
+            byte inputKind, byte stopOrigin, String packet, long receivedNanos, long receivedTick) {
+        return RtsServerTraceRegistry.acceptNetwork(
+                player, payload, clientTick, heldMs, inputKind, stopOrigin,
+                packet, receivedNanos, receivedTick);
+    }
+
+    private static long receiveTick(IPayloadContext context) {
+        return context.player() instanceof ServerPlayer player
+                ? player.serverLevel().getGameTime() : -1L;
     }
 }

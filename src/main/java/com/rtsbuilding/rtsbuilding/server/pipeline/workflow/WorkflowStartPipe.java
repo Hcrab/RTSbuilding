@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.workflow;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
@@ -61,6 +62,7 @@ public record WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority
         }
 
         ctx.setData(KEY_WORKFLOW_ENTRY_ID, token.entryId());
+        RtsOperationDiagnostics.workflowCreated(type, ctx, token.entryId());
         return PipelineResult.success();
     }
 }

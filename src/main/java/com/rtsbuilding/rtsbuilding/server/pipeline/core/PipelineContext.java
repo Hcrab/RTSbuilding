@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerPlayer;
@@ -30,6 +31,10 @@ public class PipelineContext {
     /** 共享数据中工作流条目 ID 的键。 */
     public static final TypedKey<Integer> KEY_WORKFLOW_ENTRY_ID =
             new TypedKey<>("workflowEntryId", Integer.class);
+
+    /** 网络入口提供的只读诊断上下文；legacy/内部操作也使用显式零 trace。 */
+    public static final TypedKey<RtsOperationTraceContext> ARG_OPERATION_TRACE =
+            new TypedKey<>("operationTrace", RtsOperationTraceContext.class);
 
     // ──────────────────────────────────────────────────────────────────
     //  不可变字段
@@ -81,6 +86,11 @@ public class PipelineContext {
     /** 返回输入参数的不可变视图。 */
     public Map<String, Object> args() {
         return args;
+    }
+
+    public RtsOperationTraceContext operationTrace() {
+        RtsOperationTraceContext trace = getArg(ARG_OPERATION_TRACE);
+        return trace == null ? RtsOperationTraceContext.legacy("SERVER_INTERNAL") : trace;
     }
 
     /**

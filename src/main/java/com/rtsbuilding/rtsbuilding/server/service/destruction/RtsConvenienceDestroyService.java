@@ -3,9 +3,12 @@ package com.rtsbuilding.rtsbuilding.server.service.destruction;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyPlanner;
 import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -28,12 +31,24 @@ public final class RtsConvenienceDestroyService {
             RtsConvenienceDestroyMode mode, BlockPos anchor, Direction face,
             RtsConvenienceDestroySettings settings, byte toolSlot,
             String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled) {
+        return submit(player, mode, anchor, face, settings, toolSlot,
+                toolItemId, toolPrototype, toolProtectionEnabled,
+                RtsOperationTraceContext.legacy("CONVENIENCE_DESTROY"));
+    }
+
+    public RtsConvenienceDestroyPlanner.Plan submit(ServerPlayer player,
+            RtsConvenienceDestroyMode mode, BlockPos anchor, Direction face,
+            RtsConvenienceDestroySettings settings, byte toolSlot,
+            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled,
+            RtsOperationTraceContext trace) {
         if (player == null) {
             return new RtsConvenienceDestroyPlanner.Plan(
                     RtsConvenienceDestroyPlanner.ResultCode.INVALID_TARGET, java.util.List.of(), 0);
         }
         // 在扫描盒体、区块或树群之前先做权限门禁，避免未解锁客户端借请求制造无意义的世界遍历。
         if (!RtsProgressionManager.canUse(player, RtsFeature.AREA_DESTROY)) {
+            RtsServerTraceRegistry.terminalWithoutWorkflow(
+                    player, trace, RtsWorkflowType.AREA_DESTROY, "REJECTED", "FEATURE_LOCKED");
             return new RtsConvenienceDestroyPlanner.Plan(
                     RtsConvenienceDestroyPlanner.ResultCode.INVALID_TARGET, java.util.List.of(), 0);
         }
@@ -41,13 +56,15 @@ public final class RtsConvenienceDestroyService {
                 player.serverLevel(), mode, anchor, face, settings);
         if (!plan.ready()) {
             notifyRejected(player, plan.code(), settings);
+            RtsServerTraceRegistry.terminalWithoutWorkflow(
+                    player, trace, RtsWorkflowType.AREA_DESTROY, "REJECTED", plan.code().name());
             return plan;
         }
         ServiceRegistry.getInstance().mining().areaDestroy(
                 player, plan.targets(), toolSlot,
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                toolProtectionEnabled);
+                toolProtectionEnabled, trace);
         return plan;
     }
 

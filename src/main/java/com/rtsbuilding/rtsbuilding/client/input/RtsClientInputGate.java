@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.input;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayInteraction;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftFeedbackPopup;
 import com.rtsbuilding.rtsbuilding.client.popup.RtsCraftQuantityDialog;
@@ -13,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsAsyncJsonlWriter;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiBlink;
@@ -28,6 +30,8 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
+
+import java.time.Duration;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.client.event.*;
 import net.neoforged.neoforge.client.gui.VanillaGuiLayers;
@@ -112,6 +116,7 @@ public final class RtsClientInputGate {
     public static void onClientLoggingIn(ClientPlayerNetworkEvent.LoggingIn event) {
         // 登录也主动清一次，覆盖崩服或异常断线时未完整收到退出事件的情况。
         RtsCullingClientState.resetForWorldChange();
+        RtsClientOperationDiagnostics.reset("CLIENT_LOGIN_RESET");
     }
 
     @SubscribeEvent
@@ -122,6 +127,8 @@ public final class RtsClientInputGate {
         // Clear stale workflow data so it does not linger in the UI
         // when the player joins a different world (save).
         ClientRtsController.get().clearWorkflowData();
+        RtsClientOperationDiagnostics.reset("CLIENT_LOGOUT");
+        RtsAsyncJsonlWriter.flush(Duration.ofMillis(500));
     }
 
     public static List<Rect2i> getJeiOverlayExtraAreas(Screen screen) {
