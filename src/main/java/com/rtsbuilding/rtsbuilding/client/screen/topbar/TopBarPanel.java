@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiState;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -61,7 +62,7 @@ public final class TopBarPanel {
     private BuilderScreen screen;
     private ClientRtsController controller;
     private final UiStateBlendAnimationSet<TopBarTypes.TopBarButtonId,
-            TopBarIconRenderer.VisualState> iconTransitions =
+            UiTextureState> iconTransitions =
             new UiStateBlendAnimationSet<>(SystemUiClock.INSTANCE,
                     Arrays.asList(TopBarTypes.TopBarButtonId.values()),
                     TopBarIconRenderer.visualStates(),

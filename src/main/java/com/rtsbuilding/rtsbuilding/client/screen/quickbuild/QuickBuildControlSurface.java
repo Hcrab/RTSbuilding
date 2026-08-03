@@ -75,20 +75,14 @@ final class QuickBuildControlSurface {
         this.shapeButtons = new WindowButton[state.shapes.size()];
         for (int i = 0; i < this.shapeButtons.length; i++) {
             QuickBuildUiShapeOption option = state.shapes.get(i);
-            int normalV = option.selected ? QuickBuildIconCatalog.SHAPE_STATE_H : 0;
             WindowButton button = new WindowButton(
                     0, 0,
                     QuickBuildWindowLayout.SHAPE_SLOT,
                     QuickBuildWindowLayout.SHAPE_SLOT,
                     Component.empty(),
-                    QuickBuildIconCatalog.shapeTexture(option.shape),
-                    0, normalV,
-                    QuickBuildIconCatalog.SHAPE_SHEET_W,
-                    QuickBuildIconCatalog.SHAPE_STATE_H,
-                    QuickBuildIconCatalog.SHAPE_STATE_H,
-                    QuickBuildIconCatalog.SHAPE_STATE_H,
-                    QuickBuildIconCatalog.SHAPE_SHEET_W,
-                    QuickBuildIconCatalog.SHAPE_SHEET_H,
+                    QuickBuildIconCatalog.shapeProvider(option.shape),
+                    QuickBuildIconCatalog.PR133_ICON_SIZE,
+                    QuickBuildIconCatalog.PR133_ICON_SIZE,
                     ignored -> this.dispatch.accept(
                             QuickBuildUiAction.shape(option.shape)));
             button.active = option.enabled;
@@ -535,8 +529,7 @@ final class QuickBuildControlSurface {
                 0, 0,
                 QuickBuildWindowLayout.CONVENIENCE_TOOL_W,
                 QuickBuildWindowLayout.CONVENIENCE_TOOL_H,
-                Component.translatable(
-                        "screen.rtsbuilding.quick_build.mode_smart_fill"),
+                Component.empty(),
                 ignored -> this.dispatch.accept(
                         QuickBuildUiAction.mode(QuickBuildUiMode.SMART_FILL)));
         this.smartFillToolButton.setVisualRole(UiControlRole.CHOICE);
@@ -546,8 +539,7 @@ final class QuickBuildControlSurface {
                     0, 0,
                     QuickBuildWindowLayout.CONVENIENCE_TOOL_W,
                     QuickBuildWindowLayout.CONVENIENCE_TOOL_H,
-                    Component.translatable("screen.rtsbuilding.quick_build.tool."
-                            + tool.name().toLowerCase(java.util.Locale.ROOT)),
+                    Component.empty(),
                     ignored -> this.dispatch.accept(QuickBuildUiAction.convenienceTool(tool)));
             this.convenienceToolButtons[i].setVisualRole(UiControlRole.CHOICE);
         }

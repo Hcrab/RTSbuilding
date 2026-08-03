@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.mode;
 
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarIconRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsGuiVectorRenderer;
@@ -190,10 +191,10 @@ public final class BuilderModeWheel {
                 background);
 
         TopBarTypes.TopBarButtonId iconId = modeButtonId(mode);
-        TopBarIconRenderer.VisualState textureState = current
-                ? TopBarIconRenderer.VisualState.ACTIVE
-                : hovered ? TopBarIconRenderer.VisualState.HOVER
-                : TopBarIconRenderer.VisualState.INACTIVE;
+        UiTextureState textureState = current
+                ? UiTextureState.ACTIVE
+                : hovered ? UiTextureState.HOVER
+                : UiTextureState.INACTIVE;
         ResourceLocation texture = TopBarIconRenderer.texture(iconId, textureState);
         if (texture != null) {
             int iconSize = Math.max(12, Math.round(ICON_SIZE * scale));

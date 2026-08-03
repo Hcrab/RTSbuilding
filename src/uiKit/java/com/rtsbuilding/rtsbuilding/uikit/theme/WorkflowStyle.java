@@ -7,54 +7,54 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 生产和离屏 renderer 共用这些结果，避免同一条工作流在两侧形成不同的警告层级。</p>
  */
 public final class WorkflowStyle {
-    public static final UiColor ACTIVE_BACKGROUND = new UiColor(0xAA1A222C);
-    public static final UiColor ACTIVE_HOVER_BACKGROUND = new UiColor(0xAA2A3A4A);
-    public static final UiColor ACTIVE_BORDER = new UiColor(0xFF5E738A);
-    public static final UiColor ACTIVE_TEXT = new UiColor(0xFFEAF2FF);
-    public static final UiColor ACTIVE_PROGRESS_TRACK = new UiColor(0xAA202832);
-    public static final UiColor ACTIVE_PROGRESS_FILL = new UiColor(0xFF88BEF4);
-    public static final UiColor ACTIVE_PROGRESS_BORDER = new UiColor(0xFF405064);
-    public static final UiColor ACTIVE_DARK_BORDER = new UiColor(0xFF0D1117);
-    public static final UiColor ACTIVE_PROGRESS_DARK_BORDER = new UiColor(0xFF0A0D12);
-    public static final UiColor ACTIVE_PROGRESS_TEXT = new UiColor(0xCCFFFFFF);
+    public static final UiColor ACTIVE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_SELECTED, 0XAA1A222C);
+    public static final UiColor ACTIVE_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XAA2A3A4A);
+    public static final UiColor ACTIVE_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.ACCENT_PRIMARY, 0XFF5E738A);
+    public static final UiColor ACTIVE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_ON_ACCENT, 0XFFEAF2FF);
+    public static final UiColor ACTIVE_PROGRESS_TRACK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.SURFACE_SUNKEN, 0XAA202832);
+    public static final UiColor ACTIVE_PROGRESS_FILL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_SELECTED, 0XFF88BEF4);
+    public static final UiColor ACTIVE_PROGRESS_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.ACCENT_PRIMARY, 0XFF405064);
+    public static final UiColor ACTIVE_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.ACCENT_PRIMARY, 0XFF0D1117);
+    public static final UiColor ACTIVE_PROGRESS_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.ACCENT_PRIMARY, 0XFF0A0D12);
+    public static final UiColor ACTIVE_PROGRESS_TEXT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_ON_ACCENT, 0XCCFFFFFF);
 
-    public static final UiColor SUSPENDED_BACKGROUND = new UiColor(0xAA2A2820);
-    public static final UiColor SUSPENDED_HOVER_BACKGROUND = new UiColor(0xAA4A3A1A);
-    public static final UiColor SUSPENDED_BORDER = new UiColor(0xFF8A7A4A);
-    public static final UiColor SUSPENDED_TEXT = new UiColor(0xFFE7C46A);
-    public static final UiColor SUSPENDED_PROGRESS_TRACK = new UiColor(0xAA303030);
-    public static final UiColor SUSPENDED_PROGRESS_FILL = new UiColor(0xAA8A7A3A);
-    public static final UiColor SUSPENDED_PROGRESS_BORDER = new UiColor(0xFF5A4A2A);
-    public static final UiColor SUSPENDED_DARK_BORDER = new UiColor(0xFF0D0D0A);
-    public static final UiColor SUSPENDED_PROGRESS_DARK_BORDER = new UiColor(0xFF0A0A05);
-    public static final UiColor SUSPENDED_PROGRESS_TEXT = new UiColor(0xAAFFFFFF);
+    public static final UiColor SUSPENDED_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XAA2A2820);
+    public static final UiColor SUSPENDED_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XAA4A3A1A);
+    public static final UiColor SUSPENDED_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_STRONG, 0XFF8A7A4A);
+    public static final UiColor SUSPENDED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_PRIMARY, 0XFFE7C46A);
+    public static final UiColor SUSPENDED_PROGRESS_TRACK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.SURFACE_SUNKEN, 0XAA303030);
+    public static final UiColor SUSPENDED_PROGRESS_FILL = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XAA8A7A3A);
+    public static final UiColor SUSPENDED_PROGRESS_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_STRONG, 0XFF5A4A2A);
+    public static final UiColor SUSPENDED_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_SOFT, 0XFF0D0D0A);
+    public static final UiColor SUSPENDED_PROGRESS_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_SOFT, 0XFF0A0A05);
+    public static final UiColor SUSPENDED_PROGRESS_TEXT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_PRIMARY, 0XAAFFFFFF);
 
-    public static final UiColor PROTECTED_BACKGROUND = new UiColor(0xAA315B70);
-    public static final UiColor PROTECTED_HOVER_BACKGROUND = new UiColor(0xBB3F6E86);
-    public static final UiColor PROTECTED_BORDER = new UiColor(0xFFA8E8FF);
-    public static final UiColor PROTECTED_TEXT = new UiColor(0xFFEAFBFF);
-    public static final UiColor PROTECTED_PROGRESS_FILL = new UiColor(0xDDA8E8FF);
-    public static final UiColor PROTECTED_PROGRESS_BORDER = new UiColor(0xFF70B8D0);
+    public static final UiColor PROTECTED_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XAA315B70);
+    public static final UiColor PROTECTED_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XBB3F6E86);
+    public static final UiColor PROTECTED_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_STRONG, 0XFFA8E8FF);
+    public static final UiColor PROTECTED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_PRIMARY, 0XFFEAFBFF);
+    public static final UiColor PROTECTED_PROGRESS_FILL = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XDDA8E8FF);
+    public static final UiColor PROTECTED_PROGRESS_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_STRONG, 0XFF70B8D0);
 
-    public static final UiColor PROTECT_IDLE_BACKGROUND = new UiColor(0xAA263442);
-    public static final UiColor PROTECT_IDLE_HOVER_BACKGROUND = new UiColor(0xAA3A4A5A);
-    public static final UiColor PROTECT_ACTIVE_BACKGROUND = new UiColor(0xCC4DAFD8);
-    public static final UiColor PROTECT_ACTIVE_HOVER_BACKGROUND = new UiColor(0xD36FC7E8);
-    public static final UiColor PROTECT_IDLE_TEXT = new UiColor(0xFFDDEBFF);
-    public static final UiColor BUTTON_TEXT = new UiColor(0xFFFFFFFF);
+    public static final UiColor PROTECT_IDLE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XAA263442);
+    public static final UiColor PROTECT_IDLE_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XAA3A4A5A);
+    public static final UiColor PROTECT_ACTIVE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_SELECTED, 0XCC4DAFD8);
+    public static final UiColor PROTECT_ACTIVE_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XD36FC7E8);
+    public static final UiColor PROTECT_IDLE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_PRIMARY, 0XFFDDEBFF);
+    public static final UiColor BUTTON_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_ON_ACCENT, 0XFFFFFFFF);
 
-    public static final UiColor RESUME_BACKGROUND = new UiColor(0xCC2C873F);
-    public static final UiColor RESUME_HOVER_BACKGROUND = new UiColor(0xCC3AA156);
-    public static final UiColor RESUME_BORDER = new UiColor(0xFF74E88C);
-    public static final UiColor RESUME_DARK_BORDER = new UiColor(0xFF1A2A1A);
-    public static final UiColor SUSPENDED_RESUME_DARK_BORDER = new UiColor(0xFF123A1D);
-    public static final UiColor PAUSE_BACKGROUND = new UiColor(0xCC705A1A);
-    public static final UiColor PAUSE_HOVER_BACKGROUND = new UiColor(0xCCA07A2A);
-    public static final UiColor PAUSE_BORDER = new UiColor(0xFFE7C46A);
-    public static final UiColor DELETE_BACKGROUND = new UiColor(0xAA4A2A2A);
-    public static final UiColor DELETE_HOVER_BACKGROUND = new UiColor(0xCCB04A4A);
-    public static final UiColor DELETE_BORDER = new UiColor(0xFFC07070);
-    public static final UiColor DELETE_DARK_BORDER = new UiColor(0xFF1A0D0D);
+    public static final UiColor RESUME_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XCC2C873F);
+    public static final UiColor RESUME_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XCC3AA156);
+    public static final UiColor RESUME_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_STRONG, 0XFF74E88C);
+    public static final UiColor RESUME_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_SOFT, 0XFF1A2A1A);
+    public static final UiColor SUSPENDED_RESUME_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_SOFT, 0XFF123A1D);
+    public static final UiColor PAUSE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XCC705A1A);
+    public static final UiColor PAUSE_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XCCA07A2A);
+    public static final UiColor PAUSE_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.BORDER_STRONG, 0XFFE7C46A);
+    public static final UiColor DELETE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.DESTRUCTIVE, 0XAA4A2A2A);
+    public static final UiColor DELETE_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.DESTRUCTIVE, 0XCCB04A4A);
+    public static final UiColor DELETE_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.DESTRUCTIVE, 0XFFC07070);
+    public static final UiColor DELETE_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.DESTRUCTIVE, 0XFF1A0D0D);
 
     private WorkflowStyle() {
     }

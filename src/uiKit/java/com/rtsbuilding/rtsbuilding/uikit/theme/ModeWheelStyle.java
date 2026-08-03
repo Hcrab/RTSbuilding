@@ -8,22 +8,22 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 避免两个生产轮盘各自复制一套 ARGB 位运算。</p>
  */
 public final class ModeWheelStyle {
-    public static final UiColor TRACK_BACKGROUND = new UiColor(0x241A222B);
-    public static final UiColor TRACK_BORDER = new UiColor(0xA07E8C99);
-    public static final UiColor PLACEMENT_TRACK = new UiColor(0x768996A3);
-    public static final UiColor CENTER_DOT = new UiColor(0xFFD9E2EA);
-    public static final UiColor CENTER_BRACKET = new UiColor(0xB8CFD8E1);
+    public static final UiColor TRACK_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.SURFACE_SUNKEN, 0X241A222B);
+    public static final UiColor TRACK_BORDER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XA07E8C99);
+    public static final UiColor PLACEMENT_TRACK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.SURFACE_SUNKEN, 0X768996A3);
+    public static final UiColor CENTER_DOT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XFFD9E2EA);
+    public static final UiColor CENTER_BRACKET = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XB8CFD8E1);
 
-    public static final UiColor OPTION_BORDER_IDLE = new UiColor(0xFF82909D);
-    public static final UiColor OPTION_BORDER_HOVER = new UiColor(0xFFFFD878);
-    public static final UiColor OPTION_BORDER_CURRENT = new UiColor(0xFF8FD4A8);
-    public static final UiColor OPTION_BACKGROUND_IDLE = new UiColor(0xC91A2026);
-    public static final UiColor OPTION_BACKGROUND_HOVER = new UiColor(0xE6453820);
-    public static final UiColor OPTION_BACKGROUND_CURRENT = new UiColor(0xD522382D);
+    public static final UiColor OPTION_BORDER_IDLE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XFF82909D);
+    public static final UiColor OPTION_BORDER_HOVER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.FOCUS_RING, 0XFFFFD878);
+    public static final UiColor OPTION_BORDER_CURRENT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XFF8FD4A8);
+    public static final UiColor OPTION_BACKGROUND_IDLE = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_IDLE, 0XC91A2026);
+    public static final UiColor OPTION_BACKGROUND_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_HOVER, 0XE6453820);
+    public static final UiColor OPTION_BACKGROUND_CURRENT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_IDLE, 0XD522382D);
 
-    public static final UiColor LABEL_BACKGROUND = new UiColor(0xD0161B22);
-    public static final UiColor LABEL_TEXT = new UiColor(0xFFF0F4F7);
-    public static final UiColor HINT_TEXT = new UiColor(0xFFD6DFEA);
+    public static final UiColor LABEL_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XD0161B22);
+    public static final UiColor LABEL_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XFFF0F4F7);
+    public static final UiColor HINT_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_MUTED, 0XFFD6DFEA);
 
     public static UiColor optionBorder(boolean current, double hoverProgress) {
         if (hoverProgress > 0.01D) {

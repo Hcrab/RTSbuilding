@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShape;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
@@ -18,6 +19,7 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
@@ -209,6 +211,10 @@ final class QuickBuildControlRenderer {
             float partialTick) {
         controls.smartFillToolButton().render(
                 graphics, mouseX, mouseY, partialTick);
+        renderToolIdentity(graphics, screen,
+                QuickBuildIconCatalog.smartFillTexture(UiTextureState.ACTIVE),
+                Component.translatable("screen.rtsbuilding.quick_build.mode_smart_fill"),
+                layout.contentX, layout.convenienceToolY(0));
         int sliderWidth = controls.smartFillMaxBlocksSlider().getWidth();
         graphics.drawString(
                 screen.font(),
@@ -284,8 +290,18 @@ final class QuickBuildControlRenderer {
             int mouseY,
             float partialTick) {
         for (int i = 0; i < 3; i++) {
-            controls.convenienceToolButton(i).render(
+            WindowButton button = controls.convenienceToolButton(i);
+            button.render(
                     graphics, mouseX, mouseY, partialTick);
+            QuickBuildUiConvenienceTool tool = QuickBuildUiConvenienceTool.values()[i];
+            UiTextureState iconState = state.convenienceTool == tool
+                    ? UiTextureState.ACTIVE
+                    : button.isHoveredOrFocused() ? UiTextureState.HOVER : UiTextureState.INACTIVE;
+            renderToolIdentity(graphics, screen,
+                    QuickBuildIconCatalog.convenienceTexture(tool, iconState),
+                    Component.translatable("screen.rtsbuilding.quick_build.tool."
+                            + tool.name().toLowerCase(java.util.Locale.ROOT)),
+                    layout.contentX, layout.convenienceToolY(i));
         }
 
         List<QuickBuildUiConvenienceParameter> parameters =
@@ -306,6 +322,26 @@ final class QuickBuildControlRenderer {
                             + QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET,
                     QuickBuildStyle.VALUE_TEXT.toArgb(), false);
         }
+    }
+
+    /** PR #133 的 24px 像素按钮作为工具身份块，文字只承担本地化名称。 */
+    private static void renderToolIdentity(GuiGraphics graphics, BuilderScreen screen,
+                                           net.minecraft.resources.ResourceLocation texture,
+                                           Component label, int x, int y) {
+        int iconSize = 18;
+        int iconX = x + 2;
+        int iconY = y + (QuickBuildWindowLayout.CONVENIENCE_TOOL_H - iconSize) / 2;
+        RtsTextureRenderer.drawTextureHighPrecision(
+                graphics, texture, iconX, iconY, iconSize, iconSize,
+                0, 0, QuickBuildIconCatalog.PR133_ICON_SIZE,
+                QuickBuildIconCatalog.PR133_ICON_SIZE,
+                QuickBuildIconCatalog.PR133_ICON_SIZE,
+                QuickBuildIconCatalog.PR133_ICON_SIZE, 0, RtsTextureRenderer.NO_TINT);
+        String clipped = com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil.trimToWidth(
+                screen.font(), label.getString(), QuickBuildWindowLayout.CONVENIENCE_TOOL_W - 24);
+        graphics.drawString(screen.font(), clipped, x + 23,
+                y + (QuickBuildWindowLayout.CONVENIENCE_TOOL_H - screen.font().lineHeight) / 2,
+                QuickBuildStyle.MODE_TEXT.toArgb(), false);
     }
 
     private static void renderControlIndicator(

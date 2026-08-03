@@ -49,6 +49,12 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private boolean animationExpanded = false;
     private final Set<String> expandedHintKeys = new HashSet<>();
     private SettingsId draggingCoreSensitivity = null;
+    private ThemeSettingsPanel themeSettingsPanel;
+
+    /** 由 BuilderScreen 在创建浮窗层前绑定，设置目录本身不负责拥有子窗口。 */
+    public void bindThemeSettingsPanel(ThemeSettingsPanel panel) {
+        this.themeSettingsPanel = panel;
+    }
 
     EnumSet<SettingsSectionId> coreExpandedSections() {
         EnumSet<SettingsSectionId> out = EnumSet.noneOf(SettingsSectionId.class);
@@ -212,7 +218,33 @@ public final class GearMenuPanel extends RtsWindowPanel {
             case STEP_VALUE -> drawCoreStepRow(g, canvas, mouseX, mouseY, row, y, x, w);
             case SIMPLE_TOGGLE -> drawCoreSimpleToggleRow(g, canvas, mouseX, mouseY, row, x, w, y);
             case HINT_TOGGLE -> drawCoreHintToggleRow(g, canvas, mouseX, mouseY, row, x, w, y);
+            case ACTION -> drawCoreActionRow(g, canvas, mouseX, mouseY, row, x, w, y);
         }
+    }
+
+    private void drawCoreActionRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
+                                   SettingsUiRow row, int x, int w, int rowY) {
+        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey), w - 142),
+                x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 4,
+                SettingsWindowStyle.LABEL.toArgb(), false);
+        String current = Component.translatable(row.valueLabel).getString();
+        g.drawString(screen.font(), trimToWidth(current, w - 142),
+                x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 17,
+                SettingsWindowStyle.HINT.toArgb(), false);
+        int buttonX = x + w - 112;
+        drawCoreActionButton(g, canvas, mouseX, mouseY, buttonX, rowY + 6, 96, 22,
+                text("screen.rtsbuilding.theme.open"));
+    }
+
+    private void drawCoreActionButton(GuiGraphics g, MinecraftUiCanvas canvas,
+                                      int mouseX, int mouseY, int x, int y, int w, int h,
+                                      String label) {
+        boolean hover = UiRect.contains(x, y, w, h, mouseX, mouseY);
+        UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, w, h),
+                hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND : SettingsWindowStyle.STEP_BACKGROUND,
+                SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
+                x + w / 2, y + 7, SettingsWindowStyle.VALUE.toArgb());
     }
 
     private void drawCoreSensitivityRow(GuiGraphics g, SettingsUiRow row, int rowY, int x, int w) {
@@ -328,6 +360,14 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 continue;
             }
             SettingsUiRow row = node.row;
+            if (row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.ACTION
+                    && UiRect.contains(node.x + node.width - 112, node.y + 6,
+                    96, 22, mouseX, contentMouseY)) {
+                if (row.id == SettingsId.UI_THEME && this.themeSettingsPanel != null) {
+                    this.themeSettingsPanel.open();
+                }
+                return;
+            }
             if (row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.SENSITIVITY
                     && UiRect.contains(
                     node.x + SettingsWindowLayout.SENSITIVITY_TRACK_INSET,

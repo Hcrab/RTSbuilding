@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WindowButtonLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -31,8 +32,14 @@ public class WindowButton extends AbstractButton {
         void onPress(WindowButton button);
     }
 
+    /** 按当前视觉状态延迟解析纹理；用于 Legacy / Palette 双轨按钮。 */
+    public interface StateTextureProvider {
+        ResourceLocation resolve(UiTextureState state);
+    }
+
     private final OnPress onPress;
     private final ResourceLocation textureLocation;
+    private final StateTextureProvider stateTextureProvider;
     private final int textureU;
     private final int textureV;
     private final int textureWidth;
@@ -87,6 +94,7 @@ public class WindowButton extends AbstractButton {
         super(x, y, width, height, message);
         this.onPress = onPress;
         this.textureLocation = textureLocation;
+        this.stateTextureProvider = null;
         this.textureU = textureU;
         this.textureV = textureV;
         this.textureWidth = textureWidth;
@@ -95,6 +103,30 @@ public class WindowButton extends AbstractButton {
         this.hoverTextureHeight = hoverTextureHeight;
         this.fullTextureWidth = fullTextureWidth;
         this.fullTextureHeight = fullTextureHeight;
+    }
+
+    /**
+     * 创建使用四状态语义 provider 的纹理按钮。纹理路径会在每帧按 pressed、selected、hover、idle
+     * 的优先级解析，因此切换主题后不需要重建控件或更改点击矩形。
+     */
+    public WindowButton(int x, int y, int width, int height, Component message,
+                        StateTextureProvider stateTextureProvider,
+                        int sourceWidth, int sourceHeight, OnPress onPress) {
+        super(x, y, width, height, message);
+        if (stateTextureProvider == null) {
+            throw new IllegalArgumentException("stateTextureProvider");
+        }
+        this.onPress = onPress;
+        this.textureLocation = null;
+        this.stateTextureProvider = stateTextureProvider;
+        this.textureU = 0;
+        this.textureV = 0;
+        this.textureWidth = sourceWidth;
+        this.textureHeight = sourceHeight;
+        this.hoverTextureV = 0;
+        this.hoverTextureHeight = sourceHeight;
+        this.fullTextureWidth = sourceWidth;
+        this.fullTextureHeight = sourceHeight;
     }
 
     /**
@@ -120,9 +152,10 @@ public class WindowButton extends AbstractButton {
                 && this.isHoveredOrFocused();
         UiControlVisualStyle visual = resolveVisual(effectiveHovered);
 
-        if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
+        ResourceLocation resolvedTexture = resolveTexture(effectiveHovered);
+        if (resolvedTexture != null && textureWidth > 0 && textureHeight > 0) {
             // Render with texture (vector scaling)
-            renderWithTexture(guiGraphics);
+            renderWithTexture(guiGraphics, resolvedTexture);
         } else {
             // Render with solid colour
             renderWithSolidColor(guiGraphics, visual);
@@ -145,19 +178,19 @@ public class WindowButton extends AbstractButton {
     /**
      * Renders the button with a texture (supports vector scaling and hover effects).
      */
-    private void renderWithTexture(GuiGraphics guiGraphics) {
+    private void renderWithTexture(GuiGraphics guiGraphics, ResourceLocation resolvedTexture) {
         // Ensure the texture is loaded
         var textureManager = Minecraft.getInstance().getTextureManager();
-        var texture = textureManager.getTexture(textureLocation);
+        var texture = textureManager.getTexture(resolvedTexture);
 
         if (texture == null) {
             // Try to trigger automatic texture loading
             try {
                 // Use setShaderTexture to trigger texture loading
-                RenderSystem.setShaderTexture(0, textureLocation);
+                RenderSystem.setShaderTexture(0, resolvedTexture);
 
                 // Try to get the texture again
-                texture = textureManager.getTexture(textureLocation);
+                texture = textureManager.getTexture(resolvedTexture);
 
                 if (texture == null) {
                     // If still not loaded, draw a red rectangle as a hint
@@ -189,7 +222,7 @@ public class WindowButton extends AbstractButton {
         );
 
         // Bind texture (bind before setting parameters)
-        RenderSystem.setShaderTexture(0, textureLocation);
+        RenderSystem.setShaderTexture(0, resolvedTexture);
 
         // Set high-quality texture filter parameters
         // Minification filter: trilinear (mipmap + linear interpolation)
@@ -237,7 +270,7 @@ public class WindowButton extends AbstractButton {
 
         // Draw texture at original size (blit automatically uses currently bound texture)
         guiGraphics.blit(
-            textureLocation,
+            resolvedTexture,
             0,  // Relative to transformed position
             0,  // Relative to transformed position
             textureU,
@@ -263,6 +296,16 @@ public class WindowButton extends AbstractButton {
             org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
             org.lwjgl.opengl.GL11.GL_NEAREST
         );
+    }
+
+    private ResourceLocation resolveTexture(boolean hovered) {
+        if (stateTextureProvider == null) return textureLocation;
+        UiTextureState state = this.pressedVisual
+                ? UiTextureState.PRESSED
+                : this.selectedVisual
+                        ? UiTextureState.ACTIVE
+                        : hovered ? UiTextureState.HOVER : UiTextureState.INACTIVE;
+        return stateTextureProvider.resolve(state);
     }
 
     /**

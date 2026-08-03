@@ -72,6 +72,8 @@ public final class SettingsUiCatalog {
                 return UiControlRole.DRAG;
             case STEP_VALUE:
                 return UiControlRole.HOLD_REPEAT;
+            case ACTION:
+                return UiControlRole.COMMAND;
             case SIMPLE_TOGGLE:
             case HINT_TOGGLE:
             default:

@@ -7,24 +7,24 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 取得颜色，避免两条路径逐渐形成不同的选中、悬停与空槽视觉。</p>
  */
 public final class BottomPanelToolStyle {
-    public static final UiColor HOTBAR_IDLE_BACKGROUND = new UiColor(0xAA1B1E25);
-    public static final UiColor HOTBAR_SELECTED_BACKGROUND = new UiColor(0xCC3A6E57);
-    public static final UiColor EMPTY_HAND_IDLE_BACKGROUND = new UiColor(0xB06F5146);
-    public static final UiColor EMPTY_HAND_SELECTED_BACKGROUND = new UiColor(0xCC9B604B);
-    public static final UiColor HOTBAR_BORDER_LIGHT = new UiColor(0xFF5E6874);
-    public static final UiColor EMPTY_HAND_BORDER_LIGHT = new UiColor(0xFFFFD0B0);
-    public static final UiColor PIN_BORDER_LIGHT = new UiColor(0xFF67758A);
-    public static final UiColor BORDER_DARK = new UiColor(0xFF0C0D10);
-    public static final UiColor PIN_EMPTY_BACKGROUND = new UiColor(0xAA1A1A1A);
-    public static final UiColor PIN_FILLED_BACKGROUND = new UiColor(0xAA253043);
-    public static final UiColor PIN_PAGER_OVERLAY = new UiColor(0xAA2C3A26);
-    public static final UiColor SELECTED_OVERLAY = new UiColor(0x3340FF80);
-    public static final UiColor HOVER_OVERLAY = new UiColor(0x22FFFFFF);
-    public static final UiColor EMPTY_HAND_MARK = new UiColor(0xFFFFC3A3);
-    public static final UiColor PIN_PAGER_TEXT = new UiColor(0xFFE9F7DA);
-    public static final UiColor PIN_INDEX_TEXT = new UiColor(0x88D0D8E4);
-    public static final UiColor PIN_COUNT_AVAILABLE = new UiColor(0xFFF7E6A8);
-    public static final UiColor PIN_COUNT_EMPTY = new UiColor(0xFFB4B9C3);
+    public static final UiColor HOTBAR_IDLE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA1B1E25);
+    public static final UiColor HOTBAR_SELECTED_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_SELECTED, 0XCC3A6E57);
+    public static final UiColor EMPTY_HAND_IDLE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XB06F5146);
+    public static final UiColor EMPTY_HAND_SELECTED_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_SELECTED, 0XCC9B604B);
+    public static final UiColor HOTBAR_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_STRONG, 0XFF5E6874);
+    public static final UiColor EMPTY_HAND_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_STRONG, 0XFFFFD0B0);
+    public static final UiColor PIN_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_STRONG, 0XFF67758A);
+    public static final UiColor BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_SOFT, 0XFF0C0D10);
+    public static final UiColor PIN_EMPTY_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA1A1A1A);
+    public static final UiColor PIN_FILLED_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA253043);
+    public static final UiColor PIN_PAGER_OVERLAY = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA2C3A26);
+    public static final UiColor SELECTED_OVERLAY = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_SELECTED, 0X3340FF80);
+    public static final UiColor HOVER_OVERLAY = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0X22FFFFFF);
+    public static final UiColor EMPTY_HAND_MARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.ICON_PRIMARY, 0XFFFFC3A3);
+    public static final UiColor PIN_PAGER_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFE9F7DA);
+    public static final UiColor PIN_INDEX_TEXT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_MUTED, 0X88D0D8E4);
+    public static final UiColor PIN_COUNT_AVAILABLE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.SUCCESS, 0XFFF7E6A8);
+    public static final UiColor PIN_COUNT_EMPTY = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_ON_ACCENT, 0XFFB4B9C3);
 
     private BottomPanelToolStyle() {
     }

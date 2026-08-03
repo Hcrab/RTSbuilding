@@ -458,8 +458,22 @@ tasks.register('verifyUiIconResources') {
     def guideTextures = ['search', 'sort', 'clock', 'droplet', 'pin', 'craft', 'slider', 'toggle'].collect {
         file("src/main/resources/assets/rtsbuilding/textures/gui/guide/${it}.png")
     }
+    def pr133Keys = [
+            'ball', 'chain', 'cube', 'cylinder', 'line', 'round', 'single', 'surface', 'wall',
+            'fill_water/cave', 'fill_water/lake', 'smart_break/stair', 'smart_break/tree'
+    ]
+    def pr133LegacyStates = pr133Keys.collectMany { key -> states.collect { state ->
+        file("src/main/resources/assets/rtsbuilding/textures/gui/quickbuild_pr133/${key}_${state}.png")
+    } }
+    def pr133PaletteSources = pr133Keys.collect { key ->
+        file("src/main/resources/assets/rtsbuilding/textures/gui/palette/quickbuild/${key}.png")
+    }
+    def paletteTopbarSources = topbarIds.collect { id ->
+        file("src/main/resources/assets/rtsbuilding/textures/gui/palette/topbar/${id}.png")
+    }
     def assetLicenses = file('ASSET-LICENSES.md')
-    inputs.files(topbarTextures + guideTextures + [assetLicenses])
+    inputs.files(topbarTextures + guideTextures + pr133LegacyStates
+            + pr133PaletteSources + paletteTopbarSources + [assetLicenses])
     doLast {
         (topbarTextures + guideTextures).each { texture ->
             if (!texture.isFile() || texture.length() == 0L) {
@@ -473,11 +487,44 @@ tasks.register('verifyUiIconResources') {
                         "Invalid UI icon ${texture}: ${image.width}x${image.height}, alpha=${image.colorModel.hasAlpha()}")
             }
         }
+        (pr133LegacyStates + pr133PaletteSources + paletteTopbarSources).each { texture ->
+            if (!texture.isFile() || texture.length() == 0L) {
+                throw new GradleException("Missing dual-track UI texture: ${texture}")
+            }
+            def image = javax.imageio.ImageIO.read(texture)
+            if (image == null || image.width != 24 || image.height != 24) {
+                throw new GradleException("Invalid PR #133 UI texture size: ${texture}")
+            }
+        }
+        def allowedPaletteColors = [0xFF445468 as int, 0xFF1A202A as int, 0xFFA6CCF2 as int] as Set
+        def questPaletteColors = allowedPaletteColors + [
+                0xFF7CE478 as int, 0xFF0C2612 as int,
+                0xFFECA2A2 as int, 0xFF332323 as int
+        ]
+        (pr133PaletteSources + paletteTopbarSources).each { texture ->
+            def image = javax.imageio.ImageIO.read(texture)
+            def unknown = new LinkedHashSet<Integer>()
+            def allowed = texture.name == 'quest_detect.png' ? questPaletteColors : allowedPaletteColors
+            for (int y = 0; y < image.height; y++) {
+                for (int x = 0; x < image.width; x++) {
+                    int argb = image.getRGB(x, y)
+                    if (((argb >>> 24) != 0) && !allowed.contains(argb)) unknown.add(argb)
+                }
+            }
+            if (!unknown.isEmpty()) {
+                throw new GradleException("Unknown Palette index colors in ${texture}: ${unknown}")
+            }
+            if (texture.name ==~ /.*_(inactive|hover|active|pressed)\.png/) {
+                throw new GradleException("Palette directory contains duplicated state file: ${texture}")
+            }
+        }
         String licenseText = assetLicenses.getText('UTF-8')
         if (!licenseText.contains('guide_*') || !licenseText.contains('textures/gui/guide/')) {
             throw new GradleException('UI icon source/license record is incomplete')
         }
-        println "Verified ${topbarTextures.size()} top-bar states and ${guideTextures.size()} guide textures"
+        println "Verified ${topbarTextures.size()} top-bar states, ${guideTextures.size()} guide textures, " +
+                "${pr133LegacyStates.size()} PR #133 Legacy states and " +
+                "${pr133PaletteSources.size() + paletteTopbarSources.size()} Palette single sources"
     }
 }
 

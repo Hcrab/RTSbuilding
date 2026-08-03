@@ -19,6 +19,7 @@ public final class SettingsWindowLayout {
     public static final int SCALE_ROW_H = 34;
     public static final int SOUND_LIMIT_ROW_H = 38;
     public static final int SIMPLE_TOGGLE_ROW_H = 28;
+    public static final int ACTION_ROW_H = 34;
     public static final int HINT_TOGGLE_ROW_H = 34;
     public static final int HINT_LINE_H = 10;
     public static final int HINT_EXPAND_BUTTON_SIZE = 12;
@@ -80,6 +81,7 @@ public final class SettingsWindowLayout {
     public static int rowHeight(SettingsUiRow row, int expandedHintLines) {
         if (row.id.kind == SettingsRowKind.SENSITIVITY) return SENSITIVITY_ROW_H;
         if (row.id.kind == SettingsRowKind.SIMPLE_TOGGLE) return SIMPLE_TOGGLE_ROW_H;
+        if (row.id.kind == SettingsRowKind.ACTION) return ACTION_ROW_H;
         if (row.id.kind == SettingsRowKind.STEP_VALUE) {
             return row.id == SettingsId.BLOCK_SOUNDS_PER_TICK
                     ? SOUND_LIMIT_ROW_H : SCALE_ROW_H;

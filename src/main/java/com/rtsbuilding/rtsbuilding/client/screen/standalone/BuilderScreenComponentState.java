@@ -19,6 +19,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.gear.ThemeSettingsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
@@ -117,6 +118,7 @@ abstract class BuilderScreenComponentState extends Screen {
     final GuidePanel guidePanel = new GuidePanel();
     final RtsAiChatPanel aiChatPanel = new RtsAiChatPanel();
     final GearMenuPanel gearMenuPanel = new GearMenuPanel();
+    final ThemeSettingsPanel themeSettingsPanel = new ThemeSettingsPanel();
     RtsScreenUiStateManager uiStateManager;
     RtsGuiScaleCoordinator guiScaleCoordinator;
     BuilderScreenPointerClickRouter pointerClickRouter;

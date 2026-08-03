@@ -7,14 +7,14 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 这样窗口状态仍归 Core/生产管理器所有，而正式客户端和截图不会各自维护一套近似颜色。</p>
  */
 public final class CullingWindowStyle {
-    public static final UiColor PRIMARY_TEXT = new UiColor(0xFFE7F2FF);
-    public static final UiColor MUTED_TEXT = new UiColor(0xFF9FB2C4);
-    public static final UiColor PHASE_TEXT = new UiColor(0xFF8EC8FF);
-    public static final UiColor DELETE_BACKGROUND = new UiColor(0xFF742833);
-    public static final UiColor DELETE_HOVER_BACKGROUND = new UiColor(0xFF9A3340);
-    public static final UiColor DELETE_BORDER = new UiColor(0xFFFFA2AE);
-    public static final UiColor DELETE_HOVER_BORDER = new UiColor(0xFFFFD1D7);
-    public static final UiColor DELETE_DARK_BORDER = new UiColor(0xFF0B1017);
+    public static final UiColor PRIMARY_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.TEXT_PRIMARY, 0XFFE7F2FF);
+    public static final UiColor MUTED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.TEXT_MUTED, 0XFF9FB2C4);
+    public static final UiColor PHASE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.TEXT_PRIMARY, 0XFF8EC8FF);
+    public static final UiColor DELETE_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.DESTRUCTIVE, 0XFF742833);
+    public static final UiColor DELETE_HOVER_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.DESTRUCTIVE, 0XFF9A3340);
+    public static final UiColor DELETE_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.DESTRUCTIVE, 0XFFFFA2AE);
+    public static final UiColor DELETE_HOVER_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.DESTRUCTIVE, 0XFFFFD1D7);
+    public static final UiColor DELETE_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.DESTRUCTIVE, 0XFF0B1017);
 
     private CullingWindowStyle() {
     }

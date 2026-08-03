@@ -1,6 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShape;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
+import com.rtsbuilding.rtsbuilding.client.theme.LegacyTextureSet;
+import com.rtsbuilding.rtsbuilding.client.theme.PaletteTextureCatalog;
+import com.rtsbuilding.rtsbuilding.client.theme.ThemedStateTextureResolver;
+import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Locale;
@@ -17,27 +23,68 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 final class QuickBuildIconCatalog {
     static final ResourceLocation SELECTION_DOT =
             ResourceLocation.tryParse("rtsbuilding:textures/gui/general/mode_button.png");
-    static final int SHAPE_SHEET_W = 450;
-    static final int SHAPE_SHEET_H = 900;
-    static final int SHAPE_STATE_H = 450;
+    static final int PR133_ICON_SIZE = 24;
     static final int MODE_SHEET_W = 512;
     static final int MODE_STATE_H = 512;
     static final int MODE_SHEET_H = MODE_STATE_H * 3;
 
     private QuickBuildIconCatalog() {}
 
-    static ResourceLocation shapeTexture(QuickBuildUiShape shape) {
-        return switch (shape) {
-            case CHAIN -> QUICK_BUILD_CHAIN_BLOCK;
-            case BLOCK -> QUICK_BUILD_SINGLE_BLOCK;
-            case LINE -> QUICK_BUILD_LINE_BLOCK;
-            case SQUARE -> QUICK_BUILD_SQUARE_BLOCK;
-            case WALL -> QUICK_BUILD_WALL_BLOCK;
-            case CIRCLE -> QUICK_BUILD_CIRCLE_BLOCK;
-            case CYLINDER -> QUICK_BUILD_CYLINDER_BLOCK;
-            case BALL -> QUICK_BUILD_BALL_BLOCK;
-            case BOX -> QUICK_BUILD_BOX_BLOCK;
+    static WindowButton.StateTextureProvider shapeProvider(QuickBuildUiShape shape) {
+        Entry entry = entry(shapeKey(shape));
+        return entry::resolve;
+    }
+
+    static ResourceLocation convenienceTexture(QuickBuildUiConvenienceTool tool,
+                                               UiTextureState state) {
+        String key = switch (tool) {
+            case REPEAT_BOX -> "cube";
+            case CHUNK_QUARRY -> "smart_break/stair";
+            case TREE_FELL -> "smart_break/tree";
         };
+        return entry(key).resolve(state);
+    }
+
+    static ResourceLocation smartFillTexture(UiTextureState state) {
+        return entry("fill_water/cave").resolve(state);
+    }
+
+    private static String shapeKey(QuickBuildUiShape shape) {
+        return switch (shape) {
+            case CHAIN -> "chain";
+            case BLOCK -> "single";
+            case LINE -> "line";
+            case SQUARE -> "surface";
+            case WALL -> "wall";
+            case CIRCLE -> "round";
+            case CYLINDER -> "cylinder";
+            case BALL -> "ball";
+            case BOX -> "cube";
+        };
+    }
+
+    private static Entry entry(String key) {
+        String base = "rtsbuilding:textures/gui/quickbuild_pr133/" + key;
+        LegacyTextureSet legacy = new LegacyTextureSet(
+                ResourceLocation.tryParse(base + "_inactive.png"),
+                ResourceLocation.tryParse(base + "_hover.png"),
+                ResourceLocation.tryParse(base + "_active.png"),
+                ResourceLocation.tryParse(base + "_pressed.png"));
+        return new Entry(legacy, PaletteTextureCatalog.quickBuild(key));
+    }
+
+    private static final class Entry {
+        private final LegacyTextureSet legacy;
+        private final ResourceLocation palette;
+
+        private Entry(LegacyTextureSet legacy, ResourceLocation palette) {
+            this.legacy = legacy;
+            this.palette = palette;
+        }
+
+        private ResourceLocation resolve(UiTextureState state) {
+            return ThemedStateTextureResolver.resolve(legacy, palette, state);
+        }
     }
 
     static String tooltipKey(QuickBuildUiShape shape) {

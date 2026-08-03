@@ -568,8 +568,9 @@ class UiProductionAdapterContractTest {
         assertTrue(controlRenderer.contains("QuickBuildChromeRenderer.renderMode("));
         assertTrue(controlRenderer.contains("QuickBuildWindowLayout.CONTROL_ICON_INSET"));
         assertTrue(controlRenderer.contains("QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET"));
-        assertTrue(iconCatalog.contains("static ResourceLocation shapeTexture("));
-        assertTrue(iconCatalog.contains("QUICK_BUILD_CHAIN_BLOCK"));
+        assertTrue(iconCatalog.contains("static WindowButton.StateTextureProvider shapeProvider("));
+        assertTrue(iconCatalog.contains("ThemedStateTextureResolver.resolve("));
+        assertTrue(iconCatalog.contains("quickbuild_pr133/"));
         assertTrue(panel.contains("QuickBuildStatusRenderer.render("));
         assertTrue(statusRenderer.contains("QuickBuildChromeRenderer.renderStatus("));
         assertTrue(statusRenderer.contains("layout.statusTextY"));

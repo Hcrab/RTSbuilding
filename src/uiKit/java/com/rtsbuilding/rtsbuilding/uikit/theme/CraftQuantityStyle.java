@@ -7,24 +7,24 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 使用全局主线主题。该类不负责布局、文字内容或合成请求。</p>
  */
 public final class CraftQuantityStyle {
-    public static final UiColor MODAL_SCRIM = new UiColor(0x78000000);
-    public static final UiColor DIALOG_BACKGROUND = new UiColor(0xEE171C24);
-    public static final UiColor CLOSE_BACKGROUND = new UiColor(0xCC2B3440);
-    public static final UiColor ITEM_LABEL = new UiColor(0xFFE4ECF6);
-    public static final UiColor MUTED_TEXT = new UiColor(0xFFAFC0D3);
-    public static final UiColor SECTION_LABEL = new UiColor(0xFFD8E3EE);
-    public static final UiColor OPTIONS_BACKGROUND = new UiColor(0xAA202833);
-    public static final UiColor OPTIONS_BORDER_LIGHT = new UiColor(0xFF61758A);
-    public static final UiColor OPTIONS_BORDER_DARK = new UiColor(0xFF11161C);
-    public static final UiColor CRAFTABLE_ROW = new UiColor(0xAA223B2E);
-    public static final UiColor MISSING_ROW = new UiColor(0xAA402626);
-    public static final UiColor CRAFTABLE_ROW_SELECTED = new UiColor(0xCC2E5B43);
-    public static final UiColor MISSING_ROW_SELECTED = new UiColor(0xCC684040);
-    public static final UiColor ROW_TEXT = new UiColor(0xFFF2F7FF);
-    public static final UiColor CRAFTABLE_BADGE = new UiColor(0xFFC9F0C7);
-    public static final UiColor MISSING_BADGE = new UiColor(0xFFF0C4C4);
-    public static final UiColor DETAIL = new UiColor(0xFFBCD0E2);
-    public static final UiColor DETAIL_MISSING = new UiColor(0xFFD6AAAA);
+    public static final UiColor MODAL_SCRIM = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_PRIMARY, 0X78000000);
+    public static final UiColor DIALOG_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XEE171C24);
+    public static final UiColor CLOSE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XCC2B3440);
+    public static final UiColor ITEM_LABEL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_PRIMARY, 0XFFE4ECF6);
+    public static final UiColor MUTED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_MUTED, 0XFFAFC0D3);
+    public static final UiColor SECTION_LABEL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_PRIMARY, 0XFFD8E3EE);
+    public static final UiColor OPTIONS_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XAA202833);
+    public static final UiColor OPTIONS_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.BORDER_STRONG, 0XFF61758A);
+    public static final UiColor OPTIONS_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.BORDER_SOFT, 0XFF11161C);
+    public static final UiColor CRAFTABLE_ROW = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XAA223B2E);
+    public static final UiColor MISSING_ROW = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.ERROR, 0XAA402626);
+    public static final UiColor CRAFTABLE_ROW_SELECTED = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_SELECTED, 0XCC2E5B43);
+    public static final UiColor MISSING_ROW_SELECTED = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.ERROR, 0XCC684040);
+    public static final UiColor ROW_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_PRIMARY, 0XFFF2F7FF);
+    public static final UiColor CRAFTABLE_BADGE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_PRIMARY, 0XFFC9F0C7);
+    public static final UiColor MISSING_BADGE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.ERROR, 0XFFF0C4C4);
+    public static final UiColor DETAIL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_PRIMARY, 0XFFBCD0E2);
+    public static final UiColor DETAIL_MISSING = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.ERROR, 0XFFD6AAAA);
 
     private CraftQuantityStyle() {
     }

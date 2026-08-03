@@ -147,6 +147,7 @@ public BuilderScreen(ClientRtsController controller) {
                 this.blueprintNameWindowPanel,
                 this.craftQuantityWindowPanel,
                 this.gearMenuPanel,
+                this.themeSettingsPanel,
                 this.aiChatPanel,
                 this.guidePanel,
                 this.quickBuildPanel,
@@ -182,6 +183,8 @@ public BuilderScreen(ClientRtsController controller) {
         this.guidePanel.init(this, this.controller);
         this.aiChatPanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
+        this.themeSettingsPanel.init(this, this.controller);
+        this.gearMenuPanel.bindThemeSettingsPanel(this.themeSettingsPanel);
         this.blueprintWindowPanel.init(this, this.controller);
         this.blueprintNameWindowPanel.init(this, this.controller);
         this.blueprintMaterialWindowPanel.init(this, this.controller);
