@@ -13,6 +13,7 @@
 | ID | 域 | 旧 API / 根因 | 1.19.2 替代契约 | 预计影响 | 状态 | 验证 |
 |---|---|---|---|---|---|---|
 | B001 | 构建 | Minecraft 1.20.1 / Forge 47.4.16 | Minecraft 1.19.2 / Forge 43.5.0 | Gradle、元数据、运行任务 | 已完成 | `tasks` 与 `compileClasspath` 解析通过 |
+| A001 | 纯核心 / UI | 共享源码可能泄漏平台 API | Core / Kit / Preview 原样复用并保持 Java 8 字节码 | UI Core、UI Kit、headless preview | 已完成 | Core/Kit 测试、66 场景快照、376 个 class 字节码通过 |
 | C001 | GUI | `GuiGraphics` 在 1.19.2 不存在 | 单一 `RtsGuiContext` 桥接到 `PoseStack` / `GuiComponent` | 生产 UI、tooltip、scissor、文本框 | 待处理 | UI Core/Kit 测试、快照、实机 |
 | C002 | 数据 | 新版 ItemStack / 数据接口差异 | `RtsStackDataAccess` 统一 NBT 读写与 fail-closed 校验 | 蓝图、插件、任务、UI 状态 | 待处理 | 往返、损坏输入、旧存档 |
 | B002 | 网络 | Forge 1.20.1 SimpleChannel/API 差异 | 1.19.2 SimpleChannel，显式 discriminator 和主线程入队 | 全部 C2S/S2C 消息 | 待处理 | 编解码边界、权限、重连 |
@@ -24,7 +25,8 @@
 
 - 阶段 0：锚点、工作树、目标范围已确认；首个可审计提交准备中。
 - 阶段 1：构建坐标、资源元数据、JEI/Jade API 坐标均已降级；`gradlew tasks` 与 `compileClasspath` 依赖解析通过。
-- 阶段 2—10：尚未开始。
+- 阶段 2：UI Core / Kit 隔离、单元测试、headless 快照与 Java 8 字节码验证全部通过，无需建立 1.19.2 分叉实现。
+- 阶段 3—10：尚未开始。
 
 ## 人类实机验收保留项
 
