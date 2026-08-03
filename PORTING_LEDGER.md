@@ -16,8 +16,8 @@
 | A001 | 纯核心 / UI | 共享源码可能泄漏平台 API | Core / Kit / Preview 原样复用并保持 Java 8 字节码 | UI Core、UI Kit、headless preview | 已完成 | Core/Kit 测试、66 场景快照、376 个 class 字节码通过 |
 | C001 | GUI | `GuiGraphics` 在 1.19.2 不存在 | 单一 `RtsGuiContext` 桥接到 `PoseStack` / `GuiComponent` | 生产 UI、tooltip、scissor、文本框 | 自动化通过，待运行验收 | 完整 `build`、UI Core/Kit、66 场景快照、四语资源与样式债验证通过；待实机 |
 | C002 | 数据 | 新版 ItemStack / 数据接口差异 | `RtsStackDataAccess` 统一 NBT 读写与 fail-closed 校验；`RtsItemStacks` 保留复制后的 NBT/耐久/能力数据 | 蓝图、插件、任务、UI 状态 | 自动化通过，待存档实测 | 720 项 JVM 测试全绿，含 codec 往返、损坏/超限输入、任务持久化；待旧存档启动验证 |
-| B002 | 网络 | Forge 1.20.1 SimpleChannel/API 差异 | 1.19.2 SimpleChannel，显式 discriminator 和主线程入队 | 全部 C2S/S2C 消息 | 待处理 | 编解码边界、权限、重连 |
-| B003 | 能力 | 1.20.1 Capability 调用差异 | `ForgeCapabilities` + `LazyOptional` 生命周期 | linked storage、工具、流体、能量 | 待处理 | simulate/execute、回写、失效 |
+| B002 | 网络 | Forge 1.20.1 SimpleChannel/API 差异 | 1.19.2 SimpleChannel，显式 discriminator 和主线程入队 | 全部 C2S/S2C 消息 | 基础运行通过，待客户端联机 | 720 项 JVM 测试、专服启动与 51 项 GameTest 通过；待真实握手、重连与过期回复 |
+| B003 | 能力 | 1.20.1 Capability 调用差异 | `ForgeCapabilities` + `LazyOptional` 生命周期 | linked storage、工具、流体、能量 | 核心 GameTest 通过，待第三方组合 | linked chest、自动储存、工具耐久、流体与回填相关 GameTest 通过；待 AE2/RS/机械组合与失效实测 |
 | C003 | 渲染 | 世界渲染阶段和缓冲生命周期差异 | 1.19.2 渲染事件 + 私有 buffer + 状态成对恢复；实心盒显式写入六面顶点 | Ghost、选择框、范围剔除 | 自动化通过，待运行验收 | 渲染契约、私有 buffer 生命周期、Skeleton 压力场景与完整 `build` 通过；待原版、优化模组、专服 |
 | D001 | 可选兼容 | JEI/Jade/Create 目标 API 不同 | 核心稳定后逐个恢复，不排除源码 | compat 包 | 编译适配完成，待组合启动 | JEI/Jade/Create 源码均参与 `compileJava`；待缺失依赖启动与组合测试 |
 | C004 | 注册表访问 | 1.19.2 不存在 `BuiltInRegistries`，创造页签也尚未注册表化 | `RtsBuiltInRegistries` 委托旧 `Registry` 并提供只读页签视图 | 81 个物品、方块、流体、声音与分类调用文件 | 已完成 | 编译错误 425→346→0；全树 `compileJava` 通过 |
@@ -32,7 +32,8 @@
 - 阶段 4：生产 GUI、文本框、按钮、配方与语言接口已接入 1.19.2 契约；完整 JVM 测试 720/720 通过（contract 235、unit 474、performance 11）。
 - 阶段 5：完整 `build` 已通过，包括重混淆 JAR、3 项性能债门禁、UI 隔离、66 场景快照、四语/图标资源、376 个 Java 8 UI class 校验。
 - 阶段 6：干净专用服务端已到达 `Done`，通过本地 RCON 正常 `stop`，三维度保存完成，Gradle 运行任务成功退出；未发生客户端类加载崩溃。
-- 阶段 7—10：GameTest server、客户端、网络/能力运行审计、可选模组组合及实机验收尚未完成；不能以专服启动成功替代其余运行验证。
+- 阶段 7：1.19.2 GameTestServer 玩家资料缓存脚手架已补齐；51/51 必需 GameTest 全部通过并正常保存关闭，覆盖建造、破坏、储存、工具、漏斗、蓝图、多人隔离、任务持久化与三次历史。
+- 阶段 8—10：客户端、真实网络握手/重连、可选模组组合及人类实机验收尚未完成；不能以 GameTest 全绿替代客户端与第三方环境。
 
 ## 人类实机验收保留项
 

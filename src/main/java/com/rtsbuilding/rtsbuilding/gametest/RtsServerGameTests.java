@@ -55,6 +55,8 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntim
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import io.netty.channel.embedded.EmbeddedChannel;
+import java.io.File;
+import java.lang.reflect.Field;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -76,6 +78,9 @@ import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.Services;
+import net.minecraft.server.players.GameProfileCache;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
@@ -1848,6 +1853,7 @@ public final class RtsServerGameTests {
         }
         ensureCoreServices();
         GameProfile profile = new GameProfile(UUID.randomUUID(), name);
+        ensureGameTestProfileCache(helper.getLevel().getServer()).add(profile);
         // 与原版 GameTest 的 mock player 保持相同的模式判定语义，同时仍使用唯一名称并注册进 PlayerList。
         // 生产放置链会直接查询 isCreative()/isSpectator()；普通 ServerPlayer 在测试连接刚建立时可能尚未
         // 完成这些派生状态的同步，导致实际 useItemOn 已执行却被错误归入跳过。
@@ -1874,6 +1880,41 @@ public final class RtsServerGameTests {
                 "GameTest fake player should enter RTS mode");
         requireSession(helper, player);
         return player;
+    }
+
+    /**
+     * 补齐 1.19.2 GameTestServer 省略的玩家资料缓存。
+     *
+     * <p>该版本在构造 {@link ServerPlayer} 时会立即从 {@link GameProfileCache} 读取
+     * advancement 文件名，而原版 GameTestServer 的 {@link Services} 却把缓存留为
+     * {@code null}。这里仅在测试服务端确实缺失缓存时替换同一组 Services，并保留原有
+     * session、签名验证和 profile repository；真实客户端与专用服务端不会进入此分支。
+     * 这段适配不伪造玩家生命周期，测试玩家随后仍通过 PlayerList 正式登记。</p>
+     */
+    private static GameProfileCache ensureGameTestProfileCache(MinecraftServer server) {
+        GameProfileCache existing = server.getProfileCache();
+        if (existing != null) {
+            return existing;
+        }
+        synchronized (RtsServerGameTests.class) {
+            existing = server.getProfileCache();
+            if (existing != null) {
+                return existing;
+            }
+            GameProfileCache cache = new GameProfileCache(
+                    server.getProfileRepository(), new File("rtsbuilding-gametest-usercache.json"));
+            Services services = new Services(
+                    server.getSessionService(), server.getServiceSignatureValidator(),
+                    server.getProfileRepository(), cache);
+            try {
+                Field field = MinecraftServer.class.getDeclaredField("services");
+                field.setAccessible(true);
+                field.set(server, services);
+            } catch (ReflectiveOperationException exception) {
+                throw new IllegalStateException("无法为 1.19.2 GameTestServer 安装玩家资料缓存", exception);
+            }
+            return cache;
+        }
     }
 
     private static String nextPlayerName() {
