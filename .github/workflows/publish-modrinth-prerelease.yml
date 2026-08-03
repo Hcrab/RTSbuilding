@@ -30,6 +30,11 @@ on:
         description: UTF-8 release notes encoded as Base64
         required: true
         type: string
+      repair_version_id:
+        description: Existing Modrinth version ID to repair without republishing
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -99,6 +104,7 @@ jobs:
           esac
 
       - name: Set up Java
+        if: inputs.repair_version_id == ''
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a
         with:
           distribution: temurin
@@ -106,6 +112,7 @@ jobs:
           cache: gradle
 
       - name: Build and verify exact artifact
+        if: inputs.repair_version_id == ''
         shell: bash
         env:
           ARTIFACT: ${{ steps.release.outputs.artifact }}
@@ -125,6 +132,7 @@ jobs:
           test -s release-notes.md
 
       - name: Publish to Modrinth
+        if: inputs.repair_version_id == ''
         uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075
         with:
           modrinth-id: 5PkY7RJI
@@ -142,3 +150,39 @@ jobs:
           dependencies: ${{ steps.release.outputs.dependencies }}
           retry-attempts: 3
           retry-delay: 10000
+
+      - name: Normalize Modrinth changelog encoding
+        shell: bash
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          RELEASE_VERSION: ${{ inputs.version }}
+          REQUESTED_VERSION_ID: ${{ inputs.repair_version_id }}
+        run: |
+          set -euo pipefail
+          api='https://api.modrinth.com/v2'
+          user_agent='RTSBuilding-release-workflow/1.0 (github.com/Hcrab/RTSbuilding)'
+          version_id="$REQUESTED_VERSION_ID"
+          if [ -z "$version_id" ]; then
+            versions_json="$(curl --fail-with-body --silent --show-error \
+              -H "User-Agent: $user_agent" \
+              "$api/project/5PkY7RJI/version")"
+            version_id="$(printf '%s' "$versions_json" | jq -r \
+              --arg version "$RELEASE_VERSION" \
+              '[.[] | select(.version_number == $version)] | if length == 1 then .[0].id else empty end')"
+            test -n "$version_id"
+          fi
+
+          version_json="$(curl --fail-with-body --silent --show-error \
+            -H "User-Agent: $user_agent" \
+            "$api/version/$version_id")"
+          test "$(printf '%s' "$version_json" | jq -r '.project_id')" = '5PkY7RJI'
+          test "$(printf '%s' "$version_json" | jq -r '.version_number')" = "$RELEASE_VERSION"
+
+          jq -n --rawfile changelog release-notes.md '{changelog: $changelog}' > modrinth-changelog.json
+          curl --fail-with-body --silent --show-error \
+            -X PATCH \
+            -H "Authorization: $MODRINTH_TOKEN" \
+            -H "User-Agent: $user_agent" \
+            -H 'Content-Type: application/json' \
+            --data-binary @modrinth-changelog.json \
+            "$api/version/$version_id" > /dev/null
