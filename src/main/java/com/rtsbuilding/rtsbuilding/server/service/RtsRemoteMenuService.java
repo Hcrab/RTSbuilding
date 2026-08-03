@@ -176,6 +176,11 @@ public final class RtsRemoteMenuService {
      */
     private static void syncRemoteTargetChunk(ServerPlayer player, ServerLevel level, BlockPos pos) {
         try {
+            // 已在玩家正常追踪视图中的区块拥有完整的客户端生命周期与第三方多方块注册状态。
+            // 重发整块快照会替换客户端区块，并可能清空 Extreme Reactors 一类模组仅存于客户端的控制器关联。
+            if (player.getChunkTrackingView().contains(pos.getX() >> 4, pos.getZ() >> 4)) {
+                return;
+            }
             LevelChunk chunk = level.getChunkAt(pos);
             player.connection.send(ClientboundChunkBatchStartPacket.INSTANCE);
             player.connection.send(new ClientboundLevelChunkWithLightPacket(

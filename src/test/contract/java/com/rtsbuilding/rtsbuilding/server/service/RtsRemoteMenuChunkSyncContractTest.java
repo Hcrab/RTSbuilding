@@ -19,6 +19,8 @@ class RtsRemoteMenuChunkSyncContractTest {
         assertTrue(source.contains("ClientboundLevelChunkWithLightPacket"));
         assertTrue(source.contains("ClientboundChunkBatchStartPacket.INSTANCE"));
         assertTrue(source.contains("new ClientboundChunkBatchFinishedPacket(1)"));
+        assertTrue(source.contains("player.getChunkTrackingView().contains"),
+                "已追踪区块不得被完整快照替换，否则第三方客户端多方块关联会丢失。");
         assertTrue(source.contains("catch (RuntimeException exception)"));
         assertTrue(source.contains("falling back to block updates"));
     }

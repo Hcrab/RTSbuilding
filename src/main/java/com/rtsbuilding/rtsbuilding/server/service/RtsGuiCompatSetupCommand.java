@@ -23,6 +23,7 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
@@ -241,7 +242,7 @@ public final class RtsGuiCompatSetupCommand {
             case "securitycraft_inventory_scanner_pair" -> prepareSecurityCraftInventoryScannerPair(
                     level, player, targetPos);
             case "productive_metalworks_minimal_foundry" -> prepareProductiveMetalworksFoundry(
-                    level, player, targetPos);
+                    level, targetPos);
             case "extreme_reactors_minimal_reactor" -> prepareExtremeReactorsMinimalReactor(
                     level, targetPos);
             case "integrated_terminal_storage_part" -> prepareIntegratedTerminalStoragePart(
@@ -336,27 +337,31 @@ public final class RtsGuiCompatSetupCommand {
 
     /**
      * Productive Metalworks 在开窗前会重新扫描真实多方块，不能通过伪造方块实体状态绕过。
-     * 探针搭建最小 3×3 铸造厂：底层加热线圈、两层耐火砖外墙、正面中央保留控制器，
-     * 内部保持为空。所有方块均从注册表取得，因此主模组不会硬依赖该可选模组的类。
+     * 探针搭建最小安全铸造厂：底层加热线圈、两层耐火砖外墙、正面中央保留控制器，
+     * 内部保持为空且体积至少为 4。所有方块均从注册表取得，因此主模组不会硬依赖该可选模组的类。
      */
     private static boolean prepareProductiveMetalworksFoundry(
-            ServerLevel level, ServerPlayer player, BlockPos controllerPos) {
+            ServerLevel level, BlockPos controllerPos) {
         Block wall = registeredBlock("productivemetalworks:black_fire_bricks");
         Block coil = registeredBlock("productivemetalworks:powered_heating_coil");
         if (wall == null || coil == null) {
             return false;
         }
 
+        // Productive Metalworks 的菜单固定按四列创建槽位；内部体积小于 4 时，模组自身会创建越界槽并在渲染时崩溃。
+        // 因此使用 3×2×4 外壳，留下 1×2×2 = 4 格内部体积。
+        int foundryDepth = 4;
+
         // 控制器位于北侧墙中央；结构向南延伸，避免覆盖玩家与远程射线起点。
         for (int x = -1; x <= 1; x++) {
-            for (int z = 0; z <= 2; z++) {
+            for (int z = 0; z < foundryDepth; z++) {
                 level.setBlock(controllerPos.offset(x, -1, z), coil.defaultBlockState(), 3);
             }
         }
         for (int y = 0; y <= 1; y++) {
             for (int x = -1; x <= 1; x++) {
-                for (int z = 0; z <= 2; z++) {
-                    boolean wallCell = x == -1 || x == 1 || z == 0 || z == 2;
+                for (int z = 0; z < foundryDepth; z++) {
+                    boolean wallCell = x == -1 || x == 1 || z == 0 || z == foundryDepth - 1;
                     if (!wallCell || (x == 0 && z == 0 && y == 0)) {
                         continue;
                     }
@@ -365,9 +370,27 @@ public final class RtsGuiCompatSetupCommand {
             }
         }
         Block controller = level.getBlockState(controllerPos).getBlock();
-        controller.setPlacedBy(level, controllerPos, level.getBlockState(controllerPos), player,
-                new ItemStack(controller));
-        return level.getBlockState(controllerPos).is(controller);
+        BlockEntity blockEntity = level.getBlockEntity(controllerPos);
+        if (blockEntity == null) {
+            return false;
+        }
+        try {
+            // 真实右键会先重新扫描再开菜单；夹具必须提前走同一公开扫描入口并完成同步，
+            // 否则服务端菜单槽数会比客户端方块实体多一格，第三方 Screen 会在首次渲染时越界崩溃。
+            var detect = controller.getClass().getMethod("detectMultiblock", Level.class, BlockPos.class);
+            Object multiblockData = detect.invoke(null, level, controllerPos);
+            var setData = blockEntity.getClass().getMethod("setMultiBlockData", detect.getReturnType());
+            setData.invoke(blockEntity, multiblockData);
+            blockEntity.setChanged();
+            level.sendBlockUpdated(controllerPos,
+                    level.getBlockState(controllerPos), level.getBlockState(controllerPos), 3);
+            return true;
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            RtsbuildingMod.LOGGER.warn(
+                    "[RTS-GUI-PROBE] failed to prepare Productive Metalworks foundry at {}",
+                    controllerPos.toShortString(), exception);
+            return false;
+        }
     }
 
     /**

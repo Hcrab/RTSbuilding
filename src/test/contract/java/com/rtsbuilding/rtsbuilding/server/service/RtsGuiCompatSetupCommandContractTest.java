@@ -26,6 +26,10 @@ class RtsGuiCompatSetupCommandContractTest {
         assertTrue(source.contains("prepareSecurityCraftInventoryScannerPair"));
         assertTrue(source.contains("prepareProductiveMetalworksFoundry"));
         assertTrue(source.contains("productivemetalworks:powered_heating_coil"));
+        assertTrue(source.contains("int foundryDepth = 4"));
+        assertTrue(source.contains("z == foundryDepth - 1"));
+        assertTrue(source.contains("\"detectMultiblock\", Level.class, BlockPos.class"));
+        assertTrue(source.contains("\"setMultiBlockData\", detect.getReturnType()"));
         assertTrue(source.contains("prepareExtremeReactorsMinimalReactor"));
         assertTrue(source.contains("bigreactors:basic_reactorfuelrod"));
         assertTrue(source.contains("prepareIntegratedTerminalStoragePart"));
