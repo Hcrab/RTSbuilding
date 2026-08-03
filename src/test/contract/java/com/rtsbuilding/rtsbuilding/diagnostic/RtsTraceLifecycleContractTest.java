@@ -53,9 +53,25 @@ class RtsTraceLifecycleContractTest {
                 .contains("acceptNetwork("));
         String server = read("server/diagnostic/RtsServerTraceRegistry.java");
         for (String stage : List.of("NET_RECEIVE", "WORKFLOW_CREATED", "TASK_SUBMITTED",
-                "TASK_FIRST_SLICE", "TASK_WAIT", "TERMINAL")) {
+                "TASK_FIRST_SLICE", "TASK_WAIT", "WORKFLOW_TERMINAL_DEFERRED", "TERMINAL")) {
             assertTrue(server.contains('"' + stage + '"'), () -> "缺少阶段: " + stage);
         }
+        assertTrue(server.contains("externalTaskTerminal("));
+        assertTrue(read("server/task/RtsTaskEngine.java").contains(
+                "RtsServerTraceRegistry.externalTaskTerminal("));
+    }
+
+    @Test
+    void areaDestroyFiltersStayCorrelatedAndStructured() throws IOException {
+        String destruction = read("server/service/destruction/RtsDestructionBatch.java");
+        assertTrue(destruction.contains("RtsDiagnosticReason.HARVEST_TIER_TOO_LOW"));
+        assertTrue(destruction.contains("RtsDiagnosticReason.TOOL_CANNOT_HARVEST"));
+        assertTrue(destruction.contains("RtsOperationDiagnostics.filteredTargets("));
+
+        String diagnostics = read("server/diagnostic/RtsOperationDiagnostics.java");
+        assertTrue(diagnostics.contains("RtsStructuredDiagnostics.appendServer(\"FILTER\""));
+        assertTrue(diagnostics.contains("context.getArg(UltimineExecutePipe.ARG_POSITIONS)"));
+        assertTrue(diagnostics.contains("RtsServerTraceRegistry.traceForWorkflow("));
     }
 
     private static String read(String relative) throws IOException {

@@ -22,7 +22,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
-    private static final String STABLE_VERSION = "1.1.6";
+    private static final String STABLE_VERSION = "1.1.6-patch2";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean shownThisConnection;
@@ -121,16 +121,15 @@ public final class RtsClientOnboardingReminder {
     /**
      * 从实际加载的 ModContainer 读取当前版本系列。
      *
-     * <p>入门提醒面向普通玩家，只展示 {@code 1.1.6} 这一公开版本系列；
-     * Patch/Pilot 构建自身仍保留完整限定符的 JAR 元数据，便于日志诊断。
+     * <p>Beta/Pilot 必须展示完整限定符，让玩家能明确判断当前测试构建，
+     * 并按提醒退回指定稳定版本。
      */
     private static String currentDisplayVersion() {
         String version = ModList.get()
                 .getModContainerById(RtsbuildingMod.MODID)
                 .map(container -> container.getModInfo().getVersion().toString())
                 .orElse("unknown");
-        int qualifier = version.indexOf('-');
-        return qualifier > 0 ? version.substring(0, qualifier) : version;
+        return version;
     }
 
     private static Component websiteComponent() {
