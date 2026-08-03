@@ -45,7 +45,7 @@ public final class RtsIntegratedDynamicsCompat {
         if (player == null || pos == null || CABLE_BLOCK_ID == null || !ModList.get().isLoaded(MOD_ID)) {
             return false;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         if (level == null || !level.hasChunkAt(pos)) {
             return false;
         }

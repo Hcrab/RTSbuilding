@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.compat.refinedstorage;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.NetworkSnapshotRefreshGate;
@@ -39,7 +41,7 @@ public final class RtsRefinedStorageCompat {
         if (!isAvailable() || player == null || pos == null) {
             return null;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         if (level == null || !level.hasChunkAt(pos)) {
             return null;
         }
@@ -108,7 +110,7 @@ public final class RtsRefinedStorageCompat {
             if (slot < 0 || slot >= this.stacks.size() || amount <= 0) {
                 return ItemStack.EMPTY;
             }
-            ItemStack prototype = this.stacks.get(slot).copyWithCount(1);
+            ItemStack prototype = RtsItemStacks.copyWithCount(this.stacks.get(slot), 1);
             ItemStack extracted = this.reflection.extractItem(this.network, prototype, amount, simulate);
             if (!simulate) {
                 updateCachedAmount(slot, extracted.getCount());
@@ -128,7 +130,7 @@ public final class RtsRefinedStorageCompat {
                 }
                 ItemStack extracted = this.reflection.extractItem(
                         this.network,
-                        stack.copyWithCount(1),
+                        RtsItemStacks.copyWithCount(stack, 1),
                         amount,
                         simulate);
                 if (!simulate) {
@@ -290,7 +292,7 @@ public final class RtsRefinedStorageCompat {
         }
 
         private ItemStack extractItem(Object network, ItemStack prototype, int amount, boolean simulate) {
-            Object result = invoke(this.networkExtractItem, network, prototype.copyWithCount(1), amount,
+            Object result = invoke(this.networkExtractItem, network, RtsItemStacks.copyWithCount(prototype, 1), amount,
                     simulate ? this.actionSimulate : this.actionPerform);
             return result instanceof ItemStack itemStack ? itemStack : ItemStack.EMPTY;
         }

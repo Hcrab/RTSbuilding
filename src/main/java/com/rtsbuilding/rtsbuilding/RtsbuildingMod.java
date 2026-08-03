@@ -73,7 +73,7 @@ public final class RtsbuildingMod {
         RtsEntities.register(modEventBus);
         RtsBlocks.register(modEventBus);
         RtsItems.register(modEventBus);
-        RtsCreativeTabs.register(modEventBus);
+        RtsCreativeTabs.initialize();
         RtsForgePayloadRegistrar.register();
         MinecraftForge.EVENT_BUS.register(this);
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);

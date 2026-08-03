@@ -16,7 +16,7 @@ import com.rtsbuilding.rtsbuilding.network.blueprint.C2SBlueprintPlacePayload;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -62,7 +62,7 @@ public final class BlueprintPanel {
     private BlueprintPanel() {
     }
 
-    public static void render(GuiGraphics g, Font font, ClientRtsController controller,
+    public static void render(RtsGuiContext g, Font font, ClientRtsController controller,
             int x, int y, int w, int h, int mouseX, int mouseY) {
         if (!Config.areBlueprintsEnabled()) {
             CAPTURE.clearSilently();

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.core.BlockPos;
@@ -76,7 +78,7 @@ public abstract class AreaShapeGenerator {
         if (!state.canSurvive(level, pos)) {
             return false;
         }
-        return level.getBlockState(pos).canBeReplaced();
+        return RtsBlockStates.canBeReplaced(level.getBlockState(pos));
     }
 
     /**

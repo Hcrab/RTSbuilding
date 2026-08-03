@@ -13,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
@@ -123,7 +123,7 @@ public final class BlueprintPersistence {
         data.putInt(KEY_SKIPPED_BLOCKED, bctx.getSkippedBlocked());
         data.putBoolean(KEY_PREPARING, bctx.isPreparing());
         ResourceKey<Level> sourceDimension = bctx.getData(BlueprintContext.KEY_SOURCE_DIMENSION);
-        if (sourceDimension == null) sourceDimension = player.serverLevel().dimension();
+        if (sourceDimension == null) sourceDimension = player.getLevel().dimension();
         data.putString(KEY_SOURCE_DIMENSION, sourceDimension.location().toString());
 
         // 持久化到工作流条目
@@ -154,7 +154,7 @@ public final class BlueprintPersistence {
         CompoundTag data = entry.getExtraData();
         if (data == null || data.isEmpty()) return;
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
 
         // ── 重建蓝图 ─────────────────────────────────────────────
         CompoundTag structureTag = data.contains(KEY_BLUEPRINT_STRUCTURE, Tag.TAG_COMPOUND)
@@ -173,7 +173,7 @@ public final class BlueprintPersistence {
         int ySteps = data.getInt(KEY_Y_STEPS);
         int xSteps = data.getInt(KEY_X_STEPS);
         int zSteps = data.getInt(KEY_Z_STEPS);
-        ResourceKey<Level> sourceDimension = player.serverLevel().dimension();
+        ResourceKey<Level> sourceDimension = player.getLevel().dimension();
         String sourceDimensionId = data.getString(KEY_SOURCE_DIMENSION);
         if (!sourceDimensionId.isBlank()) {
             ResourceLocation parsed = ResourceLocation.tryParse(sourceDimensionId);

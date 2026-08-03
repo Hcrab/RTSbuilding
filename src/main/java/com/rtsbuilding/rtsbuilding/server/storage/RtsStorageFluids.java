@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
@@ -82,7 +84,7 @@ public final class RtsStorageFluids {
             return false;
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
         int filledIntoBlock = RtsClaimProtectionService.canInteractBlock(
                 player, clickedPos, face, InteractionHand.MAIN_HAND, ItemStack.EMPTY)
@@ -215,7 +217,7 @@ public final class RtsStorageFluids {
             return false;
         }
 
-        ItemStack single = inSlot.copyWithCount(1);
+        ItemStack single = RtsItemStacks.copyWithCount(inSlot, 1);
         RtsFluidBufferService.DrainOutcome simulated = RtsFluidBufferService.drainContainer(single, FLUID_TRANSFER_MB, false);
         if (simulated.isEmpty() || simulated.fluid().getAmount() < FLUID_TRANSFER_MB) {
             return false;

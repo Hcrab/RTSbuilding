@@ -61,21 +61,29 @@ public final class RtsJadeRayTraceCallback implements JadeRayTraceCallback {
                 : Double.MAX_VALUE;
 
         if (entityHit != null && entityDistance <= blockDistance) {
-            return WailaClientRegistration.instance().entityAccessor()
+            return WailaClientRegistration.INSTANCE.entityAccessor()
+                    .level(level)
+                    .player(originalAccessor.getPlayer())
+                    .serverData(originalAccessor.getServerData())
+                    .serverConnected(originalAccessor.isServerConnected())
+                    .showDetails(originalAccessor.showDetails())
                     .entity(entityHit.getEntity())
                     .hit(entityHit)
-                    .requireVerification()
                     .build();
         }
         if (blockHit != null && blockHit.getType() == HitResult.Type.BLOCK) {
             BlockPos position = blockHit.getBlockPos();
             BlockState state = level.getBlockState(position);
             BlockEntity blockEntity = level.getBlockEntity(position);
-            return WailaClientRegistration.instance().blockAccessor()
+            return WailaClientRegistration.INSTANCE.blockAccessor()
+                    .level(level)
+                    .player(originalAccessor.getPlayer())
+                    .serverData(originalAccessor.getServerData())
+                    .serverConnected(originalAccessor.isServerConnected())
+                    .showDetails(originalAccessor.showDetails())
                     .blockState(state)
                     .blockEntity(blockEntity)
                     .hit(blockHit)
-                    .requireVerification()
                     .build();
         }
         return accessor;

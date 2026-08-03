@@ -65,7 +65,7 @@ public final class RemoteMenuTracker {
         if (!isSupported(menu) || player == null) {
             return false;
         }
-        if (player.level().isClientSide()) {
+        if (player.getLevel().isClientSide()) {
             return this.clientMenuPending || menu.containerId == this.clientMenuId;
         }
         if (player instanceof ServerPlayer serverPlayer) {

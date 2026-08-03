@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WindowSliderLayout;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.util.Mth;
 
 import java.util.function.Consumer;
@@ -81,7 +81,7 @@ public class WindowSlider {
 
     // ======================== Rendering ========================
 
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         if (!visible) return;
         WindowSliderChromeRenderer.render(
                 new MinecraftUiCanvas(g, net.minecraft.client.Minecraft.getInstance().font),

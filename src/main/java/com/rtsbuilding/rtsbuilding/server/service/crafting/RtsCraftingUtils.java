@@ -1,11 +1,13 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.ContainerLevelAccess;
-import net.minecraft.world.inventory.TransientCraftingContainer;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.Ingredient;
@@ -104,7 +106,7 @@ final class RtsCraftingUtils {
      */
     static CraftingContainer createCraftingContainer(ServerPlayer player, List<ItemStack> stacks) {
         CraftingMenu dummyMenu = new CraftingMenu(0, player.getInventory(), ContainerLevelAccess.NULL);
-        TransientCraftingContainer input = new TransientCraftingContainer(dummyMenu, 3, 3);
+        CraftingContainer input = new CraftingContainer(dummyMenu, 3, 3);
         for (int i = 0; i < 9; i++) {
             ItemStack stack = stacks != null && i < stacks.size() ? stacks.get(i) : ItemStack.EMPTY;
             input.setItem(i, stack == null ? ItemStack.EMPTY : stack.copy());
@@ -232,7 +234,7 @@ final class RtsCraftingUtils {
         if (entries == null || stack == null || stack.isEmpty() || count <= 0L) {
             return;
         }
-        ItemStack prototype = stack.copyWithCount(1);
+        ItemStack prototype = RtsItemStacks.copyWithCount(stack, 1);
         for (int i = 0; i < entries.size(); i++) {
             AvailableCraftItem existing = entries.get(i);
             if (!ItemStack.isSameItemSameTags(existing.prototype(), prototype)) {

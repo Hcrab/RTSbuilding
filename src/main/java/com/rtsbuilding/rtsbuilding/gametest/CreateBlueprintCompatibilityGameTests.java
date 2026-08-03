@@ -35,14 +35,14 @@ public final class CreateBlueprintCompatibilityGameTests {
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
     public static void createVaultBlueprintRebuildsControllerAtPlacement(GameTestHelper helper) {
         Block vault = RtsBuiltInRegistries.BLOCK.get(new ResourceLocation("create", "item_vault"));
-        helper.assertTrue(vault != Blocks.AIR, "Create item vault must exist in the compatibility run");
+        RtsGameTestAssertions.assertTrue(helper, vault != Blocks.AIR, "Create item vault must exist in the compatibility run");
 
         BlockPos staleController = new BlockPos(-175, 63, 2035);
         BlockPos firstRel = new BlockPos(2, 1, 2);
         BlockState state = vault.defaultBlockState();
         for (int i = 0; i < 3; i++) {
             BlockPos target = helper.absolutePos(firstRel.offset(i, 0, 0));
-            helper.assertTrue(helper.getLevel().setBlock(
+            RtsGameTestAssertions.assertTrue(helper, helper.getLevel().setBlock(
                             target, state, BlueprintCreatePlacementCompat.placementFlags(state)),
                     "Create vault should be written with the blueprint placement flags");
             CompoundTag prepared = BlueprintCreatePlacementCompat.prepareBlockEntityTag(
@@ -57,7 +57,7 @@ public final class CreateBlueprintCompatibilityGameTests {
                 BlockPos relative = firstRel.offset(i, 0, 0);
                 helper.assertBlockPresent(vault, relative);
                 BlockEntity blockEntity = helper.getLevel().getBlockEntity(helper.absolutePos(relative));
-                helper.assertTrue(blockEntity != null, "Placed Create vault must keep its block entity");
+                RtsGameTestAssertions.assertTrue(helper, blockEntity != null, "Placed Create vault must keep its block entity");
                 CompoundTag saved = blockEntity.saveWithFullMetadata();
                 assertNoStalePosition(helper, saved, "Controller", staleController);
                 assertNoStalePosition(
@@ -70,7 +70,7 @@ public final class CreateBlueprintCompatibilityGameTests {
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
     public static void createBeltBlueprintDropsStaleRuntimeTopology(GameTestHelper helper) {
         Block belt = RtsBuiltInRegistries.BLOCK.get(new ResourceLocation("create", "belt"));
-        helper.assertTrue(belt != Blocks.AIR, "Create belt must exist in the compatibility run");
+        RtsGameTestAssertions.assertTrue(helper, belt != Blocks.AIR, "Create belt must exist in the compatibility run");
 
         BlockState state = belt.defaultBlockState();
         BlockPos target = helper.absolutePos(new BlockPos(2, 1, 2));
@@ -90,20 +90,20 @@ public final class CreateBlueprintCompatibilityGameTests {
 
         CompoundTag prepared = BlueprintCreatePlacementCompat.prepareBlockEntityTag(
                 helper.getLevel(), target, state, raw);
-        helper.assertTrue(prepared != null, "Create belt blueprint data must be prepared");
+        RtsGameTestAssertions.assertTrue(helper, prepared != null, "Create belt blueprint data must be prepared");
         for (String key : new String[]{
                 "Controller", "IsController", "Length", "Index",
                 "Speed", "NeedsSpeedUpdate", "Inventory"}) {
-            helper.assertTrue(!prepared.contains(key),
+            RtsGameTestAssertions.assertTrue(helper, !prepared.contains(key),
                     "Prepared Create belt retained stale runtime key: " + key);
         }
-        helper.assertTrue("ANDESITE".equals(prepared.getString("Casing")),
+        RtsGameTestAssertions.assertTrue(helper, "ANDESITE".equals(prepared.getString("Casing")),
                 "Prepared Create belt lost its casing");
-        helper.assertTrue(prepared.getBoolean("Covered"),
+        RtsGameTestAssertions.assertTrue(helper, prepared.getBoolean("Covered"),
                 "Prepared Create belt lost its cover");
-        helper.assertTrue("RED".equals(prepared.getString("Dye")),
+        RtsGameTestAssertions.assertTrue(helper, "RED".equals(prepared.getString("Dye")),
                 "Prepared Create belt lost its dye");
-        helper.assertTrue(
+        RtsGameTestAssertions.assertTrue(helper,
                 BlueprintCreatePlacementCompat.placementFlags(state) == Block.UPDATE_CLIENTS,
                 "Create belt placement must avoid per-segment neighbor updates");
         helper.succeed();
@@ -111,7 +111,7 @@ public final class CreateBlueprintCompatibilityGameTests {
 
     private static void applyBlockEntityTag(GameTestHelper helper, BlockPos target, CompoundTag tag) {
         BlockEntity blockEntity = helper.getLevel().getBlockEntity(target);
-        helper.assertTrue(blockEntity != null, "Placed Create block must create a block entity");
+        RtsGameTestAssertions.assertTrue(helper, blockEntity != null, "Placed Create block must create a block entity");
         if (tag == null || tag.isEmpty()) {
             return;
         }
@@ -142,7 +142,7 @@ public final class CreateBlueprintCompatibilityGameTests {
             return;
         }
         int[] value = tag.getIntArray(key);
-        helper.assertTrue(value.length != 3
+        RtsGameTestAssertions.assertTrue(helper, value.length != 3
                         || value[0] != stale.getX()
                         || value[1] != stale.getY()
                         || value[2] != stale.getZ(),

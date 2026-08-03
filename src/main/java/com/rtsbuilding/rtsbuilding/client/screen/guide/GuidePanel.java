@@ -24,7 +24,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.GuideWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.GuideWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -63,7 +63,7 @@ public final class GuidePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         if (this.context == GuideUiContext.TOP) {
             renderAiHelp(g, mouseX, mouseY);
             return;
@@ -261,7 +261,7 @@ public final class GuidePanel extends RtsWindowPanel {
         markBroughtToFront();
     }
 
-    public void renderTopHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+    public void renderTopHint(RtsGuiContext g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         if (this.open && this.context == GuideUiContext.TOP) {
             return;
         }
@@ -306,7 +306,7 @@ public final class GuidePanel extends RtsWindowPanel {
         return Component.translatable(GuideUiCatalog.titleKey(this.context));
     }
 
-    private void renderAiHelp(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderAiHelp(RtsGuiContext g, int mouseX, int mouseY) {
         int x = contentX() + 10;
         int y = contentY() + 9;
         int w = Math.max(80, contentWidth() - 20);
@@ -408,7 +408,7 @@ public final class GuidePanel extends RtsWindowPanel {
         this.textScroll = state.textScroll;
     }
 
-    private void drawTopicIcon(GuiGraphics g, GuideUiIcon icon, int cx, int cy, UiColor color) {
+    private void drawTopicIcon(RtsGuiContext g, GuideUiIcon icon, int cx, int cy, UiColor color) {
         GuideIconTextures.Entry entry = GuideIconTextures.entry(icon);
         if (entry.tinted()) {
             RenderSystem.setShaderColor(
@@ -423,7 +423,7 @@ public final class GuidePanel extends RtsWindowPanel {
         }
     }
 
-    private void drawGuideTextureIcon(GuiGraphics g, ResourceLocation texture, int cx, int cy) {
+    private void drawGuideTextureIcon(RtsGuiContext g, ResourceLocation texture, int cx, int cy) {
         g.pose().pushPose();
         g.pose().translate(cx - 9, cy - 9, 0.0F);
         g.pose().scale(0.75F, 0.75F, 1.0F);

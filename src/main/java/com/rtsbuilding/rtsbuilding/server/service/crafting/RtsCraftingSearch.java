@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
@@ -56,7 +58,7 @@ public final class RtsCraftingSearch {
         int batchOffset = Math.max(0, offset);
         int batchLimit = Math.max(1, limit);
         session.browser.craftRequestedCount = Math.max(RtsBrowserState.CRAFTABLE_BATCH_SIZE, batchOffset + batchLimit);
-        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
 
         if (session.browser.craftSearch.isBlank()) {
             sendCraftables(player, session, List.of(), 0, false, false);
@@ -73,8 +75,8 @@ public final class RtsCraftingSearch {
 
         List<AvailableCraftItem> availableStacks = snapshotAvailableCraftItems(player, session, activeLinked);
         Map<String, List<CraftableCandidate>> byResultItem = new LinkedHashMap<>();
-        for (ResourceLocation recipeId : player.serverLevel().getRecipeManager().getRecipeIds().toList()) {
-            Recipe<?> rawRecipe = player.serverLevel().getRecipeManager().byKey(recipeId).orElse(null);
+        for (ResourceLocation recipeId : player.getLevel().getRecipeManager().getRecipeIds().toList()) {
+            Recipe<?> rawRecipe = player.getLevel().getRecipeManager().byKey(recipeId).orElse(null);
             if (!(rawRecipe instanceof CraftingRecipe craftingRecipe)) {
                 continue;
             }
@@ -278,7 +280,7 @@ public final class RtsCraftingSearch {
         if (recipe == null || player == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack result = recipe.getResultItem(player.serverLevel().registryAccess());
+        ItemStack result = recipe.getResultItem();
         if (!result.isEmpty()) {
             return result.copy();
         }
@@ -293,11 +295,10 @@ public final class RtsCraftingSearch {
             if (options.length <= 0 || options[0].isEmpty()) {
                 return ItemStack.EMPTY;
             }
-            previewStacks.add(options[0].copyWithCount(1));
+            previewStacks.add(RtsItemStacks.copyWithCount(options[0], 1));
         }
         ItemStack assembled = recipe.assemble(
-                RtsCraftingUtils.createCraftingContainer(player, previewStacks),
-                player.serverLevel().registryAccess());
+                RtsCraftingUtils.createCraftingContainer(player, previewStacks));
         return assembled.isEmpty() ? ItemStack.EMPTY : assembled.copy();
     }
 

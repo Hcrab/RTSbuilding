@@ -23,7 +23,7 @@ class DropBufferHotPathContractTest {
     void bufferIsPersistedWithFullStackComponents() throws IOException {
         String source = read("server/data/SessionSerializer.java");
         assertTrue(source.contains("serializeDropBuffer"));
-        assertTrue(source.contains("stack.copyWithCount(chunkSize).save(new CompoundTag())"));
+        assertTrue(source.contains("RtsItemStacks.copyWithCount(stack, chunkSize).save(new CompoundTag())"));
         assertTrue(source.contains("ItemStack.of(stacks.getCompound(i))"));
     }
 

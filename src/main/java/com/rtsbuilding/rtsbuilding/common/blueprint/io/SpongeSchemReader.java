@@ -7,11 +7,10 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import net.minecraft.commands.arguments.blocks.BlockStateParser;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
@@ -57,8 +56,8 @@ final class SpongeSchemReader {
         CompoundTag blocksRoot = schematic.getCompound("Blocks");
         CompoundTag paletteTag = blocksRoot.getCompound("Palette");
         byte[] packed = readBlockData(blocksRoot);
-        HolderLookup<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK).asLookup();
-        Map<Integer, PaletteEntry> palette = readPalette(paletteTag, blockLookup);
+        Registry<Block> blockRegistry = registryAccess.registryOrThrow(Registry.BLOCK_REGISTRY);
+        Map<Integer, PaletteEntry> palette = readPalette(paletteTag, blockRegistry);
 
         // 解码变长整型数组并生成方块列表
         List<Integer> stateIds = decodeVarInts(packed, width * height * length);
@@ -114,7 +113,7 @@ final class SpongeSchemReader {
     }
 
     /** 读取调色板并解析方块状态 */
-    private static Map<Integer, PaletteEntry> readPalette(CompoundTag paletteTag, HolderLookup<Block> blockLookup)
+    private static Map<Integer, PaletteEntry> readPalette(CompoundTag paletteTag, Registry<Block> blockRegistry)
             throws BlueprintParseException {
         Map<Integer, PaletteEntry> out = new HashMap<>();
         for (String key : paletteTag.getAllKeys()) {
@@ -124,7 +123,7 @@ final class SpongeSchemReader {
                 continue;
             }
             try {
-                BlockState state = BlockStateParser.parseForBlock(blockLookup, key, false).blockState();
+                BlockState state = BlockStateParser.parseForBlock(blockRegistry, key, false).blockState();
                 out.put(paletteTag.getInt(key), new PaletteEntry(state, ""));
             } catch (CommandSyntaxException ex) {
                 throw new BlueprintParseException("Schematic 调色板中存在未知方块状态: " + key, ex);

@@ -143,7 +143,8 @@ public final class RtsRemoteMenuService {
             return;
         }
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
-        if (!(player.level() instanceof ServerLevel level) || !level.hasChunkAt(pos)) {
+        ServerLevel level = player.getLevel();
+        if (!level.hasChunkAt(pos)) {
             return;
         }
         player.connection.send(new ClientboundBlockUpdatePacket(level, pos));

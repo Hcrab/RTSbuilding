@@ -31,9 +31,9 @@ class RtsRemoteBlockSoundContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/mining/RtsMiningStateMachine.java"));
         String miningBody = methodBody(miningSource,
                 "public static MiningBreakResult destroyMinedBlock");
-        assertTrue(miningBody.contains("BlockState beforeState = player.serverLevel().getBlockState(pos);"),
+        assertTrue(miningBody.contains("BlockState beforeState = player.getLevel().getBlockState(pos);"),
                 "普通挖掘/连锁挖掘应先捕获破坏前状态。");
-        assertTrue(miningBody.contains("playRemoteBlockBreakSound(player, player.serverLevel(), pos, beforeState)"),
+        assertTrue(miningBody.contains("playRemoteBlockBreakSound(player, player.getLevel(), pos, beforeState)"),
                 "普通挖掘/连锁挖掘应把破坏前状态传给相机位置声音。");
 
         String recoverySource = Files.readString(Path.of(

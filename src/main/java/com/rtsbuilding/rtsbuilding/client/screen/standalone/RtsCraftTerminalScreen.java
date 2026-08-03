@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
@@ -14,8 +17,8 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
+import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
@@ -26,7 +29,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.inventory.TransientCraftingContainer;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import com.rtsbuilding.rtsbuilding.forgecompat.item.RtsItemStackCompat;
 import net.minecraft.world.item.crafting.CraftingRecipe;
@@ -67,7 +70,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     private static final int CARRIED_IMPORT_X_OFF = LINK_PANEL_W - CARRIED_IMPORT_W - 8;
     private static final int CARRIED_IMPORT_Y_OFF = LINK_PANEL_H - CARRIED_IMPORT_H - 7;
 
-    private EditBox searchBox;
+    private WindowTextBox searchBox;
 
     public RtsCraftTerminalScreen(CraftingMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -87,7 +90,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         int searchX = panelX + LINK_SEARCH_X_OFF + 2;
         int searchY = panelY + LINK_SEARCH_Y_OFF + 2;
         int searchW = LINK_GRID_W - LINK_SEARCH_CLEAR_W - 4;
-        this.searchBox = new EditBox(this.font, searchX, searchY, searchW, 8, Component.literal("Search"));
+        this.searchBox = new WindowTextBox(this.font, searchX, searchY, searchW, 8)
+                .setChromeVisible(false);
         this.searchBox.setBordered(false);
         this.searchBox.setCanLoseFocus(true);
         this.searchBox.setTextColor(CraftTerminalStyle.TEXT.toArgb());
@@ -99,16 +103,21 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        RtsGuiContext guiGraphics = new RtsGuiContext(poseStack, this);
         syncSearchValueFromController();
-        this.renderBackground(guiGraphics);
-        super.render(guiGraphics, mouseX, mouseY, partialTick);
+        this.renderBackground(poseStack);
+        super.render(poseStack, mouseX, mouseY, partialTick);
         renderCraftResultFallback(guiGraphics);
-        this.renderTooltip(guiGraphics, mouseX, mouseY);
+        super.renderTooltip(poseStack, mouseX, mouseY);
     }
 
     @Override
-    protected void renderBg(GuiGraphics guiGraphics, float partialTick, int mouseX, int mouseY) {
+    protected void renderBg(PoseStack poseStack, float partialTick, int mouseX, int mouseY) {
+        renderRtsBackground(new RtsGuiContext(poseStack, this), partialTick, mouseX, mouseY);
+    }
+
+    private void renderRtsBackground(RtsGuiContext guiGraphics, float partialTick, int mouseX, int mouseY) {
         int left = this.leftPos;
         int top = this.topPos;
 
@@ -134,7 +143,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     }
 
     @Override
-    protected void renderLabels(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+    protected void renderLabels(PoseStack poseStack, int mouseX, int mouseY) {
+        RtsGuiContext guiGraphics = new RtsGuiContext(poseStack, this);
         guiGraphics.drawString(this.font, "RTS Craft Terminal", this.titleLabelX, this.titleLabelY,
                 CraftTerminalStyle.TEXT.toArgb(), false);
     }
@@ -210,7 +220,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         return super.charTyped(codePoint, modifiers);
     }
 
-    private void renderLinkedPanel(GuiGraphics guiGraphics, int mouseX, int mouseY) {
+    private void renderLinkedPanel(RtsGuiContext guiGraphics, int mouseX, int mouseY) {
         ClientRtsController controller = ClientRtsController.get();
 
         int panelX = this.leftPos + LINK_PANEL_X_OFF;
@@ -508,7 +518,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         return new Rect2i(slotX, slotY, LINK_SLOT_SIZE, LINK_SLOT_SIZE);
     }
 
-    private void renderCraftResultFallback(GuiGraphics guiGraphics) {
+    private void renderCraftResultFallback(RtsGuiContext guiGraphics) {
         if (this.menu == null || this.menu.slots.isEmpty()) {
             return;
         }
@@ -544,14 +554,14 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
                 inputs.add(ItemStack.EMPTY);
                 continue;
             }
-            inputs.add(stack.copyWithCount(1));
+            inputs.add(RtsItemStacks.copyWithCount(stack, 1));
             anyNonEmpty = true;
         }
         if (!anyNonEmpty) {
             return ItemStack.EMPTY;
         }
 
-        TransientCraftingContainer input = new TransientCraftingContainer(this.menu, 3, 3);
+        CraftingContainer input = new CraftingContainer(this.menu, 3, 3);
         for (int i = 0; i < Math.min(9, inputs.size()); i++) {
             input.setItem(i, inputs.get(i));
         }
@@ -561,24 +571,24 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             return ItemStack.EMPTY;
         }
 
-        ItemStack result = recipe.get().assemble(input, minecraft.level.registryAccess());
+        ItemStack result = recipe.get().assemble(input);
         if (result.isEmpty()) {
-            result = recipe.get().getResultItem(minecraft.level.registryAccess());
+            result = recipe.get().getResultItem();
         }
         return result.isEmpty() ? ItemStack.EMPTY : result.copy();
     }
 
-    private void drawCountOverlay(GuiGraphics guiGraphics, int slotX, int slotY, String countText) {
+    private void drawCountOverlay(RtsGuiContext guiGraphics, int slotX, int slotY, String countText) {
         RtsClientUiUtil.drawSlotCountOverlay(guiGraphics, this.font, slotX, slotY, LINK_SLOT_SIZE,
                 countText, CraftTerminalStyle.COUNT_TEXT.toArgb());
     }
 
-    private void drawMiniButton(GuiGraphics guiGraphics, int x, int y, String label) {
+    private void drawMiniButton(RtsGuiContext guiGraphics, int x, int y, String label) {
         drawSmallButton(guiGraphics, x, y, MINI_BUTTON_W, MINI_BUTTON_H, label,
                 CraftTerminalStyle.MINI_BUTTON_BACKGROUND);
     }
 
-    private void drawSmallButton(GuiGraphics guiGraphics, int x, int y, int w, int h,
+    private void drawSmallButton(RtsGuiContext guiGraphics, int x, int y, int w, int h,
                                  String label, UiColor fill) {
         drawPanelFrame(guiGraphics, x, y, w, h, fill,
                 CraftTerminalStyle.BUTTON_BORDER_LIGHT, CraftTerminalStyle.BUTTON_BORDER_DARK);
@@ -594,7 +604,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         };
     }
 
-    private void drawPanelFrame(GuiGraphics guiGraphics, int x, int y, int w, int h,
+    private void drawPanelFrame(RtsGuiContext guiGraphics, int x, int y, int w, int h,
                                 UiColor fillColor, UiColor light, UiColor dark) {
         UiChromeRenderer.frame(new MinecraftUiCanvas(guiGraphics, this.font),
                 new UiRect(x, y, w, h), 1.0D, fillColor, light, dark);

@@ -51,7 +51,7 @@ public final class RtsAe2Compat {
         if (player == null || pos == null || REFLECTION == null) {
             return null;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         if (level == null || !level.hasChunkAt(pos)) {
             return null;
         }

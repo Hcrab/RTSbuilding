@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
 import com.rtsbuilding.rtsbuilding.server.storage.view.RtsLinkedHandlerViews;
@@ -240,7 +242,7 @@ public final class RtsTransferInserter {
                 if (move <= 0) {
                     continue;
                 }
-                ItemStack placed = remain.copyWithCount(move);
+                ItemStack placed = RtsItemStacks.copyWithCount(remain, move);
                 slot.set(placed);
                 slot.setChanged();
                 remain.shrink(move);

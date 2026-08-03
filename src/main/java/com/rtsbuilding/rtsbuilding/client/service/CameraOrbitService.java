@@ -875,7 +875,7 @@ public final class CameraOrbitService {
             this.localMirrorCamera = null;
             return;
         }
-        if (this.localMirrorCamera != null && this.localMirrorCamera.level() == minecraft.level) {
+        if (this.localMirrorCamera != null && this.localMirrorCamera.getLevel() == minecraft.level) {
             return;
         }
         this.localMirrorCamera = new RtsCameraEntity(

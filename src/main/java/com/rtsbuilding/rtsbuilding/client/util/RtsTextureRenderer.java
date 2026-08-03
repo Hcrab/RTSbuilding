@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.util;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
@@ -20,7 +20,7 @@ public final class RtsTextureRenderer {
     /**
      * High-precision texture drawing.
      * <p>
-     * Compared with a direct {@code GuiGraphics.blit} call, this method:
+     * Compared with a direct {@code RtsGuiContext.blit} call, this method:
      * <ul>
      *   <li>Uses float-precision target position and UV, enabling sub-pixel positioning</li>
      *   <li>Supports centre rotation (in degrees)</li>
@@ -44,7 +44,7 @@ public final class RtsTextureRenderer {
      * @param color         colour tint 0xAARRGGBB; 0xFFFFFFFF means no tint
      */
     public static void drawTextureHighPrecision(
-            GuiGraphics guiGraphics,
+            RtsGuiContext guiGraphics,
             ResourceLocation texLocation,
             float x, float y,
             float width, float height,

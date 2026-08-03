@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.CullingWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CullingWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CullingWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -33,7 +33,7 @@ public final class RtsCullingPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         CullingUiState state = CullingUiAdapter.snapshot(manager);
         int x = CullingWindowLayout.contentLeft(contentX());
         int w = CullingWindowLayout.contentInnerWidth(contentWidth());
@@ -64,7 +64,7 @@ public final class RtsCullingPanel extends RtsWindowPanel {
                 x, CullingWindowLayout.hintRowY(contentY()), CullingWindowStyle.MUTED_TEXT, w);
     }
 
-    private void drawWideButton(GuiGraphics g, int x, int y, String label, boolean hovered) {
+    private void drawWideButton(RtsGuiContext g, int x, int y, String label, boolean hovered) {
         CullingWindowChromeRenderer.renderDeleteButton(
                 new MinecraftUiCanvas(g, screen.font(), screen),
                 new UiRect(x, CullingWindowLayout.buttonTop(y),
@@ -154,7 +154,7 @@ public final class RtsCullingPanel extends RtsWindowPanel {
                 CullingWindowLayout.deleteButtonRowY(contentY()));
     }
 
-    private void drawLine(GuiGraphics g, String label, int x, int y, UiColor color, int width) {
+    private void drawLine(RtsGuiContext g, String label, int x, int y, UiColor color, int width) {
         g.drawString(screen.font(), screen.trimToWidth(label, width), x, y, color.toArgb(), false);
     }
 

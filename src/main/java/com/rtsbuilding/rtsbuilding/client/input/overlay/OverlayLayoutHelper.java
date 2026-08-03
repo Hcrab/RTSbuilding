@@ -13,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.renderer.Rect2i;
@@ -395,7 +395,7 @@ public final class OverlayLayoutHelper {
     //  Drawing helpers
     // =========================================================================
 
-    public static void drawPanelFrame(GuiGraphics g, Font font, int x, int y, int w, int h,
+    public static void drawPanelFrame(RtsGuiContext g, Font font, int x, int y, int w, int h,
                                       UiColor fillColor, UiColor light, UiColor dark) {
         drawPanelFrame(new MinecraftUiCanvas(g, font), x, y, w, h,
                 fillColor, light, dark);
@@ -408,7 +408,7 @@ public final class OverlayLayoutHelper {
                 fillColor, light, dark);
     }
 
-    public static void drawOverlayWindowFrame(GuiGraphics g, Font font, int x, int y, int w, int h) {
+    public static void drawOverlayWindowFrame(RtsGuiContext g, Font font, int x, int y, int w, int h) {
         UiChromeRenderer.frame(new MinecraftUiCanvas(g, font), new UiRect(x, y, w, h), 1.0D,
                 ContainerOverlayStyle.WINDOW_BACKGROUND,
                 ContainerOverlayStyle.WINDOW_BORDER_LIGHT,
@@ -417,7 +417,7 @@ public final class OverlayLayoutHelper {
                 ContainerOverlayStyle.WINDOW_TITLE.toArgb());
     }
 
-    public static void drawMiniButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label) {
+    public static void drawMiniButton(RtsGuiContext g, Font font, int x, int y, int w, int h, String label) {
         drawPanelFrame(g, font, x, y, w, h,
                 ContainerOverlayStyle.MINI_BUTTON_BACKGROUND,
                 ContainerOverlayStyle.BUTTON_BORDER_LIGHT,
@@ -426,7 +426,7 @@ public final class OverlayLayoutHelper {
                 ContainerOverlayStyle.BUTTON_TEXT.toArgb());
     }
 
-    public static void drawSlotCountOverlay(GuiGraphics g, Font font, int slotX, int slotY,
+    public static void drawSlotCountOverlay(RtsGuiContext g, Font font, int slotX, int slotY,
             int slotSize, String countText, UiColor color) {
         RtsClientUiUtil.drawSlotCountOverlay(g, font, slotX, slotY, slotSize,
                 countText, color.toArgb());

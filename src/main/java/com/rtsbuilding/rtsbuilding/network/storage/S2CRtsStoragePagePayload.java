@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -143,7 +145,7 @@ public record S2CRtsStoragePagePayload(
                     ItemStack preview = quickSlotPreview == null ? ItemStack.EMPTY : quickSlotPreview;
                     buf.writeBoolean(!preview.isEmpty());
                     if (!preview.isEmpty()) {
-                        com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, preview.copyWithCount(1));
+                        com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, RtsItemStacks.copyWithCount(preview, 1));
                     }
                 }
 

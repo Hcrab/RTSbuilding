@@ -64,9 +64,9 @@ public final class RtsBindingServiceImpl implements BindingService {
     public void unlinkStorage(ServerPlayer player, BlockPos pos) {
         if (player == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
-        if (removeLinkedRef(session, player.serverLevel().dimension(), pos)) {
+        if (removeLinkedRef(session, player.getLevel().dimension(), pos)) {
             RtsEndpointLeaseCache.INSTANCE.invalidate(
-                    player.getUUID(), player.serverLevel().dimension(), pos);
+                    player.getUUID(), player.getLevel().dimension(), pos);
             registry.serviceOp().afterModification(player, session);
         }
     }
@@ -188,7 +188,7 @@ public final class RtsBindingServiceImpl implements BindingService {
     private void applyUpdate(ServerPlayer player, RtsStorageSession session, RtsStorageBindings.UpdateResult update) {
         if (player == null || session == null || update == null) return;
         if (update.saveSession()) {
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
         }
         if (update.refreshPage()) {
             registry.serviceOp().markDirty(player, session);

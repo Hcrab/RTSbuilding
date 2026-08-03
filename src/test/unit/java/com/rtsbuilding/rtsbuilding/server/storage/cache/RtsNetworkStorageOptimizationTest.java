@@ -3,12 +3,12 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -154,7 +154,7 @@ class RtsNetworkStorageOptimizationTest {
     }
 
     private static String itemId(Item item) {
-        return BuiltInRegistries.ITEM.getKey(item).toString();
+        return RtsBuiltInRegistries.ITEM.getKey(item).toString();
     }
 
     private record MountedNetwork(RtsAggregateStorage storage, RtsHandlerCache cache) {

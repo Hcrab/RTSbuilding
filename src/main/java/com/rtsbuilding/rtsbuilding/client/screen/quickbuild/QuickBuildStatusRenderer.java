@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.ItemStack;
@@ -26,7 +26,7 @@ final class QuickBuildStatusRenderer {
     private QuickBuildStatusRenderer() {}
 
     static void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -84,7 +84,7 @@ final class QuickBuildStatusRenderer {
     }
 
     private static void renderDestroyStatus(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
@@ -124,7 +124,7 @@ final class QuickBuildStatusRenderer {
     }
 
     private static int renderWrappedText(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BuilderScreen screen,
             Component text,
             int x,
@@ -147,7 +147,7 @@ final class QuickBuildStatusRenderer {
     }
 
     private static void renderDimensionInfo(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             int x,

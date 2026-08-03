@@ -28,10 +28,10 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
     public static IItemHandler findHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+        if (!player.getLevel().hasChunkAt(pos)) {
             return null;
         }
-        var blockEntity = player.serverLevel().getBlockEntity(pos);
+        var blockEntity = player.getLevel().getBlockEntity(pos);
         if (blockEntity == null) {
             return null;
         }
@@ -68,10 +68,10 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
     public static IFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+        if (!player.getLevel().hasChunkAt(pos)) {
             return null;
         }
-        var blockEntity = player.serverLevel().getBlockEntity(pos);
+        var blockEntity = player.getLevel().getBlockEntity(pos);
         if (blockEntity == null) {
             return null;
         }

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.destruction;
 import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import com.rtsbuilding.rtsbuilding.server.task.DestructionTaskPayload;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;

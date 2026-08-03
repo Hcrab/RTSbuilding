@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.culling;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.RtsBoxHandleRenderer;
@@ -63,7 +65,7 @@ public final class RtsCullingRenderer {
         double maxX = box.maxX + 0.01D;
         double maxY = box.maxY + 0.01D;
         double maxZ = box.maxZ + 0.01D;
-        LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
+        RenderingUtil.filledBox(poseStack, fillBuffer,
                 minX, minY, minZ, maxX, maxY, maxZ, r, g, b, fillAlpha);
         LevelRenderer.renderLineBox(poseStack, lineBuffer,
                 minX, minY, minZ, maxX, maxY, maxZ, r, g, b, lineAlpha);

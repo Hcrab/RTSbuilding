@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
@@ -81,7 +81,7 @@ public final class RtsCraftQuantityDialog {
         return request;
     }
 
-    public void render(GuiGraphics g, Font font, int screenWidth, int screenHeight, int mouseX, int mouseY) {
+    public void render(RtsGuiContext g, Font font, int screenWidth, int screenHeight, int mouseX, int mouseY) {
         if (!this.open) {
             return;
         }
@@ -393,7 +393,7 @@ public final class RtsCraftQuantityDialog {
         return summary == null || summary.isBlank() ? "Missing ingredients." : summary;
     }
 
-    private static void drawSmallButton(GuiGraphics g, MinecraftUiCanvas canvas,
+    private static void drawSmallButton(RtsGuiContext g, MinecraftUiCanvas canvas,
                                         Font font, int x, int y, int w, int h,
                                         String label, UiColor fill) {
         drawPanelFrame(canvas, x, y, w, h, fill,

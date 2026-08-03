@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.menu;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -9,7 +11,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.inventory.TransientCraftingContainer;
+import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeType;
@@ -89,7 +91,7 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
             ItemStack stack = this.getSlot(1 + i).getItem();
-            blueprint[i] = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+            blueprint[i] = stack.isEmpty() ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(stack, 1);
         }
         return blueprint;
     }
@@ -101,14 +103,15 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
      * @return 匹配的合成配方，若未匹配则返回 null
      */
     private CraftingRecipe resolveCurrentRecipe(ServerPlayer player) {
-        if (player == null || !(player.level() instanceof ServerLevel level)) {
+        if (player == null) {
             return null;
         }
+        ServerLevel level = player.getLevel();
         List<ItemStack> stacks = new ArrayList<>(9);
         for (int i = 0; i < 9; i++) {
             stacks.add(this.getSlot(1 + i).getItem().copy());
         }
-        TransientCraftingContainer input = new TransientCraftingContainer(this, 3, 3);
+        CraftingContainer input = new CraftingContainer(this, 3, 3);
         for (int i = 0; i < stacks.size(); i++) {
             input.setItem(i, stacks.get(i));
         }

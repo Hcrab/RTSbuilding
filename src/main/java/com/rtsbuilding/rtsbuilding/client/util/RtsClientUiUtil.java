@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiFormats;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
@@ -26,13 +26,13 @@ public final class RtsClientUiUtil {
         return text.substring(0, cut) + ellipsis;
     }
 
-    public static void drawCenteredStringNoShadow(GuiGraphics guiGraphics, Font font, String text,
+    public static void drawCenteredStringNoShadow(RtsGuiContext guiGraphics, Font font, String text,
             int centerX, int y, int color) {
         String safeText = text == null ? "" : text;
         guiGraphics.drawString(font, safeText, centerX - font.width(safeText) / 2, y, color, false);
     }
 
-    public static void drawCenteredStringNoShadow(GuiGraphics guiGraphics, Font font, Component text,
+    public static void drawCenteredStringNoShadow(RtsGuiContext guiGraphics, Font font, Component text,
             int centerX, int y, int color) {
         drawCenteredStringNoShadow(guiGraphics, font, text == null ? "" : text.getString(), centerX, y, color);
     }
@@ -45,7 +45,7 @@ public final class RtsClientUiUtil {
         return BottomBarUiFormats.compactFluidAmount(milliBuckets);
     }
 
-    public static void drawSlotCountOverlay(GuiGraphics guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {
+    public static void drawSlotCountOverlay(RtsGuiContext guiGraphics, Font font, int slotX, int slotY, int slotSize, String countText, int color) {
         if (font == null || countText == null || countText.isEmpty()) {
             return;
         }

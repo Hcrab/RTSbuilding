@@ -95,7 +95,7 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
             Direction actualFace = face == null ? Direction.DOWN : face;
             // 创造破坏必须在修改世界前捕获完整 BlockState 与方块实体 NBT。
             var before = com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager
-                    .captureBlock(player.serverLevel(), pos, true);
+                    .captureBlock(player.getLevel(), pos, true);
             if (before != null) {
                 ctx.setData(HistoryRecordPipe.ARG_HISTORY_RECORDS, List.of(before));
             }

@@ -18,7 +18,7 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiBlink;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -178,7 +178,8 @@ public final class RtsClientInputGate {
         }
 
         if (event.getScreen() instanceof InventoryScreen) {
-            renderInventoryRtsButtons(event.getGuiGraphics(), Minecraft.getInstance().font, event.getScreen(), event.getMouseX(), event.getMouseY());
+            renderInventoryRtsButtons(new RtsGuiContext(event.getPoseStack(), event.getScreen()),
+                    Minecraft.getInstance().font, event.getScreen(), event.getMouseX(), event.getMouseY());
         }
         if (!RtsClientUiStateStore.isContainerOverlayEnabled()) {
             clearOverlaySearchFocus();
@@ -194,7 +195,7 @@ public final class RtsClientInputGate {
         syncOverlayScreen(event.getScreen(), controller);
 
         Minecraft minecraft = Minecraft.getInstance();
-        GuiGraphics g = event.getGuiGraphics();
+        RtsGuiContext g = new RtsGuiContext(event.getPoseStack(), event.getScreen());
         OverlayProfile profile = overlayProfile();
         double mouseX = toOverlayMouse(event.getMouseX(), profile);
         double mouseY = toOverlayMouse(event.getMouseY(), profile);

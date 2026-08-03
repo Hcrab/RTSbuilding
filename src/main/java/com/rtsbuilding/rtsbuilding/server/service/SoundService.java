@@ -68,11 +68,11 @@ public final class SoundService {
 
     public static void sendDirectSound(ServerPlayer player, SoundEvent sound, SoundSource source, double x, double y,
             double z, float volume, float pitch) {
-        if (player == null || sound == null || sound == SoundEvents.EMPTY) {
+        if (player == null || sound == null) {
             return;
         }
         player.connection.send(new ClientboundSoundPacket(
-                RtsBuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound),
+                sound,
                 source,
                 x, y, z,
                 volume, pitch,

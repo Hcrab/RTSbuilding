@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
@@ -8,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WindowButtonLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.components.AbstractButton;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.network.chat.Component;
@@ -103,7 +104,12 @@ public class WindowButton extends AbstractButton {
     }
 
     @Override
-    protected void renderWidget(@NotNull GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    public void renderButton(@NotNull PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        render(new RtsGuiContext(poseStack), mouseX, mouseY, partialTick);
+    }
+
+    /** 供版本稳定的 RTS 面板渲染路径直接调用。 */
+    public void render(RtsGuiContext guiGraphics, int mouseX, int mouseY, float partialTick) {
         Minecraft minecraft = Minecraft.getInstance();
 
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
@@ -119,8 +125,8 @@ public class WindowButton extends AbstractButton {
         String label = RtsClientUiUtil.trimToWidth(minecraft.font, this.getMessage().getString(),
                 WindowButtonLayout.textWidth(this.width));
         int textWidth = minecraft.font.width(label);
-        int textX = this.getX() + (this.width - textWidth) / 2;
-        int textY = WindowButtonLayout.textY(this.getY(), this.height);
+        int textX = this.x + (this.width - textWidth) / 2;
+        int textY = WindowButtonLayout.textY(this.y, this.height);
 
         // Draw text
         if (!label.isEmpty()) {
@@ -128,10 +134,31 @@ public class WindowButton extends AbstractButton {
         }
     }
 
+    public int getX() {
+        return this.x;
+    }
+
+    public void setX(int x) {
+        this.x = x;
+    }
+
+    public int getY() {
+        return this.y;
+    }
+
+    public void setY(int y) {
+        this.y = y;
+    }
+
+    @Override
+    public void setFocused(boolean focused) {
+        super.setFocused(focused);
+    }
+
     /**
      * Renders the button with a texture (supports vector scaling and hover effects).
      */
-    private void renderWithTexture(GuiGraphics guiGraphics) {
+    private void renderWithTexture(RtsGuiContext guiGraphics) {
         // Ensure the texture is loaded
         var textureManager = Minecraft.getInstance().getTextureManager();
         var texture = textureManager.getTexture(textureLocation);
@@ -147,14 +174,14 @@ public class WindowButton extends AbstractButton {
 
                 if (texture == null) {
                     // If still not loaded, draw a red rectangle as a hint
-                    guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height,
+                    guiGraphics.fill(this.x, this.y, this.x + this.width, this.y + this.height,
                             WindowButtonStyle.MISSING_TEXTURE.toArgb());
                     return;
                 }
             } catch (Exception e) {
                 e.printStackTrace();
                 // If still not loaded, draw a red rectangle as a hint
-                guiGraphics.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height,
+                guiGraphics.fill(this.x, this.y, this.x + this.width, this.y + this.height,
                         WindowButtonStyle.MISSING_TEXTURE.toArgb());
                 return;
             }
@@ -218,7 +245,7 @@ public class WindowButton extends AbstractButton {
         float scaleY = (float) this.height / textureHeight;
 
         // Apply scale transform
-        guiGraphics.pose().translate(this.getX(), this.getY(), 0);
+        guiGraphics.pose().translate(this.x, this.y, 0);
         guiGraphics.pose().scale(scaleX, scaleY, 1.0f);
 
         // Draw texture at original size (blit automatically uses currently bound texture)
@@ -254,17 +281,17 @@ public class WindowButton extends AbstractButton {
     /**
      * Renders the button with solid colours (RTS dark style).
      */
-    private void renderWithSolidColor(GuiGraphics guiGraphics) {
+    private void renderWithSolidColor(RtsGuiContext guiGraphics) {
         // 被更高层浮窗覆盖时，上层统一抑制 hover/focus 视觉。
         boolean hovered = !globalSkipHover && this.isHoveredOrFocused();
         WindowButtonChromeRenderer.renderSolid(
                 new MinecraftUiCanvas(guiGraphics, Minecraft.getInstance().font),
-                new UiRect(this.getX(), this.getY(), this.width, this.height),
+                new UiRect(this.x, this.y, this.width, this.height),
                 hovered);
     }
 
     @Override
-    protected void updateWidgetNarration(@NotNull NarrationElementOutput narrationElementOutput) {
+    public void updateNarration(@NotNull NarrationElementOutput narrationElementOutput) {
         this.defaultButtonNarrationText(narrationElementOutput);
     }
 

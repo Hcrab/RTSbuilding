@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingRecipe;
@@ -123,7 +125,7 @@ final class RtsCraftingAvailability {
             if (candidate.count() <= 0L) {
                 continue;
             }
-            planned[slot] = candidate.prototype().copyWithCount(1);
+            planned[slot] = RtsItemStacks.copyWithCount(candidate.prototype(), 1);
             remaining.set(index, new AvailableCraftItem(candidate.prototype(), candidate.count() - 1L));
             if (assignCraftIngredients(required, requiredSlots, remaining, planned, depth + 1)) {
                 return true;

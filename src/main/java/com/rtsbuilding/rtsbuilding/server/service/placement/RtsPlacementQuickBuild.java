@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
 import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -93,12 +95,12 @@ public final class RtsPlacementQuickBuild {
         }
 
         BlockPos templatePos = job.templatePosition();
-        if (templatePos == null || job.face() == null || !player.serverLevel().hasChunkAt(templatePos)) {
+        if (templatePos == null || job.face() == null || !player.getLevel().hasChunkAt(templatePos)) {
             return null;
         }
         templateStack.setCount(1);
         BlockPlaceContext context = new BlockPlaceContext(
-                player.serverLevel(),
+                player.getLevel(),
                 player,
                 InteractionHand.MAIN_HAND,
                 templateStack,
@@ -150,7 +152,7 @@ public final class RtsPlacementQuickBuild {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
             return true;
         }
@@ -215,7 +217,7 @@ public final class RtsPlacementQuickBuild {
             return false;
         }
         BlockState current = level.getBlockState(targetPos);
-        if (!creativeOverwrite && !current.isAir() && !current.canBeReplaced()) {
+        if (!creativeOverwrite && !current.isAir() && !RtsBlockStates.canBeReplaced(current)) {
             return false;
         }
         if (creativeOverwrite) {

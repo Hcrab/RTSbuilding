@@ -107,7 +107,7 @@ public final class RtsDeveloperScenarioTracker {
     private void sendServerCheckpoint(String action) {
         Minecraft minecraft = Minecraft.getInstance();
         if (minecraft.getConnection() == null || active == null || runId == null) return;
-        minecraft.getConnection().sendCommand("rtsbuilding_dev " + action + " "
+        minecraft.player.commandUnsigned("rtsbuilding_dev " + action + " "
                 + active.name().toLowerCase(Locale.ROOT) + " " + runId);
     }
 

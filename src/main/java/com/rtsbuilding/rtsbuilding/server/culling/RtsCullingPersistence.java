@@ -119,7 +119,7 @@ public final class RtsCullingPersistence {
     }
 
     private static String dimensionKey(ServerPlayer player) {
-        return player.level().dimension().location().toString();
+        return player.getLevel().dimension().location().toString();
     }
 
     public record State(List<RtsCullingBoxSnapshot> boxes, List<BlockPos> revealed) {

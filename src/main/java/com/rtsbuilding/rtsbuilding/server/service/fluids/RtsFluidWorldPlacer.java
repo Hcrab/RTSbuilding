@@ -142,9 +142,9 @@ public final class RtsFluidWorldPlacer {
                 InteractionHand.MAIN_HAND,
                 ItemStack.EMPTY,
                 placementHit);
-        boolean isDestNonSolid = !state.isSolid();
+        boolean isDestNonSolid = !state.getMaterial().isSolid();
         boolean isDestReplaceable = state.canBeReplaced(context);
-        if ((isDestNonSolid || isDestReplaceable) && !state.liquid()) {
+        if ((isDestNonSolid || isDestReplaceable) && !state.getMaterial().isLiquid()) {
             level.destroyBlock(pos, true);
         }
         return level.setBlock(pos, placeState, 11);
@@ -169,7 +169,7 @@ public final class RtsFluidWorldPlacer {
                 placementHit == null ? new BlockHitResult(Vec3.atCenterOf(pos), Direction.UP, pos, false) : placementHit);
         boolean canContain = state.getBlock() instanceof LiquidBlockContainer liquidContainer
                 && liquidContainer.canPlaceLiquid(level, pos, state, fluid);
-        boolean isDestNonSolid = !state.isSolid();
+        boolean isDestNonSolid = !state.getMaterial().isSolid();
         boolean isDestReplaceable = state.canBeReplaced(context);
         return level.isEmptyBlock(pos) || isDestNonSolid || isDestReplaceable || canContain;
     }

@@ -123,7 +123,7 @@ public final class TemporaryContextSwitcher {
      * 临时设置玩家??onGround 状态（影响挖掘速度计算），执行后恢???
      */
     public static <T> T withTemporaryOnGround(ServerPlayer player, boolean onGround, Supplier<T> action) {
-        boolean previous = player.onGround();
+        boolean previous = player.isOnGround();
         player.setOnGround(onGround);
         try {
             return action.get();

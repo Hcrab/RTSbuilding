@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -140,17 +142,17 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         Vec3 dropPos = new Vec3(dropX, dropY, dropZ);
-        BlockPos dropBlock = BlockPos.containing(dropPos);
-        if (!player.serverLevel().hasChunkAt(dropBlock)
+        BlockPos dropBlock = new BlockPos(dropPos);
+        if (!player.getLevel().hasChunkAt(dropBlock)
                 || !RtsCameraManager.isWithinActionRange(player, dropBlock)) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
             ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             return;
         }
-        ItemEntity dropped = new ItemEntity(player.serverLevel(), dropPos.x, dropPos.y, dropPos.z, extracted);
+        ItemEntity dropped = new ItemEntity(player.getLevel(), dropPos.x, dropPos.y, dropPos.z, extracted);
         dropped.setDeltaMovement(Vec3.ZERO);
         dropped.setPickUpDelay(10);
-        player.serverLevel().addFreshEntity(dropped);
+        player.getLevel().addFreshEntity(dropped);
         ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
     }
 
@@ -189,7 +191,7 @@ public final class RtsTransferPlayerIntegration {
             if (resultSnapshot.isEmpty()) {
                 return;
             }
-            ItemStack resultPrototype = resultSnapshot.copyWithCount(1);
+            ItemStack resultPrototype = RtsItemStacks.copyWithCount(resultSnapshot, 1);
             boolean craftedAny = false;
             for (int guard = 0; guard < RtsTransferUtils.SHIFT_IMPORT_MAX_CRAFT_ITERATIONS; guard++) {
                 Slot resultSlot = craftingMenu.getSlot(0);

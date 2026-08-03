@@ -5,11 +5,9 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintParseExceptio
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderGetter;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
@@ -56,14 +54,13 @@ public final class VanillaStructureNbtReader {
             return RtsBlueprint.create(name, sourceName, BlueprintFormat.VANILLA_NBT, Vec3i.ZERO, List.of());
         }
 
-        HolderGetter<Block> blocks = registryAccess.registryOrThrow(Registries.BLOCK).asLookup();
         ListTag paletteTag = root.getList("palette", Tag.TAG_COMPOUND);
         List<PaletteEntry> palette = new ArrayList<>(paletteTag.size());
         for (int i = 0; i < paletteTag.size(); i++) {
             CompoundTag paletteEntry = paletteTag.getCompound(i);
             String missingId = missingBlockId(paletteEntry);
             palette.add(missingId.isBlank()
-                    ? new PaletteEntry(NbtUtils.readBlockState(blocks, paletteEntry), "")
+                    ? new PaletteEntry(NbtUtils.readBlockState(paletteEntry), "")
                     : new PaletteEntry(Blocks.AIR.defaultBlockState(), missingId));
         }
 

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -29,7 +31,7 @@ public record C2SRtsCraftRefillPayload(
                                 continue;
                             }
                             buf.writeBoolean(true);
-                            com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, stack.copyWithCount(1));
+                            com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, RtsItemStacks.copyWithCount(stack, 1));
                         }
                         buf.writeUtf(payload.craftedItemId() == null ? "" : payload.craftedItemId(), 128);
                         buf.writeVarInt(Math.max(0, payload.craftedCount()));

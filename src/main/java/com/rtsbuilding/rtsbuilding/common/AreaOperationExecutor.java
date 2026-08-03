@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
 import com.rtsbuilding.rtsbuilding.common.shape.generator.AreaShapeGenerator;
 import com.rtsbuilding.rtsbuilding.common.shape.generator.ShapeGeneratorRegistry;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
@@ -120,7 +122,7 @@ public final class AreaOperationExecutor {
             if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) continue;
             if (!level.mayInteract(player, pos)) continue;
             if (!state.canSurvive(level, pos)) continue;
-            if (!level.getBlockState(pos).canBeReplaced()) continue;
+            if (!RtsBlockStates.canBeReplaced(level.getBlockState(pos))) continue;
             valid.add(pos.immutable());
         }
         return valid;

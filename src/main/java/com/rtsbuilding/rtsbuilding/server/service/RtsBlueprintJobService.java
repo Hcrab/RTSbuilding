@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;
@@ -57,7 +59,7 @@ public final class RtsBlueprintJobService {
             return null;
         }
 
-        var level = player.serverLevel();
+        var level = player.getLevel();
         int totalRemaining = remaining.size();
         int alreadyPlacedCount = 0;
         int conflictCount = 0;
@@ -70,7 +72,7 @@ public final class RtsBlueprintJobService {
             var current = level.getBlockState(plan.target());
             if (current.getBlock() == plan.state().getBlock()) {
                 alreadyPlacedCount++;
-            } else if (!current.isAir() && !current.canBeReplaced()) {
+            } else if (!current.isAir() && !RtsBlockStates.canBeReplaced(current)) {
                 conflictCount++;
             }
         }

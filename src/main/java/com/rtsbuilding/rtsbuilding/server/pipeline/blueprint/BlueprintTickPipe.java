@@ -48,7 +48,7 @@ public final class BlueprintTickPipe {
     public static TaskStepResult execute(BlueprintTaskPayload payload, TaskBudget budget) {
         BlueprintContext context = payload.context();
         ServerPlayer player = payload.player();
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         List<PlacementPlan> plans = context.getPlacementPlans();
         LinkedList<Integer> remaining = context.getRemainingQueue();
         if (plans == null || remaining == null) {

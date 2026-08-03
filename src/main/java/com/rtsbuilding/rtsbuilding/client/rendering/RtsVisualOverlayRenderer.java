@@ -113,7 +113,17 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
             new ResourceLocation("minecraft", "textures/misc/forcefield.png"));
 
     private static final RenderType LINES = RenderType.lines();
-    private static final RenderType FILLED_BOX = RenderType.debugFilledBox();
+    private static final RenderType FILLED_BOX = RenderType.create(
+            "rtsbuilding_filled_box",
+            DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.QUADS, 512, false, false,
+            RenderType.CompositeState.builder()
+                    .setShaderState(POSITION_COLOR_SHADER)
+                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
+                    .setDepthTestState(LEQUAL_DEPTH_TEST)
+                    .setOutputState(MAIN_TARGET)
+                    .setWriteMaskState(COLOR_DEPTH_WRITE)
+                    .setCullState(NO_CULL)
+                    .createCompositeState(false));
 
     // ===== Backing buffers =====
 
@@ -221,7 +231,7 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
             buffer.endOrDiscardIfEmpty();
             return;
         }
-        type.end(buffer, VertexSorting.DISTANCE_TO_ORIGIN);
+        type.end(buffer, 0, 0, 0);
     }
 
     /** Draws interaction target bounding boxes (uses polygon offset to prevent Z-fighting) */
@@ -233,7 +243,7 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
         }
         RenderSystem.enablePolygonOffset();
         RenderSystem.polygonOffset(-1.0F, -1.0F);
-        BRACKET_QUADS.end(buffer, VertexSorting.DISTANCE_TO_ORIGIN);
+        BRACKET_QUADS.end(buffer, 0, 0, 0);
         RenderSystem.polygonOffset(0.0F, 0.0F);
         RenderSystem.disablePolygonOffset();
     }
@@ -247,7 +257,7 @@ public final class RtsVisualOverlayRenderer extends RenderStateShard {
         }
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
-        type.end(buffer, VertexSorting.DISTANCE_TO_ORIGIN);
+        type.end(buffer, 0, 0, 0);
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(GL_LEQUAL);

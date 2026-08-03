@@ -1,8 +1,10 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.rule;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
@@ -20,7 +22,7 @@ public final class BlueprintReplaceRules {
 
     /** 蓝图软替换方块标签 —— 通过数据包扩展的软替换方块集 */
     public static final TagKey<Block> SOFT_REPLACEABLE = TagKey.create(
-            Registries.BLOCK,
+            Registry.BLOCK_REGISTRY,
             new ResourceLocation(RtsbuildingMod.MODID, "blueprint_soft_replaceable"));
 
     /** 原版软替换方块硬编码列表 —— 花、草、蘑菇、藤蔓等易替换方块 */
@@ -81,7 +83,7 @@ public final class BlueprintReplaceRules {
      * @return true 如果该方块可以被蓝图直接替换
      */
     public static boolean canBlueprintReplace(BlockState state) {
-        if (state == null || state.isAir() || state.canBeReplaced() || state.is(SOFT_REPLACEABLE)) {
+        if (state == null || state.isAir() || RtsBlockStates.canBeReplaced(state) || state.is(SOFT_REPLACEABLE)) {
             return true;
         }
         return VANILLA_SOFT_REPLACEABLE.contains(RtsBuiltInRegistries.BLOCK.getKey(state.getBlock()));

@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelBrowseLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelBrowseStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 
 /**
  * 底栏搜索清除键与分页键的 Minecraft 绘制适配器。
@@ -20,7 +20,7 @@ public final class BottomPanelBrowseRenderer {
     }
 
     public static void renderControls(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             BottomPanelBrowseLayout layout,
             boolean searchFocused,
@@ -71,7 +71,7 @@ public final class BottomPanelBrowseRenderer {
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             BottomPanelBrowseLayout.Area area,
@@ -82,7 +82,7 @@ public final class BottomPanelBrowseRenderer {
     }
 
     private static void fill(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BottomPanelBrowseLayout.Area area,
             int color) {
         graphics.fill(

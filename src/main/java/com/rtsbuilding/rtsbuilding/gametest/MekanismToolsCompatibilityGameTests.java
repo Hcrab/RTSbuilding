@@ -57,7 +57,7 @@ public final class MekanismToolsCompatibilityGameTests {
         player.getInventory().setItem(0, tool.copy());
         player.getInventory().selected = 0;
 
-        helper.assertTrue(tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
+        RtsGameTestAssertions.assertTrue(helper, tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
                 "Mekanism osmium paxel should advertise itself as a correct stone tool");
         RtsAPI.get().mining().areaDestroy(
                 player,
@@ -70,9 +70,9 @@ public final class MekanismToolsCompatibilityGameTests {
 
         helper.succeedWhen(() -> {
             RtsServerGameTests.tickMiningPlayer(helper, player, 20);
-            helper.assertTrue(!helper.getBlockState(dirtRel).is(Blocks.DIRT),
+            RtsGameTestAssertions.assertTrue(helper, !helper.getBlockState(dirtRel).is(Blocks.DIRT),
                     "Mekanism paxel should remove the dirt target");
-            helper.assertTrue(!helper.getBlockState(stoneRel).is(Blocks.STONE),
+            RtsGameTestAssertions.assertTrue(helper, !helper.getBlockState(stoneRel).is(Blocks.STONE),
                     "Mekanism paxel should remove the stone target");
             helper.assertBlockPresent(Blocks.WATER, underwaterStoneRel);
             Config.setSurvivalProgressionEnabled(false);

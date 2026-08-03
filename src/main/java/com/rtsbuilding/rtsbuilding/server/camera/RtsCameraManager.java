@@ -112,7 +112,7 @@ public final class RtsCameraManager {
     private static void startNormal(ServerPlayer player, boolean startAtPlayerHead) {
         cleanupOrphanCameras(player.getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         Vec3 playerPos = player.position();
         // 将锚点对齐到方块中心，使相机边界与放置边界匹配
         Vec3 anchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
@@ -179,7 +179,7 @@ public final class RtsCameraManager {
     private static void startHomeSelection(ServerPlayer player, boolean startAtPlayerHead) {
         cleanupOrphanCameras(player.getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         BlockPos playerPos = player.blockPosition();
         // 计算玩家所在区块的中心坐标
         int centerChunkX = playerPos.getX() >> 4;
@@ -425,7 +425,7 @@ public final class RtsCameraManager {
     @SuppressWarnings("resource")
     private static RtsCameraEntity getOrRestoreCamera(ServerPlayer player, Session session) {
         Entity baseEntity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
-        if (baseEntity instanceof RtsCameraEntity camera && baseEntity.level() == player.serverLevel()) {
+        if (baseEntity instanceof RtsCameraEntity camera && baseEntity.getLevel() == player.getLevel()) {
             if (camera.getOwnerUuid() == null) {
                 camera.setOwnerUuid(player.getUUID());
             }
@@ -441,7 +441,7 @@ public final class RtsCameraManager {
         }
 
         Vec3 cameraPos = session.cameraPos();
-        RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.serverLevel(), player.getUUID(),
+        RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.getLevel(), player.getUUID(),
                 cameraPos.x, cameraPos.y, cameraPos.z, session.yawDeg(), session.pitchDeg());
 
         SESSIONS.put(player.getUUID(), new Session(

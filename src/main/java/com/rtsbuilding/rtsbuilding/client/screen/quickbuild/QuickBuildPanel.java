@@ -15,7 +15,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiReducer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -165,13 +165,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      * 动态调整窗口高度，底部信息区高度由 Kit 布局统一提供。
      */
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         this.windowHeight = QuickBuildWindowLayout.windowHeight(isDestroyModeActive());
         super.render(g, mouseX, mouseY, partialTick);
     }
 
     @Override
-    public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
+    public void renderOverlays(RtsGuiContext g, int mouseX, int mouseY) {
         if (!this.open || !canShowWindow()) return;
         QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         QuickBuildWindowLayout.Geometry layout = QuickBuildWindowLayout.geometry(
@@ -181,7 +181,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         int x = this.windowX;
         int y = this.windowY;

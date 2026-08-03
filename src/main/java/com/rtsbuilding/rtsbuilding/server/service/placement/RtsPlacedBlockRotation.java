@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.TagKey;
 import net.minecraft.resources.ResourceLocation;
@@ -39,7 +39,7 @@ public final class RtsPlacedBlockRotation {
      * 被模组包作者列入本标签的控制器会被拒绝。
      */
     public static final TagKey<Block> ROTATION_BLACKLIST = TagKey.create(
-            Registries.BLOCK,
+            Registry.BLOCK_REGISTRY,
             new ResourceLocation(RtsbuildingMod.MODID, "rotation_blacklist"));
 
     private RtsPlacedBlockRotation() {

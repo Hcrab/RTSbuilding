@@ -19,7 +19,7 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.UiFloatAnimation;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -126,7 +126,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
      * Draws the panel-specific contents inside the window body. The base class
      * has already drawn the frame/title bar and applied the content scissor.
      */
-    protected abstract void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick);
+    protected abstract void renderContent(RtsGuiContext g, int mouseX, int mouseY, float partialTick);
 
     /**
      * Handles a click inside the content area. Returning true consumes the
@@ -168,7 +168,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         if (!this.open || !canShowWindow()) {
             this.mouseHovering = false;
             return;
@@ -209,7 +209,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         }
     }
 
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
+    public void render(RtsGuiContext g, int mouseX, int mouseY) {
         render(g, mouseX, mouseY, 0.0F);
     }
 
@@ -676,7 +676,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         clampWindowToScreen();
     }
 
-    private void renderWindowFrame(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderWindowFrame(RtsGuiContext g, int mouseX, int mouseY) {
         double hoverProgress = Config.isUiAnimationsEnabled()
                 ? this.hoverBorderAnimation.value()
                 : (this.mouseHovering ? 1.0D : 0.0D);
@@ -714,7 +714,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
                 90L, UiEasing.EASE_OUT_CUBIC);
     }
 
-    private void enableContentScissor(GuiGraphics g) {
+    private void enableContentScissor(RtsGuiContext g) {
         int x1 = contentX();
         int y1 = contentY();
         int x2 = x1 + contentWidth();

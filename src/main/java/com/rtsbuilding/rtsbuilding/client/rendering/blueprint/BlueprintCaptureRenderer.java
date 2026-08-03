@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.RtsBoxHandleRenderer;
@@ -78,7 +80,7 @@ public final class BlueprintCaptureRenderer {
         // Render a translucent blue fill when not showing individual highlights
         // Render blue highlights for each included block
         for (BlockPos pos : includedBlocks) {
-            LevelRenderer.addChainedFilledBoxVertices(
+            RenderingUtil.filledBox(
                     poseStack,
                     fillBuffer,
                     pos.getX() + 0.04D, pos.getY() + 0.04D, pos.getZ() + 0.04D,
@@ -88,13 +90,13 @@ public final class BlueprintCaptureRenderer {
 
         // Render red wireframe for each excluded block
         for (BlockPos pos : BlueprintPanel.getCaptureExcludedBlocksForRender(CAPTURE_EXCLUDED_HIGHLIGHT_LIMIT)) {
-            LevelRenderer.addChainedFilledBoxVertices(
+            RenderingUtil.filledBox(
                     poseStack,
                     fillBuffer,
                     pos.getX() + 0.07D, pos.getY() + 0.07D, pos.getZ() + 0.07D,
                     pos.getX() + 0.93D, pos.getY() + 0.93D, pos.getZ() + 0.93D,
                     EXCLUDED_BLOCK_R, EXCLUDED_BLOCK_G, EXCLUDED_BLOCK_B, EXCLUDED_BLOCK_FILL_A);
-            LevelRenderer.addChainedFilledBoxVertices(
+            RenderingUtil.filledBox(
                     poseStack,
                     fillBuffer,
                     pos.getX() + 0.18D, pos.getY() + 0.91D, pos.getZ() + 0.18D,

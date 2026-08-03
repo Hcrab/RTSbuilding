@@ -34,7 +34,7 @@ public final class RtsAiHelpClipboard {
 
     public static boolean copy(ClientRtsController controller) {
         Minecraft minecraft = Minecraft.getInstance();
-        String language = minecraft.getLanguageManager().getSelected();
+        String language = minecraft.getLanguageManager().getSelected().getCode();
         boolean chinese = language != null && language.toLowerCase(java.util.Locale.ROOT).startsWith("zh_");
         String tutorial = readTutorial(minecraft, chinese);
         if (tutorial == null) {

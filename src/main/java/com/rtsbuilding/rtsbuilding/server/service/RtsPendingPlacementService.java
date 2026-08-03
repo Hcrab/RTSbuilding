@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -91,7 +93,7 @@ public final class RtsPendingPlacementService {
         }
         var state = view.state();
         RtsPlacementBatch.PlaceBatchJob job = RtsPlacementBatch.restoreDetachedJob(
-                state, player.serverLevel().registryAccess());
+                state, player.getLevel().registryAccess());
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 
@@ -122,16 +124,16 @@ public final class RtsPendingPlacementService {
                 BlockPos targetPos = job.quickBuild()
                         ? pos
                         : com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor
-                                .placementTargetPos(player.serverLevel(), pos, job.face());
-                if (!player.serverLevel().hasChunkAt(targetPos)) {
+                                .placementTargetPos(player.getLevel(), pos, job.face());
+                if (!player.getLevel().hasChunkAt(targetPos)) {
                     continue;
                 }
-                BlockState currentState = player.serverLevel().getBlockState(targetPos);
+                BlockState currentState = player.getLevel().getBlockState(targetPos);
                 Block currentBlock = currentState.getBlock();
 
                 if (currentBlock == expectedBlock) {
                     alreadyPlacedCount++;
-                } else if (!currentState.isAir() && !currentState.canBeReplaced()) {
+                } else if (!currentState.isAir() && !RtsBlockStates.canBeReplaced(currentState)) {
                     conflictCount++;
                 }
             }

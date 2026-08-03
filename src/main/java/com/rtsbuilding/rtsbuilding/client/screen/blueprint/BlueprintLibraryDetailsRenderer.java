@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintLibraryChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
@@ -27,7 +27,7 @@ final class BlueprintLibraryDetailsRenderer {
     }
 
     static void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             MinecraftUiCanvas canvas,
             BlueprintLibraryLayout.Geometry geometry,
@@ -113,7 +113,7 @@ final class BlueprintLibraryDetailsRenderer {
     }
 
     private static void drawPreviewItems(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             MinecraftUiCanvas canvas,
             BlueprintLibraryLayout.DetailsGeometry details,
             BlueprintEntry entry) {

@@ -30,7 +30,7 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 
@@ -85,7 +85,7 @@ public final class BottomPanel {
 
     // ── Rendering ──
 
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         BottomPanelLayoutTypes.BottomPanelLayout layout = resolveBottomPanelLayout();
         String selectedStatus = selectedPlacementStatusText();
         BottomPanelHeaderLayout header =
@@ -199,7 +199,7 @@ public final class BottomPanel {
         renderCraftablesPanel(g, core, mouseX, mouseY, craftPanelX, craftPanelY, CRAFT_PANEL_W, craftPanelH, partialTick);
     }
 
-    public void renderCraftFeedback(GuiGraphics g) {
+    public void renderCraftFeedback(RtsGuiContext g) {
         RtsCraftFeedbackPopup.render(g, screen.font(), screen.width,
                 RtsMainlineLayout.TOP_H + 6, this.controller);
     }
@@ -245,7 +245,7 @@ public final class BottomPanel {
 
     // ── Toolbar ── hotbar / pinned slots ──
 
-    private void renderToolArea(GuiGraphics g, BottomBarUiState core,
+    private void renderToolArea(RtsGuiContext g, BottomBarUiState core,
             int mouseX, int mouseY, int storageX, int rowY, int storageW) {
         if (Minecraft.getInstance() == null || Minecraft.getInstance().player == null) {
             return;
@@ -274,7 +274,7 @@ public final class BottomPanel {
 
     // ── Crafting panel ──
 
-    private void renderCraftablesPanel(GuiGraphics g, BottomBarUiState core,
+    private void renderCraftablesPanel(RtsGuiContext g, BottomBarUiState core,
             int mouseX, int mouseY, int x, int y, int width, int height, float partialTick) {
         syncCraftSearchValueFromController();
         List<CraftableEntry> sourceEntries = this.controller.getCraftableEntries();

@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintLibraryChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintLibraryRenderSupport.drawCentered;
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintLibraryRenderSupport.text;
@@ -24,7 +24,7 @@ final class BlueprintLibraryPanelRenderer {
     }
 
     static void renderDisabled(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             int x,
             int y,
@@ -59,7 +59,7 @@ final class BlueprintLibraryPanelRenderer {
     }
 
     static void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             BlueprintLibraryUiState state,
             int x,
@@ -160,7 +160,7 @@ final class BlueprintLibraryPanelRenderer {
     }
 
     private static void drawTopText(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             BlueprintLibraryLayout.Geometry geometry,
             BlueprintLibraryLayout.TopBar top,
@@ -209,7 +209,7 @@ final class BlueprintLibraryPanelRenderer {
     }
 
     private static void drawCaptureLocked(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             BlueprintLibraryLayout.Geometry geometry,
             boolean saving) {

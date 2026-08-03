@@ -15,7 +15,7 @@ import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiStatus;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiTransition;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.StorageWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -71,7 +71,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             int mouseX,
             int mouseY,
             float partialTick) {

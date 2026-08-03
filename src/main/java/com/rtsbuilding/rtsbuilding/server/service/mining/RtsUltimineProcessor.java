@@ -142,7 +142,7 @@ public final class RtsUltimineProcessor {
 
         // 使用共享形状系统
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                player.serverLevel(),
+                player.getLevel(),
                 clampedMinX, clampedMaxX,
                 clampedMinY, clampedMaxY,
                 clampedMinZ, clampedMaxZ,
@@ -372,7 +372,7 @@ public final class RtsUltimineProcessor {
         // Creative mode: break immediately
         if (player.isCreative()) {
             List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                    player.serverLevel(),
+                    player.getLevel(),
                     clampedMinX, clampedMaxX,
                     clampedMinY, clampedMaxY,
                     clampedMinZ, clampedMaxZ,
@@ -405,7 +405,7 @@ public final class RtsUltimineProcessor {
         }
 
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                player.serverLevel(),
+                player.getLevel(),
                 clampedMinX, clampedMaxX,
                 clampedMinY, clampedMaxY,
                 clampedMinZ, clampedMaxZ,
@@ -471,7 +471,7 @@ public final class RtsUltimineProcessor {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         // 从上往下逐层破坏：按Y降序排列
         List<BlockPos> sortedPositions = new ArrayList<>(positions);
         sortedPositions.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).reversed());
@@ -551,7 +551,7 @@ public final class RtsUltimineProcessor {
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
         int toolBlockedTargets = 0;
         for (BlockPos pos : candidatePositions) {
-            BlockState state = player.serverLevel().getBlockState(pos);
+            BlockState state = player.getLevel().getBlockState(pos);
             if (RtsMiningValidator.canRangeMineWithTool(state, actualTool, creative, maxRequiredLevel)) {
                 targets.addLast(pos);
                 continue;
@@ -687,7 +687,7 @@ public final class RtsUltimineProcessor {
             return RtsMiningStateMachine.MiningAdvance.ended(0, 0, 0);
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         int processedThisTick = 0;
         int brokenBeforeThisTick = session.mining.ultimineBrokenTargets;
         boolean autoStoreDrops = RtsMiningValidator.canAutoStoreDrops(player, session);
@@ -727,7 +727,7 @@ public final class RtsUltimineProcessor {
 
             // Capture before state for history (including neighbors for multi-block tracking)
             HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(
-                    player.serverLevel(), target, player.isCreative());
+                    player.getLevel(), target, player.isCreative());
             List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(
                     level, target, player.isCreative());
 

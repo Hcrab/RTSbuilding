@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
@@ -149,7 +151,7 @@ public final class RtsPluginService {
             if (!entry.isOwnedBy(player)) {
                 return fail(player, "message.rtsbuilding.plugin.not_yours");
             }
-            ItemStack returning = entry.plugin().stack().copyWithCount(1);
+            ItemStack returning = RtsItemStacks.copyWithCount(entry.plugin().stack(), 1);
             if (!player.getInventory().add(returning)) {
                 return fail(player, "message.rtsbuilding.plugin.inventory_full");
             }
@@ -193,7 +195,7 @@ public final class RtsPluginService {
             fieldDeployment.add(definition.fieldDeployment());
             personal.add(effective.personal());
             ownerNames.add(effective.ownerName());
-            stacks.add(entry.stack().copyWithCount(1));
+            stacks.add(RtsItemStacks.copyWithCount(entry.stack(), 1));
         }
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsPluginStatePayload(
                 pluginIds, families, radii, fieldDeployment, personal, ownerNames, stacks,
@@ -272,7 +274,7 @@ public final class RtsPluginService {
             }
         }
         installed.add(new RtsPluginTeamService.StoredPlugin(
-                new RtsInstalledPlugin(definition.id(), installedStack, player.level().getGameTime()),
+                new RtsInstalledPlugin(definition.id(), installedStack, player.getLevel().getGameTime()),
                 player.getUUID(),
                 player.getGameProfile().getName()));
         RtsPluginTeamService.saveInstalledPlugins(player, installed);
@@ -283,7 +285,7 @@ public final class RtsPluginService {
     private static void returnReplacedPlugin(ServerPlayer player, ItemStack installedStack) {
         ItemStack returning = installedStack == null
                 ? ItemStack.EMPTY
-                : installedStack.copyWithCount(1);
+                : RtsItemStacks.copyWithCount(installedStack, 1);
         if (returning.isEmpty()) {
             return;
         }

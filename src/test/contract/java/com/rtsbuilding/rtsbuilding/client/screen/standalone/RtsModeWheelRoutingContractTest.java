@@ -40,7 +40,7 @@ class RtsModeWheelRoutingContractTest {
         String keyPressed = methodBody(
                 screen, "public boolean keyPressed(int keyCode, int scanCode, int modifiers)");
         String render = methodBody(
-                screen, "public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick)");
+                screen, "public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick)");
 
         assertTrue(altState.contains("this.cameraInput.cancelPointerGestures()"),
                 "轮盘打开时必须取消此前未完成的鼠标手势");

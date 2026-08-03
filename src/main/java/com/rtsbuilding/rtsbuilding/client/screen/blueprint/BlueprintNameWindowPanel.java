@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
@@ -44,7 +44,7 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         BlueprintUiState state = BlueprintUiStateAdapter.snapshot();
         if (!state.nameWindowOpen) {
             return;

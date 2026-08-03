@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
@@ -14,7 +16,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.SessionFlags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -78,7 +80,7 @@ public final class SessionSerializer {
                     && stacks.size()
                     < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
                 int chunkSize = Math.min(remaining, maxStackSize);
-                stacks.add(stack.copyWithCount(chunkSize).save(new CompoundTag()));
+                stacks.add(RtsItemStacks.copyWithCount(stack, chunkSize).save(new CompoundTag()));
                 count += chunkSize;
                 remaining -= chunkSize;
             }
@@ -284,7 +286,7 @@ public final class SessionSerializer {
             return;
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         ResourceKey<Level> dimension = legacyDimension == null ? level.dimension() : legacyDimension;
         long[] linkedPackedPositions = root.getLongArray("linked_positions");
         for (int i = 0; i < linkedPackedPositions.length; i++) {
@@ -389,7 +391,7 @@ public final class SessionSerializer {
                     && session.uiMemory.getQuickSlotPreview(i) != null
                     ? session.uiMemory.getQuickSlotPreview(i) : ItemStack.EMPTY;
             if (!preview.isEmpty() && preview.is(RtsBuiltInRegistries.ITEM.get(key))) {
-                tag.put("stack", preview.copyWithCount(1).save(new CompoundTag()));
+                tag.put("stack", RtsItemStacks.copyWithCount(preview, 1).save(new CompoundTag()));
             }
             list.add(tag);
         }
@@ -416,7 +418,7 @@ public final class SessionSerializer {
             }
             session.uiMemory.setQuickSlotPreview(slot, preview.isEmpty()
                     ? new ItemStack(RtsBuiltInRegistries.ITEM.get(key))
-                    : preview.copyWithCount(1));
+                    : RtsItemStacks.copyWithCount(preview, 1));
         }
     }
 

@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelGridLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelGridStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -29,7 +29,7 @@ public final class BottomPanelGridRenderer {
     private BottomPanelGridRenderer() {
     }
 
-    public static int renderStorage(GuiGraphics graphics, Font font,
+    public static int renderStorage(RtsGuiContext graphics, Font font,
                                     List<BottomBarUiEntry> entries,
                                     List<StorageEntry> sourceEntries,
                                     BottomPanelGridLayout.GridView view,
@@ -66,7 +66,7 @@ public final class BottomPanelGridRenderer {
         return hovered;
     }
 
-    public static int renderCreative(GuiGraphics graphics, Font font,
+    public static int renderCreative(RtsGuiContext graphics, Font font,
                                      List<BottomBarUiEntry> entries,
                                      List<RtsCreativeItemCatalog.CreativeEntry> sourceEntries,
                                      BottomPanelGridLayout.GridView view,
@@ -100,7 +100,7 @@ public final class BottomPanelGridRenderer {
         return entry == null ? -1 : entry.sourceIndex;
     }
 
-    public static int renderRecent(GuiGraphics graphics, Font font,
+    public static int renderRecent(RtsGuiContext graphics, Font font,
                                    List<BottomBarUiEntry> entries,
                                    List<RecentEntry> sourceEntries,
                                    BottomPanelGridLayout.GridView view,
@@ -134,7 +134,7 @@ public final class BottomPanelGridRenderer {
         return hovered;
     }
 
-    public static int renderFluid(GuiGraphics graphics, Font font,
+    public static int renderFluid(RtsGuiContext graphics, Font font,
                                   List<BottomBarUiEntry> entries,
                                   List<FluidEntry> sourceEntries,
                                   BottomPanelGridLayout.GridView view,
@@ -167,7 +167,7 @@ public final class BottomPanelGridRenderer {
         return hovered;
     }
 
-    private static void renderEmptyState(GuiGraphics graphics, Font font,
+    private static void renderEmptyState(RtsGuiContext graphics, Font font,
                                          BottomPanelGridLayout.GridArea area,
                                          String translationKey) {
         int messageWidth = Math.max(24,
@@ -195,7 +195,7 @@ public final class BottomPanelGridRenderer {
                 style.background, style.borderLight, style.borderDark);
     }
 
-    private static void drawSelection(GuiGraphics graphics,
+    private static void drawSelection(RtsGuiContext graphics,
                                       BottomPanelGridLayout.GridView view,
                                       int slotX, int slotY, boolean selected,
                                       BottomPanelGridStyle.Visual style) {
@@ -204,7 +204,7 @@ public final class BottomPanelGridRenderer {
         }
     }
 
-    private static void drawHover(GuiGraphics graphics,
+    private static void drawHover(RtsGuiContext graphics,
                                   BottomPanelGridLayout.GridView view,
                                   int slotX, int slotY,
                                   boolean hovered, boolean selected) {
@@ -215,7 +215,7 @@ public final class BottomPanelGridRenderer {
         }
     }
 
-    private static void fillInside(GuiGraphics graphics,
+    private static void fillInside(RtsGuiContext graphics,
                                    BottomPanelGridLayout.GridView view,
                                    int slotX, int slotY, int color) {
         graphics.fill(slotX + 1, slotY + 1,
@@ -223,7 +223,7 @@ public final class BottomPanelGridRenderer {
                 slotY + view.slotExtent - 1, color);
     }
 
-    private static void drawCount(GuiGraphics graphics, Font font,
+    private static void drawCount(RtsGuiContext graphics, Font font,
                                   BottomPanelGridLayout.GridView view,
                                   int slotX, int slotY, String text, UiColor color) {
         RtsClientUiUtil.drawSlotCountOverlay(graphics, font, slotX, slotY,

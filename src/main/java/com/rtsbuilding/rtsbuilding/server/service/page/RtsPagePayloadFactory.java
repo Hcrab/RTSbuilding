@@ -80,8 +80,8 @@ public final class RtsPagePayloadFactory {
         if (player == null || session == null || session.linkedStorageInfo.isEmpty()) {
             return new LinkedRefPayload(List.of(), List.of(), List.of(), List.of(), List.of(), List.of());
         }
-        ResourceKey<Level> currentDimension = player.serverLevel().dimension();
-        ServerLevel level = player.serverLevel();
+        ResourceKey<Level> currentDimension = player.getLevel().dimension();
+        ServerLevel level = player.getLevel();
         List<LinkedStorageRef> storageRefs = session.linkedStorageInfo.getAll();
         List<Long> positions = new ArrayList<>(storageRefs.size());
         List<String> names = new ArrayList<>(storageRefs.size());

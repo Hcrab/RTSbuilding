@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiContribution;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Arrays;
@@ -40,7 +40,7 @@ public final class TopBarIconRenderer {
      * 过渡期间最多提交四张，不生成中间帧资源，也不保留额外矩形轮廓。</p>
      */
     public static void renderBlended(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             TopBarTypes.TopBarButtonId id,
             int x, int y, int size,
             VisualState target,

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
@@ -25,7 +27,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -156,7 +158,7 @@ public final class RtsPlacementBatch {
     public static PlacementTaskState snapshotDetachedState(
             PlaceBatchJob job, ServerPlayer player) {
         if (job == null || player == null) throw new IllegalArgumentException("job/player 不能为空");
-        CompoundTag definition = job.toNbt(player.serverLevel().registryAccess());
+        CompoundTag definition = job.toNbt(player.getLevel().registryAccess());
         definition.remove(PlaceBatchJob.NBT_INDEX);
         return new PlacementTaskState(
                 definition,
@@ -214,7 +216,7 @@ public final class RtsPlacementBatch {
         if (player == null || session == null || state == null) {
             throw new IllegalArgumentException("player/session/state 不能为空");
         }
-        PlaceBatchJob job = restoreDetachedJob(state, player.serverLevel().registryAccess());
+        PlaceBatchJob job = restoreDetachedJob(state, player.getLevel().registryAccess());
         Block expectedBlock = expectedPlacementBlock(job);
         List<BlockPos> overwriteDropPositions = new ArrayList<>();
 
@@ -231,18 +233,18 @@ public final class RtsPlacementBatch {
             BlockPos predictedTarget = job.quickBuild()
                     ? clickedPos
                     : RtsPlacementExecutor.placementTargetPos(
-                            player.serverLevel(), clickedPos, job.face());
+                            player.getLevel(), clickedPos, job.face());
             HistoryBlockRecord beforePlacement = ServerHistoryManager.capturePlacementBefore(
-                    player.serverLevel(), predictedTarget, state.creativeOperation());
+                    player.getLevel(), predictedTarget, state.creativeOperation());
             if (state.resumePolicy() != PlacementResumePolicy.DEFAULT && expectedBlock != null) {
                 BlockPos targetPos = predictedTarget;
-                if (!player.serverLevel().hasChunkAt(targetPos)) {
+                if (!player.getLevel().hasChunkAt(targetPos)) {
                     job.unconsumeLast();
                     break;
                 }
-                BlockState targetState = player.serverLevel().getBlockState(targetPos);
+                BlockState targetState = player.getLevel().getBlockState(targetPos);
                 boolean alreadyExpected = targetState.getBlock() == expectedBlock;
-                boolean conflict = !alreadyExpected && !targetState.isAir() && !targetState.canBeReplaced();
+                boolean conflict = !alreadyExpected && !targetState.isAir() && !RtsBlockStates.canBeReplaced(targetState);
                 if (alreadyExpected
                         || (conflict && state.resumePolicy() == PlacementResumePolicy.SKIP_CONFLICTS)) {
                     job.skippedWhileProcessing++;
@@ -303,7 +305,7 @@ public final class RtsPlacementBatch {
     /** 覆盖策略的单格世界事务；调用点已经受 TaskStore revision ACK 与 slice 预算保护。 */
     private static boolean prepareOverwriteConflict(
             ServerPlayer player, BlockPos pos, BlockState current, List<BlockPos> dropPositions) {
-        var level = player.serverLevel();
+        var level = player.getLevel();
         if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.UP)) return false;
 
         List<ItemStack> drops = Block.getDrops(current, level, pos, level.getBlockEntity(pos));
@@ -329,7 +331,7 @@ public final class RtsPlacementBatch {
     public static void recordDetachedHistory(ServerPlayer player, PlacementTaskState state) {
         if (player == null || state == null) return;
         PlaceBatchJob definition = PlaceBatchJob.fromNbt(
-                state.definition(), player.serverLevel().registryAccess());
+                state.definition(), player.getLevel().registryAccess());
         if (!state.historyRecords().isEmpty()) {
             List<HistoryBlockRecord> records = state.historyRecords().stream()
                     .map(tag -> decodePlacementHistory(player, tag))
@@ -340,9 +342,9 @@ public final class RtsPlacementBatch {
             // 旧 schema 任务没有前后快照，只能保留原有的生存建造撤回语义。
             ServerHistoryManager.recordPlacement(player, state.placedPositions(), definition.face());
         }
-        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.level().dimension());
-        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), player.level().dimension());
-        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markStorageViewDirty(player.getUUID(), player.getLevel().dimension());
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), player.getLevel().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
     }
 
     private static boolean processOnePlacement(
@@ -353,12 +355,12 @@ public final class RtsPlacementBatch {
         boolean keepGoing;
         if (statePlan != null) {
             BlockPos trackedPos = clickedPos;
-            BlockState beforeState = player.serverLevel().getBlockState(trackedPos);
+            BlockState beforeState = player.getLevel().getBlockState(trackedPos);
             boolean creativeOverwrite = job.overwriteExisting() && player.isCreative();
             keepGoing = RtsPlacementQuickBuild.placeStateBatchEntry(
                     player, session, clickedPos, statePlan, creativeOverwrite);
-            if (keepGoing && (creativeOverwrite || beforeState.isAir() || beforeState.canBeReplaced())
-                    && !player.serverLevel().getBlockState(trackedPos).isAir()) {
+            if (keepGoing && (creativeOverwrite || beforeState.isAir() || RtsBlockStates.canBeReplaced(beforeState))
+                    && !player.getLevel().getBlockState(trackedPos).isAir()) {
                 job.placedPositions.add(trackedPos);
                 job.historyRecords.add(encodePlacementHistory(historyRecordAfterPlacement(
                         player, trackedPos, beforePlacement, creativeOperation)));
@@ -373,9 +375,9 @@ public final class RtsPlacementBatch {
                 clickedPos.getY() + job.hitOffsetY(),
                 clickedPos.getZ() + job.hitOffsetZ());
         BlockPos adjPos = clickedPos.relative(job.face());
-        BlockState beforeClicked = player.serverLevel().getBlockState(clickedPos);
-        BlockState beforeAdjacent = player.serverLevel().hasChunkAt(adjPos)
-                ? player.serverLevel().getBlockState(adjPos) : null;
+        BlockState beforeClicked = player.getLevel().getBlockState(clickedPos);
+        BlockState beforeAdjacent = player.getLevel().hasChunkAt(adjPos)
+                ? player.getLevel().getBlockState(adjPos) : null;
         keepGoing = RtsPlacementExecutor.placeSelectedInternal(
                 player,
                 session,
@@ -402,7 +404,7 @@ public final class RtsPlacementBatch {
                 job.sendRemoteHint());
         if (keepGoing) {
             BlockPos actualPos = RtsPlacementHelper.detectPlacedPos(
-                    player.serverLevel(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
+                    player.getLevel(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
             if (actualPos != null) {
                 job.placedPositions.add(actualPos);
                 job.historyRecords.add(encodePlacementHistory(historyRecordAfterPlacement(
@@ -416,9 +418,9 @@ public final class RtsPlacementBatch {
     private static HistoryBlockRecord historyRecordAfterPlacement(
             ServerPlayer player, BlockPos actualPos, HistoryBlockRecord beforePlacement,
             boolean creativeOperation) {
-        BlockState after = player.serverLevel().getBlockState(actualPos);
+        BlockState after = player.getLevel().getBlockState(actualPos);
         CompoundTag afterBlockEntity = creativeOperation
-                ? ServerHistoryManager.captureBlockEntityData(player.serverLevel(), actualPos)
+                ? ServerHistoryManager.captureBlockEntityData(player.getLevel(), actualPos)
                 : null;
         if (creativeOperation && beforePlacement != null
                 && beforePlacement.pos().equals(actualPos)) {
@@ -446,10 +448,8 @@ public final class RtsPlacementBatch {
 
     private static HistoryBlockRecord decodePlacementHistory(
             ServerPlayer player, CompoundTag tag) {
-        var blocks = player.serverLevel().registryAccess()
-                .registryOrThrow(Registries.BLOCK).asLookup();
-        BlockState before = NbtUtils.readBlockState(blocks, tag.getCompound("before"));
-        BlockState after = NbtUtils.readBlockState(blocks, tag.getCompound("after"));
+        BlockState before = NbtUtils.readBlockState(tag.getCompound("before"));
+        BlockState after = NbtUtils.readBlockState(tag.getCompound("after"));
         CompoundTag blockEntity = tag.contains("blockEntity", Tag.TAG_COMPOUND)
                 ? tag.getCompound("blockEntity").copy() : null;
         CompoundTag afterBlockEntity = tag.contains("afterBlockEntity", Tag.TAG_COMPOUND)

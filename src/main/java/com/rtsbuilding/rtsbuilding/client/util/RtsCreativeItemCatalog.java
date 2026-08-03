@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import net.minecraft.core.NonNullList;
 import net.minecraft.client.Minecraft;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -76,13 +77,12 @@ public final class RtsCreativeItemCatalog {
         this.lastRebuildMs = System.currentTimeMillis();
         this.entriesVersion++;
 
-        CreativeModeTab.ItemDisplayParameters parameters = resolveItemDisplayParameters();
         Map<String, Set<String>> modToTabs = new LinkedHashMap<>();
         Map<String, String> tabLabels = new LinkedHashMap<>();
         Map<String, String> modLabels = new LinkedHashMap<>();
         Set<String> seenItems = new HashSet<>();
         for (CreativeModeTab tab : RtsBuiltInRegistries.CREATIVE_MODE_TAB) {
-            if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
+            if (!isCatalogTab(tab)) {
                 continue;
             }
             ResourceLocation tabId = RtsBuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
@@ -95,7 +95,6 @@ public final class RtsCreativeItemCatalog {
             String label = safeTabLabel(tab, tabId);
             // 1.21.1 的 shouldDisplay() 本身以 displayItems 非空为前提。必须先装填，
             // 再根据实际结果过滤；否则从未打开原版创造物品栏时所有分类都会被跳过。
-            buildContentsIfPossible(tab, parameters);
             Collection<ItemStack> displayItems = safeDisplayItems(tab);
             if (displayItems.isEmpty()) {
                 continue;
@@ -134,24 +133,11 @@ public final class RtsCreativeItemCatalog {
         return dimension + "|op=" + operatorTabs;
     }
 
-    private static CreativeModeTab.ItemDisplayParameters resolveItemDisplayParameters() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc == null || mc.level == null) {
-            return null;
-        }
-        boolean operatorTabs = mc.player != null && mc.player.canUseGameMasterBlocks();
-        return new CreativeModeTab.ItemDisplayParameters(mc.level.enabledFeatures(), operatorTabs, mc.level.registryAccess());
-    }
-
-    private static void buildContentsIfPossible(CreativeModeTab tab, CreativeModeTab.ItemDisplayParameters parameters) {
-        if (parameters == null) {
-            return;
-        }
-        try {
-            tab.buildContents(parameters);
-        } catch (RuntimeException | LinkageError ignored) {
-            // Bad modded creative tabs should disappear from the RTS picker instead of crashing the screen.
-        }
+    private static boolean isCatalogTab(CreativeModeTab tab) {
+        return tab != null
+                && tab != CreativeModeTab.TAB_SEARCH
+                && tab != CreativeModeTab.TAB_HOTBAR
+                && tab != CreativeModeTab.TAB_INVENTORY;
     }
 
     private void addEntry(String categoryToken, ItemStack stack, Set<String> seenItems) {
@@ -182,9 +168,11 @@ public final class RtsCreativeItemCatalog {
     }
 
     private static Collection<ItemStack> safeDisplayItems(CreativeModeTab tab) {
+        NonNullList<ItemStack> items = NonNullList.create();
         try {
-            return tab.getDisplayItems();
-        } catch (RuntimeException ex) {
+            tab.fillItemList(items);
+            return items;
+        } catch (RuntimeException | LinkageError ex) {
             return List.of();
         }
     }

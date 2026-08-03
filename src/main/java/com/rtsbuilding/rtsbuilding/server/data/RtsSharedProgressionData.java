@@ -1,7 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.data;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.StringTag;
@@ -242,7 +244,7 @@ public final class RtsSharedProgressionData extends SavedData {
                     }
                     CompoundTag pluginTag = new CompoundTag();
                     pluginTag.putString(KEY_PLUGIN_ID, plugin.pluginId().toString());
-                    pluginTag.put(KEY_PLUGIN_STACK, plugin.stack().copyWithCount(1).save(new CompoundTag()));
+                    pluginTag.put(KEY_PLUGIN_STACK, RtsItemStacks.copyWithCount(plugin.stack(), 1).save(new CompoundTag()));
                     pluginTag.putLong(KEY_PLUGIN_INSTALLED_GAME_TIME, plugin.installedGameTime());
                     if (plugin.ownerId() != null) {
                         pluginTag.putUUID(KEY_PLUGIN_OWNER, plugin.ownerId());
@@ -269,7 +271,7 @@ public final class RtsSharedProgressionData extends SavedData {
             UUID ownerId,
             String ownerName) {
         public SharedPlugin {
-            stack = stack == null ? ItemStack.EMPTY : stack.copyWithCount(1);
+            stack = stack == null ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(stack, 1);
             ownerName = ownerName == null ? "" : ownerName;
         }
     }

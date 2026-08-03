@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.StorageWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.StorageWindowStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -24,7 +24,7 @@ final class LinkedStoragePanelRenderer {
     }
 
     static void renderHeader(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             StorageWindowLayout.Geometry geometry) {
         graphics.drawString(
@@ -54,7 +54,7 @@ final class LinkedStoragePanelRenderer {
     }
 
     static void renderStatus(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             StorageWindowLayout.Geometry geometry,
             StorageUiState state) {
@@ -86,7 +86,7 @@ final class LinkedStoragePanelRenderer {
     }
 
     static void renderRow(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             MinecraftUiCanvas canvas,
             StorageWindowLayout.RowGeometry geometry,
@@ -184,7 +184,7 @@ final class LinkedStoragePanelRenderer {
     }
 
     private static void drawCentered(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             Component text,
             com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect bounds,
@@ -199,7 +199,7 @@ final class LinkedStoragePanelRenderer {
     }
 
     private static void drawCentered(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect bounds,

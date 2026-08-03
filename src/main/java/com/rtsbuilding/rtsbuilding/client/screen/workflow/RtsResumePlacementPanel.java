@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.PacketDistributor;
 
@@ -98,7 +98,7 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             int mouseX,
             int mouseY,
             float partialTick) {

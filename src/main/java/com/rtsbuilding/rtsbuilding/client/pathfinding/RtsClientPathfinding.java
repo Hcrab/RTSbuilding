@@ -59,11 +59,11 @@ public final class RtsClientPathfinding {
      * {@code entityInside()} calls {@code setDeltaMovement(delta.multiply(...))} directly.
      */
     private static Vec3 applyEntityInsideSlow(LocalPlayer player, Vec3 velocity) {
-        BlockPos min = BlockPos.containing(player.getBoundingBox().minX, player.getBoundingBox().minY, player.getBoundingBox().minZ);
-        BlockPos max = BlockPos.containing(player.getBoundingBox().maxX, player.getBoundingBox().maxY, player.getBoundingBox().maxZ);
+        BlockPos min = new BlockPos(player.getBoundingBox().minX, player.getBoundingBox().minY, player.getBoundingBox().minZ);
+        BlockPos max = new BlockPos(player.getBoundingBox().maxX, player.getBoundingBox().maxY, player.getBoundingBox().maxZ);
         Vec3 result = velocity;
         for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
-            BlockState state = player.level().getBlockState(pos);
+            BlockState state = player.getLevel().getBlockState(pos);
             if (state.is(Blocks.SOUL_SAND)) {
                 result = result.multiply(0.4, 1.0, 0.4);
             } else if (state.is(Blocks.HONEY_BLOCK)) {
@@ -376,7 +376,7 @@ public final class RtsClientPathfinding {
             boolean canSprint = !player.getAbilities().flying
                     && player.getFoodData().getFoodLevel() > 6
                     && !player.isUsingItem()
-                    && (player.onGround() || player.isInWater() || player.isInLava());
+                    && (player.isOnGround() || player.isInWater() || player.isInLava());
             player.setSprinting(canSprint);
         } else {
             player.setSprinting(false);
@@ -444,7 +444,7 @@ public final class RtsClientPathfinding {
 
         switch (behavior) {
             case JUMP -> {
-                if (player.onGround()) {
+                if (player.isOnGround()) {
                     player.jumpFromGround();
                     player.hurtMarked = true;
                 }

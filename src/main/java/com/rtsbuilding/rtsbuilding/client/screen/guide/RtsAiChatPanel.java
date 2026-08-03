@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.AiChatStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import org.lwjgl.glfw.GLFW;
@@ -65,7 +65,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         int x = contentX() + PAD;
         int y = contentY() + PAD;
         int w = Math.max(80, contentWidth() - PAD * 2);
@@ -291,7 +291,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         }
     }
 
-    private void drawButton(GuiGraphics g, int x, int y, int w, int h,
+    private void drawButton(RtsGuiContext g, int x, int y, int w, int h,
                             int mouseX, int mouseY, Component label, boolean disabled) {
         boolean hovered = !disabled && inside(mouseX, mouseY, x, y, w, h);
         WindowButtonChromeRenderer.renderSolid(

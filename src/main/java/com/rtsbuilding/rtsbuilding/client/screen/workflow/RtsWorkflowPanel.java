@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiRow;
 import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -75,7 +75,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
 
     @Override
     public void renderOverlays(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             int mouseX,
             int mouseY) {
         if (!this.open || !canShowWindow() || this.screen == null) return;
@@ -105,7 +105,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
 
     @Override
     public void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             int mouseX,
             int mouseY,
             float partialTick) {
@@ -144,7 +144,7 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             int mouseX,
             int mouseY,
             float partialTick) {

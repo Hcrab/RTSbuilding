@@ -1,11 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.rtsbuilding.rtsbuilding.client.widget.RtsButtons;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.theme.StandaloneScreenStyle;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
@@ -55,13 +58,14 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        RtsGuiContext g = new RtsGuiContext(poseStack, this);
         renderPageBackground(g);
         g.drawCenteredString(this.font, this.title, this.width / 2, 14,
                 StandaloneScreenStyle.TITLE_TEXT.toArgb());
         drawGeneralPage(g);
         drawScrollbar(g);
-        super.render(g, mouseX, mouseY, partialTick);
+        super.render(poseStack, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -113,7 +117,7 @@ public final class RtsModConfigScreen extends Screen {
         int y = viewportTop() - this.scroll + SECTION_H;
 
         if (fullyVisible(y, OPTION_ROW_H)) {
-            addRenderableWidget(Button.builder(Component.translatable(this.survivalEnabled
+            addRenderableWidget(RtsButtons.builder(Component.translatable(this.survivalEnabled
                     ? "config.rtsbuilding.enabled"
                     : "config.rtsbuilding.disabled"), btn -> {
                 this.survivalEnabled = !this.survivalEnabled;
@@ -123,7 +127,7 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H;
 
         if (fullyVisible(y, OPTION_ROW_H)) {
-            addRenderableWidget(Button.builder(Component.translatable(this.shareWithTeams
+            addRenderableWidget(RtsButtons.builder(Component.translatable(this.shareWithTeams
                     ? "config.rtsbuilding.enabled"
                     : "config.rtsbuilding.disabled"), btn -> {
                 this.shareWithTeams = !this.shareWithTeams;
@@ -139,7 +143,7 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H + 6 + SECTION_H;
 
         if (fullyVisible(y, OPTION_ROW_H)) {
-            addRenderableWidget(Button.builder(Component.translatable(this.blueprintsEnabled
+            addRenderableWidget(RtsButtons.builder(Component.translatable(this.blueprintsEnabled
                     ? "config.rtsbuilding.enabled"
                     : "config.rtsbuilding.disabled"), btn -> {
                 this.blueprintsEnabled = !this.blueprintsEnabled;
@@ -155,7 +159,7 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H + 6 + SECTION_H;
 
         if (fullyVisible(y, OPTION_ROW_H)) {
-            addRenderableWidget(Button.builder(Component.translatable(this.inventoryRtsButtonEnabled
+            addRenderableWidget(RtsButtons.builder(Component.translatable(this.inventoryRtsButtonEnabled
                     ? "config.rtsbuilding.enabled"
                     : "config.rtsbuilding.disabled"), btn -> {
                 this.inventoryRtsButtonEnabled = !this.inventoryRtsButtonEnabled;
@@ -196,7 +200,7 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H;
 
         if (fullyVisible(y, OPTION_ROW_H)) {
-            addRenderableWidget(Button.builder(
+            addRenderableWidget(RtsButtons.builder(
                     Component.translatable("config.rtsbuilding.harvest_tier."
                             + this.areaMineMaxHarvestTier.name().toLowerCase()),
                     btn -> {
@@ -207,7 +211,7 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H + 6 + SECTION_H;
 
         if (fullyVisible(y, OPTION_ROW_H)) {
-            addRenderableWidget(Button.builder(Component.translatable(this.developerMode
+            addRenderableWidget(RtsButtons.builder(Component.translatable(this.developerMode
                     ? "config.rtsbuilding.enabled" : "config.rtsbuilding.disabled"), btn -> {
                 this.developerMode = !this.developerMode;
                 rebuildConfigWidgets();
@@ -229,10 +233,10 @@ public final class RtsModConfigScreen extends Screen {
         int buttonW = Math.min(96, Math.max(72, this.width / 4));
         int footerY = this.height - 28;
         int startX = (this.width - buttonW * 2 - 8) / 2;
-        addRenderableWidget(Button.builder(Component.translatable("config.rtsbuilding.save"), btn -> saveAndClose())
+        addRenderableWidget(RtsButtons.builder(Component.translatable("config.rtsbuilding.save"), btn -> saveAndClose())
                 .bounds(startX, footerY, buttonW, 20)
                 .build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> this.minecraft.setScreen(this.parent))
+        addRenderableWidget(RtsButtons.builder(Component.translatable("gui.rtsbuilding.back"), btn -> this.minecraft.setScreen(this.parent))
                 .bounds(startX + buttonW + 8, footerY, buttonW, 20)
                 .build());
     }
@@ -325,7 +329,7 @@ public final class RtsModConfigScreen extends Screen {
         }
     }
 
-    private void drawGeneralPage(GuiGraphics g) {
+    private void drawGeneralPage(RtsGuiContext g) {
         int x = contentX();
         int y = viewportTop() - this.scroll;
         int width = contentWidth();
@@ -426,7 +430,7 @@ public final class RtsModConfigScreen extends Screen {
                 mouseX, mouseY);
     }
 
-    private void renderPageBackground(GuiGraphics g) {
+    private void renderPageBackground(RtsGuiContext g) {
         g.fill(0, 0, this.width, this.height, StandaloneScreenStyle.PAGE_BACKGROUND.toArgb());
         g.fill(0, 0, this.width, HEADER_H, StandaloneScreenStyle.BAR_BACKGROUND.toArgb());
         g.fill(0, this.height - FOOTER_H, this.width, this.height,
@@ -436,14 +440,14 @@ public final class RtsModConfigScreen extends Screen {
                 StandaloneScreenStyle.BAR_DIVIDER.toArgb());
     }
 
-    private void drawSection(GuiGraphics g, int x, int y, Component label) {
+    private void drawSection(RtsGuiContext g, int x, int y, Component label) {
         g.drawString(this.font, label, x + 2, y + 5,
                 StandaloneScreenStyle.SECTION_TEXT.toArgb());
         g.hLine(x, x + contentWidth(), y + SECTION_H - 1,
                 StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
     }
 
-    private void drawOptionRow(GuiGraphics g, int x, int y, int width, Component label, Component hint) {
+    private void drawOptionRow(RtsGuiContext g, int x, int y, int width, Component label, Component hint) {
         int controlW = controlWidth(width);
         int hintW = Math.max(24, width - controlW - 34);
         g.fill(x, y, x + width, y + OPTION_ROW_H - 2,
@@ -456,7 +460,7 @@ public final class RtsModConfigScreen extends Screen {
                 StandaloneScreenStyle.INFO_LABEL.toArgb());
     }
 
-    private void drawScrollbar(GuiGraphics g) {
+    private void drawScrollbar(RtsGuiContext g) {
         int max = maxScroll();
         int viewportH = viewportHeight();
         int contentH = contentHeight();

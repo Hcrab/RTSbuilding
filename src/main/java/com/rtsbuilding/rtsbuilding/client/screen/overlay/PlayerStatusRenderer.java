@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.PlayerStatusLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.PlayerStatusStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.util.Mth;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.TOP_H;
@@ -33,7 +33,7 @@ public final class PlayerStatusRenderer {
      * Renders all player status bars (HP, food, armor, absorption) at the
      * top-right corner of the screen. Absorption is only drawn when active.
      */
-    public void render(GuiGraphics g) {
+    public void render(RtsGuiContext g) {
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.player == null || mc.player.isRemoved()) return;
 

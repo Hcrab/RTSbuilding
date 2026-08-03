@@ -129,11 +129,11 @@ public final class RtsStorageCompatGameTests {
         }
         requireMod(helper, "beyonddimensions");
         ServerPlayer player = startRtsPlayer(helper);
-        helper.assertTrue(RtsBdCompat.ensurePrimaryNetworkForTesting(player, 2_000_000L, 1_000_000),
+        RtsGameTestAssertions.assertTrue(helper, RtsBdCompat.ensurePrimaryNetworkForTesting(player, 2_000_000L, 1_000_000),
                 "BD 测试玩家应该能通过 BD 公开 API 创建真实主网络");
 
         IItemHandler handler = RtsBdCompat.createNetworkItemHandler(player);
-        helper.assertTrue(handler != null, "BD 主网络应该能被 RTS 包装为真实 item handler");
+        RtsGameTestAssertions.assertTrue(helper, handler != null, "BD 主网络应该能被 RTS 包装为真实 item handler");
         Map<Item, Long> expected = seedNetwork(helper, "BD", handler,
                 itemsForNetwork(Items.AMETHYST_SHARD, "beyonddimensions", SINGLE_NETWORK_ITEM_TYPES, 194),
                 257);
@@ -197,11 +197,11 @@ public final class RtsStorageCompatGameTests {
         }
         requireMod(helper, "beyonddimensions");
         ServerPlayer player = startRtsPlayer(helper);
-        helper.assertTrue(RtsBdCompat.ensurePrimaryNetworkForTesting(player, 2_000_000L, 1_000_000),
+        RtsGameTestAssertions.assertTrue(helper, RtsBdCompat.ensurePrimaryNetworkForTesting(player, 2_000_000L, 1_000_000),
                 "BD 提取测试玩家应该能通过 BD 公开 API 创建真实主网络");
 
         IItemHandler handler = RtsBdCompat.createNetworkItemHandler(player);
-        helper.assertTrue(handler != null, "BD 主网络应该能被 RTS 包装为真实 item handler");
+        RtsGameTestAssertions.assertTrue(helper, handler != null, "BD 主网络应该能被 RTS 包装为真实 item handler");
         insertLargeAmount(handler, Items.DIRT, 1_000_000);
         assertPlacementExtractorPullsLargeDirt(helper, player, "BD 真实网络");
         stopPlayer(player);
@@ -228,7 +228,7 @@ public final class RtsStorageCompatGameTests {
         insertAe2StorageCells(helper, aeDriveRel, 4);
 
         ServerPlayer player = startRtsPlayer(helper);
-        helper.assertTrue(RtsBdCompat.ensurePrimaryNetworkForTesting(player, 3_000_000L, 1_000_000),
+        RtsGameTestAssertions.assertTrue(helper, RtsBdCompat.ensurePrimaryNetworkForTesting(player, 3_000_000L, 1_000_000),
                 "混合网络测试需要真实 BD 主网络");
 
         helper.runAfterDelay(150, () -> {
@@ -244,7 +244,7 @@ public final class RtsStorageCompatGameTests {
                     itemsForNetwork(Items.EMERALD, "ae2", MIXED_NETWORK_ITEM_TYPES, 131),
                     191));
             IItemHandler bdHandler = RtsBdCompat.createNetworkItemHandler(player);
-            helper.assertTrue(bdHandler != null, "混合网络测试需要 RTS 能打开 BD item handler");
+            RtsGameTestAssertions.assertTrue(helper, bdHandler != null, "混合网络测试需要 RTS 能打开 BD item handler");
             mergeExpected(expected, seedNetwork(helper, "BD mixed", bdHandler,
                     itemsForNetwork(Items.AMETHYST_SHARD, "beyonddimensions", MIXED_NETWORK_ITEM_TYPES, 262),
                     209));
@@ -252,7 +252,7 @@ public final class RtsStorageCompatGameTests {
             long start = System.nanoTime();
             S2CRtsStoragePagePayload all = buildFreshStoragePage(helper, player, 0, "", 32, List.of());
             long allNanos = System.nanoTime() - start;
-            helper.assertTrue(all.totalEntries() == expected.size(),
+            RtsGameTestAssertions.assertTrue(helper, all.totalEntries() == expected.size(),
                     "RS+AE2+BD 混合多杂物统计应该等于三个真实网络的去重物品种类");
 
             S2CRtsStoragePagePayload diamond = buildStoragePage(helper, player,
@@ -282,7 +282,7 @@ public final class RtsStorageCompatGameTests {
                 return new HandlerEndpoint(rel, handler);
             }
         }
-        helper.assertTrue(false, "RS 网络节点应该能被 RTS 识别为真实网络 handler");
+        RtsGameTestAssertions.assertTrue(helper, false, "RS 网络节点应该能被 RTS 识别为真实网络 handler");
         return null;
     }
 
@@ -293,7 +293,7 @@ public final class RtsStorageCompatGameTests {
                 return new HandlerEndpoint(rel, handler);
             }
         }
-        helper.assertTrue(false, "AE2 网络节点应该能被 RTS 识别为真实网络 handler");
+        RtsGameTestAssertions.assertTrue(helper, false, "AE2 网络节点应该能被 RTS 识别为真实网络 handler");
         return null;
     }
 
@@ -302,7 +302,7 @@ public final class RtsStorageCompatGameTests {
         int before = session.linkedStorageInfo.size();
         RtsAPI.get().bindings().linkStorage(player, helper.absolutePos(rel),
                 RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
-        helper.assertTrue(session.linkedStorageInfo.size() > before,
+        RtsGameTestAssertions.assertTrue(helper, session.linkedStorageInfo.size() > before,
                 "RTS 应该能链接真实网络 endpoint: " + rel);
     }
 
@@ -315,10 +315,10 @@ public final class RtsStorageCompatGameTests {
         }
         Map<Item, Long> visible = snapshotVisibleCounts(handler);
         int expectedMinimum = Math.max(1, items.size() - 2);
-        helper.assertTrue(visible.size() >= expectedMinimum,
+        RtsGameTestAssertions.assertTrue(helper, visible.size() >= expectedMinimum,
                 label + " real network should expose almost all inserted junk types, expected at least "
                         + expectedMinimum + ", actual " + visible.size());
-        helper.assertTrue(visible.containsKey(items.get(0)),
+        RtsGameTestAssertions.assertTrue(helper, visible.containsKey(items.get(0)),
                 label + " real network should expose the localized search anchor " + itemId(items.get(0)));
         return visible;
     }
@@ -361,7 +361,7 @@ public final class RtsStorageCompatGameTests {
     private static void storeHotbarThroughRts(GameTestHelper helper, ServerPlayer player, Item item, int count) {
         player.getInventory().setItem(0, new ItemStack(item, count));
         RtsAPI.get().bindings().storeHotbarSlot(player, (byte) 0);
-        helper.assertTrue(player.getInventory().getItem(0).isEmpty(),
+        RtsGameTestAssertions.assertTrue(helper, player.getInventory().getItem(0).isEmpty(),
                 "RTS 快捷栏存入真实网络后，玩家原槽位应该清空");
     }
 
@@ -383,14 +383,14 @@ public final class RtsStorageCompatGameTests {
     private static void assertPlacementExtractorPullsLargeDirt(GameTestHelper helper, ServerPlayer player,
             String label) {
         long before = visibleCountFromResolvedHandlers(helper, player, Items.DIRT);
-        helper.assertTrue(before >= 1_000_000L,
+        RtsGameTestAssertions.assertTrue(helper, before >= 1_000_000L,
                 label + " 应该已经包含大数量泥土，实际 " + before);
 
         RtsStorageSession session = requireSession(helper, player);
         session.bdCache.handlerStale = true;
         session.bdCache.fluidHandlerStale = true;
         List<LinkedHandler> linkedHandlers = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        helper.assertTrue(!linkedHandlers.isEmpty(), label + " 应该能被 RTS 解析为 linked storage");
+        RtsGameTestAssertions.assertTrue(helper, !linkedHandlers.isEmpty(), label + " 应该能被 RTS 解析为 linked storage");
         RtsLinkedHandlerResolutionService.registerStorageCaches(player, linkedHandlers);
         RtsStorageTickService.INSTANCE.forceRefresh(player);
 
@@ -400,10 +400,10 @@ public final class RtsStorageCompatGameTests {
                 Items.DIRT,
                 new ItemStack(Items.DIRT));
 
-        helper.assertTrue(!extracted.isEmpty() && extracted.getItem() == Items.DIRT && extracted.getCount() == 1,
+        RtsGameTestAssertions.assertTrue(helper, !extracted.isEmpty() && extracted.getItem() == Items.DIRT && extracted.getCount() == 1,
                 label + " placement extractor 应该从大数量网络里抽出 1 个泥土，实际为 " + extracted);
         long after = visibleCountFromResolvedHandlers(helper, player, Items.DIRT);
-        helper.assertTrue(after == before - 1L,
+        RtsGameTestAssertions.assertTrue(helper, after == before - 1L,
                 label + " 抽取后泥土计数应该减少 1，before=" + before + " after=" + after);
     }
 
@@ -412,7 +412,7 @@ public final class RtsStorageCompatGameTests {
         session.bdCache.handlerStale = true;
         session.bdCache.fluidHandlerStale = true;
         List<LinkedHandler> linkedHandlers = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        helper.assertTrue(!linkedHandlers.isEmpty(), "RTS 应该能解析用于计数的 linked storage");
+        RtsGameTestAssertions.assertTrue(helper, !linkedHandlers.isEmpty(), "RTS 应该能解析用于计数的 linked storage");
         long total = 0L;
         for (IItemHandler handler : RtsLinkedStorageResolver.itemHandlersForExtract(linkedHandlers)) {
             total += visibleCount(handler, item);
@@ -440,10 +440,10 @@ public final class RtsStorageCompatGameTests {
         long allStart = System.nanoTime();
         S2CRtsStoragePagePayload all = buildFreshStoragePage(helper, player, 0, "", 24, List.of());
         long allNanos = System.nanoTime() - allStart;
-        helper.assertTrue(all.totalEntries() == expected.size(),
+        RtsGameTestAssertions.assertTrue(helper, all.totalEntries() == expected.size(),
                 label + " 多杂物统计应该保留所有不同物品种类，期望 "
                         + expected.size() + "，实际 " + all.totalEntries());
-        helper.assertTrue(all.totalPages() >= 4,
+        RtsGameTestAssertions.assertTrue(helper, all.totalPages() >= 4,
                 label + " 大库存应该产生多页结果");
         for (Map.Entry<Item, Long> entry : expected.entrySet()) {
             assertTotalCount(helper, all, entry.getKey(), entry.getValue(),
@@ -474,7 +474,7 @@ public final class RtsStorageCompatGameTests {
         }
         S2CRtsStoragePagePayload payload = buildStoragePage(helper, player,
                 0, "@" + namespace, 32, List.of());
-        helper.assertTrue(payload.totalEntries() == expectedEntries,
+        RtsGameTestAssertions.assertTrue(helper, payload.totalEntries() == expectedEntries,
                 "@" + namespace + " 搜索应该只返回该命名空间的真实网络条目");
     }
 
@@ -573,7 +573,7 @@ public final class RtsStorageCompatGameTests {
         Vec3 playerPos = helper.absoluteVec(new Vec3(3.5D, 2.0D, 3.5D));
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
         RtsCameraManager.start(player);
-        helper.assertTrue(RtsCameraManager.isActive(player), "Storage compat 测试玩家应该能进入 RTS 模式");
+        RtsGameTestAssertions.assertTrue(helper, RtsCameraManager.isActive(player), "Storage compat 测试玩家应该能进入 RTS 模式");
         requireSession(helper, player);
         return player;
     }
@@ -584,29 +584,29 @@ public final class RtsStorageCompatGameTests {
 
     private static RtsStorageSession requireSession(GameTestHelper helper, ServerPlayer player) {
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-        helper.assertTrue(session != null, "RTS 模式开启后应该存在服务端会话");
+        RtsGameTestAssertions.assertTrue(helper, session != null, "RTS 模式开启后应该存在服务端会话");
         return session;
     }
 
     private static void setBlockById(GameTestHelper helper, BlockPos rel, String idText) {
         ResourceLocation id = ResourceLocation.tryParse(idText);
-        helper.assertTrue(id != null && RtsBuiltInRegistries.BLOCK.containsKey(id),
+        RtsGameTestAssertions.assertTrue(helper, id != null && RtsBuiltInRegistries.BLOCK.containsKey(id),
                 "测试需要已注册方块: " + idText);
         Block block = RtsBuiltInRegistries.BLOCK.get(id);
-        helper.assertTrue(block != Blocks.AIR, "测试方块不能是空 " + idText);
+        RtsGameTestAssertions.assertTrue(helper, block != Blocks.AIR, "测试方块不能是空 " + idText);
         helper.setBlock(rel, block);
     }
 
     private static void insertIntoBlockItemHandler(GameTestHelper helper, BlockPos rel, ItemStack stack) {
         BlockEntity blockEntity = helper.getBlockEntity(rel);
-        helper.assertTrue(blockEntity != null, "测试方块需要方块实体用于插入储存组件");
+        RtsGameTestAssertions.assertTrue(helper, blockEntity != null, "测试方块需要方块实体用于插入储存组件");
         IItemHandler handler = blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER).resolve().orElse(null);
-        helper.assertTrue(handler != null, "测试方块实体需要暴露 item handler");
+        RtsGameTestAssertions.assertTrue(helper, handler != null, "测试方块实体需要暴露 item handler");
         ItemStack remaining = stack.copy();
         for (int slot = 0; slot < handler.getSlots() && !remaining.isEmpty(); slot++) {
             remaining = handler.insertItem(slot, remaining, false);
         }
-        helper.assertTrue(remaining.isEmpty(), "测试储存组件应该能插入目标方块实体");
+        RtsGameTestAssertions.assertTrue(helper, remaining.isEmpty(), "测试储存组件应该能插入目标方块实体");
     }
 
     private static void insertAe2StorageCells(GameTestHelper helper, BlockPos driveRel, int count) {
@@ -627,15 +627,15 @@ public final class RtsStorageCompatGameTests {
     private static void assertTotalCount(GameTestHelper helper, S2CRtsStoragePagePayload payload,
             Item item, long expected, String message) {
         long actual = totalCount(payload, item);
-        helper.assertTrue(actual == expected,
+        RtsGameTestAssertions.assertTrue(helper, actual == expected,
                 message + "，期望 " + expected + "，实际 " + actual);
     }
 
     private static void assertSingleSearchResult(GameTestHelper helper, S2CRtsStoragePagePayload payload,
             Item expectedItem, Long expectedCount, String message) {
-        helper.assertTrue(payload.totalEntries() == 1,
+        RtsGameTestAssertions.assertTrue(helper, payload.totalEntries() == 1,
                 message + "，但结果数量为 " + payload.totalEntries());
-        helper.assertTrue(payload.itemStacks().size() == 1 && payload.itemStacks().get(0).getItem() == expectedItem,
+        RtsGameTestAssertions.assertTrue(helper, payload.itemStacks().size() == 1 && payload.itemStacks().get(0).getItem() == expectedItem,
                 message + "，但第一页没有目标物品");
         if (expectedCount != null) {
             assertTotalCount(helper, payload, expectedItem, expectedCount, message + "，数量也应正确");
@@ -666,7 +666,7 @@ public final class RtsStorageCompatGameTests {
     }
 
     private static void requireMod(GameTestHelper helper, String modId) {
-        helper.assertTrue(ModList.get().isLoaded(modId),
+        RtsGameTestAssertions.assertTrue(helper, ModList.get().isLoaded(modId),
                 "Storage compat GameTest 需要加载真实模 " + modId);
     }
 

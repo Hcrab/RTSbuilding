@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
@@ -113,7 +113,7 @@ final class QuickBuildControlSurface {
     }
 
     void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -129,7 +129,7 @@ final class QuickBuildControlSurface {
     }
 
     void renderTooltip(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,

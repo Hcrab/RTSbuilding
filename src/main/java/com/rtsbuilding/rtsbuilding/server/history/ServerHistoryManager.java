@@ -47,7 +47,7 @@ public final class ServerHistoryManager {
             return;
         }
         List<HistoryBlockRecord> records = capturePlacedBlocks(
-                player.serverLevel(), positions, player.isCreative());
+                player.getLevel(), positions, player.isCreative());
         if (records.isEmpty()) {
             return;
         }
@@ -66,7 +66,7 @@ public final class ServerHistoryManager {
         HistoryOperation operation = creativeOperation
                 ? HistoryOperation.CREATIVE_PLACEMENT : HistoryOperation.SURVIVAL_PLACEMENT;
         pushEntry(player, new HistoryEntry(
-                operation, records, face, player.serverLevel().dimension(), -1));
+                operation, records, face, player.getLevel().dimension(), -1));
     }
 
     public static void recordBreak(ServerPlayer player, List<BlockPos> positions, Direction face) {
@@ -74,7 +74,7 @@ public final class ServerHistoryManager {
             return;
         }
         List<HistoryBlockRecord> records = captureBlocks(
-                player.serverLevel(), positions, player.isCreative());
+                player.getLevel(), positions, player.isCreative());
         if (records.isEmpty()) {
             return;
         }
@@ -110,7 +110,7 @@ public final class ServerHistoryManager {
         HistoryOperation operation = creativeOperation
                 ? HistoryOperation.CREATIVE_BREAK : HistoryOperation.SURVIVAL_BREAK;
         HistoryEntry entry = new HistoryEntry(
-                operation, records, face, player.serverLevel().dimension(), sourceSlot);
+                operation, records, face, player.getLevel().dimension(), sourceSlot);
         pushEntry(player, entry);
     }
 
@@ -139,7 +139,7 @@ public final class ServerHistoryManager {
         HistoryEntry entry = undo(player);
         if (entry == null) return 0;
 
-        if (!entry.getDimension().equals(player.serverLevel().dimension())) {
+        if (!entry.getDimension().equals(player.getLevel().dimension())) {
             PlayerHistory ph = playerHistories.get(player.getUUID());
             if (ph != null) {
                 ph.undoStack.addLast(entry);
@@ -181,7 +181,7 @@ public final class ServerHistoryManager {
         if (ph == null || ph.redoStack.isEmpty()) return 0;
         HistoryEntry entry = ph.redoStack.peekLast();
         if (entry == null || !entry.getOperation().creative()
-                || !entry.getDimension().equals(player.serverLevel().dimension())) {
+                || !entry.getDimension().equals(player.getLevel().dimension())) {
             return 0;
         }
 

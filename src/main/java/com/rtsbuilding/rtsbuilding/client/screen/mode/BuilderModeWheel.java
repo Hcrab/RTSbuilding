@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
 import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -87,7 +87,7 @@ public final class BuilderModeWheel {
     }
 
     public void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             int mouseX,
             int mouseY,
@@ -162,7 +162,7 @@ public final class BuilderModeWheel {
     }
 
     private void drawOption(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BuilderMode mode,
             int dx,
             int dy,
@@ -228,7 +228,7 @@ public final class BuilderModeWheel {
     }
 
     private static void drawLabelPill(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             int centerX,

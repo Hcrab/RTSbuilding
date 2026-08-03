@@ -50,7 +50,7 @@ public final class AllTheModiumToolsCompatibilityGameTests {
         player.getInventory().setItem(0, tool.copy());
         player.getInventory().selected = 0;
 
-        helper.assertTrue(tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
+        RtsGameTestAssertions.assertTrue(helper, tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
                 "AllTheModium pickaxe should advertise itself as a correct stone tool");
         RtsAPI.get().mining().areaDestroy(
                 player,

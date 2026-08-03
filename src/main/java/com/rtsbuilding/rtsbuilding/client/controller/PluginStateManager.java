@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import net.minecraft.world.item.ItemStack;
 
@@ -39,7 +41,7 @@ public final class PluginStateManager {
                     Boolean.TRUE.equals(payload.fieldDeployment().get(i)),
                     Boolean.TRUE.equals(payload.personal().get(i)),
                     safe(payload.ownerNames().get(i)),
-                    stack == null ? ItemStack.EMPTY : stack.copyWithCount(1)));
+                    stack == null ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(stack, 1)));
         }
     }
 

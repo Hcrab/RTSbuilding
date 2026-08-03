@@ -38,9 +38,9 @@ public final class UiRefreshPipe implements PipelinePipe<PipelineContext> {
         // 放置/挖掘管线只留下脏标记；Tick 末统一构建一次页面。
         session.browser.page = page;
         RtsEffectAccumulator.INSTANCE.markStorageViewDirty(
-                ctx.player().getUUID(), ctx.player().level().dimension());
+                ctx.player().getUUID(), ctx.player().getLevel().dimension());
         RtsEffectAccumulator.INSTANCE.markPersistence(
-                ctx.player().getUUID(), ctx.player().level().dimension());
+                ctx.player().getUUID(), ctx.player().getLevel().dimension());
 
         return PipelineResult.success();
     }

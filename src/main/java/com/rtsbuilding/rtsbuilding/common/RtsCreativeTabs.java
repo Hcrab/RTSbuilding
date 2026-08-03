@@ -1,37 +1,38 @@
 package com.rtsbuilding.rtsbuilding.common;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
+import net.minecraft.core.NonNullList;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
-import net.minecraftforge.eventbus.api.IEventBus;
-import net.minecraftforge.registries.DeferredRegister;
-import net.minecraftforge.registries.RegistryObject;
 
 /**
  * RTSBuilding 自己的创造栏，保证插件物品在创造模式和测试世界里可直接拿到。
  */
 public final class RtsCreativeTabs {
-    public static final DeferredRegister<CreativeModeTab> CREATIVE_TABS =
-            DeferredRegister.create(Registries.CREATIVE_MODE_TAB, RtsbuildingMod.MODID);
+    /**
+     * 1.19.2 的创造栏不是注册表对象，因此必须使用旧式静态页签。
+     * 页签仍只展示主线明确列入创造栏的 RTS 物品，避免改变玩家可见内容边界。
+     */
+    public static final CreativeModeTab RTSBUILDING_TAB = new CreativeModeTab(RtsbuildingMod.MODID) {
+        @Override
+        public ItemStack makeIcon() {
+            return new ItemStack(RtsItems.RTS_CONTROL_CORE.get());
+        }
 
-    public static final RegistryObject<CreativeModeTab> RTSBUILDING_TAB = CREATIVE_TABS.register(
-            "rtsbuilding",
-            () -> CreativeModeTab.builder()
-                    .title(Component.translatable("itemGroup.rtsbuilding"))
-                    .icon(() -> new ItemStack(RtsItems.RTS_CONTROL_CORE.get()))
-                    .displayItems((parameters, output) -> {
-                        for (var holder : RtsItems.getCreativeTabItems()) {
-                            output.accept(holder.get());
-                        }
-                    })
-                    .build());
+        @Override
+        public void fillItemList(NonNullList<ItemStack> items) {
+            for (var holder : RtsItems.getCreativeTabItems()) {
+                items.add(new ItemStack(holder.get()));
+            }
+        }
+    };
 
     private RtsCreativeTabs() {
     }
 
-    public static void register(IEventBus modEventBus) {
-        CREATIVE_TABS.register(modEventBus);
+    /** 强制初始化旧式创造栏；1.19.2 不需要向模组事件总线注册。 */
+    public static void initialize() {
+        // 访问静态字段即可完成页签创建。
+        RTSBUILDING_TAB.getId();
     }
 }

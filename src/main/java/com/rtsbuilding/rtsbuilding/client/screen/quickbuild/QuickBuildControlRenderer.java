@@ -17,7 +17,7 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -38,7 +38,7 @@ final class QuickBuildControlRenderer {
 
     void render(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -69,7 +69,7 @@ final class QuickBuildControlRenderer {
 
     void renderTooltip(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             int mouseX,
@@ -88,7 +88,7 @@ final class QuickBuildControlRenderer {
     }
 
     private void renderModeToggles(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -106,7 +106,7 @@ final class QuickBuildControlRenderer {
     }
 
     private void renderModeToggle(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
             QuickBuildUiState state,
@@ -137,7 +137,7 @@ final class QuickBuildControlRenderer {
 
     private static void renderShapes(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
             int mouseX,
@@ -168,7 +168,7 @@ final class QuickBuildControlRenderer {
 
     private static void renderChainLimit(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BuilderScreen screen,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
@@ -188,7 +188,7 @@ final class QuickBuildControlRenderer {
 
     private static void renderControls(
             QuickBuildControlSurface controls,
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
             int mouseX,
@@ -218,7 +218,7 @@ final class QuickBuildControlRenderer {
     }
 
     private static void renderControlIndicator(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             int rowX,
             int rowY,
             boolean selected,

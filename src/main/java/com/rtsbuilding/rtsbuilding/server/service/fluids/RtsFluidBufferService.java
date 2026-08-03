@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.fluids;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -119,7 +121,7 @@ public final class RtsFluidBufferService {
         if (container.isEmpty() || amount <= 0) {
             return DrainOutcome.EMPTY;
         }
-        ItemStack single = container.copyWithCount(1);
+        ItemStack single = RtsItemStacks.copyWithCount(container, 1);
         Optional<IFluidHandlerItem> optHandler = FluidUtil.getFluidHandler(single).resolve();
         if (optHandler.isEmpty()) {
             return DrainOutcome.EMPTY;

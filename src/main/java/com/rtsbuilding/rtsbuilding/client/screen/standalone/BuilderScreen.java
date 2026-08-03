@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
@@ -70,8 +73,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -126,9 +128,9 @@ public class BuilderScreen extends Screen {
     /** The central controller that bridges the screen with game logic and server communication. */
     private final ClientRtsController controller;
     /** Search box for filtering storage items. */
-    private EditBox searchBox;
+    private WindowTextBox searchBox;
     /** Search box for filtering craftable entries in the crafting panel. */
-    private EditBox craftSearchBox;
+    private WindowTextBox craftSearchBox;
     /** Panel showing items queued in the funnel buffer (item collection mode). */
     private final FunnelBufferPanel funnelBufferPanel = new FunnelBufferPanel();
     /** Panel for quick-build remote placement (place items from storage at a distance). */
@@ -454,11 +456,11 @@ public class BuilderScreen extends Screen {
         return this.lastMouseY;
     }
     /** Returns the storage search box (for filtering items in the storage grid). */
-    public EditBox getSearchBox() {
+    public WindowTextBox getSearchBox() {
         return this.searchBox;
     }
     /** Returns the craftable-items search box (for filtering in the crafting panel). */
-    public EditBox getCraftSearchBox() {
+    public WindowTextBox getCraftSearchBox() {
         return this.craftSearchBox;
     }
     /** Initialises the screen: creates search boxes, applies persisted UI state, and requests craftables. */
@@ -482,7 +484,8 @@ public class BuilderScreen extends Screen {
         this.searchBox.setMaxLength(128);
         this.searchBox.setCanLoseFocus(true);
         this.searchBox.setValue(this.controller.getStorageSearch());
-        this.craftSearchBox = new EditBox(this.font, 8, this.height - 52, 74, 10, Component.literal("Craft Search"));
+        this.craftSearchBox = new WindowTextBox(this.font, 8, this.height - 52, 74, 10)
+                .setChromeVisible(false);
         this.craftSearchBox.setMaxLength(128);
         this.craftSearchBox.setBordered(false);
         this.craftSearchBox.setCanLoseFocus(true);
@@ -900,7 +903,6 @@ public class BuilderScreen extends Screen {
         return false;
     }
 
-    @Override
     /**
      * Handles mouse release with RTS GUI scale remapping. Routes release events to
      * open dialogs, dragging state, floating windows, and camera input handlers.
@@ -1286,7 +1288,7 @@ public class BuilderScreen extends Screen {
         BlockHitResult hit = this.cursorPicker.pickBlockHit();
         BlockPos targetPos = hit == null
                 ? null
-                : this.minecraft.level.getBlockState(hit.getBlockPos()).canBeReplaced()
+                : RtsBlockStates.canBeReplaced(this.minecraft.level.getBlockState(hit.getBlockPos()))
                         ? hit.getBlockPos()
                         : hit.getBlockPos().relative(hit.getDirection());
         BlockState state = BuildGhostBlockStateResolver.resolve(this.minecraft, targetPos);
@@ -1794,7 +1796,7 @@ public class BuilderScreen extends Screen {
 
         // When enabling flight while on ground, apply a jump impulse to lift off.
         // Vanilla MC won't actually start flying if the player stays on ground.
-        if (!wasFlying && this.minecraft.player.onGround()) {
+        if (!wasFlying && this.minecraft.player.isOnGround()) {
             this.minecraft.player.jumpFromGround();
         }
 
@@ -1874,7 +1876,6 @@ public class BuilderScreen extends Screen {
         return super.charTyped(codePoint, modifiers);
     }
     // ======================== Rendering Methods ========================
-    @Override
     /**
      * Main render entry point. Uses fixed RTS GUI scaling when enabled.
      * Resets hover states, draws the top bar background, renders all panels and overlays
@@ -1882,7 +1883,12 @@ public class BuilderScreen extends Screen {
      * quest/storage scan popups, blueprint capture/placement HUD,
      * tooltips, cursor preview, damage flash, and modal layers (wheel, gear, guide, dialogs).
      */
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick) {
+    @Override
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        renderRts(new RtsGuiContext(poseStack, this), mouseX, mouseY, partialTick);
+    }
+
+    private void renderRts(RtsGuiContext guiGraphics, int mouseX, int mouseY, float partialTick) {
         if (!this.fixedRtsScaleRenderPass && renderWithFixedRtsGuiScale(guiGraphics, mouseX, mouseY, partialTick)) {
             return;
         }
@@ -1953,7 +1959,7 @@ public class BuilderScreen extends Screen {
      * Handles creative entries, storage entries, recent items, fluids, craftables,
      * funnel buffer, GUI bind slots, empty hand slot, and discoverability hints.
      */
-    private void renderHoveredItemTooltips(GuiGraphics g, int mouseX, int mouseY) {
+    private void renderHoveredItemTooltips(RtsGuiContext g, int mouseX, int mouseY) {
         boolean modalOpen = isMouseOverFloatingWindow(mouseX, mouseY);
         boolean placementSelectionActive = this.controller.hasSelectedItem() || this.controller.hasSelectedFluid();
         if (!modalOpen) {
@@ -2049,11 +2055,11 @@ public class BuilderScreen extends Screen {
 
     /**
      * Scales the rendering to the user-configured fixed RTS GUI scale, then recursively
-     * calls {@link #render(GuiGraphics, int, int, float)} with adjusted coordinates.
+     * calls {@link #renderRts(RtsGuiContext, int, int, float)} with adjusted coordinates.
      *
      * @return true if the render was handled at a non-unit scale (calling code should return)
      */
-    private boolean renderWithFixedRtsGuiScale(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    private boolean renderWithFixedRtsGuiScale(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         RtsUiScaleFrame frame = enterFixedRtsGuiScale();
         if (frame == null || Math.abs(frame.scale() - 1.0D) < 0.001D) {
             if (frame != null) {
@@ -2067,7 +2073,8 @@ public class BuilderScreen extends Screen {
         g.pose().pushPose();
         g.pose().scale((float) frame.scale(), (float) frame.scale(), 1.0F);
         try {
-            render(g, (int) Math.round(mouseX / frame.scale()), (int) Math.round(mouseY / frame.scale()), partialTick);
+            renderRts(g, (int) Math.round(mouseX / frame.scale()),
+                    (int) Math.round(mouseY / frame.scale()), partialTick);
         } finally {
             g.pose().popPose();
             this.activeRtsGuiRenderScale = previousActiveRenderScale;
@@ -2132,14 +2139,14 @@ public class BuilderScreen extends Screen {
      * Renders a hint message at the top of the screen related to the guide panel when
      * the top bar buttons are visible.
      */
-    public void renderTopGuideHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+    public void renderTopGuideHint(RtsGuiContext g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         this.guidePanel.renderTopHint(g, topButtons);
     }
     /**
      * Draws a small "+" icon inside a green-bordered slot at the cursor position,
      * indicating the player is in GUI binding mode and should click a block to bind it.
      */
-    private void drawGuiBindCursor(GuiGraphics g, int mouseX, int mouseY) {
+    private void drawGuiBindCursor(RtsGuiContext g, int mouseX, int mouseY) {
         int x = mouseX + 8;
         int y = mouseY + 8;
         UiChromeRenderer.frame(
@@ -2903,7 +2910,7 @@ public class BuilderScreen extends Screen {
      * Enables a scissor region for clipping, adjusting coordinates for the
      * active RTS GUI render scale if a fixed-scale pass is in progress.
      */
-    public void enableRtsScissor(GuiGraphics g, int x1, int y1, int x2, int y2) {
+    public void enableRtsScissor(RtsGuiContext g, int x1, int y1, int x2, int y2) {
         double scale = this.fixedRtsScaleRenderPass ? this.activeRtsGuiRenderScale : 1.0D;
         if (scale > 0.0D && Double.isFinite(scale) && Math.abs(scale - 1.0D) >= 0.001D) {
             g.enableScissor(

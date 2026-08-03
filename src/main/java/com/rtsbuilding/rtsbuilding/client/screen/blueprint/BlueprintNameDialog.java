@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.text;
 import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanelUi.trim;
@@ -24,7 +24,7 @@ final class BlueprintNameDialog {
     }
 
     /** 直接消费 Core 快照，避免生产窗与离屏窗各自拼装一套字段。 */
-    static void renderCoreContent(GuiGraphics g, Font font, int x, int y, int w, int h,
+    static void renderCoreContent(RtsGuiContext g, Font font, int x, int y, int w, int h,
             int mouseX, int mouseY, BlueprintUiState state) {
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         int textY = y + BlueprintWindowLayout.NAME_SUMMARY_TOP;
@@ -99,7 +99,7 @@ final class BlueprintNameDialog {
     }
 
     /** 当前窗口化命名流程使用共享九宫格。 */
-    private static void drawCoreButton(GuiGraphics g, Font font, MinecraftUiCanvas canvas,
+    private static void drawCoreButton(RtsGuiContext g, Font font, MinecraftUiCanvas canvas,
             int x, int y, int w, int h, String label, boolean hovered) {
         UiChromeRenderer.frame(canvas, new UiRect(x, y, w, h), 1.0D,
                 hovered ? BlueprintDialogStyle.BUTTON_HOVER_BACKGROUND

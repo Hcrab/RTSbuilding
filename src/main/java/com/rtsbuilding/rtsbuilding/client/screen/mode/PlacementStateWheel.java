@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
 import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.Direction;
@@ -173,7 +173,7 @@ public final class PlacementStateWheel {
         return false;
     }
 
-    public void render(GuiGraphics graphics, Font font, int mouseX, int mouseY) {
+    public void render(RtsGuiContext graphics, Font font, int mouseX, int mouseY) {
         if (!this.open || this.properties.isEmpty()) {
             return;
         }
@@ -193,7 +193,7 @@ public final class PlacementStateWheel {
      * 八个一次点击候选；16 段角度则自然分成两页，不再出现同一方向的同心双层按钮。
      */
     private void renderPlacementPage(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             int mouseX,
             int mouseY,
@@ -333,7 +333,7 @@ public final class PlacementStateWheel {
     }
 
     private void drawOption(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BlockState state,
             boolean current,
             int centerX,
@@ -379,7 +379,7 @@ public final class PlacementStateWheel {
     }
 
     private static void drawPageButton(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             int centerX,
             int centerY,
@@ -430,7 +430,7 @@ public final class PlacementStateWheel {
         return -Math.PI / 2.0D + Math.PI * 2.0D * index / optionCount;
     }
 
-    private void drawCenterBrackets(GuiGraphics graphics, float alpha) {
+    private void drawCenterBrackets(RtsGuiContext graphics, float alpha) {
         int radius = Math.round(Mth.lerp(alpha, 13.0F, 23.0F));
         int length = 5;
         int color = ModeWheelStyle.multiplyAlpha(
@@ -454,7 +454,7 @@ public final class PlacementStateWheel {
     }
 
     private static void drawLabelPill(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             int centerX,

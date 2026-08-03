@@ -302,7 +302,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             return null;
         }
         Vec3 hitVec = camPos.add(dir.scale(t));
-        BlockPos hitPos = BlockPos.containing(hitVec);
+        BlockPos hitPos = new BlockPos(hitVec);
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
         }
@@ -325,7 +325,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             t = BLUEPRINT_AIR_FALLBACK_DISTANCE;
         }
         Vec3 hitVec = camPos.add(dir.scale(t));
-        BlockPos hitPos = BlockPos.containing(hitVec);
+        BlockPos hitPos = new BlockPos(hitVec);
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
         }
@@ -338,7 +338,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         }
         Vec3 normalizedDir = dir.normalize();
         Vec3 hitVec = camPos.add(normalizedDir.scale(ITEM_AIR_INTERACTION_DISTANCE));
-        BlockPos hitPos = BlockPos.containing(hitVec);
+        BlockPos hitPos = new BlockPos(hitVec);
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
         }

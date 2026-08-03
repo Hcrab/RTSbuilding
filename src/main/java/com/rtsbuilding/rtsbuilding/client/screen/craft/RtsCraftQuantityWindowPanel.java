@@ -22,7 +22,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.CraftQuantityStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
@@ -76,7 +76,7 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         CraftQuantityWindowLayout.Layout layout = resolveLayout();
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
         int visibleRows = CraftQuantityWindowLayout.visibleOptionRows(layout);
@@ -357,7 +357,7 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
         return summary == null || summary.isBlank() ? "Missing ingredients." : summary;
     }
 
-    private void drawSmallButton(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawSmallButton(RtsGuiContext g, MinecraftUiCanvas canvas,
                                  int x, int y, int w, int h, String label,
                                  UiControlRole role) {
         UiControlChromeRenderer.compactFrame(canvas, rect(x, y, w, h), role, ENABLED_CONTROL);

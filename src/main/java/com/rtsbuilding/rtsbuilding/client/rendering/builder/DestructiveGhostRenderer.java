@@ -189,7 +189,7 @@ public final class DestructiveGhostRenderer extends RenderStateShard {
             double cellMaxZ = pos.getZ() + 0.97D;
 
             if (renderFill) {
-                LevelRenderer.addChainedFilledBoxVertices(
+                RenderingUtil.filledBox(
                         poseStack, fillBuffer,
                         cellMinX, cellMinY, cellMinZ,
                         cellMaxX, cellMaxY, cellMaxZ,
@@ -227,7 +227,7 @@ public final class DestructiveGhostRenderer extends RenderStateShard {
         double maxZ = (envelopeOverride == null ? bounds.maxZ() + 1.0D : envelopeOverride.maxZ) + padding;
 
         if (renderFill) {
-            LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
+            RenderingUtil.filledBox(poseStack, fillBuffer,
                     minX, minY, minZ, maxX, maxY, maxZ,
                     fillR, fillG, fillB, fillA);
         }
@@ -286,7 +286,7 @@ public final class DestructiveGhostRenderer extends RenderStateShard {
         }
         RenderSystem.disableDepthTest();
         RenderSystem.depthMask(false);
-        LINES_NO_DEPTH.end(LINES_NO_DEPTH_BUFFER, VertexSorting.DISTANCE_TO_ORIGIN);
+        LINES_NO_DEPTH.end(LINES_NO_DEPTH_BUFFER, 0, 0, 0);
         RenderSystem.depthMask(true);
         RenderSystem.enableDepthTest();
         RenderSystem.depthFunc(515);

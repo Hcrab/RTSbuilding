@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.compat.bd;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
@@ -240,7 +242,7 @@ public final class RtsBdCompat {
                 }
                 this.itemToKey.putIfAbsent(slot.displayStack().getItem(), slot.key());
                 this.keys.add(slot.key());
-                this.displayStacks.add(slot.displayStack().copyWithCount(1));
+                this.displayStacks.add(RtsItemStacks.copyWithCount(slot.displayStack(), 1));
                 this.counts.add(slot.amount());
             }
         }
@@ -430,7 +432,7 @@ public final class RtsBdCompat {
                 }
                 ItemStack display = outStack(storage, key, entry);
                 if (!display.isEmpty()) {
-                    out.add(new SlotView(key, display.copyWithCount(1), amount));
+                    out.add(new SlotView(key, RtsItemStacks.copyWithCount(display, 1), amount));
                 }
             }
             return out;

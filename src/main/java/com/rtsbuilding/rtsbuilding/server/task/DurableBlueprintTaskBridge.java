@@ -22,7 +22,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.resources.ResourceKey;
@@ -78,7 +78,7 @@ public final class DurableBlueprintTaskBridge {
         ServerPlayer player = context.player();
         SubmissionId submissionId = new SubmissionId(context.getSubmissionId());
         TaskId taskId = TaskId.fromSubmission(player.getUUID(), submissionId);
-        ResourceKey<Level> dimension = player.serverLevel().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         FrozenSubmission frozen = FrozenSubmission.from(taskId, submissionId, context, dimension);
 
         FrozenSubmission existingPending = pending.get(taskId);
@@ -232,7 +232,7 @@ public final class DurableBlueprintTaskBridge {
         for (Map.Entry<TaskId, ActiveBinding> entry : active.entrySet()) {
             if (!entry.getValue().record().ownerId().equals(ownerId)) continue;
             ActiveBinding binding = entry.getValue();
-            long gameTime = binding.context().player().serverLevel().getGameTime();
+            long gameTime = binding.context().player().getLevel().getGameTime();
             TaskLifecycleState state = durableState(binding.record().status());
             TaskSnapshot next = nextSnapshot(binding.snapshot(), binding.context(), binding.record(), state, gameTime);
             persistence.coordinator().replace(next);
@@ -273,7 +273,7 @@ public final class DurableBlueprintTaskBridge {
         ServerPlayer player = server.getPlayerList().getPlayer(snapshot.ownerId());
         if (player == null) return false;
         ResourceKey<Level> dimension = parseDimension(snapshot.dimensionId());
-        if (!player.serverLevel().dimension().equals(dimension)) return false;
+        if (!player.getLevel().dimension().equals(dimension)) return false;
 
         BlueprintContext context;
         FrozenSubmission frozen = pending.get(taskId);
@@ -298,7 +298,7 @@ public final class DurableBlueprintTaskBridge {
                     : materializeFromDurableRoot(player, snapshot);
         } catch (RuntimeException corrupt) {
             RtsbuildingMod.LOGGER.error("恢复 durable 蓝图任务失败: {}", taskId, corrupt);
-            failSnapshot(snapshot, player.serverLevel().getGameTime());
+            failSnapshot(snapshot, player.getLevel().getGameTime());
             BlueprintNetworkHandlers.send(player, S2CBlueprintStatusPayload.ERROR,
                     "screen.rtsbuilding.blueprints.status.restore_failed", "");
             pending.remove(taskId);
@@ -351,11 +351,11 @@ public final class DurableBlueprintTaskBridge {
             workflowEngine.setWorkflowExtraData(player, token.entryId(), projection);
             TaskRecord record = taskEngine.activateDurableBlueprint(taskId, snapshot, context, dimension);
             TaskSnapshot projected = snapshot.nextRevision(snapshot.state(), snapshot.waitKey(),
-                    player.serverLevel().getGameTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
+                    player.getLevel().getGameTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
                     snapshot.failedUnits(), snapshot.payload());
             persistence.coordinator().replace(projected);
             active.put(taskId, new ActiveBinding(record, context, projected,
-                    player.serverLevel().getGameTime()));
+                    player.getLevel().getGameTime()));
             pending.remove(taskId);
             return true;
         } catch (RuntimeException failure) {
@@ -367,7 +367,7 @@ public final class DurableBlueprintTaskBridge {
     private BlueprintContext materializeFromDurableRoot(ServerPlayer player, TaskSnapshot snapshot) {
         var blob = persistence.loadDurableBlueprint(snapshot.id());
         RtsBlueprint blueprint = VanillaStructureNbtReader.parse(
-                blob.structure(), blob.name(), blob.sourceName(), player.serverLevel().registryAccess());
+                blob.structure(), blob.name(), blob.sourceName(), player.getLevel().registryAccess());
         if (blueprint.blockCount() != snapshot.totalUnits()) {
             throw new IllegalStateException("恢复蓝图方块数与 durable root 不一致");
         }
@@ -556,7 +556,7 @@ public final class DurableBlueprintTaskBridge {
             int[] remainingIndices = remaining == null ? new int[0] : remaining.stream()
                     .mapToInt(Integer::intValue).toArray();
             payload.putIntArray(PAYLOAD_REMAINING, remainingIndices);
-            long gameTime = context.player().serverLevel().getGameTime();
+            long gameTime = context.player().getLevel().getGameTime();
             Integer preferred = context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
             int preferredWorkflowEntryId = preferred == null ? -1 : preferred;
             TaskLifecycleState initialState = TaskLifecycleState.QUEUED;

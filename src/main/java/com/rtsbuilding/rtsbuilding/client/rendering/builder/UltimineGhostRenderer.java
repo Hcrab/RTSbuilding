@@ -16,7 +16,7 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix4f;
+import com.mojang.math.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -175,7 +175,7 @@ public final class UltimineGhostRenderer extends RenderStateShard {
         if (!LINES_NO_DEPTH_BUFFER.isCurrentBatchEmpty()) {
             RenderSystem.disableDepthTest();
             RenderSystem.depthMask(false);
-            LINES_NO_DEPTH.end(LINES_NO_DEPTH_BUFFER, VertexSorting.DISTANCE_TO_ORIGIN);
+            LINES_NO_DEPTH.end(LINES_NO_DEPTH_BUFFER, 0, 0, 0);
             RenderSystem.depthMask(true);
             RenderSystem.enableDepthTest();
             RenderSystem.depthFunc(515);
@@ -187,7 +187,7 @@ public final class UltimineGhostRenderer extends RenderStateShard {
     static void renderFill(List<BlockPos> outerBlocks, PoseStack poseStack,
             VertexConsumer fillBuffer, float r, float g, float b, float fillA) {
         for (BlockPos pos : outerBlocks) {
-            LevelRenderer.addChainedFilledBoxVertices(
+            RenderingUtil.filledBox(
                     poseStack, fillBuffer,
                     pos.getX(), pos.getY(), pos.getZ(),
                     pos.getX() + 1, pos.getY() + 1, pos.getZ() + 1,
@@ -220,7 +220,7 @@ public final class UltimineGhostRenderer extends RenderStateShard {
                 bounds.maxX, bounds.maxY, bounds.maxZ,
                 r, g, b, 0.95F, distance);
         if (!BRACKET_OPAQUE_BUFFER.isCurrentBatchEmpty()) {
-            BRACKET_OPAQUE.end(BRACKET_OPAQUE_BUFFER, VertexSorting.DISTANCE_TO_ORIGIN);
+            BRACKET_OPAQUE.end(BRACKET_OPAQUE_BUFFER, 0, 0, 0);
         } else {
             BRACKET_OPAQUE_BUFFER.endOrDiscardIfEmpty();
         }
@@ -235,7 +235,7 @@ public final class UltimineGhostRenderer extends RenderStateShard {
         if (!BRACKET_NO_DEPTH_BUFFER.isCurrentBatchEmpty()) {
             RenderSystem.disableDepthTest();
             RenderSystem.depthMask(false);
-            BRACKET_NO_DEPTH.end(BRACKET_NO_DEPTH_BUFFER, VertexSorting.DISTANCE_TO_ORIGIN);
+            BRACKET_NO_DEPTH.end(BRACKET_NO_DEPTH_BUFFER, 0, 0, 0);
             RenderSystem.depthMask(true);
             RenderSystem.enableDepthTest();
             RenderSystem.depthFunc(515);

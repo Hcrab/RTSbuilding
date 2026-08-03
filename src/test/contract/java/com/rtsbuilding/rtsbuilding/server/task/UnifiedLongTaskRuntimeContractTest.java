@@ -34,8 +34,12 @@ class UnifiedLongTaskRuntimeContractTest {
     @Test
     void funnelEntityQueryHasHardResultLimit() throws IOException {
         String source = read("server/service/impl/RtsFunnelServiceImpl.java");
+        String adapter = read("platform/RtsEntityQueries.java");
         assertTrue(source.contains("EntityTypeTest.forClass(ItemEntity.class)"));
-        assertTrue(source.contains("drops, queryLimit"));
+        assertTrue(source.contains("e -> e != null && e.isAlive() && !e.getItem().isEmpty(), queryLimit"));
+        assertTrue(adapter.contains("found.size() < limit && predicate.test(entity)"));
+        assertTrue(adapter.contains("level.getEntities().get(type, bounds"));
+        assertFalse(adapter.contains("level.getEntities(type, bounds, predicate)"));
         assertFalse(source.contains("getEntitiesOfClass("));
     }
 
@@ -129,7 +133,7 @@ class UnifiedLongTaskRuntimeContractTest {
 
         assertTrue(state.contains("ResourceKey<Level> funnelTargetDimension"));
         assertTrue(serializer.contains("funnel_target_dimension"));
-        assertTrue(tickSource.contains("player.serverLevel().dimension().equals(session.funnel.funnelTargetDimension)"));
+        assertTrue(tickSource.contains("player.getLevel().dimension().equals(session.funnel.funnelTargetDimension)"));
         assertTrue(tickSource.indexOf("funnelTargetDimension == null")
                 < tickSource.indexOf("sanitizeSessionDimension(player, session)"));
         assertTrue(service.contains("saveFunnelToPlayerNbt(player, session)"));

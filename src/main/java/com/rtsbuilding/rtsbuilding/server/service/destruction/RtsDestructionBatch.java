@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResul
 import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.Registries;
+import net.minecraft.core.Registry;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.NbtUtils;
 import net.minecraft.server.level.ServerLevel;
@@ -172,7 +172,7 @@ public final class RtsDestructionBatch {
         int limit = Math.max(0, Math.min(DESTROY_MAX_BLOCKS_PER_TICK, maxBlocks));
         int processed = 0;
         DestructionSliceResult.Outcome outcome = DestructionSliceResult.Outcome.CONTINUE;
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         // 同一 slice 的掉落先合并进轻量缓存，避免每破坏一个方块都触发一次外部储存写入。
         List<BlockPos> dropsToAbsorb = new ArrayList<>();
 
@@ -285,7 +285,7 @@ public final class RtsDestructionBatch {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
 
         // 按 Y 降序排列（从上往下逐层破坏）
         List<BlockPos> sortedPositions = new ArrayList<>(positions);
@@ -378,9 +378,7 @@ public final class RtsDestructionBatch {
     }
 
     private static HistoryBlockRecord decodeHistoryRecord(ServerPlayer player, CompoundTag tag) {
-        BlockState state = NbtUtils.readBlockState(
-                player.serverLevel().registryAccess().registryOrThrow(Registries.BLOCK).asLookup(),
-                tag.getCompound("state"));
+        BlockState state = NbtUtils.readBlockState(tag.getCompound("state"));
         if (state.isAir()) throw new IllegalArgumentException("detached destruction history 方块状态无效");
         CompoundTag blockEntity = tag.contains("blockEntity", net.minecraft.nbt.Tag.TAG_COMPOUND)
                 ? tag.getCompound("blockEntity").copy() : null;

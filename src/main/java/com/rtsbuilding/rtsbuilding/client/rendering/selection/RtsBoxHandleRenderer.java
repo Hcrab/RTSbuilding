@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.selection;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingAxisHandle;
@@ -70,7 +72,7 @@ public final class RtsBoxHandleRenderer {
 
     private static void renderHandleBox(PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer,
             AABB box, AxisColor color, float fillAlpha, float lineAlpha) {
-        LevelRenderer.addChainedFilledBoxVertices(poseStack, fillBuffer,
+        RenderingUtil.filledBox(poseStack, fillBuffer,
                 box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ,
                 color.r(), color.g(), color.b(), fillAlpha);
         LevelRenderer.renderLineBox(poseStack, lineBuffer,

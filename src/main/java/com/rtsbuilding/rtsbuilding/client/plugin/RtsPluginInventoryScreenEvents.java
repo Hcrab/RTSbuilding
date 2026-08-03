@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.plugin;
 
+import com.rtsbuilding.rtsbuilding.client.widget.RtsButtons;
+
 import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
@@ -7,7 +9,6 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsPluginManagementScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.network.chat.Component;
@@ -49,9 +50,8 @@ public final class RtsPluginInventoryScreenEvents {
         }
         int x = vanillaInventoryLeft(screen) + BUTTON_X_INSET;
         int y = vanillaInventoryTop(screen) + BUTTON_Y_INSET;
-        Button button = Button.builder(Component.literal("RTS"), btn -> openPluginScreen(screen))
+        Button button = RtsButtons.builder(Component.literal("RTS"), btn -> openPluginScreen(screen))
                 .bounds(x, y, BUTTON_WIDTH, BUTTON_HEIGHT)
-                .tooltip(Tooltip.create(Component.translatable("screen.rtsbuilding.plugins.open")))
                 .build();
         event.addListener(button);
     }

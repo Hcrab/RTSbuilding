@@ -5,7 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
-import org.joml.Matrix4f;
+import com.mojang.math.Matrix4f;
 
 /**
  * Renders the RTS build boundary as vertical barrier walls using a custom

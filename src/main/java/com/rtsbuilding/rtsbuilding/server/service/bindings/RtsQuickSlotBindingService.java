@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.bindings;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
@@ -46,7 +48,7 @@ public final class RtsQuickSlotBindingService {
             normalized = itemId;
             Item item = RtsBuiltInRegistries.ITEM.get(key);
             if (previewStack != null && !previewStack.isEmpty() && previewStack.is(item)) {
-                normalizedPreview = previewStack.copyWithCount(1);
+                normalizedPreview = RtsItemStacks.copyWithCount(previewStack, 1);
             } else {
                 normalizedPreview = new ItemStack(item);
             }

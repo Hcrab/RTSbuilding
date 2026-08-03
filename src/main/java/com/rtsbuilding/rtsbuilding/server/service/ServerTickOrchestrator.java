@@ -47,7 +47,7 @@ public final class ServerTickOrchestrator {
             session.transfer.pageDataVersion.incrementAndGet();
             if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) continue;
             RtsEffectAccumulator.INSTANCE.markStorageViewDirty(
-                    player.getUUID(), player.level().dimension());
+                    player.getUUID(), player.getLevel().dimension());
             RtsPendingPlacementService.tryResumeAfterStorageChange(player, entry.getValue());
         }
 

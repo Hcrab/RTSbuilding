@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
@@ -33,7 +33,7 @@ public final class OverlayRenderer {
     // =========================================================================
 
     public static void renderOverlayCraftablesPanel(
-            GuiGraphics g,
+            RtsGuiContext g,
             Font font,
             double mouseX,
             double mouseY,
@@ -134,7 +134,7 @@ public final class OverlayRenderer {
     //  Info button
     // =========================================================================
 
-    public static void renderOverlayInfoButton(GuiGraphics g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
+    public static void renderOverlayInfoButton(RtsGuiContext g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
         boolean active = overlayInfoOpen || inside(mouseX, mouseY, layout.infoX(),
                 layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H);
         drawPanelFrame(g, font, layout.infoX(), layout.controlsY(),
@@ -151,7 +151,7 @@ public final class OverlayRenderer {
     //  Shift import button
     // =========================================================================
 
-    public static void renderOverlayShiftImportButton(GuiGraphics g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
+    public static void renderOverlayShiftImportButton(RtsGuiContext g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
         boolean enabled = RtsClientUiStateStore.isOverlayShiftImportEnabled();
         boolean hovered = inside(mouseX, mouseY, layout.shiftImportX(), layout.returnY(), layout.shiftImportW(), SLOT_SIZE);
         UiColor light = enabled
@@ -178,7 +178,7 @@ public final class OverlayRenderer {
     // =========================================================================
 
     public static void renderOverlayBottomControls(
-            GuiGraphics g,
+            RtsGuiContext g,
             Font font,
             OverlayLayout layout) {
         drawMiniButton(g, font, layout.closeX(), layout.controlsY(), OVERLAY_CLOSE_W, OVERLAY_BOTTOM_BUTTON_H,
@@ -195,7 +195,7 @@ public final class OverlayRenderer {
     // =========================================================================
 
     public static void renderOverlayRefreshButton(
-            GuiGraphics g,
+            RtsGuiContext g,
             Font font,
             OverlayLayout layout,
             double mouseX,
@@ -254,7 +254,7 @@ public final class OverlayRenderer {
         return new OverlayInfoRect(x, y, panelW, panelH, closeX, closeY);
     }
 
-    public static void renderOverlayInfoPanel(GuiGraphics g, Font font, OverlayLayout layout) {
+    public static void renderOverlayInfoPanel(RtsGuiContext g, Font font, OverlayLayout layout) {
         OverlayInfoRect rect = resolveOverlayInfoRect(font, layout);
         List<Component> lines = overlayInfoLines();
 
@@ -292,7 +292,7 @@ public final class OverlayRenderer {
     //  Quickbar rendering
     // =========================================================================
 
-    public static void renderQuickbar(GuiGraphics g, Font font, int x, int y) {
+    public static void renderQuickbar(RtsGuiContext g, Font font, int x, int y) {
         ClientRtsController controller = ClientRtsController.get();
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         for (int i = 0; i < QUICKBAR_SLOTS; i++) {

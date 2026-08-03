@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -215,7 +217,7 @@ public final class ShapePlacementTargetResolver {
             }
             BlockState state = this.minecraft.level.getBlockState(pos);
             BlockPlaceContext context = createContext(pos, face);
-            return context == null ? state.canBeReplaced() : state.canBeReplaced(context);
+            return context == null ? RtsBlockStates.canBeReplaced(state) : state.canBeReplaced(context);
         }
 
         private BlockPlaceContext createContext(BlockPos clickedPos, Direction face) {

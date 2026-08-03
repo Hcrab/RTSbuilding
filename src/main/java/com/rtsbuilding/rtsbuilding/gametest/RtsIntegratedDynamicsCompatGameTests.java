@@ -84,7 +84,7 @@ public final class RtsIntegratedDynamicsCompatGameTests {
                 rayDir.y,
                 rayDir.z);
 
-        helper.assertTrue(player.containerMenu != before,
+        RtsGameTestAssertions.assertTrue(helper, player.containerMenu != before,
                 "RTS 远程右键 Integrated Dynamics 机器后应该保持玩家在线并打开/切换菜单");
         stopPlayer(player);
         helper.succeed();
@@ -108,14 +108,14 @@ public final class RtsIntegratedDynamicsCompatGameTests {
 
         helper.succeedWhen(() -> {
             RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-            helper.assertTrue(session != null, "RTS session should still exist after mining ID cable");
+            RtsGameTestAssertions.assertTrue(helper, session != null, "RTS session should still exist after mining ID cable");
             if (session != null) {
                 RtsMiningStateMachine.tickActiveMining(player, session);
             }
-            helper.assertTrue(helper.getBlockState(cableRel).isAir(),
+            RtsGameTestAssertions.assertTrue(helper, helper.getBlockState(cableRel).isAir(),
                     "RTS 挖掘完成后 Integrated Dynamics cable 应该被破坏; "
                             + describeMiningState(helper, player, session, cableRel, cableAbs));
-            helper.assertTrue(hasDroppedOrCollectedItem(helper, player, cableAbs, "integrateddynamics:cable"),
+            RtsGameTestAssertions.assertTrue(helper, hasDroppedOrCollectedItem(helper, player, cableAbs, "integrateddynamics:cable"),
                     "RTS 挖 Integrated Dynamics cable 应该产生 cable 掉落物");
             stopPlayer(player);
             helper.succeed();
@@ -141,7 +141,7 @@ public final class RtsIntegratedDynamicsCompatGameTests {
     }
 
     private static void requireMod(GameTestHelper helper, String modId) {
-        helper.assertTrue(ModList.get().isLoaded(modId), "GameTest 需要加载真实模组 " + modId);
+        RtsGameTestAssertions.assertTrue(helper, ModList.get().isLoaded(modId), "GameTest 需要加载真实模组 " + modId);
     }
 
     private static ServerPlayer startRtsPlayer(GameTestHelper helper) {
@@ -151,8 +151,8 @@ public final class RtsIntegratedDynamicsCompatGameTests {
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 180.0F, 0.0F);
         player.setGameMode(GameType.SURVIVAL);
         RtsCameraManager.start(player);
-        helper.assertTrue(RtsCameraManager.isActive(player), "GameTest 玩家应该能进入 RTS 模式");
-        helper.assertTrue(ServiceRegistry.getInstance().session().getIfPresent(player) != null, "RTS session should be initialized");
+        RtsGameTestAssertions.assertTrue(helper, RtsCameraManager.isActive(player), "GameTest 玩家应该能进入 RTS 模式");
+        RtsGameTestAssertions.assertTrue(helper, ServiceRegistry.getInstance().session().getIfPresent(player) != null, "RTS session should be initialized");
         return player;
     }
 
@@ -162,14 +162,14 @@ public final class RtsIntegratedDynamicsCompatGameTests {
 
     private static void setBlockById(GameTestHelper helper, BlockPos rel, String idText) {
         Block block = RtsBuiltInRegistries.BLOCK.get(new ResourceLocation(idText));
-        helper.assertTrue(block != Blocks.AIR, "测试方块必须存在: " + idText);
+        RtsGameTestAssertions.assertTrue(helper, block != Blocks.AIR, "测试方块必须存在: " + idText);
         helper.setBlock(rel, block.defaultBlockState());
     }
 
     private static void placeBlockByIdAsPlayer(GameTestHelper helper, BlockPos rel, String idText,
             ServerPlayer player) {
         Block block = RtsBuiltInRegistries.BLOCK.get(new ResourceLocation(idText));
-        helper.assertTrue(block != Blocks.AIR, "测试方块必须存在: " + idText);
+        RtsGameTestAssertions.assertTrue(helper, block != Blocks.AIR, "测试方块必须存在: " + idText);
         helper.setBlock(rel, block.defaultBlockState());
         BlockPos absPos = helper.absolutePos(rel);
         BlockState state = helper.getLevel().getBlockState(absPos);

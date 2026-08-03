@@ -2,9 +2,12 @@ package com.rtsbuilding.rtsbuilding.common.entity;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.SynchedEntityData;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.game.ClientGamePacketListener;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.level.Level;
+import net.minecraftforge.network.NetworkHooks;
 
 import java.util.UUID;
 
@@ -32,6 +35,14 @@ public class RtsCameraEntity extends Entity {
 
     @Override
     protected void addAdditionalSaveData(CompoundTag compoundTag) {
+    }
+
+    @Override
+    public Packet<ClientGamePacketListener> getAddEntityPacket() {
+        @SuppressWarnings("unchecked")
+        Packet<ClientGamePacketListener> packet =
+                (Packet<ClientGamePacketListener>) NetworkHooks.getEntitySpawningPacket(this);
+        return packet;
     }
 
     public UUID getOwnerUuid() {

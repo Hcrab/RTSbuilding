@@ -1,9 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.developer;
 
+import com.rtsbuilding.rtsbuilding.client.widget.RtsButtons;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uikit.theme.DeveloperScreenStyle;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -24,19 +27,20 @@ public final class RtsDeveloperTaskScreen extends Screen {
         for (int index = 0; index < scenarios.length; index++) {
             RtsDeveloperScenarioTracker.Scenario scenario = scenarios[index];
             var bounds = layout.taskButtons().get(index);
-            addRenderableWidget(Button.builder(Component.translatable(scenario.translationKey()), button -> {
+            addRenderableWidget(RtsButtons.builder(Component.translatable(scenario.translationKey()), button -> {
                 RtsDeveloperScenarioTracker.getInstance().start(scenario);
                 this.minecraft.setScreen(parent);
             }).bounds(bounds.x(), bounds.y(), bounds.width(), bounds.height()).build());
         }
         var back = layout.backButton();
-        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), button ->
+        addRenderableWidget(RtsButtons.builder(Component.translatable("gui.rtsbuilding.back"), button ->
                 this.minecraft.setScreen(parent))
                 .bounds(back.x(), back.y(), back.width(), back.height()).build());
     }
 
     @Override
-    public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        RtsGuiContext graphics = new RtsGuiContext(poseStack, this);
         graphics.fill(0, 0, this.width, this.height,
                 DeveloperScreenStyle.BACKGROUND.toArgb());
         var layout = RtsDeveloperTaskLayout.resolve(this.width, this.height,
@@ -53,7 +57,7 @@ public final class RtsDeveloperTaskScreen extends Screen {
                     layout.centerX(), layout.activeStatusY(),
                     DeveloperScreenStyle.ACTIVE_STATUS.toArgb());
         }
-        super.render(graphics, mouseX, mouseY, partialTick);
+        super.render(poseStack, mouseX, mouseY, partialTick);
     }
 
     @Override

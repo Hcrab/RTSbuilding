@@ -19,7 +19,7 @@ public final class RtsCullingNetworkHandlers {
             if (context.player() instanceof ServerPlayer player) {
                 RtsCullingPersistence.State state = RtsCullingPersistence.load(player);
                 PacketDistributor.sendToPlayer(player, new S2CRtsCullingStatePayload(
-                        player.level().dimension().location().toString(),
+                        player.getLevel().dimension().location().toString(),
                         state.boxes(),
                         state.revealed()));
             }
@@ -29,7 +29,7 @@ public final class RtsCullingNetworkHandlers {
     public static void handleSave(C2SRtsSaveCullingStatePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer player) {
-                String currentDimension = player.level().dimension().location().toString();
+                String currentDimension = player.getLevel().dimension().location().toString();
                 if (currentDimension.equals(payload.dimension())) {
                     RtsCullingPersistence.save(player, payload.boxes(), payload.revealed());
                 }

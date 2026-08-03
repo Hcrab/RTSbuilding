@@ -81,7 +81,7 @@ public final class RtsMiningNetworkHelper {
         if (player == null || pos == null) {
             return;
         }
-        player.serverLevel().destroyBlockProgress(player.getId(), pos, -1);
+        player.getLevel().destroyBlockProgress(player.getId(), pos, -1);
         sendMineProgress(player, pos, -1);
     }
 

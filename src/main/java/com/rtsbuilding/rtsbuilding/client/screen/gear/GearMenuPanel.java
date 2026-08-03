@@ -16,7 +16,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsWindowLayout;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
@@ -105,7 +105,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    protected void renderContent(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         this.scroll = Mth.clamp(this.scroll, 0, maxScroll());
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
         renderCoreControls(g, canvas, mouseX, mouseY);
@@ -191,7 +191,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     /** 生产绘制直接遍历 Core 正式目录，避免设置项在预览与运行时漂移。 */
-    private void renderCoreControls(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY) {
+    private void renderCoreControls(RtsGuiContext g, MinecraftUiCanvas canvas, int mouseX, int mouseY) {
         SettingsUiState state = coreSnapshot();
         SettingsWindowLayout.Layout layout = coreLayout(state);
         for (SettingsWindowLayout.Node node : layout.nodes) {
@@ -205,7 +205,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
     }
 
-    private void drawCoreRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
+    private void drawCoreRow(RtsGuiContext g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                              SettingsUiRow row, int x, int y, int w) {
         switch (row.id.kind) {
             case SENSITIVITY -> drawCoreSensitivityRow(g, row, y, x, w);
@@ -215,7 +215,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
     }
 
-    private void drawCoreSensitivityRow(GuiGraphics g, SettingsUiRow row, int rowY, int x, int w) {
+    private void drawCoreSensitivityRow(RtsGuiContext g, SettingsUiRow row, int rowY, int x, int w) {
         g.drawString(screen.font(), Component.translatable(row.id.labelKey),
                 x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 5, (row.enabled ? SettingsWindowStyle.LABEL
                         : SettingsWindowStyle.DISABLED_TEXT).toArgb(), false);
@@ -236,7 +236,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 (row.enabled ? SettingsWindowStyle.KNOB : SettingsWindowStyle.KNOB_DISABLED).toArgb());
     }
 
-    private void drawCoreStepRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
+    private void drawCoreStepRow(RtsGuiContext g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                                  SettingsUiRow row, int rowY, int x, int w) {
         int minusX = x + w - SettingsWindowLayout.STEP_CONTROLS_RIGHT_INSET;
         int valueX = minusX + 26;
@@ -263,7 +263,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         drawCoreStepButton(g, canvas, mouseX, mouseY, plusX, buttonY, "+");
     }
 
-    private void drawCoreSimpleToggleRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
+    private void drawCoreSimpleToggleRow(RtsGuiContext g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                                          SettingsUiRow row, int x, int w, int rowY) {
         g.drawString(screen.font(), trimToWidth(text(row.id.labelKey),
                         w - SettingsWindowLayout.SIMPLE_LABEL_RIGHT_RESERVE),
@@ -274,7 +274,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 text(row.active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
     }
 
-    private void drawCoreHintToggleRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
+    private void drawCoreHintToggleRow(RtsGuiContext g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                                        SettingsUiRow row, int x, int w, int rowY) {
         int hintX = hintTextX(x, row.hintExpandable);
         int hintW = hintTextMaxWidth(x, w, row.hintExpandable);
@@ -379,7 +379,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     /** Core 正式目录统一走共享紧凑框体，设置页不再保留私有旧绘制分支。 */
-    private void drawCoreSectionHeader(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawCoreSectionHeader(RtsGuiContext g, MinecraftUiCanvas canvas,
                                        int mouseX, int mouseY, int x, int w, int y,
                                        String titleKey, boolean expanded) {
         boolean hover = UiRect.contains(
@@ -405,7 +405,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 SettingsWindowStyle.VALUE.toArgb(), false);
     }
 
-    private void drawCoreStepButton(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawCoreStepButton(RtsGuiContext g, MinecraftUiCanvas canvas,
                                     int mouseX, int mouseY, int x, int y, String label) {
         boolean hover = UiRect.contains(x, y, 22, 22, mouseX, mouseY);
         UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, 22, 22),
@@ -418,7 +418,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 SettingsWindowStyle.VALUE.toArgb());
     }
 
-    private void drawCoreToggleButton(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawCoreToggleButton(RtsGuiContext g, MinecraftUiCanvas canvas,
                                       int mouseX, int mouseY, int x, int y, int w, int h,
                                       boolean active, String label) {
         boolean hover = UiRect.contains(x, y, w, h, mouseX, mouseY);
@@ -441,7 +441,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 SettingsWindowStyle.VALUE.toArgb());
     }
 
-    private void drawCoreHintExpandButton(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawCoreHintExpandButton(RtsGuiContext g, MinecraftUiCanvas canvas,
                                           int mouseX, int mouseY, int x, int rowY,
                                           boolean expanded) {
         int buttonX = hintExpandButtonX(x);
@@ -507,7 +507,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         return coreLayout(coreSnapshot()).contentHeight;
     }
 
-    private void renderScrollbar(GuiGraphics g, MinecraftUiCanvas canvas, int x, int y, int w, int h) {
+    private void renderScrollbar(RtsGuiContext g, MinecraftUiCanvas canvas, int x, int y, int w, int h) {
         int maxScroll = maxScroll();
         if (maxScroll <= 0) {
             return;

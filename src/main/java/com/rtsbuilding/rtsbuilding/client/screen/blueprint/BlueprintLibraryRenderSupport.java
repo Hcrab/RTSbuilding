@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 
 /**
@@ -18,7 +18,7 @@ final class BlueprintLibraryRenderSupport {
     }
 
     static void drawCentered(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             UiRect bounds,
             String label) {

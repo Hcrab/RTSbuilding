@@ -28,7 +28,7 @@ public final class RtsAiKnowledgeBase {
 
     public static String build(ClientRtsController controller) {
         Minecraft minecraft = Minecraft.getInstance();
-        String language = minecraft.getLanguageManager().getSelected();
+        String language = minecraft.getLanguageManager().getSelected().getCode();
         boolean chinese = language != null && language.toLowerCase(Locale.ROOT).startsWith("zh_");
         StringBuilder text = new StringBuilder(12_000);
 

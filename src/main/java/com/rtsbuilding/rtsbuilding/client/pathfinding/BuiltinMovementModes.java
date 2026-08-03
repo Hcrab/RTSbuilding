@@ -95,7 +95,7 @@ public final class BuiltinMovementModes {
         @Override
         public boolean isActive(LocalPlayer player) {
             return (player.getPose() == Pose.SWIMMING && player.isUnderWater() && player.isInWater())
-                    || (player.isInLava() && !player.onGround());
+                    || (player.isInLava() && !player.isOnGround());
         }
 
         @Override
@@ -135,7 +135,7 @@ public final class BuiltinMovementModes {
         @Override
         public boolean isActive(LocalPlayer player) {
             return player.getPose() == Pose.SWIMMING
-                    && player.onGround()
+                    && player.isOnGround()
                     && !player.isInWater()
                     && !player.isInLava();
         }
@@ -197,8 +197,8 @@ public final class BuiltinMovementModes {
      * @return 修正后的目标速度
      */
     private static double computeGroundSpeed(LocalPlayer player, double multiplier) {
-        float blockFriction = player.onGround()
-                ? player.level().getBlockState(player.getOnPos()).getBlock().getFriction()
+        float blockFriction = player.isOnGround()
+                ? player.getLevel().getBlockState(player.getOnPos()).getBlock().getFriction()
                 : 0.6f;
         return player.getSpeed() * 2.15 * (0.6 / blockFriction) * multiplier;
     }
@@ -208,10 +208,10 @@ public final class BuiltinMovementModes {
      * 对 {@link FluidTags#LAVA} 标签流体返回 0.15，其它流体返回 0.3，无流体返回 1.0。
      */
     private static double getFluidSlowFactor(LocalPlayer player) {
-        BlockPos min = BlockPos.containing(player.getBoundingBox().minX, player.getBoundingBox().minY, player.getBoundingBox().minZ);
-        BlockPos max = BlockPos.containing(player.getBoundingBox().maxX, player.getBoundingBox().maxY, player.getBoundingBox().maxZ);
+        BlockPos min = new BlockPos(player.getBoundingBox().minX, player.getBoundingBox().minY, player.getBoundingBox().minZ);
+        BlockPos max = new BlockPos(player.getBoundingBox().maxX, player.getBoundingBox().maxY, player.getBoundingBox().maxZ);
         for (BlockPos pos : BlockPos.betweenClosed(min, max)) {
-            FluidState fluidState = player.level().getFluidState(pos);
+            FluidState fluidState = player.getLevel().getFluidState(pos);
             if (!fluidState.isEmpty()) {
                 if (fluidState.is(FluidTags.LAVA)) return 0.15;
                 return 0.3;

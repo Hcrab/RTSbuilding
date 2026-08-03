@@ -6,25 +6,25 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiClipStack;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 
 /**
- * {@link GuiGraphics} 到纯 2D Kit 画布的生产适配器。
+ * {@link RtsGuiContext} 到纯 2D Kit 画布的生产适配器。
  *
  * <p>它只转发当前 GUI 批次中的矩形、无阴影文本、裁剪与 pose 变换；不调用
  * {@code flush/endBatch}，不接触世界渲染，也不拥有 Minecraft 生命周期。</p>
  */
 public final class MinecraftUiCanvas implements UiCanvas2D {
-    private final GuiGraphics graphics;
+    private final RtsGuiContext graphics;
     private final Font font;
     private final BuilderScreen screen;
     private final UiClipStack clips = new UiClipStack();
 
-    public MinecraftUiCanvas(GuiGraphics graphics, Font font) {
+    public MinecraftUiCanvas(RtsGuiContext graphics, Font font) {
         this(graphics, font, null);
     }
 
-    public MinecraftUiCanvas(GuiGraphics graphics, Font font, BuilderScreen screen) {
+    public MinecraftUiCanvas(RtsGuiContext graphics, Font font, BuilderScreen screen) {
         if (graphics == null || font == null) {
             throw new IllegalArgumentException("graphics and font must not be null");
         }

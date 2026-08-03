@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 
 /**
  * 工作流共享 chrome 到 Minecraft 字体与字形的薄适配层。
@@ -21,7 +21,7 @@ final class WorkflowPanelRenderer {
     }
 
     static void renderRow(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             MinecraftUiCanvas canvas,
             WorkflowWindowLayout.RowGeometry geometry,
@@ -94,7 +94,7 @@ final class WorkflowPanelRenderer {
     }
 
     private static void drawCenteredGlyph(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             UiRect bounds,
             String glyph,

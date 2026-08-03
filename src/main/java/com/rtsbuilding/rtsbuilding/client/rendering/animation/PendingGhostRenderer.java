@@ -147,7 +147,7 @@ public final class PendingGhostRenderer {
             PendingGhostEntry ghost = GHOSTS.get(pos.asLong());
             float scale = (ghost != null) ? computeGrowScale(now - ghost.addedAtMs) : BASE_SCALE;
             double inset = 0.5D - scale * 0.44D;
-            LevelRenderer.addChainedFilledBoxVertices(
+            RenderingUtil.filledBox(
                     poseStack, fillBuffer,
                     pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                     pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,

@@ -5,11 +5,9 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintParseExceptio
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderGetter;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
@@ -43,7 +41,6 @@ final class LitematicReader {
             throw new BlueprintParseException("Litematic 文件缺少 Regions 数据: " + fileName);
         }
 
-        HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK).asLookup();
         CompoundTag regions = root.getCompound("Regions");
         List<PendingBlock> pending = new ArrayList<>();
 
@@ -52,7 +49,7 @@ final class LitematicReader {
             if (!regions.contains(regionName, Tag.TAG_COMPOUND)) {
                 continue;
             }
-            readRegion(fileName, regions.getCompound(regionName), blockLookup, pending);
+            readRegion(fileName, regions.getCompound(regionName), pending);
         }
 
         if (pending.isEmpty()) {
@@ -95,8 +92,8 @@ final class LitematicReader {
      * <p>
      * 每个区域包含位置偏移、尺寸、调色板、位压缩方块数据以及方块实体列表。
      */
-    private static void readRegion(String fileName, CompoundTag region, HolderGetter<Block> blockLookup,
-            List<PendingBlock> out) throws BlueprintParseException {
+    private static void readRegion(String fileName, CompoundTag region, List<PendingBlock> out)
+            throws BlueprintParseException {
         Vec3i position = readVec(region, "Position", Vec3i.ZERO);
         Vec3i size = readVec(region, "Size", Vec3i.ZERO);
         int width = size.getX();
@@ -115,7 +112,7 @@ final class LitematicReader {
         }
 
         // 读取调色板和方块实体
-        List<PaletteEntry> palette = readPalette(region.getList("BlockStatePalette", Tag.TAG_COMPOUND), blockLookup);
+        List<PaletteEntry> palette = readPalette(region.getList("BlockStatePalette", Tag.TAG_COMPOUND));
         if (palette.isEmpty()) {
             throw new BlueprintParseException("Litematic 区域缺少 BlockStatePalette: " + fileName);
         }
@@ -159,7 +156,7 @@ final class LitematicReader {
     }
 
     /** 读取调色板并解析方块状态 */
-    private static List<PaletteEntry> readPalette(ListTag paletteTag, HolderGetter<Block> blockLookup)
+    private static List<PaletteEntry> readPalette(ListTag paletteTag)
             throws BlueprintParseException {
         List<PaletteEntry> out = new ArrayList<>(paletteTag.size());
         for (int i = 0; i < paletteTag.size(); i++) {
@@ -170,7 +167,7 @@ final class LitematicReader {
                 continue;
             }
             try {
-                out.add(new PaletteEntry(NbtUtils.readBlockState(blockLookup, paletteEntry), ""));
+                out.add(new PaletteEntry(NbtUtils.readBlockState(paletteEntry), ""));
             } catch (Exception ex) {
                 throw new BlueprintParseException("Litematic 调色板中存在未知方块状态: " + paletteEntry, ex);
             }

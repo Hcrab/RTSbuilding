@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.CraftFeedbackLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftFeedbackStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -20,11 +20,11 @@ public final class RtsCraftFeedbackPopup {
     private RtsCraftFeedbackPopup() {
     }
 
-    public static void render(GuiGraphics g, Font font, int screenWidth, ClientRtsController controller) {
+    public static void render(RtsGuiContext g, Font font, int screenWidth, ClientRtsController controller) {
         render(g, font, screenWidth, CraftFeedbackLayout.TOP, controller);
     }
 
-    public static void render(GuiGraphics g, Font font, int screenWidth,
+    public static void render(RtsGuiContext g, Font font, int screenWidth,
                               int reservedTop, ClientRtsController controller) {
         if (g == null || font == null || controller == null) {
             return;

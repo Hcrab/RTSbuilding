@@ -42,7 +42,7 @@ final class RtsPluginDurability {
             if (!sharedKey.isBlank()) {
                 ServerLevel storageLevel = server.getLevel(Level.OVERWORLD);
                 if (storageLevel == null) {
-                    storageLevel = player.serverLevel();
+                    storageLevel = player.getLevel();
                 }
                 storageLevel.getDataStorage().save();
             }

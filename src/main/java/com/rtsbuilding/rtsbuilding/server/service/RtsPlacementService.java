@@ -211,7 +211,7 @@ public final class RtsPlacementService {
         if (!canRotateBlock(player, pos)) {
             return;
         }
-        RtsPlacementHelper.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+        RtsPlacementHelper.rotatePlacedBlock(player.getLevel(), pos, (byte) 1);
     }
 
     public static void rotateBlockStep(
@@ -225,7 +225,7 @@ public final class RtsPlacementService {
             return;
         }
         RtsPlacementHelper.rotatePlacedBlockStep(
-                player.serverLevel(),
+                player.getLevel(),
                 pos,
                 axisDirection,
                 quarterTurns);

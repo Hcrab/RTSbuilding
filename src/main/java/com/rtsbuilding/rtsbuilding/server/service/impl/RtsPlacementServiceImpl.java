@@ -208,7 +208,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         if (!canRotateBlock(player, pos)) {
             return;
         }
-        RtsPlacementHelper.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+        RtsPlacementHelper.rotatePlacedBlock(player.getLevel(), pos, (byte) 1);
     }
 
     @Override
@@ -223,7 +223,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
             return;
         }
         RtsPlacementHelper.rotatePlacedBlockStep(
-                player.serverLevel(),
+                player.getLevel(),
                 pos,
                 axisDirection,
                 quarterTurns);

@@ -13,12 +13,14 @@ class RtsCreativeItemCatalogContractTest {
     void creativeTabsAreBuiltBeforeAnyVisibilityDecision() throws Exception {
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsCreativeItemCatalog.java"));
-        int loop = source.indexOf("for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB)");
-        int build = source.indexOf("buildContentsIfPossible(tab, parameters)", loop);
+        int loop = source.indexOf("for (CreativeModeTab tab : RtsBuiltInRegistries.CREATIVE_MODE_TAB)");
+        int build = source.indexOf("Collection<ItemStack> displayItems = safeDisplayItems(tab)", loop);
         int shouldDisplay = source.indexOf("tab.shouldDisplay()", loop);
 
         assertTrue(loop >= 0 && build > loop);
         assertTrue(shouldDisplay < 0 || shouldDisplay > build,
-                "1.21.1 的 shouldDisplay 依赖已装填内容，不能在 buildContents 之前过滤创造标签");
+                "创造标签必须先装填内容，不能在装填前按可见性过滤");
+        assertTrue(source.contains("tab.fillItemList(items)"),
+                "1.19.2 必须通过 fillItemList 装填创造标签内容");
     }
 }

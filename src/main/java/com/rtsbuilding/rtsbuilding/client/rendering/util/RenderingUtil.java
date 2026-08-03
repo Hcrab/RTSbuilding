@@ -5,8 +5,8 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix3f;
-import org.joml.Matrix4f;
+import com.mojang.math.Matrix3f;
+import com.mojang.math.Matrix4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,6 +111,27 @@ public final class RenderingUtil {
         consumer.vertex(matrix, (float) x2, (float) y2, (float) z2).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) x3, (float) y3, (float) z3).color(r, g, b, a).endVertex();
         consumer.vertex(matrix, (float) x4, (float) y4, (float) z4).color(r, g, b, a).endVertex();
+    }
+
+    /**
+     * 向任意 POSITION_COLOR 顶点消费者写入完整实心盒。
+     * 1.19.2 的原版辅助方法只接受 BufferBuilder 且忽略 PoseStack，因此由这里显式写六个面。
+     */
+    public static void filledBox(PoseStack poseStack, VertexConsumer consumer,
+            double minX, double minY, double minZ, double maxX, double maxY, double maxZ,
+            float r, float g, float b, float a) {
+        quad(consumer, poseStack, minX, minY, minZ, maxX, minY, minZ,
+                maxX, minY, maxZ, minX, minY, maxZ, r, g, b, a);
+        quad(consumer, poseStack, minX, maxY, minZ, minX, maxY, maxZ,
+                maxX, maxY, maxZ, maxX, maxY, minZ, r, g, b, a);
+        quad(consumer, poseStack, minX, minY, minZ, minX, minY, maxZ,
+                minX, maxY, maxZ, minX, maxY, minZ, r, g, b, a);
+        quad(consumer, poseStack, maxX, minY, minZ, maxX, maxY, minZ,
+                maxX, maxY, maxZ, maxX, minY, maxZ, r, g, b, a);
+        quad(consumer, poseStack, minX, minY, minZ, minX, maxY, minZ,
+                maxX, maxY, minZ, maxX, minY, minZ, r, g, b, a);
+        quad(consumer, poseStack, minX, minY, maxZ, maxX, minY, maxZ,
+                maxX, maxY, maxZ, minX, maxY, maxZ, r, g, b, a);
     }
 
     /**

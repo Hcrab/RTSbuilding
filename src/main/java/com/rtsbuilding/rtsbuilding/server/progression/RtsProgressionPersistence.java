@@ -63,7 +63,7 @@ final class RtsProgressionPersistence {
 
     static RtsSharedProgressionData sharedProgressionData(ServerPlayer player) {
         ServerLevel overworld = player.getServer().getLevel(Level.OVERWORLD);
-        return RtsSharedProgressionData.get(overworld == null ? player.serverLevel() : overworld);
+        return RtsSharedProgressionData.get(overworld == null ? player.getLevel() : overworld);
     }
 
     record TeamProgressionContext(String key, String label) {

@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.rtsbuilding.rtsbuilding.client.widget.RtsButtons;
+
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.controller.PluginStateManager;
 import com.rtsbuilding.rtsbuilding.client.plugin.RtsClientPluginCatalog;
@@ -10,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.PluginManagementLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.PluginManagementStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -57,7 +60,7 @@ public final class RtsPluginManagementScreen extends Screen {
     protected void init() {
         this.controller.requestPluginState();
         PluginManagementLayout.Layout layout = resolveLayout();
-        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> {
+        addRenderableWidget(RtsButtons.builder(Component.translatable("gui.rtsbuilding.back"), btn -> {
                     onClose();
                 })
                 .bounds(layout.back.x, layout.back.y, layout.back.width, layout.back.height)
@@ -73,7 +76,8 @@ public final class RtsPluginManagementScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        RtsGuiContext g = new RtsGuiContext(poseStack, this);
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, this.font);
         renderPageBackground(canvas);
         this.hoveredInventorySlot = -1;
@@ -117,7 +121,7 @@ public final class RtsPluginManagementScreen extends Screen {
         } else if (!this.hoveredInstalledStack.isEmpty()) {
             g.renderTooltip(this.font, this.hoveredInstalledStack, mouseX, mouseY);
         }
-        super.render(g, mouseX, mouseY, partialTick);
+        super.render(poseStack, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -200,7 +204,7 @@ public final class RtsPluginManagementScreen extends Screen {
         return false;
     }
 
-    private void drawInstalledList(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawInstalledList(RtsGuiContext g, MinecraftUiCanvas canvas,
                                    int x, int y, int w, int h, int mouseX, int mouseY) {
         drawFrame(canvas, x, y, w, h,
                 PluginManagementStyle.SURFACE_BACKGROUND, PluginManagementStyle.SURFACE_BORDER);
@@ -294,7 +298,7 @@ public final class RtsPluginManagementScreen extends Screen {
                 installed.size(), visibleRows, maxScroll);
     }
 
-    private void drawInstallArea(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawInstallArea(RtsGuiContext g, MinecraftUiCanvas canvas,
                                  int x, int y, int w, int mouseX, int mouseY) {
         this.installX = x;
         this.installY = y;
@@ -335,7 +339,7 @@ public final class RtsPluginManagementScreen extends Screen {
                 PluginManagementStyle.MUTED_TEXT.toArgb());
     }
 
-    private void drawInventoryPlugins(GuiGraphics g, MinecraftUiCanvas canvas,
+    private void drawInventoryPlugins(RtsGuiContext g, MinecraftUiCanvas canvas,
                                       PluginManagementLayout.Layout layout,
                                       int mouseX, int mouseY) {
         g.drawString(this.font, Component.translatable("screen.rtsbuilding.plugins.inventory"),
@@ -472,7 +476,7 @@ public final class RtsPluginManagementScreen extends Screen {
         return slots;
     }
 
-    private void drawWrapped(GuiGraphics g, Component text, int x, int y, int width, int color) {
+    private void drawWrapped(RtsGuiContext g, Component text, int x, int y, int width, int color) {
         for (var line : this.font.split(text, width)) {
             g.drawString(this.font, line, x, y, color, false);
             y += 10;

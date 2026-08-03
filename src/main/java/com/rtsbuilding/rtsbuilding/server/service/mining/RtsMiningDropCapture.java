@@ -59,7 +59,7 @@ public final class RtsMiningDropCapture {
     static void onEntityJoinLevel(EntityJoinLevelEvent event) {
         CaptureContext context = ACTIVE.get().peek();
         if (context == null
-                || event.getLevel() != context.player().serverLevel()
+                || event.getLevel() != context.player().getLevel()
                 || !(event.getEntity() instanceof ItemEntity itemEntity)
                 || itemEntity.getItem().isEmpty()) {
             return;

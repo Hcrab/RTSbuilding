@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -32,7 +32,7 @@ final class BlueprintMaterialDialog {
     private BlueprintMaterialDialog() {
     }
 
-    static int renderCoreContent(GuiGraphics g, Font font, BlueprintMaterialUiState state,
+    static int renderCoreContent(RtsGuiContext g, Font font, BlueprintMaterialUiState state,
             int x, int y, int w, int h, int mouseX, int mouseY, int scroll) {
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         Layout layout = layoutFromBounds(x, y, w, h);
@@ -72,7 +72,7 @@ final class BlueprintMaterialDialog {
         return Mth.clamp(currentScroll + (scrollY > 0.0D ? -1 : 1), 0, maxScroll);
     }
 
-    private static void renderCoreRows(GuiGraphics g, Font font, List<BlueprintMaterialUiState.Row> lines,
+    private static void renderCoreRows(RtsGuiContext g, Font font, List<BlueprintMaterialUiState.Row> lines,
             Layout layout, int mouseX, int mouseY, int scroll, int visible, int columns) {
         int cellW = (layout.listW() - 8 - (columns - 1) * COLUMN_GAP) / columns;
         for (int row = 0; row < visible; row++) {
@@ -111,7 +111,7 @@ final class BlueprintMaterialDialog {
         }
     }
 
-    private static void renderScrollbar(GuiGraphics g, int lineCount, Layout layout, int scroll,
+    private static void renderScrollbar(RtsGuiContext g, int lineCount, Layout layout, int scroll,
             int visible, int columns) {
         int maxScroll = maxScroll(lineCount, visible, columns);
         if (maxScroll <= 0) {

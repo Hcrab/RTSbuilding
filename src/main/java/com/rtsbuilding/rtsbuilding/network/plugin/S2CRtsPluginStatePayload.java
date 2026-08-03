@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.plugin;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -50,7 +52,7 @@ public record S2CRtsPluginStatePayload(
                     buf.writeUtf(RtsPluginPayloadText.fit(payload.ownerNames().get(i), MAX_OWNER_NAME_CHARS),
                             MAX_OWNER_NAME_CHARS);
                     ItemStack stack = payload.stacks().get(i);
-                    RtsForgeBufCodecs.writeItem(buf, stack == null ? ItemStack.EMPTY : stack.copyWithCount(1));
+                    RtsForgeBufCodecs.writeItem(buf, stack == null ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(stack, 1));
                 }
                 buf.writeUtf(RtsPluginPayloadText.fit(payload.teamName(), MAX_TEAM_NAME_CHARS),
                         MAX_TEAM_NAME_CHARS);

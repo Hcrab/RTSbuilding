@@ -110,7 +110,7 @@ public final class RtsPageServiceImpl implements PageService {
         RtsDeveloperMetrics.recordPageSend(player);
         session.transfer.storageViewDirty = false;
         session.browser.page = result.safePage();
-        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
     }
 
     @Override
@@ -133,7 +133,7 @@ public final class RtsPageServiceImpl implements PageService {
 
     private void refreshMissingGuiBindingIcons(ServerPlayer player, RtsStorageSession session) {
         if (RtsStorageBindings.refreshMissingGuiBindingIcons(player, session)) {
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
         }
     }
 

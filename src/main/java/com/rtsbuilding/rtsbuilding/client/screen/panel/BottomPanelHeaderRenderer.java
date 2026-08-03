@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelHeaderLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelHeaderStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 
 /**
  * 底栏框体与头部控件的 Minecraft 绘制适配器。
@@ -25,7 +25,7 @@ public final class BottomPanelHeaderRenderer {
     }
 
     public static void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             BottomPanelHeaderLayout layout,
             BottomBarUiState state,
@@ -170,7 +170,7 @@ public final class BottomPanelHeaderRenderer {
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             BottomPanelHeaderLayout.Area area,
@@ -181,7 +181,7 @@ public final class BottomPanelHeaderRenderer {
     }
 
     private static void fillInside(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BottomPanelHeaderLayout.Area area,
             UiColor color) {
         int inset = BottomPanelHeaderLayout.TAB_ANIMATION_INSET;
@@ -194,7 +194,7 @@ public final class BottomPanelHeaderRenderer {
     }
 
     private static void fill(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BottomPanelHeaderLayout.Area area,
             UiColor color) {
         graphics.fill(

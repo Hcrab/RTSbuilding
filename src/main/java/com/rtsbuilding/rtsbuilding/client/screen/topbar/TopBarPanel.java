@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
@@ -35,7 +35,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * <b>Key responsibilities:</b>
  * <ul>
  *   <li>Layout construction ({@link #buildTopBarButtonLayouts()})</li>
- *   <li>Button rendering ({@link #render(GuiGraphics, int, int)})</li>
+ *   <li>Button rendering ({@link #render(RtsGuiContext, int, int)})</li>
  *   <li>Click dispatch ({@link #handleClick(double, double)})</li>
  *   <li>Status bar text composition</li>
  * </ul>
@@ -89,7 +89,7 @@ public final class TopBarPanel {
      * status bar showing the current mode, storage link status, and
      * shape-editing state.
      */
-    public void render(GuiGraphics g, int mouseX, int mouseY) {
+    public void render(RtsGuiContext g, int mouseX, int mouseY) {
         screen.ensureFillModeForShape(this.controller.getBuildShape());
         TopBarUiState state = TopBarUiAdapter.snapshot(screen, controller);
         List<TopBarTypes.TopBarButtonLayout> topButtons = buildTopBarButtonLayouts(state);
@@ -132,7 +132,7 @@ public final class TopBarPanel {
      * 在第二行右侧空白处绘制当前模式的操作提示。空间不足时整段隐藏，
      * 避免提示与储存状态在高 UI 缩放或较长翻译下互相覆盖。
      */
-    private void renderContextualModeTip(GuiGraphics g, TopBarLayout.Status status,
+    private void renderContextualModeTip(RtsGuiContext g, TopBarLayout.Status status,
                                          String visibleRow2, TopBarUiState.Mode mode) {
         String key = modeTipKey(mode);
         if (key.isBlank()) {
@@ -249,7 +249,7 @@ public final class TopBarPanel {
      * Routes the rendering of a single top bar button to the appropriate
      * method based on whether it is icon-only or text-based.
      */
-    private void drawTopButton(GuiGraphics g, int mouseX, int mouseY,
+    private void drawTopButton(RtsGuiContext g, int mouseX, int mouseY,
                                TopBarTypes.TopBarButtonLayout button) {
         drawTopIconButton(g, mouseX, mouseY, button);
     }
@@ -262,7 +262,7 @@ public final class TopBarPanel {
      * <p>
      * The button background colour changes based on active, pressed, and hovered states.
      */
-    private void drawTopIconButton(GuiGraphics g, int mouseX, int mouseY,
+    private void drawTopIconButton(RtsGuiContext g, int mouseX, int mouseY,
                                    TopBarTypes.TopBarButtonLayout button) {
         int x = button.x();
         int y = TopBarLayout.BUTTON_Y;
@@ -278,7 +278,7 @@ public final class TopBarPanel {
     }
 
     /** 顶栏正式按钮统一从四语言键显示 Tooltip，避免图标含义依赖猜测。 */
-    private void renderHoveredTooltip(GuiGraphics g, int mouseX, int mouseY,
+    private void renderHoveredTooltip(RtsGuiContext g, int mouseX, int mouseY,
                                       List<TopBarTypes.TopBarButtonLayout> buttons) {
         for (TopBarTypes.TopBarButtonLayout button : buttons) {
             if (UiRect.contains(button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H,
@@ -294,7 +294,7 @@ public final class TopBarPanel {
     /**
      * Delegates guide hint rendering below the top bar to {@link BuilderScreen}.
      */
-    private void renderTopGuideHint(GuiGraphics g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
+    private void renderTopGuideHint(RtsGuiContext g, List<TopBarTypes.TopBarButtonLayout> topButtons) {
         screen.renderTopGuideHint(g, topButtons);
     }
 

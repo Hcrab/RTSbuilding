@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.workflow;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -19,7 +19,7 @@ final class WorkflowResumeRenderSupport {
     }
 
     static void draw(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             int x,
@@ -29,7 +29,7 @@ final class WorkflowResumeRenderSupport {
     }
 
     static void drawActionText(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             UiRect action,
             String translationKey,

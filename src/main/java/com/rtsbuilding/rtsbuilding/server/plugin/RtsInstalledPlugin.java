@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -12,6 +14,6 @@ import net.minecraft.world.item.ItemStack;
  */
 public record RtsInstalledPlugin(ResourceLocation pluginId, ItemStack stack, long installedGameTime) {
     public RtsInstalledPlugin {
-        stack = stack == null ? ItemStack.EMPTY : stack.copyWithCount(1);
+        stack = stack == null ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(stack, 1);
     }
 }

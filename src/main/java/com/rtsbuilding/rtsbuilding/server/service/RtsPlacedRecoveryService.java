@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsEntityQueries;
+
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -87,7 +89,7 @@ public final class RtsPlacedRecoveryService {
         if (!undoRecovery && !RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
             return;
         }
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(level);
         BlockPos targetPos = pos.immutable();
         if (!tracker.isPlaced(targetPos)) {
@@ -142,7 +144,7 @@ public final class RtsPlacedRecoveryService {
             }
         }
 
-        LinkedStorageRef targetRef = new LinkedStorageRef(player.serverLevel().dimension(), targetPos);
+        LinkedStorageRef targetRef = new LinkedStorageRef(player.getLevel().dimension(), targetPos);
         boolean removedLinkedRef = session.linkedStorageInfo.remove(targetRef);
         if (removedLinkedRef) {
             // linkedStorageInfo 与 recovery claim 属于不同组件；两者同时变化时只做一次完整冻结。
@@ -204,8 +206,8 @@ public final class RtsPlacedRecoveryService {
                     jobs,
                     candidate -> candidate.claims().isEmpty()
                             || (candidate.requiredPersistedRevision() <= persistedPlacementRevision
-                            && player.serverLevel().dimension().equals(candidate.dimension())
-                            && player.serverLevel().hasChunkAt(candidate.targetPos())),
+                            && player.getLevel().dimension().equals(candidate.dimension())
+                            && player.getLevel().hasChunkAt(candidate.targetPos())),
                     inspectionBudget);
             inspectedJobs += selection.inspected();
             if (!selection.found()) {
@@ -216,7 +218,7 @@ public final class RtsPlacedRecoveryService {
                 jobs.removeFirst();
                 continue;
             }
-            ServerLevel jobLevel = player.serverLevel();
+            ServerLevel jobLevel = player.getLevel();
 
             // durability ACK、维度和区块门禁通过后才解析外部网络，避免等待落盘期间每 tick 探测 AE/RS。
             if (orderedLinked == null) {
@@ -291,9 +293,9 @@ public final class RtsPlacedRecoveryService {
         if (level == null || pos == null) return new NearbyDropSnapshot(Set.of(), false);
         AABB box = new AABB(pos).inflate(0.5D);
         int safeLimit = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
-        List<ItemEntity> nearby = new ArrayList<>(safeLimit + 1);
-        level.getEntities(EntityTypeTest.forClass(ItemEntity.class), box,
-                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), nearby, safeLimit + 1);
+        List<ItemEntity> nearby = RtsEntityQueries.getEntities(level,
+                EntityTypeTest.forClass(ItemEntity.class), box,
+                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), safeLimit + 1);
         if (nearby.size() > safeLimit) {
             return new NearbyDropSnapshot(Set.of(), true);
         }
@@ -311,9 +313,9 @@ public final class RtsPlacedRecoveryService {
         AABB box = new AABB(pos).inflate(0.5D);
         int maxNewDrops = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
         int queryLimit = safeExistingIds.size() + maxNewDrops + 1;
-        List<ItemEntity> all = new ArrayList<>(queryLimit);
-        level.getEntities(EntityTypeTest.forClass(ItemEntity.class), box,
-                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), all, queryLimit);
+        List<ItemEntity> all = RtsEntityQueries.getEntities(level,
+                EntityTypeTest.forClass(ItemEntity.class), box,
+                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), queryLimit);
         List<ItemEntity> fresh = new ArrayList<>();
         for (ItemEntity entity : all) {
             if (!safeExistingIds.contains(entity.getUUID())) {
@@ -397,7 +399,7 @@ public final class RtsPlacedRecoveryService {
         }
         if (claims.isEmpty()) return null;
         PlacedRecoveryJob job = new PlacedRecoveryJob(
-                UUID.randomUUID(), player.serverLevel().dimension(), targetPos.immutable(), claims);
+                UUID.randomUUID(), player.getLevel().dimension(), targetPos.immutable(), claims);
         session.placement.recoveryJobs.addLast(job);
         return job;
     }

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.*;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
@@ -1151,7 +1153,7 @@ public final class StorageStateManager {
             if (preview == null || preview.isEmpty() || !preview.is(RtsBuiltInRegistries.ITEM.get(key))) {
                 preview = resolveQuickSlotFallbackPreview(itemId, key);
             } else {
-                preview = preview.copyWithCount(1);
+                preview = RtsItemStacks.copyWithCount(preview, 1);
             }
             setQuickSlotLocal(i, itemId, preview);
         }
@@ -1160,7 +1162,7 @@ public final class StorageStateManager {
     private ItemStack resolveQuickSlotFallbackPreview(String itemId, ResourceLocation key) {
         for (StorageEntry entry : this.storageEntries) {
             if (entry != null && itemId.equals(entry.itemId()) && entry.stack() != null && !entry.stack().isEmpty()) {
-                return entry.stack().copyWithCount(1);
+                return RtsItemStacks.copyWithCount(entry.stack(), 1);
             }
         }
         return new ItemStack(RtsBuiltInRegistries.ITEM.get(key));

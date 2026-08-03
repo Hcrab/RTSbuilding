@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelToolLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelToolStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 
@@ -20,7 +20,7 @@ import net.minecraft.world.item.ItemStack;
  * 底栏工具行的 Minecraft 绘制适配器。
  *
  * <p>本类把 Core 槽位状态、玩家真实热栏、控制器固定槽预览、Kit 几何和共享主题绘制到
- * {@link GuiGraphics}。它只返回悬停结果，不执行选择、导入、清除、翻页或存流体动作；
+ * {@link RtsGuiContext}。它只返回悬停结果，不执行选择、导入、清除、翻页或存流体动作；
  * 所有副作用仍由 {@link BottomPanel} 经 Core action 编排。</p>
  */
 public final class BottomPanelToolRenderer {
@@ -31,7 +31,7 @@ public final class BottomPanelToolRenderer {
     }
 
     public static HoverResult render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             BottomBarUiState state,
             Inventory inventory,
@@ -169,7 +169,7 @@ public final class BottomPanelToolRenderer {
     }
 
     private static void drawEmptyHandMark(
-            GuiGraphics graphics, int x, int y, int slotSize) {
+            RtsGuiContext graphics, int x, int y, int slotSize) {
         int left = x + (slotSize - EMPTY_HAND_MARK_SIZE) / 2;
         int top = y + (slotSize - EMPTY_HAND_MARK_SIZE) / 2;
         graphics.fill(
@@ -180,7 +180,7 @@ public final class BottomPanelToolRenderer {
     }
 
     private static void fillInside(
-            GuiGraphics graphics, int x, int y, int size, UiColor color) {
+            RtsGuiContext graphics, int x, int y, int size, UiColor color) {
         graphics.fill(
                 x + CONTENT_INSET,
                 y + CONTENT_INSET,
@@ -190,7 +190,7 @@ public final class BottomPanelToolRenderer {
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             int x,

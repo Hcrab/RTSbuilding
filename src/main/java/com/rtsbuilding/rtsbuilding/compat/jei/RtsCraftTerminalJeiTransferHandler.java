@@ -173,12 +173,12 @@ public final class RtsCraftTerminalJeiTransferHandler
     }
 
     private static String resolveRecipeId(Player player, CraftingRecipe recipe) {
-        if (player == null || player.level() == null || recipe == null) {
+        if (player == null || player.getLevel() == null || recipe == null) {
             return "";
         }
 
-        for (ResourceLocation id : player.level().getRecipeManager().getRecipeIds().toList()) {
-            Recipe<?> candidate = player.level().getRecipeManager().byKey(id).orElse(null);
+        for (ResourceLocation id : player.getLevel().getRecipeManager().getRecipeIds().toList()) {
+            Recipe<?> candidate = player.getLevel().getRecipeManager().byKey(id).orElse(null);
             if (candidate == recipe) {
                 return id.toString();
             }

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsEntityQueries;
+
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
@@ -72,7 +74,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
     public void updateTarget(ServerPlayer player, RtsStorageSession session, BlockPos target) {
         if (!session.funnel.funnelEnabled || target == null) return;
         session.funnel.funnelTarget = target.immutable();
-        session.funnel.funnelTargetDimension = player.serverLevel().dimension();
+        session.funnel.funnelTargetDimension = player.getLevel().dimension();
         registry.session().saveFunnelToPlayerNbt(player, session);
     }
 
@@ -96,7 +98,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
 
         if (session.funnel.funnelTarget == null) return new FunnelTickResult(0, true);
         if (session.funnel.funnelTargetDimension == null
-                || !player.serverLevel().dimension().equals(session.funnel.funnelTargetDimension)) {
+                || !player.getLevel().dimension().equals(session.funnel.funnelTargetDimension)) {
             // 目标属于其他维度时只让出本轮调度，绝不解析端点或扫描当前世界的同坐标。
             return new FunnelTickResult(0, true);
         }
@@ -172,10 +174,9 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             RtsStorageSession session, int maxUnits, long deadlineNanos) {
         AABB box = new AABB(target).inflate(RtsServiceConstants.FUNNEL_RADIUS);
         int queryLimit = Math.min(maxUnits, RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK);
-        List<ItemEntity> drops = new ArrayList<>(queryLimit);
-        player.serverLevel().getEntities(
+        List<ItemEntity> drops = RtsEntityQueries.getEntities(player.getLevel(),
                 EntityTypeTest.forClass(ItemEntity.class), box,
-                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), drops, queryLimit);
+                e -> e != null && e.isAlive() && !e.getItem().isEmpty(), queryLimit);
 
         int processedEntities = 0;
         int processedItems = 0;

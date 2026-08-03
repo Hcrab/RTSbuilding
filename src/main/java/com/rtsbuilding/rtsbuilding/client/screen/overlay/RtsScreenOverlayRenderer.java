@@ -18,7 +18,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiBevelOutlineRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.OverlayStyle;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -67,7 +67,7 @@ public final class RtsScreenOverlayRenderer {
         this.damageFlash.animateTo(0.0D, DAMAGE_FLASH_DURATION_MS, UiEasing.LINEAR);
     }
 
-    public void renderDamageFlash(GuiGraphics g) {
+    public void renderDamageFlash(RtsGuiContext g) {
         double visibility = this.damageFlash.value();
         if (visibility <= 0.0D) {
             return;
@@ -151,7 +151,7 @@ public final class RtsScreenOverlayRenderer {
         };
     }
 
-    public void renderHomeSelectionOverlay(GuiGraphics g, int mouseX, int mouseY) {
+    public void renderHomeSelectionOverlay(RtsGuiContext g, int mouseX, int mouseY) {
         updateNativeCursorVisibility(false);
         int panelW = Math.min(360, this.screen.width - 24);
         int panelX = (this.screen.width - panelW) / 2;
@@ -197,7 +197,7 @@ public final class RtsScreenOverlayRenderer {
         }
     }
 
-    public void renderQuestDetectPopup(GuiGraphics g) {
+    public void renderQuestDetectPopup(RtsGuiContext g) {
         if (!this.controller.isQuestDetectPopupVisible()) {
             return;
         }
@@ -230,7 +230,7 @@ public final class RtsScreenOverlayRenderer {
         drawProgressBorder(g, barX, barY, barW, barH);
     }
 
-    public void renderStorageScanPopup(GuiGraphics g) {
+    public void renderStorageScanPopup(RtsGuiContext g) {
         if (!this.controller.isStorageScanPopupVisible()) {
             return;
         }
@@ -266,7 +266,7 @@ public final class RtsScreenOverlayRenderer {
         drawProgressBorder(g, barX, barY, barW, barH);
     }
 
-    private void drawPopupFrame(GuiGraphics g, int x, int y, int width, int height) {
+    private void drawPopupFrame(RtsGuiContext g, int x, int y, int width, int height) {
         UiChromeRenderer.frame(
                 new MinecraftUiCanvas(g, this.screen.font(), this.screen),
                 new UiRect(x, y, width, height),
@@ -277,7 +277,7 @@ public final class RtsScreenOverlayRenderer {
     }
 
     private void drawProgressBorder(
-            GuiGraphics g, int x, int y, int width, int height) {
+            RtsGuiContext g, int x, int y, int width, int height) {
         UiBevelOutlineRenderer.outline(
                 new MinecraftUiCanvas(g, this.screen.font(), this.screen),
                 new UiRect(x, y, width, height),

@@ -162,12 +162,12 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Nullable
     public RtsWorkflowEntry findEntryByPlayer(ServerPlayer player, int entryId) {
         if (player == null) return null;
-        return findEntry(player.getUUID(), player.level().dimension(), entryId);
+        return findEntry(player.getUUID(), player.getLevel().dimension(), entryId);
     }
 
     /**
      * 根据玩家 UUID、维度和条目 ID 查找条目，无需 {@link ServerPlayer} 对象。
-     * <p>供调用方已有 UUID 和维度时的 hot path 使用，避免 {@code player.level().dimension()} 额外开销。
+     * <p>供调用方已有 UUID 和维度时的 hot path 使用，避免 {@code player.getLevel().dimension()} 额外开销。
      */
     @Nullable
     public RtsWorkflowEntry findEntryByPlayer(UUID playerId, ResourceKey<Level> dimension, int entryId) {
@@ -242,7 +242,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return Optional.empty();
         }
         RtsWorkflowSlotManager slots = getOrCreateSlots(player);
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         if (slots.isFull()) {
             RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
             if (replaced != null) {
@@ -303,7 +303,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             int completedBlocks,
             int failedBlocks) {
         if (player == null || entryId < 0 || type == null) return Optional.empty();
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getOrCreateSlots(player);
         RtsWorkflowEntry existing = slots.findEntryById(entryId);
         if (existing != null) {
@@ -337,7 +337,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     public Optional<RtsWorkflowToken> from(ServerPlayer player, int entryId) {
         if (player == null) return Optional.empty();
         playerRefs.putIfAbsent(player.getUUID(), player);
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null || slots.findEntryById(entryId) == null) {
             return Optional.empty();
@@ -352,7 +352,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     public Optional<RtsWorkflowToken> findDurableBlueprintProjection(ServerPlayer player, UUID taskId) {
         if (player == null || taskId == null) return Optional.empty();
         playerRefs.putIfAbsent(player.getUUID(), player);
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return Optional.empty();
         for (RtsWorkflowEntry entry : slots.allEntries()) {
@@ -370,7 +370,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     public Optional<RtsWorkflowToken> lastActive(ServerPlayer player) {
         if (player == null) return Optional.empty();
         playerRefs.putIfAbsent(player.getUUID(), player);
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return Optional.empty();
         RtsWorkflowEntry entry = slots.lastActive();
@@ -404,7 +404,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public RtsWorkflowStatus getProgress(ServerPlayer player, int entryId) {
         if (player == null) return RtsWorkflowStatus.idle();
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return RtsWorkflowStatus.idle();
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
@@ -415,7 +415,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public List<RtsWorkflowStatus> getAllProgress(ServerPlayer player) {
         if (player == null) return List.of();
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return List.of();
         return slots.occupiedEntries().stream()
@@ -426,7 +426,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public boolean hasActiveWorkflow(ServerPlayer player) {
         if (player == null) return false;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         return slots != null && slots.hasActiveWorkflow();
     }
@@ -434,7 +434,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public int activeWorkflowCount(ServerPlayer player) {
         if (player == null) return 0;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         return slots != null ? slots.activeCount() : 0;
     }
@@ -442,7 +442,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public int occupiedSlotCount(ServerPlayer player) {
         if (player == null) return 0;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         return slots != null ? slots.occupiedCount() : 0;
     }
@@ -450,7 +450,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public boolean isFull(ServerPlayer player) {
         if (player == null) return false;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         return slots != null && slots.isFull();
     }
@@ -477,7 +477,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      */
     public void firePipelineEvent(ServerPlayer player, int entryId, WorkflowEventType type) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return;
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
@@ -518,7 +518,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public void setWorkflowExtraData(ServerPlayer player, int entryId, @Nullable CompoundTag data) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return;
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
@@ -529,7 +529,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public @Nullable CompoundTag getWorkflowExtraData(ServerPlayer player, int entryId) {
         if (player == null) return null;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return null;
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
@@ -575,7 +575,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public void deleteWorkflow(ServerPlayer player, int entryId) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) {
             // 客户端可能仍显示服务端已经清理的旧条目；叉号同时承担一次权威状态对账。
@@ -607,7 +607,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public void setWorkflowProtected(ServerPlayer player, int entryId, boolean protectedWorkflow) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return;
 
@@ -627,7 +627,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     @Override
     public void cancelAll(ServerPlayer player) {
         if (player == null) return;
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return;
 
@@ -690,7 +690,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         }
 
         // 通知客户端，使 UI 显示恢复的条目
-        ResourceKey<Level> currentDim = player.level().dimension();
+        ResourceKey<Level> currentDim = player.getLevel().dimension();
         RtsWorkflowSlotManager currentSlots = getSlots(playerId, currentDim);
         if (currentSlots != null && currentSlots.occupiedCount() > 0) {
             syncService.notifyPlayer(player, currentSlots);
@@ -744,7 +744,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      */
     private RtsWorkflowSlotManager getOrCreateSlots(ServerPlayer player) {
         playerRefs.put(player.getUUID(), player);
-        ResourceKey<Level> dimension = player.level().dimension();
+        ResourceKey<Level> dimension = player.getLevel().dimension();
         return playerSlots
                 .computeIfAbsent(player.getUUID(), k -> new ConcurrentHashMap<>())
                 .computeIfAbsent(dimension, k -> new RtsWorkflowSlotManager());
@@ -769,7 +769,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     private ServerPlayer findPlayerByUUID(UUID playerId) {
         // 先检查缓存的引用
         ServerPlayer cached = playerRefs.get(playerId);
-        if (cached != null && cached.level() != null && !cached.level().isClientSide()) {
+        if (cached != null && cached.getLevel() != null && !cached.getLevel().isClientSide()) {
             return cached;
         }
         // 回退：扫描服务器的玩家列表

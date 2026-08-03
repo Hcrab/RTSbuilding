@@ -68,7 +68,7 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         MenuProvider provider = resolveBindableMenuProvider(level, pos);
         if (!canBindGuiTarget(level, pos)) {
             player.displayClientMessage(Component.translatable(
@@ -113,7 +113,7 @@ final class RtsGuiBindingHelper {
         if (binding == null || binding.pos() == null || binding.dimension() == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
-        if (!player.serverLevel().dimension().equals(binding.dimension())) {
+        if (!player.getLevel().dimension().equals(binding.dimension())) {
             player.displayClientMessage(Component.translatable(
                     "message.rtsbuilding.gui_binding.other_dimension"), true);
             return RtsStorageBindings.UpdateResult.none();
@@ -127,7 +127,7 @@ final class RtsGuiBindingHelper {
             return RtsStorageBindings.UpdateResult.none();
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         BlockPos pos = binding.pos();
         RtsRemoteMenuService.sendRemoteMenuOpenHint(player, pos);
         GuiBindingInteraction interaction = createGuiBindingInteraction(player, pos, binding.face());

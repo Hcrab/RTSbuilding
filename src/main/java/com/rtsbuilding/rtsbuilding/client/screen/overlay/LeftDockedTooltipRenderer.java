@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.uikit.layout.LeftDockedTooltipLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -28,19 +28,19 @@ public final class LeftDockedTooltipRenderer {
         this.bottomPanel = bottomPanel;
     }
 
-    public void render(GuiGraphics graphics, ItemStack stack) {
+    public void render(RtsGuiContext graphics, ItemStack stack) {
         LeftDockedTooltipLayout.Geometry geometry = geometry();
         graphics.renderTooltip(this.screen.font(), stack,
                 geometry.anchorX(), geometry.anchorY());
     }
 
-    public void render(GuiGraphics graphics, Component text) {
+    public void render(RtsGuiContext graphics, Component text) {
         LeftDockedTooltipLayout.Geometry geometry = geometry();
         graphics.renderTooltip(this.screen.font(), text,
                 geometry.anchorX(), geometry.anchorY());
     }
 
-    public void renderDetail(GuiGraphics graphics, String detail, UiColor color) {
+    public void renderDetail(RtsGuiContext graphics, String detail, UiColor color) {
         if (detail == null || detail.isBlank() || color == null) {
             return;
         }

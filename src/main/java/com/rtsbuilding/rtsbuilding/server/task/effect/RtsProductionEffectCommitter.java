@@ -35,7 +35,7 @@ public final class RtsProductionEffectCommitter
             return RtsEffectCommitResult.all(effects);
         }
         if (!target.isGlobal()
-                && !player.level().dimension().location().toString().equals(target.dimensionId())) {
+                && !player.getLevel().dimension().location().toString().equals(target.dimensionId())) {
             // 旧维度页面和 Workflow 投影不能发送到新维度，也不应永久占据重试队列。
             return RtsEffectCommitResult.all(effects);
         }
@@ -72,7 +72,7 @@ public final class RtsProductionEffectCommitter
             }
             case WORKFLOW_SNAPSHOT -> {
                 RtsWorkflowEngine.getInstance().flushPlayerNow(
-                        player.getUUID(), player.level().dimension());
+                        player.getUUID(), player.getLevel().dimension());
                 RtsDeveloperMetrics.recordWorkflowSnapshot(player);
             }
             case HISTORY_SNAPSHOT -> {

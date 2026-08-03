@@ -43,7 +43,7 @@ public final class RtsAiChatSession {
         int generation = ++this.requestGeneration;
 
         Minecraft minecraft = Minecraft.getInstance();
-        String language = minecraft.getLanguageManager().getSelected();
+        String language = minecraft.getLanguageManager().getSelected().getCode();
         boolean chinese = language != null && language.toLowerCase(Locale.ROOT).startsWith("zh_");
         String prompt = RtsAiPrompt.compose(chinese, RtsAiKnowledgeBase.build(this.controller),
                 this.conversation.snapshot(), safeQuestion);

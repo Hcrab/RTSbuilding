@@ -106,7 +106,7 @@ public final class RtsLinkedStorageResolver {
             return false;
         }
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         if (!level.hasChunkAt(pos)) {
             return false;
         }
@@ -195,16 +195,16 @@ public final class RtsLinkedStorageResolver {
 
     public static boolean isLinkedRefWorldVisible(ServerPlayer player, RtsStorageSession session, LinkedStorageRef ref) {
         if (player == null || session == null || ref == null || ref.pos() == null
-                || !player.serverLevel().dimension().equals(ref.dimension())
+                || !player.getLevel().dimension().equals(ref.dimension())
                 || session.linkedStorageInfo.isDetached(ref)
-                || !player.serverLevel().hasChunkAt(ref.pos())) {
+                || !player.getLevel().hasChunkAt(ref.pos())) {
             return false;
         }
         UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
         if (backpackUuid != null) {
-            return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(player.serverLevel(), ref.pos()));
+            return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(player.getLevel(), ref.pos()));
         }
-        return !player.serverLevel().getBlockState(ref.pos()).isAir();
+        return !player.getLevel().getBlockState(ref.pos()).isAir();
     }
 
     // ======================================================================

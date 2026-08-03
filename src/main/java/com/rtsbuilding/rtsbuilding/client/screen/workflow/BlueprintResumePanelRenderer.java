@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowResumeChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowResumeStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -20,7 +20,7 @@ final class BlueprintResumePanelRenderer {
     }
 
     static void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             WorkflowResumeWindowLayout.BlueprintGeometry geometry,
             S2CRtsBlueprintResumeScanPayload data,
@@ -69,7 +69,7 @@ final class BlueprintResumePanelRenderer {
     }
 
     private static void renderHeader(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             WorkflowResumeWindowLayout.BlueprintGeometry geometry,
             S2CRtsBlueprintResumeScanPayload data) {
@@ -112,7 +112,7 @@ final class BlueprintResumePanelRenderer {
     }
 
     private static void renderRows(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             WorkflowResumeWindowLayout.BlueprintGeometry geometry,
             S2CRtsBlueprintResumeScanPayload data,
@@ -133,7 +133,7 @@ final class BlueprintResumePanelRenderer {
     }
 
     private static void renderRow(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             WorkflowResumeWindowLayout.BlueprintGeometry geometry,
             WorkflowResumeWindowLayout.BlueprintRowGeometry row,

@@ -170,9 +170,9 @@ public final class RtsServerGameTests {
         ServerPlayer player = startRtsPlayer(helper, GameType.SURVIVAL);
         player.getInventory().setItem(0, new ItemStack(RtsItems.HARVEST_TIER_STONE.get()));
 
-        helper.assertTrue(RtsPluginService.installFromInventorySlot(player, 0),
+        RtsGameTestAssertions.assertTrue(helper, RtsPluginService.installFromInventorySlot(player, 0),
                 "Stone harvest-tier plugin should install from the player inventory");
-        helper.assertTrue(player.getInventory().getItem(0).isEmpty(),
+        RtsGameTestAssertions.assertTrue(helper, player.getInventory().getItem(0).isEmpty(),
                 "Installed plugin item should be removed from the inventory");
 
         // 不等待 200 tick 自动刷盘：立即建立一个全新的 DataCluster，从真实文件重新读取。
@@ -190,7 +190,7 @@ public final class RtsServerGameTests {
                 break;
             }
         }
-        helper.assertTrue(persisted,
+        RtsGameTestAssertions.assertTrue(helper, persisted,
                 "Installed plugin must already exist on disk before the scheduled 10-second flush");
         stopPlayers(player);
         helper.succeed();
@@ -207,15 +207,15 @@ public final class RtsServerGameTests {
             player.getInventory().setItem(3, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
 
             for (int slot = 0; slot < 4; slot++) {
-                helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+                RtsGameTestAssertions.assertTrue(helper, RtsPluginService.installFromInventorySlot(player, slot),
                         "Initial plugin set should install");
             }
             Config.setSurvivalProgressionEnabled(true);
-            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.REMOTE_PLACE),
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.canUse(player, RtsFeature.REMOTE_PLACE),
                     "Remote placement should be unlocked while survival progression is enabled");
-            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.REMOTE_BREAK),
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.canUse(player, RtsFeature.REMOTE_BREAK),
                     "Remote break should be unlocked while survival progression is enabled");
-            helper.assertTrue(RtsPluginService.uninstall(
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.uninstall(
                             player, BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN),
                     "Remote-control plugin should uninstall");
 
@@ -227,17 +227,17 @@ public final class RtsServerGameTests {
                     break;
                 }
             }
-            helper.assertTrue(returnedSlot >= 0, "Uninstall should return the plugin item");
-            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, returnedSlot),
+            RtsGameTestAssertions.assertTrue(helper, returnedSlot >= 0, "Uninstall should return the plugin item");
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.installFromInventorySlot(player, returnedSlot),
                     "Returned remote-control plugin should reinstall");
 
-            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.REMOTE_BREAK),
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.canUse(player, RtsFeature.REMOTE_BREAK),
                     "Remote break should be unlocked immediately after reinstall");
-            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.AREA_DESTROY),
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.canUse(player, RtsFeature.AREA_DESTROY),
                     "Area destroy should stay unlocked after dependency reinstall");
-            helper.assertTrue(RtsPluginService.canUse(player, RtsFeature.ULTIMINE),
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.canUse(player, RtsFeature.ULTIMINE),
                     "Chain break should stay unlocked after dependency reinstall");
-            helper.assertTrue(!RtsMiningValidator.isSelectedMiningToolRequested(
+            RtsGameTestAssertions.assertTrue(helper, !RtsMiningValidator.isSelectedMiningToolRequested(
                             BuiltInRtsPluginCatalog.REMOTE_CONTROL_PLUGIN.toString(),
                             new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get())),
                     "RTS plugin items must never be interpreted as selected mining tools");
@@ -261,7 +261,7 @@ public final class RtsServerGameTests {
             player.getInventory().setItem(1, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
             player.getInventory().setItem(2, new ItemStack(RtsItems.AREA_DESTROY_PLUGIN.get()));
             for (int slot = 0; slot < 3; slot++) {
-                helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+                RtsGameTestAssertions.assertTrue(helper, RtsPluginService.installFromInventorySlot(player, slot),
                         "Required non-harvest plugins should install");
             }
 
@@ -270,7 +270,7 @@ public final class RtsServerGameTests {
             player.getInventory().selected = 0;
             Config.setSurvivalProgressionEnabled(true);
             RtsProgressionManager.beginHomeSelection(player);
-            helper.assertTrue(RtsProgressionManager.commitHome(player, helper.absolutePos(stoneRel)),
+            RtsGameTestAssertions.assertTrue(helper, RtsProgressionManager.commitHome(player, helper.absolutePos(stoneRel)),
                     "GameTest player should be able to set RTS home near the target");
 
             RtsAPI.get().mining().areaDestroy(
@@ -282,9 +282,9 @@ public final class RtsServerGameTests {
                     false);
 
             helper.assertBlockPresent(Blocks.STONE, stoneRel);
-            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.DESTRUCTION),
                     "Harvest-tier-blocked range destroy should not start a destruction task");
-            helper.assertTrue(!hasActiveTask(player, TaskType.MINING),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.MINING),
                     "Harvest-tier-blocked range destroy should not start a mining task");
             helper.succeed();
         } finally {
@@ -307,7 +307,7 @@ public final class RtsServerGameTests {
         player.getInventory().setItem(1, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
         player.getInventory().setItem(2, new ItemStack(RtsItems.AREA_DESTROY_PLUGIN.get()));
         for (int slot = 0; slot < 3; slot++) {
-            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.installFromInventorySlot(player, slot),
                     "Required non-harvest plugins should install");
         }
 
@@ -316,7 +316,7 @@ public final class RtsServerGameTests {
         player.getInventory().selected = 0;
         Config.setSurvivalProgressionEnabled(true);
         RtsProgressionManager.beginHomeSelection(player);
-        helper.assertTrue(RtsProgressionManager.commitHome(player, helper.absolutePos(snowBlockRel)),
+        RtsGameTestAssertions.assertTrue(helper, RtsProgressionManager.commitHome(player, helper.absolutePos(snowBlockRel)),
                 "GameTest player should be able to set RTS home near the snow targets");
 
         RtsAPI.get().mining().areaDestroy(
@@ -330,9 +330,9 @@ public final class RtsServerGameTests {
         helper.succeedWhen(() -> {
             helper.assertBlockPresent(Blocks.AIR, snowBlockRel);
             helper.assertBlockPresent(Blocks.AIR, snowLayerRel);
-            helper.assertTrue(!hasActiveTask(player, TaskType.MINING),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.MINING),
                     "Snow range destroy should finish without an active mining task");
-            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.DESTRUCTION),
                     "Snow range destroy should finish without an active destruction task");
             Config.setSurvivalProgressionEnabled(false);
             stopPlayers(player);
@@ -362,7 +362,7 @@ public final class RtsServerGameTests {
         RtsStorageSession session = requireSession(helper, player);
         session.mining.miningToolSlot = 0;
 
-        helper.assertTrue(tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
+        RtsGameTestAssertions.assertTrue(helper, tool.isCorrectToolForDrops(Blocks.STONE.defaultBlockState()),
                 "Netherite pickaxe must be able to harvest stone before the RTS request");
         RtsAPI.get().mining().areaDestroy(
                 player,
@@ -371,19 +371,19 @@ public final class RtsServerGameTests {
                 "",
                 ItemStack.EMPTY,
                 false);
-        helper.assertTrue(session.mining.miningToolLease.isEmpty(),
+        RtsGameTestAssertions.assertTrue(helper, session.mining.miningToolLease.isEmpty(),
                 "Held-tool range destroy must exercise the no-lease hotbar path");
 
         helper.succeedWhen(() -> {
             for (BlockPos targetRel : targetsRel) {
                 helper.assertBlockPresent(Blocks.AIR, targetRel);
             }
-            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.DESTRUCTION),
                     "Hotbar-tool range destroy should finish without a durable task");
             ItemStack returned = player.getInventory().getItem(heldToolSlot);
-            helper.assertTrue(returned.is(Items.NETHERITE_PICKAXE),
+            RtsGameTestAssertions.assertTrue(helper, returned.is(Items.NETHERITE_PICKAXE),
                     "Held hotbar pickaxe must remain in its original slot");
-            helper.assertTrue(returned.getDamageValue() > tool.getDamageValue(),
+            RtsGameTestAssertions.assertTrue(helper, returned.getDamageValue() > tool.getDamageValue(),
                     "Held hotbar pickaxe must preserve durability damage");
             Config.setSurvivalProgressionEnabled(false);
             stopPlayers(player);
@@ -409,7 +409,7 @@ public final class RtsServerGameTests {
         player.getInventory().setItem(1, new ItemStack(RtsItems.REMOTE_CONTROL_PLUGIN.get()));
         player.getInventory().setItem(2, new ItemStack(RtsItems.CHAIN_BREAK_PLUGIN.get()));
         for (int slot = 0; slot < 3; slot++) {
-            helper.assertTrue(RtsPluginService.installFromInventorySlot(player, slot),
+            RtsGameTestAssertions.assertTrue(helper, RtsPluginService.installFromInventorySlot(player, slot),
                     "Required non-harvest plugins should install");
         }
 
@@ -418,7 +418,7 @@ public final class RtsServerGameTests {
         player.getInventory().selected = 0;
         Config.setSurvivalProgressionEnabled(true);
         RtsProgressionManager.beginHomeSelection(player);
-        helper.assertTrue(RtsProgressionManager.commitHome(player, helper.absolutePos(snowLayersRel.get(0))),
+        RtsGameTestAssertions.assertTrue(helper, RtsProgressionManager.commitHome(player, helper.absolutePos(snowLayersRel.get(0))),
                 "GameTest player should be able to set RTS home near the snow targets");
 
         RtsAPI.get().mining().startUltimine(
@@ -437,7 +437,7 @@ public final class RtsServerGameTests {
             for (BlockPos snowRel : snowLayersRel) {
                 helper.assertBlockPresent(Blocks.AIR, snowRel);
             }
-            helper.assertTrue(!hasActiveTask(player, TaskType.MINING),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.MINING),
                     "Snow chain mining should finish without an active mining task");
             Config.setSurvivalProgressionEnabled(false);
             stopPlayers(player);
@@ -473,7 +473,7 @@ public final class RtsServerGameTests {
                 rayDir.y,
                 rayDir.z);
 
-        helper.assertTrue(player.containerMenu instanceof ChestMenu,
+        RtsGameTestAssertions.assertTrue(helper, player.containerMenu instanceof ChestMenu,
                 "RTS empty-hand right click should open the chest menu");
         stopPlayers(player);
         helper.succeed();
@@ -510,7 +510,7 @@ public final class RtsServerGameTests {
                 RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
         RtsAPI.get().bindings().storeHotbarSlot(player, (byte) 0);
 
-        helper.assertTrue(player.getInventory().getItem(0).isEmpty(),
+        RtsGameTestAssertions.assertTrue(helper, player.getInventory().getItem(0).isEmpty(),
                 "Storing a hotbar slot should clear the player's original slot");
         assertValueEqual(helper, 12, countChestItem(helper, chestRel, Items.DIRT),
                 "Storing a hotbar slot should move the items into the linked chest");
@@ -528,7 +528,7 @@ public final class RtsServerGameTests {
         player.getInventory().setItem(0, new ItemStack(Items.STONE, supportRel.size()));
 
         enqueuePlacementThroughApi(helper, player, supportRel, "minecraft:stone", new ItemStack(Items.STONE));
-        helper.assertTrue(hasActiveTask(player, TaskType.PLACEMENT),
+        RtsGameTestAssertions.assertTrue(helper, hasActiveTask(player, TaskType.PLACEMENT),
                 "New placement commands should enter TaskStore immediately");
 
         helper.succeedWhen(() -> {
@@ -545,9 +545,9 @@ public final class RtsServerGameTests {
 
         for (ServerPlayer player : players) {
             RtsStorageSession session = requireSession(helper, player);
-            helper.assertTrue(RtsCameraManager.isActive(player),
+            RtsGameTestAssertions.assertTrue(helper, RtsCameraManager.isActive(player),
                     "Every GameTest player should independently enter RTS mode");
-            helper.assertTrue(session.linkedStorageInfo.isEmpty(),
+            RtsGameTestAssertions.assertTrue(helper, session.linkedStorageInfo.isEmpty(),
                     "A fresh RTS session should not inherit another player's linked storage");
         }
 
@@ -577,7 +577,7 @@ public final class RtsServerGameTests {
                 }
             }
             for (ServerPlayer player : players) {
-                helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+                RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.PLACEMENT),
                         "Completed placement should not leave an active durable task");
             }
             stopPlayers(players);
@@ -606,7 +606,7 @@ public final class RtsServerGameTests {
                 }
             }
             for (ServerPlayer player : players) {
-                helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+                RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.DESTRUCTION),
                         "Completed area destroy should not leave an active durable task");
             }
             stopPlayers(players);
@@ -670,7 +670,7 @@ public final class RtsServerGameTests {
             }
             assertValueEqual(helper, targetsRel.size(), countChestItem(helper, chestRel, Items.DIRT),
                     "Auto-store should put range-destroy drops into the linked chest");
-            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.DESTRUCTION),
                     "Auto-store area destroy should finish without an active durable task");
             stopPlayers(player);
         });
@@ -703,7 +703,7 @@ public final class RtsServerGameTests {
                     "Underwater drops should not fall back to the player inventory");
             assertValueEqual(helper, 0, countWorldItem(helper, List.of(targetRel), Items.DIRT),
                     "Underwater drops should not remain in or drift through the world");
-            helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.DESTRUCTION),
                     "Underwater auto-store destruction should finish without an active task");
             stopPlayers(player);
         });
@@ -750,7 +750,7 @@ public final class RtsServerGameTests {
             helper.assertBlockPresent(Blocks.OAK_STAIRS, placedRel);
             Direction facing = helper.getBlockState(placedRel)
                     .getValue(BlockStateProperties.HORIZONTAL_FACING);
-            helper.assertTrue(facing != Direction.WEST,
+            RtsGameTestAssertions.assertTrue(helper, facing != Direction.WEST,
                     "Control fixture must not naturally produce the requested west-facing stair");
             stopPlayers(player);
         });
@@ -952,7 +952,7 @@ public final class RtsServerGameTests {
         BlockPos targetAbs = helper.absolutePos(targetRel);
 
         ArmorStand stand = EntityType.ARMOR_STAND.create(helper.getLevel());
-        helper.assertTrue(stand != null, "Armor stand fixture should be created");
+        RtsGameTestAssertions.assertTrue(helper, stand != null, "Armor stand fixture should be created");
         stand.moveTo(Vec3.atCenterOf(targetAbs));
         helper.getLevel().addFreshEntity(stand);
 
@@ -968,7 +968,7 @@ public final class RtsServerGameTests {
 
         helper.succeedWhen(() -> {
             helper.assertBlockPresent(Blocks.DIRT, targetRel);
-            helper.assertTrue(!stand.isRemoved(), "Overwrite must not delete the occupying entity");
+            RtsGameTestAssertions.assertTrue(helper, !stand.isRemoved(), "Overwrite must not delete the occupying entity");
             stopPlayers(player);
         });
     }
@@ -992,7 +992,7 @@ public final class RtsServerGameTests {
                 rayDir.x, rayDir.y, rayDir.z);
 
         helper.succeedWhen(() -> {
-            helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.PLACEMENT),
                     "Spoofed overwrite job should finish as a skipped placement");
             helper.assertBlockPresent(Blocks.STONE, targetRel);
             stopPlayers(player);
@@ -1036,7 +1036,7 @@ public final class RtsServerGameTests {
                 false,
                 false,
                 0);
-        helper.assertTrue(restoredTaskQueued,
+        RtsGameTestAssertions.assertTrue(helper, restoredTaskQueued,
                 "Fixture must reserve workflow id 0 before the new operation starts");
 
         BlockPos newSupportAbs = helper.absolutePos(newSupportRel);
@@ -1117,7 +1117,7 @@ public final class RtsServerGameTests {
                     "Chain mining should put every drop into linked storage without escrow delay"
                             + " (buffer=" + bufferItems + ", inventory=" + inventoryItems
                             + ", world=" + worldItems + ")");
-            helper.assertTrue(!active,
+            RtsGameTestAssertions.assertTrue(helper, !active,
                     "Completed chain mining should not leave an active durable task");
             stopPlayers(player);
         });
@@ -1154,9 +1154,9 @@ public final class RtsServerGameTests {
         assertValueEqual(helper, 2, activeMiningStates.size(),
                 "Two separate chain-mining inputs should create two independent tasks");
         for (MiningTaskState state : activeMiningStates) {
-            helper.assertTrue(state.mode() == MiningTaskState.Mode.PROGRESSIVE_SINGLE,
+            RtsGameTestAssertions.assertTrue(helper, state.mode() == MiningTaskState.Mode.PROGRESSIVE_SINGLE,
                     "Every queued chain-mining task must charge its own first block");
-            helper.assertTrue(state.blockProgress() == 0.0F && state.visibleStage() == -1,
+            RtsGameTestAssertions.assertTrue(helper, state.blockProgress() == 0.0F && state.visibleStage() == -1,
                     "A new chain-mining task must not inherit progress from another task");
         }
 
@@ -1208,9 +1208,9 @@ public final class RtsServerGameTests {
         Set<BlockPos> secondTargets = new LinkedHashSet<>(states.get(1).remainingTargets());
         Set<BlockPos> overlap = new LinkedHashSet<>(firstTargets);
         overlap.retainAll(secondTargets);
-        helper.assertTrue(!overlap.isEmpty(),
+        RtsGameTestAssertions.assertTrue(helper, !overlap.isEmpty(),
                 "The regression fixture must contain overlapping chain-mining targets");
-        helper.assertTrue(firstTargets.contains(helper.absolutePos(chainRel.get(2))),
+        RtsGameTestAssertions.assertTrue(helper, firstTargets.contains(helper.absolutePos(chainRel.get(2))),
                 "The first task must be able to remove the second task's charged target");
         Set<BlockPos> uniqueTargets = new LinkedHashSet<>(firstTargets);
         uniqueTargets.addAll(secondTargets);
@@ -1222,7 +1222,7 @@ public final class RtsServerGameTests {
          */
         helper.runAfterDelay(40, () -> {
             for (BlockPos targetAbs : uniqueTargetsAbs) {
-                helper.assertTrue(helper.getLevel().getBlockState(targetAbs).isAir(),
+                RtsGameTestAssertions.assertTrue(helper, helper.getLevel().getBlockState(targetAbs).isAir(),
                         "Every unique overlapping chain-mining target must be removed: " + targetAbs);
             }
             int chestItems = countChestItem(helper, chestRel, Items.DIRT);
@@ -1234,7 +1234,7 @@ public final class RtsServerGameTests {
                     "Overlapping chain tasks must conserve exactly one drop per unique world block");
             assertValueEqual(helper, 0, bufferItems + inventoryItems + worldItems,
                     "Completed overlapping chain drops should settle in linked storage");
-            helper.assertTrue(!hasActiveTask(player, TaskType.MINING),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.MINING),
                     "Both overlapping chain-mining tasks must reach a terminal state");
             assertValueEqual(helper, 2, countPlayerItem(player, Items.DIAMOND_SHOVEL),
                     "Overlapping chain tasks must return the borrowed tool exactly once");
@@ -1262,7 +1262,7 @@ public final class RtsServerGameTests {
                 "Total counts should include diamonds");
 
         S2CRtsStoragePagePayload secondPage = buildStoragePage(helper, player, 1, "", 8, false, List.of());
-        helper.assertTrue(secondPage.page() == 1 && secondPage.totalEntries() == expected.size(),
+        RtsGameTestAssertions.assertTrue(helper, secondPage.page() == 1 && secondPage.totalEntries() == expected.size(),
                 "Changing page should not change the total entry count");
         assertPageCount(helper, secondPage, 8, "Second page should contain the requested page size");
 
@@ -1306,11 +1306,11 @@ public final class RtsServerGameTests {
 
         assertValueEqual(helper, expected.size(), allFirst.totalEntries(),
                 "Multi-chest junk storage should preserve every distinct item");
-        helper.assertTrue(allSecond.page() == 1 && allSecond.totalEntries() == allFirst.totalEntries(),
+        RtsGameTestAssertions.assertTrue(helper, allSecond.page() == 1 && allSecond.totalEntries() == allFirst.totalEntries(),
                 "Same search parameters should reuse the same aggregate boundary while paging");
         assertValueEqual(helper, versionBeforeRead, session.transfer.pageDataVersion.get(),
                 "Read-only page/search requests should not dirty the storage data version");
-        helper.assertTrue(allFirst.totalPages() >= 4,
+        RtsGameTestAssertions.assertTrue(helper, allFirst.totalPages() >= 4,
                 "48 junk entries at 12 entries per page should produce multiple pages");
         assertTotalCount(helper, allFirst, Items.DIAMOND, expected.get(Items.DIAMOND),
                 "Multi-chest total counts should include diamonds");
@@ -1334,9 +1334,9 @@ public final class RtsServerGameTests {
         player.getInventory().setItem(0, new ItemStack(Items.HONEYCOMB, 11));
         RtsAPI.get().bindings().storeHotbarSlot(player, (byte) 0);
 
-        helper.assertTrue(player.getInventory().getItem(0).isEmpty(),
+        RtsGameTestAssertions.assertTrue(helper, player.getInventory().getItem(0).isEmpty(),
                 "Storing into a multi-chest junk setup should clear the original hotbar slot");
-        helper.assertTrue(session.transfer.pageDataVersion.get() > versionBeforeStore,
+        RtsGameTestAssertions.assertTrue(helper, session.transfer.pageDataVersion.get() > versionBeforeStore,
                 "Storing into a multi-chest junk setup should bump the storage data version");
         S2CRtsStoragePagePayload honeycomb = buildStoragePage(helper, player,
                 0, itemId(Items.HONEYCOMB), 16, false, List.of());
@@ -1363,15 +1363,15 @@ public final class RtsServerGameTests {
         BlueprintContext context = blueprintContext(player, submissionId, blueprint, anchor);
 
         PipelineResult first = PipelineRegistry.execute(RtsWorkflowType.BLUEPRINT_BUILD, context);
-        helper.assertTrue(first instanceof PipelineResult.Success,
+        RtsGameTestAssertions.assertTrue(helper, first instanceof PipelineResult.Success,
                 "Durable blueprint command should be accepted into the admission queue");
         PipelineResult duplicate = PipelineRegistry.execute(RtsWorkflowType.BLUEPRINT_BUILD,
                 blueprintContext(player, submissionId, blueprint, anchor));
-        helper.assertTrue(duplicate instanceof PipelineResult.Success,
+        RtsGameTestAssertions.assertTrue(helper, duplicate instanceof PipelineResult.Success,
                 "Repeating the same submission while pending should be idempotent");
 
         // 同步 command 返回只代表进入有界 admission；本次服务器 tick 的 root ACK 尚未发生。
-        helper.assertTrue(TaskPersistenceRuntime.INSTANCE.coordinator().query().get(taskId).isEmpty(),
+        RtsGameTestAssertions.assertTrue(helper, TaskPersistenceRuntime.INSTANCE.coordinator().query().get(taskId).isEmpty(),
                 "Blueprint root must not be visible before the durability ACK");
         assertValueEqual(helper, 0, RtsWorkflowEngine.getInstance().activeWorkflowCount(player),
                 "Workflow projection must not exist before the durability ACK");
@@ -1449,7 +1449,7 @@ public final class RtsServerGameTests {
         assertValueEqual(helper, liveBeforeWrongDimension, countLiveDrops(helper, scanBox),
                 "Wrong-dimension funnel work must not consume same-coordinate entities");
 
-        session.funnel.funnelTargetDimension = player.serverLevel().dimension();
+        session.funnel.funnelTargetDimension = player.getLevel().dimension();
         session.funnel.funnelTickCooldown = 0;
         helper.succeedWhen(() -> {
             assertValueEqual(helper, entityCount, countChestItem(helper, chestRel, Items.COBBLESTONE),
@@ -1472,7 +1472,7 @@ public final class RtsServerGameTests {
 
         BlockPos target = helper.absolutePos(targetRel);
         BlockPos unloadedTarget = findUnloadedTarget(helper);
-        helper.assertTrue(!helper.getLevel().hasChunkAt(unloadedTarget),
+        RtsGameTestAssertions.assertTrue(helper, !helper.getLevel().hasChunkAt(unloadedTarget),
                 "Recovery fixture requires a genuinely unloaded target chunk");
 
         ItemEntity mismatch = spawnDrop(helper, target, new ItemStack(Items.DIRT, 2));
@@ -1490,19 +1490,19 @@ public final class RtsServerGameTests {
         var result = RtsPlacedRecoveryService.tickBudgeted(player, session, 1, Long.MAX_VALUE);
         assertValueEqual(helper, 1, result.processedUnits(),
                 "One recovery slice should consume exactly one runnable matching claim");
-        helper.assertTrue(!exact.isAlive(),
+        RtsGameTestAssertions.assertTrue(helper, !exact.isAlive(),
                 "A matching loaded claim should release its source ItemEntity after insertion");
         assertValueEqual(helper, 5, countChestItem(helper, chestRel, Items.IRON_INGOT),
                 "Recovered items should reach the linked storage exactly once");
-        helper.assertTrue(mismatch.isAlive() && mismatch.getItem().is(Items.DIRT),
+        RtsGameTestAssertions.assertTrue(helper, mismatch.isAlive() && mismatch.getItem().is(Items.DIRT),
                 "A stale claim must not consume an entity whose stack identity changed");
-        helper.assertTrue(session.placement.recoveryJobs.contains(unloaded)
+        RtsGameTestAssertions.assertTrue(helper, session.placement.recoveryJobs.contains(unloaded)
                         && unloaded.claims().size() == 1,
                 "An unloaded-chunk claim must remain queued without forcing its chunk");
-        helper.assertTrue(session.placement.recoveryJobs.contains(mismatched)
+        RtsGameTestAssertions.assertTrue(helper, session.placement.recoveryJobs.contains(mismatched)
                         && mismatched.claims().size() == 1,
                 "A mismatched claim must remain queued for conservative recovery");
-        helper.assertTrue(!helper.getLevel().hasChunkAt(unloadedTarget),
+        RtsGameTestAssertions.assertTrue(helper, !helper.getLevel().hasChunkAt(unloadedTarget),
                 "Recovery readiness checks must not load the unavailable chunk");
         stopPlayers(player);
         helper.succeed();
@@ -1516,7 +1516,7 @@ public final class RtsServerGameTests {
         SubmissionId sharedSubmission = new SubmissionId(UUID.randomUUID());
         TaskId firstTask = TaskId.fromSubmission(first.getUUID(), sharedSubmission);
         TaskId secondTask = TaskId.fromSubmission(second.getUUID(), sharedSubmission);
-        helper.assertTrue(!firstTask.equals(secondTask),
+        RtsGameTestAssertions.assertTrue(helper, !firstTask.equals(secondTask),
                 "Task identity must include the owner even when submission UUIDs match");
 
         BlockPos firstRel = new BlockPos(2, 1, 2);
@@ -1527,10 +1527,10 @@ public final class RtsServerGameTests {
         PipelineResult secondResult = PipelineRegistry.execute(RtsWorkflowType.BLUEPRINT_BUILD,
                 blueprintContext(second, sharedSubmission,
                         simpleBlueprint("owner-two", Blocks.DIAMOND_BLOCK, 1), helper.absolutePos(secondRel)));
-        helper.assertTrue(firstResult instanceof PipelineResult.Success
+        RtsGameTestAssertions.assertTrue(helper, firstResult instanceof PipelineResult.Success
                         && secondResult instanceof PipelineResult.Success,
                 "Both owners should independently enter durable blueprint admission");
-        helper.assertTrue(TaskPersistenceRuntime.INSTANCE.coordinator().query().get(firstTask).isEmpty()
+        RtsGameTestAssertions.assertTrue(helper, TaskPersistenceRuntime.INSTANCE.coordinator().query().get(firstTask).isEmpty()
                         && TaskPersistenceRuntime.INSTANCE.coordinator().query().get(secondTask).isEmpty(),
                 "Neither owner's executor may appear before its own root ACK");
 
@@ -1546,10 +1546,10 @@ public final class RtsServerGameTests {
                     (query.get(secondTask).isPresent() ? 1 : 0)
                             + (query.receipt(secondTask).isPresent() ? 1 : 0),
                     "Second player must own exactly one active root or terminal receipt");
-            helper.assertTrue(query.ownedBy(first.getUUID()).stream()
+            RtsGameTestAssertions.assertTrue(helper, query.ownedBy(first.getUUID()).stream()
                             .noneMatch(snapshot -> snapshot.id().equals(secondTask)),
                     "First player's durable roots must never contain the second player's task");
-            helper.assertTrue(query.ownedBy(second.getUUID()).stream()
+            RtsGameTestAssertions.assertTrue(helper, query.ownedBy(second.getUUID()).stream()
                             .noneMatch(snapshot -> snapshot.id().equals(firstTask)),
                     "Second player's durable roots must never contain the first player's task");
             stopPlayers(players);
@@ -1626,11 +1626,11 @@ public final class RtsServerGameTests {
                 "minecraft:stone", new ItemStack(Items.STONE),
                 rayOrigin.x, rayOrigin.y, rayOrigin.z,
                 rayDir.x, rayDir.y, rayDir.z);
-        helper.assertTrue(hasActiveTask(player, TaskType.PLACEMENT),
+        RtsGameTestAssertions.assertTrue(helper, hasActiveTask(player, TaskType.PLACEMENT),
                 "Creative overwrite fixture must enter the durable placement pipeline");
 
         helper.succeedWhen(() -> {
-            helper.assertTrue(!hasActiveTask(player, TaskType.PLACEMENT),
+            RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.PLACEMENT),
                     "Creative overwrite placement did not reach its terminal history commit");
             helper.assertBlockPresent(Blocks.STONE, targetRel);
             assertValueEqual(helper, 1, ServerHistoryManager.executeUndo(player),
@@ -1694,7 +1694,7 @@ public final class RtsServerGameTests {
         helper.assertBlockPresent(Blocks.STONE, secondRel);
         assertValueEqual(helper, 0, countChestItem(helper, chestRel, Items.STONE),
                 "Undo should consume the linked stone first");
-        helper.assertTrue(player.getInventory().getItem(2).isEmpty(),
+        RtsGameTestAssertions.assertTrue(helper, player.getInventory().getItem(2).isEmpty(),
                 "Undo should consume the recorded slot after linked storage is empty");
         stopPlayers(player);
         helper.succeed();
@@ -1852,7 +1852,7 @@ public final class RtsServerGameTests {
         // 生产放置链会直接查询 isCreative()/isSpectator()；普通 ServerPlayer 在测试连接刚建立时可能尚未
         // 完成这些派生状态的同步，导致实际 useItemOn 已执行却被错误归入跳过。
         ServerPlayer player = new ServerPlayer(
-                helper.getLevel().getServer(), helper.getLevel(), profile) {
+                helper.getLevel().getServer(), helper.getLevel(), profile, null) {
             @Override
             public boolean isSpectator() {
                 return gameType == GameType.SPECTATOR;
@@ -1870,7 +1870,7 @@ public final class RtsServerGameTests {
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
         player.setGameMode(gameType);
         RtsCameraManager.start(player);
-        helper.assertTrue(RtsCameraManager.isActive(player),
+        RtsGameTestAssertions.assertTrue(helper, RtsCameraManager.isActive(player),
                 "GameTest fake player should enter RTS mode");
         requireSession(helper, player);
         return player;
@@ -1922,15 +1922,15 @@ public final class RtsServerGameTests {
         for (BlockPos targetRel : targetsRel) {
             helper.setBlock(targetRel, Blocks.STONE);
         }
-        helper.assertTrue(RtsCameraManager.isActive(player),
+        RtsGameTestAssertions.assertTrue(helper, RtsCameraManager.isActive(player),
                 "Repeated area-destroy submission requires an active RTS camera session");
-        helper.assertTrue(RtsLinkedStorageResolver.canAccessWorldTarget(
+        RtsGameTestAssertions.assertTrue(helper, RtsLinkedStorageResolver.canAccessWorldTarget(
                         player, helper.absolutePos(targetsRel.get(0))),
                 "Repeated area-destroy target must remain inside the active RTS action range");
         RtsAPI.get().mining().areaDestroy(player, asApiPositions(helper, targetsRel),
                 (byte) 0, "", ItemStack.EMPTY, false);
         TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
-        helper.assertTrue(hasActiveTask(player, TaskType.DESTRUCTION),
+        RtsGameTestAssertions.assertTrue(helper, hasActiveTask(player, TaskType.DESTRUCTION),
                 "Repeated area-destroy submission must create a fresh destruction task");
     }
 
@@ -1939,7 +1939,7 @@ public final class RtsServerGameTests {
         for (BlockPos targetRel : targetsRel) {
             helper.assertBlockPresent(Blocks.AIR, targetRel);
         }
-        helper.assertTrue(!hasActiveTask(player, TaskType.DESTRUCTION),
+        RtsGameTestAssertions.assertTrue(helper, !hasActiveTask(player, TaskType.DESTRUCTION),
                 round + " area-destroy batch exceeded the fixed completion window");
     }
 
@@ -2030,7 +2030,7 @@ public final class RtsServerGameTests {
         ArrayDeque<PlacedRecoveryClaim> claims = new ArrayDeque<>();
         claims.addLast(new PlacedRecoveryClaim(entityId, ordinal, expectedStack));
         return new PlacedRecoveryJob(
-                UUID.randomUUID(), player.serverLevel().dimension(), target, claims);
+                UUID.randomUUID(), player.getLevel().dimension(), target, claims);
     }
 
     static List<Object> asApiPositions(GameTestHelper helper, List<BlockPos> relativePositions) {
@@ -2064,9 +2064,9 @@ public final class RtsServerGameTests {
     }
 
     private static Map<Item, Integer> fillChestsWithJunk(GameTestHelper helper, List<BlockPos> chestsRel, int itemCount) {
-        helper.assertTrue(itemCount <= chestsRel.size() * 27,
+        RtsGameTestAssertions.assertTrue(helper, itemCount <= chestsRel.size() * 27,
                 "Junk item count must fit into the provided chests");
-        helper.assertTrue(itemCount <= JUNK_ITEMS.size(),
+        RtsGameTestAssertions.assertTrue(helper, itemCount <= JUNK_ITEMS.size(),
                 "Junk item count must fit into the fixture item list");
         Map<Item, Integer> expected = new LinkedHashMap<>();
         for (int index = 0; index < itemCount; index++) {
@@ -2109,7 +2109,7 @@ public final class RtsServerGameTests {
 
     private static void assertPageCount(GameTestHelper helper, S2CRtsStoragePagePayload payload,
             int expectedCount, String message) {
-        helper.assertTrue(payload.itemStacks().size() == expectedCount && payload.counts().size() == expectedCount,
+        RtsGameTestAssertions.assertTrue(helper, payload.itemStacks().size() == expectedCount && payload.counts().size() == expectedCount,
                 message);
     }
 
@@ -2118,7 +2118,7 @@ public final class RtsServerGameTests {
      * 这里保留同样的值比较语义与失败信息，让同一批服务端测试无需降级断言强度。
      */
     private static <T> void assertValueEqual(GameTestHelper helper, T expected, T actual, String message) {
-        helper.assertTrue(java.util.Objects.equals(expected, actual),
+        RtsGameTestAssertions.assertTrue(helper, java.util.Objects.equals(expected, actual),
                 message + " (expected=" + expected + ", actual=" + actual + ")");
     }
 
@@ -2131,7 +2131,7 @@ public final class RtsServerGameTests {
     private static void assertSingleSearchResult(GameTestHelper helper, S2CRtsStoragePagePayload payload,
             Item expectedItem, String message) {
         assertValueEqual(helper, 1, payload.totalEntries(), message);
-        helper.assertTrue(payload.itemStacks().size() == 1 && payload.itemStacks().get(0).getItem() == expectedItem,
+        RtsGameTestAssertions.assertTrue(helper, payload.itemStacks().size() == 1 && payload.itemStacks().get(0).getItem() == expectedItem,
                 message);
     }
 
@@ -2175,7 +2175,7 @@ public final class RtsServerGameTests {
 
     private static RtsStorageSession requireSession(GameTestHelper helper, ServerPlayer player) {
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-        helper.assertTrue(session != null, "RTS mode should create a server session");
+        RtsGameTestAssertions.assertTrue(helper, session != null, "RTS mode should create a server session");
         return session;
     }
 
@@ -2199,7 +2199,7 @@ public final class RtsServerGameTests {
 
     private static ChestBlockEntity requireChest(GameTestHelper helper, BlockPos chestRel) {
         BlockEntity blockEntity = helper.getBlockEntity(chestRel);
-        helper.assertTrue(blockEntity instanceof ChestBlockEntity,
+        RtsGameTestAssertions.assertTrue(helper, blockEntity instanceof ChestBlockEntity,
                 "Test scene should contain an accessible chest block entity");
         return (ChestBlockEntity) blockEntity;
     }

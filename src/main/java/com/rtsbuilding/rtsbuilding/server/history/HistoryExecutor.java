@@ -56,7 +56,7 @@ public final class HistoryExecutor {
     /** 恢复破坏前状态；生存模式必须先成功提取对应方块物品。 */
     private static Set<BlockPos> restoreBrokenBlocks(
             ServerPlayer player, List<HistoryBlockRecord> records, boolean creative, int sourceSlot) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         Set<BlockPos> completed = new LinkedHashSet<>();
         for (HistoryBlockRecord record : records) {
             BlockPos pos = record.pos();
@@ -83,7 +83,7 @@ public final class HistoryExecutor {
     /** 创造建造撤回：恢复建造前的空气/方块状态及完整方块实体 NBT。 */
     private static Set<BlockPos> restoreCreativePlacement(
             ServerPlayer player, List<HistoryBlockRecord> records) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         Set<BlockPos> completed = new LinkedHashSet<>();
         for (HistoryBlockRecord record : records) {
             BlockPos pos = record.pos();
@@ -108,7 +108,7 @@ public final class HistoryExecutor {
      */
     private static Set<BlockPos> applyCreativeAfterSnapshot(
             ServerPlayer player, HistoryEntry entry) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         Set<BlockPos> completed = new LinkedHashSet<>();
         for (HistoryBlockRecord record : entry.getBlocks()) {
             BlockPos pos = record.pos();
@@ -147,7 +147,7 @@ public final class HistoryExecutor {
     /** 生存建造撤回：只移除仍与本批结果完全一致的方块并返还材料。 */
     private static Set<BlockPos> breakSurvivalPlacement(
             ServerPlayer player, List<HistoryBlockRecord> records) {
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         Set<BlockPos> completed = new LinkedHashSet<>();
         for (HistoryBlockRecord record : records) {
             BlockPos pos = record.pos();
@@ -201,7 +201,7 @@ public final class HistoryExecutor {
                 return;
             }
         }
-        if (!player.addItem(stack)) Block.popResource(player.serverLevel(), pos, stack);
+        if (!player.addItem(stack)) Block.popResource(player.getLevel(), pos, stack);
     }
 
     private static List<IItemHandler> linkedItemHandlers(

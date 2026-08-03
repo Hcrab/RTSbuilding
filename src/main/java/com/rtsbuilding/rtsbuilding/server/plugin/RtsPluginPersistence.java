@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import net.minecraft.nbt.CompoundTag;
@@ -55,7 +57,7 @@ final class RtsPluginPersistence {
 
             CompoundTag tag = new CompoundTag();
             tag.putString(NBT_PLUGIN_ID, plugin.pluginId().toString());
-            tag.put(NBT_STACK, plugin.stack().copyWithCount(1).save(new CompoundTag()));
+            tag.put(NBT_STACK, RtsItemStacks.copyWithCount(plugin.stack(), 1).save(new CompoundTag()));
             tag.putLong(NBT_INSTALLED_GAME_TIME, plugin.installedGameTime());
             list.add(tag);
         }

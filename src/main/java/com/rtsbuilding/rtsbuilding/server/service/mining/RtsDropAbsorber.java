@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
@@ -76,7 +78,7 @@ public final class RtsDropAbsorber {
                 continue;
             }
             AABB box = new AABB(pos).inflate(Config.dropScanRadius());
-            uniqueDrops.addAll(player.serverLevel().getEntitiesOfClass(
+            uniqueDrops.addAll(player.getLevel().getEntitiesOfClass(
                     ItemEntity.class,
                     box,
                     entity -> entity != null && entity.isAlive() && !entity.getItem().isEmpty()));
@@ -92,7 +94,7 @@ public final class RtsDropAbsorber {
             int maxStackSize = Math.max(1, group.template().getMaxStackSize());
             while (remaining > 0) {
                 int chunkSize = Math.min(remaining, maxStackSize);
-                ItemStack chunk = group.template().copyWithCount(chunkSize);
+                ItemStack chunk = RtsItemStacks.copyWithCount(group.template(), chunkSize);
                 ItemStack remainder = insertContext.store(chunk);
                 if (!remainder.isEmpty()) {
                     remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, remainder);
@@ -127,7 +129,7 @@ public final class RtsDropAbsorber {
                 }
             }
             if (matching == null) {
-                matching = new DropGroup(stack.copyWithCount(1), new ArrayList<>(), 0);
+                matching = new DropGroup(RtsItemStacks.copyWithCount(stack, 1), new ArrayList<>(), 0);
                 groups.add(matching);
             }
             matching.entities().add(drop);
@@ -148,7 +150,7 @@ public final class RtsDropAbsorber {
             if (consumed == stack.getCount()) {
                 entity.discard();
             } else {
-                entity.setItem(stack.copyWithCount(stack.getCount() - consumed));
+                entity.setItem(RtsItemStacks.copyWithCount(stack, stack.getCount() - consumed));
             }
         }
     }
@@ -257,7 +259,7 @@ public final class RtsDropAbsorber {
             if (accepted <= 0) break;
             int remaining = entity.getItem().getCount() - accepted;
             if (remaining <= 0) entity.discard();
-            else entity.setItem(entity.getItem().copyWithCount(remaining));
+            else entity.setItem(RtsItemStacks.copyWithCount(entity.getItem(), remaining));
             changed = true;
         }
         finishEnqueue(player, buffer, changed);
@@ -280,7 +282,7 @@ public final class RtsDropAbsorber {
             if (accepted <= 0) break;
             int remaining = entity.getItem().getCount() - accepted;
             if (remaining <= 0) iterator.remove();
-            else entity.setItem(entity.getItem().copyWithCount(remaining));
+            else entity.setItem(RtsItemStacks.copyWithCount(entity.getItem(), remaining));
             changed = true;
         }
         finishEnqueue(player, buffer, changed);
@@ -298,10 +300,10 @@ public final class RtsDropAbsorber {
             ServerPlayer player,
             com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer,
             boolean changed) {
-        buffer.updateFullState(player.serverLevel().getGameTime());
+        buffer.updateFullState(player.getLevel().getGameTime());
         if (changed) {
             RtsEffectAccumulator.INSTANCE.markPersistence(
-                    player.getUUID(), player.level().dimension());
+                    player.getUUID(), player.getLevel().dimension());
         }
     }
 
@@ -313,7 +315,7 @@ public final class RtsDropAbsorber {
             int maxStacks, long deadlineNanos) {
         var buffer = session.miningDropBuffer;
         if (buffer.isEmpty() || maxStacks <= 0) return 0;
-        long gameTime = player.serverLevel().getGameTime();
+        long gameTime = player.getLevel().getGameTime();
         boolean fallbackEligible = buffer.fallbackEligible(gameTime, 60L);
         // 即使已经到达三秒，也先做最后一次真实写入；网络刚恢复时不应误回退到背包。
         DropInsertContext insertContext = createInsertContext(player, session);
@@ -369,7 +371,7 @@ public final class RtsDropAbsorber {
         buffer.clearTimingWhenEmpty();
         if (processed > 0) {
             RtsEffectAccumulator.INSTANCE.markPersistence(
-                    player.getUUID(), player.level().dimension());
+                    player.getUUID(), player.getLevel().dimension());
         }
         return processed;
     }
@@ -386,7 +388,7 @@ public final class RtsDropAbsorber {
         }
         while (!remaining.isEmpty()) {
             int count = Math.min(remaining.getCount(), remaining.getMaxStackSize());
-            merged.add(remaining.copyWithCount(count));
+            merged.add(RtsItemStacks.copyWithCount(remaining, count));
             remaining.shrink(count);
         }
     }

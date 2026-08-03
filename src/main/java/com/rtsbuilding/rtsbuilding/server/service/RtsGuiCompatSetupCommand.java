@@ -84,7 +84,7 @@ public final class RtsGuiCompatSetupCommand {
             }
 
             ServerPlayer player = source.getPlayerOrException();
-            ServerLevel level = player.serverLevel();
+            ServerLevel level = player.getLevel();
             BlockPos base = player.blockPosition();
             int distance = resolveInt(
                     TARGET_DISTANCE_PROPERTY,
@@ -104,7 +104,7 @@ public final class RtsGuiCompatSetupCommand {
             }
             level.setBlock(targetPos, block.defaultBlockState(), 3);
 
-            source.sendSuccess(() -> Component.literal(
+            source.sendSuccess(Component.literal(
                     "RTS GUI compat: " + caseId + " ready at "
                             + targetPos.toShortString() + " block=" + targetBlockId), false);
             return Command.SINGLE_SUCCESS;
@@ -120,7 +120,7 @@ public final class RtsGuiCompatSetupCommand {
     private static int setupIeCokeOven(CommandSourceStack source) {
         try {
             ServerPlayer player = source.getPlayerOrException();
-            ServerLevel level = player.serverLevel();
+            ServerLevel level = player.getLevel();
             Object multiblock = resolveIeCokeOvenMultiblock();
             @SuppressWarnings("unchecked")
             List<StructureTemplate.StructureBlockInfo> structure =
@@ -131,7 +131,7 @@ public final class RtsGuiCompatSetupCommand {
             BlockPos origin = player.blockPosition().offset(-1, 0, 4);
             clearSetupArea(level, origin);
             for (StructureTemplate.StructureBlockInfo blockInfo : structure) {
-                level.setBlock(origin.offset(blockInfo.pos()), blockInfo.state(), 3);
+                level.setBlock(origin.offset(blockInfo.pos), blockInfo.state, 3);
             }
 
             boolean formed = (Boolean) invoke(multiblock, "createStructure",
@@ -149,7 +149,7 @@ public final class RtsGuiCompatSetupCommand {
                 return 0;
             }
 
-            source.sendSuccess(() -> Component.literal("RTS GUI compat: IE coke oven ready at "
+            source.sendSuccess(Component.literal("RTS GUI compat: IE coke oven ready at "
                     + target.toShortString()
                     + ". Look at it and run /rtsbuilding_gui_compat_run ie_coke_oven"), false);
             return Command.SINGLE_SUCCESS;

@@ -8,11 +8,9 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintParseExceptio
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderGetter;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
@@ -45,19 +43,18 @@ final class BuildingGadgetsTemplateReader {
     static RtsBlueprint parse(byte[] data, String fileName, RegistryAccess registryAccess)
             throws BlueprintParseException {
         JsonObject root = readJsonObject(data, fileName);
-        HolderGetter<Block> blockLookup = registryAccess.registryOrThrow(Registries.BLOCK).asLookup();
         String name = readName(root, fileName);
 
         // 新版格式：statePosArrayList
         String statePosArrayList = readString(root, "statePosArrayList");
         if (!statePosArrayList.isBlank()) {
-            return parseStatePosArrayList(statePosArrayList, name, fileName, blockLookup);
+            return parseStatePosArrayList(statePosArrayList, name, fileName);
         }
 
         // 旧版格式：body
         String body = readString(root, "body");
         if (!body.isBlank()) {
-            return parseLegacyBody(root, body, name, fileName, blockLookup);
+            return parseLegacyBody(root, body, name, fileName);
         }
 
         throw new BlueprintParseException("Building Gadgets JSON 缺少模板数据: " + fileName);
@@ -83,15 +80,15 @@ final class BuildingGadgetsTemplateReader {
      * <p>
      * 新版格式使用 SNBT（Stringified NBT）存储方块状态映射和位置数据。
      */
-    private static RtsBlueprint parseStatePosArrayList(String snbt, String name, String fileName,
-            HolderGetter<Block> blockLookup) throws BlueprintParseException {
+    private static RtsBlueprint parseStatePosArrayList(String snbt, String name, String fileName)
+            throws BlueprintParseException {
         CompoundTag tag;
         try {
             tag = TagParser.parseTag(snbt);
         } catch (Exception ex) {
             throw new BlueprintParseException("读取 Building Gadgets 方块列表失败: " + fileName, ex);
         }
-        return parseMappedStateList(tag, name, fileName, blockLookup);
+        return parseMappedStateList(tag, name, fileName);
     }
 
     /**
@@ -99,14 +96,14 @@ final class BuildingGadgetsTemplateReader {
      * <p>
      * 包含 blockstatemap（调色板）和 statelist（int 数组索引）两部分。
      */
-    private static RtsBlueprint parseMappedStateList(CompoundTag tag, String name, String fileName,
-            HolderGetter<Block> blockLookup) throws BlueprintParseException {
+    private static RtsBlueprint parseMappedStateList(CompoundTag tag, String name, String fileName)
+            throws BlueprintParseException {
         if (!tag.contains("blockstatemap", Tag.TAG_LIST) || !tag.contains("statelist", Tag.TAG_INT_ARRAY)) {
             throw new BlueprintParseException("Building Gadgets 模板缺少方块状态映射: " + fileName);
         }
 
         Bounds bounds = Bounds.from(readBlockPos(tag.getCompound("startpos")), readBlockPos(tag.getCompound("endpos")));
-        List<PaletteEntry> palette = readPalette(tag.getList("blockstatemap", Tag.TAG_COMPOUND), blockLookup);
+        List<PaletteEntry> palette = readPalette(tag.getList("blockstatemap", Tag.TAG_COMPOUND));
         int[] stateList = tag.getIntArray("statelist");
         List<RtsBlueprintBlock> blocks = new ArrayList<>();
         int index = 0;
@@ -132,11 +129,11 @@ final class BuildingGadgetsTemplateReader {
      * 旧版格式使用 Base64 编码的压缩 NBT 数据。
      * 可能包含 blockstatemap + statelist（映射格式）或 pos + data（旧版格式）。
      */
-    private static RtsBlueprint parseLegacyBody(JsonObject root, String body, String name, String fileName,
-            HolderGetter<Block> blockLookup) throws BlueprintParseException {
+    private static RtsBlueprint parseLegacyBody(JsonObject root, String body, String name, String fileName)
+            throws BlueprintParseException {
         CompoundTag nbt = readCompressedBody(body, fileName);
         if (nbt.contains("blockstatemap", Tag.TAG_LIST) && nbt.contains("statelist", Tag.TAG_INT_ARRAY)) {
-            return parseMappedStateList(nbt, name, fileName, blockLookup);
+            return parseMappedStateList(nbt, name, fileName);
         }
         if (!nbt.contains("pos", Tag.TAG_LIST) || !nbt.contains("data", Tag.TAG_LIST)) {
             throw new BlueprintParseException("Building Gadgets 旧版模板缺少方块数据: " + fileName);
@@ -155,7 +152,7 @@ final class BuildingGadgetsTemplateReader {
             if (stateIndex < 0 || stateIndex >= dataList.size()) {
                 continue;
             }
-            PaletteEntry entry = readLegacyBlockData(dataList.getCompound(stateIndex), blockLookup);
+            PaletteEntry entry = readLegacyBlockData(dataList.getCompound(stateIndex));
             byPos.put(legacyPos(encoded), entry);
         }
         if (byPos.isEmpty()) {
@@ -181,24 +178,24 @@ final class BuildingGadgetsTemplateReader {
     }
 
     /** 读取调色板列表 */
-    private static List<PaletteEntry> readPalette(ListTag paletteTag, HolderGetter<Block> blockLookup) {
+    private static List<PaletteEntry> readPalette(ListTag paletteTag) {
         List<PaletteEntry> out = new ArrayList<>(paletteTag.size());
         for (int i = 0; i < paletteTag.size(); i++) {
-            out.add(readBlockStateEntry(paletteTag.getCompound(i), blockLookup));
+            out.add(readBlockStateEntry(paletteTag.getCompound(i)));
         }
         return out;
     }
 
     /** 读取旧版方块数据 */
-    private static PaletteEntry readLegacyBlockData(CompoundTag blockData, HolderGetter<Block> blockLookup) {
+    private static PaletteEntry readLegacyBlockData(CompoundTag blockData) {
         CompoundTag stateTag = blockData.contains("state", Tag.TAG_COMPOUND)
                 ? blockData.getCompound("state")
                 : blockData;
-        return readBlockStateEntry(stateTag, blockLookup);
+        return readBlockStateEntry(stateTag);
     }
 
     /** 读取方块状态条目 */
-    private static PaletteEntry readBlockStateEntry(CompoundTag stateTag, HolderGetter<Block> blockLookup) {
+    private static PaletteEntry readBlockStateEntry(CompoundTag stateTag) {
         if (!stateTag.contains("Name", Tag.TAG_STRING)) {
             return new PaletteEntry(Blocks.AIR.defaultBlockState(), "");
         }
@@ -207,7 +204,7 @@ final class BuildingGadgetsTemplateReader {
             return new PaletteEntry(Blocks.AIR.defaultBlockState(), missingId);
         }
         try {
-            return new PaletteEntry(NbtUtils.readBlockState(blockLookup, stateTag), "");
+            return new PaletteEntry(NbtUtils.readBlockState(stateTag), "");
         } catch (Exception ex) {
             return new PaletteEntry(Blocks.AIR.defaultBlockState(), stateTag.getString("Name"));
         }

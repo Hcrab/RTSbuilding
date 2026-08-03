@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelSortLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelSortStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 
 /**
  * 底栏排序与高度按钮的 Minecraft 绘制适配器。
@@ -19,7 +19,7 @@ public final class BottomPanelSortRenderer {
     }
 
     public static void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             BottomPanelSortLayout layout,
             String sortLabel,
@@ -36,7 +36,7 @@ public final class BottomPanelSortRenderer {
     }
 
     private static void drawButton(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             BottomPanelSortLayout.Area area,
             String label) {

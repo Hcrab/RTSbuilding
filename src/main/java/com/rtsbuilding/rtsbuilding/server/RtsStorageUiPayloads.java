@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
@@ -65,7 +67,7 @@ public final class RtsStorageUiPayloads {
             return ItemStack.EMPTY;
         }
         if (preview != null && !preview.isEmpty() && preview.is(RtsBuiltInRegistries.ITEM.get(key))) {
-            return preview.copyWithCount(1);
+            return RtsItemStacks.copyWithCount(preview, 1);
         }
         return new ItemStack(RtsBuiltInRegistries.ITEM.get(key));
     }

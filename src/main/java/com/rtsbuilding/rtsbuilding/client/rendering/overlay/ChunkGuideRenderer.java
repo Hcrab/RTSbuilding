@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.client.Minecraft;
@@ -43,7 +45,7 @@ public final class ChunkGuideRenderer {
         }
 
         // Compute the chunk coordinates of the camera position
-        BlockPos cameraBlockPos = BlockPos.containing(cameraPosition);
+        BlockPos cameraBlockPos = new BlockPos(cameraPosition);
         int centerChunkX = SectionPos.blockToSectionCoord(cameraBlockPos.getX());
         int centerChunkZ = SectionPos.blockToSectionCoord(cameraBlockPos.getZ());
 
@@ -140,7 +142,7 @@ public final class ChunkGuideRenderer {
         double maxZ = z + 1.0D - inset;
 
         // Draw translucent fill
-        LevelRenderer.addChainedFilledBoxVertices(
+        RenderingUtil.filledBox(
                 poseStack,
                 fillBuffer,
                 minX, minY, minZ,

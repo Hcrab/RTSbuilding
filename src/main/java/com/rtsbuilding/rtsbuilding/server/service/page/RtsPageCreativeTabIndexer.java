@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
+import net.minecraft.core.NonNullList;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.CreativeModeTab;
@@ -114,7 +115,8 @@ public final class RtsPageCreativeTabIndexer {
      */
     private static void indexAvailableCreativeTabContents(boolean operatorTabs) {
         for (CreativeModeTab tab : RtsBuiltInRegistries.CREATIVE_MODE_TAB) {
-            if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
+            if (tab == null || tab == CreativeModeTab.TAB_SEARCH
+                    || tab == CreativeModeTab.TAB_HOTBAR || tab == CreativeModeTab.TAB_INVENTORY) {
                 continue;
             }
             ResourceLocation key = RtsBuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
@@ -123,11 +125,13 @@ public final class RtsPageCreativeTabIndexer {
     }
 
     private static void indexCreativeTabContents(CreativeModeTab tab, ResourceLocation key, boolean operatorTabs) {
-        if (key == null || !tab.shouldDisplay()) {
+        if (key == null) {
             return;
         }
         String tabKey = key.toString();
-        for (ItemStack stack : tab.getDisplayItems()) {
+        NonNullList<ItemStack> displayItems = NonNullList.create();
+        tab.fillItemList(displayItems);
+        for (ItemStack stack : displayItems) {
             if (stack == null || stack.isEmpty()) {
                 continue;
             }

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -255,7 +257,7 @@ public final class RtsClientPacketGateway {
         Minecraft minecraft = Minecraft.getInstance();
         String language = "";
         if (minecraft != null && minecraft.getLanguageManager() != null) {
-            language = minecraft.getLanguageManager().getSelected();
+            language = minecraft.getLanguageManager().getSelected().getCode();
         }
         if ((language == null || language.isBlank()) && minecraft != null && minecraft.options != null) {
             language = minecraft.options.languageCode;
@@ -325,7 +327,7 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(new C2SRtsSetQuickSlotPayload(
                 (byte) index,
                 itemId,
-                previewStack == null ? ItemStack.EMPTY : previewStack.copyWithCount(1)));
+                previewStack == null ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(previewStack, 1)));
     }
 
     public static void sendSetGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
@@ -530,7 +532,7 @@ public final class RtsClientPacketGateway {
     public static void sendInteractEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 entityId,
-                BlockPos.containing(hitLocation),
+                new BlockPos(hitLocation),
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,
@@ -549,7 +551,7 @@ public final class RtsClientPacketGateway {
     public static void sendInteractEntityEmptyHand(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 entityId,
-                BlockPos.containing(hitLocation),
+                new BlockPos(hitLocation),
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,
@@ -568,7 +570,7 @@ public final class RtsClientPacketGateway {
     public static void sendInteractEntityWithPinnedItem(int entityId, Vec3 hitLocation, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
         PacketDistributor.sendToServer(new C2SRtsInteractPayload(
                 entityId,
-                BlockPos.containing(hitLocation),
+                new BlockPos(hitLocation),
                 (byte) 1,
                 hitLocation.x,
                 hitLocation.y,

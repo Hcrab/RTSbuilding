@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsHomeScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
@@ -364,7 +366,7 @@ public final class OverlayInteraction {
         for (int i = 0; i < 9; i++) {
             Slot slot = menu.getSlot(1 + i);
             ItemStack stack = slot == null ? ItemStack.EMPTY : slot.getItem();
-            blueprint.add(stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1));
+            blueprint.add(stack.isEmpty() ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(stack, 1));
         }
         Slot resultSlot = menu.getSlot(0);
         ItemStack result = resultSlot == null ? ItemStack.EMPTY : resultSlot.getItem();
@@ -449,7 +451,7 @@ public final class OverlayInteraction {
     //  Inventory RTS buttons
     // =========================================================================
 
-    public static void renderInventoryRtsButtons(net.minecraft.client.gui.GuiGraphics g, net.minecraft.client.gui.Font font, Screen screen, double mouseX, double mouseY) {
+    public static void renderInventoryRtsButtons(com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext g, net.minecraft.client.gui.Font font, Screen screen, double mouseX, double mouseY) {
         if (!ClientRtsController.get().isProgressionEnabled()) {
             return;
         }

@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
@@ -98,7 +102,7 @@ public final class RtsPlacementExecutor {
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         boolean useSelectedStorageItem = itemId != null && !itemId.isBlank();
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         Vec3 hitLocation = new Vec3(hitX, hitY, hitZ);
         BlockHitResult hit = new BlockHitResult(hitLocation, face, clickedPos, false);
         Vec3 interactionPos = InteractionHelper.resolveInteractionPosition(null, hit, hitLocation);
@@ -145,7 +149,7 @@ public final class RtsPlacementExecutor {
         }
 
         if (emptyUse.result().consumesAction()) {
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
             return true;
         }
 
@@ -163,7 +167,7 @@ public final class RtsPlacementExecutor {
             return false;
         }
         if (emptyFallback.result().consumesAction()) {
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
             return true;
         }
         return false;
@@ -184,7 +188,7 @@ public final class RtsPlacementExecutor {
             return false;
         }
         if (skipIfOccupied && sourceSnapshot.getItem() instanceof BlockItem) {
-            if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
+            if (!level.hasChunkAt(clickedPos) || !RtsBlockStates.canBeReplaced(level.getBlockState(clickedPos))) {
                 RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
                 return true;
             }
@@ -211,7 +215,7 @@ public final class RtsPlacementExecutor {
         if (mainHandUse.result().consumesAction()) {
             recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
                     sourceSnapshot, sourcePlacesBlock);
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
             return true;
         }
 
@@ -240,7 +244,7 @@ public final class RtsPlacementExecutor {
                             1L);
                 }
             }
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
             return true;
         }
 
@@ -261,7 +265,7 @@ public final class RtsPlacementExecutor {
             if (interactFallback.result().consumesAction()) {
                 recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
                         sourceSnapshot, sourcePlacesBlock);
-                RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+                RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
                 return true;
             }
 
@@ -290,7 +294,7 @@ public final class RtsPlacementExecutor {
                                 1L);
                     }
                 }
-                RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+                RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
                 return true;
             }
         }
@@ -321,7 +325,7 @@ public final class RtsPlacementExecutor {
 
         Item item = RtsBuiltInRegistries.ITEM.get(id);
         ItemStack preferredStack = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
-        ItemStack protectionStack = preferredStack.isEmpty() ? new ItemStack(item) : preferredStack.copyWithCount(1);
+        ItemStack protectionStack = preferredStack.isEmpty() ? new ItemStack(item) : RtsItemStacks.copyWithCount(preferredStack, 1);
         boolean sophisticatedBackpackItem = RtsBackpackCompat.isBackpackItem(protectionStack);
         boolean selectedPlacesBlock = item instanceof BlockItem || sophisticatedBackpackItem;
         if (!RtsClaimProtectionService.canInteractBlock(
@@ -333,7 +337,7 @@ public final class RtsPlacementExecutor {
             return false;
         }
         if (skipIfOccupied && selectedPlacesBlock) {
-            if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
+            if (!level.hasChunkAt(clickedPos) || !RtsBlockStates.canBeReplaced(level.getBlockState(clickedPos))) {
                 RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
                 return true;
             }
@@ -456,7 +460,7 @@ public final class RtsPlacementExecutor {
     }
 
     public static BlockPos placementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
-        if (level.hasChunkAt(clickedPos) && level.getBlockState(clickedPos).canBeReplaced()) {
+        if (level.hasChunkAt(clickedPos) && RtsBlockStates.canBeReplaced(level.getBlockState(clickedPos))) {
             return clickedPos;
         }
         return clickedPos.relative(face);

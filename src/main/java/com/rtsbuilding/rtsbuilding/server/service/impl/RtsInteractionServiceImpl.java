@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsBlockStates;
+
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -70,7 +74,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
                 rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ);
 
-        ServerLevel level = player.serverLevel();
+        ServerLevel level = player.getLevel();
         Entity targetEntity = null;
         BlockHitResult blockHit = null;
         BlockPos effectiveBlockPos = null;
@@ -107,7 +111,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
         ItemStack soundStack = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
                 ? SoundService.createSoundStack(itemId)
                 : toolSnapshot.copy();
-        ItemStack protectionStack = soundStack.isEmpty() ? ItemStack.EMPTY : soundStack.copyWithCount(1);
+        ItemStack protectionStack = soundStack.isEmpty() ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(soundStack, 1);
         if (targetEntity != null && !RtsClaimProtectionService.canInteractEntity(
                 player, targetEntity, InteractionHand.MAIN_HAND, protectionStack, false)) {
             return;
@@ -180,7 +184,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
     }
 
     private static BlockPos interactionPlacementTarget(ServerLevel level, BlockPos clickedPos, Direction face) {
-        if (level.hasChunkAt(clickedPos) && level.getBlockState(clickedPos).canBeReplaced()) {
+        if (level.hasChunkAt(clickedPos) && RtsBlockStates.canBeReplaced(level.getBlockState(clickedPos))) {
             return clickedPos;
         }
         return clickedPos.relative(face);

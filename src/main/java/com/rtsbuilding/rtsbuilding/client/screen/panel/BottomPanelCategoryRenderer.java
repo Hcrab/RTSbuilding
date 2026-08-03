@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiCategory;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCategoryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCategoryStyle;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -12,7 +12,7 @@ import java.util.List;
 /**
  * 底栏分类树的 Minecraft 绘制适配器。
  *
- * <p>本类只把 Core 分类行、Kit 几何和共享主题翻译为 GuiGraphics 调用；分类注册表查询、
+ * <p>本类只把 Core 分类行、Kit 几何和共享主题翻译为 RtsGuiContext 调用；分类注册表查询、
  * 滚动状态、选择/展开动作与网络副作用仍由 BottomPanel 和其 adapter 编排。所有文字均
  * 关闭阴影，避免分类栏被后绘制的半透明窗口覆盖时发生文字穿透。</p>
  */
@@ -21,7 +21,7 @@ public final class BottomPanelCategoryRenderer {
     }
 
     public static void render(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             Component title,
             List<BottomBarUiCategory> categories,
@@ -73,7 +73,7 @@ public final class BottomPanelCategoryRenderer {
     }
 
     private static void drawScaledLabel(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             int left,
@@ -102,7 +102,7 @@ public final class BottomPanelCategoryRenderer {
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             Font font,
             String text,
             BottomPanelCategoryLayout.Area area) {
@@ -115,7 +115,7 @@ public final class BottomPanelCategoryRenderer {
     }
 
     private static void fill(
-            GuiGraphics graphics,
+            RtsGuiContext graphics,
             BottomPanelCategoryLayout.Area area,
             int color) {
         graphics.fill(

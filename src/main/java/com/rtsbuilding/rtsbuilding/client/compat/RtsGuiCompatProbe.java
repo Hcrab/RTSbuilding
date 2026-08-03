@@ -302,7 +302,7 @@ public final class RtsGuiCompatProbe {
                 return;
             }
             if (!SETUP_COMMAND.isBlank()) {
-                minecraft.player.connection.sendCommand(SETUP_COMMAND);
+                minecraft.player.commandUnsigned(SETUP_COMMAND);
                 writeRow("auto-setup-command", "INFO", screenClass, screenTitle, menuClass, containerId,
                         "/" + SETUP_COMMAND);
                 autoRun.stage = AutoStage.WAIT_SETUP;

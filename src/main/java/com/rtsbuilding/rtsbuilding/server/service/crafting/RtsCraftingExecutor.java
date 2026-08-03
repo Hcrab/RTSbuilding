@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
@@ -84,12 +86,12 @@ public final class RtsCraftingExecutor {
                         new ContainerLevelAccess() {
                             @Override
                             public <T> Optional<T> evaluate(BiFunction<Level, BlockPos, T> evaluator) {
-                                return Optional.ofNullable(evaluator.apply(player.serverLevel(), player.blockPosition()));
+                                return Optional.ofNullable(evaluator.apply(player.getLevel(), player.blockPosition()));
                             }
 
                             @Override
                             public void execute(BiConsumer<Level, BlockPos> consumer) {
-                                consumer.accept(player.serverLevel(), player.blockPosition());
+                                consumer.accept(player.getLevel(), player.blockPosition());
                             }
                         }),
                 Component.literal("RTS Craft Terminal")));
@@ -121,7 +123,7 @@ public final class RtsCraftingExecutor {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
         }
-        Recipe<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
+        Recipe<?> raw = player.getLevel().getRecipeManager().byKey(key).orElse(null);
         if (!(raw instanceof CraftingRecipe craftingRecipe)) {
             RtsCraftingSearch.refreshCraftables(player, session);
             return;
@@ -177,7 +179,7 @@ public final class RtsCraftingExecutor {
 
         ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
                 S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, totalCraftedCount);
-        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+        RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsCraftFeedbackPayload(
                 craftedItemId, totalCraftedCount,
                 new ArrayList<>(consumedCounts.keySet()),
@@ -230,15 +232,15 @@ public final class RtsCraftingExecutor {
                 return CraftExecutionResult.failure(false);
             }
             extracted[i] = taken;
-            inputStacks.add(taken.stack().copyWithCount(1));
+            inputStacks.add(RtsItemStacks.copyWithCount(taken.stack(), 1));
         }
 
         CraftingContainer input = RtsCraftingUtils.createCraftingContainer(player, inputStacks);
-        if (!recipe.matches(input, player.serverLevel())) {
+        if (!recipe.matches(input, player.getLevel())) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
         }
-        ItemStack result = recipe.assemble(input, player.serverLevel().registryAccess());
+        ItemStack result = recipe.assemble(input);
         if (result.isEmpty()) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
@@ -261,7 +263,7 @@ public final class RtsCraftingExecutor {
             ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(insertHandlers, stack);
             int storedCount = Math.max(0, stack.getCount() - remain.getCount());
             if (storedCount > 0) {
-                storedOutputs.add(stack.copyWithCount(storedCount));
+                storedOutputs.add(RtsItemStacks.copyWithCount(stack, storedCount));
             }
             if (!remain.isEmpty()) {
                 rollbackStoredCraftOutputs(insertHandlers, storedOutputs);
@@ -454,7 +456,7 @@ public final class RtsCraftingExecutor {
         if (recipe == null || player == null) {
             return ItemStack.EMPTY;
         }
-        ItemStack result = recipe.getResultItem(player.serverLevel().registryAccess());
+        ItemStack result = recipe.getResultItem();
         if (!result.isEmpty()) {
             return result.copy();
         }
@@ -469,11 +471,10 @@ public final class RtsCraftingExecutor {
             if (options.length <= 0 || options[0].isEmpty()) {
                 return ItemStack.EMPTY;
             }
-            previewStacks.add(options[0].copyWithCount(1));
+            previewStacks.add(RtsItemStacks.copyWithCount(options[0], 1));
         }
         return recipe.assemble(
-                RtsCraftingUtils.createCraftingContainer(player, previewStacks),
-                player.serverLevel().registryAccess()).copy();
+                RtsCraftingUtils.createCraftingContainer(player, previewStacks)).copy();
     }
 
     // ---- craft grid refill from blueprint ----------------------------------------
@@ -487,7 +488,7 @@ public final class RtsCraftingExecutor {
         for (int i = 0; i < 9; i++) {
             net.minecraft.world.inventory.Slot grid = menu.getSlot(1 + i);
             ItemStack stack = grid.getItem();
-            blueprint[i] = stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+            blueprint[i] = stack.isEmpty() ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(stack, 1);
         }
         return blueprint;
     }

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowTextBoxChromeRenderer;
@@ -7,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.WindowTextBoxLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowTextBoxStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.network.chat.Component;
 
@@ -27,6 +28,7 @@ public class WindowTextBox extends EditBox {
     private String placeholder = "";
     private boolean autoScrollToEnd = true;
     private boolean centeredText = false;
+    private boolean chromeVisible = true;
 
     public enum InputMode {
         ANY,
@@ -68,6 +70,12 @@ public class WindowTextBox extends EditBox {
         return this;
     }
 
+    /** 允许已有面板自行绘制输入框外框，同时继续复用版本兼容的编辑区域。 */
+    public WindowTextBox setChromeVisible(boolean chromeVisible) {
+        this.chromeVisible = chromeVisible;
+        return this;
+    }
+
     @Override
     public void setValue(String text) {
         super.setValue(text == null ? "" : text);
@@ -83,19 +91,51 @@ public class WindowTextBox extends EditBox {
     }
 
     @Override
-    public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void renderButton(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        renderWidget(new RtsGuiContext(poseStack), mouseX, mouseY, partialTick);
+    }
+
+    /** 供版本稳定的 RTS 面板渲染路径直接调用。 */
+    public void render(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
+        renderWidget(g, mouseX, mouseY, partialTick);
+    }
+
+    public int getX() {
+        return this.x;
+    }
+
+    public void setX(int x) {
+        this.x = x;
+    }
+
+    public int getY() {
+        return this.y;
+    }
+
+    public void setY(int y) {
+        this.y = y;
+    }
+
+    @Override
+    public void setFocused(boolean focused) {
+        super.setFocused(focused);
+    }
+
+    public void renderWidget(RtsGuiContext g, int mouseX, int mouseY, float partialTick) {
         if (!this.visible) {
             return;
         }
-        int x = getX();
-        int y = getY();
+        int x = this.x;
+        int y = this.y;
         Font font = Minecraft.getInstance().font;
         UiRect bounds = new UiRect(x, y, this.width, this.height);
         WindowTextBoxLayout.Geometry geometry = WindowTextBoxLayout.geometry(
                 bounds, font.lineHeight, font.width(getValue()),
                 this.centeredText, !getValue().isEmpty());
-        WindowTextBoxChromeRenderer.render(
-                new MinecraftUiCanvas(g, font), geometry, isFocused());
+        if (this.chromeVisible) {
+            WindowTextBoxChromeRenderer.render(
+                    new MinecraftUiCanvas(g, font), geometry, isFocused());
+        }
 
         if (getValue().isEmpty() && !isFocused() && !this.placeholder.isEmpty()) {
             WindowTextBoxLayout.Geometry placeholderGeometry = WindowTextBoxLayout.geometry(
@@ -110,7 +150,7 @@ public class WindowTextBox extends EditBox {
     }
 
     private void renderInnerEditBox(
-            GuiGraphics g, int mouseX, int mouseY, float partialTick,
+            RtsGuiContext g, int mouseX, int mouseY, float partialTick,
             int outerX, int outerY, WindowTextBoxLayout.Geometry geometry) {
         int oldWidth = this.width;
         int oldHeight = this.height;
@@ -119,16 +159,16 @@ public class WindowTextBox extends EditBox {
         int innerHeight = (int) geometry.inner.getHeight();
         int innerY = (int) geometry.inner.getY();
         setX(innerX);
-        setY(innerY);
+        this.y = innerY;
         this.width = innerWidth;
         this.height = innerHeight;
         try {
-            super.renderWidget(g, mouseX, mouseY, partialTick);
+            super.renderButton(g.pose(), mouseX, mouseY, partialTick);
         } finally {
             this.width = oldWidth;
             this.height = oldHeight;
             setX(outerX);
-            setY(outerY);
+            this.y = outerY;
         }
     }
 

@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftDockLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftDockStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
@@ -18,7 +18,7 @@ import java.util.List;
  * 底栏 Craft Dock 的 Minecraft 绘制适配器。
  *
  * <p>本类只把 Core 绑定状态、真实 {@link ItemStack} 预览、Kit 几何和共享主题画到
- * {@link GuiGraphics}。它不改变等待绑定槽，不打开或清除远程 GUI，也不发送网络请求；这些副作用
+ * {@link RtsGuiContext}。它不改变等待绑定槽，不打开或清除远程 GUI，也不发送网络请求；这些副作用
  * 仍由 {@link BottomPanel} 经 Core action 编排。</p>
  */
 public final class BottomPanelCraftDockRenderer {
@@ -28,7 +28,7 @@ public final class BottomPanelCraftDockRenderer {
     /**
      * 绘制中央合成入口与外围绑定槽，并返回当前悬停的真实绑定槽索引。
      */
-    public static int render(GuiGraphics graphics, Font font,
+    public static int render(RtsGuiContext graphics, Font font,
                              List<BottomBarUiToolSlot> bindings,
                              ClientRtsController controller,
                              BottomPanelCraftDockLayout layout,
@@ -91,7 +91,7 @@ public final class BottomPanelCraftDockRenderer {
     }
 
     private static void drawCenteredNoShadow(
-            GuiGraphics graphics, Font font, String text,
+            RtsGuiContext graphics, Font font, String text,
             int x, int y, int width, int height, int color) {
         int textX = x + (width - font.width(text)) / 2;
         int textY = y + Math.max(0, (height - font.lineHeight) / 2);

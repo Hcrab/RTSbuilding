@@ -13,15 +13,15 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
+import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 
 import java.util.List;
 
 /**
  * 底栏合成区的 Minecraft 绘制适配器。
  *
- * <p>本类只把 Core 快照、正式物品栈与 Kit 布局画到 {@link GuiGraphics}。它不维护滚动或搜索状态，
+ * <p>本类只把 Core 快照、正式物品栈与 Kit 布局画到 {@link RtsGuiContext}。它不维护滚动或搜索状态，
  * 不读取控制器，也不发送合成请求；这些生命周期和副作用继续由 {@link BottomPanel} 编排。</p>
  */
 public final class BottomPanelCraftRenderer {
@@ -31,7 +31,7 @@ public final class BottomPanelCraftRenderer {
     /**
      * 绘制合成区并返回当前悬停的 Core 条目索引；没有真实条目时返回 -1。
      */
-    public static int render(GuiGraphics graphics, Font font, EditBox searchBox,
+    public static int render(RtsGuiContext graphics, Font font, WindowTextBox searchBox,
                              BottomBarUiState state, List<CraftableEntry> sourceEntries,
                              BottomPanelCraftLayout layout,
                              int mouseX, int mouseY, float partialTick) {
@@ -128,7 +128,7 @@ public final class BottomPanelCraftRenderer {
     }
 
     private static void drawButton(
-                                   GuiGraphics graphics, UiCanvas2D canvas, Font font,
+                                   RtsGuiContext graphics, UiCanvas2D canvas, Font font,
                                    BottomPanelCraftLayout.Area area, String label,
                                    UiColor background, UiColor lightBorder, int textColor) {
         UiCompactFrameRenderer.frame(

@@ -144,7 +144,7 @@ final class RtsLegacySkillTreeMigration {
         RtsInstalledPlugin plugin = new RtsInstalledPlugin(
                 stoneTier.id(),
                 pluginStack(stoneTier),
-                player.level().getGameTime());
+                player.getLevel().getGameTime());
         if (!RtsPluginTeamService.canAddWithoutTeamConflict(installed, plugin)) {
             return false;
         }
@@ -168,7 +168,7 @@ final class RtsLegacySkillTreeMigration {
             RtsInstalledPlugin plugin = new RtsInstalledPlugin(
                     definition.id(),
                     pluginStack(definition),
-                    player.level().getGameTime());
+                    player.getLevel().getGameTime());
             if (!RtsPluginTeamService.canAddWithoutTeamConflict(installed, plugin)) {
                 continue;
             }

@@ -88,7 +88,7 @@ final class ConfirmedPlacementRenderer {
 
     private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
         double inset = 0.5D - scale * 0.46D;
-        LevelRenderer.addChainedFilledBoxVertices(
+        RenderingUtil.filledBox(
                 poseStack, fillBuffer,
                 pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                 pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,

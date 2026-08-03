@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -99,7 +101,7 @@ public final class RtsCraftingGridFiller {
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
             ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
                     S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
         }
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
@@ -136,12 +138,12 @@ public final class RtsCraftingGridFiller {
         if (session != null && craftedItemId != null && !craftedItemId.isBlank() && craftedCount > 0) {
             ServiceRegistry.getInstance().page().recordRecentItem(session, craftedItemId,
                     S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, craftedCount);
-            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.getLevel().dimension());
         }
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
             ItemStack stack = blueprintStacks.get(i);
-            blueprint[i] = stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
+            blueprint[i] = stack == null || stack.isEmpty() ? ItemStack.EMPTY : RtsItemStacks.copyWithCount(stack, 1);
         }
         refillCraftGridFromLinked(player, session, craftingMenu, blueprint);
     }
@@ -169,7 +171,7 @@ public final class RtsCraftingGridFiller {
         if (key == null) {
             return;
         }
-        Recipe<?> raw = player.serverLevel().getRecipeManager().byKey(key).orElse(null);
+        Recipe<?> raw = player.getLevel().getRecipeManager().byKey(key).orElse(null);
         if (!(raw instanceof CraftingRecipe craftingRecipe)) {
             return;
         }
@@ -391,7 +393,7 @@ public final class RtsCraftingGridFiller {
                 continue;
             }
             if (ingredient.test(prototype)) {
-                sanitized[i] = prototype.copyWithCount(1);
+                sanitized[i] = RtsItemStacks.copyWithCount(prototype, 1);
             }
         }
         return sanitized;

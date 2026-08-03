@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 
+import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 
 import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
@@ -21,7 +23,7 @@ public record C2SRtsSetQuickSlotPayload(
                 ItemStack preview = payload.previewStack() == null ? ItemStack.EMPTY : payload.previewStack();
                 buf.writeBoolean(!preview.isEmpty());
                 if (!preview.isEmpty()) {
-                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, preview.copyWithCount(1));
+                    com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs.writeItem(buf, RtsItemStacks.copyWithCount(preview, 1));
                 }
             },
             (buf) -> new C2SRtsSetQuickSlotPayload(

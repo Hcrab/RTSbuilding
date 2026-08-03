@@ -1,10 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.rtsbuilding.rtsbuilding.client.widget.RtsButtons;
 
+
+import com.mojang.blaze3d.vertex.PoseStack;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.uikit.theme.StandaloneScreenStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
-import net.minecraft.client.gui.GuiGraphics;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
@@ -32,13 +35,13 @@ public final class RtsHomeScreen extends Screen {
         int actionW = footerActionWidth();
         int footerX = footerX(actionW);
         int footerY = this.height - 28;
-        this.homeButton = Button.builder(homeButtonLabel(), btn -> {
+        this.homeButton = RtsButtons.builder(homeButtonLabel(), btn -> {
             this.minecraft.setScreen(null);
             this.controller.beginHomeSelection();
         }).bounds(footerX, footerY, actionW, 20).build();
         this.homeButton.active = canUseHomeButton();
         addRenderableWidget(this.homeButton);
-        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"),
+        addRenderableWidget(RtsButtons.builder(Component.translatable("gui.rtsbuilding.back"),
                 btn -> this.minecraft.setScreen(this.parent)).bounds(footerX + actionW + 8, footerY, 80, 20).build());
     }
 
@@ -52,7 +55,8 @@ public final class RtsHomeScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
+    public void render(PoseStack poseStack, int mouseX, int mouseY, float partialTick) {
+        RtsGuiContext g = new RtsGuiContext(poseStack, this);
         renderPageBackground(g);
         if (this.homeButton != null) {
             this.homeButton.setMessage(homeButtonLabel());
@@ -105,7 +109,7 @@ public final class RtsHomeScreen extends Screen {
         g.hLine(x, x + contentW, y, StandaloneScreenStyle.WARNING_DIVIDER.toArgb());
         drawWrapped(g, warning, x + 10, y + 9, contentW - 20,
                 StandaloneScreenStyle.WARNING_TEXT);
-        super.render(g, mouseX, mouseY, partialTick);
+        super.render(poseStack, mouseX, mouseY, partialTick);
     }
 
     @Override
@@ -138,14 +142,14 @@ public final class RtsHomeScreen extends Screen {
         return ticks <= 0L ? 0L : (ticks + TICKS_PER_GAME_DAY - 1L) / TICKS_PER_GAME_DAY;
     }
 
-    private void drawWrapped(GuiGraphics g, Component text, int x, int y, int width, UiColor color) {
+    private void drawWrapped(RtsGuiContext g, Component text, int x, int y, int width, UiColor color) {
         for (var line : this.font.split(text, width)) {
             g.drawString(this.font, line, x, y, color.toArgb());
             y += 10;
         }
     }
 
-    private void drawInfoRow(GuiGraphics g, int x, int y, int width,
+    private void drawInfoRow(RtsGuiContext g, int x, int y, int width,
                              Component label, Component value, UiColor valueColor) {
         int labelW = Math.min(132, Math.max(92, width / 3));
         g.fill(x, y, x + width, y + ROW_H, StandaloneScreenStyle.INFO_ROW_BACKGROUND.toArgb());
@@ -156,7 +160,7 @@ public final class RtsHomeScreen extends Screen {
                 valueColor.toArgb());
     }
 
-    private void renderPageBackground(GuiGraphics g) {
+    private void renderPageBackground(RtsGuiContext g) {
         g.fill(0, 0, this.width, this.height, StandaloneScreenStyle.PAGE_BACKGROUND.toArgb());
         g.fill(0, 0, this.width, 32, StandaloneScreenStyle.BAR_BACKGROUND.toArgb());
         g.fill(0, this.height - FOOTER_H, this.width, this.height,
