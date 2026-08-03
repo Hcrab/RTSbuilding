@@ -56,12 +56,16 @@ jobs:
         run: |
           set -euo pipefail
           read_property() {
-            grep -E "^[[:space:]]*$1[[:space:]]*=" gradle.properties \
+            sed -nE "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*(.*)$/\\1/p" gradle.properties \
               | tail -n 1 \
-              | cut -d= -f2- \
               | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
           }
           actual_minecraft="$(read_property minecraft_version)"
+          if [ -z "$actual_minecraft" ]; then
+            actual_minecraft="$(sed -nE \
+              "s/^[[:space:]]*mcVersion\\.set\\('([^']+)'\\).*$/\\1/p" \
+              build.gradle | head -n 1)"
+          fi
           actual_version="$(read_property mod_version)"
           test "$actual_minecraft" = "$MINECRAFT_VERSION"
           test "$actual_version" = "$RELEASE_VERSION"
