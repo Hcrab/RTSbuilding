@@ -23,7 +23,7 @@ import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -169,7 +169,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
             if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM && itemId != null && !itemId.isBlank()) {
                 registry.page().recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
             } else if (!toolSnapshot.isEmpty()) {
-                ResourceLocation toolId = BuiltInRegistries.ITEM.getKey(toolSnapshot.getItem());
+                ResourceLocation toolId = RtsBuiltInRegistries.ITEM.getKey(toolSnapshot.getItem());
                 if (toolId != null) {
                     registry.page().recordRecentItem(session, toolId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
                 }

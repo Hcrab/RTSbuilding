@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
@@ -129,8 +129,8 @@ public final class BlockPlacementPlanner {
         }
         List<Item> out = new ArrayList<>(ids.size());
         for (ResourceLocation id : ids) {
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) continue;
-            Item item = BuiltInRegistries.ITEM.get(id);
+            if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) continue;
+            Item item = RtsBuiltInRegistries.ITEM.get(id);
             if (item != null && item != Items.AIR) out.add(item);
         }
         return out.isEmpty() ? List.of() : List.copyOf(out);

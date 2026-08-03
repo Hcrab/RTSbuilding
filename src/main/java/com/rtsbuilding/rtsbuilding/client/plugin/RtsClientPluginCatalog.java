@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.plugin;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -41,7 +41,7 @@ public final class RtsClientPluginCatalog {
         if (stack == null || stack.isEmpty()) {
             return false;
         }
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation itemId = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
         return itemId != null && PLUGIN_ITEMS.contains(itemId);
     }
 

@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -253,7 +253,7 @@ final class RtsLegacySkillTreeMigration {
     }
 
     private static ItemStack pluginStack(RtsPluginDefinition definition) {
-        return new ItemStack(BuiltInRegistries.ITEM.get(definition.itemId()));
+        return new ItemStack(RtsBuiltInRegistries.ITEM.get(definition.itemId()));
     }
 
     private static ResourceLocation node(String path) {

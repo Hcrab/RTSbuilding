@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -72,7 +72,7 @@ public final class SoundService {
             return;
         }
         player.connection.send(new ClientboundSoundPacket(
-                BuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound),
+                RtsBuiltInRegistries.SOUND_EVENT.wrapAsHolder(sound),
                 source,
                 x, y, z,
                 volume, pitch,
@@ -110,9 +110,9 @@ public final class SoundService {
      */
     public static ItemStack createSoundStack(String itemId) {
         ResourceLocation id = ResourceLocation.tryParse(itemId == null ? "" : itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return ItemStack.EMPTY;
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(id));
+        return new ItemStack(RtsBuiltInRegistries.ITEM.get(id));
     }
 }

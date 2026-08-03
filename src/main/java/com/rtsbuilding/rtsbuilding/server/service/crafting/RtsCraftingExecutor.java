@@ -18,7 +18,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.NonNullList;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -141,7 +141,7 @@ public final class RtsCraftingExecutor {
 
         ItemStack previewResult = resolveCraftablePreviewResult(craftingRecipe, player);
         String resultLabel = previewResult.isEmpty() ? "item" : previewResult.getHoverName().getString();
-        ResourceLocation previewResultId = previewResult.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(previewResult.getItem());
+        ResourceLocation previewResultId = previewResult.isEmpty() ? null : RtsBuiltInRegistries.ITEM.getKey(previewResult.getItem());
         int requestedCrafts = Math.max(1, Math.min(999, craftCount));
         int completedCrafts = 0;
         int totalCraftedCount = 0;
@@ -270,7 +270,7 @@ public final class RtsCraftingExecutor {
             }
         }
 
-        ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
+        ResourceLocation resultId = RtsBuiltInRegistries.ITEM.getKey(result.getItem());
         return new CraftExecutionResult(true, false,
                 resultId == null ? "" : resultId.toString(),
                 Math.max(1, result.getCount()),

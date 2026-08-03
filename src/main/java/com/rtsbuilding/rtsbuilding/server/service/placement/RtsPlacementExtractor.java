@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -42,7 +42,7 @@ public final class RtsPlacementExtractor {
             return ItemStack.EMPTY;
         }
         ResourceLocation expectedId = ResourceLocation.tryParse(itemId);
-        ResourceLocation actualId = BuiltInRegistries.ITEM.getKey(itemPrototype.getItem());
+        ResourceLocation actualId = RtsBuiltInRegistries.ITEM.getKey(itemPrototype.getItem());
         if (expectedId == null || actualId == null || !expectedId.equals(actualId)) {
             return ItemStack.EMPTY;
         }

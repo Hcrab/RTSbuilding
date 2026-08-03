@@ -13,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.session.SessionFlags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
@@ -365,7 +365,7 @@ public final class SessionSerializer {
             long amount = tag.getLong("amount");
             if (id.isBlank() || amount <= 0L) continue;
             ResourceLocation key = ResourceLocation.tryParse(id);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) continue;
+            if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) continue;
             session.uiMemory.addRecentEntryLast(new RecentEntry(
                     id, amount, Math.max(0L, tag.getLong("capacity")), tag.getByte("kind")));
             if (session.uiMemory.getRecentEntries().size() >= RtsStorageRecentEntries.RECENT_ENTRY_LIMIT) break;
@@ -380,7 +380,7 @@ public final class SessionSerializer {
             String itemId = session.uiMemory.getQuickSlotItemId(i);
             if (itemId.isBlank()) continue;
             ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) continue;
+            if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) continue;
 
             CompoundTag tag = new CompoundTag();
             tag.putInt("slot", i);
@@ -388,7 +388,7 @@ public final class SessionSerializer {
             ItemStack preview = i < session.uiMemory.getQuickSlotPreviews().length
                     && session.uiMemory.getQuickSlotPreview(i) != null
                     ? session.uiMemory.getQuickSlotPreview(i) : ItemStack.EMPTY;
-            if (!preview.isEmpty() && preview.is(BuiltInRegistries.ITEM.get(key))) {
+            if (!preview.isEmpty() && preview.is(RtsBuiltInRegistries.ITEM.get(key))) {
                 tag.put("stack", preview.copyWithCount(1).save(new CompoundTag()));
             }
             list.add(tag);
@@ -406,16 +406,16 @@ public final class SessionSerializer {
             String itemId = tag.getString("item_id");
             if (slot < 0 || slot >= RtsStorageBindings.QUICK_SLOT_COUNT || itemId.isBlank()) continue;
             ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) continue;
+            if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) continue;
 
             session.uiMemory.setQuickSlotItemId(slot, itemId);
             ItemStack preview = ItemStack.EMPTY;
             if (tag.contains("stack", Tag.TAG_COMPOUND)) {
                 preview = ItemStack.of(tag.getCompound("stack"));
-                if (!preview.isEmpty() && !preview.is(BuiltInRegistries.ITEM.get(key))) preview = ItemStack.EMPTY;
+                if (!preview.isEmpty() && !preview.is(RtsBuiltInRegistries.ITEM.get(key))) preview = ItemStack.EMPTY;
             }
             session.uiMemory.setQuickSlotPreview(slot, preview.isEmpty()
-                    ? new ItemStack(BuiltInRegistries.ITEM.get(key))
+                    ? new ItemStack(RtsBuiltInRegistries.ITEM.get(key))
                     : preview.copyWithCount(1));
         }
     }
@@ -456,7 +456,7 @@ public final class SessionSerializer {
             String label = tag.getString("label");
             String itemId = tag.getString("item_id");
             ResourceLocation itemKey = ResourceLocation.tryParse(itemId);
-            String normalizedItemId = itemKey != null && BuiltInRegistries.ITEM.containsKey(itemKey) ? itemId : "";
+            String normalizedItemId = itemKey != null && RtsBuiltInRegistries.ITEM.containsKey(itemKey) ? itemId : "";
             Direction face = null;
             if (tag.contains("face", Tag.TAG_BYTE)) {
                 int faceId = tag.getByte("face");
@@ -581,6 +581,6 @@ public final class SessionSerializer {
     private static boolean isRegisteredItemId(String itemId) {
         if (itemId == null || itemId.isBlank()) return false;
         ResourceLocation key = ResourceLocation.tryParse(itemId);
-        return key != null && BuiltInRegistries.ITEM.containsKey(key);
+        return key != null && RtsBuiltInRegistries.ITEM.containsKey(key);
     }
 }

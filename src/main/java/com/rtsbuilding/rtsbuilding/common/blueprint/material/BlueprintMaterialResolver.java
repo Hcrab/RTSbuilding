@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.material;
 
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.Items;
@@ -25,8 +25,8 @@ public final class BlueprintMaterialResolver {
         if (item == Items.AIR) {
             return List.of();
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(item);
+        if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return List.of();
         }
         return List.of(id);

@@ -13,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -201,7 +201,7 @@ final class RtsGuiBindingHelper {
             return "";
         }
         ResourceLocation hintKey = ResourceLocation.tryParse(itemIdHint);
-        if (hintKey != null && BuiltInRegistries.ITEM.containsKey(hintKey)) {
+        if (hintKey != null && RtsBuiltInRegistries.ITEM.containsKey(hintKey)) {
             return hintKey.toString();
         }
         BlockState state = level.getBlockState(pos);
@@ -213,7 +213,7 @@ final class RtsGuiBindingHelper {
         if (item == null || item == Items.AIR) {
             return RtsAe2IconResolver.resolveGuiBindingIconItemId(level, pos, face, label);
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+        ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(item);
         if (id != null) {
             return id.toString();
         }

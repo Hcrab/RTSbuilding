@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.RefreshableSnapshotHandler;
 import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -130,7 +130,7 @@ public final class RtsHandlerCache {
 
     /** 返回指定物品在所有缓存槽位中的总数量。 */
     public long getCount(Item item) {
-        return this.countsByItem.getOrDefault(BuiltInRegistries.ITEM.getKey(item).toString(), 0L);
+        return this.countsByItem.getOrDefault(RtsBuiltInRegistries.ITEM.getKey(item).toString(), 0L);
     }
 
     /** 按物品注册字符串 ID 返回总数量。 */
@@ -229,7 +229,7 @@ public final class RtsHandlerCache {
             if (stack == null || stack.isEmpty()) {
                 return CachedSlot.EMPTY;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
             // 对返回代表性堆叠的 AE2/BD 等使用真实报告计数
             long count = (handler instanceof ReportedCountItemHandler rc)
                     ? Math.max(0L, rc.getReportedCount(slot))

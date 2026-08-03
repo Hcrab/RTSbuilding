@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.loadout;
 
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.item.ItemStack;
@@ -51,7 +51,7 @@ public final class RtsMiningRules {
         if (stack.isEmpty()) {
             return 0;
         }
-        String path = BuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
+        String path = RtsBuiltInRegistries.ITEM.getKey(stack.getItem()).getPath();
         if (path.contains("netherite")) {
             return 4;
         }

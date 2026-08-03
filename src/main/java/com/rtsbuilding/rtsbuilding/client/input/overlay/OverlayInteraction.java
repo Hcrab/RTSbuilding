@@ -15,7 +15,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.CraftingMenu;
@@ -149,7 +149,7 @@ public final class OverlayInteraction {
         if (carried.isEmpty()) {
             return false;
         }
-        var itemId = BuiltInRegistries.ITEM.getKey(carried.getItem());
+        var itemId = RtsBuiltInRegistries.ITEM.getKey(carried.getItem());
         if (itemId == null) {
             return false;
         }
@@ -368,7 +368,7 @@ public final class OverlayInteraction {
         }
         Slot resultSlot = menu.getSlot(0);
         ItemStack result = resultSlot == null ? ItemStack.EMPTY : resultSlot.getItem();
-        var resultId = result.isEmpty() ? null : BuiltInRegistries.ITEM.getKey(result.getItem());
+        var resultId = result.isEmpty() ? null : RtsBuiltInRegistries.ITEM.getKey(result.getItem());
         pendingCraftRefillScreen = screen;
         pendingCraftRefillButton = button;
         pendingCraftRefillBlueprint = blueprint;

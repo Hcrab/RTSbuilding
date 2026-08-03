@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.world.item.Item;
@@ -43,10 +43,10 @@ record BlueprintEntry(
         Vec3i size = blueprint.size();
         List<ItemStack> preview = new ArrayList<>();
         for (ResourceLocation id : blueprint.requiredItems().keySet()) {
-            if (!BuiltInRegistries.ITEM.containsKey(id)) {
+            if (!RtsBuiltInRegistries.ITEM.containsKey(id)) {
                 continue;
             }
-            Item item = BuiltInRegistries.ITEM.get(id);
+            Item item = RtsBuiltInRegistries.ITEM.get(id);
             ItemStack stack = new ItemStack(item);
             if (!stack.isEmpty()) {
                 preview.add(stack);

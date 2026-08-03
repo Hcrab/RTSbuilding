@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
@@ -90,8 +90,8 @@ final class BlueprintMaterialDialog {
                 }
                 ItemStack preview = ItemStack.EMPTY;
                 ResourceLocation id = ResourceLocation.tryParse(line.iconId);
-                if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                    preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
+                if (id != null && RtsBuiltInRegistries.ITEM.containsKey(id)) {
+                    preview = new ItemStack(RtsBuiltInRegistries.ITEM.get(id));
                 }
                 if (!preview.isEmpty()) {
                     g.renderItem(preview, rowX + 4, rowY + 2);

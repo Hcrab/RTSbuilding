@@ -61,7 +61,7 @@ import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -275,11 +275,11 @@ public final class RtsClientPacketGateway {
 
         String[] tokens = query.split("\\s+");
         List<String> matches = new ArrayList<>();
-        for (Item item : BuiltInRegistries.ITEM) {
+        for (Item item : RtsBuiltInRegistries.ITEM) {
             if (item == null) {
                 continue;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(item);
             if (id == null) {
                 continue;
             }

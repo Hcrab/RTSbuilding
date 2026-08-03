@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.gametest;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.api.RtsAPI;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -35,7 +35,7 @@ public final class MekanismToolsCompatibilityGameTests {
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 200)
     public static void osmiumPaxelAreaDestroyMinesStoneAndUnderwaterStone(GameTestHelper helper) {
-        Item osmiumPaxel = BuiltInRegistries.ITEM.get(
+        Item osmiumPaxel = RtsBuiltInRegistries.ITEM.get(
                 new ResourceLocation("mekanismtools", "osmium_paxel"));
         if (osmiumPaxel == Items.AIR) {
             helper.fail("Mekanism Tools 未安装，无法执行真实整合兼容测试");
@@ -64,7 +64,7 @@ public final class MekanismToolsCompatibilityGameTests {
                 RtsServerGameTests.asApiPositions(
                         helper, List.of(dirtRel, stoneRel, underwaterStoneRel)),
                 (byte) 0,
-                BuiltInRegistries.ITEM.getKey(osmiumPaxel).toString(),
+                RtsBuiltInRegistries.ITEM.getKey(osmiumPaxel).toString(),
                 tool,
                 false);
 

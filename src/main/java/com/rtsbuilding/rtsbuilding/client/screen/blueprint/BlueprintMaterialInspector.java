@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.FluidTags;
 import net.minecraft.util.Mth;
@@ -54,10 +54,10 @@ final class BlueprintMaterialInspector {
         for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
             String itemId = material.getKey().toString();
             int required = Math.max(0, material.getValue());
-            if (!BuiltInRegistries.ITEM.containsKey(material.getKey())) {
+            if (!RtsBuiltInRegistries.ITEM.containsKey(material.getKey())) {
                 continue;
             }
-            Item item = BuiltInRegistries.ITEM.get(material.getKey());
+            Item item = RtsBuiltInRegistries.ITEM.get(material.getKey());
             long available = availableItemCount(controller, itemId, item);
             ItemStack stack = new ItemStack(item);
             out.add(new MaterialLine(stack, stack.getHoverName().getString(), displayAvailable(available, required), required));
@@ -139,7 +139,7 @@ final class BlueprintMaterialInspector {
         int missingTypes = 0;
         for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
             int required = Math.max(0, material.getValue());
-            long available = availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.get(material.getKey()));
+            long available = availableItemCount(controller, material.getKey().toString(), RtsBuiltInRegistries.ITEM.get(material.getKey()));
             if (available < required) {
                 missingTypes++;
             }
@@ -176,7 +176,7 @@ final class BlueprintMaterialInspector {
             return false;
         }
         for (Map.Entry<ResourceLocation, Integer> material : entry.requiredItems().entrySet()) {
-            if (availableItemCount(controller, material.getKey().toString(), BuiltInRegistries.ITEM.get(material.getKey()))
+            if (availableItemCount(controller, material.getKey().toString(), RtsBuiltInRegistries.ITEM.get(material.getKey()))
                     < material.getValue()) {
                 return false;
             }
@@ -197,8 +197,8 @@ final class BlueprintMaterialInspector {
         }
         Map<ResourceLocation, Long> remainingItems = new LinkedHashMap<>();
         for (ResourceLocation id : entry.requiredItems().keySet()) {
-            if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                remainingItems.put(id, availableItemCount(controller, id.toString(), BuiltInRegistries.ITEM.get(id)));
+            if (id != null && RtsBuiltInRegistries.ITEM.containsKey(id)) {
+                remainingItems.put(id, availableItemCount(controller, id.toString(), RtsBuiltInRegistries.ITEM.get(id)));
             }
         }
         boolean waterReady = availableWaterBuckets(controller) >= WATER_BUCKET_THRESHOLD;
@@ -313,7 +313,7 @@ final class BlueprintMaterialInspector {
         if (isCreativePlayer()) {
             return WATER_BUCKET_THRESHOLD;
         }
-        long bucketItems = availableItemCount(controller, BuiltInRegistries.ITEM.getKey(Items.WATER_BUCKET).toString(), Items.WATER_BUCKET);
+        long bucketItems = availableItemCount(controller, RtsBuiltInRegistries.ITEM.getKey(Items.WATER_BUCKET).toString(), Items.WATER_BUCKET);
         long storedFluidBuckets = availableFluidBuckets(controller, Fluids.WATER);
         return saturatedAdd(bucketItems, storedFluidBuckets);
     }
@@ -325,7 +325,7 @@ final class BlueprintMaterialInspector {
         if (controller == null || fluid == null) {
             return 0L;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
+        ResourceLocation id = RtsBuiltInRegistries.FLUID.getKey(fluid);
         if (id == null) {
             return 0L;
         }

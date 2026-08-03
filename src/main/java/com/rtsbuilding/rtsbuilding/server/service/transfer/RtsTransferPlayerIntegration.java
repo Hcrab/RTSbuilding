@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -84,14 +84,14 @@ public final class RtsTransferPlayerIntegration {
         }
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return;
         }
         ItemStack carried = player.containerMenu.getCarried();
         if (carried.isEmpty()) {
             return;
         }
-        ResourceLocation carriedId = BuiltInRegistries.ITEM.getKey(carried.getItem());
+        ResourceLocation carriedId = RtsBuiltInRegistries.ITEM.getKey(carried.getItem());
         if (carriedId == null || !itemId.equals(carriedId.toString())) {
             return;
         }
@@ -129,10 +129,10 @@ public final class RtsTransferPlayerIntegration {
         List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return;
         }
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = RtsBuiltInRegistries.ITEM.get(id);
         int wanted = Math.max(1, Math.min(64, amount));
         ItemStack extracted = RtsTransferExtractor.extractMatchingFromQuickDropSources(
                 extractHandlers, player, item, wanted);
@@ -211,7 +211,7 @@ public final class RtsTransferPlayerIntegration {
                 if (gained.isEmpty()) {
                     break;
                 }
-                ResourceLocation gainedId = BuiltInRegistries.ITEM.getKey(gained.getItem());
+                ResourceLocation gainedId = RtsBuiltInRegistries.ITEM.getKey(gained.getItem());
                 if (gainedId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
                             session, gainedId.toString(),
@@ -235,7 +235,7 @@ public final class RtsTransferPlayerIntegration {
                 return;
             }
             if (menu instanceof CraftingMenu && menuSlot == 0) {
-                ResourceLocation craftedId = BuiltInRegistries.ITEM.getKey(moved.getItem());
+                ResourceLocation craftedId = RtsBuiltInRegistries.ITEM.getKey(moved.getItem());
                 if (craftedId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
                             session, craftedId.toString(),

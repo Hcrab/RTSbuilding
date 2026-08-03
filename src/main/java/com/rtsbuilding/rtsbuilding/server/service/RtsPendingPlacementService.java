@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -104,10 +104,10 @@ public final class RtsPendingPlacementService {
         ResourceLocation id = ResourceLocation.tryParse(itemId);
         String itemLabel = itemId;
         Block expectedBlock = null;
-        if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+        if (id != null && RtsBuiltInRegistries.ITEM.containsKey(id)) {
+            ItemStack stack = new ItemStack(RtsBuiltInRegistries.ITEM.get(id));
             itemLabel = stack.getHoverName().getString();
-            if (BuiltInRegistries.ITEM.get(id) instanceof net.minecraft.world.item.BlockItem blockItem) {
+            if (RtsBuiltInRegistries.ITEM.get(id) instanceof net.minecraft.world.item.BlockItem blockItem) {
                 expectedBlock = blockItem.getBlock();
             }
         }
@@ -254,8 +254,8 @@ public final class RtsPendingPlacementService {
             return template;
         }
         ResourceLocation fallbackId = ResourceLocation.tryParse(itemId);
-        if (fallbackId != null && BuiltInRegistries.ITEM.containsKey(fallbackId)) {
-            return new ItemStack(BuiltInRegistries.ITEM.get(fallbackId));
+        if (fallbackId != null && RtsBuiltInRegistries.ITEM.containsKey(fallbackId)) {
+            return new ItemStack(RtsBuiltInRegistries.ITEM.get(fallbackId));
         }
         return template;
     }

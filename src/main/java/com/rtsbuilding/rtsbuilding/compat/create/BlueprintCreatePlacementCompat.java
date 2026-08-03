@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.compat.create;
 
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -150,7 +150,7 @@ public final class BlueprintCreatePlacementCompat {
 
     private static CompoundTag fallbackSanitize(BlockState state, CompoundTag original) {
         CompoundTag sanitized = original.copy();
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        ResourceLocation id = RtsBuiltInRegistries.BLOCK.getKey(state.getBlock());
         String path = id == null ? "" : id.getPath();
         if (BELT_PATH.equals(path)) {
             removeAll(sanitized,
@@ -179,12 +179,12 @@ public final class BlueprintCreatePlacementCompat {
         if (state == null) {
             return false;
         }
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        ResourceLocation id = RtsBuiltInRegistries.BLOCK.getKey(state.getBlock());
         return id != null && CREATE_NAMESPACE.equals(id.getNamespace());
     }
 
     private static boolean isCreateBelt(BlockState state) {
-        ResourceLocation id = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        ResourceLocation id = RtsBuiltInRegistries.BLOCK.getKey(state.getBlock());
         return id != null
                 && CREATE_NAMESPACE.equals(id.getNamespace())
                 && BELT_PATH.equals(id.getPath());

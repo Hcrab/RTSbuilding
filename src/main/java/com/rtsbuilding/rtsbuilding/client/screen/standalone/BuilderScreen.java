@@ -75,7 +75,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
@@ -2629,7 +2629,7 @@ public class BuilderScreen extends Screen {
             if (toolStack.isEmpty()) {
                 return;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+            ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(toolStack.getItem());
             if (id == null) {
                 return;
             }
@@ -2754,7 +2754,7 @@ public class BuilderScreen extends Screen {
         if (preview.isEmpty() || preview.is(Items.AIR)) {
             return RtsAe2IconResolver.resolveGuiBindingIconItemId(this.minecraft.level, pos, hit.getDirection(), "");
         }
-        var id = BuiltInRegistries.ITEM.getKey(preview.getItem());
+        var id = RtsBuiltInRegistries.ITEM.getKey(preview.getItem());
         return id == null ? "" : id.toString();
     }
     /**

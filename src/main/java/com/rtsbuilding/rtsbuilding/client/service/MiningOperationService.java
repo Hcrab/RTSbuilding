@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
@@ -350,7 +350,7 @@ public final class MiningOperationService {
         if (prototype.isEmpty()) {
             return "";
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(prototype.getItem());
+        ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(prototype.getItem());
         return id == null ? "" : id.toString();
     }
 

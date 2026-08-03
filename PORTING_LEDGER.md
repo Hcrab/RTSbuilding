@@ -20,13 +20,15 @@
 | B003 | 能力 | 1.20.1 Capability 调用差异 | `ForgeCapabilities` + `LazyOptional` 生命周期 | linked storage、工具、流体、能量 | 待处理 | simulate/execute、回写、失效 |
 | C003 | 渲染 | 世界渲染阶段和缓冲生命周期差异 | 1.19.2 渲染事件 + 私有 buffer + 状态成对恢复 | Ghost、选择框、范围剔除 | 待处理 | 原版、优化模组、专服 |
 | D001 | 可选兼容 | JEI/Jade/Create 目标 API 不同 | 核心稳定后逐个恢复，不排除源码 | compat 包 | 待处理 | 缺失依赖启动、组合测试 |
+| C004 | 注册表访问 | 1.19.2 不存在 `BuiltInRegistries`，创造页签也尚未注册表化 | `RtsBuiltInRegistries` 委托旧 `Registry` 并提供只读页签视图 | 81 个物品、方块、流体、声音与分类调用文件 | 已适配，待全树编译 | 编译错误 425→346，原根因不再出现 |
 
 ## 阶段状态
 
 - 阶段 0：锚点、工作树、目标范围已确认；首个可审计提交准备中。
 - 阶段 1：构建坐标、资源元数据、JEI/Jade API 坐标均已降级；`gradlew tasks` 与 `compileClasspath` 依赖解析通过。
 - 阶段 2：UI Core / Kit 隔离、单元测试、headless 快照与 Java 8 字节码验证全部通过，无需建立 1.19.2 分叉实现。
-- 阶段 3—10：尚未开始。
+- 阶段 3：注册表访问契约已适配；NBT、ItemStack、对象注册及完整生产编译仍待处理。
+- 阶段 4—10：尚未开始。
 
 ## 人类实机验收保留项
 

@@ -23,7 +23,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.api.distmarker.Dist;
@@ -1016,7 +1016,7 @@ public final class RtsClientInputGate {
             return;
         }
 
-        var carriedId = BuiltInRegistries.ITEM.getKey(carried.getItem());
+        var carriedId = RtsBuiltInRegistries.ITEM.getKey(carried.getItem());
         if (carriedId == null || !pendingOverlayCarriedItemId.equals(carriedId.toString())) {
             pendingOverlayCarriedItemId = "";
             return;

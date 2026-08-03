@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.rule;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
@@ -84,7 +84,7 @@ public final class BlueprintReplaceRules {
         if (state == null || state.isAir() || state.canBeReplaced() || state.is(SOFT_REPLACEABLE)) {
             return true;
         }
-        return VANILLA_SOFT_REPLACEABLE.contains(BuiltInRegistries.BLOCK.getKey(state.getBlock()));
+        return VANILLA_SOFT_REPLACEABLE.contains(RtsBuiltInRegistries.BLOCK.getKey(state.getBlock()));
     }
 
     /** 创建 minecraft 命名空间的 {@link ResourceLocation} */

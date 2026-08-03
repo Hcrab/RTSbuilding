@@ -18,7 +18,7 @@ import com.rtsbuilding.rtsbuilding.server.task.TaskBudget;
 import com.rtsbuilding.rtsbuilding.server.task.TaskStepResult;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -225,7 +225,7 @@ public final class BlueprintTickPipe {
                 extracted.isEmpty() ? ItemStack.EMPTY : extracted.get(0));
         BlockPlacer.trackPlaced(level, plan.target());
         for (Item item : plan.items()) {
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(item);
             if (id != null) service.noteBlockPlaced(player, plan.target(), id.toString());
         }
         return PlaceResult.PLACED;

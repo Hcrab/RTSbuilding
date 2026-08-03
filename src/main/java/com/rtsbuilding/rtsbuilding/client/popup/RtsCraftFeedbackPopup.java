@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.CraftFeedbackStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
@@ -98,9 +98,9 @@ public final class RtsCraftFeedbackPopup {
 
     private static ItemStack resolvePreview(String itemId) {
         ResourceLocation key = ResourceLocation.tryParse(itemId == null ? "" : itemId);
-        if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+        if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) {
             return ItemStack.EMPTY;
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
+        return new ItemStack(RtsBuiltInRegistries.ITEM.get(key));
     }
 }

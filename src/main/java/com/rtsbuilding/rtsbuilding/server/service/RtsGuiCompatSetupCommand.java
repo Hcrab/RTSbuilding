@@ -12,7 +12,7 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -76,7 +76,7 @@ public final class RtsGuiCompatSetupCommand {
             ResourceLocation blockId = ResourceLocation.tryParse(targetBlockId);
             Block block = blockId == null
                     ? null
-                    : BuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
+                    : RtsBuiltInRegistries.BLOCK.getOptional(blockId).orElse(null);
             if (block == null || block == Blocks.AIR) {
                 source.sendFailure(Component.literal(
                         "RTS GUI compat: target block is not registered: " + targetBlockId));
@@ -204,7 +204,7 @@ public final class RtsGuiCompatSetupCommand {
         BlockPos nearest = null;
         double bestDistance = Double.MAX_VALUE;
         for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-1, 0, -1), origin.offset(4, 4, 4))) {
-            String id = BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
+            String id = RtsBuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
             if (!blockId.equals(id)) {
                 continue;
             }

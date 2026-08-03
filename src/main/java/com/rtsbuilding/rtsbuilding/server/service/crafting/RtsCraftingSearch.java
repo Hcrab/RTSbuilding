@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsBrowserState;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -224,7 +224,7 @@ public final class RtsCraftingSearch {
         if (result.isEmpty()) {
             return null;
         }
-        ResourceLocation resultId = BuiltInRegistries.ITEM.getKey(result.getItem());
+        ResourceLocation resultId = RtsBuiltInRegistries.ITEM.getKey(result.getItem());
         if (resultId == null) {
             return null;
         }

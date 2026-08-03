@@ -293,8 +293,8 @@ public final class RtsPlacementBatch {
     private static Block expectedPlacementBlock(PlaceBatchJob job) {
         String itemId = job.itemId();
         net.minecraft.resources.ResourceLocation id = net.minecraft.resources.ResourceLocation.tryParse(itemId);
-        if (id == null || !net.minecraft.core.registries.BuiltInRegistries.ITEM.containsKey(id)
-                || !(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(id)
+        if (id == null || !com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries.ITEM.containsKey(id)
+                || !(com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries.ITEM.get(id)
                 instanceof net.minecraft.world.item.BlockItem blockItem)) return null;
         Block expectedBlock = blockItem.getBlock();
         return expectedBlock == Blocks.AIR ? null : expectedBlock;

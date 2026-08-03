@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -69,10 +69,10 @@ public final class RtsStorageFluids {
             return false;
         }
         ResourceLocation fluidKey = ResourceLocation.tryParse(fluidId);
-        if (fluidKey == null || !BuiltInRegistries.FLUID.containsKey(fluidKey)) {
+        if (fluidKey == null || !RtsBuiltInRegistries.FLUID.containsKey(fluidKey)) {
             return false;
         }
-        Fluid fluid = BuiltInRegistries.FLUID.get(fluidKey);
+        Fluid fluid = RtsBuiltInRegistries.FLUID.get(fluidKey);
         if (fluid == null) {
             return false;
         }
@@ -157,11 +157,11 @@ public final class RtsStorageFluids {
             return false;
         }
         ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return false;
         }
 
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = RtsBuiltInRegistries.ITEM.get(id);
         ItemStack extracted = gate.extractOneFromNetwork(extractItemHandlers, player, item);
         if (extracted.isEmpty()) {
             return false;
@@ -195,7 +195,7 @@ public final class RtsStorageFluids {
         if (!executed.remainder().isEmpty()) {
             gate.refundToLinked(insertItemHandlers, player, executed.remainder());
         }
-        ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
+        ResourceLocation fluidId = RtsBuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
         if (fluidId != null) {
             RtsStorageRecentEntries.recordRecentFluid(
                     session,
@@ -246,7 +246,7 @@ public final class RtsStorageFluids {
             moveToPlayerInventoryOrDrop(gate, player, executed.remainder());
         }
         player.containerMenu.broadcastChanges();
-        ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
+        ResourceLocation fluidId = RtsBuiltInRegistries.FLUID.getKey(insertFluid.getFluid());
         if (fluidId != null) {
             RtsStorageRecentEntries.recordRecentFluid(
                     session,

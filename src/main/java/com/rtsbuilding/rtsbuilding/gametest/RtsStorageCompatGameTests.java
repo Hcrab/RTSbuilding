@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -467,7 +467,7 @@ public final class RtsStorageCompatGameTests {
     private static void assertNamespaceSearch(GameTestHelper helper, ServerPlayer player,
             Map<Item, Long> expected, String namespace) {
         long expectedEntries = expected.keySet().stream()
-                .filter(item -> namespace.equals(BuiltInRegistries.ITEM.getKey(item).getNamespace()))
+                .filter(item -> namespace.equals(RtsBuiltInRegistries.ITEM.getKey(item).getNamespace()))
                 .count();
         if (expectedEntries <= 0L) {
             return;
@@ -534,7 +534,7 @@ public final class RtsStorageCompatGameTests {
     private static void addNamespaceItems(Set<Item> out, String namespace, int limit) {
         int added = 0;
         for (Item item : allStackableItems()) {
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+            ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(item);
             if (id != null && namespace.equals(id.getNamespace()) && addCandidate(out, item)) {
                 added++;
                 if (added >= limit) {
@@ -557,7 +557,7 @@ public final class RtsStorageCompatGameTests {
 
     private static List<Item> allStackableItems() {
         List<Item> items = new ArrayList<>();
-        for (Item item : BuiltInRegistries.ITEM) {
+        for (Item item : RtsBuiltInRegistries.ITEM) {
             ItemStack stack = item.getDefaultInstance();
             if (item != Items.AIR && !stack.isEmpty() && stack.getMaxStackSize() > 1 && !stack.isDamageableItem()) {
                 items.add(item);
@@ -590,9 +590,9 @@ public final class RtsStorageCompatGameTests {
 
     private static void setBlockById(GameTestHelper helper, BlockPos rel, String idText) {
         ResourceLocation id = ResourceLocation.tryParse(idText);
-        helper.assertTrue(id != null && BuiltInRegistries.BLOCK.containsKey(id),
+        helper.assertTrue(id != null && RtsBuiltInRegistries.BLOCK.containsKey(id),
                 "测试需要已注册方块: " + idText);
-        Block block = BuiltInRegistries.BLOCK.get(id);
+        Block block = RtsBuiltInRegistries.BLOCK.get(id);
         helper.assertTrue(block != Blocks.AIR, "测试方块不能是空 " + idText);
         helper.setBlock(rel, block);
     }
@@ -617,7 +617,7 @@ public final class RtsStorageCompatGameTests {
 
     private static ItemStack itemStackById(String idText, int count) {
         ResourceLocation id = ResourceLocation.tryParse(idText);
-        Item item = id == null ? Items.AIR : BuiltInRegistries.ITEM.get(id);
+        Item item = id == null ? Items.AIR : RtsBuiltInRegistries.ITEM.get(id);
         if (item == Items.AIR) {
             throw new IllegalStateException("测试需要已注册物品: " + idText);
         }
@@ -661,7 +661,7 @@ public final class RtsStorageCompatGameTests {
     }
 
     private static String itemId(Item item) {
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+        ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(item);
         return id == null ? "minecraft:air" : id.toString();
     }
 

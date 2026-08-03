@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.CraftingMenu;
@@ -109,11 +109,11 @@ public final class RtsCraftingGridFiller {
                 continue;
             }
             ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+            if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) {
                 blueprint[i] = ItemStack.EMPTY;
                 continue;
             }
-            blueprint[i] = new ItemStack(BuiltInRegistries.ITEM.get(key));
+            blueprint[i] = new ItemStack(RtsBuiltInRegistries.ITEM.get(key));
         }
         refillCraftGridFromLinked(player, session, craftingMenu, blueprint);
     }

@@ -6,7 +6,7 @@ import java.lang.reflect.Proxy;
 import java.util.Optional;
 import java.util.UUID;
 
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -54,7 +54,7 @@ public final class RtsBackpackCompat {
             return Optional.empty();
         }
         return REFLECTION.getBackpackStack(blockEntity)
-                .map(stack -> BuiltInRegistries.ITEM.getKey(stack.getItem()))
+                .map(stack -> RtsBuiltInRegistries.ITEM.getKey(stack.getItem()))
                 .map(ResourceLocation::toString);
     }
 
@@ -74,10 +74,10 @@ public final class RtsBackpackCompat {
             return Optional.empty();
         }
         ResourceLocation itemKey = ResourceLocation.tryParse(itemId);
-        if (itemKey == null || !BuiltInRegistries.ITEM.containsKey(itemKey)) {
+        if (itemKey == null || !RtsBuiltInRegistries.ITEM.containsKey(itemKey)) {
             return findBackpackHandlerByUuid(fallbackPlayer, uuid);
         }
-        Item item = BuiltInRegistries.ITEM.get(itemKey);
+        Item item = RtsBuiltInRegistries.ITEM.get(itemKey);
         if (item == null) {
             return findBackpackHandlerByUuid(fallbackPlayer, uuid);
         }
@@ -108,7 +108,7 @@ public final class RtsBackpackCompat {
         if (stack == null || stack.isEmpty()) {
             return false;
         }
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation itemId = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
         if (itemId == null || !MOD_ID.equals(itemId.getNamespace())) {
             return false;
         }

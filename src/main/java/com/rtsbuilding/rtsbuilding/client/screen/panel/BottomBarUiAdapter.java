@@ -16,7 +16,7 @@ import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTab;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiToolSlot;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTransition;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import com.rtsbuilding.rtsbuilding.forgecompat.item.RtsItemStackCompat;
 
@@ -344,6 +344,6 @@ final class BottomBarUiAdapter {
 
     private static String itemId(ItemStack stack) {
         return stack == null || stack.isEmpty() ? ""
-                : BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                : RtsBuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
     }
 }

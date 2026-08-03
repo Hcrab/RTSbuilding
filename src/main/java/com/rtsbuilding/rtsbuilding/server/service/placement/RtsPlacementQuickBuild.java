@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -79,10 +79,10 @@ public final class RtsPlacementQuickBuild {
         }
 
         ResourceLocation id = ResourceLocation.tryParse(jobItemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return null;
         }
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = RtsBuiltInRegistries.ITEM.get(id);
         ItemStack templateStack = job.itemPrototype();
         if (templateStack.isEmpty()) {
             templateStack = new ItemStack(item);
@@ -108,7 +108,7 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
+        ResourceLocation sourceId = RtsBuiltInRegistries.ITEM.getKey(item);
         if (sourceId == null) {
             return null;
         }

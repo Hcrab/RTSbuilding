@@ -10,7 +10,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderLookup;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
@@ -141,7 +141,7 @@ final class SpongeSchemReader {
         int propertyStart = stateKey.indexOf('[');
         String blockId = propertyStart >= 0 ? stateKey.substring(0, propertyStart) : stateKey;
         ResourceLocation id = ResourceLocation.tryParse(blockId);
-        if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.BLOCK.containsKey(id)) {
             return blockId;
         }
         return "";

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.fluids;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -57,7 +57,7 @@ public final class RtsFluidBufferService {
         if (session == null || fluid == null) {
             return 0L;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
+        ResourceLocation id = RtsBuiltInRegistries.FLUID.getKey(fluid);
         if (id == null) {
             return 0L;
         }
@@ -72,7 +72,7 @@ public final class RtsFluidBufferService {
         if (session == null || player == null || fluidStack == null || fluidStack.isEmpty()) {
             return 0;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluidStack.getFluid());
+        ResourceLocation id = RtsBuiltInRegistries.FLUID.getKey(fluidStack.getFluid());
         if (id == null) {
             return 0;
         }
@@ -93,7 +93,7 @@ public final class RtsFluidBufferService {
         if (session == null || fluid == null || amount <= 0) {
             return 0;
         }
-        ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid);
+        ResourceLocation id = RtsBuiltInRegistries.FLUID.getKey(fluid);
         if (id == null) {
             return 0;
         }

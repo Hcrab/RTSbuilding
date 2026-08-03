@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -161,14 +161,14 @@ public final class RtsIntegratedDynamicsCompatGameTests {
     }
 
     private static void setBlockById(GameTestHelper helper, BlockPos rel, String idText) {
-        Block block = BuiltInRegistries.BLOCK.get(new ResourceLocation(idText));
+        Block block = RtsBuiltInRegistries.BLOCK.get(new ResourceLocation(idText));
         helper.assertTrue(block != Blocks.AIR, "测试方块必须存在: " + idText);
         helper.setBlock(rel, block.defaultBlockState());
     }
 
     private static void placeBlockByIdAsPlayer(GameTestHelper helper, BlockPos rel, String idText,
             ServerPlayer player) {
-        Block block = BuiltInRegistries.BLOCK.get(new ResourceLocation(idText));
+        Block block = RtsBuiltInRegistries.BLOCK.get(new ResourceLocation(idText));
         helper.assertTrue(block != Blocks.AIR, "测试方块必须存在: " + idText);
         helper.setBlock(rel, block.defaultBlockState());
         BlockPos absPos = helper.absolutePos(rel);
@@ -178,7 +178,7 @@ public final class RtsIntegratedDynamicsCompatGameTests {
 
     private static boolean hasDroppedOrCollectedItem(GameTestHelper helper, ServerPlayer player, BlockPos absPos,
             String expectedItemId) {
-        Item expected = BuiltInRegistries.ITEM.get(new ResourceLocation(expectedItemId));
+        Item expected = RtsBuiltInRegistries.ITEM.get(new ResourceLocation(expectedItemId));
         if (expected == Items.AIR) {
             return false;
         }

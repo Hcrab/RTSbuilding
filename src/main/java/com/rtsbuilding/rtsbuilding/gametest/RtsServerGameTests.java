@@ -67,7 +67,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.network.Connection;
@@ -277,7 +277,7 @@ public final class RtsServerGameTests {
                     player,
                     asApiPositions(helper, List.of(stoneRel)),
                     (byte) 0,
-                    BuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
+                    RtsBuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
                     diamondPickaxe,
                     false);
 
@@ -323,7 +323,7 @@ public final class RtsServerGameTests {
                 player,
                 asApiPositions(helper, List.of(snowBlockRel, snowLayerRel)),
                 (byte) 0,
-                BuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
+                RtsBuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
                 diamondPickaxe,
                 false);
 
@@ -426,7 +426,7 @@ public final class RtsServerGameTests {
                 helper.absolutePos(snowLayersRel.get(0)),
                 Direction.UP,
                 (byte) 0,
-                BuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
+                RtsBuiltInRegistries.ITEM.getKey(Items.DIAMOND_PICKAXE).toString(),
                 diamondPickaxe,
                 snowLayersRel.size(),
                 (byte) 0,
@@ -2148,7 +2148,7 @@ public final class RtsServerGameTests {
     }
 
     private static String itemId(Item item) {
-        return BuiltInRegistries.ITEM.getKey(item).toString();
+        return RtsBuiltInRegistries.ITEM.getKey(item).toString();
     }
 
     static void stopPlayers(ServerPlayer player) {

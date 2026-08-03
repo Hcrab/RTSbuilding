@@ -8,7 +8,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.HolderGetter;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.*;
 import net.minecraft.resources.ResourceLocation;
@@ -250,7 +250,7 @@ final class LitematicReader {
         }
         String name = paletteEntry.getString("Name");
         ResourceLocation id = ResourceLocation.tryParse(name);
-        if (id == null || !BuiltInRegistries.BLOCK.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.BLOCK.containsKey(id)) {
             return name == null ? "" : name;
         }
         return "";

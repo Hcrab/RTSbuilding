@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.CreativeModeTab;
@@ -78,10 +78,10 @@ public final class RtsPageCreativeTabIndexer {
         }
         for (String itemId : counts.keySet()) {
             ResourceLocation rl = ResourceLocation.tryParse(itemId);
-            if (rl == null || !BuiltInRegistries.ITEM.containsKey(rl)) {
+            if (rl == null || !RtsBuiltInRegistries.ITEM.containsKey(rl)) {
                 continue;
             }
-            Item item = BuiltInRegistries.ITEM.get(rl);
+            Item item = RtsBuiltInRegistries.ITEM.get(rl);
             java.util.Set<String> tabs = resolveCreativeTabKeys(itemId, item, operatorTabs);
             if (tabs.isEmpty()) {
                 continue;
@@ -113,11 +113,11 @@ public final class RtsPageCreativeTabIndexer {
      * 客户端配置或触发网络发送。专用服务器没有快照时允许分类为空，物品浏览和搜索仍可继续工作。
      */
     private static void indexAvailableCreativeTabContents(boolean operatorTabs) {
-        for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
+        for (CreativeModeTab tab : RtsBuiltInRegistries.CREATIVE_MODE_TAB) {
             if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
                 continue;
             }
-            ResourceLocation key = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
+            ResourceLocation key = RtsBuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
             indexCreativeTabContents(tab, key, operatorTabs);
         }
     }
@@ -131,7 +131,7 @@ public final class RtsPageCreativeTabIndexer {
             if (stack == null || stack.isEmpty()) {
                 continue;
             }
-            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            ResourceLocation itemId = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
             if (itemId == null) {
                 continue;
             }

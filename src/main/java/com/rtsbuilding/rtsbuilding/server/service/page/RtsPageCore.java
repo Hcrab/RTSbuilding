@@ -13,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -116,7 +116,7 @@ public final class RtsPageCore {
                         if (id == null) continue;
                         ItemStack prototype = aggregate.getPrototype(itemId);
                         if (prototype.isEmpty()) {
-                            var item = BuiltInRegistries.ITEM.get(id);
+                            var item = RtsBuiltInRegistries.ITEM.get(id);
                             prototype = new ItemStack(item);
                         }
                         mergeExactEntry(exactEntries, prototype, count);
@@ -132,7 +132,7 @@ public final class RtsPageCore {
                     for (int i = 0; i < handler.getSlots(); i++) {
                         ItemStack stack = handler.getStackInSlot(i);
                         if (stack.isEmpty()) continue;
-                        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+                        ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
                         if (id == null) continue;
                         long reportedCount = getHandlerReportedCount(handler, i, stack);
                         mergeCount(localCounts, id.toString(), reportedCount);
@@ -158,7 +158,7 @@ public final class RtsPageCore {
                 for (int tank = 0; tank < handler.getTanks(); tank++) {
                     FluidStack fluid = handler.getFluidInTank(tank);
                     if (fluid.isEmpty()) continue;
-                    ResourceLocation id = BuiltInRegistries.FLUID.getKey(fluid.getFluid());
+                    ResourceLocation id = RtsBuiltInRegistries.FLUID.getKey(fluid.getFluid());
                     if (id == null) continue;
                     String fluidId = id.toString();
                     mergeCount(fluidAmounts, fluidId, fluid.getAmount());
@@ -379,7 +379,7 @@ public final class RtsPageCore {
             if (stack.isEmpty()) {
                 continue;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
             if (id == null) {
                 continue;
             }
@@ -407,7 +407,7 @@ public final class RtsPageCore {
         if (entries == null || stack == null || stack.isEmpty() || count <= 0L) {
             return;
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
         if (id == null) {
             return;
         }

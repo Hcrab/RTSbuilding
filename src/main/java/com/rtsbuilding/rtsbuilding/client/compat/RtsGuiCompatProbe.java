@@ -15,7 +15,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.commands.Commands;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.level.block.state.BlockState;
@@ -128,7 +128,7 @@ public final class RtsGuiCompatProbe {
         }
 
         BlockState state = minecraft.level.getBlockState(hit.getBlockPos());
-        String targetBlock = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        String targetBlock = RtsBuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         if (!TARGET_BLOCK.isBlank() && !TARGET_BLOCK.equals(targetBlock)) {
             writeRow("run-start", "FAIL", currentScreenClass(minecraft), currentScreenTitle(minecraft),
                     currentMenuClass(minecraft), currentContainerId(minecraft),
@@ -173,7 +173,7 @@ public final class RtsGuiCompatProbe {
             return false;
         }
         BlockState state = minecraft.level.getBlockState(pos);
-        return TARGET_BLOCK.equals(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
+        return TARGET_BLOCK.equals(RtsBuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
     }
 
     private static BlockHitResult findNearestTargetHit(Minecraft minecraft) {

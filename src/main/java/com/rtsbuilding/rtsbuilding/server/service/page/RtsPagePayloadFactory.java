@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -124,7 +124,7 @@ public final class RtsPagePayloadFactory {
         }
         BlockPos pos = ref.pos();
         Item item = level.getBlockState(pos).getBlock().asItem();
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
+        ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(item);
         return id == null ? "" : id.toString();
     }
 
@@ -139,7 +139,7 @@ public final class RtsPagePayloadFactory {
             if (stack.isEmpty()) {
                 continue;
             }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+            ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
             if (id == null) {
                 continue;
             }

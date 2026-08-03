@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.util;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.client.Minecraft;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.ItemStack;
@@ -81,11 +81,11 @@ public final class RtsCreativeItemCatalog {
         Map<String, String> tabLabels = new LinkedHashMap<>();
         Map<String, String> modLabels = new LinkedHashMap<>();
         Set<String> seenItems = new HashSet<>();
-        for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
+        for (CreativeModeTab tab : RtsBuiltInRegistries.CREATIVE_MODE_TAB) {
             if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
                 continue;
             }
-            ResourceLocation tabId = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
+            ResourceLocation tabId = RtsBuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
             if (tabId == null) {
                 continue;
             }
@@ -160,7 +160,7 @@ public final class RtsCreativeItemCatalog {
         }
         ItemStack preview = stack.copy();
         preview.setCount(1);
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(preview.getItem());
+        ResourceLocation itemId = RtsBuiltInRegistries.ITEM.getKey(preview.getItem());
         if (itemId == null) {
             return;
         }

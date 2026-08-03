@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.screen.layout.CategoryTypes;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.CreativeModeTab;
 import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
@@ -211,7 +211,7 @@ final class BottomPanelCategoryBuilder {
         ResourceLocation key = ResourceLocation.tryParse(tabKey);
         if (key != null) {
             try {
-                CreativeModeTab tab = BuiltInRegistries.CREATIVE_MODE_TAB.get(key);
+                CreativeModeTab tab = RtsBuiltInRegistries.CREATIVE_MODE_TAB.get(key);
                 if (tab != null) {
                     String label = tab.getDisplayName().getString();
                     if (label != null && !label.isBlank()) {

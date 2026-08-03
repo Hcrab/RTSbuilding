@@ -40,7 +40,7 @@ final class RtsPluginPersistence {
             if (stack.isEmpty()) {
                 RtsPluginDefinition definition = RtsPluginRegistry.byId(pluginId);
                 if (definition == null) continue;
-                stack = new ItemStack(net.minecraft.core.registries.BuiltInRegistries.ITEM.get(definition.itemId()));
+                stack = new ItemStack(com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries.ITEM.get(definition.itemId()));
             }
             installed.add(new RtsInstalledPlugin(pluginId, stack, tag.getLong(NBT_INSTALLED_GAME_TIME)));
         }

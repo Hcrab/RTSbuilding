@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiTransition;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -63,7 +63,7 @@ final class BlueprintLibraryUiAdapter {
             if (detailed) {
                 for (ItemStack stack : entry.previewItems()) {
                     if (!stack.isEmpty()) {
-                        previewIds.add(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+                        previewIds.add(RtsBuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
                     }
                 }
             }

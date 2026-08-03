@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePaylo
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -89,7 +89,7 @@ public final class RtsPageSharedHelpers {
                 continue;
             }
             ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+            if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) {
                 continue;
             }
             sanitized.add(key.toString());

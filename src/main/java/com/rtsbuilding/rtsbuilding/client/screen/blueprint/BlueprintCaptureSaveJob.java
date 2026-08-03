@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import net.minecraft.Util;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Vec3i;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -223,15 +223,15 @@ final class BlueprintCaptureSaveJob {
         try {
             ItemStack cloneStack = state.getBlock().getCloneItemStack(this.level, pos, state);
             if (!cloneStack.isEmpty()) {
-                ResourceLocation id = BuiltInRegistries.ITEM.getKey(cloneStack.getItem());
-                if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
+                ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(cloneStack.getItem());
+                if (id != null && RtsBuiltInRegistries.ITEM.containsKey(id)) {
                     return id.toString();
                 }
             }
         } catch (RuntimeException ignored) {
         }
-        ResourceLocation fallback = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
-        return fallback == null || !BuiltInRegistries.ITEM.containsKey(fallback) ? "" : fallback.toString();
+        ResourceLocation fallback = RtsBuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
+        return fallback == null || !RtsBuiltInRegistries.ITEM.containsKey(fallback) ? "" : fallback.toString();
     }
 
     /**

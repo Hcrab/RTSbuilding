@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
@@ -152,10 +152,10 @@ public final class BuildPlacementService {
         ItemStack preview = qsPreview;
         if (preview.isEmpty()) {
             ResourceLocation id = ResourceLocation.tryParse(qsItemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+            if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
                 return;
             }
-            preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            preview = new ItemStack(RtsBuiltInRegistries.ITEM.get(id));
         }
         String label = qsLabel;
         if (label == null || label.isBlank()) {
@@ -204,7 +204,7 @@ public final class BuildPlacementService {
                 int slot = Mth.clamp(mc.player.getInventory().selected, 0, 8);
                 ItemStack toolStack = mc.player.getInventory().getItem(slot);
                 if (!toolStack.isEmpty() && toolStack.getItem() instanceof BlockItem) {
-                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+                    ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(toolStack.getItem());
                     if (id != null) {
                         payloadItemId = id.toString();
                     }
@@ -252,7 +252,7 @@ public final class BuildPlacementService {
                 int slot = Mth.clamp(mc.player.getInventory().selected, 0, 8);
                 ItemStack toolStack = mc.player.getInventory().getItem(slot);
                 if (!toolStack.isEmpty() && toolStack.getItem() instanceof BlockItem) {
-                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(toolStack.getItem());
+                    ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(toolStack.getItem());
                     if (id != null) {
                         payloadItemId = id.toString();
                     }
@@ -394,7 +394,7 @@ public final class BuildPlacementService {
     public void copyPlacementState(BlockState state) {
         this.placeRotateSteps = 0;
         this.placementStatePreset = PlacementStatePreset.fromBlockState(state);
-        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
+        ResourceLocation itemId = RtsBuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
         this.placementStateItemId = itemId == null ? "" : itemId.toString();
     }
 

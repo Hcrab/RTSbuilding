@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.gametest;
 
 import com.rtsbuilding.rtsbuilding.compat.create.BlueprintCreatePlacementCompat;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.nbt.CompoundTag;
@@ -34,7 +34,7 @@ public final class CreateBlueprintCompatibilityGameTests {
     /** 保险库在新位置重建时不能保留来源世界的控制器绝对坐标。 */
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
     public static void createVaultBlueprintRebuildsControllerAtPlacement(GameTestHelper helper) {
-        Block vault = BuiltInRegistries.BLOCK.get(new ResourceLocation("create", "item_vault"));
+        Block vault = RtsBuiltInRegistries.BLOCK.get(new ResourceLocation("create", "item_vault"));
         helper.assertTrue(vault != Blocks.AIR, "Create item vault must exist in the compatibility run");
 
         BlockPos staleController = new BlockPos(-175, 63, 2035);
@@ -69,7 +69,7 @@ public final class CreateBlueprintCompatibilityGameTests {
     /** 传送带丢弃旧拓扑，但保留外壳、覆盖和染色等玩家可见配置。 */
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
     public static void createBeltBlueprintDropsStaleRuntimeTopology(GameTestHelper helper) {
-        Block belt = BuiltInRegistries.BLOCK.get(new ResourceLocation("create", "belt"));
+        Block belt = RtsBuiltInRegistries.BLOCK.get(new ResourceLocation("create", "belt"));
         helper.assertTrue(belt != Blocks.AIR, "Create belt must exist in the compatibility run");
 
         BlockState state = belt.defaultBlockState();

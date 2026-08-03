@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.mode;
 
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.math.Axis;
+import com.mojang.math.Vector3f;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsGuiVectorRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
@@ -358,10 +358,11 @@ public final class PlacementStateWheel {
         pose.translate(centerX, centerY + 2, 180.0F);
         float modelScale = 15.0F * scale;
         pose.scale(modelScale, -modelScale, modelScale);
-        pose.mulPose(Axis.XP.rotationDegrees(25.0F - Mth.clamp(this.cameraPitch, -45.0F, 45.0F) * 0.35F));
+        pose.mulPose(Vector3f.XP.rotationDegrees(
+                25.0F - Mth.clamp(this.cameraPitch, -45.0F, 45.0F) * 0.35F));
         // Minecraft Camera 使用 PI - yaw 构造观察旋转；这里必须使用相同符号，
         // 否则玩家转过东/西方向后，轮盘模型会与实际放置结果镜像相反。
-        pose.mulPose(Axis.YP.rotationDegrees(placementPreviewYaw(this.cameraYaw)));
+        pose.mulPose(Vector3f.YP.rotationDegrees(placementPreviewYaw(this.cameraYaw)));
         pose.translate(-0.5F, -0.5F, -0.5F);
         try {
             Minecraft.getInstance().getBlockRenderer().renderSingleBlock(

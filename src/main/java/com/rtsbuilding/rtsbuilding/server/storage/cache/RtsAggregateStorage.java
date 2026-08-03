@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.items.IItemHandler;
@@ -374,7 +374,7 @@ public final class RtsAggregateStorage {
 
     /** Forge 1.20.1 的 Item#toString() 只返回路径，缓存键必须使用完整注册 ID。 */
     private static String itemId(Item item) {
-        return BuiltInRegistries.ITEM.getKey(item).toString();
+        return RtsBuiltInRegistries.ITEM.getKey(item).toString();
     }
 
     private void applyPendingMutations() {

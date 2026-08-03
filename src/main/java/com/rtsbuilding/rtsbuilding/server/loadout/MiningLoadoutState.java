@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.loadout;
 
 import com.rtsbuilding.rtsbuilding.server.data.PlayerComponents;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -92,7 +92,7 @@ public final class MiningLoadoutState {
 
     private static String stackFingerprint(ItemStack stack) {
         if (stack.isEmpty()) return "";
-        return BuiltInRegistries.ITEM.getKey(stack.getItem()).toString() + ":" + stack.getDamageValue();
+        return RtsBuiltInRegistries.ITEM.getKey(stack.getItem()).toString() + ":" + stack.getDamageValue();
     }
 
     private static String roleKey(MiningLoadoutRole role) {

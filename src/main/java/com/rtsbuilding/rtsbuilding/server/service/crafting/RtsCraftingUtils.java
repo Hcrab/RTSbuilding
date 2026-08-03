@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.inventory.CraftingContainer;
 import net.minecraft.world.inventory.CraftingMenu;
@@ -143,7 +143,7 @@ final class RtsCraftingUtils {
             if (ingredient == null || ingredient.stack().isEmpty()) {
                 continue;
             }
-            ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(ingredient.stack().getItem());
+            ResourceLocation itemId = RtsBuiltInRegistries.ITEM.getKey(ingredient.stack().getItem());
             if (itemId == null) {
                 continue;
             }

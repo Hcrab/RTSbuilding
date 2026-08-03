@@ -29,7 +29,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.EndCrystalItem;
@@ -1586,10 +1586,10 @@ public final class ScreenShapeController {
                 return false;
             }
             ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+            if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) {
                 return false;
             }
-            return BuiltInRegistries.ITEM.get(key) instanceof BlockItem;
+            return RtsBuiltInRegistries.ITEM.get(key) instanceof BlockItem;
         }
         return this.screen.canUseToolSlotShapeSource();
     }

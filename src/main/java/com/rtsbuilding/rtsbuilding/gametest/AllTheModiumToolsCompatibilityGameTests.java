@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.gametest;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.api.RtsAPI;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.gametest.framework.GameTest;
 import net.minecraft.gametest.framework.GameTestHelper;
 import net.minecraft.resources.ResourceLocation;
@@ -35,7 +35,7 @@ public final class AllTheModiumToolsCompatibilityGameTests {
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 160)
     public static void allthemodiumPickaxeAreaDestroyUsesRealToolStack(GameTestHelper helper) {
-        Item pickaxe = BuiltInRegistries.ITEM.get(
+        Item pickaxe = RtsBuiltInRegistries.ITEM.get(
                 new ResourceLocation("allthemodium", "allthemodium_pickaxe"));
         if (pickaxe == Items.AIR) {
             helper.fail("AllTheModium 未安装，无法执行真实整合兼容测试");
@@ -56,7 +56,7 @@ public final class AllTheModiumToolsCompatibilityGameTests {
                 player,
                 RtsServerGameTests.asApiPositions(helper, List.of(stoneRel)),
                 (byte) 0,
-                BuiltInRegistries.ITEM.getKey(pickaxe).toString(),
+                RtsBuiltInRegistries.ITEM.getKey(pickaxe).toString(),
                 tool,
                 false);
 

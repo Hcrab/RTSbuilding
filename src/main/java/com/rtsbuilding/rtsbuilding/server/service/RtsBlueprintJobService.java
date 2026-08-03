@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -85,7 +85,7 @@ public final class RtsBlueprintJobService {
                 PlacementPlan plan = plans.get(idx);
                 if (plan == null) continue;
                 for (Item item : plan.items()) {
-                    ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+                    ResourceLocation itemId = RtsBuiltInRegistries.ITEM.getKey(item);
                     if (itemId != null) {
                         matReqs.merge(itemId, 1, Integer::sum);
                     }
@@ -142,7 +142,7 @@ public final class RtsBlueprintJobService {
             PlacementPlan plan = plans.get(idx);
             if (plan == null) continue;
             for (Item item : plan.items()) {
-                ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(item);
+                ResourceLocation itemId = RtsBuiltInRegistries.ITEM.getKey(item);
                 if (itemId != null) {
                     materialRequirements.merge(itemId, 1, Integer::sum);
                 }
@@ -205,15 +205,15 @@ public final class RtsBlueprintJobService {
     // ======================================================================
 
     private static String itemLabel(ResourceLocation id) {
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return id != null ? id.toString() : "unknown";
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(id)).getHoverName().getString();
+        return new ItemStack(RtsBuiltInRegistries.ITEM.get(id)).getHoverName().getString();
     }
 
     private static long countMaterial(ServerPlayer player, ResourceLocation itemId) {
-        if (itemId == null || !BuiltInRegistries.ITEM.containsKey(itemId)) return 0;
-        ItemStack template = new ItemStack(BuiltInRegistries.ITEM.get(itemId));
+        if (itemId == null || !RtsBuiltInRegistries.ITEM.containsKey(itemId)) return 0;
+        ItemStack template = new ItemStack(RtsBuiltInRegistries.ITEM.get(itemId));
         long available = 0;
         available = RtsCountUtil.saturatedAdd(available,
                 ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,

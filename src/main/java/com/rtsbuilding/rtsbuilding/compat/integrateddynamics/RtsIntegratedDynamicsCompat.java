@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -50,7 +50,7 @@ public final class RtsIntegratedDynamicsCompat {
             return false;
         }
         BlockState before = level.getBlockState(pos);
-        ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(before.getBlock());
+        ResourceLocation blockId = RtsBuiltInRegistries.BLOCK.getKey(before.getBlock());
         if (!CABLE_BLOCK_ID.equals(blockId)) {
             return false;
         }
@@ -62,7 +62,7 @@ public final class RtsIntegratedDynamicsCompat {
         try {
             method.invoke(null, level, pos, player);
             BlockState after = level.getBlockState(pos);
-            return !after.equals(before) || !CABLE_BLOCK_ID.equals(BuiltInRegistries.BLOCK.getKey(after.getBlock()));
+            return !after.equals(before) || !CABLE_BLOCK_ID.equals(RtsBuiltInRegistries.BLOCK.getKey(after.getBlock()));
         } catch (IllegalAccessException | InvocationTargetException ex) {
             RtsbuildingMod.LOGGER.warn("Failed to invoke Integrated Dynamics cable removal at {}", pos, ex);
             return false;

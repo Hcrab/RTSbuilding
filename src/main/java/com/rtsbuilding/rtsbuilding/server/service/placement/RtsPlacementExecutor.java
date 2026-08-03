@@ -20,7 +20,7 @@ import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -231,7 +231,7 @@ public final class RtsPlacementExecutor {
         if (mainHandUseFallback.result().consumesAction()) {
             if (!sourceSnapshot.isEmpty()) {
                 SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-                ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+                ResourceLocation sourceId = RtsBuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
                 if (sourceId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
                             session,
@@ -281,7 +281,7 @@ public final class RtsPlacementExecutor {
             if (itemInteractFallback.result().consumesAction()) {
                 if (!sourceSnapshot.isEmpty()) {
                     SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-                    ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+                    ResourceLocation sourceId = RtsBuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
                     if (sourceId != null) {
                         ServiceRegistry.getInstance().page().recordRecentItem(
                                 session,
@@ -315,11 +315,11 @@ public final class RtsPlacementExecutor {
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         ResourceLocation id = ResourceLocation.tryParse(itemId);
-        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+        if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return false;
         }
 
-        Item item = BuiltInRegistries.ITEM.get(id);
+        Item item = RtsBuiltInRegistries.ITEM.get(id);
         ItemStack preferredStack = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
         ItemStack protectionStack = preferredStack.isEmpty() ? new ItemStack(item) : preferredStack.copyWithCount(1);
         boolean sophisticatedBackpackItem = RtsBackpackCompat.isBackpackItem(protectionStack);
@@ -474,7 +474,7 @@ public final class RtsPlacementExecutor {
             } else {
                 SoundService.playRemoteUseSound(player, level, null, placedPos, sourceSnapshot);
             }
-            ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+            ResourceLocation sourceId = RtsBuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
             if (sourceId != null) {
                 ServiceRegistry.getInstance().page().recordRecentItem(
                         session,
@@ -484,7 +484,7 @@ public final class RtsPlacementExecutor {
             }
         } else if (!sourceSnapshot.isEmpty()) {
             SoundService.playRemoteUseSound(player, level, null, clickedPos, sourceSnapshot);
-            ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
+            ResourceLocation sourceId = RtsBuiltInRegistries.ITEM.getKey(sourceSnapshot.getItem());
             if (sourceId != null) {
                 ServiceRegistry.getInstance().page().recordRecentItem(
                         session,

@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
+import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
@@ -634,7 +634,7 @@ public final class StorageStateManager {
         if (index < 0 || index >= QUICK_SLOT_COUNT || stack == null || stack.isEmpty()) {
             return;
         }
-        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(stack.getItem());
         if (id == null) {
             return;
         }
@@ -746,7 +746,7 @@ public final class StorageStateManager {
             }
             ItemStack preview = stack.copy();
             preview.setCount(1);
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(preview.getItem());
+            ResourceLocation id = RtsBuiltInRegistries.ITEM.getKey(preview.getItem());
             if (id == null) {
                 continue;
             }
@@ -759,7 +759,7 @@ public final class StorageStateManager {
             for (int i = 0; i < totalItemSize; i++) {
                 String itemId = payload.totalItemIds().get(i);
                 ResourceLocation id = ResourceLocation.tryParse(itemId);
-                if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+                if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
                     continue;
                 }
                 this.storageTotalCounts.put(itemId, Math.max(0L, payload.totalItemCounts().get(i)));
@@ -771,10 +771,10 @@ public final class StorageStateManager {
         for (int i = 0; i < fluidSize; i++) {
             String fluidId = payload.fluidIds().get(i);
             ResourceLocation id = ResourceLocation.tryParse(fluidId);
-            if (id == null || !BuiltInRegistries.FLUID.containsKey(id)) {
+            if (id == null || !RtsBuiltInRegistries.FLUID.containsKey(id)) {
                 continue;
             }
-            Fluid fluid = BuiltInRegistries.FLUID.get(id);
+            Fluid fluid = RtsBuiltInRegistries.FLUID.get(id);
             FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
             ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
             String label = fluid.getFluidType().getDescription(fluidStack).getString();
@@ -810,14 +810,14 @@ public final class StorageStateManager {
         for (int i = 0; i < funnelBufferSize; i++) {
             String itemId = payload.funnelBufferItemIds().get(i);
             ResourceLocation id = ResourceLocation.tryParse(itemId);
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+            if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
                 continue;
             }
             long count = Math.max(0L, payload.funnelBufferCounts().get(i));
             if (count <= 0L) {
                 continue;
             }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            ItemStack stack = new ItemStack(RtsBuiltInRegistries.ITEM.get(id));
             this.funnelBufferEntries.add(new FunnelBufferEntry(stack, itemId, count));
         }
         this.storageRevision++;
@@ -855,11 +855,11 @@ public final class StorageStateManager {
         int optionFlatIndex = 0;
         for (int i = 0; i < size; i++) {
             ResourceLocation id = ResourceLocation.tryParse(payload.resultItemIds().get(i));
-            if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+            if (id == null || !RtsBuiltInRegistries.ITEM.containsKey(id)) {
                 optionFlatIndex += i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
                 continue;
             }
-            ItemStack stack = new ItemStack(BuiltInRegistries.ITEM.get(id));
+            ItemStack stack = new ItemStack(RtsBuiltInRegistries.ITEM.get(id));
             int resultCount = Math.max(1, payload.resultCounts().get(i));
             stack.setCount(Math.min(resultCount, stack.getMaxStackSize()));
             int optionCount = i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
@@ -916,10 +916,10 @@ public final class StorageStateManager {
         for (int i = 0; i < ingredientSize; i++) {
             String consumedItemId = payload.consumedItemIds().get(i);
             ResourceLocation consumedKey = ResourceLocation.tryParse(consumedItemId);
-            if (consumedKey == null || !BuiltInRegistries.ITEM.containsKey(consumedKey)) {
+            if (consumedKey == null || !RtsBuiltInRegistries.ITEM.containsKey(consumedKey)) {
                 continue;
             }
-            ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(consumedKey));
+            ItemStack preview = new ItemStack(RtsBuiltInRegistries.ITEM.get(consumedKey));
             decodedIngredients.add(new CraftFeedbackIngredient(
                     consumedItemId,
                     preview.getHoverName().getString(),
@@ -1142,13 +1142,13 @@ public final class StorageStateManager {
                 continue;
             }
             ResourceLocation key = ResourceLocation.tryParse(itemId);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+            if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) {
                 continue;
             }
             ItemStack preview = payloadQuickSlotPreviews != null && i < payloadQuickSlotPreviews.size()
                     ? payloadQuickSlotPreviews.get(i)
                     : ItemStack.EMPTY;
-            if (preview == null || preview.isEmpty() || !preview.is(BuiltInRegistries.ITEM.get(key))) {
+            if (preview == null || preview.isEmpty() || !preview.is(RtsBuiltInRegistries.ITEM.get(key))) {
                 preview = resolveQuickSlotFallbackPreview(itemId, key);
             } else {
                 preview = preview.copyWithCount(1);
@@ -1163,7 +1163,7 @@ public final class StorageStateManager {
                 return entry.stack().copyWithCount(1);
             }
         }
-        return new ItemStack(BuiltInRegistries.ITEM.get(key));
+        return new ItemStack(RtsBuiltInRegistries.ITEM.get(key));
     }
 
     private void applyGuiBindingPayload(List<String> payloadGuiBindings, List<String> payloadGuiBindingItemIds) {
@@ -1179,12 +1179,12 @@ public final class StorageStateManager {
             String itemId = payloadGuiBindingItemIds.get(i);
             this.guiBindingItemIds[i] = itemId == null ? "" : itemId;
             ResourceLocation key = ResourceLocation.tryParse(this.guiBindingItemIds[i]);
-            if (key == null || !BuiltInRegistries.ITEM.containsKey(key)) {
+            if (key == null || !RtsBuiltInRegistries.ITEM.containsKey(key)) {
                 this.guiBindingItemIds[i] = "";
                 this.guiBindingPreviews[i] = ItemStack.EMPTY;
                 continue;
             }
-            this.guiBindingPreviews[i] = new ItemStack(BuiltInRegistries.ITEM.get(key));
+            this.guiBindingPreviews[i] = new ItemStack(RtsBuiltInRegistries.ITEM.get(key));
         }
     }
 
@@ -1227,8 +1227,8 @@ public final class StorageStateManager {
                 ? payload.linkedIconItemIds().get(index)
                 : "";
         ResourceLocation iconKey = ResourceLocation.tryParse(iconItemId);
-        if (iconKey != null && BuiltInRegistries.ITEM.containsKey(iconKey)) {
-            preview = new ItemStack(BuiltInRegistries.ITEM.get(iconKey));
+        if (iconKey != null && RtsBuiltInRegistries.ITEM.containsKey(iconKey)) {
+            preview = new ItemStack(RtsBuiltInRegistries.ITEM.get(iconKey));
         }
         return new LinkedStorageEntry(pos, label, mode, priority, preview, worldAvailable);
     }
@@ -1318,19 +1318,19 @@ public final class StorageStateManager {
                 || kind == S2CRtsStoragePagePayload.RECENT_FLUID_USED
                 || kind == S2CRtsStoragePagePayload.RECENT_FLUID_CRAFTED;
         if (fluidKind) {
-            if (!BuiltInRegistries.FLUID.containsKey(id)) {
+            if (!RtsBuiltInRegistries.FLUID.containsKey(id)) {
                 return null;
             }
-            Fluid fluid = BuiltInRegistries.FLUID.get(id);
+            Fluid fluid = RtsBuiltInRegistries.FLUID.get(id);
             FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
             ItemStack preview = FluidUtil.getFilledBucket(fluidStack);
             String label = fluid.getFluidType().getDescription(fluidStack).getString();
             return new RecentEntry(true, idText, label, Math.max(0L, amount), Math.max(0L, capacity), kind, preview);
         }
-        if (!BuiltInRegistries.ITEM.containsKey(id)) {
+        if (!RtsBuiltInRegistries.ITEM.containsKey(id)) {
             return null;
         }
-        ItemStack preview = new ItemStack(BuiltInRegistries.ITEM.get(id));
+        ItemStack preview = new ItemStack(RtsBuiltInRegistries.ITEM.get(id));
         return new RecentEntry(false, idText, preview.getHoverName().getString(), Math.max(0L, amount), 0L, kind, preview);
     }
 }
