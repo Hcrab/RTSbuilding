@@ -27,6 +27,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
@@ -163,6 +164,11 @@ final class BuilderScreenWindowActionOwner {
         }
 
     boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
+            return handleQuickBuildRangeDestroyClick(mouseX, mouseY, RtsTraceInputKind.UNKNOWN);
+        }
+
+    boolean handleQuickBuildRangeDestroyClick(
+            double mouseX, double mouseY, RtsTraceInputKind inputKind) {
             if (!screen.isQuickBuildRangeDestroyMode() || screen.isQuickBuildRangeDestroyChainMode() || !screen.isWorldArea(mouseX, mouseY)) {
                 return false;
             }
@@ -176,11 +182,12 @@ final class BuilderScreenWindowActionOwner {
                 if (Config.isKeyboardBatchConfirmEnabled()) {
                     return true;
                 }
-                return screen.shapeController.tryConfirmPendingRangeDestroy();
+                return screen.shapeController.tryConfirmPendingRangeDestroy(inputKind);
             }
             InteractionTypes.InteractionTarget target = screen.cursorPicker.pickInteractionTarget(false);
             if (target != null && target.blockHit() != null) {
-                screen.shapeController.selectRangeDestroyShape(target.blockHit(), mouseY, target.rayDir());
+                screen.shapeController.selectRangeDestroyShape(
+                        target.blockHit(), mouseY, target.rayDir(), inputKind);
                 return true;
             }
             return true;

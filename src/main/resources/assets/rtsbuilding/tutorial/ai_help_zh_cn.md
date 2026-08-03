@@ -249,14 +249,19 @@ RTS 界面打开后，鼠标和键盘输入先经过界面输入路由。路由�
 
 ### 5. 结构化诊断日志
 
-服务端在统一 Pipeline 和 Workflow 边界写入 `[RTS-DIAG]` 单行记录，不在每方块或每 tick 路径刷屏。关键批量操作会记录：
+破坏类操作使用固定关联链 `trace → seq → op → workflow → task`。客户端按下一次鼠标/键盘时生成非零 `trace`；同一次按住、松开、START、STOP 和服务端终态沿用它，`seq` 表示边界事件顺序。服务端再补充分配 `op`、可见 `workflow` 和持久化 `task`。搜索同一个十六进制 `trace`，即可跨客户端与服务端还原一次操作。
 
-- `BEGIN`：请求已到达，包含操作号、玩家、模式、任务类型和目标数。
-- `RESULT`：请求被接受、跳过或拒绝，包含工作流号、失败阶段和稳定原因代码。
-- `FILTER`：一批目标因采掘等级、工具或会话范围被过滤时，只写一条聚合记录。
-- `TERMINAL`：工作流完成、部分失败、取消或超时，包含完成数和失败数。
+普通日志使用三个稳定前缀，并避免逐方块或逐 tick 刷屏：
 
-排障时先用同一个 `op` 关联 `BEGIN` 与 `RESULT`，再用 `workflow` 查找异步任务的 `TERMINAL`。常见 `reason` 包括 `FEATURE_LOCKED`、`HARVEST_TIER_TOO_LOW`、`TOOL_CANNOT_HARVEST`、`OUTSIDE_SESSION_RANGE` 和 `CLAIM_DENIED`。单方块正常成功通常只写入 DEBUG，关键批量操作和拒绝结果保留在普通日志。
+- `[RTS-TRACE] side=C|S`：`INPUT_PRESS`、`INPUT_RELEASE`、`PACKET_SEND`、`NET_RECEIVE` 和客户端收到终态。
+- `[RTS-DIAG]`：Pipeline `BEGIN/RESULT`、`WORKFLOW_CREATED`、`TASK_SUBMITTED/FIRST_SLICE/WAIT/RESUME/PROGRESS`、精确停止来源和 `TERMINAL`。
+- `[RTS-SERVER-HEALTH]`：严重 tick 间隔及同期 RTS 切片、队列和持久化聚合；它只说明时间重叠，不把卡顿归因给某个模组。
+
+`TERMINAL` 会说明任务是否真正执行过、从提交到首次 slice 等了多少 tick、完成/失败数量，以及是否与近期 tick gap 重叠。`PERSIST_LOAD_*`、`PERSIST_SAVE_*` 和 `PERSIST_STOP_RESULT` 用于判断旧任务从哪里恢复、保存是否 ACK；不记录绝对路径、完整 NBT、蓝图或库存。
+
+独立结构化文件位于 `logs/rtsbuilding/diagnostics-client.jsonl` 和 `logs/rtsbuilding/diagnostics-server.jsonl`。写入队列有界且不阻塞帧线程或服务端 tick；文件约 8 MiB 后轮转到 `.2/.3`，停服/断线会尽力 flush。队列满或写盘失败只丢诊断并累计/告警，不改变玩法结果。
+
+`diagnostics.level` 默认 `BASIC`，记录上述有界生命周期和百分比进度检查点；`VERBOSE` 额外允许每秒一次任务进度样本；`OFF` 关闭这些诊断。常见拒绝原因包括 `FEATURE_LOCKED`、`HARVEST_TIER_TOO_LOW`、`TOOL_CANNOT_HARVEST`、`OUTSIDE_SESSION_RANGE` 和 `CLAIM_DENIED`。排障时应同时提供客户端与服务端复现时段的日志；若需要 CPU 归因，仍需 Spark、JFR 等 profiler。
 
 ## 主要功能责任链
 
@@ -417,6 +422,7 @@ UI Core 状态快照可能在 `BuilderScreen` 构造期间生成。此时 Screen
 | `showInventoryRtsButton` | `true` | 在原版背包顶部显示 RTS 入口按钮。 |
 | `requireKeyboardBatchConfirm` | `true` | 批量操作要求键盘最终确认。 |
 | `developerMode` | `false` | 显示开发场景入口并启用本地开发诊断输出。 |
+| `diagnostics.level` | `BASIC` | 客户端操作链诊断级别；`OFF` 关闭，`VERBOSE` 增加细节。结构化日志会写入 `logs/rtsbuilding/diagnostics-client.jsonl`。 |
 
 ### 服务端运行限制
 
@@ -445,12 +451,15 @@ UI Core 状态快照可能在 `BuilderScreen` 构造期间生成。此时 Screen
 | `mining.dropScanRadius` | `1.25`（0.25–8.0） | 远程挖掘后吸收附近掉落物的扫描半径。 |
 | `placement.remoteBlockActionSoundsPerTick` | `16`（0–16） | 每位玩家每 tick 发送的远程方块动作音效上限；超出直接丢弃。 |
 | `fluid.internalFluidCapacityBuckets` | `100`（1–4096） | 进度数据不可用时内部流体缓冲的回退容量，单位桶。 |
+| `diagnostics.level` | `BASIC` | 服务端诊断级别；`BASIC` 记录任务阈值进度、tick 健康和持久化结果，`VERBOSE` 额外允许每秒一次任务进度样本，`OFF` 关闭。 |
 
 ## 现象到检查点
 
 | 玩家看到的现象 | 可能停留的检查点 | 玩家可以先验证 |
 |---|---|---|
 | 按键或点击完全没反应 | UI 输入所有权、文本框焦点、当前模式、仍在等待 A/B 点、客户端未发包 | 关闭浮窗，按 `Esc` 取消当前工具后重选模式；说明按键方式和当前顶部栏模式。 |
+| 长按破坏没有进度，或松开很久才停 | 同一 `trace` 的 `TASK_FIRST_SLICE`、`TASK_WAIT`、STOP 来源、服务端终态或 tick gap | 同时提供客户端和服务端日志；搜索同一十六进制 `trace`，对比首次切片等待、停止来源和 `TERMINAL`。 |
+| 整个服务器同时卡顿 | `[RTS-SERVER-HEALTH]` tick gap、任务队列/运行数，或其他模组占用主线程 | 提供同一分钟的服务端日志；再用 Spark/JFR 采样，结构化日志只能说明时序，不能单独归因 CPU。 |
 | 进度在重进后卡住、无高亮且叉号无效 | 持久化 Task 恢复、Workflow 投影超时、客户端未收到空闲状态 | 保留存档并提供退出前后日志；重新点击叉号会请求服务端权威状态对账。 |
 | 预览正常，确认后没有执行 | 键盘最终确认、网络发送、会话/维度、插件、范围、权限或任务入队 | 按设置中的确认键；查看底部浮现提示和 `latest.log` 中是否出现请求/工作流。 |
 | 需要点两次右键才交互 | 首次点击被拖拽判定、面板或模式切换消费；释放事件未形成交互 | 在无浮窗位置短按右键，记录第一次按下/释放后的模式与高亮是否变化。 |

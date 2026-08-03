@@ -79,6 +79,8 @@ public final class ClientPayloadDispatcher {
                     RtsClientNetworkHandlers.handleUltimineProgress(p, ctx);
             case S2CRtsHarvestTierSkippedPayload p ->
                     RtsClientNetworkHandlers.handleHarvestTierSkipped(p, ctx);
+            case S2CRtsOperationTerminalPayload p ->
+                    RtsClientNetworkHandlers.handleOperationTerminal(p, ctx);
             case S2CRtsPlaceAnimationPayload p ->
                     RtsClientNetworkHandlers.handlePlaceAnimation(p, ctx);
             case S2CRtsBreakAnimationPayload p ->

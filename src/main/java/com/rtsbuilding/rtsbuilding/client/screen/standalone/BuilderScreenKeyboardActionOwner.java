@@ -27,6 +27,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
@@ -291,7 +292,7 @@ final class BuilderScreenKeyboardActionOwner {
             }
             if (screen.shapeController.isAwaitingBatchDestroyConfirm()
                     && ClientKeyMappings.CONFIRM_BATCH_DESTROY.matches(keyCode, scanCode)) {
-                screen.shapeController.tryConfirmPendingRangeDestroy();
+                screen.shapeController.tryConfirmPendingRangeDestroy(RtsTraceInputKind.KEYBOARD);
                 return true;
             }
             if (screen.shapeController.isAwaitingBatchPlaceConfirm()

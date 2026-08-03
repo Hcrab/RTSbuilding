@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.task;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskCodec;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator;
@@ -58,8 +59,10 @@ public final class DurableTaskScheduler {
         while (!queue.isEmpty() && processed < maxUnits && nanoClock.getAsLong() < deadline) {
             TaskSnapshot before = queue.removeFirst();
             int allowance = Math.min(maxUnitsPerSlice, maxUnits - processed);
+            long sliceStarted = nanoClock.getAsLong();
             SliceResult result = executors.get(before.type()).execute(before,
                     new TaskBudget(allowance, deadline, nanoClock));
+            long sliceNanos = Math.max(0L, nanoClock.getAsLong() - sliceStarted);
             TaskSnapshot after = Objects.requireNonNull(result.snapshot(), "executor snapshot");
             if (!before.id().equals(after.id())) {
                 throw new IllegalStateException("durable executor 不能替换 TaskId");
@@ -87,6 +90,12 @@ public final class DurableTaskScheduler {
                 }
             } else {
                 throw new IllegalStateException("durable executor 必须保持 revision 或严格递增一版");
+            }
+            try {
+                RtsServerTraceRegistry.onTaskSlice(
+                        before, after, result.processedUnits(), sliceNanos, allowance, maxNanos);
+            } catch (RuntimeException diagnosticFailure) {
+                RtsbuildingMod.LOGGER.debug("RTS task diagnostic observer failed", diagnosticFailure);
             }
             slices++;
             processed += Math.max(0, result.processedUnits());

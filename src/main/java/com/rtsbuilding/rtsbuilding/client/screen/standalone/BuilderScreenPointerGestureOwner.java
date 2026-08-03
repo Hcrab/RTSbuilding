@@ -27,6 +27,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenCursorPicker;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.ScreenShapeController;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.StorageLinkDetailHandler;
 import com.rtsbuilding.rtsbuilding.client.screen.input.CameraInputHandler;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.layout.BottomPanelLayoutTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.BuilderModeWheel;
@@ -131,7 +132,7 @@ final class BuilderScreenPointerGestureOwner {
                 return true;
             }
             if (screen.cameraInput.isLeftMiningActive() && !screen.cameraInput.isKeyboardMining() && button == screen.cameraInput.getActiveMiningMouseButton()) {
-                screen.cameraInput.stopActiveMining();
+                screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.POINTER_RELEASE);
                 return true;
             }
             if (screen.handleFloatingWindowRelease(mouseX, mouseY, button)) {
@@ -281,7 +282,7 @@ final class BuilderScreenPointerGestureOwner {
             RtsPlacementRayFreeze.freeze(
                     screen.cursorPicker.currentRayOrigin(),
                     screen.cursorPicker.computeCursorRayDirection());
-            screen.cameraInput.stopActiveMining();
+            screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.PLACEMENT_WHEEL_OPENED);
             screen.cameraInput.cancelPointerGestures();
             screen.rotationHandles.clear();
             screen.modeWheel.close();

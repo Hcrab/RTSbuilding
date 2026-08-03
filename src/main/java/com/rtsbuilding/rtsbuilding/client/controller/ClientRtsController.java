@@ -301,7 +301,15 @@ public static ClientRtsController get() {
     public void breakPlaced(BlockPos pos) { this.interactionOwner.breakPlaced(pos); }
     public void breakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) { this.interactionOwner.breakPlaced(pos, face, allowAdjacentFallback); }
     public void startMining(BlockPos pos, int face, int toolSlot) { this.interactionOwner.startMining(pos, face, toolSlot); }
+    public void startMining(BlockPos pos, int face, int toolSlot,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind inputKind) {
+        this.interactionOwner.startMining(pos, face, toolSlot, inputKind);
+    }
     public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode) { this.interactionOwner.startUltimine(pos, face, toolSlot, limit, mode); }
+    public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind inputKind) {
+        this.interactionOwner.startUltimine(pos, face, toolSlot, limit, mode, inputKind);
+    }
     public void continueMining(int toolSlot) { this.interactionOwner.continueMining(toolSlot); }
     public int getAreaMinePhase() { return this.interactionOwner.getAreaMinePhase(); }
     public BlockPos getAreaMinePointA() { return this.interactionOwner.getAreaMinePointA(); }
@@ -316,8 +324,19 @@ public static AreaMineBounds computeAreaMineBounds(BlockPos pointA, BlockPos poi
     public void setAreaMinePointB(BlockPos pos) { this.interactionOwner.setAreaMinePointB(pos); }
     public void clearAreaMineSession() { this.interactionOwner.clearAreaMineSession(); }
     public void confirmAreaMine(int toolSlot, ShapeFillMode fillMode) { this.interactionOwner.confirmAreaMine(toolSlot, fillMode); }
+    public void confirmAreaMine(int toolSlot, ShapeFillMode fillMode,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind inputKind) {
+        this.interactionOwner.confirmAreaMine(toolSlot, fillMode, inputKind);
+    }
     public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) { this.interactionOwner.confirmShapeAreaDestroy(targets, toolSlot); }
-    public void abortMining(int toolSlot) { this.interactionOwner.abortMining(toolSlot); }
+    public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind inputKind) {
+        this.interactionOwner.confirmShapeAreaDestroy(targets, toolSlot, inputKind);
+    }
+    public void abortMining(int toolSlot,
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin stopOrigin) {
+        this.interactionOwner.abortMining(toolSlot, stopOrigin);
+    }
     public int getMineProgressStage() { return this.interactionOwner.getMineProgressStage(); }
     public BlockPos getMineProgressPos() { return this.interactionOwner.getMineProgressPos(); }
     public BlockPos getMineProgressCompletedPos() { return this.interactionOwner.getMineProgressCompletedPos(); }

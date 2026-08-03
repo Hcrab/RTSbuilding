@@ -16,7 +16,8 @@ class MiningReleaseContractTest {
         String body = methodBody(source, "public boolean mouseReleased");
 
         int miningGuard = body.indexOf("screen.cameraInput.isLeftMiningActive()");
-        int stopMining = body.indexOf("screen.cameraInput.stopActiveMining()", miningGuard);
+        int stopMining = body.indexOf(
+                "screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.POINTER_RELEASE)", miningGuard);
         int floatingRelease = body.indexOf("handleFloatingWindowRelease");
 
         assertTrue(miningGuard >= 0, "mouse release must check active mining");
@@ -33,7 +34,8 @@ class MiningReleaseContractTest {
 
         int keyboardMiningGuard = body.indexOf("screen.cameraInput.isKeyboardMining()");
         int breakReleaseGuard = body.indexOf("ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)", keyboardMiningGuard);
-        int stopMining = body.indexOf("screen.cameraInput.stopActiveMining()", breakReleaseGuard);
+        int stopMining = body.indexOf(
+                "screen.cameraInput.stopActiveMining(RtsMiningStopOrigin.KEY_RELEASE)", breakReleaseGuard);
 
         assertTrue(keyboardMiningGuard >= 0, "keyboard mining release guard missing");
         assertTrue(breakReleaseGuard > keyboardMiningGuard,

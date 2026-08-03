@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
 
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
@@ -83,6 +84,11 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyUltimineProgress(payload));
+    }
+
+    public static void handleOperationTerminal(
+            S2CRtsOperationTerminalPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> RtsClientOperationDiagnostics.serverTerminal(payload));
     }
 
     public static void handleHarvestTierSkipped(

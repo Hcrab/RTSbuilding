@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsDiagnosticLevel;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.fluids.FluidType;
@@ -93,7 +94,15 @@ public class Config {
             .translation("rtsbuilding.configuration.developerMode")
             .define("developerMode", false);
 
+    public static final ModConfigSpec.EnumValue<RtsDiagnosticLevel> CLIENT_DIAGNOSTIC_LEVEL = CLIENT_BUILDER
+            .comment("RTS operation diagnostics. BASIC records bounded lifecycle events; VERBOSE keeps additional detail.")
+            .defineEnum("diagnostics.level", RtsDiagnosticLevel.BASIC);
+
     // ---- Server runtime limits ----
+
+    public static final ModConfigSpec.EnumValue<RtsDiagnosticLevel> SERVER_DIAGNOSTIC_LEVEL = SERVER_BUILDER
+            .comment("RTS operation diagnostics. VERBOSE adds one-second task progress samples; gameplay is unchanged.")
+            .defineEnum("diagnostics.level", RtsDiagnosticLevel.BASIC);
 
     public static final ModConfigSpec.IntValue ULTIMINE_MAX_BLOCKS = SERVER_BUILDER
             .comment("Maximum blocks collected by one RTS chain mining request.")

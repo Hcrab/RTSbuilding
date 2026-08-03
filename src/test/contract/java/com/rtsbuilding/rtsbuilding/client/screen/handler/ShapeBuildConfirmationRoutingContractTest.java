@@ -21,7 +21,7 @@ class ShapeBuildConfirmationRoutingContractTest {
         int buildConfirm = buildMethod.indexOf("tryConfirmPendingShapeBuild(forcePlace)", buildPolicy);
         int destroyAdvance = destroyMethod.indexOf("advanceShapeSession(hit, rayDir, mouseY, shape)");
         int destroyPolicy = destroyMethod.indexOf("shouldSubmitShapeAfterSelection()", destroyAdvance);
-        int destroyConfirm = destroyMethod.indexOf("tryConfirmPendingRangeDestroy()", destroyPolicy);
+        int destroyConfirm = destroyMethod.indexOf("tryConfirmPendingRangeDestroy(inputKind)", destroyPolicy);
 
         assertTrue(buildAdvance >= 0 && buildPolicy > buildAdvance && buildConfirm > buildPolicy,
                 "范围建造完成选点后必须立即应用自动确认策略，不能再暗中等待第三次点击");

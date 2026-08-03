@@ -22,6 +22,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeSelectionSession;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeWorldOperationPlanner;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -308,7 +309,8 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         }
     }
 
-    public void selectRangeDestroyShape(BlockHitResult hit, double mouseY, Vec3 rayDir) {
+    public void selectRangeDestroyShape(
+            BlockHitResult hit, double mouseY, Vec3 rayDir, RtsTraceInputKind inputKind) {
         if (hit == null) {
             return;
         }
@@ -323,14 +325,15 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
                 if (!boundsFiltered.isEmpty()) {
                     rememberConfirmedRangeDestroyPreview(
                             new ShapeDestroyTargetClassifier.Selection(boundsFiltered, List.of()));
-                    this.controller.confirmShapeAreaDestroy(boundsFiltered, this.screen.getSelectedToolSlot());
+                    this.controller.confirmShapeAreaDestroy(
+                            boundsFiltered, this.screen.getSelectedToolSlot(), inputKind);
                 }
             }
             return;
         }
         advanceShapeSession(hit, rayDir, mouseY, shape);
         if (shouldSubmitShapeAfterSelection()) {
-            tryConfirmPendingRangeDestroy();
+            tryConfirmPendingRangeDestroy(inputKind);
         }
     }
 
@@ -343,7 +346,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         this.confirmedDestroyWorkArea.clearChain();
         this.selectionSession.advance(hit, rayDir, mouseY, shape);
     }
-    public boolean tryConfirmPendingRangeDestroy() {
+    public boolean tryConfirmPendingRangeDestroy(RtsTraceInputKind inputKind) {
         if (!this.screen.isQuickBuildRangeDestroyMode() || this.controller.getBuildShape() == BuildShape.BLOCK) {
             return false;
         }
@@ -361,7 +364,8 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         }
         rememberConfirmedRangeDestroyPreview(
                 new ShapeDestroyTargetClassifier.Selection(boundedBreakable, boundedEnvelope));
-        this.controller.confirmShapeAreaDestroy(boundedBreakable, this.screen.getSelectedToolSlot());
+        this.controller.confirmShapeAreaDestroy(
+                boundedBreakable, this.screen.getSelectedToolSlot(), inputKind);
         return true;
     }
 

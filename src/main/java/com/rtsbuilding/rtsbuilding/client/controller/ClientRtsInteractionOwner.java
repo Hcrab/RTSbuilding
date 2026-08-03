@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
@@ -236,17 +238,28 @@ final class ClientRtsInteractionOwner {
         }
 
     void startMining(BlockPos pos, int face, int toolSlot) {
+            startMining(pos, face, toolSlot, RtsTraceInputKind.UNKNOWN);
+        }
+
+    void startMining(BlockPos pos, int face, int toolSlot, RtsTraceInputKind inputKind) {
             controller.miningOperationService.startMining(pos, face, toolSlot,
                     controller.buildPlacementService.getSelectedItemId(),
                     controller.buildPlacementService.getSelectedItemPreview(),
-                    controller.isAllowPlacedBlockRecovery(), controller.isToolProtectionEnabled());
+                    controller.isAllowPlacedBlockRecovery(), controller.isToolProtectionEnabled(),
+                    inputKind, inputKind == RtsTraceInputKind.KEYBOARD ? "KEY_PRESS" : "POINTER_PRESS");
         }
 
     void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode) {
+            startUltimine(pos, face, toolSlot, limit, mode, RtsTraceInputKind.UNKNOWN);
+        }
+
+    void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode,
+            RtsTraceInputKind inputKind) {
             controller.miningOperationService.startUltimine(pos, face, toolSlot, limit, mode,
                     controller.buildPlacementService.getSelectedItemId(),
                     controller.buildPlacementService.getSelectedItemPreview(),
-                    controller.isToolProtectionEnabled());
+                    controller.isToolProtectionEnabled(), inputKind,
+                    inputKind == RtsTraceInputKind.KEYBOARD ? "KEY_PRESS" : "POINTER_PRESS");
         }
 
     void continueMining(int toolSlot) {
@@ -290,21 +303,29 @@ final class ClientRtsInteractionOwner {
         }
 
     void confirmAreaMine(int toolSlot, ShapeFillMode fillMode) {
+            confirmAreaMine(toolSlot, fillMode, RtsTraceInputKind.UNKNOWN);
+        }
+
+    void confirmAreaMine(int toolSlot, ShapeFillMode fillMode, RtsTraceInputKind inputKind) {
             controller.miningOperationService.confirmAreaMine(toolSlot, fillMode,
                     controller.buildPlacementService.getSelectedItemId(),
                     controller.buildPlacementService.getSelectedItemPreview(),
-                    controller.isToolProtectionEnabled());
+                    controller.isToolProtectionEnabled(), inputKind);
         }
 
     void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) {
+            confirmShapeAreaDestroy(targets, toolSlot, RtsTraceInputKind.UNKNOWN);
+        }
+
+    void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot, RtsTraceInputKind inputKind) {
             controller.miningOperationService.confirmShapeAreaDestroy(targets, toolSlot,
                     controller.buildPlacementService.getSelectedItemId(),
                     controller.buildPlacementService.getSelectedItemPreview(),
-                    controller.isToolProtectionEnabled());
+                    controller.isToolProtectionEnabled(), inputKind);
         }
 
-    void abortMining(int toolSlot) {
-            controller.miningOperationService.abortMining(toolSlot);
+    void abortMining(int toolSlot, RtsMiningStopOrigin stopOrigin) {
+            controller.miningOperationService.abortMining(toolSlot, stopOrigin);
         }
 
     int getMineProgressStage() {

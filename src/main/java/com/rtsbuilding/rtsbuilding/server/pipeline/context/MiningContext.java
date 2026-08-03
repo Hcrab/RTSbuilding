@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.context;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.mining.MiningExecutePipe;
@@ -209,6 +210,13 @@ public class MiningContext extends PipelineContext {
         /** 工作流的总方块数。 */
         public Builder totalBlocks(int total) {
             args.put(WorkflowStartPipe.ARG_TOTAL_BLOCKS.name(), total);
+            return this;
+        }
+
+        /** 附加网络 trace；该字段只供诊断，不参与管线业务判断。 */
+        public Builder operationTrace(RtsOperationTraceContext trace) {
+            args.put(PipelineContext.ARG_OPERATION_TRACE.name(),
+                    trace == null ? RtsOperationTraceContext.legacy("UNKNOWN") : trace);
             return this;
         }
 
