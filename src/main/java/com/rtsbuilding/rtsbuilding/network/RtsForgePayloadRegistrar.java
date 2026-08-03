@@ -20,11 +20,11 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 /**
- * Forge 1.20.1 transport entry point for all RTSBuilding payloads.
+ * Forge 1.19.2 transport entry point for all RTSBuilding payloads.
  *
  * <p>The gameplay-facing registration remains split by domain through
  * {@code Rts*Packets}, matching the main NeoForge architecture. This class owns
- * only the Forge SimpleChannel and blueprint bridge that the 1.20.1 loader
+ * only the Forge SimpleChannel and blueprint bridge that the 1.19.2 loader
  * requires.
  */
 public final class RtsForgePayloadRegistrar {

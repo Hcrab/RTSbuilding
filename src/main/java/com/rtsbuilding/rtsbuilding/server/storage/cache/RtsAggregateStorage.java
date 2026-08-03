@@ -166,7 +166,10 @@ public final class RtsAggregateStorage {
                 // Skip handlers whose cache reports zero for this item —
                 // avoids O(slots) scan on 10000+ AE2 networks.
                 if (cs.cache.getCount(targetItem) <= 0L) continue;
-                ItemStack part = extractOneHandler(cs.handler, targetItem, preferred, remaining);
+                // 第一个真实提取结果决定本次批量的完整堆叠变体。后续处理器必须继续匹配
+                // 同一 NBT/耐久/能力数据，不能只按物品 ID 抽出后再丢弃不兼容变体。
+                ItemStack effectivePreferred = out.isEmpty() ? preferred : out;
+                ItemStack part = extractOneHandler(cs.handler, targetItem, effectivePreferred, remaining);
                 if (part.isEmpty()) continue;
 
                 if (out.isEmpty()) {

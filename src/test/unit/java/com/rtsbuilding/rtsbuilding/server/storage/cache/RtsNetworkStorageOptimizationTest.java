@@ -13,6 +13,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemStackHandler;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -20,6 +21,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 class RtsNetworkStorageOptimizationTest {
+    @Test
+    void aggregateExtractionNeverConsumesDifferentNbtVariantsAcrossHandlers() {
+        ItemStack variantA = new ItemStack(Items.DIAMOND_PICKAXE);
+        variantA.getOrCreateTag().putString("rts_test_variant", "a");
+        ItemStack variantB = new ItemStack(Items.DIAMOND_PICKAXE);
+        variantB.getOrCreateTag().putString("rts_test_variant", "b");
+
+        ItemStackHandler lowPriority = new ItemStackHandler(1);
+        lowPriority.setStackInSlot(0, variantA.copy());
+        ItemStackHandler highPriority = new ItemStackHandler(1);
+        highPriority.setStackInSlot(0, variantB.copy());
+
+        RtsHandlerCache lowCache = new RtsHandlerCache();
+        lowCache.update(lowPriority);
+        RtsHandlerCache highCache = new RtsHandlerCache();
+        highCache.update(highPriority);
+        RtsAggregateStorage storage = new RtsAggregateStorage();
+        storage.mount(0, lowPriority, lowCache);
+        storage.mount(100, highPriority, highCache);
+
+        ItemStack extracted = storage.extract(Items.DIAMOND_PICKAXE, 2);
+
+        assertEquals(1, extracted.getCount());
+        assertEquals("a", extracted.getTag().getString("rts_test_variant"));
+        assertTrue(lowPriority.getStackInSlot(0).isEmpty());
+        ItemStack untouchedVariant = highPriority.getStackInSlot(0);
+        assertEquals(1, untouchedVariant.getCount());
+        assertTrue(ItemStack.isSameItemSameTags(variantB, untouchedVariant),
+                "不同组件变体必须留在原处理器中，不能被实际抽出后丢失");
+    }
+
     @Test
     void ae2BdAndRsStyleHandlersStoreThroughAnySlotPath() {
         for (NetworkKind kind : NetworkKind.values()) {

@@ -17,6 +17,7 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 锁定 camera/craft C2S 网络入口的唯一所有权。
@@ -109,6 +110,16 @@ class NetworkHandlerOwnershipContractTest {
             assertEquals(1, count(call.matcher(source)),
                     domain.registrarClass() + " 必须由主 Registrar 恰好接入一次");
         }
+    }
+
+    @Test
+    void forgeAdapterPinsEveryPayloadToItsDeclaredNetworkDirection() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/forgecompat/network/ForgePayloadRegistrar.java"));
+
+        assertTrue(source.contains("register(type, codec, handler, NetworkDirection.PLAY_TO_SERVER)"));
+        assertTrue(source.contains("register(type, codec, handler, NetworkDirection.PLAY_TO_CLIENT)"));
+        assertTrue(source.contains("java.util.Optional.of(direction)"));
     }
 
     @Test
