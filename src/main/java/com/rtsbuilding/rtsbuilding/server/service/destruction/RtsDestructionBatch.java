@@ -1,7 +1,10 @@
 package com.rtsbuilding.rtsbuilding.server.service.destruction;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsDiagnosticReason;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -12,6 +15,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResult;
 import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskState;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.Registries;
@@ -61,7 +65,7 @@ public final class RtsDestructionBatch {
      */
     public static boolean enqueueDestroyBatch(ServerPlayer player, RtsStorageSession session,
             List<BlockPos> positions, byte toolSlot, boolean toolProtectionEnabled,
-            int workflowEntryId) {
+            int workflowEntryId, RtsOperationTraceContext trace) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.AREA_DESTROY)) {
             return false;
         }
@@ -79,7 +83,7 @@ public final class RtsDestructionBatch {
 
         // 收集并验证目标
         Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, linkedTool,
-                selectedToolRequested, creative);
+                selectedToolRequested, creative, workflowEntryId, session.mode.name(), trace);
         if (targets.isEmpty()) {
             return false;
         }
@@ -281,7 +285,8 @@ public final class RtsDestructionBatch {
     }
 
     private static Deque<BlockPos> collectAreaDestroyTargets(ServerPlayer player, List<BlockPos> positions,
-            int toolSlot, ItemStack linkedTool, boolean selectedToolRequested, boolean creative) {
+            int toolSlot, ItemStack linkedTool, boolean selectedToolRequested, boolean creative,
+            int workflowEntryId, String mode, RtsOperationTraceContext trace) {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
@@ -293,26 +298,36 @@ public final class RtsDestructionBatch {
 
         LinkedHashSet<BlockPos> unique = new LinkedHashSet<>();
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
+        EnumMap<RtsDiagnosticReason, Integer> filtered = new EnumMap<>(RtsDiagnosticReason.class);
         ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, toolSlot, linkedTool);
         int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, creative);
         for (BlockPos raw : sortedPositions) {
-            if (raw == null || unique.size() >= C2SRtsAreaDestroyPayload.MAX_POSITIONS) {
+            if (raw == null) {
+                increment(filtered, RtsDiagnosticReason.TARGET_INVALID);
+                continue;
+            }
+            if (unique.size() >= C2SRtsAreaDestroyPayload.MAX_POSITIONS) {
+                increment(filtered, RtsDiagnosticReason.TARGET_LIMIT_REACHED);
                 continue;
             }
             BlockPos pos = raw.immutable();
             if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+                increment(filtered, RtsDiagnosticReason.TARGET_INACCESSIBLE);
                 continue;
             }
             if (!RtsClaimProtectionService.canBreakBlock(player, pos, Direction.DOWN)) {
+                increment(filtered, RtsDiagnosticReason.CLAIM_DENIED);
                 continue;
             }
             BlockState state = level.getBlockState(pos);
             if (!RtsMiningValidator.isBreakableBlock(state)
                     || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
+                increment(filtered, RtsDiagnosticReason.TARGET_UNBREAKABLE);
                 continue;
             }
             if (!creative && MiningSpeedCalculator.computeRemoteDestroyStep(
                     player, state, pos, toolSlot, linkedTool, selectedToolRequested) <= 0.0F) {
+                increment(filtered, RtsDiagnosticReason.DESTROY_SPEED_ZERO);
                 continue;
             }
             if (!RtsMiningValidator.canRangeMineWithTool(
@@ -320,15 +335,28 @@ public final class RtsDestructionBatch {
                 if (RtsMiningValidator.isBlockedByRangeMiningHarvestTier(
                         state, actualTool, creative, maxRequiredLevel)) {
                     harvestTierBlockedPositions.add(pos);
+                    increment(filtered, RtsDiagnosticReason.HARVEST_TIER_TOO_LOW);
+                } else {
+                    increment(filtered, RtsDiagnosticReason.TOOL_CANNOT_HARVEST);
                 }
                 continue;
             }
-            unique.add(pos);
+            if (!unique.add(pos)) {
+                increment(filtered, RtsDiagnosticReason.TARGET_DUPLICATE);
+            }
         }
         if (!harvestTierBlockedPositions.isEmpty()) {
             RtsMiningNetworkHelper.notifyHarvestTierLimit(player, harvestTierBlockedPositions);
         }
+        filtered.forEach((reason, count) -> RtsOperationDiagnostics.filteredTargets(
+                player, trace, workflowEntryId, mode, RtsWorkflowType.AREA_DESTROY,
+                reason, count));
         return new ArrayDeque<>(unique);
+    }
+
+    /** 聚合筛选原因，避免在逐方块热路径中写日志。 */
+    private static void increment(EnumMap<RtsDiagnosticReason, Integer> counts, RtsDiagnosticReason reason) {
+        counts.merge(reason, 1, Integer::sum);
     }
 
     // =========================================================================

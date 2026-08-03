@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceIds;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
+import com.rtsbuilding.rtsbuilding.server.pipeline.mining.UltimineExecutePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -134,14 +135,51 @@ public final class RtsOperationDiagnostics {
             RtsWorkflowType type,
             RtsDiagnosticReason reason,
             int rejectedTargets) {
+        filteredTargets(player, RtsServerTraceRegistry.traceForWorkflow(player, workflowId),
+                workflowId, mode, type, reason, rejectedTargets);
+    }
+
+    /**
+     * 记录带网络关联标识的批量目标筛选结果。
+     *
+     * <p>调用方必须先在逐方块循环中聚合数量，再调用本方法一次；本方法只写日志，
+     * 不得参与筛选、权限或采掘等级判断。</p>
+     */
+    public static void filteredTargets(
+            ServerPlayer player,
+            RtsOperationTraceContext trace,
+            int workflowId,
+            String mode,
+            RtsWorkflowType type,
+            RtsDiagnosticReason reason,
+            int rejectedTargets) {
         if (player == null || rejectedTargets <= 0) return;
         if (level() == RtsDiagnosticLevel.OFF) return;
+        RtsOperationTraceContext effective = trace == null
+                ? RtsOperationTraceContext.legacy("TARGET_FILTER") : trace;
+        long serverTick = player.serverLevel().getGameTime();
         RtsbuildingMod.LOGGER.warn(
-                "[RTS-DIAG] schema=2 side=S run={} event=FILTER trace={} seq=- op=- workflow={} task=- "
+                "[RTS-DIAG] schema=2 side=S run={} event=FILTER trace={} seq={} op={} workflow={} task=- "
                         + "player={} mode={} type={} targets={} outcome=REJECTED reason={} stage=TARGET_FILTER server_tick={}",
-                RtsTraceIds.runId(), RtsTraceIds.format(0L), workflowValue(workflowId),
+                RtsTraceIds.runId(), RtsTraceIds.format(effective.traceId()), effective.sequence(),
+                operationValue(effective.operationId()), workflowValue(workflowId),
                 player.getGameProfile().getName(), safeToken(mode), type == null ? "-" : type,
-                rejectedTargets, reason, player.serverLevel().getGameTime());
+                rejectedTargets, reason, serverTick);
+        RtsStructuredDiagnostics.appendServer("FILTER",
+                "run", RtsTraceIds.runId(),
+                "trace", RtsTraceIds.format(effective.traceId()),
+                "seq", effective.sequence(),
+                "op", effective.operationId(),
+                "workflow", workflowId,
+                "task", "-",
+                "player", player.getGameProfile().getName(),
+                "mode", safeToken(mode),
+                "type", type == null ? "-" : type.name(),
+                "targets", rejectedTargets,
+                "outcome", "REJECTED",
+                "reason", reason == null ? "UNKNOWN" : reason.name(),
+                "stage", "TARGET_FILTER",
+                "server_tick", serverTick);
     }
 
     public static RtsOperationTraceContext effectiveTrace(PipelineContext context) {
@@ -212,7 +250,9 @@ public final class RtsOperationDiagnostics {
 
     private static int targetCount(PipelineContext context) {
         Integer value = context.getArg(WorkflowStartPipe.ARG_TOTAL_BLOCKS);
-        return value == null ? 0 : Math.max(0, value);
+        if (value != null) return Math.max(0, value);
+        var positions = context.getArg(UltimineExecutePipe.ARG_POSITIONS);
+        return positions == null ? 0 : positions.size();
     }
 
     private static String sessionMode(PipelineContext context) {

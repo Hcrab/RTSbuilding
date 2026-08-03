@@ -30,8 +30,8 @@ class PilotPatchContractTest {
         assertTrue(zhCn.contains("\"item.rtsbuilding.rts_control_core\""));
         assertTrue(onboarding.contains("getModContainerById(RtsbuildingMod.MODID)"));
         assertTrue(onboarding.contains("Component.literal(currentDisplayVersion())"));
-        assertTrue(onboarding.contains("STABLE_VERSION = \"1.1.6\""));
-        assertTrue(onboarding.contains("version.indexOf('-')"));
+        assertTrue(onboarding.contains("STABLE_VERSION = \"1.1.6-patch2\""));
+        assertFalse(onboarding.contains("version.indexOf('-')"));
         assertTrue(zhCn.contains("当前测试版本：%1$s；稳定版：%2$s"));
         assertTrue(zhCn.contains("请退回稳定版"));
         assertTrue(Files.isRegularFile(Path.of(".github/workflows/publish-mod-release.yml")));
