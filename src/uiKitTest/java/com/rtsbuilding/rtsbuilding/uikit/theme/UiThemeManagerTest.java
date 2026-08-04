@@ -8,6 +8,21 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class UiThemeManagerTest {
     @Test
+    void userThemeCanBeReplacedButBuiltInNamespaceCannot() {
+        UiThemeRegistry registry = UiThemeBuiltins.createRegistry();
+        UiThemeDefinition first = new UiThemeDefinition("user:test", "Test", "User", "Test",
+                UiThemeRenderMode.PALETTE, UiThemeBuiltins.PIXEL_TEXTURE_SET, true,
+                UiThemeBuiltins.nordCommand().tokens());
+        UiThemeDefinition second = new UiThemeDefinition("user:test", "Test 2", "User", "Test",
+                UiThemeRenderMode.PALETTE, UiThemeBuiltins.PIXEL_TEXTURE_SET, true,
+                UiThemeBuiltins.carbonOperations().tokens());
+        registry.registerOrReplaceUser(first);
+        registry.registerOrReplaceUser(second);
+        assertSame(second, registry.require("user:test"));
+        assertThrows(IllegalArgumentException.class,
+                () -> registry.registerOrReplaceUser(UiThemeBuiltins.nordCommand()));
+    }
+    @Test
     void startsInLegacyAndNotifiesOnlyForRealChanges() {
         UiThemeRegistry registry = UiThemeBuiltins.createRegistry();
         UiThemeManager manager = new UiThemeManager(registry, UiThemeBuiltins.LEGACY_ID);

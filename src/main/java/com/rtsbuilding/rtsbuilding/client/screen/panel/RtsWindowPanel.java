@@ -858,7 +858,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             return;
         }
         int maxX = Math.max(SCREEN_MARGIN, this.screen.width - this.windowWidth - SCREEN_MARGIN);
-        int maxY = Math.max(SCREEN_MARGIN, this.screen.height - getTitleBarHeight() - SCREEN_MARGIN);
+        int maxY = Math.max(SCREEN_MARGIN, this.screen.height - this.windowHeight - SCREEN_MARGIN);
         this.windowX = Mth.clamp(this.windowX, SCREEN_MARGIN, maxX);
         this.windowY = Mth.clamp(this.windowY, SCREEN_MARGIN, maxY);
     }

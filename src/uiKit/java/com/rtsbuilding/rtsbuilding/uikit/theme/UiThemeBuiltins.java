@@ -35,7 +35,8 @@ public final class UiThemeBuiltins {
                 0xFF324153, 0xFF3E5268, 0xFF2D6B47, 0xFFE36B6B,
                 0xFF1A202A, 0xFF536679, 0xFF7A90AA,
                 0xFF7CCB93, 0x4A7CCB93, 0xFF62C8FF, 0xFFE36B6B,
-                0x667CCB93, 0x66E36B6B);
+                0x667CCB93, 0x66E36B6B,
+                0xFFFF5752, 0xFF5CFF6B, 0xFF61A3FF, 0xFFFFC72E);
         return definition(LEGACY_ID, "screen.rtsbuilding.theme.legacy", "RTS Building",
                 "screen.rtsbuilding.theme.legacy.description", UiThemeRenderMode.LEGACY_DIRECT,
                 "rtsbuilding:legacy_direct", false, seed);
@@ -54,7 +55,8 @@ public final class UiThemeBuiltins {
                 0xFF151D26, 0xFF2A3848, 0xFF1B3E33, 0xFFD9534F,
                 0xFF121820, 0xFF2E3D4F, 0xFF435970,
                 0xFF2AE89E, 0x4A2AE89E, 0xFF38C0FF, 0xFFD9534F,
-                0x662AE89E, 0x66D9534F);
+                0x662AE89E, 0x66D9534F,
+                0xFFFF6B66, 0xFF55D98A, 0xFF58A6FF, 0xFFFFC857);
         return palette(CALIBRATED_ID, "calibrated", seed);
     }
 
@@ -71,7 +73,8 @@ public final class UiThemeBuiltins {
                 0xFF343B49, 0xFF4C566A, 0xFF405968, 0xFFBF616A,
                 0xFF2E3440, 0xFF5E6A7D, 0xFF81A1C1,
                 0xFF88C0D0, 0x4A88C0D0, 0xFF81A1C1, 0xFFBF616A,
-                0x6688C0D0, 0x66BF616A);
+                0x6688C0D0, 0x66BF616A,
+                0xFFBF616A, 0xFFA3BE8C, 0xFF81A1C1, 0xFFEBCB8B);
         return palette(NORD_ID, "nord", seed);
     }
 
@@ -88,7 +91,8 @@ public final class UiThemeBuiltins {
                 0xFF1F1F1F, 0xFF393939, 0xFF163B78, 0xFFFA4D56,
                 0xFF161616, 0xFF525252, 0xFF6F6F6F,
                 0xFF4589FF, 0x4A4589FF, 0xFF33B1FF, 0xFFFA4D56,
-                0x6642BE65, 0x66FA4D56);
+                0x6642BE65, 0x66FA4D56,
+                0xFFFA4D56, 0xFF42BE65, 0xFF4589FF, 0xFFF1C21B);
         return palette(CARBON_ID, "carbon", seed);
     }
 
@@ -105,7 +109,8 @@ public final class UiThemeBuiltins {
                 0xFF171B16, 0xFF2B322A, 0xFF334725, 0xFFFFB4AB,
                 0xFF111411, 0xFF414940, 0xFF586356,
                 0xFFACD370, 0x4AACD370, 0xFF75D4FF, 0xFFFFB4AB,
-                0x66ACD370, 0x66FFB4AB);
+                0x66ACD370, 0x66FFB4AB,
+                0xFFFFB4AB, 0xFF81C784, 0xFF75D4FF, 0xFFFFB95C);
         return palette(MATERIAL_ID, "material", seed);
     }
 

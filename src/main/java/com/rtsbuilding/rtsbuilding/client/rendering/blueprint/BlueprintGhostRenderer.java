@@ -8,6 +8,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 
 import java.util.List;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 /**
  * Blueprint ghost preview renderer (facade class).
@@ -58,9 +60,11 @@ public final class BlueprintGhostRenderer {
         }
 
         // 2. Choose colour based on material availability (ready: green, missing: red)
-        float lineR = preview.materialsReady() ? 0.35F : 1.00F;
-        float lineG = preview.materialsReady() ? 0.95F : 0.72F;
-        float lineB = preview.materialsReady() ? 0.72F : 0.22F;
+        UiColor ghostColor = preview.materialsReady()
+                ? UiThemeWorldColors.BLUEPRINT_VALID : UiThemeWorldColors.BLUEPRINT_INVALID;
+        float lineR = UiThemeWorldColors.red(ghostColor);
+        float lineG = UiThemeWorldColors.green(ghostColor);
+        float lineB = UiThemeWorldColors.blue(ghostColor);
 
         // 3. Initialise bounding box bounds
         int[] minX = {Integer.MAX_VALUE};

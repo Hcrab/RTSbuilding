@@ -17,7 +17,7 @@ public final class QuickBuildStyle {
     public static final UiColor MODE_ACTIVE_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ACCENT_PRIMARY, 0XFF5FE36C);
     public static final UiColor MODE_DISABLED_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XFF3A4652);
     public static final UiColor MODE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XFFD8E3EE);
-    public static final UiColor MODE_ACTIVE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_ON_ACCENT, 0XFFD8FFE0);
+    public static final UiColor MODE_ACTIVE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XFFD8FFE0);
     public static final UiColor MODE_DISABLED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_MUTED, 0XFF7B8794);
     public static final UiColor MODE_ANIMATION_OVERLAY =
             RtsMainlineTheme.SELECTION_ANIMATION_OVERLAY;
@@ -29,7 +29,7 @@ public final class QuickBuildStyle {
     public static final UiColor CHAIN_SELECTED_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_SELECTED, 0XFF163222);
     public static final UiColor DIVIDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XFF647B92);
     public static final UiColor PROGRESS_TRACK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.SURFACE_SUNKEN, 0XFF0B1118);
-    public static final UiColor PROGRESS_FILL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_IDLE, 0XFFFF8EAD);
+    public static final UiColor PROGRESS_FILL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ACCENT_SECONDARY, 0XFFFF8EAD);
     public static final UiColor PROGRESS_IDLE_TICK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XFF5F6F7F);
     public static final UiColor SUCCESS_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.SUCCESS, 0XFFB8FFB8);
     public static final UiColor ERROR_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ERROR, 0XFFFFB8B8);

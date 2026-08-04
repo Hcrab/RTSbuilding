@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -79,7 +80,10 @@ public final class PendingGhostRenderer {
     static void renderWireframes(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer) {
         long now = System.currentTimeMillis();
         pruneExpired(now);
-        float lineR = 0.30F, lineG = 0.75F, lineB = 1.00F, lineA = 0.75F;
+        float lineR = UiThemeWorldColors.red(UiThemeWorldColors.PENDING_GHOST);
+        float lineG = UiThemeWorldColors.green(UiThemeWorldColors.PENDING_GHOST);
+        float lineB = UiThemeWorldColors.blue(UiThemeWorldColors.PENDING_GHOST);
+        float lineA = 0.75F;
         for (PendingGhostEntry ghost : GHOSTS.values()) {
             if (!isWithinBounds(minecraft, ghost.pos)) continue;
             BlockPos pos = ghost.pos;

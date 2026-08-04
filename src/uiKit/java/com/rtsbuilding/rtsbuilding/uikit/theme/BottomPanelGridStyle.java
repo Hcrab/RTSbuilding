@@ -16,7 +16,7 @@ public final class BottomPanelGridStyle {
     public static final Visual FLUID = new Visual(
             0xAA2E1E12, 0xFFFFA553, 0xFF23140A, 0x3367D8FF, 0xFFFCCB8A);
 
-    public static final UiColor RECENT_FLUID_COUNT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_ON_ACCENT, 0XFFBEE6FF);
+    public static final UiColor RECENT_FLUID_COUNT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFBEE6FF);
     public static final UiColor SELECTED_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0X3340FF80);
     public static final UiColor HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0X22FFFFFF);
     public static final UiColor EMPTY_TITLE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFE7C46A);

@@ -10,7 +10,7 @@ public final class CraftTerminalStyle {
     public static final UiColor TEXT = theme(UiThemeToken.TEXT_PRIMARY, 0xFFEAF2FF);
     public static final UiColor MUTED_TEXT = theme(UiThemeToken.TEXT_SECONDARY, 0xFFB8C7D8);
     public static final UiColor UNEDITABLE_TEXT = theme(UiThemeToken.TEXT_MUTED, 0xFF8D9CAF);
-    public static final UiColor COUNT_TEXT = theme(UiThemeToken.TEXT_ON_ACCENT, 0xFFFFFFFF);
+    public static final UiColor COUNT_TEXT = theme(UiThemeToken.TEXT_PRIMARY, 0xFFFFFFFF);
 
     public static final UiColor PANEL = theme(UiThemeToken.SURFACE, 0xFF252E3B);
     public static final UiColor PANEL_ALT = theme(UiThemeToken.SURFACE_RAISED, 0xFF202936);

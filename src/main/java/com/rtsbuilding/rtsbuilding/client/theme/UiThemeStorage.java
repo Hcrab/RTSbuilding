@@ -53,7 +53,7 @@ public final class UiThemeStorage {
                     try {
                         String json = readBounded(file);
                         UiThemeDefinition definition = codec.decode(json);
-                        if (!registry.contains(definition.id())) registry.register(definition);
+                        registry.registerOrReplaceUser(definition);
                     } catch (RuntimeException | IOException failure) {
                         errors.add(file.getFileName() + ": " + failure.getMessage());
                     }
@@ -68,10 +68,7 @@ public final class UiThemeStorage {
     public UiThemeDefinition importFile(Path external, UiThemeRegistry registry) throws IOException {
         if (external == null) throw new IllegalArgumentException("external must not be null");
         UiThemeDefinition definition = codec.decode(readBounded(external));
-        if (registry.contains(definition.id())) {
-            throw new IllegalArgumentException("theme id already exists: " + definition.id());
-        }
-        registry.register(definition);
+        registry.registerOrReplaceUser(definition);
         writeAtomically(themePath(definition.id()), codec.encode(definition));
         return definition;
     }

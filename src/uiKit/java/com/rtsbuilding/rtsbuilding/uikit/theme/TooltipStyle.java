@@ -9,7 +9,7 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
 public final class TooltipStyle {
     public static final UiColor ACTION_AVAILABLE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SUCCESS, 0XFFAEE8AE);
     public static final UiColor ERROR = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.ERROR, 0XFFFFB0B0);
-    public static final UiColor COUNT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_ON_ACCENT, 0XFFFFD8B8);
+    public static final UiColor COUNT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFFFD8B8);
     public static final UiColor DETAIL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFCFE3F7);
 
     public static UiColor craftChoice(boolean craftable) {

@@ -59,7 +59,11 @@ public enum UiThemeToken {
     WORLD_LINK_ENDPOINT("world_link_endpoint"),
     WORLD_INVALID("world_invalid"),
     WORLD_GHOST_VALID("world_ghost_valid", true),
-    WORLD_GHOST_INVALID("world_ghost_invalid", true);
+    WORLD_GHOST_INVALID("world_ghost_invalid", true),
+    WORLD_AXIS_X("world_axis_x"),
+    WORLD_AXIS_Y("world_axis_y"),
+    WORLD_AXIS_Z("world_axis_z"),
+    WORLD_HANDLE_ACTIVE("world_handle_active");
 
     private static final Map<String, UiThemeToken> BY_SERIALIZED_ID;
 

@@ -24,7 +24,7 @@ public final class BottomPanelToolStyle {
     public static final UiColor PIN_PAGER_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFE9F7DA);
     public static final UiColor PIN_INDEX_TEXT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_MUTED, 0X88D0D8E4);
     public static final UiColor PIN_COUNT_AVAILABLE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.SUCCESS, 0XFFF7E6A8);
-    public static final UiColor PIN_COUNT_EMPTY = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_ON_ACCENT, 0XFFB4B9C3);
+    public static final UiColor PIN_COUNT_EMPTY = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_MUTED, 0XFFB4B9C3);
 
     private BottomPanelToolStyle() {
     }

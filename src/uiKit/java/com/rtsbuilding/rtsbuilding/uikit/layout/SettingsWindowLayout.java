@@ -49,6 +49,12 @@ public final class SettingsWindowLayout {
     public static final int SCROLL_TRACK_TOP = 2;
     public static final int SCROLL_TRACK_VERTICAL_INSET = 4;
     public static final int HINT_BUTTON_GAP = 4;
+    public static final int ACTION_LABEL_RIGHT_RESERVE = 142;
+    public static final int ACTION_BUTTON_RIGHT_INSET = 112;
+    public static final int ACTION_BUTTON_TOP = 6;
+    public static final int ACTION_BUTTON_W = 96;
+    public static final int ACTION_BUTTON_H = 22;
+    public static final int ACTION_BUTTON_TEXT_TOP = 7;
 
     private SettingsWindowLayout() {
     }

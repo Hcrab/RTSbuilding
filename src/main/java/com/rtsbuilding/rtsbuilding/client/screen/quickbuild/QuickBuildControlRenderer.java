@@ -329,7 +329,7 @@ final class QuickBuildControlRenderer {
                                            net.minecraft.resources.ResourceLocation texture,
                                            Component label, int x, int y) {
         int iconSize = 18;
-        int iconX = x + 2;
+        int iconX = x + QuickBuildWindowLayout.CONVENIENCE_TOOL_ICON_X;
         int iconY = y + (QuickBuildWindowLayout.CONVENIENCE_TOOL_H - iconSize) / 2;
         RtsTextureRenderer.drawTextureHighPrecision(
                 graphics, texture, iconX, iconY, iconSize, iconSize,
@@ -339,7 +339,8 @@ final class QuickBuildControlRenderer {
                 QuickBuildIconCatalog.PR133_ICON_SIZE, 0, RtsTextureRenderer.NO_TINT);
         String clipped = com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil.trimToWidth(
                 screen.font(), label.getString(), QuickBuildWindowLayout.CONVENIENCE_TOOL_W - 24);
-        graphics.drawString(screen.font(), clipped, x + 23,
+        graphics.drawString(screen.font(), clipped,
+                x + QuickBuildWindowLayout.CONVENIENCE_TOOL_LABEL_X,
                 y + (QuickBuildWindowLayout.CONVENIENCE_TOOL_H - screen.font().lineHeight) / 2,
                 QuickBuildStyle.MODE_TEXT.toArgb(), false);
     }

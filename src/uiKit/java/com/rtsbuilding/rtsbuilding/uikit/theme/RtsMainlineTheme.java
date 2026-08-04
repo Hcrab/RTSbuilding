@@ -52,7 +52,7 @@ public final class RtsMainlineTheme {
     public static final UiColor BUTTON_DESTRUCTIVE_BACKGROUND = theme(UiThemeToken.DESTRUCTIVE, 0xAA473030);
     public static final UiColor BUTTON_BORDER_LIGHT = theme(UiThemeToken.BORDER_STRONG, 0xFF667D95);
     public static final UiColor BUTTON_BORDER_DARK = theme(UiThemeToken.SURFACE_SUNKEN, 0xFF111821);
-    public static final UiColor BUTTON_TEXT = theme(UiThemeToken.TEXT_ON_ACCENT, 0xFFFFFFFF);
+    public static final UiColor BUTTON_TEXT = theme(UiThemeToken.TEXT_PRIMARY, 0xFFFFFFFF);
 
     public static final UiColor INPUT_BACKGROUND = theme(UiThemeToken.SURFACE_SUNKEN, 0xFF202833);
     public static final UiColor INPUT_BORDER_LIGHT = theme(UiThemeToken.BORDER_STRONG, 0xFF61758A);

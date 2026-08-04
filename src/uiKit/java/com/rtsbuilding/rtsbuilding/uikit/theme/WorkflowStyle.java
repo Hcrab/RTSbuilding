@@ -10,13 +10,13 @@ public final class WorkflowStyle {
     public static final UiColor ACTIVE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_SELECTED, 0XAA1A222C);
     public static final UiColor ACTIVE_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XAA2A3A4A);
     public static final UiColor ACTIVE_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.ACCENT_PRIMARY, 0XFF5E738A);
-    public static final UiColor ACTIVE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_ON_ACCENT, 0XFFEAF2FF);
+    public static final UiColor ACTIVE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_PRIMARY, 0XFFEAF2FF);
     public static final UiColor ACTIVE_PROGRESS_TRACK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.SURFACE_SUNKEN, 0XAA202832);
     public static final UiColor ACTIVE_PROGRESS_FILL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_SELECTED, 0XFF88BEF4);
     public static final UiColor ACTIVE_PROGRESS_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.ACCENT_PRIMARY, 0XFF405064);
     public static final UiColor ACTIVE_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.ACCENT_PRIMARY, 0XFF0D1117);
     public static final UiColor ACTIVE_PROGRESS_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.ACCENT_PRIMARY, 0XFF0A0D12);
-    public static final UiColor ACTIVE_PROGRESS_TEXT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_ON_ACCENT, 0XCCFFFFFF);
+    public static final UiColor ACTIVE_PROGRESS_TEXT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_PRIMARY, 0XCCFFFFFF);
 
     public static final UiColor SUSPENDED_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XAA2A2820);
     public static final UiColor SUSPENDED_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XAA4A3A1A);
@@ -41,7 +41,7 @@ public final class WorkflowStyle {
     public static final UiColor PROTECT_ACTIVE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_SELECTED, 0XCC4DAFD8);
     public static final UiColor PROTECT_ACTIVE_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XD36FC7E8);
     public static final UiColor PROTECT_IDLE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_PRIMARY, 0XFFDDEBFF);
-    public static final UiColor BUTTON_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_ON_ACCENT, 0XFFFFFFFF);
+    public static final UiColor BUTTON_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.TEXT_PRIMARY, 0XFFFFFFFF);
 
     public static final UiColor RESUME_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_IDLE, 0XCC2C873F);
     public static final UiColor RESUME_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.WORKFLOW, UiThemeToken.CONTROL_HOVER, 0XCC3AA156);

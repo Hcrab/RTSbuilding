@@ -8,6 +8,7 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 
 import java.util.List;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 /**
  * Wireframe renderer for single-block ghost previews.
@@ -33,9 +34,9 @@ public final class BuildGhostWireframeRenderer {
         if (blocks == null || blocks.isEmpty()) {
             return;
         }
-        float lineR = 0.30F;
-        float lineG = 0.75F;
-        float lineB = 1.00F;
+        float lineR = UiThemeWorldColors.red(UiThemeWorldColors.BUILD_PREVIEW);
+        float lineG = UiThemeWorldColors.green(UiThemeWorldColors.BUILD_PREVIEW);
+        float lineB = UiThemeWorldColors.blue(UiThemeWorldColors.BUILD_PREVIEW);
 
         for (BlockPos pos : blocks) {
             poseStack.pushPose();

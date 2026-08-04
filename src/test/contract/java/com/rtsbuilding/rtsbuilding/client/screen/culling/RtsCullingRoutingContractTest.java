@@ -132,6 +132,8 @@ class RtsCullingRoutingContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/culling/RtsCullingRenderer.java"));
         String handles = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/selection/RtsBoxHandleRenderer.java"));
+        String worldColors = Files.readString(Path.of(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/UiThemeWorldColors.java"));
 
         assertTrue(renderer.contains("RtsBoxHandleRenderer.renderAxisHandles"),
                 "selected range-culling boxes should use the shared world-space axis handle renderer");
@@ -141,8 +143,13 @@ class RtsCullingRoutingContractTest {
                 "hovered direction handle must get a distinct visual state");
         assertTrue(renderer.contains("manager.activeHandleDirection()"),
                 "clicked direction handle must get a locked visual state");
-        assertTrue(handles.contains("ACTIVE_R"),
-                "locked axis handles should render as the gold active state");
+        assertTrue(handles.contains("UiThemeWorldColors.HANDLE_ACTIVE"),
+                "locked axis handles should use the shared active-handle theme color");
+        assertTrue(worldColors.contains("WORLD_AXIS_X")
+                        && worldColors.contains("WORLD_AXIS_Y")
+                        && worldColors.contains("WORLD_AXIS_Z")
+                        && worldColors.contains("WORLD_HANDLE_ACTIVE"),
+                "axis and locked-handle colors must remain independently themeable");
     }
 
     @Test

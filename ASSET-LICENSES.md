@@ -25,6 +25,11 @@ Copyright (C) 2026 Re_Construction. These files are distributed as part of
 official RTS Building packages under the normal mod-distribution permissions
 in `LICENSE-ASSETS`. Copyright and attribution remain with the contributor.
 
+The `textures/gui/color/colorwheel.png` and `color_palette_indicator.png`
+artwork was first developed on the repository's `NeoForge-RTSBuildin-v2.0`
+branch by 怡然 and is reused by the current Palette editor with attribution
+preserved.
+
 The `guide_*` and `developer_*` top-bar states and the monochrome files under
 `textures/gui/guide/` were mechanically frozen in July 2026 from the existing
 mainline `i` / `D` glyphs and guide pixel-icon drawing paths. They contain no

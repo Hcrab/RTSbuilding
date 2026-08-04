@@ -7,6 +7,7 @@ import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 import java.util.List;
 
@@ -62,9 +63,12 @@ public final class BlueprintGhostFallbackRenderer {
                 double cellMaxZ = pos.getZ() + 1.0D - CELL_PADDING;
 
                 // Missing blocks use red, others use the state colour
-                float fallbackR = block.missing() ? 1.00F : lineR;
-                float fallbackG = block.missing() ? 0.25F : lineG;
-                float fallbackB = block.missing() ? 0.25F : lineB;
+                float fallbackR = block.missing()
+                        ? UiThemeWorldColors.red(UiThemeWorldColors.BLUEPRINT_MISSING) : lineR;
+                float fallbackG = block.missing()
+                        ? UiThemeWorldColors.green(UiThemeWorldColors.BLUEPRINT_MISSING) : lineG;
+                float fallbackB = block.missing()
+                        ? UiThemeWorldColors.blue(UiThemeWorldColors.BLUEPRINT_MISSING) : lineB;
 
                 LevelRenderer.renderLineBox(
                         poseStack, lineBuffer,

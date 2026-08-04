@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
@@ -88,21 +89,6 @@ public final class InteractionTargetRenderer {
     // ──────────────────────────────────────────────
     //  Constants – Colours (RGB, no alpha)
     // ──────────────────────────────────────────────
-
-    /** Colour used for entity corner brackets, modulated by the breath factor. */
-    private static final float ENTITY_COLOR_R = 0.50F;
-    private static final float ENTITY_COLOR_G = 0.80F;
-    private static final float ENTITY_COLOR_B = 1.00F;
-
-    /** Colour used for block corner brackets (orange-gold), modulated by the breath factor. */
-    private static final float BLOCK_COLOR_R = 0.965F;
-    private static final float BLOCK_COLOR_G = 0.608F;
-    private static final float BLOCK_COLOR_B = 0.192F;
-
-    /** Close-range block highlight colour: brighter yellow, matching the older skeleton read. */
-    private static final float NEAR_BLOCK_COLOR_R = 1.000F;
-    private static final float NEAR_BLOCK_COLOR_G = 0.900F;
-    private static final float NEAR_BLOCK_COLOR_B = 0.130F;
 
     /** Maximum ray-cast range for cursor-based hit-testing. */
     private static final double MAX_REACH = 128.0D;
@@ -316,9 +302,9 @@ public final class InteractionTargetRenderer {
      */
     private static void renderEntityCornerHighlight(PoseStack poseStack, VertexConsumer lineBuffer,
             VertexConsumer noDepthBuffer, AABB bounds, double distance, float breathFactor) {
-        float r = ENTITY_COLOR_R * breathFactor;
-        float g = ENTITY_COLOR_G * breathFactor;
-        float b = ENTITY_COLOR_B * breathFactor;
+        float r = UiThemeWorldColors.red(UiThemeWorldColors.INTERACTION_ENTITY) * breathFactor;
+        float g = UiThemeWorldColors.green(UiThemeWorldColors.INTERACTION_ENTITY) * breathFactor;
+        float b = UiThemeWorldColors.blue(UiThemeWorldColors.INTERACTION_ENTITY) * breathFactor;
 
         CornerBracketRenderer.renderCornerBrackets(
                 poseStack, lineBuffer,
@@ -381,9 +367,12 @@ public final class InteractionTargetRenderer {
     private static BlockHighlightVisual blockHighlightVisual(double distance, float breathFactor) {
         float nearWeight = 1.0F - smoothstep(NEAR_SKELETON_DISTANCE, FAR_COVER_DISTANCE, distance);
         float farWeight = 1.0F - nearWeight;
-        float r = (NEAR_BLOCK_COLOR_R * nearWeight + BLOCK_COLOR_R * farWeight) * breathFactor;
-        float g = (NEAR_BLOCK_COLOR_G * nearWeight + BLOCK_COLOR_G * farWeight) * breathFactor;
-        float b = (NEAR_BLOCK_COLOR_B * nearWeight + BLOCK_COLOR_B * farWeight) * breathFactor;
+        float r = (UiThemeWorldColors.red(UiThemeWorldColors.INTERACTION_NEAR) * nearWeight
+                + UiThemeWorldColors.red(UiThemeWorldColors.INTERACTION_BLOCK) * farWeight) * breathFactor;
+        float g = (UiThemeWorldColors.green(UiThemeWorldColors.INTERACTION_NEAR) * nearWeight
+                + UiThemeWorldColors.green(UiThemeWorldColors.INTERACTION_BLOCK) * farWeight) * breathFactor;
+        float b = (UiThemeWorldColors.blue(UiThemeWorldColors.INTERACTION_NEAR) * nearWeight
+                + UiThemeWorldColors.blue(UiThemeWorldColors.INTERACTION_BLOCK) * farWeight) * breathFactor;
         float faceAlpha = FACE_FOG_ALPHA_NEAR * nearWeight + FACE_FOG_ALPHA_FAR * farWeight;
         float noDepthFaceAlpha = NO_DEPTH_FACE_FOG_ALPHA_NEAR * nearWeight + NO_DEPTH_FACE_FOG_ALPHA_FAR * farWeight;
         return new BlockHighlightVisual(r, g, b, faceAlpha, noDepthFaceAlpha);

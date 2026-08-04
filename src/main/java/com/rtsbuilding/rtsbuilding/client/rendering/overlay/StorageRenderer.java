@@ -15,6 +15,8 @@ import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.AABB;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
@@ -257,9 +259,11 @@ public final class StorageRenderer {
 
             // Determine target bracket colour: pink for extract-only, blue for bidirectional.
             boolean extractOnly = entry.mode() == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
-            float targetRed = extractOnly ? 1.00F : 0.24F;
-            float targetGreen = extractOnly ? 0.30F : 0.55F;
-            float targetBlue = extractOnly ? 0.82F : 1.00F;
+            UiColor targetColor = extractOnly
+                    ? UiThemeWorldColors.STORAGE_EXTRACT : UiThemeWorldColors.STORAGE_LINK;
+            float targetRed = UiThemeWorldColors.red(targetColor);
+            float targetGreen = UiThemeWorldColors.green(targetColor);
+            float targetBlue = UiThemeWorldColors.blue(targetColor);
 
             // Manage colour-transition animation when the mode switches.
             StorageAnim a = anims.get(pos);

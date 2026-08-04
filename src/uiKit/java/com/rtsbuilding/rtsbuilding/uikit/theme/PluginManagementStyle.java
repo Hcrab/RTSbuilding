@@ -29,7 +29,7 @@ public final class PluginManagementStyle {
     public static final UiColor SLOT_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SLOT_IDLE, 0X77313A45);
     public static final UiColor SLOT_PLUGIN = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SLOT_IDLE, 0XAA25364A);
     public static final UiColor SLOT_SELECTED = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SLOT_SELECTED, 0XCC2F6B47);
-    public static final UiColor SLOT_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SLOT_IDLE, 0XFF46576A);
+    public static final UiColor SLOT_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.BORDER_STRONG, 0XFF46576A);
     public static final UiColor SLOT_HOVER_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SLOT_HOVER, 0XFF9FB8D3);
     public static final UiColor SCROLL_TRACK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SCROLLBAR_TRACK, 0X66334455);
     public static final UiColor SCROLL_THUMB = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SCROLLBAR_THUMB, 0XFF8FA8C3);

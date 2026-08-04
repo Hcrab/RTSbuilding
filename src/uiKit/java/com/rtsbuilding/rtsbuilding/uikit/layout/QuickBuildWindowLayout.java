@@ -41,6 +41,8 @@ public final class QuickBuildWindowLayout {
     public static final int CONVENIENCE_TOOL_W = 72;
     public static final int CONVENIENCE_TOOL_H = 22;
     public static final int CONVENIENCE_TOOL_PITCH = 30;
+    public static final int CONVENIENCE_TOOL_ICON_X = 2;
+    public static final int CONVENIENCE_TOOL_LABEL_X = 23;
     public static final int CONVENIENCE_PARAMETER_LABEL_GAP = 13;
     public static final int CONVENIENCE_PARAMETER_PITCH = 50;
     public static final int CONTROL_ICON_INSET = 2;

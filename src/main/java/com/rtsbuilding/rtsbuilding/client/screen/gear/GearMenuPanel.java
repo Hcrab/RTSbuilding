@@ -224,15 +224,19 @@ public final class GearMenuPanel extends RtsWindowPanel {
 
     private void drawCoreActionRow(GuiGraphics g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
                                    SettingsUiRow row, int x, int w, int rowY) {
-        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey), w - 142),
+        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey),
+                        w - SettingsWindowLayout.ACTION_LABEL_RIGHT_RESERVE),
                 x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 4,
                 SettingsWindowStyle.LABEL.toArgb(), false);
         String current = Component.translatable(row.valueLabel).getString();
-        g.drawString(screen.font(), trimToWidth(current, w - 142),
+        g.drawString(screen.font(), trimToWidth(current,
+                        w - SettingsWindowLayout.ACTION_LABEL_RIGHT_RESERVE),
                 x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 17,
                 SettingsWindowStyle.HINT.toArgb(), false);
-        int buttonX = x + w - 112;
-        drawCoreActionButton(g, canvas, mouseX, mouseY, buttonX, rowY + 6, 96, 22,
+        int buttonX = x + w - SettingsWindowLayout.ACTION_BUTTON_RIGHT_INSET;
+        drawCoreActionButton(g, canvas, mouseX, mouseY, buttonX,
+                rowY + SettingsWindowLayout.ACTION_BUTTON_TOP,
+                SettingsWindowLayout.ACTION_BUTTON_W, SettingsWindowLayout.ACTION_BUTTON_H,
                 text("screen.rtsbuilding.theme.open"));
     }
 
@@ -244,7 +248,8 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND : SettingsWindowStyle.STEP_BACKGROUND,
                 SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
-                x + w / 2, y + 7, SettingsWindowStyle.VALUE.toArgb());
+                x + w / 2, y + SettingsWindowLayout.ACTION_BUTTON_TEXT_TOP,
+                SettingsWindowStyle.VALUE.toArgb());
     }
 
     private void drawCoreSensitivityRow(GuiGraphics g, SettingsUiRow row, int rowY, int x, int w) {
@@ -361,9 +366,12 @@ public final class GearMenuPanel extends RtsWindowPanel {
             }
             SettingsUiRow row = node.row;
             if (row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.ACTION
-                    && UiRect.contains(node.x + node.width - 112, node.y + 6,
-                    96, 22, mouseX, contentMouseY)) {
+                    && UiRect.contains(node.x + node.width - SettingsWindowLayout.ACTION_BUTTON_RIGHT_INSET,
+                    node.y + SettingsWindowLayout.ACTION_BUTTON_TOP,
+                    SettingsWindowLayout.ACTION_BUTTON_W, SettingsWindowLayout.ACTION_BUTTON_H,
+                    mouseX, contentMouseY)) {
                 if (row.id == SettingsId.UI_THEME && this.themeSettingsPanel != null) {
+                    close();
                     this.themeSettingsPanel.open();
                 }
                 return;

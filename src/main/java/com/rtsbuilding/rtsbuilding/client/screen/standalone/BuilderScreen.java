@@ -75,6 +75,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+
+import static com.rtsbuilding.rtsbuilding.uikit.layout.ThemeSettingsLayout.*;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
@@ -135,7 +137,11 @@ public BuilderScreen(ClientRtsController controller) {
                 () -> this.height,
                 value -> this.width = value,
                 value -> this.height = value,
-                this.uiStateManager::fixedRtsGuiScale);
+                this.uiStateManager::fixedRtsGuiScale,
+                () -> this.themeSettingsPanel.isOpen()
+                        ? PREFERRED_WINDOW_W + SCREEN_EDGE_RESERVE : 0,
+                () -> this.themeSettingsPanel.isOpen()
+                        ? PREFERRED_WINDOW_H + SCREEN_VERTICAL_RESERVE : 0);
         this.overlayRenderer = new RtsScreenOverlayRenderer(this, this.controller, this.cursorPicker, this.bottomPanel);
         this.playerStatusRenderer = new PlayerStatusRenderer(this);
         this.storageLinkDetailHandler = new StorageLinkDetailHandler(this, this.controller, this.topBarPanel, this.linkedStoragePanel);

@@ -471,9 +471,13 @@ tasks.register('verifyUiIconResources') {
     def paletteTopbarSources = topbarIds.collect { id ->
         file("src/main/resources/assets/rtsbuilding/textures/gui/palette/topbar/${id}.png")
     }
+    def colorPickerTextures = [
+            file('src/main/resources/assets/rtsbuilding/textures/gui/color/colorwheel.png'),
+            file('src/main/resources/assets/rtsbuilding/textures/gui/color/color_palette_indicator.png')
+    ]
     def assetLicenses = file('ASSET-LICENSES.md')
     inputs.files(topbarTextures + guideTextures + pr133LegacyStates
-            + pr133PaletteSources + paletteTopbarSources + [assetLicenses])
+            + pr133PaletteSources + paletteTopbarSources + colorPickerTextures + [assetLicenses])
     doLast {
         (topbarTextures + guideTextures).each { texture ->
             if (!texture.isFile() || texture.length() == 0L) {
@@ -494,6 +498,21 @@ tasks.register('verifyUiIconResources') {
             def image = javax.imageio.ImageIO.read(texture)
             if (image == null || image.width != 24 || image.height != 24) {
                 throw new GradleException("Invalid PR #133 UI texture size: ${texture}")
+            }
+        }
+        def expectedColorPickerSizes = [
+                'colorwheel.png': [89, 89],
+                'color_palette_indicator.png': [144, 216]
+        ]
+        colorPickerTextures.each { texture ->
+            if (!texture.isFile() || texture.length() == 0L) {
+                throw new GradleException("Missing v2 color-picker texture: ${texture}")
+            }
+            def image = javax.imageio.ImageIO.read(texture)
+            def expected = expectedColorPickerSizes[texture.name]
+            if (image == null || image.width != expected[0] || image.height != expected[1]
+                    || !image.colorModel.hasAlpha()) {
+                throw new GradleException("Invalid v2 color-picker texture: ${texture}")
             }
         }
         def allowedPaletteColors = [0xFF445468 as int, 0xFF1A202A as int, 0xFFA6CCF2 as int] as Set
@@ -521,6 +540,9 @@ tasks.register('verifyUiIconResources') {
         String licenseText = assetLicenses.getText('UTF-8')
         if (!licenseText.contains('guide_*') || !licenseText.contains('textures/gui/guide/')) {
             throw new GradleException('UI icon source/license record is incomplete')
+        }
+        if (!licenseText.contains('colorwheel.png') || !licenseText.contains('怡然')) {
+            throw new GradleException('v2 color-picker attribution is incomplete')
         }
         println "Verified ${topbarTextures.size()} top-bar states, ${guideTextures.size()} guide textures, " +
                 "${pr133LegacyStates.size()} PR #133 Legacy states and " +

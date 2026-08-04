@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -87,19 +88,25 @@ public final class DestroyGhostRenderer {
                 continue;
             }
             float scale = computeShrinkScale(elapsed);
+            float red = UiThemeWorldColors.red(UiThemeWorldColors.DESTROY_CONFIRMED);
+            float green = UiThemeWorldColors.green(UiThemeWorldColors.DESTROY_CONFIRMED);
+            float blue = UiThemeWorldColors.blue(UiThemeWorldColors.DESTROY_CONFIRMED);
             RtsSableClientSpatialCompat.renderInFrame(minecraft.level, ghost.pos, poseStack,
                     () -> renderLineBox(poseStack, lineBuffer, ghost.pos, scale,
-                            0.38F, 1.00F, 0.42F, Math.max(0.0F, scale * 0.95F)));
+                            red, green, blue, Math.max(0.0F, scale * 0.95F)));
         }
     }
 
     private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
         double inset = 0.5D - scale * 0.46D;
+        float red = UiThemeWorldColors.red(UiThemeWorldColors.DESTROY_CONFIRMED_FILL);
+        float green = UiThemeWorldColors.green(UiThemeWorldColors.DESTROY_CONFIRMED_FILL);
+        float blue = UiThemeWorldColors.blue(UiThemeWorldColors.DESTROY_CONFIRMED_FILL);
         LevelRenderer.addChainedFilledBoxVertices(
                 poseStack, fillBuffer,
                 pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                 pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
-                0.30F, 0.95F, 0.36F, Math.max(0.0F, scale * 0.14F));
+                red, green, blue, Math.max(0.0F, scale * 0.14F));
     }
 
     private static void renderLineBox(PoseStack poseStack, VertexConsumer lineBuffer, BlockPos pos, float scale,

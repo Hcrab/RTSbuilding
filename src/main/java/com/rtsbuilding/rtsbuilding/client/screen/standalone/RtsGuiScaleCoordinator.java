@@ -26,6 +26,8 @@ final class RtsGuiScaleCoordinator {
     private final IntConsumer setWidth;
     private final IntConsumer setHeight;
     private final DoubleSupplier configuredScale;
+    private final IntSupplier minimumViewportWidth;
+    private final IntSupplier minimumViewportHeight;
 
     private boolean renderPass;
     private boolean inputPass;
@@ -39,13 +41,17 @@ final class RtsGuiScaleCoordinator {
             IntSupplier height,
             IntConsumer setWidth,
             IntConsumer setHeight,
-            DoubleSupplier configuredScale) {
+            DoubleSupplier configuredScale,
+            IntSupplier minimumViewportWidth,
+            IntSupplier minimumViewportHeight) {
         this.minecraft = minecraft;
         this.width = width;
         this.height = height;
         this.setWidth = setWidth;
         this.setHeight = setHeight;
         this.configuredScale = configuredScale;
+        this.minimumViewportWidth = minimumViewportWidth;
+        this.minimumViewportHeight = minimumViewportHeight;
     }
 
     boolean isRenderPass() {
@@ -148,6 +154,16 @@ final class RtsGuiScaleCoordinator {
             return null;
         }
         double renderScale = this.configuredScale.getAsDouble() / currentScale;
+        // 信息密度高的完整设置页可以声明一个临时最小虚拟视口。这里仅收紧本帧
+        // 渲染倍率，不修改玩家保存的 RTS UI Scale；关闭页面后会自然恢复。
+        int requiredWidth = this.minimumViewportWidth.getAsInt();
+        int requiredHeight = this.minimumViewportHeight.getAsInt();
+        if (requiredWidth > 0) {
+            renderScale = Math.min(renderScale, currentWidth / (double) requiredWidth);
+        }
+        if (requiredHeight > 0) {
+            renderScale = Math.min(renderScale, currentHeight / (double) requiredHeight);
+        }
         if (!Double.isFinite(renderScale) || renderScale <= 0.0D) {
             return null;
         }

@@ -8,6 +8,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 import java.util.List;
 
@@ -132,14 +134,16 @@ public final class PlacedBlockRotationHandleRenderer {
     }
 
     private static Color axisColor(Vec3 planeNormal, boolean hovered) {
-        Color base;
+        UiColor themed;
         if (Math.abs(planeNormal.y) > 0.5D) {
-            base = new Color(0.36F, 1.00F, 0.42F);
+            themed = UiThemeWorldColors.AXIS_Y;
         } else if (Math.abs(planeNormal.x) > 0.5D) {
-            base = new Color(1.00F, 0.34F, 0.32F);
+            themed = UiThemeWorldColors.AXIS_X;
         } else {
-            base = new Color(0.38F, 0.64F, 1.00F);
+            themed = UiThemeWorldColors.AXIS_Z;
         }
+        Color base = new Color(UiThemeWorldColors.red(themed), UiThemeWorldColors.green(themed),
+                UiThemeWorldColors.blue(themed));
         if (!hovered) {
             return base;
         }

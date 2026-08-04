@@ -48,4 +48,21 @@ class UiThemeStorageTest {
         assertTrue(storage.loadAll(registry).isEmpty());
         assertTrue(registry.contains("user:nord_copy"));
     }
+
+    @Test
+    void importingSameUserIdReplacesTheOldDefinitionAndManagedFile() throws Exception {
+        UiThemeStorage storage = new UiThemeStorage(temporaryDirectory.resolve("themes"));
+        Path external = temporaryDirectory.resolve("replacement.rts-theme.json");
+        storage.exportUserCopy(UiThemeBuiltins.nordCommand(), "user:replace_me");
+        Path managed = storage.directory().resolve("user_replace_me.rts-theme.json");
+        Files.copy(managed, external);
+
+        UiThemeRegistry registry = UiThemeBuiltins.createRegistry();
+        UiThemeDefinition first = storage.importFile(external, registry);
+        assertSame(first, registry.require("user:replace_me"));
+        UiThemeDefinition second = storage.importFile(external, registry);
+        assertNotSame(first, second);
+        assertSame(second, registry.require("user:replace_me"));
+        assertTrue(Files.isRegularFile(managed));
+    }
 }
