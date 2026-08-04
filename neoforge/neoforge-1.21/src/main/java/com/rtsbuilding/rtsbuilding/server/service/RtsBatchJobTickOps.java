@@ -101,15 +101,11 @@ public final class RtsBatchJobTickOps {
             historyRecorder.accept(player, job);
 
             // Merge three engine.from() calls into one, avoiding repeated playerRefs + slots + entryId lookups
+            int failed = failedFn.applyAsInt(job);
             engine.from(player, eid).ifPresent(token -> {
-                // Update workflow progress
-                if (delta > 0) {
-                    token.updateProgress(delta, null);
-                }
-                // Report failures
-                int failed = failedFn.applyAsInt(job);
-                for (int i = 0; i < failed; i++) {
-                    token.recordFailure();
+                // Update workflow progress (completed + failed in one notify)
+                if (delta > 0 || failed > 0) {
+                    token.updateProgress(delta, failed, null);
                 }
                 // Complete workflow entry
                 token.complete();

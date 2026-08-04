@@ -2,12 +2,16 @@ package com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid;
 
 import com.rtsbuilding.rtsbuilding.client.domain.state.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.domain.state.RecentEntry;
-import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.domain.state.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.component.ScrollBar;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.overlay.OverlayContext;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
@@ -237,25 +241,12 @@ public final class GridInputHandler {
                         RecentEntry clickedRecent = recentItems.get(recentIdx);
                         if (!clickedRecent.preview().isEmpty()) {
                             boolean alreadySelected = ItemStack.isSameItemSameComponents(state.currentSelectedItem, clickedRecent.preview());
-
+                            // 最近使用条目：走同一套“选取=启用”合并逻辑（最近网格无槽位索引，选中态统一为 -1）
                             state.selectedSlotIndex = -1;
                             if (alreadySelected) {
-                                state.currentSelectedItem = ItemStack.EMPTY;
-                                BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
-                                if (buildingModule != null) {
-                                    buildingModule.clearSelection();
-                                }
+                                cancelSelection();
                             } else {
-                                state.currentSelectedItem = clickedRecent.preview().copy();
-                                String itemId = BuiltInRegistries.ITEM.getKey(clickedRecent.preview().getItem()).toString();
-                                if (itemId != null) {
-                                    String label = clickedRecent.preview().getHoverName().getString();
-                                    renderer.recordItemSelection(itemId, clickedRecent.preview());
-                                    BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
-                                    if (buildingModule != null) {
-                                        buildingModule.selectItem(itemId, label, clickedRecent.preview());
-                                    }
-                                }
+                                enableItem(clickedRecent.preview());
                             }
                         }
                         return true;
@@ -269,70 +260,72 @@ public final class GridInputHandler {
         int relX = (int) mouseX - localMainGridOriginX;
         int relY = (int) mouseY - originY + scrollBar.getScroll();
         if (relX < 0 || relY < 0) {
-            return false;
+            return tryReturnCarried();
         }
         int col = relX / (SLOT_SIZE + SLOT_GAP);
         int row = relY / (SLOT_SIZE + SLOT_GAP);
         if (col >= localMainGridCols) {
-            return false;
+            return tryReturnCarried();
         }
         int idx = row * localMainGridCols + col;
         if (idx >= state.slotEntries.size()) {
-            return false;
+            return tryReturnCarried();
         }
 
         int calculatedFrameHeight = localRows * (SLOT_SIZE + SLOT_GAP) - SLOT_GAP;
         int bottomY = originY + calculatedFrameHeight;
         if (mouseY < originY || mouseY >= bottomY) {
-            return false;
+            return tryReturnCarried();
         }
 
-        boolean deselect;
-        if (state.selectedSlotIndex == idx) {
-            deselect = true;
-        } else if (state.selectedSlotIndex == -1
-                && ItemStack.isSameItemSameComponents(state.currentSelectedItem, state.slotEntries.get(idx).stack())) {
-            deselect = true;
-        } else {
-            deselect = false;
-            state.selectedSlotIndex = idx;
-            SlotEntry clickedEntry = state.slotEntries.get(idx);
-            state.currentSelectedItem = clickedEntry.stack().copy();
-        }
-
-        if (deselect) {
-            state.selectedSlotIndex = -1;
-            state.currentSelectedItem = ItemStack.EMPTY;
-            BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
-            if (buildingModule != null) {
-                buildingModule.clearSelection();
+        // Shift+点击：原版式快速转移——一键放入打开的容器（服务端智能判定：
+        // 容器打开时存入容器，仅背包菜单时转入玩家背包）；流体条目不参与，保持选材
+        if (Screen.hasShiftDown()) {
+            SlotEntry shiftEntry = state.slotEntries.get(idx);
+            if (!shiftEntry.isFluid() && !shiftEntry.stack().isEmpty()) {
+                // RTS 模式下禁止对“开启该模式的终端”进行拿去/快速转移
+                if (CameraModule.isLockedTerminal(shiftEntry.stack())) return true;
+                // 背包来源条目 → 存入绑定存储；存储条目 → 转入背包/打开的容器
+                boolean fromInventory = shiftEntry.originalEntry() instanceof StorageEntry se && se.isPlayerInventory();
+                RtsClientPacketGateway.sendLinkedQuickMove(shiftEntry.stack().copyWithCount(1), fromInventory);
+                return true;
             }
-            return true;
         }
 
-        SlotEntry entry = state.slotEntries.get(idx);
-        if (!entry.isFluid()) {
-            String itemId = BuiltInRegistries.ITEM.getKey(entry.stack().getItem()).toString();
-            String label = entry.stack().getHoverName().getString();
-            renderer.recordItemSelection(itemId, entry.stack());
-
-            BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
-            if (buildingModule != null) {
-                buildingModule.selectItem(itemId, label, entry.stack());
-            }
-        } else {
-            if (entry.originalEntry() instanceof FluidEntry originalFluidEntry) {
-                String fluidId = originalFluidEntry.fluidId();
-                String label = entry.stack().getHoverName().getString();
-
-                BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
-                if (buildingModule != null) {
-                    buildingModule.selectFluid(fluidId, label, entry.stack());
+        // 原版式点击移动：点击条目 = 拿起（carried 空 → 提取一组跟随鼠标）或存回（carried 非空）
+        SlotEntry clickedEntry = state.slotEntries.get(idx);
+        if (!clickedEntry.isFluid() && !clickedEntry.stack().isEmpty()) {
+            // RTS 模式下禁止对“开启该模式的终端”进行拿去/启用
+            if (CameraModule.isLockedTerminal(clickedEntry.stack())) return true;
+            Minecraft mc = Minecraft.getInstance();
+            var menu = mc.player != null ? mc.player.containerMenu : null;
+            if (menu != null) {
+                ItemStack carried = menu.getCarried();
+                if (carried.isEmpty()) {
+                    // 拿起：提取一组到 carried 立即跟随鼠标，并同步启用为建造选材（拿起就能用）
+                    ItemStack prototype = clickedEntry.stack().copyWithCount(1);
+                    int amount = Math.min(64, Math.max(1, (int) clickedEntry.count()));
+                    // 背包来源条目 → 只从背包提取（所见即所得）；存储条目 → 存储优先提取
+                    boolean fromInventory = clickedEntry.originalEntry() instanceof StorageEntry se && se.isPlayerInventory();
+                    RtsClientPacketGateway.sendLinkedPickup(prototype, amount, fromInventory);
+                    menu.setCarried(prototype.copyWithCount(amount)); // 乐观跟随，服务端权威经 S2C 同步
+                    state.selectedSlotIndex = idx;
+                    enableItem(clickedEntry.stack());
+                } else {
+                    // 携带中点击条目：全部放回网络（原版“点击放回”语义）
+                    String itemId = BuiltInRegistries.ITEM.getKey(carried.getItem()).toString();
+                    RtsClientPacketGateway.sendReturnCarried(itemId, 64);
+                    menu.setCarried(ItemStack.EMPTY);
+                    // 放回的是当前启用选材 → 取消启用（启用只在“拿起”期间有效，放回即失效）
+                    if (ItemStack.isSameItemSameComponents(carried, state.currentSelectedItem)) {
+                        cancelSelection();
+                    }
                 }
+                return true;
             }
         }
-
-        return true;
+        // 流体条目：保持选材交互（选取/取消启用流体，不参与物品移动）
+        return applyEntrySelection(idx);
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
@@ -480,7 +473,28 @@ public final class GridInputHandler {
             recentScrollBar.endDrag();
             return true;
         }
+        // 点击式交互：拿起/存回均由 mouseClicked 完成，释放不再触发任何物品操作
         return false;
+    }
+
+    /**
+     * 原版“点击空白放回”：携带物品时点击网格空白处 → 全部放回链接存储；
+     * 未携带物品返回 false 不消费事件（交由其他面板处理）。
+     */
+    private boolean tryReturnCarried() {
+        Minecraft mc = Minecraft.getInstance();
+        var menu = mc.player != null ? mc.player.containerMenu : null;
+        if (menu == null || menu.getCarried().isEmpty()) return false;
+        ItemStack carried = menu.getCarried();
+        String itemId = BuiltInRegistries.ITEM.getKey(carried.getItem()).toString();
+        // amount=64：服务端取 min(amount, carried.getCount())，即全部存入；剩余由 S2C 同步回来
+        RtsClientPacketGateway.sendReturnCarried(itemId, 64);
+        menu.setCarried(ItemStack.EMPTY); // 乐观清空，服务端权威状态通过 S2CRtsCarriedSyncPayload 同步
+        // 放回的是当前启用选材 → 取消启用（启用只在“拿起”期间有效，放回即失效）
+        if (ItemStack.isSameItemSameComponents(carried, state.currentSelectedItem)) {
+            cancelSelection();
+        }
+        return true;
     }
 
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
@@ -493,7 +507,80 @@ public final class GridInputHandler {
         if (recentScrollBar.isDragging()) {
             return recentScrollBar.handleDrag(mouseY, originY + 6, gridVisibleH - 12);
         }
+        // 点击式交互：拿起/放置均由 mouseClicked 完成，拖动不处理物品
         return false;
+    }
+
+    // ==================== 选取/启用合并逻辑 ====================
+
+    /**
+     * 原子取消：UI 选取态（槽位高亮 + 选中物品显示）与建造启用（BuildingModule）同步清空。
+     * 所有“取消选材”路径（再点已选条目、右键移除最近条目、放回物品、退出 RTS 等）统一走这里，杜绝状态分裂。
+     */
+    public void cancelSelection() {
+        state.selectedSlotIndex = -1;
+        state.currentSelectedItem = ItemStack.EMPTY;
+        BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
+        if (buildingModule != null) {
+            buildingModule.clearSelection();
+        }
+    }
+
+    /**
+     * 原子启用物品：选中态（currentSelectedItem）与建造启用（selectItem + 最近使用记录）一次完成。
+     */
+    private void enableItem(ItemStack stack) {
+        // RTS 模式下禁止对“开启该模式的终端”启用选材（覆盖最近条目点击路径）
+        if (CameraModule.isLockedTerminal(stack)) return;
+        state.currentSelectedItem = stack.copy();
+        String itemId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+        if (itemId == null) return;
+        String label = stack.getHoverName().getString();
+        renderer.recordItemSelection(itemId, stack);
+        BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
+        if (buildingModule != null) {
+            buildingModule.selectItem(itemId, label, stack);
+        }
+    }
+
+    /**
+     * 原子启用流体：选中态与建造启用（selectFluid）一次完成。
+     */
+    private void enableFluid(SlotEntry entry) {
+        if (!(entry.originalEntry() instanceof FluidEntry originalFluidEntry)) return;
+        String fluidId = originalFluidEntry.fluidId();
+        String label = entry.stack().getHoverName().getString();
+        state.currentSelectedItem = entry.stack().copy();
+        BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
+        if (buildingModule != null) {
+            buildingModule.selectFluid(fluidId, label, entry.stack());
+        }
+    }
+
+    /**
+     * 主网格条目统一选取/取消：一次点击原子完成“UI 选取 + 物品启用”，
+     * 再点同一条目则原子取消两者（取消选取即取消启用）。
+     *
+     * @return true 表示已处理（选取/取消完成）
+     */
+    private boolean applyEntrySelection(int idx) {
+        SlotEntry entry = state.slotEntries.get(idx);
+        // RTS 模式下禁止对“开启该模式的终端”进行启用选材
+        if (CameraModule.isLockedTerminal(entry.stack())) return true;
+        boolean isCurrent = state.selectedSlotIndex == idx
+                || (state.selectedSlotIndex == -1
+                        && ItemStack.isSameItemSameComponents(state.currentSelectedItem, entry.stack()));
+        if (isCurrent) {
+            cancelSelection();
+            return true;
+        }
+        state.selectedSlotIndex = idx;
+        if (!entry.isFluid()) {
+            enableItem(entry.stack());
+        } else {
+            enableFluid(entry);
+        }
+        return true;
     }
 
     private void cycleSortType() {
@@ -572,25 +659,16 @@ public final class GridInputHandler {
         if (clicked.preview().isEmpty() || clicked.id() == null) return false;
 
         String removedId = clicked.id();
-        state.recentRemovedIds.add(removedId);
         state.itemSelectCounts.remove(removedId);
         state.itemSelectPreviews.remove(removedId);
 
         
         if (ItemStack.isSameItemSameComponents(state.currentSelectedItem, clicked.preview())) {
-            state.currentSelectedItem = ItemStack.EMPTY;
-            state.selectedSlotIndex = -1;
-            BuildingModule buildingModule = RtsClientKernel.get().module(BuildingModule.class);
-            if (buildingModule != null) {
-                buildingModule.clearSelection();
-            }
+            cancelSelection();
         }
 
         
-        if (sm != null) {
-            List<?> recentEntries = sm.getRecentEntries();
-            recentEntries.removeIf(obj -> obj instanceof RecentEntry re && removedId.equals(re.id()));
-        }
+        sm.removeRecentEntry(removedId);
         return true;
     }
 

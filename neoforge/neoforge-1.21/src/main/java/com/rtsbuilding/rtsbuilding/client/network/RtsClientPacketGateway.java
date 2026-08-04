@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.core.network.ActionType;
 import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
 import com.rtsbuilding.rtsbuilding.network.message.C2SAction;
+import com.rtsbuilding.rtsbuilding.network.message.C2SCameraPosePayload;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
@@ -184,6 +185,22 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(act(ActionType.UNDO, tag()));
     }
 
+    /**
+     * 实时上报客户端 RTS 相机姿态（位置 + 朝向）给服务端。
+     * <p>相机移动/旋转是纯客户端计算（CameraModule 每 tick/渲染帧更新本地状态），
+     * 服务端通过此方法获取相机的真实位置与朝向，供权威逻辑（如动作范围校验、实体跟随）使用。</p>
+     * <p>高频路径：使用专用 payload 直接字段编解码，不走 NBT CompoundTag。</p>
+     *
+     * @param x     相机世界 X 坐标
+     * @param y     相机世界 Y 坐标
+     * @param z     相机世界 Z 坐标
+     * @param yaw   偏航角（度）
+     * @param pitch 俯仰角（度）
+     */
+    public static void sendCameraPose(double x, double y, double z, float yaw, float pitch) {
+        PacketDistributor.sendToServer(new C2SCameraPosePayload(x, y, z, yaw, pitch));
+    }
+
     public static void sendInteractEntityEmptyHand(int entityId, Vec3 hitLocation,
                                                     @javax.annotation.Nullable BlockHitResult blockHit,
                                                     Vec3 rayOrigin, Vec3 rayDir) {
@@ -245,5 +262,76 @@ public final class RtsClientPacketGateway {
     public static void sendDeleteWorkflow(int entryId) {
         var t = tag(); t.putInt("entryId", entryId);
         PacketDistributor.sendToServer(act(ActionType.DELETE_WORKFLOW, t));
+    }
+
+    // ── Linked-storage ↔ container menu transfers ──
+
+    /**
+     * Pick {@code amount} of the linked-storage item {@code prototype} into the
+     * open container menu carried slot (server-authoritative).
+     */
+    public static void sendLinkedPickup(ItemStack prototype, int amount) {
+        sendLinkedPickup(prototype, amount, false);
+    }
+
+    /**
+     * Pick up {@code amount} of {@code prototype} into the carried slot.
+     *
+     * @param fromInventory {@code true} when the clicked grid entry sources from the player inventory
+     *                      (extract only from player inventory instead of linked storage)
+     */
+    public static void sendLinkedPickup(ItemStack prototype, int amount, boolean fromInventory) {
+        if (prototype == null || prototype.isEmpty() || amount <= 0) return;
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        if (level == null) return;
+        var t = tag();
+        t.put("prototype", prototype.saveOptional(level.registryAccess()));
+        t.putInt("amount", amount);
+        t.putBoolean("fromInventory", fromInventory);
+        PacketDistributor.sendToServer(act(ActionType.LINKED_PICKUP, t));
+    }
+
+    /**
+     * Return {@code amount} of the carried item matching {@code itemId}
+     * (registry item id, e.g. {@code minecraft:dirt}) back to the linked storage.
+     */
+    public static void sendReturnCarried(String itemId, int amount) {
+        if (itemId == null || itemId.isBlank() || amount <= 0) return;
+        var t = tag(); t.putString("itemId", itemId); t.putInt("amount", amount);
+        PacketDistributor.sendToServer(act(ActionType.RETURN_CARRIED, t));
+    }
+
+    /**
+     * Shift-style quick move: push the linked-storage item {@code prototype}
+     * straight into the open menu (single-item merge pass).
+     */
+    public static void sendLinkedQuickMove(ItemStack prototype) {
+        sendLinkedQuickMove(prototype, false);
+    }
+
+    /**
+     * Shift-style quick move: push the item straight into the open menu (single-item merge pass).
+     *
+     * @param fromInventory {@code true} when the clicked grid entry sources from the player inventory
+     *                      (extract from player inventory and store into linked storage instead)
+     */
+    public static void sendLinkedQuickMove(ItemStack prototype, boolean fromInventory) {
+        if (prototype == null || prototype.isEmpty()) return;
+        var level = net.minecraft.client.Minecraft.getInstance().level;
+        if (level == null) return;
+        var t = tag();
+        t.put("prototype", prototype.saveOptional(level.registryAccess()));
+        t.putBoolean("fromInventory", fromInventory);
+        PacketDistributor.sendToServer(act(ActionType.LINKED_QUICK_MOVE, t));
+    }
+
+    /**
+     * Shift-click a slot of the open container menu: import the whole slot
+     * (or one craft cycle for crafting tables) into linked storage.
+     */
+    public static void sendImportMenuSlot(int menuSlot) {
+        if (menuSlot < 0) return;
+        var t = tag(); t.putInt("slot", menuSlot);
+        PacketDistributor.sendToServer(act(ActionType.IMPORT_MENU_SLOT, t));
     }
 }

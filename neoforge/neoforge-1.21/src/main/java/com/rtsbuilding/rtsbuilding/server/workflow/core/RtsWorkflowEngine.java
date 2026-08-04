@@ -22,6 +22,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -67,6 +68,15 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
 
     /** 网络同步服务。 */
     private final RtsWorkflowSyncService syncService = new RtsWorkflowSyncService();
+
+    /**
+     * 本 tick 内工作流状态被修改、待同步的玩家集合（脏标记）。
+     * <p>所有 {@code notifyPlayer} 调用只在此集合中标记玩家，实际发包在
+     * {@link #flushDirty()}（服务端每 tick 末调用）中合并执行——
+     * 同一 tick 内的多次进度更新最终只会发送一个完整状态包，
+     * 避免批量操作时每处理一个方块就序列化并发送一次全量包。</p>
+     */
+    private final Set<UUID> dirtyPlayers = ConcurrentHashMap.newKeySet();
 
     /** 可选的超时服务（单独启动）。 */
     private RtsWorkflowTimeoutService timeoutService;
@@ -176,24 +186,40 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (!removed) return;
 
         // 通过网络通知玩家（notifyPlayer 内部处理 idle 的情况）
-        ServerPlayer player = findPlayerByUUID(playerId);
-        if (player != null) {
-            syncService.notifyPlayer(player, slots);
-        }
+        // 走脏标记，与同 tick 内的其他进度更新合并为一次发包
+        notifyPlayer(playerId, dimension);
     }
 
     /**
      * 向指定维度的玩家发送完整的工作流状态更新。
      * 包级私有——由 {@link RtsWorkflowToken} 调用。
+     * <p>注意：这里只标记脏，实际发包由 {@link #flushDirty()} 在服务端
+     * tick 末尾合并执行，避免同一 tick 内多次更新重复发送全量包。</p>
      */
     void notifyPlayer(UUID playerId, ResourceKey<Level> dimension) {
-        RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
-        if (slots == null) return;
+        if (playerId == null || dimension == null) return;
+        dirtyPlayers.add(playerId);
+    }
 
-        ServerPlayer player = findPlayerByUUID(playerId);
-        if (player != null) {
-            syncService.notifyPlayer(player, slots);
+    /**
+     * 将所有待同步玩家的完整工作流状态包合并发送（每服务端 tick 调用一次）。
+     * <p>对每个脏玩家，遍历其所有维度的槽位管理器发送当前状态；
+     * 空槽位由 {@link RtsWorkflowSyncService#notifyPlayer} 内部转为 idle 包。</p>
+     */
+    public void flushDirty() {
+        if (dirtyPlayers.isEmpty()) return;
+        for (UUID playerId : dirtyPlayers) {
+            Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimMap = playerSlots.get(playerId);
+            if (dimMap == null || dimMap.isEmpty()) continue;
+            ServerPlayer player = findPlayerByUUID(playerId);
+            if (player == null) continue;
+            for (RtsWorkflowSlotManager slots : dimMap.values()) {
+                if (slots != null) {
+                    syncService.notifyPlayer(player, slots);
+                }
+            }
         }
+        dirtyPlayers.clear();
     }
 
     /**
@@ -411,10 +437,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             }
 
             if (anyChanged && notify) {
-                ServerPlayer player = findPlayerByUUID(playerId);
-                if (player != null) {
-                    syncService.notifyPlayer(player, slots);
-                }
+                // 走脏标记合并发包
+                notifyPlayer(playerId, dimension);
             }
         }
     }
@@ -465,6 +489,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (playerId == null) return;
         playerSlots.remove(playerId);
         playerRefs.remove(playerId);
+        dirtyPlayers.remove(playerId);
     }
 
     @Override
@@ -472,6 +497,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         int totalPlayers = playerSlots.size();
         playerSlots.clear();
         playerRefs.clear();
+        dirtyPlayers.clear();
         RtsbuildingMod.LOGGER.info("[Workflow] 已清理所有工作流数据（共 {} 名玩家）", totalPlayers);
     }
 

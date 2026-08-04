@@ -109,7 +109,13 @@ public final class ContainerPageState {
     public TickResult tickPending(boolean containerOpenDetected) {
         if (pendingId == null) return TickResult.NONE;
         if (containerOpenDetected) {
-            cancelPending();
+            // 探测到容器已打开：等待键直接转正为活动键。
+            // 若仅清除 pending 等待随后 opened() 补设，探测与打开回调之间的窗口
+            // 会使 getPendingId() 返回 null，activeId 被误置为 null（外部容器语义）。
+            this.activeId = this.pendingId;
+            this.pendingId = null;
+            this.pendingTicks = 0;
+            this.pageOpen = true;
             return TickResult.OPENED;
         }
         if (++pendingTicks > PENDING_OPEN_TIMEOUT_TICKS) {

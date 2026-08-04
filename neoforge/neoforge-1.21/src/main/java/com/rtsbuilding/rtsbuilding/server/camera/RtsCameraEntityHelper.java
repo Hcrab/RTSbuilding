@@ -2,16 +2,18 @@ package com.rtsbuilding.rtsbuilding.server.camera;
 
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
+import com.rtsbuilding.rtsbuilding.common.entity.RtsDroneEntity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 
 /**
- * 相机实体的创建、查找、丢弃等纯实体操作。
+ * 相机/无人机实体的创建、查找、丢弃等纯实体操作。
  * <p>包私有——仅供 {@link RtsCameraManager} 内部委托。
  */
 final class RtsCameraEntityHelper {
@@ -90,6 +92,90 @@ final class RtsCameraEntityHelper {
         camera.snapTo(x, y, z, yaw, pitch);
         level.addFreshEntity(camera);
         return camera;
+    }
+
+    // ======================================================================
+    //  无人机
+    // ======================================================================
+
+    /**
+     * 在所有维度中查找指定 UUID 的无人机实体。
+     *
+     * @param server    Minecraft 服务器实例
+     * @param droneUuid 无人机实体的 UUID
+     * @return 找到的实体，若未找到则返回 {@code null}
+     */
+    static Entity findDroneEntity(MinecraftServer server, UUID droneUuid) {
+        if (server == null || droneUuid == null) {
+            return null;
+        }
+        for (ServerLevel level : server.getAllLevels()) {
+            Entity entity = level.getEntity(droneUuid);
+            if (entity != null) {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 丢弃指定玩家拥有的所有无人机实体。
+     *
+     * @param player 目标玩家
+     */
+    static void discardOwnedDrones(ServerPlayer player) {
+        if (player == null || player.getServer() == null) {
+            return;
+        }
+        UUID ownerUuid = player.getUUID();
+        for (ServerLevel level : player.getServer().getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof RtsDroneEntity drone
+                        && ownerUuid.equals(drone.getOwnerUuid())) {
+                    drone.discard();
+                }
+            }
+        }
+    }
+
+    /**
+     * 创建并生成一个 RTS 无人机实体。
+     *
+     * @param level     目标服务端维度
+     * @param ownerUuid 所属玩家 UUID
+     * @param x         X 坐标
+     * @param y         Y 坐标
+     * @param z         Z 坐标
+     * @param yaw       偏航角
+     * @return 创建的无人机实体
+     */
+    static RtsDroneEntity createAndSpawnDrone(ServerLevel level, UUID ownerUuid,
+            double x, double y, double z, float yaw) {
+        RtsDroneEntity drone = new RtsDroneEntity(RtsEntities.RTS_DRONE.get(), level);
+        drone.setOwnerUuid(ownerUuid);
+        drone.snapTo(x, y, z, yaw);
+        level.addFreshEntity(drone);
+        return drone;
+    }
+
+    /**
+     * 清理不再活跃的"孤儿"无人机实体。
+     * <p>遍历所有维度，丢弃那些不在活跃会话中的无人机实体。</p>
+     *
+     * @param server        Minecraft 服务器实例
+     * @param activeDrones  仍处于活跃会话中的无人机 UUID 集合
+     */
+    static void cleanupOrphanDrones(MinecraftServer server, Set<UUID> activeDrones) {
+        if (server == null) {
+            return;
+        }
+        for (ServerLevel level : server.getAllLevels()) {
+            for (Entity entity : level.getAllEntities()) {
+                if (entity instanceof RtsDroneEntity drone && !activeDrones.contains(drone.getUUID())) {
+                    drone.discard();
+                }
+            }
+        }
     }
 
     // ======================================================================

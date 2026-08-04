@@ -1,11 +1,18 @@
 package com.rtsbuilding.rtsbuilding.common;
 
+import com.mojang.serialization.Codec;
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.item.RtsTerminalItem;
 import com.rtsbuilding.rtsbuilding.platform.Platform;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginItem;
+import net.minecraft.core.component.DataComponentType;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.neoforged.bus.api.IEventBus;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
 
@@ -30,6 +37,21 @@ public final class RtsItems {
 
     /** Unified item registry instance */
     public static final DeferredRegister<Item> ITEMS = Platform.itemRegister();
+
+    /** Data component registry — stores per-stack energy (FE) for the RTS terminal */
+    public static final DeferredRegister.DataComponents DATA_COMPONENTS =
+            DeferredRegister.DataComponents.createDataComponents(Registries.DATA_COMPONENT_TYPE, RtsbuildingMod.MODID);
+
+    /** Terminal energy component — the FE charge persisted on the item stack */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<Integer>> TERMINAL_ENERGY =
+            DATA_COMPONENTS.registerComponentType("terminal_energy",
+                    builder -> builder.persistent(Codec.INT));
+
+    /** Terminal UUID component — unique per-stack id recorded when RTS mode is enabled,
+     *  used to lock that very terminal against pickup/enable actions while RTS mode is active */
+    public static final DeferredHolder<DataComponentType<?>, DataComponentType<String>> TERMINAL_UUID =
+            DATA_COMPONENTS.registerComponentType("terminal_uuid",
+                    builder -> builder.persistent(Codec.STRING));
 
     /** Set of items that need to be automatically registered in the creative tab (ordered by registration order) */
     private static final Set<DeferredHolder<Item, ? extends Item>> CREATIVE_TAB_ITEMS = new LinkedHashSet<>();
@@ -62,6 +84,14 @@ public final class RtsItems {
     public static final DeferredHolder<Item, Item> RANGE_EXTENSION_III = pluginItem("range_extension_iii", true);
     /** Range extension Max — maximizes the action radius */
     public static final DeferredHolder<Item, Item> RANGE_EXTENSION_MAX = pluginItem("range_extension_max", true);
+
+    // ============================================================
+    //  Terminal items
+    // ============================================================
+
+    /** RTS terminal — the handheld management console of the RTS system (non-stackable, energy-powered) */
+    public static final DeferredHolder<Item, Item> RTS_TERMINAL = registerItem(
+            "rts_terminal", () -> new RtsTerminalItem(new Item.Properties().stacksTo(1)), true);
 
     // ============================================================
     //  Factory methods
@@ -137,6 +167,17 @@ public final class RtsItems {
      */
     public static void register(IEventBus modEventBus) {
         ITEMS.register(modEventBus);
+        DATA_COMPONENTS.register(modEventBus);
+        modEventBus.addListener(RtsItems::registerCapabilities);
+    }
+
+    /**
+     * Register item capabilities — exposes the native FE energy capability
+     * for the RTS terminal so any charger mod can recharge it.
+     */
+    private static void registerCapabilities(RegisterCapabilitiesEvent event) {
+        event.registerItem(Capabilities.EnergyStorage.ITEM,
+                RtsTerminalItem::createEnergyStorage, RTS_TERMINAL.get());
     }
 
     // ============================================================

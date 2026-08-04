@@ -1,6 +1,12 @@
 {
+  "item.rtsbuilding.rts_terminal": "RTS Terminal",
+
+  "entity.rtsbuilding.rts_drone": "RTS Drone",
+
+  "tooltip.rtsbuilding.energy": "Energy: %1$s",
+  "message.rtsbuilding.terminal_no_energy": "Not enough energy to enable RTS mode!",
+
   "key.categories.rtsbuilding.function": "RTSBuilding - Functions",
-  "key.rtsbuilding.toggleRts": "Toggle RTS Mode",
   "key.rtsbuilding.open_gear_menu": "Open Settings",
   "key.rtsbuilding.toggle_debug_overlay": "Toggle Debug Overlay",
   "key.rtsbuilding.toggle_camera_mode": "Toggle Camera Mode",

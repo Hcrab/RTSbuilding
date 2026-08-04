@@ -14,6 +14,9 @@ public final class NetworkConstants {
     public static final byte MODE_BIDIRECTIONAL = 0;
     public static final byte MODE_EXTRACT_ONLY = 1;
 
+    // Entry source: player main inventory (browser view virtual source, never merged with storage entries)
+    public static final byte MODE_PLAYER_INVENTORY = 2;
+
     // Store fluid constants (from C2SRtsStoreFluidPayload)
     public static final byte FLUID_STORAGE_ITEM = 0;
     public static final byte FLUID_TOOL_SLOT = 1;

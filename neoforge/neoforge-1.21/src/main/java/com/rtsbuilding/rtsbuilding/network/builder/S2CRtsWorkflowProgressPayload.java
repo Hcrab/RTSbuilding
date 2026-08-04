@@ -34,13 +34,13 @@ public record S2CRtsWorkflowProgressPayload(
         buf.writeByte(payload.workflowCount());
         buf.writeByte(payload.workflowType());
         buf.writeByte(payload.priority());
-        buf.writeInt(payload.totalBlocks());
-        buf.writeInt(payload.completedBlocks());
-        buf.writeInt(payload.failedBlocks());
+        buf.writeVarInt(payload.totalBlocks());
+        buf.writeVarInt(payload.completedBlocks());
+        buf.writeVarInt(payload.failedBlocks());
         buf.writeByte(payload.onHold());
-        buf.writeInt(payload.workflowEntryId());
+        buf.writeVarInt(payload.workflowEntryId());
         List<String> items = payload.missingItems();
-        buf.writeInt(items.size());
+        buf.writeVarInt(items.size());
         for (String item : items) {
             buf.writeUtf(item);
         }
@@ -52,12 +52,12 @@ public record S2CRtsWorkflowProgressPayload(
         byte workflowCount = buf.readByte();
         byte workflowType = buf.readByte();
         byte priority = buf.readByte();
-        int totalBlocks = buf.readInt();
-        int completedBlocks = buf.readInt();
-        int failedBlocks = buf.readInt();
+        int totalBlocks = buf.readVarInt();
+        int completedBlocks = buf.readVarInt();
+        int failedBlocks = buf.readVarInt();
         byte onHold = buf.readByte();
-        int workflowEntryId = buf.readInt();
-        int missingCount = buf.readInt();
+        int workflowEntryId = buf.readVarInt();
+        int missingCount = buf.readVarInt();
         List<String> missingItems = new ArrayList<>(missingCount);
         for (int i = 0; i < missingCount; i++) {
             missingItems.add(buf.readUtf());

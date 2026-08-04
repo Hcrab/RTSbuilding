@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage.cache;
 
 import com.rtsbuilding.rtsbuilding.api.compat.AnySlotInsertItemHandler;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -177,7 +179,10 @@ public final class RtsAggregateStorage {
 
                 // Mark this handler's cache as dirty
                 cs.cache.invalidate();
-                this.pendingChanges.add(targetItem.toString());
+                ResourceLocation changedId = BuiltInRegistries.ITEM.getKey(targetItem);
+                if (changedId != null) {
+                    this.pendingChanges.add(changedId.toString());
+                }
             }
 
             return out;
@@ -252,7 +257,11 @@ public final class RtsAggregateStorage {
      * Returns whether any cached handler reports having the specified item.
      */
     public boolean hasItem(Item item) {
-        String itemId = item.toString();
+        ResourceLocation id = item == null ? null : BuiltInRegistries.ITEM.getKey(item);
+        String itemId = id == null ? null : id.toString();
+        if (itemId == null) {
+            return false;
+        }
         for (CachedHandlerSlot cs : this.flatOrdered) {
             if (cs.cache.getCount(itemId) > 0) {
                 return true;
@@ -265,8 +274,12 @@ public final class RtsAggregateStorage {
      * Returns the total count of the specified item across all cached handlers.
      */
     public long getTotalCount(Item item) {
+        ResourceLocation id = item == null ? null : BuiltInRegistries.ITEM.getKey(item);
+        String itemId = id == null ? null : id.toString();
+        if (itemId == null) {
+            return 0L;
+        }
         long total = 0L;
-        String itemId = item.toString();
         for (CachedHandlerSlot cs : this.flatOrdered) {
             total += cs.cache.getCount(itemId);
         }
@@ -377,7 +390,10 @@ public final class RtsAggregateStorage {
         // Only mark pending changes when items are actually inserted (remaining decreased),
         // to avoid failed/partial attempts triggering spurious UI refreshes.
         if (!simulate && remain.getCount() < original.getCount()) {
-            this.pendingChanges.add(originalItem.toString());
+            ResourceLocation id = BuiltInRegistries.ITEM.getKey(originalItem);
+            if (id != null) {
+                this.pendingChanges.add(id.toString());
+            }
         }
     }
 

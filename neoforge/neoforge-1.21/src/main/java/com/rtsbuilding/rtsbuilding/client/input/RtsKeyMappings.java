@@ -17,14 +17,6 @@ public final class RtsKeyMappings {
     
     public static final String CATEGORY_CAMERA = "key.categories.rtsbuilding.camera";
 
-    
-    public static final KeyMapping TOGGLE_RTS_KEY = new KeyMapping(
-            "key.rtsbuilding.toggleRts",
-            GLFW.GLFW_KEY_G,
-            CATEGORY_FUNCTION
-    );
-
-    
     public static final KeyMapping OPEN_GEAR_MENU_KEY = new KeyMapping(
             "key.rtsbuilding.open_gear_menu",
             KeyConflictContext.GUI,
@@ -115,7 +107,6 @@ public final class RtsKeyMappings {
 
     
     public static void register(RegisterKeyMappingsEvent event) {
-        event.register(TOGGLE_RTS_KEY);
         event.register(OPEN_GEAR_MENU_KEY);
         event.register(TOGGLE_DEBUG_OVERLAY_KEY);
         event.register(TOGGLE_CAMERA_MODE_KEY);

@@ -122,8 +122,24 @@ public final class StorageModule implements FeatureModule {
     public int getPageRequestCount() { return state.getPageRequestCount(); }
     public List<?> getEntries() { return state.getStorageEntries(); }
     public List<?> getFluidEntries() { return state.getFluidEntries(); }
-    public List<?> getRecentEntries() { return state.getRecentEntries(); }
+    public List<?> getRecentEntries() { return List.copyOf(state.getRecentEntries()); }
     public List<RecentEntry> getRecentEntriesTyped() { return state.getRecentEntriesTyped(); }
+
+    
+    
+    
+    
+    public void removeRecentEntry(String id) {
+        state.removeRecentEntry(id);
+    }
+
+    
+    
+    
+    
+    public void restoreRecentEntry(String id) {
+        state.restoreRecentEntry(id);
+    }
     public List<?> getFunnelBufferEntries() { return state.getFunnelBufferEntries(); }
     public List<?> getCraftableEntries() { return state.getCraftableEntries(); }
 

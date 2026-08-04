@@ -101,10 +101,8 @@ public final class RtsTransferPlayerIntegration {
         }
         ItemStack toStore = carried.split(returned);
         player.containerMenu.setCarried(carried);
-        OverflowOutcome overflow = RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, toStore);
-        if (overflow.hasOverflow()) {
-            RtsTransferInserter.sendStorageOverflowHint(player, "Import", overflow);
-        }
+        // 溢出时兜底转入玩家背包/掉落（防丢失），但不弹出悬浮文字提示
+        RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, toStore);
         player.containerMenu.broadcastChanges();
         RtsServer.get().serviceOp().afterModification(player, session);
         QuestService.runQuestDetect(player, session, false);
@@ -245,15 +243,17 @@ public final class RtsTransferPlayerIntegration {
             }
             overflow = RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, moved);
         }
-        if (overflow.hasOverflow()) {
-            RtsTransferInserter.sendStorageOverflowHint(player, "Import", overflow);
-        }
+        // 溢出兜底（转入玩家背包/掉落）保留，但不再弹出悬浮文字提示
         menu.broadcastChanges();
         RtsServer.get().serviceOp().afterModification(player, session);
         QuestService.runQuestDetect(player, session, false);
     }
 
     public static void pickupLinkedToCarried(ServerPlayer player, RtsStorageSession session, ItemStack prototype, int amount) {
+        pickupLinkedToCarried(player, session, prototype, amount, false);
+    }
+
+    public static void pickupLinkedToCarried(ServerPlayer player, RtsStorageSession session, ItemStack prototype, int amount, boolean fromInventory) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
@@ -285,8 +285,15 @@ public final class RtsTransferPlayerIntegration {
                 return;
             }
         }
-        ItemStack extracted = RtsTransferExtractor.extractMatchingFromNetwork(
-                extractHandlers, player, prototype.getItem(), prototype, wanted);
+        ItemStack extracted;
+        if (fromInventory) {
+            // 背包来源条目：只从玩家背包提取（所见即所得，不影响存储条目）
+            extracted = RtsTransferExtractor.extractMatchingFromPlayerMainInventory(
+                    player, prototype.getItem(), prototype, wanted);
+        } else {
+            extracted = RtsTransferExtractor.extractMatchingFromNetwork(
+                    extractHandlers, player, prototype.getItem(), prototype, wanted);
+        }
         if (extracted.isEmpty()) {
             return;
         }
@@ -301,6 +308,10 @@ public final class RtsTransferPlayerIntegration {
     }
 
     public static void quickMoveLinkedItem(ServerPlayer player, RtsStorageSession session, ItemStack prototype) {
+        quickMoveLinkedItem(player, session, prototype, false);
+    }
+
+    public static void quickMoveLinkedItem(ServerPlayer player, RtsStorageSession session, ItemStack prototype, boolean fromInventory) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
@@ -308,7 +319,10 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        if (!RtsLinkedStorageResolver.hasAnyStorage(player, session) || prototype == null || prototype.isEmpty()) {
+        if (prototype == null || prototype.isEmpty()) {
+            return;
+        }
+        if (!RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
             return;
         }
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
@@ -318,14 +332,28 @@ public final class RtsTransferPlayerIntegration {
         List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         int maxStack = Math.max(1, prototype.getMaxStackSize());
+        if (fromInventory) {
+            // 背包来源条目：从背包提取存入绑定存储（空间不足时 storeToLinked 自动兜底回背包，不会丢失）
+            ItemStack fromInv = RtsTransferExtractor.extractMatchingFromPlayerMainInventory(
+                    player, prototype.getItem(), prototype, maxStack);
+            if (!fromInv.isEmpty()) {
+                RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, fromInv);
+                player.containerMenu.broadcastChanges();
+                RtsServer.get().serviceOp().afterModification(player, session);
+                QuestService.runQuestDetect(player, session, false);
+            }
+            return;
+        }
         ItemStack extracted = RtsTransferExtractor.extractMatchingFromLinked(
                 extractHandlers, prototype.getItem(), prototype, maxStack);
         if (extracted.isEmpty()) {
             return;
         }
+        // 目标判定：背包菜单/合成菜单（含 RTS 合成终端）/精妙背包 → 玩家背包；其他容器菜单 → 打开的容器
+        boolean toInventory = RtsTransferUtils.movesLinkedQuickMoveToPlayerInventory(player.containerMenu)
+                || RtsRemoteMenuCompat.isLocalSophisticatedMenu(player.containerMenu, player);
         ItemStack remain;
-        if (RtsTransferUtils.movesLinkedQuickMoveToPlayerInventory(player.containerMenu)
-                || RtsRemoteMenuCompat.isLocalSophisticatedMenu(player.containerMenu, player)) {
+        if (toInventory) {
             remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, extracted);
         } else {
             remain = RtsTransferInserter.moveLinkedStackIntoOpenMenu(player, extracted);

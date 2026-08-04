@@ -2,3 +2,4 @@ build/
 .gradle/
 .github/
 run/
+/entity/

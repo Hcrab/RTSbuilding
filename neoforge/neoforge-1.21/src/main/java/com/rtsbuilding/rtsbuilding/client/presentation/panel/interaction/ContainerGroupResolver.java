@@ -84,8 +84,15 @@ public final class ContainerGroupResolver {
         if (dir == null) return pos;
 
         BlockPos other = pos.relative(dir);
-        ChestType otherType = chestTypeOf(level.getBlockState(other));
+        BlockState otherState = level.getBlockState(other);
+        ChestType otherType = chestTypeOf(otherState);
         if (otherType == null || otherType == ChestType.SINGLE) return pos;
+
+        // 双向校验：另一半必须是配对类型（LEFT↔RIGHT），且其连接方向指回本格。
+        // 否则（两个同侧箱子、朝向错位的残缺结构）视为独立容器，不参与归一化。
+        if (otherType != type.getOpposite()) return pos;
+        Direction otherDir = connectedDirection(otherState, otherType);
+        if (otherDir == null || !otherDir.getOpposite().equals(dir)) return pos;
 
         return pos.compareTo(other) < 0 ? pos : other;
     }

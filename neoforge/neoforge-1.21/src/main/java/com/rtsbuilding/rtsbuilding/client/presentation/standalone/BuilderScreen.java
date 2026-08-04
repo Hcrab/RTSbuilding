@@ -27,6 +27,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.NotNull;
 
 public class BuilderScreen extends Screen {
@@ -163,6 +164,8 @@ public class BuilderScreen extends Screen {
         com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.debug(
                 "RTS: BuilderScreen.onClose() called");
         screenCoordinator.closeContainerScreen();
+        // 退出 RTS 模式：清空建造选材（选材仅在拿起物品期间有效，退出即失效）
+        downSidebarPanel.getRightLayer().cancelSelection();
         this.topBarPanel.onRtsExited();
         super.onClose();
         this.cursorStyleManager.restoreDefault();
@@ -291,6 +294,14 @@ public class BuilderScreen extends Screen {
 
     public void closeContainerScreen() {
         screenCoordinator.closeContainerScreen();
+    }
+
+    /**
+     * 容器槽位放下物品后的回调：若放下的正是当前启用选材则取消选材
+     *（启用仅在“拿起”期间有效，放入容器即失效）。由 InteractionPanel 调用。
+     */
+    public void cancelGridSelectionIf(ItemStack carried) {
+        downSidebarPanel.getRightLayer().cancelSelectionIf(carried);
     }
 
     
@@ -435,19 +446,20 @@ public class BuilderScreen extends Screen {
         cursorStyleManager.update(mouseX, mouseY);
         cursorWrapHandler.applyWrapIfPending();
 
-        
-        if (downSidebarPanel != null && !isMouseOverRtsPanelApi(mouseX, mouseY)) {
-            var selected = downSidebarPanel.getRightLayer().getCurrentSelectedItem();
-            if (!selected.isEmpty()) {
-                com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
-                var pose = guiGraphics.pose();
-                pose.pushPose();
-                pose.translate(mouseX - 12, mouseY - 12, 300);
-                guiGraphics.renderItem(selected, 0, 0);
-                guiGraphics.renderItemDecorations(Minecraft.getInstance().font, selected, 0, 0);
-                pose.popPose();
-                com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
-            }
+        // 容器→网络：carried 物品最上层跟随鼠标（离开容器面板后容器 screen 不再渲染它，
+        // 这里补渲染保证拖回网格/存入网络的全程可见）
+        var carried = Minecraft.getInstance().player != null
+                ? Minecraft.getInstance().player.containerMenu.getCarried()
+                : net.minecraft.world.item.ItemStack.EMPTY;
+        if (!carried.isEmpty()) {
+            com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
+            var pose = guiGraphics.pose();
+            pose.pushPose();
+            pose.translate(mouseX - 8, mouseY - 8, 300);
+            guiGraphics.renderItem(carried, 0, 0);
+            guiGraphics.renderItemDecorations(Minecraft.getInstance().font, carried, 0, 0);
+            pose.popPose();
+            com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
         }
 
         if (Minecraft.getInstance().gui.getDebugOverlay().showDebugScreen()) {

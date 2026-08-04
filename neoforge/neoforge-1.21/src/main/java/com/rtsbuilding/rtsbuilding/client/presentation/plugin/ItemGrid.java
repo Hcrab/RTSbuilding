@@ -50,10 +50,25 @@ public class ItemGrid {
         return state.currentSelectedItem;
     }
 
-    public ItemStack getHoveredSlotStack() {
-        if (state.tooltipSlotIndex == -2) {
-            return state.currentSelectedItem;
+    /**
+     * 无条件清空当前选材（UI 选取态 + 建造启用）。退出 RTS 模式时调用。
+     */
+    public void cancelSelection() {
+        inputHandler.cancelSelection();
+    }
+
+    /**
+     * 若当前选材与放下的物品同类则取消选材（点击容器槽位放下物品时调用）。
+     *
+     * @param carried 放下前的 carried 物品
+     */
+    public void cancelSelectionIf(ItemStack carried) {
+        if (ItemStack.isSameItemSameComponents(carried, state.currentSelectedItem)) {
+            inputHandler.cancelSelection();
         }
+    }
+
+    public ItemStack getHoveredSlotStack() {
         if (state.tooltipSlotIndex < 0 || state.tooltipSlotIndex >= state.slotEntries.size()) return ItemStack.EMPTY;
         SlotEntry entry = state.slotEntries.get(state.tooltipSlotIndex);
         if (entry.isFluid() && entry.originalEntry() instanceof FluidEntry fe) {

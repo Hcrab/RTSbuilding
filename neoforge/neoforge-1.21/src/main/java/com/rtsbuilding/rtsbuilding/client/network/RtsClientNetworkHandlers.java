@@ -9,10 +9,12 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageM
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
+import com.rtsbuilding.rtsbuilding.common.entity.RtsDroneEntity;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsDroneAnimPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
@@ -21,6 +23,7 @@ import com.rtsbuilding.rtsbuilding.network.message.S2CStateUpdate;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
@@ -54,6 +57,22 @@ public final class RtsClientNetworkHandlers {
             kernel().updateRegion(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
             
             kernel().dispatch(new StateEvent.RtsToggled(payload.enabled()));
+        });
+    }
+
+    /**
+     * 处理无人机动画同步包：把服务端每 tick 下发的动画状态写入无人机的
+     * prev/current 插值缓存，供渲染层 partialTick 插值（消除动画跳变/卡顿）。
+     */
+    public static void handleDroneAnim(S2CRtsDroneAnimPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
+        ctx.enqueueWork(() -> {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.level == null) return;
+            net.minecraft.world.entity.Entity e = mc.level.getEntity(payload.entityId());
+            if (e instanceof RtsDroneEntity drone) {
+                drone.receiveAnimState(payload.x(), payload.y(), payload.z(),
+                        payload.yawDeg(), payload.pitchDeg(), payload.tiltX(), payload.tiltZ());
+            }
         });
     }
 
@@ -163,6 +182,20 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         
+    }
+
+    /**
+     * Mirrors the authoritative server carried stack into the client container menu.
+     * Called after linked-storage pickup/return so the container overlay and drag
+     * interactions render the correct carried item.
+     */
+    public static void handleCarriedSync(S2CRtsCarriedSyncPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
+        ctx.enqueueWork(() -> {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.player != null && mc.player.containerMenu != null) {
+                mc.player.containerMenu.setCarried(payload.stack());
+            }
+        });
     }
 
     public static void handleQuestDetectStatus(S2CRtsQuestDetectStatusPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {

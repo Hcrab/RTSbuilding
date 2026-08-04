@@ -188,13 +188,11 @@ public final class BlueprintTickPipe implements TickablePipe {
             RtsWorkflowEngine.getInstance().from(player, entryId).ifPresent(token -> {
                 token.setCompletedBlocks(bctx.getPlacedCount());
 
-                // 报告跳过方块为失败（blocked/unsupported/missing blocks）
+                // 报告跳过方块为失败（blocked/unsupported/missing blocks）——批量一次上报
                 int failed = bctx.getSkippedMissingBlocks()
                         + bctx.getSkippedBlocked()
                         + bctx.getSkippedUnsupported();
-                for (int i = 0; i < failed; i++) {
-                    token.recordFailure();
-                }
+                token.addFailedBlocks(failed);
 
                 token.complete();
             });

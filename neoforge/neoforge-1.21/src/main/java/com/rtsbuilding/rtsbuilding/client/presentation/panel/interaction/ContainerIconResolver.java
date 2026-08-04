@@ -85,7 +85,10 @@ public final class ContainerIconResolver {
             case BlockEntry be -> be.createStack();
             case EntityEntry ee -> {
                 Entity entity = ee.entity();
-                yield entity == null ? ItemStack.EMPTY : entity.getPickResult();
+                if (entity == null) yield ItemStack.EMPTY;
+                // getPickResult 可能返回 null（如无对应拾取物品的实体），空栈交给调用方兜底
+                ItemStack pick = entity.getPickResult();
+                yield pick != null ? pick : ItemStack.EMPTY;
             }
         };
     }

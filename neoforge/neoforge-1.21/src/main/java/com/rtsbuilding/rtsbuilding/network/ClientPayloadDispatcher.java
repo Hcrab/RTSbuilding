@@ -5,12 +5,14 @@ import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsDroneAnimPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
@@ -44,6 +46,8 @@ public final class ClientPayloadDispatcher {
                     RtsClientNetworkHandlers.handleCameraState(p, ctx);
             case S2CRtsCameraAnchorPayload p ->
                     RtsClientNetworkHandlers.handleCameraAnchor(p, ctx);
+            case S2CRtsDroneAnimPayload p ->
+                    RtsClientNetworkHandlers.handleDroneAnim(p, ctx);
             default -> {}
         }
     }
@@ -61,6 +65,8 @@ public final class ClientPayloadDispatcher {
                     RtsClientNetworkHandlers.handleStorageDirty(p, ctx);
             case S2CRtsRemoteMenuHintPayload p ->
                     RtsClientNetworkHandlers.handleRemoteMenuHint(p, ctx);
+            case S2CRtsCarriedSyncPayload p ->
+                    RtsClientNetworkHandlers.handleCarriedSync(p, ctx);
             default -> {}
         }
     }

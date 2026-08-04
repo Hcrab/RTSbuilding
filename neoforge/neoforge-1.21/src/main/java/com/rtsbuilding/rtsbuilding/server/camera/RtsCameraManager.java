@@ -1,21 +1,27 @@
 package com.rtsbuilding.rtsbuilding.server.camera;
 
+import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
+import com.rtsbuilding.rtsbuilding.common.entity.RtsDroneEntity;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
+import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
+import javax.annotation.Nullable;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -49,12 +55,13 @@ public final class RtsCameraManager {
      *
      * @param player           目标玩家
      * @param startAtPlayerHead 是否从玩家头部高度开始
+     * @param terminalUuid     开启该模式的那把终端的 UUID（可为 null）
      */
-    public static void toggle(ServerPlayer player, boolean startAtPlayerHead) {
+    public static void toggle(ServerPlayer player, boolean startAtPlayerHead, @Nullable String terminalUuid) {
         if (SESSIONS.containsKey(player.getUUID())) {
             stop(player);
         } else {
-            start(player, startAtPlayerHead);
+            start(player, startAtPlayerHead, terminalUuid);
         }
     }
 
@@ -64,7 +71,7 @@ public final class RtsCameraManager {
      * @param player 目标玩家
      */
     public static void start(ServerPlayer player) {
-        start(player, false);
+        start(player, false, null);
     }
 
     /**
@@ -72,30 +79,32 @@ public final class RtsCameraManager {
      *
      * @param player           目标玩家
      * @param startAtPlayerHead 是否从玩家头部高度开始
+     * @param terminalUuid     开启该模式的那把终端的 UUID（可为 null）
      */
-    public static void start(ServerPlayer player, boolean startAtPlayerHead) {
+    public static void start(ServerPlayer player, boolean startAtPlayerHead, @Nullable String terminalUuid) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
             player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
             return;
         }
         if (RtsProgressionManager.shouldStartHomeSelection(player)) {
-            startHomeSelection(player, startAtPlayerHead);
+            startHomeSelection(player, startAtPlayerHead, terminalUuid);
             return;
         }
         if (!RtsProgressionManager.canStartNormalRts(player)) {
             player.displayClientMessage(net.minecraft.network.chat.Component.literal("Set an RTS home first."), true);
             return;
         }
-        startNormal(player, startAtPlayerHead);
+        startNormal(player, startAtPlayerHead, terminalUuid);
     }
 
     /**
      * 启动正常 RTS 模式（非家选择）。
      * <p>将锚点对齐到玩家脚下方块中心，并根据半径限制创建相机实体。</p>
      */
-    private static void startNormal(ServerPlayer player, boolean startAtPlayerHead) {
+    private static void startNormal(ServerPlayer player, boolean startAtPlayerHead, @Nullable String terminalUuid) {
         cleanupOrphanCameras(player.getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
+        RtsCameraEntityHelper.discardOwnedDrones(player);
         ServerLevel level = player.serverLevel();
         Vec3 playerPos = player.position();
         // 将锚点对齐到方块中心，使相机边界与放置边界匹配
@@ -111,9 +120,13 @@ public final class RtsCameraManager {
         RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUUID(),
                 anchor.x, cameraY, anchor.z, yaw, pitch);
 
+        // 创建跟随无人机的展示实体：打开 RTS 模式时从玩家身体前方出现，随后飞到相机上方跟随位
+        RtsDroneEntity drone = spawnDroneInFrontOfPlayer(level, player, yaw);
+
         // 记录会话
         Session session = new Session(camera.getUUID(), anchor, camera.position(), yaw, pitch,
-                camera.getY() - anchor.y, false, maxRadius, startAtPlayerHead);
+                camera.getY() - anchor.y, false, maxRadius, startAtPlayerHead, terminalUuid,
+                drone.getUUID());
         SESSIONS.put(player.getUUID(), session);
         RtsServer.get().session().onRtsEnabled(player);
 
@@ -129,7 +142,8 @@ public final class RtsCameraManager {
                 session.yawDeg(),
                 session.pitchDeg(),
                 false,
-                session.closeRangeAllowed()));
+                session.closeRangeAllowed(),
+                session.terminalUuid()));
     }
 
     /**
@@ -151,16 +165,17 @@ public final class RtsCameraManager {
             return;
         }
         stopIfActive(player);
-        startHomeSelection(player, false);
+        startHomeSelection(player, false, null);
     }
 
     /**
      * 启动家的选择流程。
      * <p>将锚点对齐到玩家所在区块中心（8, Y, 8），进入家选择会话。</p>
      */
-    private static void startHomeSelection(ServerPlayer player, boolean startAtPlayerHead) {
+    private static void startHomeSelection(ServerPlayer player, boolean startAtPlayerHead, @Nullable String terminalUuid) {
         cleanupOrphanCameras(player.getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
+        RtsCameraEntityHelper.discardOwnedDrones(player);
         ServerLevel level = player.serverLevel();
         BlockPos playerPos = player.blockPosition();
         // 计算玩家所在区块的中心坐标
@@ -178,9 +193,13 @@ public final class RtsCameraManager {
         RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUUID(),
                 cameraX, cameraY, cameraZ, yaw, pitch);
 
+        // 创建跟随无人机的展示实体：家选择模式同样从玩家身体前方出现
+        RtsDroneEntity drone = spawnDroneInFrontOfPlayer(level, player, yaw);
+
         RtsProgressionManager.beginHomeSelection(player);
         Session session = new Session(camera.getUUID(), anchor, camera.position(), yaw, pitch,
-                camera.getY() - anchor.y, true, maxRadius, startAtPlayerHead);
+                camera.getY() - anchor.y, true, maxRadius, startAtPlayerHead, terminalUuid,
+                drone.getUUID());
         SESSIONS.put(player.getUUID(), session);
 
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(
@@ -194,7 +213,31 @@ public final class RtsCameraManager {
                 session.yawDeg(),
                 session.pitchDeg(),
                 true,
-                session.closeRangeAllowed()));
+                session.closeRangeAllowed(),
+                session.terminalUuid()));
+    }
+
+    /**
+     * 在玩家身体前方创建跟随无人机（打开 RTS 模式时无人机从玩家面前出现）。
+     * <p>初始位置取玩家面朝方向前方 3 格、眼睛高度；随后由 {@link #updateCameraPose} 的
+     * {@code setTarget} 把它"飞"到相机上方跟随位，保留起飞动画可见。</p>
+     *
+     * @param level  服务端维度
+     * @param player 目标玩家
+     * @param yaw    无人机的初始偏航角（度，取相机朝向）
+     * @return 创建的无人机实体
+     */
+    private static RtsDroneEntity spawnDroneInFrontOfPlayer(ServerLevel level, ServerPlayer player, float yaw) {
+        Vec3 playerPos = player.position();
+        double yawRad = Math.toRadians(player.getYRot());
+        // 玩家面朝方向的水平单位向量（MC：yaw=0 朝 +Z 南、yaw=90 朝 -X 西）
+        double dirX = -Math.sin(yawRad);
+        double dirZ = Math.cos(yawRad);
+        double dist = 3.0D;
+        double x = playerPos.x + dirX * dist;
+        double y = player.getEyeY();
+        double z = playerPos.z + dirZ * dist;
+        return RtsCameraEntityHelper.createAndSpawnDrone(level, player.getUUID(), x, y, z, yaw);
     }
 
     /**
@@ -207,15 +250,23 @@ public final class RtsCameraManager {
             if (entity != null) {
                 entity.discard();
             }
+            // 丢弃跟随无人机
+            if (session.droneUuid() != null) {
+                Entity drone = RtsCameraEntityHelper.findDroneEntity(player.getServer(), session.droneUuid());
+                if (drone != null) {
+                    drone.discard();
+                }
+            }
             // 如果当前是家选择模式，结束家选择流程
             if (session.homeSelection()) {
                 RtsProgressionManager.endHomeSelection(player);
             }
         }
         RtsCameraEntityHelper.discardOwnedCameras(player);
+        RtsCameraEntityHelper.discardOwnedDrones(player);
 
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(false, -1, 0.0D, 0.0D, 0.0D,
-                RtsProgressionManager.DEFAULT_MAX_ACTION_RADIUS_BLOCKS, 18.0D, 0.0F, 70.0F, false, false));
+                RtsProgressionManager.DEFAULT_MAX_ACTION_RADIUS_BLOCKS, 18.0D, 0.0F, 70.0F, false, false, null));
         RtsServer.get().session().onRtsDisabled(player);
     }
 
@@ -233,7 +284,7 @@ public final class RtsCameraManager {
             entity.discard();
         }
         SESSIONS.remove(player.getUUID());
-        startNormal(player, session.closeRangeAllowed());
+        startNormal(player, session.closeRangeAllowed(), session.terminalUuid());
     }
 
     /**
@@ -253,6 +304,29 @@ public final class RtsCameraManager {
     }
 
     /**
+     * 判断给定物品栈是否为“开启玩家当前 RTS 模式的那把终端”。
+     * <p>RTS 模式下禁止对该终端进行拿去/启用等网格操作，防止玩家把自己的模式开关拿走。</p>
+     *
+     * @param player 目标玩家
+     * @param stack  待检测的物品栈
+     * @return 是否是被锁定的终端
+     */
+    public static boolean isLockedTerminal(ServerPlayer player, ItemStack stack) {
+        if (!isActive(player) || stack == null || stack.isEmpty()) {
+            return false;
+        }
+        if (!stack.is(RtsItems.RTS_TERMINAL.get())) {
+            return false;
+        }
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null || session.terminalUuid() == null) {
+            return false;
+        }
+        String uuid = stack.get(RtsItems.TERMINAL_UUID.get());
+        return uuid != null && session.terminalUuid().equals(uuid);
+    }
+
+    /**
      * 获取当前玩家的 RTS 相机位置。
      *
      * @return 相机位置，若相机未激活则返回 {@code null}
@@ -260,6 +334,58 @@ public final class RtsCameraManager {
     public static Vec3 getCameraPosition(ServerPlayer player) {
         Session session = SESSIONS.get(player.getUUID());
         return session != null ? session.cameraPos() : null;
+    }
+
+    /**
+     * 更新玩家 RTS 相机的姿态（客户端权威上报）。
+     * <p>相机移动/旋转为纯客户端计算，客户端每 tick 通过 {@code CAMERA_POSE}
+     * 消息上报相机真实位置与朝向；服务端据此刷新会话记录，供权威逻辑
+     * （如 {@link #getCameraPosition}、动作范围校验、实体跟随）使用。</p>
+     * <p>仅当玩家存在活跃的 RTS 相机会话时生效；未激活则忽略。</p>
+     *
+     * @param player 目标玩家
+     * @param x      相机世界 X 坐标
+     * @param y      相机世界 Y 坐标
+     * @param z      相机世界 Z 坐标
+     * @param yaw    偏航角（度）
+     * @param pitch  俯仰角（度）
+     */
+    public static void updateCameraPose(ServerPlayer player, double x, double y, double z, float yaw, float pitch) {
+        Session session = SESSIONS.get(player.getUUID());
+        if (session == null) {
+            return;
+        }
+
+        // 无人机跟随相机：目标直接位于相机位置、朝向与相机一致。
+        // 通过 setTarget 设置飞行目标，无人机在自身 tick 中以有限速度"飞向"目标（插值平滑），
+        // 而非瞬移锁死，保证飞行动画可见。同时把相机俯仰角传给无人机，驱动相机云台上下角度动画。
+        // 实体缺失或残留于其他维度时自动重建。
+        UUID droneUuid = session.droneUuid();
+        if (droneUuid != null) {
+            Entity drone = RtsCameraEntityHelper.findDroneEntity(player.getServer(), droneUuid);
+            if (drone instanceof RtsDroneEntity d && drone.level() == player.serverLevel()) {
+                d.setTarget(x, y, z, yaw, pitch);
+                // 注意：无人机动画状态包不在这里发——此处由客户端 CAMERA_POSE 往返触发，
+                // 会让动画值比位置包多一次往返延迟且到达时机不齐，导致客户端插值跳变卡顿。
+                // 改为无人机服务端 tick 直发（与位置包同相位）。
+            } else {
+                if (drone != null) {
+                    drone.discard();
+                }
+                droneUuid = null;
+            }
+        }
+        if (droneUuid == null) {
+            RtsDroneEntity drone = RtsCameraEntityHelper.createAndSpawnDrone(player.serverLevel(), player.getUUID(),
+                    x, y, z, yaw);
+            droneUuid = drone.getUUID();
+        }
+
+        SESSIONS.put(player.getUUID(), new Session(
+                session.cameraUuid(), session.anchor(), new Vec3(x, y, z),
+                yaw, pitch, y - session.anchor().y,
+                session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                session.terminalUuid(), droneUuid));
     }
 
     /**
@@ -376,7 +502,8 @@ public final class RtsCameraManager {
 
         double heightOffset = targetY - newAnchor.y;
         SESSIONS.put(player.getUUID(), new Session(camera.getUUID(), newAnchor, new Vec3(targetX, targetY, targetZ),
-                yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed()));
+                yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                session.terminalUuid(), session.droneUuid()));
 
         // 通知客户端更新后的锚点位置，使可视边界保持同步
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
@@ -404,7 +531,8 @@ public final class RtsCameraManager {
         SESSIONS.put(player.getUUID(), new Session(
                 session.cameraUuid(), newAnchor, session.cameraPos(),
                 session.yawDeg(), session.pitchDeg(), session.heightOffset(),
-                session.homeSelection(), session.maxRadius(), session.closeRangeAllowed()));
+                session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                session.terminalUuid(), session.droneUuid()));
 
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
                 newAnchor.x, newAnchor.y, newAnchor.z, maxRadius(player, session)));
@@ -435,6 +563,15 @@ public final class RtsCameraManager {
         RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.serverLevel(), player.getUUID(),
                 cameraPos.x, cameraPos.y, cameraPos.z, session.yawDeg(), session.pitchDeg());
 
+        // 若无人机实体缺失，则一并重建（相机丢失通常伴随维度切换等异常）
+        UUID droneUuid = session.droneUuid();
+        if (droneUuid != null && !(RtsCameraEntityHelper.findDroneEntity(player.getServer(), droneUuid)
+                instanceof RtsDroneEntity)) {
+            RtsDroneEntity restoredDrone = RtsCameraEntityHelper.createAndSpawnDrone(player.serverLevel(), player.getUUID(),
+                    cameraPos.x, cameraPos.y, cameraPos.z, session.yawDeg());
+            droneUuid = restoredDrone.getUUID();
+        }
+
         SESSIONS.put(player.getUUID(), new Session(
                 restored.getUUID(),
                 session.anchor(),
@@ -444,7 +581,9 @@ public final class RtsCameraManager {
                 session.heightOffset(),
                 session.homeSelection(),
                 session.maxRadius(),
-                session.closeRangeAllowed()));
+                session.closeRangeAllowed(),
+                session.terminalUuid(),
+                droneUuid));
 
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(
                 true,
@@ -457,7 +596,8 @@ public final class RtsCameraManager {
                 session.yawDeg(),
                 session.pitchDeg(),
                 session.homeSelection(),
-                session.closeRangeAllowed()));
+                session.closeRangeAllowed(),
+                session.terminalUuid()));
         return restored;
     }
 
@@ -465,6 +605,12 @@ public final class RtsCameraManager {
      * 清理所有不在 SESSIONS 中的孤儿相机实体。
      */
     public static void cleanupOrphanCameras(MinecraftServer server) {
+        Set<UUID> activeDrones = new HashSet<>();
+        for (Session session : SESSIONS.values()) {
+            if (session.droneUuid() != null) {
+                activeDrones.add(session.droneUuid());
+            }
+        }
         RtsCameraEntityHelper.cleanupOrphanCameras(server, cameraUuid -> {
             if (cameraUuid == null) {
                 return false;
@@ -476,6 +622,7 @@ public final class RtsCameraManager {
             }
             return false;
         });
+        RtsCameraEntityHelper.cleanupOrphanDrones(server, activeDrones);
     }
 
     /**
@@ -515,8 +662,11 @@ public final class RtsCameraManager {
      * @param homeSelection    是否为家选择模式
      * @param maxRadius        最大动作半径
      * @param closeRangeAllowed 是否允许近距开始
+     * @param terminalUuid     开启该模式的那把终端的 UUID（可为 null）
+     * @param droneUuid        跟随无人机的实体 UUID（可为 null）
      */
     private record Session(UUID cameraUuid, Vec3 anchor, Vec3 cameraPos, float yawDeg, float pitchDeg,
-                           double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed) {
+                           double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed,
+                           @Nullable String terminalUuid, @Nullable UUID droneUuid) {
     }
 }

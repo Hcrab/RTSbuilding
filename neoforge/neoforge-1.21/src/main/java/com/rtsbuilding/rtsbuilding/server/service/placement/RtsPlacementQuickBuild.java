@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -22,6 +23,7 @@ import net.minecraft.world.item.context.BlockPlaceContext;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.CollisionContext;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.network.PacketDistributor;
 
 import java.util.List;
 
@@ -146,6 +148,8 @@ public final class RtsPlacementQuickBuild {
         ItemStack placementStack = plan.templateStack();
         ItemStack extracted = ItemStack.EMPTY;
         boolean refundExtractedOnFailure = false;
+        boolean fromCarried = false;
+        List<IItemHandler> extractHandlers = List.of();
         List<IItemHandler> insertHandlers = List.of();
         // 完全改为使用储存空间的方块进行放置
         {
@@ -155,25 +159,44 @@ public final class RtsPlacementQuickBuild {
             if (activeLinked.isEmpty() && !includePlayerMainInventory && !creativeSource) {
                 return false;
             }
-            List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
+            extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
             insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
-            extracted = creativeSource
-                    ? RtsPlacementExtractor.creativeStack(plan.item(), plan.templateStack())
-                    : includePlayerMainInventory
-                            ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, plan.item(), plan.templateStack())
-                            : RtsPlacementExtractor.extractSelectedFromLinked(extractHandlers, plan.item(), plan.templateStack());
-            if (extracted.isEmpty()) {
-                return false;
+            // 方案1：优先从 carried 扣减（点击网格拿起的物品直接可用于快速建造）
+            if (!creativeSource) {
+                extracted = RtsPlacementExtractor.takeOneFromCarried(player, plan.item(), plan.templateStack());
+                if (!extracted.isEmpty()) {
+                    fromCarried = true;
+                    player.containerMenu.broadcastChanges();
+                }
             }
-            refundExtractedOnFailure = !creativeSource;
+            if (extracted.isEmpty()) {
+                extracted = creativeSource
+                        ? RtsPlacementExtractor.creativeStack(plan.item(), plan.templateStack())
+                        : includePlayerMainInventory
+                                ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, plan.item(), plan.templateStack())
+                                : RtsPlacementExtractor.extractSelectedFromLinked(extractHandlers, plan.item(), plan.templateStack());
+                if (extracted.isEmpty()) {
+                    return false;
+                }
+                refundExtractedOnFailure = !creativeSource;
+            }
             placementStack = extracted.copy();
             placementStack.setCount(1);
         }
 
         boolean placed = BlockPlacer.setBlock(level, targetPos, plan.state());
         if (!placed) {
-            if (refundExtractedOnFailure && !extracted.isEmpty()) {
-                RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
+            if (!extracted.isEmpty()) {
+                if (fromCarried) {
+                    // 从 carried 扣减的物品：放置失败时合并回 carried，合并不下的退回网络
+                    ItemStack remain = RtsPlacementExtractor.mergeIntoCarried(player, extracted);
+                    if (!remain.isEmpty()) {
+                        RtsTransferInserter.refundToLinked(insertHandlers, player, remain);
+                    }
+                    PacketDistributor.sendToPlayer(player, new S2CRtsCarriedSyncPayload(player.containerMenu.getCarried()));
+                } else if (refundExtractedOnFailure) {
+                    RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
+                }
             }
             return true;
         }
@@ -187,6 +210,12 @@ public final class RtsPlacementQuickBuild {
         RtsPlacementSound.playRemotePlacedBlockAnimation(player, targetPos);
         RtsPlacementSound.playRemotePlacedBlockSound(player, level, targetPos);
         RtsServer.get().page().recordRecentItem(session, plan.itemId(), S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
+        if (fromCarried) {
+            // 方案2：自动续货——放置成功消耗后从网络补回差额，carried 始终保持满组
+            RtsPlacementExtractor.replenishCarried(player, extractHandlers, plan.item(), plan.templateStack());
+            // 同步权威 carried 状态（已被续货补充）给客户端
+            PacketDistributor.sendToPlayer(player, new S2CRtsCarriedSyncPayload(player.containerMenu.getCarried()));
+        }
         return true;
     }
 

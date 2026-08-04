@@ -24,5 +24,10 @@ public final class RtsCameraPackets {
                 S2CRtsCameraAnchorPayload.TYPE,
                 S2CRtsCameraAnchorPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchCamera);
+
+        registrar.playToClient(
+                S2CRtsDroneAnimPayload.TYPE,
+                S2CRtsDroneAnimPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchCamera);
     }
 }

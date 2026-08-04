@@ -108,10 +108,26 @@ public record RtsWorkflowToken(
      * @param missingItems   (nullable) Missing item IDs
      */
     public void updateProgress(int completedDelta, @Nullable List<String> missingItems) {
+        updateProgress(completedDelta, 0, missingItems);
+    }
+
+    /**
+     * 批量更新进度：一次调用同时报告完成数与失败数，并可选报告缺失物品。
+     * <p>与分别调用 {@link #updateProgress(int, List)} + {@link #recordFailure()} 循环相比，
+     * 本方法只触发一次网络同步——避免批量操作失败大量方块时
+     * 每个失败方块都发送一个完整工作流进度包（同 tick 内的多次通知
+     * 还会被引擎合并为一次实际发包）。</p>
+     *
+     * @param completedDelta 自上次更新以来完成的方块数
+     * @param failedDelta    自上次更新以来失败的方块数
+     * @param missingItems   (nullable) 缺失物品 ID 列表
+     */
+    public void updateProgress(int completedDelta, int failedDelta, @Nullable List<String> missingItems) {
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
-            entry.addCompletedBlocks(completedDelta);
-            entry.addMissingItems(missingItems);
+            if (completedDelta != 0) entry.addCompletedBlocks(completedDelta);
+            if (failedDelta != 0) entry.addFailedBlocks(failedDelta);
+            if (missingItems != null) entry.addMissingItems(missingItems);
             engine.notifyPlayer(playerId, dimension);
         }
     }
@@ -146,9 +162,21 @@ public record RtsWorkflowToken(
      * Record one failure for this workflow.
      */
     public void recordFailure() {
+        addFailedBlocks(1);
+    }
+
+    /**
+     * 批量记录失败——代替 {@code for (...) token.recordFailure();} 循环。
+     * <p>循环调用 {@link #recordFailure()} 会在每个失败方块上触发一次网络同步；
+     * 本方法只更新一次并触发一次通知（同 tick 内由引擎合并发包）。</p>
+     *
+     * @param delta 失败的方块数（≤ 0 时忽略）
+     */
+    public void addFailedBlocks(int delta) {
+        if (delta <= 0) return;
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
-            entry.addFailedBlocks(1);
+            entry.addFailedBlocks(delta);
             engine.notifyPlayer(playerId, dimension);
         }
     }

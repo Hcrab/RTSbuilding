@@ -67,6 +67,11 @@ public class RtsMiningState {
     /** Whether chain-mining has already absorbed drops (prevents duplicate collection, controlled by the manager) */
     public boolean ultimineAbsorbedDrops;
 
+    /** 上次发送连锁挖掘裂纹进度（0-9）的位置缓存（null = 无缓存，用于发包变化检测） */
+    public BlockPos ultimineLastProgressPos;
+    /** 上次发送的连锁挖掘裂纹阶段（-1 = 无缓存，用于发包变化检测） */
+    public int ultimineLastStage = -1;
+
     /**
      * Queue of chain-mining jobs waiting to be executed.
      * The currently active job's state is held directly by fields like ultimineTargets / ultimineTotalTargets in this class;

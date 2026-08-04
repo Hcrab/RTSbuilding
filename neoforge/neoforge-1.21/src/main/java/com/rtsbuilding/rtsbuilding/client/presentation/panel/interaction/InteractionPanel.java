@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.window.RtsPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
@@ -11,8 +12,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundContainerClosePacket;
 import net.minecraft.util.Mth;
@@ -161,14 +164,20 @@ public final class InteractionPanel extends RtsPanel {
      */
     public void openContainerPage(AbstractContainerScreen<?> containerScreen) {
         if (containerScreen == null) return;
+        // 释放上一个转发器（外部打开路径不经过 openContainerEntry 的切换清理，防止旧 screen 泄漏）
+        if (inputForwarder != null) inputForwarder.clear();
         boolean wasOpen = isOpen();
         // 面板从关闭态首次打开（含外部打开）：直接以标签中最大的容器尺寸创建面板，
         // 避免沿用上次会话残留尺寸导致框选/单点两条路径大小不一致
         boolean firstOpen = !wasOpen || panelReopened;
         this.inputForwarder = new ContainerInputForwarder(containerScreen);
 
-        // 先提交打开结果（active = 等待中的归一化键；外部打开时为 null），再按活动条目解析图标
+        // 先提交打开结果（active = 等待中的归一化键；tick 探测已转正时沿用其 activeId；
+        // 两者皆无则为外部打开的容器，active = null），再按活动条目解析图标
         Object openedId = pageState.getPendingId();
+        if (openedId == null && pageState.isPageOpen() && pageState.getActiveId() != null) {
+            openedId = pageState.getActiveId();
+        }
         pageState.opened(openedId);
         this.containerIcon = ContainerIconResolver.resolve(containerScreen, activeEntry());
         setOpen(true);
@@ -225,6 +234,25 @@ public final class InteractionPanel extends RtsPanel {
 
     public boolean isContainerPageOpen() {
         return isOpen() && pageState.isPageOpen();
+    }
+
+    /**
+     * carried 退回兜底：若菜单 carried 中仍有物品（点击式拿起后未放回），
+     * 先把 carried 退回远程存储，避免物品滞留或流入背包。幂等：仅 carried 非空时发送。
+     *
+     * <p>静态方法：逻辑仅依赖玩家容器菜单，不依赖面板实例。公开给 ScreenCoordinator：
+     * 退出 RTS 模式时无条件调用（面板可能从未创建——仅点击网格条目拿起物品的路径
+     * 没有容器页也没有面板实例，setOpen(false) 不会触发 onClose 链）。</p>
+     */
+    public static void returnCarriedToLinked() {
+        Minecraft mc = Minecraft.getInstance();
+        var menu = mc.player != null ? mc.player.containerMenu : null;
+        if (menu == null || menu.getCarried().isEmpty()) return;
+        ItemStack carried = menu.getCarried();
+        String itemId = BuiltInRegistries.ITEM.getKey(carried.getItem()).toString();
+        // amount=64：服务端取 min(amount, carried.getCount())，即全部退回；剩余由 S2C 同步
+        RtsClientPacketGateway.sendReturnCarried(itemId, 64);
+        menu.setCarried(ItemStack.EMPTY); // 乐观清空，服务端权威状态经 S2C 同步
     }
 
     public List<SelectableEntry> getEntries() {
@@ -319,6 +347,8 @@ public final class InteractionPanel extends RtsPanel {
      * 各关闭入口（关闭按钮、Esc、服务端关闭、超时）共用，避免清理序列漂移。
      */
     private void resetState() {
+        // 关闭（超时/服务端关闭/异常路径）：先把 carried 退回远程存储
+        returnCarriedToLinked();
         if (inputForwarder != null) inputForwarder.clear();
         pageState.reset();
         containerIcon = ItemStack.EMPTY;
@@ -573,7 +603,9 @@ public final class InteractionPanel extends RtsPanel {
 
         if (isOverPageTabBar(mouseY)) {
             if (button == 0) {
-                PageTabBar.TabHit hit = pageTabBar.handleClick(mouseX, mouseY, cx, cy, cw, TAB_BAR_H, buildTabs());
+                List<PageTabBar.Tab> tabs = buildTabs();
+                PageTabBar.TabHit hit = pageTabBar.handleClick(mouseX, mouseY, cx, cy, cw, TAB_BAR_H,
+                        findActiveTab(tabs), tabs);
                 if (hit != null) {
                     if (hit.onCloseButton()) {
                         handleTabClose(hit.tab());
@@ -586,7 +618,16 @@ public final class InteractionPanel extends RtsPanel {
         }
 
         if (button == 0 && inputForwarder != null && inputForwarder.hasScreen()) {
+            // 点击容器槽位放下了物品（carried 非空→空）时，若放下的正是当前启用选材则取消选材
+            //（启用仅在“拿起”期间有效，放入容器即失效；拿起/交换不触发）
+            var menu = Minecraft.getInstance().player != null
+                    ? Minecraft.getInstance().player.containerMenu : null;
+            ItemStack before = menu != null ? menu.getCarried().copy() : ItemStack.EMPTY;
             inputForwarder.mouseClicked(containerLocalX(mouseX), containerLocalY(mouseY), button);
+            if (!before.isEmpty() && menu != null && menu.getCarried().isEmpty()
+                    && screen != null) {
+                screen.cancelGridSelectionIf(before);
+            }
         }
     }
 
@@ -613,6 +654,20 @@ public final class InteractionPanel extends RtsPanel {
             }
             return true;
         }
+
+        // 容器槽位 Shift+点击：原版式快速转移——一键把该槽位物品导入网络存储
+        // （替代原版“转移到玩家背包”；命中玩家背包槽位时同样导入网络，与 AE 终端语义一致）
+        // 仅当鼠标位于面板窗口内才转发：窗口外的点击（如物品网格）绝不触发容器槽位操作
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && Screen.hasShiftDown()
+                && isInsideWindow(mouseX, mouseY)
+                && !isOverPageTabBar(mouseY)
+                && inputForwarder != null && inputForwarder.hasScreen()) {
+            int slotIdx = inputForwarder.findSlotIndexAt(containerLocalX(mouseX), containerLocalY(mouseY));
+            if (slotIdx >= 0) {
+                RtsClientPacketGateway.sendImportMenuSlot(slotIdx);
+                return true;
+            }
+        }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
@@ -622,7 +677,10 @@ public final class InteractionPanel extends RtsPanel {
 
         if (super.mouseDragged(mouseX, mouseY, button, dragX, dragY)) return true;
 
-        if (!isOverPageTabBar(mouseY)
+        // 仅窗口内的拖拽才转发给容器屏幕：窗口外拖拽（如从网格拿起物品后移动）若转发，
+        // 容器屏幕可能把“点击到空处”误判为扔出/快速合成操作
+        if (isInsideWindow(mouseX, mouseY)
+                && !isOverPageTabBar(mouseY)
                 && inputForwarder != null && inputForwarder.hasScreen()) {
             inputForwarder.mouseDragged(containerLocalX(mouseX), containerLocalY(mouseY), button, dragX, dragY);
         }
@@ -635,16 +693,22 @@ public final class InteractionPanel extends RtsPanel {
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (!this.open) return false;
 
+        boolean inside = isInsideWindow(mouseX, mouseY);
+
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            if (!isOverPageTabBar(mouseY)
+            // 仅窗口内释放才转发：窗口外释放（如点击网格物品后松开）绝不转发，
+            // 否则容器屏幕会把“未命中槽位的释放”当作“携带中点击空白”→ 服务端直接扔掉 carried
+            if (inside
+                    && !isOverPageTabBar(mouseY)
                     && inputForwarder != null && inputForwarder.hasScreen()) {
                 inputForwarder.mouseReleased(containerLocalX(mouseX), containerLocalY(mouseY), button);
             }
-            return isInsideWindow(mouseX, mouseY);
+            return inside;
         }
 
         boolean handled = super.mouseReleased(mouseX, mouseY, button);
-        if (!isOverPageTabBar(mouseY)
+        if (inside
+                && !isOverPageTabBar(mouseY)
                 && inputForwarder != null && inputForwarder.hasScreen()) {
             inputForwarder.mouseReleased(containerLocalX(mouseX), containerLocalY(mouseY), button);
         }
@@ -664,7 +728,12 @@ public final class InteractionPanel extends RtsPanel {
 
     @Override
     protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+        // E（原版背包键）与 ESC 同语义：容器页打开时主动关闭容器页。
+        // 不转发给容器屏幕，避免原版 onClose → 服务端回包 → tick 兜底的被动关闭路径
+        //（容器已关闭但面板仍渲染旧菜单 1-2 帧，造成画面闪烁）
+        boolean closeKey = keyCode == GLFW.GLFW_KEY_ESCAPE
+                || Minecraft.getInstance().options.keyInventory.matches(keyCode, scanCode);
+        if (closeKey) {
             if (pageState.isPageOpen()) {
                 closeContainerPage();
                 return true;
@@ -702,8 +771,13 @@ public final class InteractionPanel extends RtsPanel {
         Minecraft mc = Minecraft.getInstance();
 
         // 等待服务端打开新容器：保持容器页视图，直到打开成功或超时
+        // 注意排除 RTS 自家菜单（合成终端 containerId 也非 0）：否则等待会被误判为已打开，
+        // pending 被提前清除后超时兜底失效，面板将卡在“点击上方标签打开容器”
         if (pageState.hasPending()) {
-            boolean containerOpen = mc.player != null && mc.player.containerMenu.containerId != 0;
+            var pendingMenu = mc.player != null ? mc.player.containerMenu : null;
+            boolean containerOpen = pendingMenu != null
+                    && pendingMenu.containerId != 0
+                    && !(pendingMenu instanceof RtsCraftTerminalMenu);
             if (pageState.tickPending(containerOpen) == ContainerPageState.TickResult.TIMED_OUT) {
                 resetState();
                 setOpen(false);
@@ -733,6 +807,9 @@ public final class InteractionPanel extends RtsPanel {
     private void closeContainerOnServer() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.player.containerMenu.containerId == 0) return;
+
+        // 关闭容器前：先退回 carried 再发关闭包（同一连接按序到达，服务端先处理退回）
+        returnCarriedToLinked();
 
         int containerId = mc.player.containerMenu.containerId;
         if (mc.player instanceof LocalPlayer localPlayer) {
@@ -852,11 +929,6 @@ public final class InteractionPanel extends RtsPanel {
     @Override
     public int getMinWindowHeight() {
         return TAB_BAR_H + getTitleBarHeight() + 50;
-    }
-
-    @Override
-    protected int getMaxWindowHeight() {
-        return Integer.MAX_VALUE;
     }
 
     /** 容器区可见宽度：与渲染平移、鼠标坐标转发共用同一基准（内容区宽度）。 */

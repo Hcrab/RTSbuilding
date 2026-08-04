@@ -34,6 +34,8 @@ import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 
+import javax.imageio.spi.ServiceRegistry;
+
 /**
  * Main entry class for the RTSbuilding mod.
  *
@@ -316,6 +318,8 @@ public class RtsbuildingMod {
             SaveScheduler.INSTANCE.onTick(event.getServer());
             // Drive per-tick consumption of global mining tasks
             ServerTickOrchestrator.getInstance().tickMining(event.getServer());
+            // Flush merged workflow progress notifications (one packet per player per tick)
+            RtsWorkflowEngine.getInstance().flushDirty();
         }
     }
 }

@@ -1,6 +1,12 @@
 {
+  "item.rtsbuilding.rts_terminal": "RTS终端",
+
+  "entity.rtsbuilding.rts_drone": "RTS无人机",
+
+  "tooltip.rtsbuilding.energy": "电量: %1$s",
+  "message.rtsbuilding.terminal_no_energy": "电量不足，无法开启 RTS 模式！",
+
   "key.categories.rtsbuilding.function": "RTSBuilding - 功能",
-  "key.rtsbuilding.toggleRts": "开启/关闭 RTS 模式",
   "key.rtsbuilding.open_gear_menu": "打开设置面板",
   "key.rtsbuilding.toggle_debug_overlay": "切换辅助显示",
   "key.rtsbuilding.toggle_camera_mode": "切换相机模式",

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.RtsService;
-
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferPlayerIntegration;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
@@ -72,11 +72,23 @@ public final class RtsTransferServiceImpl implements RtsService {
     }
 
     public void pickupLinkedToCarried(ServerPlayer player, ItemStack prototype, int amount) {
-        RtsTransferPlayerIntegration.pickupLinkedToCarried(player, server.session().getIfPresent(player), prototype, amount);
+        pickupLinkedToCarried(player, prototype, amount, false);
+    }
+
+    public void pickupLinkedToCarried(ServerPlayer player, ItemStack prototype, int amount, boolean fromInventory) {
+        // RTS 模式下禁止对“开启该模式的终端”进行拿去（服务端权威兑底）
+        if (RtsCameraManager.isLockedTerminal(player, prototype)) return;
+        RtsTransferPlayerIntegration.pickupLinkedToCarried(player, server.session().getIfPresent(player), prototype, amount, fromInventory);
     }
 
     public void quickMoveLinkedItem(ServerPlayer player, ItemStack prototype) {
-        RtsTransferPlayerIntegration.quickMoveLinkedItem(player, server.session().getIfPresent(player), prototype);
+        quickMoveLinkedItem(player, prototype, false);
+    }
+
+    public void quickMoveLinkedItem(ServerPlayer player, ItemStack prototype, boolean fromInventory) {
+        // RTS 模式下禁止对“开启该模式的终端”进行快速转移（服务端权威兑底）
+        if (RtsCameraManager.isLockedTerminal(player, prototype)) return;
+        RtsTransferPlayerIntegration.quickMoveLinkedItem(player, server.session().getIfPresent(player), prototype, fromInventory);
     }
 
     public void fillPlayerInventoryFromLinked(ServerPlayer player) {

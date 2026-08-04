@@ -3,6 +3,8 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 import com.mojang.blaze3d.vertex.DefaultVertexFormat;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
+import com.rtsbuilding.rtsbuilding.client.entity.RtsDroneRenderer;
+import com.rtsbuilding.rtsbuilding.client.entity.rts_drone;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
@@ -14,7 +16,6 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.remote.RemoteMen
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
-import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.util.render.RtsShaders;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -35,6 +36,12 @@ public final class RtsClientBootstrap {
     @SubscribeEvent
     public static void onRegisterRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(RtsEntities.RTS_CAMERA_ENTITY.get(), RtsCameraEntityRenderer::new);
+        event.registerEntityRenderer(RtsEntities.RTS_DRONE.get(), RtsDroneRenderer::new);
+    }
+
+    @SubscribeEvent
+    public static void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(RtsDroneRenderer.LAYER_LOCATION, rts_drone::createBodyLayer);
     }
 
     @SubscribeEvent

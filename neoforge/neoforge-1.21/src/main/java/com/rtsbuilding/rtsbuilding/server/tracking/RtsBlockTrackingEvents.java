@@ -8,11 +8,13 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlockEventHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 
 /**
@@ -121,5 +123,25 @@ public final class RtsBlockTrackingEvents {
             RtsProgressRefresher.refreshWorkflowProgress(player, session);
         }
     }
-}
 
+    /**
+     * 容器菜单关闭兜底：关闭时若菜单 carried 中仍有物品（如跨窗口拖拽中断、
+     * 服务端强制关闭等异常路径），自动存回链接存储，避免物品滞留/丢失。
+     */
+    @SubscribeEvent
+    public static void onContainerClose(PlayerContainerEvent.Close event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)) {
+            return;
+        }
+        var menu = event.getContainer();
+        if (menu == null) return;
+        var carried = menu.getCarried();
+        if (carried == null || carried.isEmpty()) return;
+        RtsStorageSession session = RtsServer.get().session().getIfPresent(player);
+        if (session == null) return;
+        var id = BuiltInRegistries.ITEM.getKey(carried.getItem());
+        if (id == null) return;
+        // 事件在 removed() 开头触发，player.containerMenu 仍是该菜单，carried 与 menu 一致
+        RtsServer.get().transfer().returnCarriedToLinked(player, id.toString(), carried.getCount());
+    }
+}

@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.common;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
+import com.rtsbuilding.rtsbuilding.common.entity.RtsDroneEntity;
 import com.rtsbuilding.rtsbuilding.platform.Platform;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
@@ -35,6 +36,15 @@ public final class RtsEntities {
                             .noSave()
                             .noSummon()
                             .build(ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rts_camera").toString()));
+
+    /** RTS drone entity — hovering drone deployable via /summon rtsbuilding:rts_drone */
+    public static final DeferredHolder<EntityType<?>, EntityType<RtsDroneEntity>> RTS_DRONE =
+            ENTITY_TYPES.register("rts_drone",
+                    () -> EntityType.Builder.of(RtsDroneEntity::new, MobCategory.MISC)
+                            .sized(2.0F, 2.0F)
+                            .clientTrackingRange(64)
+                            .updateInterval(1)
+                            .build(ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "rts_drone").toString()));
 
     // ============================================================
     //  Factory methods

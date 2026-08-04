@@ -42,9 +42,6 @@ public final class GridState {
     public final Map<String, Integer> itemSelectCounts = new HashMap<>();
     public final Map<String, ItemStack> itemSelectPreviews = new HashMap<>();
 
-    
-    public final Set<String> recentRemovedIds = new HashSet<>();
-
     public boolean slotEntriesDirty = true;
     public int lastRevision = -1;
     public SortType lastSortType = SortType.NAME;

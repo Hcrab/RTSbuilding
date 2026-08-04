@@ -8,6 +8,10 @@ public final class ContainerInputForwarder {
     @Nullable
     private AbstractContainerScreen<?> screen;
 
+    /** 上次 init 的尺寸：同一尺寸不重复重建（AbstractContainerScreen.init 会重置滚动/搜索框等状态）。 */
+    private int lastInitW = -1;
+    private int lastInitH = -1;
+
     public ContainerInputForwarder(AbstractContainerScreen<?> screen) {
         this.screen = screen;
     }
@@ -20,6 +24,8 @@ public final class ContainerInputForwarder {
             screen.removed();
             screen = null;
         }
+        lastInitW = -1;
+        lastInitH = -1;
     }
 
     public boolean hasScreen() {
@@ -34,8 +40,11 @@ public final class ContainerInputForwarder {
 
     
     public void init(int width, int height) {
-        if (screen != null) {
+        // 尺寸未变且屏幕未更换时跳过重建，避免每帧/每次同步都重置容器 UI 状态
+        if (screen != null && (width != lastInitW || height != lastInitH)) {
             screen.init(net.minecraft.client.Minecraft.getInstance(), width, height);
+            lastInitW = width;
+            lastInitH = height;
         }
     }
 
@@ -48,6 +57,25 @@ public final class ContainerInputForwarder {
 
     public void mouseClicked(double mx, double my, int button) {
         if (screen != null) screen.mouseClicked(mx, my, button);
+    }
+
+    /**
+     * 命中检测的索引版：返回局部坐标命中的激活槽位在菜单中的索引，未命中返回 -1。
+     * 供容器槽位 Shift+点击快速导入网络使用（需要精确槽位索引，不能仅判断命中）。
+     */
+    public int findSlotIndexAt(double mx, double my) {
+        if (screen == null) return -1;
+        int guiLeft = screen.getGuiLeft();
+        int guiTop = screen.getGuiTop();
+        var slots = screen.getMenu().slots;
+        for (int i = 0; i < slots.size(); i++) {
+            net.minecraft.world.inventory.Slot s = slots.get(i);
+            if (!s.isActive()) continue;
+            int sx = guiLeft + s.x;
+            int sy = guiTop + s.y;
+            if (mx >= sx && mx < sx + 16 && my >= sy && my < sy + 16) return i;
+        }
+        return -1;
     }
 
     /**

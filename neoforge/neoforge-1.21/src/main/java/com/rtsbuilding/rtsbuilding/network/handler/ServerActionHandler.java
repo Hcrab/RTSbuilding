@@ -1,10 +1,13 @@
 package com.rtsbuilding.rtsbuilding.network.handler;
 
+import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.item.RtsTerminalItem;
 import com.rtsbuilding.rtsbuilding.core.network.ActionType;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.network.message.C2SAction;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
@@ -23,6 +26,9 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.neoforged.neoforge.capabilities.Capabilities;
+import net.neoforged.neoforge.energy.IEnergyStorage;
 import net.neoforged.neoforge.network.PacketDistributor;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import org.slf4j.Logger;
@@ -52,7 +58,29 @@ public final class ServerActionHandler {
                 var modes = BuilderMode.values();
                 if (id >= 0 && id < modes.length) RtsServer.get().binding().setMode(p, modes[id]);
             }
-            case TOGGLE_CAMERA -> RtsCameraManager.toggle(p, t.getBoolean("startAtPlayerHead"));
+            case TOGGLE_CAMERA -> {
+                boolean enable = t.getBoolean("startAtPlayerHead");
+                String terminalUuid = null;
+                if (enable) {
+                    // Turn-on consumes terminal energy — the server is authoritative.
+                    ItemStack stack = p.getMainHandItem();
+                    IEnergyStorage energy = stack.getCapability(Capabilities.EnergyStorage.ITEM);
+                    if (energy == null) {
+                        stack = p.getOffhandItem();
+                        energy = stack.getCapability(Capabilities.EnergyStorage.ITEM);
+                    }
+                    if (energy != null) {
+                        if (energy.getEnergyStored() < RtsTerminalItem.ENERGY_PER_USE) {
+                            p.displayClientMessage(Component.translatable("message.rtsbuilding.terminal_no_energy"), true);
+                            return;
+                        }
+                        energy.extractEnergy(RtsTerminalItem.ENERGY_PER_USE, false);
+                        // 记录“开启该模式的那把终端”，RTS 模式下禁止对它拿去/启用
+                        terminalUuid = stack.get(RtsItems.TERMINAL_UUID.get());
+                    }
+                }
+                RtsCameraManager.toggle(p, enable, terminalUuid);
+            }
             case SET_FUNNEL -> RtsServer.get().binding().setFunnelEnabled(p, t.getBoolean("enabled"));
             case SET_AUTO_STORE -> RtsServer.get().binding().setAutoStoreMinedDrops(p, t.getBoolean("enabled"));
             case SET_BD_NETWORK -> RtsServer.get().binding().setBdNetworkEnabled(p, t.getBoolean("enabled"));
@@ -113,7 +141,33 @@ public final class ServerActionHandler {
                 RtsServer.get().interaction().interactTarget(p, t.getInt("entityId"), BlockPos.of(t.getLong("clickedPos")), face, t.getDouble("hitX"), t.getDouble("hitY"), t.getDouble("hitZ"), t.getByte("sourceType"), t.getByte("toolSlot"), t.getString("itemId"), t.getDouble("rayOriginX"), t.getDouble("rayOriginY"), t.getDouble("rayOriginZ"), t.getDouble("rayDirX"), t.getDouble("rayDirY"), t.getDouble("rayDirZ"));
             }
             case QUICK_DROP -> RtsServer.get().transfer().quickDropLinkedItem(p, t.getString("itemId"), (byte) t.getInt("amount"), t.getDouble("dropX"), t.getDouble("dropY"), t.getDouble("dropZ"));
+            case LINKED_PICKUP -> {
+                // Pick linked-storage items into the open container menu carried slot.
+                var prototype = net.minecraft.world.item.ItemStack.parseOptional(p.registryAccess(), t.getCompound("prototype"));
+                if (prototype.isEmpty()) return;
+                RtsServer.get().transfer().pickupLinkedToCarried(p, prototype, t.getInt("amount"), t.getBoolean("fromInventory"));
+                // Client carried field is not auto-synced; mirror the authoritative server state.
+                PacketDistributor.sendToPlayer(p, new S2CRtsCarriedSyncPayload(p.containerMenu.getCarried()));
+            }
+            case RETURN_CARRIED -> {
+                // Return the carried stack (or part of it) back to the linked storage.
+                RtsServer.get().transfer().returnCarriedToLinked(p, t.getString("itemId"), t.getInt("amount"));
+                PacketDistributor.sendToPlayer(p, new S2CRtsCarriedSyncPayload(p.containerMenu.getCarried()));
+            }
+            case LINKED_QUICK_MOVE -> {
+                // Shift-style quick move from linked storage straight into the open menu.
+                var quickPrototype = net.minecraft.world.item.ItemStack.parseOptional(p.registryAccess(), t.getCompound("prototype"));
+                if (quickPrototype.isEmpty()) return;
+                RtsServer.get().transfer().quickMoveLinkedItem(p, quickPrototype, t.getBoolean("fromInventory"));
+            }
+            case IMPORT_MENU_SLOT -> {
+                // Shift-click a slot in the open container menu: import that slot's item into linked storage.
+                RtsServer.get().transfer().importMenuSlotToLinked(p, t.getInt("slot"));
+            }
             case UNDO -> { if (RtsCameraManager.isActive(p)) ServerHistoryManager.executeUndo(p); }
+            case CAMERA_POSE -> RtsCameraManager.updateCameraPose(p,
+                    t.getDouble("x"), t.getDouble("y"), t.getDouble("z"),
+                    t.getFloat("yaw"), t.getFloat("pitch"));
             case PAUSE_WORKFLOW -> {
                 int entryId = t.getInt("entryId");
                 var engine = RtsWorkflowEngine.getInstance();

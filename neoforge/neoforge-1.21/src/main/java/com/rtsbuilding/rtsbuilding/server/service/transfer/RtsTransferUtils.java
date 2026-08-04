@@ -27,10 +27,10 @@ import net.minecraft.world.inventory.InventoryMenu;
  * <ul>
  *   <li>{@link #shouldIncludePlayerMainInventoryInStorageView(ServerPlayer, RtsStorageSession)} —
  *       Determines if the player's main inventory should be included as a visible source/sink in the storage browser view;
- *       Returns {@code true} when no linked storage exists and not in a craft terminal menu</li>
+ *       Returns {@code true} only when no linked storage exists and no primary BD network is available</li>
  *   <li>{@link #movesLinkedQuickMoveToPlayerInventory(AbstractContainerMenu)} —
  *       Determines if quick move from linked storage should go to player inventory (instead of menu slots);
- *       Returns {@code true} for {@code InventoryMenu} or regular {@code CraftingMenu}</li>
+ *       Returns {@code true} for {@code InventoryMenu} or any {@code CraftingMenu} (incl. RTS craft terminal)</li>
  *   <li>{@link #clampHotbarSlot(int)} — Clamps hotbar slot index to [0, 8] range</li>
  *   <li>{@link #getPlayerMainInventoryStart(ServerPlayer)} — Returns main inventory start index (always 0)</li>
  *   <li>{@link #getPlayerMainInventoryEndExclusive(ServerPlayer)} —
@@ -50,13 +50,9 @@ final class RtsTransferUtils {
      * Returns whether the player's main inventory should be included as a visible source/sink in the storage browser view.
      */
     static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || player.containerMenu instanceof RtsCraftTerminalMenu) {
-            return false;
-        }
-        if (session != null && session.linkedStorageInfo.isEmpty() && !hasPrimaryBdNetwork(player)) {
-            return true;
-        }
-        return player.containerMenu == player.inventoryMenu;
+        // 背包始终计入存储视图（合成终端专用界面除外）：背包条目以 MODE_PLAYER_INVENTORY
+        // 独立标识显示，与存储条目分开计数，物品进出背包都可在网格中正确反映
+        return player != null && !(player.containerMenu instanceof RtsCraftTerminalMenu);
     }
 
     /**
@@ -64,8 +60,9 @@ final class RtsTransferUtils {
      * (instead of the currently open menu's slots).
      */
     static boolean movesLinkedQuickMoveToPlayerInventory(AbstractContainerMenu menu) {
-        return menu instanceof InventoryMenu
-                || (menu instanceof CraftingMenu && !(menu instanceof RtsCraftTerminalMenu));
+        // RTS 合成终端虽是 CraftingMenu 子类，但其输入槽位不是背包也不是可存放容器，
+        // 快速转移时一律并入背包目标，避免物品被塞进合成终端槽位
+        return menu instanceof InventoryMenu || menu instanceof CraftingMenu;
     }
 
     static int clampHotbarSlot(int slot) {
@@ -83,10 +80,4 @@ final class RtsTransferUtils {
         return Math.min(PLAYER_MAIN_INVENTORY_END_EXCLUSIVE, player.getInventory().getContainerSize());
     }
 
-    private static boolean hasPrimaryBdNetwork(ServerPlayer player) {
-        for (var provider : com.rtsbuilding.rtsbuilding.api.compat.RtsCompatRegistry.getStorageProviders()) {
-            if (provider.isAvailable() && provider.getNetworkDisplayName(player) != null) return true;
-        }
-        return false;
-    }
 }

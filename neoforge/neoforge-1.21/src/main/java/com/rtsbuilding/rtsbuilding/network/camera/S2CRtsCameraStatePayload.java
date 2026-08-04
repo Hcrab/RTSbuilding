@@ -1,10 +1,13 @@
 package com.rtsbuilding.rtsbuilding.network.camera;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.RegistryFriendlyByteBuf;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
+
+import javax.annotation.Nullable;
 
 public record S2CRtsCameraStatePayload(
         boolean enabled,
@@ -17,7 +20,8 @@ public record S2CRtsCameraStatePayload(
         float yawDeg,
         float pitchDeg,
         boolean homeSelection,
-        boolean closeRangeAllowed) implements CustomPacketPayload {
+        boolean closeRangeAllowed,
+        @Nullable String terminalUuid) implements CustomPacketPayload {
     public static final Type<S2CRtsCameraStatePayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "s2c_rts_camera_state"));
 
@@ -34,6 +38,7 @@ public record S2CRtsCameraStatePayload(
                 buf.writeFloat(payload.pitchDeg());
                 buf.writeBoolean(payload.homeSelection());
                 buf.writeBoolean(payload.closeRangeAllowed());
+                buf.writeNullable(payload.terminalUuid(), FriendlyByteBuf::writeUtf);
             },
             (buf) -> new S2CRtsCameraStatePayload(
                     buf.readBoolean(),
@@ -46,7 +51,8 @@ public record S2CRtsCameraStatePayload(
                     buf.readFloat(),
                     buf.readFloat(),
                     buf.readBoolean(),
-                    buf.readBoolean()));
+                    buf.readBoolean(),
+                    buf.readNullable(FriendlyByteBuf::readUtf)));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

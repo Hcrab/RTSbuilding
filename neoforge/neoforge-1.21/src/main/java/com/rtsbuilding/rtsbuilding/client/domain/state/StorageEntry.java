@@ -16,6 +16,9 @@ public record StorageEntry(
     public static final byte MODE_EXTRACT_ONLY = 1;
 
     
+    public static final byte MODE_PLAYER_INVENTORY = 2;
+
+    
     public boolean isBidirectional() {
         return linkedMode == MODE_BIDIRECTIONAL;
     }
@@ -23,5 +26,10 @@ public record StorageEntry(
     
     public boolean isExtractOnly() {
         return linkedMode == MODE_EXTRACT_ONLY;
+    }
+
+    
+    public boolean isPlayerInventory() {
+        return linkedMode == MODE_PLAYER_INVENTORY;
     }
 }

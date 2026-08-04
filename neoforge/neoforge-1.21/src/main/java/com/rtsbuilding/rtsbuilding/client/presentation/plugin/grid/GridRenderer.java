@@ -841,9 +841,12 @@ public final class GridRenderer {
                 if (obj instanceof StorageEntry se) {
                     if (se.stack() == null || se.stack().isEmpty()) continue;
 
+                    // 背包来源条目（MODE_PLAYER_INVENTORY）不受双向/只读过滤影响，始终显示；
+                    // 来源独立成条，与存储条目分开计数，转移变化可正确反映
                     boolean matchesBidirectional = se.isBidirectional() && state.showBidirectional;
                     boolean matchesExtractOnly = se.isExtractOnly() && state.showExtractOnly;
-                    if (!matchesBidirectional && !matchesExtractOnly) continue;
+                    boolean matchesPlayerInventory = se.isPlayerInventory();
+                    if (!matchesBidirectional && !matchesExtractOnly && !matchesPlayerInventory) continue;
 
                     String sortName = se.stack().getHoverName().getString().toLowerCase();
                     String sortMod = se.namespace();
@@ -885,8 +888,16 @@ public final class GridRenderer {
                 }
                 default -> result = 0;
             }
+            // 同排位时存储条目优先，背包条目排后
+            if (result == 0) {
+                result = Integer.compare(sourceRank(entry1), sourceRank(entry2));
+            }
             return state.reverseSortOrder ? -result : result;
         });
+    }
+
+    private static int sourceRank(SlotEntry entry) {
+        return entry.originalEntry() instanceof StorageEntry se && se.isPlayerInventory() ? 1 : 0;
     }
 
     public static List<RecentEntry> getRecentItems(StorageModule sm) {
@@ -917,7 +928,6 @@ public final class GridRenderer {
         }
 
         List<RecentEntry> result = new ArrayList<>(merged.values());
-        result.removeIf(e -> e.id() != null && state.recentRemovedIds.contains(e.id()));
         result.sort(Comparator.<RecentEntry, Integer>comparing(e -> state.itemSelectCounts.getOrDefault(e.id(), 0)).reversed());
         if (!state.recentSortAscending) {
             java.util.Collections.reverse(result);
@@ -936,6 +946,8 @@ public final class GridRenderer {
         if (itemId == null || stack.isEmpty()) return;
         state.itemSelectCounts.merge(itemId, 1, Integer::sum);
         state.itemSelectPreviews.put(itemId, stack);
-        state.recentRemovedIds.remove(itemId);
+        // 重新选中即恢复最近栏显示：取消数据层屏蔽，条目将在下次服务端同步时回归
+        StorageModule sm = RtsClientKernel.get().module(StorageModule.class);
+        if (sm != null) sm.restoreRecentEntry(itemId);
     }
 }

@@ -12,7 +12,17 @@ import net.minecraft.world.entity.npc.VillagerProfession;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.ContainerEntity;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.BellBlock;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.ButtonBlock;
+import net.minecraft.world.level.block.CakeBlock;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.FenceGateBlock;
+import net.minecraft.world.level.block.FlowerPotBlock;
+import net.minecraft.world.level.block.LeverBlock;
+import net.minecraft.world.level.block.SignBlock;
+import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.entity.LecternBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -85,6 +95,15 @@ public final class TargetProbe {
     private static boolean hasUseOverride(Block block) {
         Class<?> clazz = block.getClass();
         if (clazz == Block.class) return false;
+        // 排除“覆写 use 但不打开容器 GUI”的常见交互方块，避免误判为可交互目标
+        //（这些方块在容器标签栏中无法被 RTS 打开，只会产生无效标签）
+        if (block instanceof DoorBlock || block instanceof TrapDoorBlock
+                || block instanceof FenceGateBlock || block instanceof ButtonBlock
+                || block instanceof LeverBlock || block instanceof BedBlock
+                || block instanceof CakeBlock || block instanceof BellBlock
+                || block instanceof SignBlock || block instanceof FlowerPotBlock) {
+            return false;
+        }
         return USE_OVERRIDE_CACHE.computeIfAbsent(clazz, TargetProbe::scanUseOverride);
     }
 

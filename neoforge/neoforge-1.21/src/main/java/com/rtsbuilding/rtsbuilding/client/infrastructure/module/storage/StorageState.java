@@ -19,8 +19,10 @@ import net.neoforged.neoforge.fluids.FluidUtil;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public final class StorageState {
 
@@ -53,6 +55,12 @@ public final class StorageState {
     private final Map<String, Long> totalCounts = new HashMap<>();
     private final List<Object> fluidEntries = new ArrayList<>();
     private final List<Object> recentEntries = new ArrayList<>();
+
+    
+    
+    
+    
+    private final Set<String> locallyRemovedRecentIds = new LinkedHashSet<>();
     private boolean scanRunning;
     private long scanStartedMs, scanVisibleUntilMs;
     private boolean viewDirty;
@@ -209,6 +217,8 @@ public final class StorageState {
         for (int i = 0; i < recentSize; i++) {
             String recentId = payload.recentIds().get(i);
             if (recentId == null || recentId.isBlank()) continue;
+            
+            if (locallyRemovedRecentIds.contains(recentId)) continue;
             ResourceLocation rl = ResourceLocation.tryParse(recentId);
             if (rl == null) continue;
             ItemStack preview = ItemStack.EMPTY;
@@ -226,6 +236,29 @@ public final class StorageState {
                     payload.recentKinds().get(i),
                     preview));
         }
+    }
+
+    
+    
+    void removeRecentEntry(String id) {
+        if (id == null || id.isBlank()) return;
+        locallyRemovedRecentIds.add(id);
+        recentEntries.removeIf(e -> e instanceof RecentEntry re && id.equals(re.id()));
+        
+        if (locallyRemovedRecentIds.size() > 64) {
+            java.util.Iterator<String> it = locallyRemovedRecentIds.iterator();
+            int drop = locallyRemovedRecentIds.size() - 32;
+            while (it.hasNext() && drop-- > 0) {
+                it.next();
+                it.remove();
+            }
+        }
+    }
+
+    
+    void restoreRecentEntry(String id) {
+        if (id == null) return;
+        locallyRemovedRecentIds.remove(id);
     }
 
     
@@ -288,6 +321,7 @@ public final class StorageState {
         this.storageEntries.clear();
         this.fluidEntries.clear();
         this.recentEntries.clear();
+        this.locallyRemovedRecentIds.clear();
         this.linkedPositions.clear();
         this.linkedStorageEntries.clear();
         this.linkedDisplayNames.clear();

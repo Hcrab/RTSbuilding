@@ -542,6 +542,8 @@ public final class RtsMiningStateMachine {
         session.mining.ultimineBrokenTargets = 0;
         session.mining.ultimineNotifyAccumulator = 0;
         session.mining.ultimineAbsorbedDrops = false;
+        session.mining.ultimineLastProgressPos = null;
+        session.mining.ultimineLastStage = -1;
         session.mining.miningFace = Direction.DOWN;
         session.mining.miningProgress = 0.0F;
         session.mining.miningStage = -1;

@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.network.craft.RtsCraftPackets;
 import com.rtsbuilding.rtsbuilding.network.feedback.RtsFeedbackPackets;
 import com.rtsbuilding.rtsbuilding.network.handler.ServerActionHandler;
 import com.rtsbuilding.rtsbuilding.network.message.C2SAction;
+import com.rtsbuilding.rtsbuilding.network.message.C2SCameraPosePayload;
 import com.rtsbuilding.rtsbuilding.network.message.S2CProgress;
 import com.rtsbuilding.rtsbuilding.network.message.S2CStateUpdate;
 import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
@@ -29,6 +30,15 @@ public final class RtsPayloadRegistrar {
 
         // ── Unified C2S: single channel for all client actions ──
         registrar.playToServer(C2SAction.TYPE, C2SAction.STREAM_CODEC, ServerActionHandler::handle);
+
+        // ── High-frequency C2S: camera pose (dedicated payload, no NBT) ──
+        registrar.playToServer(C2SCameraPosePayload.TYPE, C2SCameraPosePayload.STREAM_CODEC,
+                (p, ctx) -> ctx.enqueueWork(() -> {
+                    if (ctx.player() instanceof net.minecraft.server.level.ServerPlayer sp) {
+                        com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager.updateCameraPose(
+                                sp, p.x(), p.y(), p.z(), p.yaw(), p.pitch());
+                    }
+                }));
 
         // ── Generic S2C channels ──
         registrar.playToClient(S2CStateUpdate.TYPE, S2CStateUpdate.STREAM_CODEC,

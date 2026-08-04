@@ -65,6 +65,20 @@ public final class RightDownOverlayLayer extends DownOverlayLayer {
         return itemGrid.getCurrentSelectedItem();
     }
 
+    /**
+     * 无条件清空当前选材（UI 选取态 + 建造启用）。退出 RTS 模式时调用。
+     */
+    public void cancelSelection() {
+        itemGrid.cancelSelection();
+    }
+
+    /**
+     * 若当前选材与放下的物品同类则取消选材（点击容器槽位放下物品时调用）。
+     */
+    public void cancelSelectionIf(ItemStack carried) {
+        itemGrid.cancelSelectionIf(carried);
+    }
+
     public ItemStack getHoveredSlotStack() {
         return itemGrid.getHoveredSlotStack();
     }

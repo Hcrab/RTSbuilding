@@ -442,7 +442,7 @@ public final class RtsPageCore {
             if (stack.isEmpty()) {
                 continue;
             }
-            mergeExactEntry(exactEntries, stack, stack.getCount(), (byte) 0);
+            mergeExactEntry(exactEntries, stack, stack.getCount(), NetworkConstants.MODE_PLAYER_INVENTORY);
         }
     }
 

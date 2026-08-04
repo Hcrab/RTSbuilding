@@ -64,6 +64,8 @@ public final class RtsMiningNetworkHelper {
     /**
      * 向客户端发送当前连锁挖掘批次的进度，将 {@code processed / total}
      * 映射到破坏阶段（0-9）。
+     * <p>带变化检测：仅当进度位置或阶段发生变化时才发包，
+     * 避免连锁挖掘每 tick 都发送一次内容相同的裂纹包。</p>
      */
     public static void sendUltimineBatchProgress(ServerPlayer player, RtsStorageSession session) {
         if (session.mining.ultimineProgressPos == null) {
@@ -72,6 +74,15 @@ public final class RtsMiningNetworkHelper {
         int total = Math.max(1, session.mining.ultimineTotalTargets);
         int broken = session.mining.ultimineBrokenTargets;
         int stage = Math.min(9, (int) (broken / (double) total * 10.0D));
+
+        // 位置或阶段均未变化 → 跳过（避免每 tick 空转发包）
+        boolean posChanged = !session.mining.ultimineProgressPos.equals(session.mining.ultimineLastProgressPos);
+        boolean stageChanged = stage != session.mining.ultimineLastStage;
+        if (!posChanged && !stageChanged) {
+            return;
+        }
+        session.mining.ultimineLastProgressPos = session.mining.ultimineProgressPos;
+        session.mining.ultimineLastStage = stage;
         sendMineProgress(player, session.mining.ultimineProgressPos, stage);
     }
 }

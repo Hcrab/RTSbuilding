@@ -4,9 +4,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.PerformanceConfig;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
-import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPass;
 import com.rtsbuilding.rtsbuilding.client.render.util.CornerBracketRenderer;
+import com.rtsbuilding.rtsbuilding.client.util.render.ShaderState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.levelgen.Heightmap;
@@ -74,7 +74,11 @@ public final class BoundaryPass implements RenderPass {
     public boolean shouldRender(Minecraft mc) {
         return mc.player != null 
             && mc.screen instanceof com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen
-            && isConfigSafe() && PerformanceConfig.shouldRenderBoundaryWalls();
+            && isConfigSafe() && PerformanceConfig.shouldRenderBoundaryWalls()
+            // Shader packs treat the translucent barrier walls as lit, shadow-sampled
+            // geometry, turning the wall into a dark band artifact. Skip it while a
+            // shader pack is active.
+            && !ShaderState.isShaderPackActive();
     }
     
     private boolean isConfigSafe() {

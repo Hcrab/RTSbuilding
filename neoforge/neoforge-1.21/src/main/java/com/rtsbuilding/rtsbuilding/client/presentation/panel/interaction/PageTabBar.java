@@ -219,24 +219,25 @@ public final class PageTabBar {
 
     /**
      * 返回鼠标命中的标签页与关闭按钮状态，未命中返回 {@code null}。
-     * 命中区域与标签实际绘制区域一致（含活动标签顶满部分）。
+     * 命中区域与标签实际绘制区域一致：活动标签顶满（从 y 开始），非活动标签顶部缩进。
      */
     @Nullable
-    public TabHit handleClick(double mouseX, double mouseY, int x, int y, int width, int height, List<Tab> tabs) {
+    public TabHit handleClick(double mouseX, double mouseY, int x, int y, int width, int height,
+                              @Nullable Tab activeTab, List<Tab> tabs) {
         if (tabs.isEmpty()) return null;
         Minecraft mc = Minecraft.getInstance();
         if (mc == null || mc.font == null) return null;
 
-        int tabH = height - TAB_TOP_INSET - 1;
-        if (tabH <= 0) return null;
-
         int tabX = x + 4 - scrollX;
-        int tabY = y + TAB_TOP_INSET;
         for (Tab tab : tabs) {
             int tabW = tabWidth(mc, tab);
+            // 活动标签与绘制一致：顶满（y 起）；非活动标签缩进 TAB_TOP_INSET，顶部 2px 属于活动标签专属区域
+            boolean selected = activeTab != null && tab.entryIndex() == activeTab.entryIndex();
+            int tabTop = selected ? y : y + TAB_TOP_INSET;
+            int tabH = selected ? height - 1 : height - TAB_TOP_INSET - 1;
             if (mouseX >= tabX && mouseX < tabX + tabW
-                    && mouseY >= tabY && mouseY < tabY + tabH) {
-                boolean onClose = tab.hasCloseButton() && isOverCloseButton(mouseX, mouseY, tabX, tabW, tabY, tabH);
+                    && mouseY >= tabTop && mouseY < tabTop + tabH) {
+                boolean onClose = tab.hasCloseButton() && isOverCloseButton(mouseX, mouseY, tabX, tabW, tabTop, tabH);
                 return new TabHit(tab, onClose);
             }
             tabX += tabW + TAB_GAP;

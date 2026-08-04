@@ -1,14 +1,17 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.service.SoundService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -28,6 +31,9 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.items.IItemHandler;
+import net.neoforged.neoforge.network.PacketDistributor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
@@ -53,6 +59,7 @@ import java.util.List;
  * 音效分发（{@link RtsPlacementSound}/{@link com.rtsbuilding.rtsbuilding.server.service.SoundService}）。
  */
 public final class RtsPlacementExecutor {
+    private static final Logger LOG = LoggerFactory.getLogger("RtsPlacement");
     private static final double REMOTE_POV_BLOCK_REACH = 4.0D;
 
     private RtsPlacementExecutor() {
@@ -258,12 +265,29 @@ public final class RtsPlacementExecutor {
                 return true;
             }
         }
-        ItemStack extracted = creativeSource
-                ? RtsPlacementExtractor.creativeStack(item, preferredStack)
-                : includePlayerMainInventory
-                        ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, item, preferredStack)
-                        : RtsPlacementExtractor.extractSelectedFromLinkedCached(player, extractHandlers, item, preferredStack);
+        // 方案1：放置优先从 carried 扣减（点击网格拿起的物品直接可用于放置，
+        // 避免物品滞留在 carried 中成为“死库存”，网络提取不到导致放置失败）
+        boolean fromCarried = false;
+        ItemStack carriedSource = ItemStack.EMPTY;
+        if (!creativeSource) {
+            carriedSource = RtsPlacementExtractor.takeOneFromCarried(player, item, preferredStack);
+            if (!carriedSource.isEmpty()) {
+                fromCarried = true;
+                player.containerMenu.broadcastChanges();
+            }
+        }
+        ItemStack extracted = !carriedSource.isEmpty() ? carriedSource
+                : creativeSource
+                        ? RtsPlacementExtractor.creativeStack(item, preferredStack)
+                        : includePlayerMainInventory
+                                ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, item, preferredStack)
+                                : RtsPlacementExtractor.extractSelectedFromLinkedCached(player, extractHandlers, item, preferredStack);
         if (extracted.isEmpty()) {
+            RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
+            LOG.warn("Placement extract failed: player={} pos={} itemId={} creative={} linked={} includeInv={} aggregate={}",
+                    player.getName().getString(), clickedPos, itemId, creativeSource,
+                    activeLinked.size(), includePlayerMainInventory,
+                    aggregate == null ? "null" : (aggregate.isEmpty() ? "empty" : "nonEmpty"));
             RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
             return false;
         }
@@ -299,7 +323,16 @@ public final class RtsPlacementExecutor {
                     () -> InteractionHelper.useItemWithMainHand(player, level, fallbackStack, forcePlace));
         }
         if (!creativeSource && !finalOutcome.remainder().isEmpty()) {
-            RtsTransferInserter.refundToLinked(insertHandlers, player, finalOutcome.remainder());
+            if (fromCarried) {
+                // 从 carried 扣减的物品：剩余部分合并回 carried，合并不下的退回网络
+                ItemStack remain = RtsPlacementExtractor.mergeIntoCarried(player, finalOutcome.remainder());
+                if (!remain.isEmpty()) {
+                    RtsTransferInserter.refundToLinked(insertHandlers, player, remain);
+                }
+                PacketDistributor.sendToPlayer(player, new S2CRtsCarriedSyncPayload(player.containerMenu.getCarried()));
+            } else {
+                RtsTransferInserter.refundToLinked(insertHandlers, player, finalOutcome.remainder());
+            }
         }
 
         if (!finalOutcome.result().consumesAction()) {
@@ -324,6 +357,13 @@ public final class RtsPlacementExecutor {
         }
 
         RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
+        if (fromCarried) {
+            // 方案2：自动续货——放置成功消耗后从网络补回差额，carried 始终保持满组，
+            // 点击一次网格即可持续放置；网络耗尽后自然停止补充
+            RtsPlacementExtractor.replenishCarried(player, extractHandlers, item, preferredStack);
+            // 同步权威 carried 状态（已被续货补充）给客户端
+            PacketDistributor.sendToPlayer(player, new S2CRtsCarriedSyncPayload(player.containerMenu.getCarried()));
+        }
         return true;
     }
 

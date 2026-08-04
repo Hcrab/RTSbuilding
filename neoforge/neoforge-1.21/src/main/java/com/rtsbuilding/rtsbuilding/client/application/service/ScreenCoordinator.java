@@ -54,8 +54,13 @@ public final class ScreenCoordinator {
     }
 
     public void closeContainerScreen() {
+        // 无条件退回 carried：退出 RTS 模式时若鼠标仍拿着物品（点击式拿起后未放回），
+        // 必须退回远程存储——即使交互面板从未创建（仅点击网格条目拿起物品的路径），
+        // 否则服务端权威 carried 滞留会导致物品复制/丢失等 bug。
+        // 静态调用不依赖面板实例；面板存在时 closePanel 清理链内的调用幂等（carried 已空即返回）。
+        InteractionPanel.returnCarriedToLinked();
         if (interactionPanel != null) {
-            interactionPanel.setOpen(false);
+            interactionPanel.closePanel();
         }
     }
 

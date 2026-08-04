@@ -22,7 +22,7 @@ public record S2CRtsWorkflowProgressBatchPayload(
 
     private static void encode(RegistryFriendlyByteBuf buf, S2CRtsWorkflowProgressBatchPayload payload) {
         List<S2CRtsWorkflowProgressPayload> entries = payload.entries();
-        buf.writeInt(entries.size());
+        buf.writeVarInt(entries.size());
         for (S2CRtsWorkflowProgressPayload entry : entries) {
             buf.writeByte(entry.workflowIndex());
             buf.writeByte(entry.workflowCount());
@@ -43,7 +43,7 @@ public record S2CRtsWorkflowProgressBatchPayload(
     }
 
     private static S2CRtsWorkflowProgressBatchPayload decode(RegistryFriendlyByteBuf buf) {
-        int count = buf.readInt();
+        int count = buf.readVarInt();
         List<S2CRtsWorkflowProgressPayload> entries = new ArrayList<>(count);
         for (int i = 0; i < count; i++) {
             byte workflowIndex = buf.readByte();

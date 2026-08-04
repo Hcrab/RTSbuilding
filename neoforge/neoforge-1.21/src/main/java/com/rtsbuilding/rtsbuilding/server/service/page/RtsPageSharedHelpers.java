@@ -210,13 +210,6 @@ public final class RtsPageSharedHelpers {
         return categories.contains(token);
     }
 
-    private static boolean hasPrimaryBdNetwork(ServerPlayer player) {
-        for (var provider : com.rtsbuilding.rtsbuilding.api.compat.RtsCompatRegistry.getStorageProviders()) {
-            if (provider.isAvailable() && provider.getNetworkDisplayName(player) != null) return true;
-        }
-        return false;
-    }
-
     // ---- player inventory bounds -----------------------------------------------
 
     public static int getPlayerMainInventoryStart(ServerPlayer player) {
@@ -231,12 +224,8 @@ public final class RtsPageSharedHelpers {
     }
 
     public static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu) {
-            return false;
-        }
-        if (session != null && session.linkedStorageInfo.isEmpty() && !hasPrimaryBdNetwork(player)) {
-            return true;
-        }
-        return player.containerMenu == player.inventoryMenu;
+        // 背包始终计入存储视图（合成终端专用界面除外）：背包条目以 MODE_PLAYER_INVENTORY
+        // 独立标识显示，与存储条目分开计数，物品进出背包都可在网格中正确反映
+        return player != null && !(player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu);
     }
 }
