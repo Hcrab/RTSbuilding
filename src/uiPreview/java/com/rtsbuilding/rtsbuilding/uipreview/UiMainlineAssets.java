@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.uipreview;
 
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShape;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiIndexedTextureSpec;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiPaletteTextureBaker;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
@@ -87,11 +88,51 @@ public final class UiMainlineAssets {
         return baked;
     }
 
+    /**
+     * 按生产目录解析 PR #133 形状图标：Legacy 读取贡献者四状态图，Palette 烘焙单张索引图。
+     * 该入口不读取旧 450 像素形状图集，避免离屏审图与游戏实机显示成两套素材。
+     */
+    public BufferedImage quickBuildShape(QuickBuildUiShape shape, UiTextureState state) {
+        if (shape == null || state == null) {
+            throw new IllegalArgumentException("shape and state must not be null");
+        }
+        UiThemeDefinition theme = UiThemeRuntime.manager().active();
+        String key = shape.contributorIconKey;
+        if (theme.renderMode() == UiThemeRenderMode.LEGACY_DIRECT) {
+            return image("textures/gui/quickbuild_pr133/" + key + "_"
+                    + textureStateName(state) + ".png");
+        }
+        String cacheKey = "generated/theme/" + theme.id() + "/quickbuild/" + key
+                + "_" + textureStateName(state);
+        BufferedImage cached = images.get(cacheKey);
+        if (cached != null) return cached;
+        BufferedImage source = image("textures/gui/palette/quickbuild/" + key + ".png");
+        int width = source.getWidth();
+        int height = source.getHeight();
+        int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
+        int[] bakedArgb = UiPaletteTextureBaker.bake(sourceArgb,
+                UiIndexedTextureSpec.PR133_THREE_TONE, theme, state);
+        BufferedImage baked = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        baked.setRGB(0, 0, width, height, bakedArgb, 0, width);
+        images.put(cacheKey, baked);
+        return baked;
+    }
+
     private static UiTextureState textureState(String state) {
         if ("active".equals(state)) return UiTextureState.ACTIVE;
         if ("hover".equals(state)) return UiTextureState.HOVER;
         if ("pressed".equals(state)) return UiTextureState.PRESSED;
         return UiTextureState.INACTIVE;
+    }
+
+    private static String textureStateName(UiTextureState state) {
+        switch (state) {
+            case HOVER: return "hover";
+            case ACTIVE: return "active";
+            case PRESSED: return "pressed";
+            case INACTIVE:
+            default: return "inactive";
+        }
     }
 
     public BufferedImage item(String name) {
@@ -112,10 +153,6 @@ public final class UiMainlineAssets {
         for (File file : files) names.add(file.getName().substring(0, file.getName().length() - 4));
         Collections.sort(names);
         return Collections.unmodifiableList(names);
-    }
-
-    public BufferedImage quickBuild(String name) {
-        return image("textures/gui/quickbuild/" + name + ".png");
     }
 
     public BufferedImage guide(String name) {

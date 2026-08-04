@@ -8,13 +8,13 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  */
 public final class BottomPanelGridStyle {
     public static final Visual STORAGE = new Visual(
-            0xAA111111, 0xFF4A4A4A, 0xFF1B1B1B, 0x3326C56D, 0xFFF7E6A8);
+            0xAA111111, 0xFF4A4A4A, 0xFF1B1B1B, 0x3326C56D, 0xFFF7E6A8, true);
     public static final Visual CREATIVE = new Visual(
-            0xAA11151D, 0xFF596D84, 0xFF10151B, 0x3326C56D, 0xFFFFFFFF);
+            0xAA11151D, 0xFF596D84, 0xFF10151B, 0x3326C56D, 0xFFFFFFFF, true);
     public static final Visual RECENT = new Visual(
-            0xAA161C24, 0xFF526171, 0xFF10151B, 0x00000000, 0xFFE8F4C0);
+            0xAA161C24, 0xFF526171, 0xFF10151B, 0x00000000, 0xFFE8F4C0, false);
     public static final Visual FLUID = new Visual(
-            0xAA2E1E12, 0xFFFFA553, 0xFF23140A, 0x3367D8FF, 0xFFFCCB8A);
+            0xAA2E1E12, 0xFFFFA553, 0xFF23140A, 0x3367D8FF, 0xFFFCCB8A, true);
 
     public static final UiColor RECENT_FLUID_COUNT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFBEE6FF);
     public static final UiColor SELECTED_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0X3340FF80);
@@ -33,12 +33,27 @@ public final class BottomPanelGridStyle {
         public final UiColor countText;
 
         private Visual(int background, int borderLight, int borderDark,
-                       int selectedOverlay, int countText) {
-            this.background = new UiColor(background);
-            this.borderLight = new UiColor(borderLight);
-            this.borderDark = new UiColor(borderDark);
-            this.selectedOverlay = new UiColor(selectedOverlay);
-            this.countText = new UiColor(countText);
+                       int selectedOverlay, int countText,
+                       boolean preserveSelectedAlpha) {
+            this.background = UiColor.themeComponentWithLegacyAlpha(
+                    UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR,
+                    UiThemeToken.SLOT_IDLE, background);
+            this.borderLight = UiColor.themeComponent(
+                    UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR,
+                    UiThemeToken.BORDER_STRONG, borderLight);
+            this.borderDark = UiColor.themeComponent(
+                    UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR,
+                    UiThemeToken.BORDER_SOFT, borderDark);
+            this.selectedOverlay = preserveSelectedAlpha
+                    ? UiColor.themeComponentWithLegacyAlpha(
+                            UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR,
+                            UiThemeToken.SLOT_SELECTED, selectedOverlay)
+                    : UiColor.themeComponent(
+                            UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR,
+                            UiThemeToken.SLOT_SELECTED, selectedOverlay);
+            this.countText = UiColor.themeComponent(
+                    UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR,
+                    UiThemeToken.TEXT_PRIMARY, countText);
         }
     }
 }

@@ -188,6 +188,29 @@ tasks.register('renderUiThemeGallery', JavaExec) {
     outputs.dir layout.buildDirectory.dir('reports/ui-theme-gallery')
 }
 
+tasks.register('renderUiLightThemeStudies', JavaExec) {
+    group = 'ui preview'
+    description = '用同一完整 RTS 场景无头渲染五套亮色研究主题；不会加入正式内建主题。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiThemeGalleryMain'
+    systemProperty 'java.awt.headless', 'true'
+    args layout.buildDirectory.dir('reports/ui-light-theme-studies').get().asFile.absolutePath
+    args 'light-studies'
+    outputs.dir layout.buildDirectory.dir('reports/ui-light-theme-studies')
+}
+
+tasks.register('renderUiThemeSettingsPreview', JavaExec) {
+    group = 'ui preview'
+    description = '按生产布局常量离屏渲染 UI 主题选择、实时预览和配色编辑器。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiThemeSettingsPreviewMain'
+    systemProperty 'java.awt.headless', 'true'
+    args layout.buildDirectory.dir('reports/ui-theme-settings').get().asFile.absolutePath
+    outputs.dir layout.buildDirectory.dir('reports/ui-theme-settings')
+}
+
 tasks.register('compareUiReference', JavaExec) {
     group = 'verification'
     description = '将 1920x1080 简中主场景与真实 main 截图的 UI 区域并排并生成差异热图。'

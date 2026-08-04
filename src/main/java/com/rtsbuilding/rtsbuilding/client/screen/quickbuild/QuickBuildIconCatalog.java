@@ -51,17 +51,7 @@ final class QuickBuildIconCatalog {
     }
 
     private static String shapeKey(QuickBuildUiShape shape) {
-        return switch (shape) {
-            case CHAIN -> "chain";
-            case BLOCK -> "single";
-            case LINE -> "line";
-            case SQUARE -> "surface";
-            case WALL -> "wall";
-            case CIRCLE -> "round";
-            case CYLINDER -> "cylinder";
-            case BALL -> "ball";
-            case BOX -> "cube";
-        };
+        return shape.contributorIconKey;
     }
 
     private static Entry entry(String key) {

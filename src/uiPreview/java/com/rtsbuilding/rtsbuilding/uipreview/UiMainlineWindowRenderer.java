@@ -1241,9 +1241,10 @@ final class UiMainlineWindowRenderer {
                 QuickBuildUiShapeOption option = state.shapes.get(i);
                 int slotX = g.shapeX(i);
                 int slotY = g.shapeY(i);
-                canvas.imageRegion(
-                        assets.quickBuild(option.shape.textureName),
-                        new UiRect(0, option.selected ? 450 : 0, 450, 450),
+                canvas.image(
+                        assets.quickBuildShape(option.shape, option.selected
+                                ? com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState.ACTIVE
+                                : com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState.INACTIVE),
                         new UiRect(slotX, slotY, 32, 32));
             }
         }
