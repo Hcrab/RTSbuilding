@@ -32,7 +32,6 @@ import java.util.Map;
  *   <li>{@link #buildEmpty} — 构建表示空白储存的空页面数据包</li>
  *   <li>{@link #buildLinkedRefPayload} — 构建链接存储引用的结构化数据包
  *   （位置、名称、模式、优先级、图标、世界可用性）</li>
- *   <li>{@link #summarizeFunnelBuffer} — 将漏斗缓冲区内容汇总为物品 ID→数量的有序映射</li>
  * </ul>
  */
 public final class RtsPagePayloadFactory {
@@ -64,8 +63,7 @@ public final class RtsPagePayloadFactory {
                 RtsStorageUiPayloads.buildQuickSlotPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildQuickSlotPreviewPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildGuiBindingLabelPayload(session, gbSlotCount),
-                RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, gbSlotCount),
-                session.funnel.funnelEnabled, List.of(), List.of());
+                RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, gbSlotCount));
     }
 
     // ---- Linked ref payload ---------------------------------------------------
@@ -124,31 +122,5 @@ public final class RtsPagePayloadFactory {
         Item item = level.getBlockState(pos).getBlock().asItem();
         ResourceLocation id = BuiltInRegistries.ITEM.getKey(item);
         return id == null ? "" : id.toString();
-    }
-
-    // ---- Funnel buffer summary -----------------------------------------------
-
-    /**
-     * 将漏斗缓冲区内容汇总为以物品 ID 为键的有序映射。
-     */
-    public static Map<String, Long> summarizeFunnelBuffer(RtsStorageSession session) {
-        Map<String, Long> counts = new LinkedHashMap<>();
-        for (ItemStack stack : session.funnel.funnelBuffer) {
-            if (stack.isEmpty()) {
-                continue;
-            }
-            ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
-            if (id == null) {
-                continue;
-            }
-            counts.merge(id.toString(), (long) stack.getCount(), RtsPageCore::saturatedAdd);
-        }
-        List<Map.Entry<String, Long>> sorted = new ArrayList<>(counts.entrySet());
-        sorted.sort(Map.Entry.comparingByKey());
-        Map<String, Long> ordered = new LinkedHashMap<>();
-        for (var entry : sorted) {
-            ordered.put(entry.getKey(), entry.getValue());
-        }
-        return ordered;
     }
 }

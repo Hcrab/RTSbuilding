@@ -32,7 +32,7 @@ import com.rtsbuilding.rtsbuilding.server.RtsServer;
  *       <ul>
  *         <li>Storage cache refresh — {@link RtsStorageTickService#tick()},
  *             increments data version on changes, pushes refreshed page, attempts to resume pending jobs</li>
- *         <li>Per-player tick — iterates over all sessions: mining state machine tick, funnel tick, placement recovery tick</li>
+ *         <li>Per-player tick — iterates over all sessions: mining state machine tick, placement recovery tick</li>
  *         <li>Pipeline instance tick — {@link TickablePipelineRegistry#tickAll()}</li>
  *       </ul>
  *   </li>
@@ -81,12 +81,11 @@ public final class ServerTickOrchestrator {
     // ======================================================================
 
     /**
-     * Global tick — storage cache refresh + per-player tick (mining, funnel, placement recovery) + Pipeline tick.
+     * Global tick — storage cache refresh + per-player tick (mining, placement recovery) + Pipeline tick.
      */
     public void tickMining(MinecraftServer server) {
         var registry = RtsServer.get();
         var RtsSessionServiceImpl = registry.session();
-        var RtsFunnelServiceImpl = registry.funnel();
         var serviceOp = registry.serviceOp();
 
         // Tick storage cache refresh (every N ticks per player)
@@ -116,7 +115,6 @@ public final class ServerTickOrchestrator {
             RtsStorageSession session = RtsSessionServiceImpl.getIfPresent(player);
             if (session == null) continue;
             RtsMiningStateMachine.tickActiveMining(player, session);
-            RtsFunnelServiceImpl.tick(player, session);
             RtsPlacedRecoveryService.tick(player, session);
         }
 

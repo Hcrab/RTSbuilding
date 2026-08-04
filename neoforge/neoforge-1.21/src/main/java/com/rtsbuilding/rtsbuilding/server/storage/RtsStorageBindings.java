@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.service.bindings.RtsLinkedStorageBindingService;
 import com.rtsbuilding.rtsbuilding.server.service.bindings.RtsQuickSlotBindingService;
+import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -35,15 +36,14 @@ public final class RtsStorageBindings {
     // ======================================================================
 
     /**
-     * Stores the requested builder mode and reports whether leaving funnel mode requires the manager
-     * to flush the funnel buffer and refresh the page.
+     * Stores the requested builder mode.
      */
     public static boolean setMode(RtsStorageSession session, BuilderMode mode) {
         if (session == null) {
             return false;
         }
         session.mode = mode;
-        return mode != BuilderMode.FUNNEL && session.funnel.funnelEnabled;
+        return true;
     }
 
     // ======================================================================

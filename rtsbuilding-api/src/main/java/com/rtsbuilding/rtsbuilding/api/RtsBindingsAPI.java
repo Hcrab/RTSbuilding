@@ -40,19 +40,6 @@ public interface RtsBindingsAPI {
                                      byte linkMode, int priority);
 
     /**
-     * Set funnel enabled state.
-     *
-     * @param player  target player
-     * @param enabled whether enabled
-     */
-    void setFunnelEnabled(ServerPlayer player, boolean enabled);
-
-    /**
-     * Update funnel target position.
-     */
-    void updateFunnelTarget(ServerPlayer player, BlockPos target);
-
-    /**
      * Set auto-store mined drops.
      */
     void setAutoStoreMinedDrops(ServerPlayer player, boolean enabled);

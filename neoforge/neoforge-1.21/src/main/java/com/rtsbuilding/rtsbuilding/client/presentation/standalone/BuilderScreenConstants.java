@@ -139,16 +139,6 @@ public final class BuilderScreenConstants {
     public static final int GEAR_MENU_CONTENT_H = 724;
 
     
-    
-    public static final int FUNNEL_BUFFER_PANEL_W = 132;
-    
-    public static final int FUNNEL_BUFFER_ROW_H = 22;
-    
-    public static final int FUNNEL_BUFFER_TOGGLE_W = 60;
-    
-    public static final int FUNNEL_BUFFER_TOGGLE_H = 16;
-
-    
 
     
     public static final int TOPBAR_TEX_W = 1024;
@@ -167,8 +157,6 @@ public final class BuilderScreenConstants {
     public static final ResourceLocation TOPBAR_INTERACT = topbarTexture("click_button");
     
     public static final ResourceLocation TOPBAR_LINK = topbarTexture("bind_button");
-    
-    public static final ResourceLocation TOPBAR_FUNNEL = topbarTexture("item_pickup_button");
     
     public static final ResourceLocation TOPBAR_ROTATE = topbarTexture("direction_rotation_button");
     

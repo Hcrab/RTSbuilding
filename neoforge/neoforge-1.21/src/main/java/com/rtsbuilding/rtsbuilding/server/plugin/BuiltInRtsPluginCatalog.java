@@ -40,7 +40,7 @@ public final class BuiltInRtsPluginCatalog {
                         EnumSet.of(RtsFeature.REMOTE_PLACE, RtsFeature.REMOTE_BREAK, RtsFeature.ROTATE_BLOCK), 0, false),
                 definition(STORAGE_INTEGRATION_PLUGIN, RtsPluginFamily.UNIQUE,
                         EnumSet.of(RtsFeature.LINK_STORAGE, RtsFeature.STORAGE_BROWSER,
-                                RtsFeature.AUTO_STORE_MINED_DROPS, RtsFeature.FUNNEL,
+                                RtsFeature.AUTO_STORE_MINED_DROPS,
                                 RtsFeature.FLUID_HANDLING, RtsFeature.REMOTE_GUI_BINDING), 0, false),
                 definition(CRAFT_TERMINAL_PLUGIN, RtsPluginFamily.UNIQUE,
                         EnumSet.of(RtsFeature.CRAFT_TERMINAL, RtsFeature.JEI_TRANSFER), 0, false),

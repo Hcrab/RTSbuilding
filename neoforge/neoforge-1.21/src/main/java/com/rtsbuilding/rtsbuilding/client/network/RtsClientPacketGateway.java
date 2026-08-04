@@ -34,11 +34,6 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(act(ActionType.TOGGLE_CAMERA, t));
     }
 
-    public static void sendSetFunnelEnabled(boolean enabled) {
-        var t = tag(); t.putBoolean("enabled", enabled);
-        PacketDistributor.sendToServer(act(ActionType.SET_FUNNEL, t));
-    }
-
     public static void sendSetAutoStoreMinedDrops(boolean enabled) {
         var t = tag(); t.putBoolean("enabled", enabled);
         PacketDistributor.sendToServer(act(ActionType.SET_AUTO_STORE, t));
@@ -50,7 +45,10 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendLinkStorage(BlockPos pos, boolean allowStore) {
-        var t = tag(); t.putLong("pos", pos.asLong()); t.putBoolean("allowStore", allowStore);
+        // 服务端按 byte 模式语义读取（MODE_BIDIRECTIONAL=0 / MODE_EXTRACT_ONLY=1），
+        // 不能 putBoolean：true 会编码为 1，恰好撞上 MODE_EXTRACT_ONLY 导致新绑定变成仅提取。
+        var t = tag(); t.putLong("pos", pos.asLong());
+        t.putByte("allowStore", (byte) (allowStore ? NetworkConstants.MODE_BIDIRECTIONAL : NetworkConstants.MODE_EXTRACT_ONLY));
         PacketDistributor.sendToServer(act(ActionType.LINK_STORAGE, t));
     }
 

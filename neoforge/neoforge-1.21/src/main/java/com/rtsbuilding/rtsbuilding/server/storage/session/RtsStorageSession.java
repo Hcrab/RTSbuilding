@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.state.*;
  *   <li>{@link #bdCache} — BD network cache (5 fields)</li>
  *   <li>{@link #sessionFlags} — session toggles and virtual fluid (3 fields)</li>
  *   <li>{@link #uiMemory} — UI memory (4 fields)</li>
- *   <li>{@code mode}, {@code browser}, {@code mining}, {@code funnel},
+ *   <li>{@code mode}, {@code browser}, {@code mining},
  *       {@code transfer}, {@code placement} — independent state objects</li>
  * </ul>
  *
@@ -56,7 +56,7 @@ public class RtsStorageSession {
     // §5  Builder Mode
     // ======================================================================
 
-    /** RTS interaction mode (INTERACT / FUNNEL / MINE / PLACE, etc.) */
+    /** RTS interaction mode (INTERACT / MINE / PLACE, etc.) */
     public BuilderMode mode = BuilderMode.INTERACT;
 
     // ======================================================================
@@ -72,13 +72,6 @@ public class RtsStorageSession {
 
     /** Remote mining and chain-mining state */
     public final RtsMiningState mining = new RtsMiningState();
-
-    // ======================================================================
-    // §8  Item Funnel Runtime State
-    // ======================================================================
-
-    /** Item funnel runtime state */
-    public final RtsFunnelState funnel = new RtsFunnelState();
 
     // ======================================================================
     // §9  Remote GUI Menu State

@@ -4,6 +4,7 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
+import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.group_button.CameraModeGroup;
@@ -17,7 +18,9 @@ import com.rtsbuilding.rtsbuilding.client.util.render.SdfRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.SpriteRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
 import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.client.util.animate.AnimFloat;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 import java.util.List;
@@ -51,6 +54,15 @@ public final class TopBarPanel implements RtsPanelApi {
 
     
     private boolean logoPressed;
+
+    
+    private final AnimFloat fileHoverState = AnimFloat.hover();
+
+    
+    private boolean filePressed;
+
+    
+    private Runnable fileButtonAction;
 
     
     private LogoMenuPopup logoPopup;
@@ -206,7 +218,18 @@ public final class TopBarPanel implements RtsPanelApi {
         }
 
         
+        boolean fileHovering = layout.fileButtonRect().contains(mouseX, mouseY);
+        boolean fileHighlight = fileHovering || filePressed;
+        this.fileHoverState.track(fileHighlight);
+        if (filePressed) {
+            filePressed = false;
+        }
+
+        
         renderLogoCrossFade(g);
+
+        
+        renderFileButton(g);
 
         
         RenderSystem.defaultBlendFunc();
@@ -252,6 +275,20 @@ public final class TopBarPanel implements RtsPanelApi {
                 TextureInfo.FilterMode.NORMAL);
         SpriteRenderer.drawSprite(g, new SpriteRegion(logoInfo, 0, 0, LOGO_SHEET_WIDTH, LOGO_SHEET_HEIGHT),
                 0, 0, LOGO_SIZE, LOGO_SIZE);
+    }
+
+    
+    private void renderFileButton(GuiGraphics g) {
+        var rect = layout.fileButtonRect();
+        int bgColor = ColorAnimation.lerpRGB(DarkUiPalette.border(), DarkUiPalette.accent(), fileHoverState.get());
+        SdfRenderer.drawRoundedRect(g, rect.x(), rect.y(), rect.width(), rect.height(), 4, bgColor);
+
+        var font = Minecraft.getInstance().font;
+        String label = "\u6587\u4EF6";
+        int textColor = ColorAnimation.lerpRGB(ThemeManager.getTextColor(), DarkUiPalette.black(), fileHoverState.get());
+        int textX = rect.x() + (rect.width() - font.width(label)) / 2;
+        int textY = rect.y() + (rect.height() - font.lineHeight) / 2;
+        TextRenderer.draw(g, label, textX, textY, textColor);
     }
 
     
@@ -304,6 +341,15 @@ public final class TopBarPanel implements RtsPanelApi {
         }
 
         
+        if (layout.fileButtonRect().contains(mx, my)) {
+            filePressed = true;
+            if (fileButtonAction != null) {
+                fileButtonAction.run();
+            }
+            return true;
+        }
+
+        
         var groupLayout = TopBarLayoutHelper.GroupLayout.create(screen.width, screen.getRightSidebarWidth());
         if (cameraModeGroup.mouseClicked(mx, my, groupLayout.modeGroup())) return true;
         if (utilityGroup.mouseClicked(mx, my, groupLayout.utilityGroup())) return true;
@@ -314,6 +360,11 @@ public final class TopBarPanel implements RtsPanelApi {
     
     private LogoMenuPopup createLogoPopup() {
         return new LogoMenuPopup();
+    }
+
+    
+    public void setOnFileButtonClick(Runnable runnable) {
+        this.fileButtonAction = runnable;
     }
 
     

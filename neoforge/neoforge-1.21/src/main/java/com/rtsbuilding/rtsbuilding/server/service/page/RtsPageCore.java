@@ -350,14 +350,6 @@ public final class RtsPageCore {
             recentKinds.add(recent.kind());
         }
 
-        Map<String, Long> funnelBufferSummary = RtsPagePayloadFactory.summarizeFunnelBuffer(session);
-        List<String> funnelBufferItemIds = new ArrayList<>(funnelBufferSummary.size());
-        List<Long> funnelBufferCounts = new ArrayList<>(funnelBufferSummary.size());
-        for (var entry : funnelBufferSummary.entrySet()) {
-            funnelBufferItemIds.add(entry.getKey());
-            funnelBufferCounts.add(entry.getValue());
-        }
-
         return new PageResult(new S2CRtsStoragePagePayload(
                 RtsLinkedStorageResolver.hasAnyStorage(player, session),
                 RtsLinkedStorageResolver.buildAnyStorageSummary(player, session),
@@ -376,8 +368,7 @@ public final class RtsPageCore {
                 RtsStorageUiPayloads.buildQuickSlotPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildQuickSlotPreviewPayload(session, qSlotCount),
                 RtsStorageUiPayloads.buildGuiBindingLabelPayload(session, gbSlotCount),
-                RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, gbSlotCount),
-                session.funnel.funnelEnabled, funnelBufferItemIds, funnelBufferCounts), safePage);
+                RtsStorageUiPayloads.buildGuiBindingItemIdPayload(session, gbSlotCount)), safePage);
     }
 
     // ---- helpers ---------------------------------------------------------------

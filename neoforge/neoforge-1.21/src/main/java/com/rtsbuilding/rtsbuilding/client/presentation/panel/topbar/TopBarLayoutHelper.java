@@ -20,6 +20,12 @@ public final class TopBarLayoutHelper {
     public static final int LOGO_SIZE = 24;
 
     
+    public static final int FILE_BTN_SIZE = 24;
+
+    
+    public static final int FILE_BTN_GAP = 2;
+
+    
     public static final int SCREEN_BORDER = 2;
 
     
@@ -83,6 +89,11 @@ public final class TopBarLayoutHelper {
     
     public Rect logoRect() {
         return new Rect(0, 0, LOGO_SIZE, LOGO_SIZE);
+    }
+
+    
+    public Rect fileButtonRect() {
+        return new Rect(LOGO_SIZE + FILE_BTN_GAP, 0, FILE_BTN_SIZE, FILE_BTN_SIZE);
     }
 
     

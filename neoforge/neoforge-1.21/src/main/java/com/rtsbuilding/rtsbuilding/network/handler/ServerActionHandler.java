@@ -81,7 +81,6 @@ public final class ServerActionHandler {
                 }
                 RtsCameraManager.toggle(p, enable, terminalUuid);
             }
-            case SET_FUNNEL -> RtsServer.get().binding().setFunnelEnabled(p, t.getBoolean("enabled"));
             case SET_AUTO_STORE -> RtsServer.get().binding().setAutoStoreMinedDrops(p, t.getBoolean("enabled"));
             case SET_BD_NETWORK -> RtsServer.get().binding().setBdNetworkEnabled(p, t.getBoolean("enabled"));
             case LINK_STORAGE -> RtsServer.get().binding().linkStorage(p, BlockPos.of(t.getLong("pos")), t.getByte("allowStore"));

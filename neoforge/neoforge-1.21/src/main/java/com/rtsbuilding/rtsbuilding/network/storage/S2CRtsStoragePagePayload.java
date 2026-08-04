@@ -46,10 +46,7 @@ public record S2CRtsStoragePagePayload(
         List<String> quickSlotItemIds,
         List<ItemStack> quickSlotPreviews,
         List<String> guiBindingLabels,
-        List<String> guiBindingItemIds,
-        boolean funnelEnabled,
-        List<String> funnelBufferItemIds,
-        List<Long> funnelBufferCounts) implements CustomPacketPayload {
+        List<String> guiBindingItemIds) implements CustomPacketPayload {
     public static final byte RECENT_ITEM_PLACED = 0;
     public static final byte RECENT_ITEM_USED = 1;
     public static final byte RECENT_ITEM_CRAFTED = 2;
@@ -159,14 +156,6 @@ public record S2CRtsStoragePagePayload(
                 for (String guiBindingItemId : payload.guiBindingItemIds()) {
                     buf.writeUtf(guiBindingItemId == null ? "" : guiBindingItemId, 128);
                 }
-
-                buf.writeBoolean(payload.funnelEnabled());
-                int funnelBufferSize = Math.min(payload.funnelBufferItemIds().size(), payload.funnelBufferCounts().size());
-                buf.writeVarInt(funnelBufferSize);
-                for (int i = 0; i < funnelBufferSize; i++) {
-                    buf.writeUtf(payload.funnelBufferItemIds().get(i), 128);
-                    buf.writeVarLong(payload.funnelBufferCounts().get(i));
-                }
             },
             (buf) -> {
                 boolean linked = buf.readBoolean();
@@ -261,14 +250,6 @@ public record S2CRtsStoragePagePayload(
                 for (int i = 0; i < guiBindingItemIdSize; i++) {
                     guiBindingItemIds.add(buf.readUtf(128));
                 }
-                boolean funnelEnabled = buf.readBoolean();
-                int funnelBufferSize = buf.readVarInt();
-                List<String> funnelBufferItemIds = new ArrayList<>(funnelBufferSize);
-                List<Long> funnelBufferCounts = new ArrayList<>(funnelBufferSize);
-                for (int i = 0; i < funnelBufferSize; i++) {
-                    funnelBufferItemIds.add(buf.readUtf(128));
-                    funnelBufferCounts.add(buf.readVarLong());
-                }
                 return new S2CRtsStoragePagePayload(
                         linked,
                         linkedName,
@@ -304,10 +285,7 @@ public record S2CRtsStoragePagePayload(
                         quickSlotItemIds,
                         quickSlotPreviews,
                         guiBindingLabels,
-                        guiBindingItemIds,
-                        funnelEnabled,
-                        funnelBufferItemIds,
-                        funnelBufferCounts);
+                        guiBindingItemIds);
             });
 
     @Override

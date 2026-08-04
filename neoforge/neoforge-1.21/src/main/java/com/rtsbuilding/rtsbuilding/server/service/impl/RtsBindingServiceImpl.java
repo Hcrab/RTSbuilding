@@ -20,12 +20,13 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 
+import javax.imageio.spi.ServiceRegistry;
+
 /**
  * {@link RtsBindingServiceImpl} 的默认实现——处理所有存储绑定相关的服务端逻辑。
  *
  * <p>该实现类通过 {@link ServiceRegistry} 调用其他子服务：
  * <ul>
- *   <li>使用 {@code server.funnel()} 管理漏斗生命周期</li>
  *   <li>使用 {@code server.session()} 获取/保存玩家会话</li>
  *   <li>使用 {@code server.page()} 刷新储存页面</li>
  *   <li>使用 {@code server.serviceOp()} 执行修改后操作</li>
@@ -40,7 +41,6 @@ public final class RtsBindingServiceImpl implements RtsService {
     public void setMode(ServerPlayer player, BuilderMode mode) {
         RtsStorageSession session = server.session().getOrCreate(player);
         if (RtsStorageBindings.setMode(session, mode)) {
-            server.funnel().disableAndFlush(player, session);
             server.session().saveToPlayerNbt(player, session);
             server.serviceOp().refreshPage(player, session);
         }
@@ -74,24 +74,6 @@ public final class RtsBindingServiceImpl implements RtsService {
         RtsStorageSession session = server.session().getOrCreate(player);
         applyUpdate(player, session,
                 RtsStorageBindings.updateLinkedStorageSettings(player, session, pos, linkMode, priority));
-    }
-
-    public void setFunnelEnabled(ServerPlayer player, boolean enabled) {
-        if (enabled && !RtsProgressionManager.canUse(player, RtsFeature.FUNNEL)) return;
-        RtsStorageSession session = server.session().getOrCreate(player);
-        if (session.funnel.funnelEnabled == enabled) return;
-        if (enabled) {
-            server.funnel().enable(player, session);
-        } else {
-            server.funnel().disableAndFlush(player, session);
-        }
-        server.serviceOp().refreshPage(player, session);
-    }
-
-    public void updateFunnelTarget(ServerPlayer player, BlockPos target) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.FUNNEL)) return;
-        RtsStorageSession session = server.session().getOrCreate(player);
-        server.funnel().updateTarget(player, session, target);
     }
 
     public void setAutoStoreMinedDrops(ServerPlayer player, boolean enabled) {

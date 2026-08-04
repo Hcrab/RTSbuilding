@@ -115,7 +115,6 @@ public final class StorageModule implements FeatureModule {
     }
 
     public boolean isLinked() { return state.isStorageLinked(); }
-    public boolean isFunnelEnabled() { return state.isFunnelEnabled(); }
     public boolean isStorageCollapsed() { return state.isStorageCollapsed(); }
     public boolean hasAnyContent() { return state.hasAnyStorageContent(); }
     public int getRevision() { return state.getRevision(); }
@@ -140,7 +139,6 @@ public final class StorageModule implements FeatureModule {
     public void restoreRecentEntry(String id) {
         state.restoreRecentEntry(id);
     }
-    public List<?> getFunnelBufferEntries() { return state.getFunnelBufferEntries(); }
     public List<?> getCraftableEntries() { return state.getCraftableEntries(); }
 
     

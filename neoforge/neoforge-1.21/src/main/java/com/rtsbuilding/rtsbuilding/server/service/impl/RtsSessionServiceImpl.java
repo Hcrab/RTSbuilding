@@ -115,13 +115,12 @@ public final class RtsSessionServiceImpl implements RtsService {
     // ────────────────────────────────────────────────────────────────
 
     /**
-     * 清理会话资源——释放挖掘、路径规划、漏斗、远程菜单和 BD 缓存。
+     * 清理会话资源——释放挖掘、路径规划、远程菜单和 BD 缓存。
      * 注意：不会保存会话或清除玩家缓存。
      */
     private void cleanupSession(ServerPlayer player, RtsStorageSession session, boolean notify) {
         RtsMiningStateMachine.releaseMiningResources(player, session);
         server.pathfinding().cancel(player);
-        server.funnel().disableAndFlush(player, session);
         RtsRemoteMenuService.closeTracked(player, session);
         RtsRemoteMenuService.clearValidation(player, session);
         session.bdCache.release();

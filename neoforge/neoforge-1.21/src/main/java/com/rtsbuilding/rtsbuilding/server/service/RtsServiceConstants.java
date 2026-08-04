@@ -13,15 +13,6 @@ package com.rtsbuilding.rtsbuilding.server.service;
  *
  * <p><b>Parameter groups:</b>
  * <ul>
- *   <li><b>Funnel service (FUNNEL_*):</b>
- *     <ul>
- *       <li>{@link #FUNNEL_RADIUS} = {@value #FUNNEL_RADIUS}D — Radius for funnel item entity pickup</li>
- *       <li>{@link #FUNNEL_MAX_ENTITIES_PER_TICK} = {@value #FUNNEL_MAX_ENTITIES_PER_TICK} — Max entities processed per tick</li>
- *       <li>{@link #FUNNEL_MAX_ITEMS_PER_TICK} = {@value #FUNNEL_MAX_ITEMS_PER_TICK} — Max items processed per tick</li>
- *       <li>{@link #FUNNEL_BUFFER_MAX_STACKS} = {@value #FUNNEL_BUFFER_MAX_STACKS} — Buffer item stack upper limit</li>
- *       <li>{@link #FUNNEL_TICK_INTERVAL} = {@value #FUNNEL_TICK_INTERVAL} — Processing cycle interval</li>
- *     </ul>
- *   </li>
  *   <li><b>Placed block recovery service (PLACED_RECOVERY_*):</b>
  *     <ul>
  *       <li>{@link #PLACED_RECOVERY_MAX_JOBS_PER_TICK} = {@value #PLACED_RECOVERY_MAX_JOBS_PER_TICK} — Max recovery jobs per tick</li>
@@ -43,25 +34,6 @@ public final class RtsServiceConstants {
 
     private RtsServiceConstants() {
     }
-
-    // ======================================================================
-    //  Funnel service
-    // ======================================================================
-
-    /** Radius for funnel item entity pickup (blocks). */
-    public static final double FUNNEL_RADIUS = 2.0D;
-
-    /** Max item entities processed per tick. */
-    public static final int FUNNEL_MAX_ENTITIES_PER_TICK = 24;
-
-    /** Max individual items processed per tick. */
-    public static final int FUNNEL_MAX_ITEMS_PER_TICK = 48;
-
-    /** Max buffer item stacks before dropping. */
-    public static final int FUNNEL_BUFFER_MAX_STACKS = 16;
-
-    /** Tick interval between funnel processing cycles. */
-    public static final int FUNNEL_TICK_INTERVAL = 2;
 
     // ======================================================================
     //  Placed-block recovery service

@@ -40,16 +40,6 @@ public final class RtsBindingsAPIImpl implements RtsBindingsAPI {
     }
 
     @Override
-    public void setFunnelEnabled(ServerPlayer player, boolean enabled) {
-        REGISTRY.binding().setFunnelEnabled(player, enabled);
-    }
-
-    @Override
-    public void updateFunnelTarget(ServerPlayer player, BlockPos target) {
-        REGISTRY.binding().updateFunnelTarget(player, target);
-    }
-
-    @Override
     public void setAutoStoreMinedDrops(ServerPlayer player, boolean enabled) {
         REGISTRY.binding().setAutoStoreMinedDrops(player, enabled);
     }

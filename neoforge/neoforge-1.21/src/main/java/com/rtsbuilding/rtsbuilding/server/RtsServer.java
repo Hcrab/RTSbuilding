@@ -13,7 +13,6 @@ public final class RtsServer {
 
     private RtsPathfindingServiceImpl pathfindingService;
     private RtsBindingServiceImpl bindingService;
-    private RtsFunnelServiceImpl funnelService;
     private RtsPageServiceImpl pageService;
     private RtsCraftingServiceImpl craftingService;
     private RtsTransferServiceImpl transferService;
@@ -42,7 +41,6 @@ public final class RtsServer {
 
         this.pathfindingService = get(providers, RtsPathfindingServiceImpl.class);
         this.bindingService = get(providers, RtsBindingServiceImpl.class);
-        this.funnelService = get(providers, RtsFunnelServiceImpl.class);
         this.craftingService = get(providers, RtsCraftingServiceImpl.class);
         this.transferService = get(providers, RtsTransferServiceImpl.class);
         this.interactionService = get(providers, RtsInteractionServiceImpl.class);
@@ -78,7 +76,6 @@ public final class RtsServer {
 
     public RtsPathfindingServiceImpl pathfinding() { return pathfindingService; }
     public RtsBindingServiceImpl binding() { return bindingService; }
-    public RtsFunnelServiceImpl funnel() { return funnelService; }
     public RtsPageServiceImpl page() { return pageService; }
     public RtsCraftingServiceImpl crafting() { return craftingService; }
     public RtsTransferServiceImpl transfer() { return transferService; }

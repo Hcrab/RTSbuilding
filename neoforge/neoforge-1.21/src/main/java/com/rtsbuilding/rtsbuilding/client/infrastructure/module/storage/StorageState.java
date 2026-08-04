@@ -80,13 +80,6 @@ public final class StorageState {
     
     
 
-    private boolean funnelEnabled;
-    private final List<Object> funnelBuffer = new ArrayList<>();
-
-    
-    
-    
-
     static final int QUICK_SLOT_COUNT = 27;
     static final int GUI_BINDING_COUNT = 8;
     private final String[] quickSlotIds = new String[QUICK_SLOT_COUNT];
@@ -331,8 +324,6 @@ public final class StorageState {
         this.storagePage = 0;
         this.storageTotalPages = 1;
         this.storageSearch = "";
-        this.funnelEnabled = false;
-        this.funnelBuffer.clear();
         this.craftableEntries.clear();
         this.scanRunning = false;
         this.viewDirty = false;
@@ -360,7 +351,6 @@ public final class StorageState {
     
 
     public boolean isStorageLinked() { return storageLinked; }
-    public boolean isFunnelEnabled() { return funnelEnabled; }
     public boolean isStorageCollapsed() { return storageCollapsed; }
     public void toggleCollapsed() { this.storageCollapsed = !this.storageCollapsed; }
     public boolean hasAnyStorageContent() {
@@ -379,7 +369,6 @@ public final class StorageState {
         }
         return result;
     }
-    public List<Object> getFunnelBufferEntries() { return funnelBuffer; }
     public List<Object> getCraftableEntries() { return craftableEntries; }
     public List<String> getStorageCategories() { return storageCategories; }
     

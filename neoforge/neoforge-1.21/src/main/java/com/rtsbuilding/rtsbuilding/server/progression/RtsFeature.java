@@ -16,7 +16,6 @@ public enum RtsFeature {
     REMOTE_BREAK,
     ROTATE_BLOCK,
     INTERACT,
-    FUNNEL,
     AUTO_STORE_MINED_DROPS,
     REMOTE_GUI_BINDING,
     CRAFT_TERMINAL,
