@@ -72,6 +72,29 @@ public final class QuickBuildChromeRenderer {
         }
     }
 
+    /**
+     * 绘制 Palette 轨道的 16px 工具状态标记。Legacy 三帧纹理由平台层原样绘制，
+     * 因而资源包替换不会被这条纯色路径覆盖。
+     */
+    public static void renderControlIndicator(
+            UiCanvas2D canvas,
+            UiRect bounds,
+            QuickBuildStyle.ControlIndicatorVisual visual) {
+        if (canvas == null || bounds == null || visual == null) {
+            throw new IllegalArgumentException("canvas, bounds and visual must not be null");
+        }
+        canvas.fill(bounds, visual.darkEdge);
+        canvas.fill(bounds.getX() + 1.0D, bounds.getY() + 1.0D,
+                Math.max(0.0D, bounds.getWidth() - 2.0D),
+                Math.max(0.0D, bounds.getHeight() - 2.0D), visual.lightEdge);
+        canvas.fill(bounds.getX() + 2.0D, bounds.getY() + 2.0D,
+                Math.max(0.0D, bounds.getWidth() - 4.0D),
+                Math.max(0.0D, bounds.getHeight() - 4.0D), visual.background);
+        canvas.fill(bounds.getX() + 4.0D, bounds.getY() + 4.0D,
+                Math.max(0.0D, bounds.getWidth() - 8.0D),
+                Math.max(0.0D, bounds.getHeight() - 8.0D), visual.glyph);
+    }
+
     /** 与生产历史行为一致地四舍五入，并把异常完成量钳制在进度槽内。 */
     public static int progressFillWidth(int width, int completed, int total) {
         if (width <= 0 || completed < 0 || total <= 0) {

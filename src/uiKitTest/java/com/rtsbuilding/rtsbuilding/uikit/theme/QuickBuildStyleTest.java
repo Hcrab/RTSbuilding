@@ -35,7 +35,22 @@ class QuickBuildStyleTest {
     }
 
     @Test
-    void 正式模式圆点使用明确的不染色色值() {
+    void Legacy状态贴图保持明确的不染色色值() {
         assertEquals(0xFFFFFFFF, QuickBuildStyle.ICON_TINT.toArgb());
+    }
+
+    @Test
+    void Palette状态标记把选中和悬停映射到不同语义色() {
+        QuickBuildStyle.ControlIndicatorVisual idle =
+                QuickBuildStyle.controlIndicator(false, false);
+        QuickBuildStyle.ControlIndicatorVisual hover =
+                QuickBuildStyle.controlIndicator(false, true);
+        QuickBuildStyle.ControlIndicatorVisual selected =
+                QuickBuildStyle.controlIndicator(true, true);
+
+        assertNotEquals(idle.background, hover.background);
+        assertNotEquals(hover.background, selected.background);
+        assertEquals(QuickBuildStyle.INDICATOR_SELECTED_GLYPH, selected.glyph);
+        assertEquals(QuickBuildStyle.INDICATOR_IDLE_GLYPH, idle.glyph);
     }
 }

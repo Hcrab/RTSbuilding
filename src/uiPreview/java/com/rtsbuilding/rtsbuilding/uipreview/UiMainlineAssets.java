@@ -1,5 +1,12 @@
 package com.rtsbuilding.rtsbuilding.uipreview;
 
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiIndexedTextureSpec;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiPaletteTextureBaker;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeDefinition;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRenderMode;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
+
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -59,7 +66,32 @@ public final class UiMainlineAssets {
     }
 
     public BufferedImage topBar(String name, String state) {
-        return image("textures/gui/topbar/" + name + "_" + state + ".png");
+        UiThemeDefinition theme = UiThemeRuntime.manager().active();
+        if (theme.renderMode() == UiThemeRenderMode.LEGACY_DIRECT) {
+            return image("textures/gui/topbar/" + name + "_" + state + ".png");
+        }
+        String cacheKey = "generated/theme/" + theme.id() + "/topbar/" + name + "_" + state;
+        BufferedImage cached = images.get(cacheKey);
+        if (cached != null) return cached;
+        BufferedImage source = image("textures/gui/palette/topbar/" + name + ".png");
+        int width = source.getWidth();
+        int height = source.getHeight();
+        int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
+        UiIndexedTextureSpec spec = "quest_detect".equals(name)
+                ? UiIndexedTextureSpec.PR133_QUEST : UiIndexedTextureSpec.PR133_THREE_TONE;
+        int[] bakedArgb = UiPaletteTextureBaker.bake(
+                sourceArgb, spec, theme, textureState(state));
+        BufferedImage baked = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        baked.setRGB(0, 0, width, height, bakedArgb, 0, width);
+        images.put(cacheKey, baked);
+        return baked;
+    }
+
+    private static UiTextureState textureState(String state) {
+        if ("active".equals(state)) return UiTextureState.ACTIVE;
+        if ("hover".equals(state)) return UiTextureState.HOVER;
+        if ("pressed".equals(state)) return UiTextureState.PRESSED;
+        return UiTextureState.INACTIVE;
     }
 
     public BufferedImage item(String name) {

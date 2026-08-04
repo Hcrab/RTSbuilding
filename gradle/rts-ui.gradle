@@ -177,6 +177,17 @@ tasks.register('renderUiSnapshots', JavaExec) {
     outputs.dir uiPreviewOutput
 }
 
+tasks.register('renderUiThemeGallery', JavaExec) {
+    group = 'ui preview'
+    description = '用同一完整 RTS 场景无头渲染五套内建主题及联系表。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiThemeGalleryMain'
+    systemProperty 'java.awt.headless', 'true'
+    args layout.buildDirectory.dir('reports/ui-theme-gallery').get().asFile.absolutePath
+    outputs.dir layout.buildDirectory.dir('reports/ui-theme-gallery')
+}
+
 tasks.register('compareUiReference', JavaExec) {
     group = 'verification'
     description = '将 1920x1080 简中主场景与真实 main 截图的 UI 区域并排并生成差异热图。'

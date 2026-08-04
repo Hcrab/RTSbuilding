@@ -20,6 +20,8 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRenderMode;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
@@ -74,7 +76,7 @@ final class QuickBuildControlRenderer {
             renderChainLimit(controls, graphics, screen, state, layout,
                     mouseX, mouseY, partialTick);
         } else {
-            renderControls(controls, graphics, state, layout,
+            renderControls(controls, graphics, canvas, state, layout,
                     mouseX, mouseY, partialTick);
         }
     }
@@ -252,6 +254,7 @@ final class QuickBuildControlRenderer {
     private static void renderControls(
             QuickBuildControlSurface controls,
             GuiGraphics graphics,
+            MinecraftUiCanvas canvas,
             QuickBuildUiState state,
             QuickBuildWindowLayout.Geometry layout,
             int mouseX,
@@ -263,7 +266,7 @@ final class QuickBuildControlRenderer {
             QuickBuildUiControl control = regular.get(i);
             button.active = control.enabled;
             button.render(graphics, mouseX, mouseY, partialTick);
-            renderControlIndicator(graphics, layout.rightX, layout.controlY(i),
+            renderControlIndicator(graphics, canvas, layout.rightX, layout.controlY(i),
                     control.selected, button.isHoveredOrFocused());
         }
         WindowButton connectButton = controls.connectToggle();
@@ -276,7 +279,7 @@ final class QuickBuildControlRenderer {
         connectButton.active = enabled;
         connectButton.render(graphics, mouseX, mouseY, partialTick);
         renderControlIndicator(
-                graphics, layout.rightX, layout.controlY(controls.controlButtonCount()),
+                graphics, canvas, layout.rightX, layout.controlY(controls.controlButtonCount()),
                 selected, connectButton.isHoveredOrFocused());
     }
 
@@ -347,17 +350,29 @@ final class QuickBuildControlRenderer {
 
     private static void renderControlIndicator(
             GuiGraphics graphics,
+            MinecraftUiCanvas canvas,
             int rowX,
             int rowY,
             boolean selected,
             boolean hovered) {
+        int iconX = rowX + QuickBuildWindowLayout.CONTROL_ICON_INSET;
+        int iconY = rowY + QuickBuildWindowLayout.CONTROL_ICON_INSET;
+        if (UiThemeRuntime.manager().active().renderMode() != UiThemeRenderMode.LEGACY_DIRECT) {
+            QuickBuildChromeRenderer.renderControlIndicator(
+                    canvas,
+                    new UiRect(iconX, iconY,
+                            QuickBuildWindowLayout.CONTROL_ICON_SIZE,
+                            QuickBuildWindowLayout.CONTROL_ICON_SIZE),
+                    QuickBuildStyle.controlIndicator(selected, hovered));
+            return;
+        }
         int vOffset = selected
                 ? QuickBuildIconCatalog.MODE_STATE_H * 2
                 : (hovered ? QuickBuildIconCatalog.MODE_STATE_H : 0);
         RtsTextureRenderer.drawTextureHighPrecision(
-                graphics, QuickBuildIconCatalog.SELECTION_DOT,
-                rowX + QuickBuildWindowLayout.CONTROL_ICON_INSET,
-                rowY + QuickBuildWindowLayout.CONTROL_ICON_INSET,
+                graphics, QuickBuildIconCatalog.LEGACY_SELECTION_DOT,
+                iconX,
+                iconY,
                 QuickBuildWindowLayout.CONTROL_ICON_SIZE,
                 QuickBuildWindowLayout.CONTROL_ICON_SIZE,
                 0, vOffset,

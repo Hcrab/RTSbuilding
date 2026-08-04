@@ -35,8 +35,16 @@ public final class QuickBuildStyle {
     public static final UiColor ERROR_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ERROR, 0XFFFFB8B8);
     public static final UiColor HINT_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_MUTED, 0XFFD8E8FF);
     public static final UiColor DIMENSION_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_MUTED, 0XFFC9D8E8);
-    /** 正式模式圆点贴图不额外染色。 */
+    /** Legacy 模式圆点贴图不额外染色；Palette 轨道不会读取这项。 */
     public static final UiColor ICON_TINT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ICON_PRIMARY, 0XFFFFFFFF);
+    public static final UiColor INDICATOR_IDLE_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_IDLE, 0XFF26303B);
+    public static final UiColor INDICATOR_HOVER_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_HOVER, 0XFF35475A);
+    public static final UiColor INDICATOR_SELECTED_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_SELECTED, 0XFF2D6B47);
+    public static final UiColor INDICATOR_DARK_EDGE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.SURFACE_SUNKEN, 0XFF10161D);
+    public static final UiColor INDICATOR_IDLE_EDGE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XFF647B92);
+    public static final UiColor INDICATOR_SELECTED_EDGE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ACCENT_PRIMARY, 0XFF7CCB93);
+    public static final UiColor INDICATOR_IDLE_GLYPH = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ICON_MUTED, 0XFF9FB0C2);
+    public static final UiColor INDICATOR_SELECTED_GLYPH = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ICON_ON_ACCENT, 0XFFF4FBF5);
 
     private QuickBuildStyle() {
     }
@@ -60,6 +68,16 @@ public final class QuickBuildStyle {
                 MODE_TEXT);
     }
 
+    /** Palette 轨道的小型工具状态标记；Legacy 仍由原三帧纹理完整接管。 */
+    public static ControlIndicatorVisual controlIndicator(boolean selected, boolean hovered) {
+        return new ControlIndicatorVisual(
+                INDICATOR_DARK_EDGE,
+                selected ? INDICATOR_SELECTED_EDGE : INDICATOR_IDLE_EDGE,
+                selected ? INDICATOR_SELECTED_BACKGROUND
+                        : hovered ? INDICATOR_HOVER_BACKGROUND : INDICATOR_IDLE_BACKGROUND,
+                selected ? INDICATOR_SELECTED_GLYPH : INDICATOR_IDLE_GLYPH);
+    }
+
     /** 单个模式按钮已解析的视觉；不携带业务模式枚举，方便其它版本复用。 */
     public static final class ModeVisual {
         public final UiColor background;
@@ -70,6 +88,22 @@ public final class QuickBuildStyle {
             this.background = background;
             this.border = border;
             this.text = text;
+        }
+    }
+
+    /** 已解析的小型状态标记颜色，不携带业务控件身份。 */
+    public static final class ControlIndicatorVisual {
+        public final UiColor darkEdge;
+        public final UiColor lightEdge;
+        public final UiColor background;
+        public final UiColor glyph;
+
+        private ControlIndicatorVisual(UiColor darkEdge, UiColor lightEdge,
+                                       UiColor background, UiColor glyph) {
+            this.darkEdge = darkEdge;
+            this.lightEdge = lightEdge;
+            this.background = background;
+            this.glyph = glyph;
         }
     }
 }

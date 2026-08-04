@@ -21,7 +21,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * 各维护一份顺序数组。</p>
  */
 final class QuickBuildIconCatalog {
-    static final ResourceLocation SELECTION_DOT =
+    /** 仅供 Legacy / Resource Pack 轨道使用的原三帧状态贴图。 */
+    static final ResourceLocation LEGACY_SELECTION_DOT =
             ResourceLocation.tryParse("rtsbuilding:textures/gui/general/mode_button.png");
     static final int PR133_ICON_SIZE = 24;
     static final int MODE_SHEET_W = 512;

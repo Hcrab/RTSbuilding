@@ -60,6 +60,8 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintDialogStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRenderMode;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
 import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowStyle;
@@ -1364,10 +1366,16 @@ final class UiMainlineWindowRenderer {
                 canvas,
                 new UiRect(x, y, w, QuickBuildWindowLayout.CONTROL_H),
                 visual);
-        canvas.imageRegion(
-                assets.image("textures/gui/general/mode_button.png"),
-                new UiRect(0, selected ? 1024 : 0, 512, 512),
-                new UiRect(x + 2, y + 2, 16, 16));
+        UiRect indicator = new UiRect(x + 2, y + 2, 16, 16);
+        if (UiThemeRuntime.manager().active().renderMode() == UiThemeRenderMode.LEGACY_DIRECT) {
+            canvas.imageRegion(
+                    assets.image("textures/gui/general/mode_button.png"),
+                    new UiRect(0, selected ? 1024 : 0, 512, 512),
+                    indicator);
+        } else {
+            QuickBuildChromeRenderer.renderControlIndicator(
+                    canvas, indicator, QuickBuildStyle.controlIndicator(selected, false));
+        }
         canvas.centeredText(canvas.trimToWidth(label, w - 22), x + w / 2.0D,
                 y + 14, UiMainlinePreviewStyle.color(visual.getText()));
     }
