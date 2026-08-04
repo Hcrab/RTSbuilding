@@ -31,7 +31,3 @@ project(":addon-sophisticatedbackpacks").projectDir = file("addons/addon-sophist
 
 include "addon-ftb"
 project(":addon-ftb").projectDir = file("addons/addon-ftb/neoforge-1.21")
-
-// Experiments
-include "experiment-ui"
-project(":experiment-ui").projectDir = file("experiments/ui-experiment")
