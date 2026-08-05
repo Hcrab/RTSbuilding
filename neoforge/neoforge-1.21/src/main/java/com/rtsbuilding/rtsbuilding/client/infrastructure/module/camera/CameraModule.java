@@ -70,6 +70,15 @@ public final class CameraModule implements FeatureModule {
         RtsClientPacketGateway.sendToggleCamera(false);
     }
 
+    /**
+     * 查询 RTS 相机是否已激活（服务端开启后通过状态包同步到本地状态）。
+     * <p>与服务端 {@code RtsCameraManager.isActive} 保持一致的客户端映射，
+     * 供渲染 pass 与交互发包判断使用。</p>
+     */
+    public boolean isCameraEnabled() {
+        return state.enabled;
+    }
+
     
     
     

@@ -1,9 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.RtsService;
@@ -47,7 +44,6 @@ public final class RtsBindingServiceImpl implements RtsService {
     }
 
     public void linkStorage(ServerPlayer player, BlockPos pos, byte linkMode) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.LINK_STORAGE)) return;
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) return;
         RtsStorageSession session = server.session().getOrCreate(player);
         applyUpdate(player, session, RtsStorageBindings.linkStorage(player, session, pos, linkMode));
@@ -77,7 +73,6 @@ public final class RtsBindingServiceImpl implements RtsService {
     }
 
     public void setAutoStoreMinedDrops(ServerPlayer player, boolean enabled) {
-        if (enabled && !RtsProgressionManager.canUse(player, RtsFeature.AUTO_STORE_MINED_DROPS)) return;
         RtsStorageSession session = server.session().getOrCreate(player);
         session.sessionFlags.autoStoreMinedDrops = enabled;
         server.serviceOp().simpleSave(player, session);
@@ -98,7 +93,6 @@ public final class RtsBindingServiceImpl implements RtsService {
     }
 
     public void setGuiBinding(ServerPlayer player, byte slotId, boolean clear, BlockPos pos, Direction face, String itemIdHint) {
-        if (!clear && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_GUI_BINDING)) return;
         RtsStorageSession session = server.session().getOrCreate(player);
         applyUpdate(player, session, RtsStorageBindings.setGuiBinding(player, session, slotId, clear, pos, face, itemIdHint));
     }
@@ -132,7 +126,6 @@ public final class RtsBindingServiceImpl implements RtsService {
         player.getInventory().setItem(slot, remaining.isEmpty() ? ItemStack.EMPTY : remaining);
         player.containerMenu.broadcastChanges();
         server.serviceOp().afterModification(player, session);
-        QuestService.runQuestDetect(player, session, false);
     }
 
     public void closeRemoteMenu(ServerPlayer player) {

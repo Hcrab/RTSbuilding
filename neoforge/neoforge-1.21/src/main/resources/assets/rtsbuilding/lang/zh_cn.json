@@ -15,6 +15,7 @@
   "key.rtsbuilding.toggle_bind_mode": "切换绑定模式",
   "key.rtsbuilding.toggle_direction_rotate_mode": "切换方向旋转",
   "key.rtsbuilding.toggle_item_pickup_mode": "切换物品拾取",
+  "key.rtsbuilding.undo": "撤销放置",
 
   "key.rtsbuilding.cycle_mode": "循环切换模式",
 

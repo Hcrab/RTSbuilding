@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBatchJobTickOps;
 import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
@@ -45,8 +43,8 @@ public final class RtsPlacementBatch {
     }
 
     /**
-     * Queues a batch of positions for remote placement. Sanitises input,
-     * validates progression access, and caps the batch at
+     * Queues a batch of positions for remote placement. Sanitises input
+     * and caps the batch at
      * {@link C2SRtsPlaceBatchPayload#MAX_POSITIONS} positions.
      * <p>
      * Quick-build jobs (shape builds) are limited to
@@ -58,9 +56,9 @@ public final class RtsPlacementBatch {
      * Queues a batch of positions for remote placement.
      *
      * @return {@code true} if the job was actually queued; {@code false} if the
-     *         job was silently skipped (progression locked, no valid positions,
-     *         or quick-build queue full).  Callers should use this return value
-     *         to decide whether to complete the associated workflow entry.
+     *         job was silently skipped (no valid positions, or quick-build queue
+     *         full).  Callers should use this return value to decide whether to
+     *         complete the associated workflow entry.
      */
     public static boolean enqueuePlaceBatch(ServerPlayer player, RtsStorageSession session, List<BlockPos> clickedPositions,
             Direction face, double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps,
@@ -68,10 +66,6 @@ public final class RtsPlacementBatch {
             double rayOriginX, double rayOriginY, double rayOriginZ, double rayDirX, double rayDirY,
             double rayDirZ, boolean quickBuild, boolean forceEmptyHand, boolean sendRemoteHint,
             int workflowEntryId) {
-        if (!RtsProgressionManager.canUse(
-                player, RtsFeature.REMOTE_PLACE)) {
-            return false;
-        }
         if (session == null || clickedPositions == null || clickedPositions.isEmpty() || face == null) {
             return false;
         }

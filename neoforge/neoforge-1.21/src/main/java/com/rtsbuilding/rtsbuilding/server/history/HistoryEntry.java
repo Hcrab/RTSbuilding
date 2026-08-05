@@ -4,7 +4,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -14,8 +13,8 @@ import java.util.UUID;
  * 记录一次放置或破坏操作的所有方块信息，支持：
  * <ul>
  *   <li>时间戳与过期机制（自动清理旧记录）</li>
- *   <li>部分恢复（跳过已被占用的位置）</li>
  *   <li>放置/破坏两种操作类型</li>
+ *   <li>单次预算分批撤销（超预算部分由调用方重新入栈）</li>
  * </ul>
  */
 public class HistoryEntry {
@@ -84,21 +83,5 @@ public class HistoryEntry {
 
     public boolean isExpired(long expiryMs) {
         return System.currentTimeMillis() - timestamp > expiryMs;
-    }
-
-    // ===== 部分恢复支持 =====
-
-    /**
-     * 从记录中移除已恢复的方块，返回剩余方块的记录。
-     *
-     * @param restoredCount 已成功恢复/撤销的方块数量
-     * @return 剩余方块的记录；如果全部完成则返回 null
-     */
-    public HistoryEntry removeRestored(int restoredCount) {
-        if (restoredCount >= blocks.size()) {
-            return null;
-        }
-        List<HistoryBlockRecord> remaining = new ArrayList<>(blocks.subList(restoredCount, blocks.size()));
-        return new HistoryEntry(isDestructive, remaining, face, dimension);
     }
 }

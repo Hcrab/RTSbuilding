@@ -12,7 +12,6 @@ public final class RtsCompatRegistry {
     private static final List<RtsFluidNetworkProvider> fluidProviders = new ArrayList<>();
     private static final List<RtsBackpackProvider> backpackProviders = new ArrayList<>();
     private static final List<RtsIconResolver> iconResolvers = new ArrayList<>();
-    private static final List<RtsQuestIntegration> questIntegrations = new ArrayList<>();
 
     private RtsCompatRegistry() {}
 
@@ -32,10 +31,6 @@ public final class RtsCompatRegistry {
         iconResolvers.add(resolver);
     }
 
-    public static void register(RtsQuestIntegration integration) {
-        questIntegrations.add(integration);
-    }
-
     public static List<RtsStorageNetworkProvider> getStorageProviders() {
         return Collections.unmodifiableList(storageProviders);
     }
@@ -50,9 +45,5 @@ public final class RtsCompatRegistry {
 
     public static List<RtsIconResolver> getIconResolvers() {
         return Collections.unmodifiableList(iconResolvers);
-    }
-
-    public static List<RtsQuestIntegration> getQuestIntegrations() {
-        return Collections.unmodifiableList(questIntegrations);
     }
 }

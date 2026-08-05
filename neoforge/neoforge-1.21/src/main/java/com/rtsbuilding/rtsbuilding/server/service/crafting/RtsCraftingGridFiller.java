@@ -1,9 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.crafting;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
@@ -86,9 +83,6 @@ public final class RtsCraftingGridFiller {
     public static void refillCurrentCraftGridFromBlueprintIds(
             ServerPlayer player, RtsStorageSession session,
             List<String> blueprintIds, String craftedItemId, int craftedCount) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
         if (player == null || blueprintIds == null || blueprintIds.size() != 9) {
             return;
         }
@@ -123,9 +117,6 @@ public final class RtsCraftingGridFiller {
     public static void refillCurrentCraftGridFromBlueprintStacks(
             ServerPlayer player, RtsStorageSession session,
             List<ItemStack> blueprintStacks, String craftedItemId, int craftedCount) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
         if (player == null || blueprintStacks == null || blueprintStacks.size() != 9) {
             return;
         }
@@ -151,9 +142,6 @@ public final class RtsCraftingGridFiller {
             ServerPlayer player, RtsStorageSession session,
             String recipeId, List<ItemStack> ingredientPrototypes,
             boolean maxTransfer, boolean clearGridFirst) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.JEI_TRANSFER)) {
-            return;
-        }
         if (session == null) {
             return;
         }
@@ -270,9 +258,6 @@ public final class RtsCraftingGridFiller {
         RtsCraftingUtils.refreshCraftingResult(craftingMenu);
         craftingMenu.broadcastChanges();
         RtsServer.get().serviceOp().refreshPage(player, session);
-        if (anyInserted) {
-            QuestService.runQuestDetect(player, session, false);
-        }
     }
 
     // ---- low-level grid refill loop ----------------------------------------------

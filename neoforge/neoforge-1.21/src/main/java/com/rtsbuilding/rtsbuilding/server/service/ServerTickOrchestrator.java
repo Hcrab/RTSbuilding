@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
@@ -101,7 +99,6 @@ public final class ServerTickOrchestrator {
                 // Increment data version so the page cache in RtsPageCore
                 // knows the storage data has changed and should rebuild.
                 session.transfer.pageDataVersion.incrementAndGet();
-                if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) continue;
                 serviceOp.refreshPage(player, session);
                 // Automatically attempt to resume pending placement jobs after storage changes
                 RtsPendingPlacementService.tryResumeAfterStorageChange(player);

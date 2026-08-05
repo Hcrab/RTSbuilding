@@ -3,8 +3,6 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.RtsService;
@@ -59,9 +57,6 @@ public final class RtsInteractionServiceImpl implements RtsService {
                                byte sourceType, byte toolSlot, String itemId,
                                double rayOriginX, double rayOriginY, double rayOriginZ,
                                double rayDirX, double rayDirY, double rayDirZ) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.INTERACT)) {
-            return;
-        }
         RtsStorageSession session = server.session().getIfPresent(player);
         if (session == null || !RtsCameraManager.isActive(player)) {
             return;

@@ -9,12 +9,10 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PlacementExecutePip
 
 import com.rtsbuilding.rtsbuilding.server.pipeline.execution.SyncPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.validation.ProgressionGatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionDimensionPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowProgressPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsUltimineProcessor;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
@@ -36,13 +34,13 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
  *
  * <pre>{@code
  * MINE_SINGLE:
- *   ProgressionGate(REMOTE_BREAK) → SessionValidate → SessionDimension →
+ *   SessionValidate → SessionDimension →
  *   StopPrevious → WorkflowStart → ToolBorrow → MiningExecute → UiRefresh
  *   [然后异步：tickActiveMining → finalizeMiningOperation 完成工作流，
  *    归还工具，并触发 COMPLETED 事件（真正完成，条目移除）]
  *
  * ULTIMINE / AREA_MINE / AREA_DESTROY:
- *   ProgressionGate → SessionValidate → SessionDimension → StopPrevious →
+ *   SessionValidate → SessionDimension → StopPrevious →
  *   ToolBorrow → WorkflowStart → UltimineExecute → WorkflowProgress →
  *   NetworkSync → UiRefresh
  *   [然后可 Tick：UltimineTickPipe] // 异步逐 Tick 监控
@@ -54,7 +52,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
  *   SessionValidate → WorkflowStart → PlacementExecute → PendingPlacement → UiRefresh
  *
  * BLUEPRINT_BUILD:
- *   ProgressionGate(BLUEPRINTS) → SessionValidate → WorkflowStart →
+ *   SessionValidate → WorkflowStart →
  *   BlueprintExecute → UiRefresh
  *   [然后可 Tick：BlueprintTickPipe] // 异步逐 Tick 放置
  * }</pre>
@@ -90,7 +88,7 @@ public final class RtsPipelineRegistration {
     /**
      * MINE_SINGLE —— 单方块远程挖掘。
      *
-     * <p>标准管道流程：功能门控 → 会话 →
+     * <p>标准管道流程：会话 →
      * 维度 → 停止前一个 → 启动工作流 → 借用工具 →
      * 执行 → 刷新 UI。
      *
@@ -105,7 +103,6 @@ public final class RtsPipelineRegistration {
      */
     private static void registerMineSingle() {
         PipelineRegistry.miningPipeline(RtsWorkflowType.MINE_SINGLE)
-                .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_BREAK))
                 .pipe(new SessionValidatePipe())
                 .pipe(new SessionDimensionPipe())
                 .pipe(new StopPreviousPipe(false))
@@ -120,7 +117,7 @@ public final class RtsPipelineRegistration {
     /**
      * ULTIMINE —— 连接方块批处理挖掘（Tick 驱动的生命周期）。
      *
-     * <p>同步阶段包括：功能门控 → 会话 → 维度 → 停止
+     * <p>同步阶段包括：会话 → 维度 → 停止
      * 前一个 → 借用工具 → 启动工作流 → 执行（目标收集、
      * 状态设置、beginRemoteMining）。同步成功后，
      * {@link UltimineTickPipe} 每个服务器 Tick 运行，监控批处理
@@ -130,7 +127,6 @@ public final class RtsPipelineRegistration {
      */
     private static void registerUltimine() {
         PipelineRegistry.miningPipeline(RtsWorkflowType.ULTIMINE)
-                .pipe(new ProgressionGatePipe(RtsFeature.ULTIMINE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new SessionDimensionPipe())
                 .pipe(new StopPreviousPipe(true))
@@ -153,7 +149,6 @@ public final class RtsPipelineRegistration {
      */
     private static void registerAreaMine() {
         PipelineRegistry.miningPipeline(RtsWorkflowType.AREA_MINE)
-                .pipe(new ProgressionGatePipe(RtsFeature.ULTIMINE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new SessionDimensionPipe())
                 .pipe(new StopPreviousPipe(true))
@@ -178,7 +173,6 @@ public final class RtsPipelineRegistration {
      */
     private static void registerAreaDestroy() {
         PipelineRegistry.miningPipeline(RtsWorkflowType.AREA_DESTROY)
-                .pipe(new ProgressionGatePipe(RtsFeature.AREA_DESTROY))
                 .pipe(new SessionValidatePipe())
                 .pipe(new SessionDimensionPipe())
                 .pipe(new StopPreviousPipe(true))
@@ -254,7 +248,7 @@ public final class RtsPipelineRegistration {
     /**
      * BLUEPRINT_BUILD —— 蓝图文件远程放置构建。
      *
-     * <p>同步阶段：功能门控(BLUEPRINTS) → 会话验证 → 启动工作流 →
+     * <p>同步阶段：会话验证 → 启动工作流 →
      * 蓝图校验和执行初始化 → 刷新UI。
      *
      * <p>同步成功后，{@link BlueprintTickPipe} 每个服务器 Tick 运行，
@@ -264,7 +258,6 @@ public final class RtsPipelineRegistration {
      */
     private static void registerBlueprintBuild() {
         PipelineRegistry.register(RtsWorkflowType.BLUEPRINT_BUILD)
-                .pipe(new ProgressionGatePipe(RtsFeature.BLUEPRINTS))
                 .pipe(new SessionValidatePipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.BLUEPRINT_BUILD, RtsWorkflowPriority.NORMAL))
                 .pipe(new BlueprintExecutePipe())

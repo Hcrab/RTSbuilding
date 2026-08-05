@@ -6,8 +6,6 @@ import com.rtsbuilding.rtsbuilding.common.entity.RtsDroneEntity;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -30,6 +28,9 @@ public final class RtsCameraManager {
     private static final double MIN_HEIGHT = -35.0D;
     // 相机高度上限（相对锚点）
     private static final double MAX_HEIGHT = 110.0D;
+
+    // 默认动作半径（格）：RTS 建造/操作范围的固定半边长
+    public static final int DEFAULT_ACTION_RADIUS_BLOCKS = 32;
 
     // 旋转输入钳位值
     private static final float ROT_INPUT_CLAMP = 20.0F;
@@ -75,30 +76,18 @@ public final class RtsCameraManager {
     }
 
     /**
-     * 启动 RTS 相机。根据玩家当前的解锁进度决定进入正常模式还是家选择模式。
+     * 启动 RTS 相机。
      *
      * @param player           目标玩家
      * @param startAtPlayerHead 是否从玩家头部高度开始
      * @param terminalUuid     开启该模式的那把终端的 UUID（可为 null）
      */
     public static void start(ServerPlayer player, boolean startAtPlayerHead, @Nullable String terminalUuid) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
-            return;
-        }
-        if (RtsProgressionManager.shouldStartHomeSelection(player)) {
-            startHomeSelection(player, startAtPlayerHead, terminalUuid);
-            return;
-        }
-        if (!RtsProgressionManager.canStartNormalRts(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Set an RTS home first."), true);
-            return;
-        }
         startNormal(player, startAtPlayerHead, terminalUuid);
     }
 
     /**
-     * 启动正常 RTS 模式（非家选择）。
+     * 启动正常 RTS 模式。
      * <p>将锚点对齐到玩家脚下方块中心，并根据半径限制创建相机实体。</p>
      */
     private static void startNormal(ServerPlayer player, boolean startAtPlayerHead, @Nullable String terminalUuid) {
@@ -109,7 +98,7 @@ public final class RtsCameraManager {
         Vec3 playerPos = player.position();
         // 将锚点对齐到方块中心，使相机边界与放置边界匹配
         Vec3 anchor = new Vec3(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
-        double maxRadius = RtsProgressionManager.getActionRadius(player);
+        double maxRadius = DEFAULT_ACTION_RADIUS_BLOCKS;
 
         // 偏航角吸附到 90° 倍数，俯仰角固定 70°
         float yaw = snapQuarter(player.getYRot());
@@ -125,10 +114,13 @@ public final class RtsCameraManager {
 
         // 记录会话
         Session session = new Session(camera.getUUID(), anchor, camera.position(), yaw, pitch,
-                camera.getY() - anchor.y, false, maxRadius, startAtPlayerHead, terminalUuid,
+                camera.getY() - anchor.y, maxRadius, startAtPlayerHead, terminalUuid,
                 drone.getUUID());
         SESSIONS.put(player.getUUID(), session);
         RtsServer.get().session().onRtsEnabled(player);
+
+        // 同步历史记录状态（撤销步数），让客户端 UI 能反映当前可撤销次数
+        com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager.sendSync(player);
 
         // 向客户端发送相机状态同步包
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(
@@ -142,77 +134,6 @@ public final class RtsCameraManager {
                 session.yawDeg(),
                 session.pitchDeg(),
                 false,
-                session.closeRangeAllowed(),
-                session.terminalUuid()));
-    }
-
-    /**
-     * 从操作面板启动家选择模式。
-     * <p>会检查冷却时间等前置条件。</p>
-     */
-    public static void startHomeSelectionFromPanel(ServerPlayer player) {
-        if (!RtsProgressionManager.isEnabled()) {
-            return;
-        }
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
-            return;
-        }
-        if (!RtsProgressionManager.canChangeHome(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
-                    "message.rtsbuilding.home.cooldown",
-                    RtsProgressionManager.remainingHomeCooldownDays(player)), true);
-            return;
-        }
-        stopIfActive(player);
-        startHomeSelection(player, false, null);
-    }
-
-    /**
-     * 启动家的选择流程。
-     * <p>将锚点对齐到玩家所在区块中心（8, Y, 8），进入家选择会话。</p>
-     */
-    private static void startHomeSelection(ServerPlayer player, boolean startAtPlayerHead, @Nullable String terminalUuid) {
-        cleanupOrphanCameras(player.getServer());
-        RtsCameraEntityHelper.discardOwnedCameras(player);
-        RtsCameraEntityHelper.discardOwnedDrones(player);
-        ServerLevel level = player.serverLevel();
-        BlockPos playerPos = player.blockPosition();
-        // 计算玩家所在区块的中心坐标
-        int centerChunkX = playerPos.getX() >> 4;
-        int centerChunkZ = playerPos.getZ() >> 4;
-        Vec3 anchor = new Vec3((centerChunkX << 4) + 8.0D, player.getY(), (centerChunkZ << 4) + 8.0D);
-        double maxRadius = RtsProgressionManager.HOME_SELECTION_RADIUS_BLOCKS;
-
-        float yaw = snapQuarter(player.getYRot());
-        float pitch = 70.0F;
-        double cameraX = anchor.x;
-        double cameraY = player.getEyeY() + 8.0D;
-        double cameraZ = anchor.z;
-
-        RtsCameraEntity camera = RtsCameraEntityHelper.createAndSpawnCamera(level, player.getUUID(),
-                cameraX, cameraY, cameraZ, yaw, pitch);
-
-        // 创建跟随无人机的展示实体：家选择模式同样从玩家身体前方出现
-        RtsDroneEntity drone = spawnDroneInFrontOfPlayer(level, player, yaw);
-
-        RtsProgressionManager.beginHomeSelection(player);
-        Session session = new Session(camera.getUUID(), anchor, camera.position(), yaw, pitch,
-                camera.getY() - anchor.y, true, maxRadius, startAtPlayerHead, terminalUuid,
-                drone.getUUID());
-        SESSIONS.put(player.getUUID(), session);
-
-        PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(
-                true,
-                camera.getId(),
-                anchor.x,
-                anchor.y,
-                anchor.z,
-                maxRadius,
-                session.heightOffset(),
-                session.yawDeg(),
-                session.pitchDeg(),
-                true,
                 session.closeRangeAllowed(),
                 session.terminalUuid()));
     }
@@ -257,34 +178,13 @@ public final class RtsCameraManager {
                     drone.discard();
                 }
             }
-            // 如果当前是家选择模式，结束家选择流程
-            if (session.homeSelection()) {
-                RtsProgressionManager.endHomeSelection(player);
-            }
         }
         RtsCameraEntityHelper.discardOwnedCameras(player);
         RtsCameraEntityHelper.discardOwnedDrones(player);
 
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(false, -1, 0.0D, 0.0D, 0.0D,
-                RtsProgressionManager.DEFAULT_MAX_ACTION_RADIUS_BLOCKS, 18.0D, 0.0F, 70.0F, false, false, null));
+                DEFAULT_ACTION_RADIUS_BLOCKS, 18.0D, 0.0F, 70.0F, false, false, null));
         RtsServer.get().session().onRtsDisabled(player);
-    }
-
-    /**
-     * 从家选择模式结束后直接启动正常 RTS 模式。
-     * <p>丢弃旧的家选择相机，创建新的正常模式相机。</p>
-     */
-    public static void restartNormalFromHomeSelection(ServerPlayer player) {
-        Session session = SESSIONS.get(player.getUUID());
-        if (session == null || !session.homeSelection()) {
-            return;
-        }
-        Entity entity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
-        if (entity != null) {
-            entity.discard();
-        }
-        SESSIONS.remove(player.getUUID());
-        startNormal(player, session.closeRangeAllowed(), session.terminalUuid());
     }
 
     /**
@@ -384,13 +284,12 @@ public final class RtsCameraManager {
         SESSIONS.put(player.getUUID(), new Session(
                 session.cameraUuid(), session.anchor(), new Vec3(x, y, z),
                 yaw, pitch, y - session.anchor().y,
-                session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                session.maxRadius(), session.closeRangeAllowed(),
                 session.terminalUuid(), droneUuid));
     }
 
     /**
      * 判断指定方块位置是否在玩家的 RTS 动作范围内（基于锚点的 AABB 碰撞检测）。
-     * <p>家选择模式下始终返回 {@code false}。</p>
      *
      * @param player 目标玩家
      * @param pos    待检测的方块位置
@@ -398,7 +297,7 @@ public final class RtsCameraManager {
      */
     public static boolean isWithinActionRange(ServerPlayer player, BlockPos pos) {
         Session session = SESSIONS.get(player.getUUID());
-        if (session == null || pos == null || session.homeSelection()) {
+        if (session == null || pos == null) {
             return false;
         }
 
@@ -502,7 +401,7 @@ public final class RtsCameraManager {
 
         double heightOffset = targetY - newAnchor.y;
         SESSIONS.put(player.getUUID(), new Session(camera.getUUID(), newAnchor, new Vec3(targetX, targetY, targetZ),
-                yaw, pitch, heightOffset, session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                yaw, pitch, heightOffset, session.maxRadius(), session.closeRangeAllowed(),
                 session.terminalUuid(), session.droneUuid()));
 
         // 通知客户端更新后的锚点位置，使可视边界保持同步
@@ -531,7 +430,7 @@ public final class RtsCameraManager {
         SESSIONS.put(player.getUUID(), new Session(
                 session.cameraUuid(), newAnchor, session.cameraPos(),
                 session.yawDeg(), session.pitchDeg(), session.heightOffset(),
-                session.homeSelection(), session.maxRadius(), session.closeRangeAllowed(),
+                session.maxRadius(), session.closeRangeAllowed(),
                 session.terminalUuid(), session.droneUuid()));
 
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraAnchorPayload(
@@ -579,7 +478,6 @@ public final class RtsCameraManager {
                 session.yawDeg(),
                 session.pitchDeg(),
                 session.heightOffset(),
-                session.homeSelection(),
                 session.maxRadius(),
                 session.closeRangeAllowed(),
                 session.terminalUuid(),
@@ -595,7 +493,7 @@ public final class RtsCameraManager {
                 session.heightOffset(),
                 session.yawDeg(),
                 session.pitchDeg(),
-                session.homeSelection(),
+                false,
                 session.closeRangeAllowed(),
                 session.terminalUuid()));
         return restored;
@@ -626,13 +524,10 @@ public final class RtsCameraManager {
     }
 
     /**
-     * 计算最大动作半径。<p>家选择模式下使用固定半径，否则从进度管理器获取。</p>
+     * 计算最大动作半径。<p>插件系统已移除，建造范围固定为 {@link #DEFAULT_ACTION_RADIUS_BLOCKS}。</p>
      */
     private static double maxRadius(ServerPlayer player, Session session) {
-        if (session.homeSelection()) {
-            return session.maxRadius();
-        }
-        return RtsProgressionManager.getActionRadius(player);
+        return DEFAULT_ACTION_RADIUS_BLOCKS;
     }
 
     /**
@@ -659,14 +554,13 @@ public final class RtsCameraManager {
      * @param yawDeg           偏航角（度）
      * @param pitchDeg         俯仰角（度）
      * @param heightOffset     相机相对锚点的高度偏移
-     * @param homeSelection    是否为家选择模式
      * @param maxRadius        最大动作半径
      * @param closeRangeAllowed 是否允许近距开始
      * @param terminalUuid     开启该模式的那把终端的 UUID（可为 null）
      * @param droneUuid        跟随无人机的实体 UUID（可为 null）
      */
     private record Session(UUID cameraUuid, Vec3 anchor, Vec3 cameraPos, float yawDeg, float pitchDeg,
-                           double heightOffset, boolean homeSelection, double maxRadius, boolean closeRangeAllowed,
+                           double heightOffset, double maxRadius, boolean closeRangeAllowed,
                            @Nullable String terminalUuid, @Nullable UUID droneUuid) {
     }
 }

@@ -1,8 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.RtsService;
 
@@ -37,9 +35,6 @@ public final class RtsFluidServiceImpl implements RtsService {
     private final FluidTransferGate fluidTransferGate = new RtsFluidTransferGateImpl();
 
     public void storeFluidFromContainer(ServerPlayer player, byte sourceType, byte toolSlot, String itemId) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.FLUID_HANDLING)) {
-            return;
-        }
         RtsStorageSession session = server.session().getOrCreate(player);
         if (!RtsCameraManager.isActive(player)) {
             return;
@@ -70,9 +65,6 @@ public final class RtsFluidServiceImpl implements RtsService {
                            double hitX, double hitY, double hitZ, boolean forcePlace, String fluidId,
                            double rayOriginX, double rayOriginY, double rayOriginZ,
                            double rayDirX, double rayDirY, double rayDirZ) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.FLUID_HANDLING)) {
-            return;
-        }
         RtsStorageSession session = server.session().getIfPresent(player);
         if (session == null || !canAccessFluidPlacementTarget(player, clickedPos)) {
             return;
@@ -97,8 +89,7 @@ public final class RtsFluidServiceImpl implements RtsService {
             return false;
         }
         if (level.mayInteract(player, pos)
-                && RtsCameraManager.isWithinActionRange(player, pos)
-                && RtsProgressionManager.canAccessHomeRadius(player, pos)) {
+                && RtsCameraManager.isWithinActionRange(player, pos)) {
             return true;
         }
         if (!level.getBlockState(pos).isAir()) {
@@ -109,7 +100,6 @@ public final class RtsFluidServiceImpl implements RtsService {
             return false;
         }
         return level.mayInteract(player, below)
-                && RtsCameraManager.isWithinActionRange(player, pos)
-                && RtsProgressionManager.canAccessHomeRadius(player, pos);
+                && RtsCameraManager.isWithinActionRange(player, pos);
     }
 }

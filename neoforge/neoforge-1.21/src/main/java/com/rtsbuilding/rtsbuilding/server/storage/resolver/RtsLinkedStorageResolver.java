@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.api.ProtectionRegistry;
 import com.rtsbuilding.rtsbuilding.api.compat.RtsCompatRegistry;
 import com.rtsbuilding.rtsbuilding.api.compat.RtsStorageNetworkProvider;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlockEventHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
@@ -100,7 +99,7 @@ public final class RtsLinkedStorageResolver {
 
     /**
      * Linked references are world targets, so the resolver owns the
-     * shared camera, chunk, interaction, and home radius gating used before resolution.
+     * shared camera, chunk, and interaction gating used before resolution.
      * <p>
      * Also enforces the bedrock-layer boundary: rejects any position at or below
      * the world's minimum build height (bedrock layer) to prevent RTS operations in the void.
@@ -129,7 +128,7 @@ public final class RtsLinkedStorageResolver {
         if (!RtsCameraManager.isWithinActionRange(player, pos)) {
             return false;
         }
-        return RtsProgressionManager.canAccessHomeRadius(player, pos);
+        return true;
     }
 
     /**

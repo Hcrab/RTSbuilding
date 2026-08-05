@@ -1,7 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.RtsService;
 
@@ -34,9 +32,6 @@ public final class RtsCraftingServiceImpl implements RtsService {
     public void requestCraftables(ServerPlayer player, String search, boolean showUnavailable,
                                   int offset, int limit, boolean pinyinSearchEnabled,
                                   List<String> localizedSearchMatches) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
         RtsStorageCrafting.requestCraftables(
                 player,
                 server.session().getOrCreate(player),
@@ -59,9 +54,6 @@ public final class RtsCraftingServiceImpl implements RtsService {
     }
 
     public void craftRecipeToLinked(ServerPlayer player, String recipeId, int craftCount) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
         RtsStorageCrafting.craftRecipeToLinked(player, server.session().getOrCreate(player), recipeId, craftCount);
     }
 
@@ -87,9 +79,6 @@ public final class RtsCraftingServiceImpl implements RtsService {
 
     public void applyJeiTransfer(ServerPlayer player, String recipeId, List<ItemStack> ingredientPrototypes,
                                  boolean maxTransfer, boolean clearGridFirst) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.JEI_TRANSFER)) {
-            return;
-        }
         RtsStorageCrafting.applyJeiTransfer(
                 player,
                 server.session().getOrCreate(player),

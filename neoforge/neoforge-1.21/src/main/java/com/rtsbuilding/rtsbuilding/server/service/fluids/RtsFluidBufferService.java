@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.service.fluids;
 
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -20,7 +19,7 @@ import java.util.Optional;
  *
  * <p>将会话中的少量流体直接缓存在会话标识中（{@code session.sessionFlags.internalFluidMb}），
  * 提供常用流体的快速读写缓存，避免每次都要访问链接的流体处理器。
- * 缓冲区容量由科技树升级动态决定（{@link #internalFluidCapacityMb}）。
+ * 缓冲区容量为固定默认值（{@link #DEFAULT_INTERNAL_FLUID_CAPACITY_MB}）。
  *
  * <p><b>职责边界：</b>
  * <ul>
@@ -41,14 +40,11 @@ public final class RtsFluidBufferService {
     }
 
     /**
-     * 返回给定玩家的最大内部流体缓冲区容量（以 mb 为单位），
-     * 已将科技树升级纳入考虑。
+     * 返回给定玩家的最大内部流体缓冲区容量（以 mb 为单位）。
+     * 使用固定默认容量。
      */
     public static long internalFluidCapacityMb(ServerPlayer player) {
-        if (player == null) {
-            return DEFAULT_INTERNAL_FLUID_CAPACITY_MB;
-        }
-        return Math.max(0L, (long) RtsProgressionManager.getFluidCapacityBuckets(player) * FluidType.BUCKET_VOLUME);
+        return DEFAULT_INTERNAL_FLUID_CAPACITY_MB;
     }
 
     /**

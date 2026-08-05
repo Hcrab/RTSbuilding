@@ -51,15 +51,5 @@ public final class RtsBuilderPackets {
                 S2CRtsWorkflowProgressBatchPayload.TYPE,
                 S2CRtsWorkflowProgressBatchPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);
-
-        registrar.playToClient(
-                S2CRtsResumePlacementScanPayload.TYPE,
-                S2CRtsResumePlacementScanPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
-
-        registrar.playToClient(
-                S2CRtsBlueprintResumeScanPayload.TYPE,
-                S2CRtsBlueprintResumeScanPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
     }
 }

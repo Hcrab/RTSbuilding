@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.RtsService;
@@ -201,9 +199,6 @@ public final class RtsPlacementServiceImpl implements RtsService {
     }
 
     public void rotateBlock(ServerPlayer player, BlockPos pos) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)) {
-            return;
-        }
         RtsStorageSession session = server.session().getIfPresent(player);
         if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return;

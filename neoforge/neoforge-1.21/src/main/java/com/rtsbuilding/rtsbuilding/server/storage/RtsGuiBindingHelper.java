@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.storage;
 
 import com.rtsbuilding.rtsbuilding.api.compat.RtsCompatRegistry;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
@@ -91,9 +89,6 @@ final class RtsGuiBindingHelper {
 
     static RtsStorageBindings.UpdateResult openGuiBinding(ServerPlayer player, RtsStorageSession session,
             byte slotId, double remotePovBlockReach) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_GUI_BINDING)) {
-            return RtsStorageBindings.UpdateResult.none();
-        }
         if (session == null || !RtsCameraManager.isActive(player)) {
             return RtsStorageBindings.UpdateResult.none();
         }

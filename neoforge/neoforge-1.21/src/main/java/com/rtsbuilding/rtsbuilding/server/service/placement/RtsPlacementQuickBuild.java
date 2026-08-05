@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
@@ -129,9 +127,6 @@ public final class RtsPlacementQuickBuild {
      */
     public static boolean placeStateBatchEntry(ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
                                                StatePlacementPlan plan) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
-            return false;
-        }
         if (session == null || targetPos == null || plan == null) {
             return false;
         }

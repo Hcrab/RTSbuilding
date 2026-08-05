@@ -11,8 +11,6 @@ import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
-import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.*;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -146,7 +144,6 @@ public class RtsbuildingMod {
          * <ol>
          *   <li>Clean up orphan camera entities for the player (prevent camera remnants from old worlds)</li>
          *   <li>Initialize the damage feedback manager to display mining/damage hints</li>
-         *   <li>Notify the progression manager to restore the player's research/upgrade data</li>
          *   <li>Sync related player persistent data</li>
          *   <li>Restore the player's workflow state from world save to continue unfinished blueprint placements</li>
          * </ol>
@@ -160,10 +157,6 @@ public class RtsbuildingMod {
                 RtsCameraManager.cleanupOrphanCameras(serverPlayer.getServer());
                 // Register the damage feedback session for this player
                 RtsDamageFeedbackManager.remember(serverPlayer);
-                // Load the player's progression data (e.g., unlocked upgrades)
-                RtsProgressionManager.onPlayerLogin(serverPlayer);
-                // Sync persistent plugin data related to the player
-                RtsPluginService.syncRelatedPlayers(serverPlayer);
                 // Restore workflows from world save so previous blueprint placements etc. can continue
                 RtsWorkflowEngine.getInstance().loadPlayerFromStore(
                         serverPlayer.getServer(), serverPlayer);
@@ -221,7 +214,6 @@ public class RtsbuildingMod {
          *   <li>Stop and clean up the player's active camera session</li>
          *   <li>Remove damage feedback session to release resources</li>
          *   <li>Notify the session service to clean up the player's network session</li>
-         *   <li>Clear the player's progression data from memory cache</li>
          *   <li>Clear pending placement scan cache (prevent stale data from persisting)</li>
          *   <li>Clear progress refresh cache</li>
          *   <li>Sync related player data</li>
@@ -239,14 +231,12 @@ public class RtsbuildingMod {
                 RtsDamageFeedbackManager.forget(serverPlayer);
                 // Clean up network session state
                 RtsServer.get().session().onPlayerLogout(serverPlayer);
-                // Clear player data from progression manager
-                RtsProgressionManager.onPlayerLogout(serverPlayer);
+                // Clean up funnel (item pickup) tasks
+                com.rtsbuilding.rtsbuilding.server.service.RtsFunnelService.INSTANCE.onPlayerDisconnect(serverPlayer);
                 // Clear pending placement scan cache to prevent stale data confusion
                 RtsPendingPlacementService.clearPlayerScanCache(serverPlayer.getUUID());
                 // Clear progress refresh cache
                 RtsProgressRefresher.clearPlayerCache(serverPlayer.getUUID());
-                // Sync related player persistent data
-                RtsPluginService.syncRelatedPlayers(serverPlayer);
                 // Clear undo history — old world BlockPos are not valid for the new world
                 ServerHistoryManager.clear(serverPlayer.getUUID());
                 // Persist the player's data
@@ -318,6 +308,8 @@ public class RtsbuildingMod {
             SaveScheduler.INSTANCE.onTick(event.getServer());
             // Drive per-tick consumption of global mining tasks
             ServerTickOrchestrator.getInstance().tickMining(event.getServer());
+            // Drive per-tick consumption of funnel (item pickup) tasks
+            com.rtsbuilding.rtsbuilding.server.service.RtsFunnelService.INSTANCE.onServerTick(event.getServer());
             // Flush merged workflow progress notifications (one packet per player per tick)
             RtsWorkflowEngine.getInstance().flushDirty();
         }

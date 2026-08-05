@@ -80,33 +80,12 @@ public final class StorageState {
     
     
 
-    static final int QUICK_SLOT_COUNT = 27;
-    static final int GUI_BINDING_COUNT = 8;
-    private final String[] quickSlotIds = new String[QUICK_SLOT_COUNT];
-    private final ItemStack[] quickSlotPreviews = new ItemStack[QUICK_SLOT_COUNT];
-    private final String[] guiBindingLabels = new String[GUI_BINDING_COUNT];
-    private final String[] guiBindingIds = new String[GUI_BINDING_COUNT];
-    private final ItemStack[] guiBindingPreviews = new ItemStack[GUI_BINDING_COUNT];
-
-    
-    
-    
-
     private static final long AUTO_REFRESH_MS = 30_000L;
     
     private static final long SCAN_TIMEOUT_MS = 10_000L;
     private boolean autoRefreshEnabled;
 
     StorageState() {
-        for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
-            quickSlotIds[i] = "";
-            quickSlotPreviews[i] = ItemStack.EMPTY;
-        }
-        for (int i = 0; i < GUI_BINDING_COUNT; i++) {
-            guiBindingLabels[i] = "";
-            guiBindingIds[i] = "";
-            guiBindingPreviews[i] = ItemStack.EMPTY;
-        }
         storageCategories.add("all");
     }
 
@@ -327,23 +306,6 @@ public final class StorageState {
         this.craftableEntries.clear();
         this.scanRunning = false;
         this.viewDirty = false;
-        clearQuickSlots();
-        clearGuiBindings();
-    }
-
-    private void clearQuickSlots() {
-        for (int i = 0; i < QUICK_SLOT_COUNT; i++) {
-            quickSlotIds[i] = "";
-            quickSlotPreviews[i] = ItemStack.EMPTY;
-        }
-    }
-
-    private void clearGuiBindings() {
-        for (int i = 0; i < GUI_BINDING_COUNT; i++) {
-            guiBindingLabels[i] = "";
-            guiBindingIds[i] = "";
-            guiBindingPreviews[i] = ItemStack.EMPTY;
-        }
     }
 
     

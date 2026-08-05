@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.AreaOperationExecutor;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
@@ -62,11 +61,7 @@ public final class RtsUltimineProcessor {
             BlockPos pos, Direction face, byte toolSlot, int requestedLimit,
             byte mode, boolean toolProtectionEnabled) {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        int progressionLimit = RtsProgressionManager.getUltimineLimit(player);
-        if (progressionLimit <= 0) {
-            return;
-        }
-        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
+        int limit = Math.max(1, Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, requestedLimit));
 
         if (player.isCreative()) {
             Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, ItemStack.EMPTY, false,
@@ -122,9 +117,6 @@ public final class RtsUltimineProcessor {
             int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
             byte toolSlot, byte shapeType, byte fillType, boolean toolProtectionEnabled) {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        if (RtsProgressionManager.getUltimineLimit(player) <= 0) {
-            return;
-        }
 
         // 限定范围
         int clampedMinX = minX;
@@ -310,11 +302,7 @@ public final class RtsUltimineProcessor {
             BlockPos pos, Direction face, byte toolSlot, int requestedLimit,
             byte mode, boolean toolProtectionEnabled, int workflowEntryId) {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        int progressionLimit = RtsProgressionManager.getUltimineLimit(player);
-        if (progressionLimit <= 0) {
-            return 0;
-        }
-        int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, progressionLimit), requestedLimit));
+        int limit = Math.max(1, Math.min(RtsMiningValidator.ULTIMINE_MAX_BLOCKS, requestedLimit));
 
         // Creative mode: break immediately
         if (player.isCreative()) {
@@ -365,9 +353,6 @@ public final class RtsUltimineProcessor {
             int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
             byte toolSlot, byte shapeType, byte fillType, boolean toolProtectionEnabled, int workflowEntryId) {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        if (RtsProgressionManager.getUltimineLimit(player) <= 0) {
-            return 0;
-        }
 
         // 限定范围
         int clampedMinX = minX;

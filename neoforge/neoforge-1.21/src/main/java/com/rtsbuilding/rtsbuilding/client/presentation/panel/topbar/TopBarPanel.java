@@ -116,6 +116,18 @@ public final class TopBarPanel implements RtsPanelApi {
                 });
             }
         });
+
+        // 打开 RTS 界面时把客户端当前模式同步给服务端：
+        // 服务端 session.mode 取自持久化数据，可能与顶栏显示脱节（例如上次用的 BUILD），
+        // 导致漏斗等仅限交互/蓝图模式的操作被 ServerActionHandler 静默丢弃。
+        // setMode 会触发 onModeChange → BuildingModule.setMode → 下发 SET_MODE 同步服务端。
+        if (this.buildingModule != null) {
+            this.modeSwitcher.setMode(switch (this.buildingModule.getMode()) {
+                case BUILD -> ModeSwitcher.Mode.BUILD;
+                case BLUEPRINT -> ModeSwitcher.Mode.BLUEPRINT;
+                default -> ModeSwitcher.Mode.INTERACTIVE;
+            });
+        }
         
         this.logoPopup = createLogoPopup();
         this.logoPopup.positionFromButton(LOGO_SIZE / 2, LOGO_SIZE, screen.width);

@@ -25,7 +25,7 @@ public final class RtsCreativeTabs {
             "rtsbuilding",
             () -> CreativeModeTab.builder()
                     .title(Component.translatable("itemGroup.rtsbuilding"))
-                    .icon(() -> new ItemStack(RtsItems.RTS_CONTROL_CORE.get()))
+                    .icon(() -> new ItemStack(RtsItems.RTS_TERMINAL.get()))
                     .displayItems((parameters, output) -> {
                         for (var holder : RtsItems.getCreativeTabItems()) {
                             output.accept(holder.get());

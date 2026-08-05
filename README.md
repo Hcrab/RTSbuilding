@@ -67,8 +67,6 @@ point I already cannot play without it.
 - Used extensively in my ATM10 To the Sky playthrough.
 - Core features are mostly stable and robust.
 - Survival balance is still being tested.
-- A skill tree system for unlocking functions is available and can be enabled in
-  the config.
 
 #### Minecraft 1.20.1
 
@@ -170,7 +168,6 @@ On Windows:
 - 已在我的 ATM10 To the Sky 游玩过程中大量使用。
 - 核心功能整体已经比较稳定。
 - 生存平衡仍在测试中。
-- 可以在配置文件中启用技能树，用来逐步解锁功能。
 
 #### Minecraft 1.20.1
 

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.mining;
 
+import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
+import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.MiningContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.*;
 import com.rtsbuilding.rtsbuilding.server.pipeline.execution.SyncPipe;
@@ -7,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolReturnPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowCompletePipe;
+import com.rtsbuilding.rtsbuilding.server.service.mining.MultiBlockTracker;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
@@ -14,8 +17,11 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.block.state.BlockState;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -89,10 +95,26 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         // ── 3. Creative mode fast path ───────────────────────────────────
         if (player.isCreative()) {
             Direction actualFace = face == null ? Direction.DOWN : face;
-            // Store destruction info in context data for history recording
-            ctx.setData(SyncPipe.ARG_HISTORY_POSITIONS, List.of(pos.immutable()));
-            ctx.setData(SyncPipe.ARG_HISTORY_FACE, actualFace);
+            ServerLevel level = player.serverLevel();
+            // 破坏前捕获历史快照（破坏后捕获会得到空气状态，撤销记录将为空）
+            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(level, pos);
+            List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(level, pos);
+
             RtsMiningStateMachine.destroyMinedBlock(player, session, pos, toolSlot);
+
+            // 主方块记录 + 破坏后变为空气的邻接方块（多块结构联动，如门）
+            List<HistoryBlockRecord> historyRecords = new ArrayList<>();
+            if (preRecord != null) {
+                historyRecords.add(preRecord);
+            }
+            for (HistoryBlockRecord neighbor : neighborRecords) {
+                if (level.getBlockState(neighbor.pos()).isAir() && !neighbor.state().isAir()) {
+                    historyRecords.add(neighbor);
+                }
+            }
+            // Store destruction info in context data for history recording
+            ctx.setData(SyncPipe.ARG_HISTORY_RECORDS, historyRecords);
+            ctx.setData(SyncPipe.ARG_HISTORY_FACE, actualFace);
             // Complete workflow, return tools, record history (same as survival mode finalizeMiningOperation)
             WorkflowPipeline.runCleanupSequence(ctx, List.of(
                     new WorkflowCompletePipe(),

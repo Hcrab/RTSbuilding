@@ -3,8 +3,6 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
@@ -92,9 +90,6 @@ public final class RtsPlacementExecutor {
                                                 boolean skipIfOccupied, String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY,
                                                 double rayOriginZ, double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild,
                                                 boolean forceEmptyHand, boolean refreshStoragePage, boolean sendRemoteHint) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
-            return false;
-        }
         if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, clickedPos) || face == null) {
             return false;
         }

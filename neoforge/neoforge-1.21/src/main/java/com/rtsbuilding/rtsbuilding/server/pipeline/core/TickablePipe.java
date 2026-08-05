@@ -25,7 +25,6 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.core;
  * <pre>{@code
  * // Monitor ultimine batch progress
  * PipelineRegistry.register(RtsWorkflowType.ULTIMINE)
- *     .pipe(new ProgressionGatePipe(RtsFeature.ULTIMINE))
  *     .pipe(new SessionValidatePipe())
  *     // ... synchronous pipes ...
  *     .tickable(new UltimineTickPipe())

@@ -77,7 +77,23 @@ public final class LeftSidebarPanel implements RtsPanelApi {
     
     public void toggleItemPickupMode() {
         actionGroup.toggleItemPickupButton();
+        syncItemPickupState();
     }
+
+    /**
+     * 把物品拾取（漏斗）开关状态同步到服务端：
+     * 服务端需要知道漏斗已开启才会真正吸物，否则漏斗请求会被静默拒绝。
+     */
+    private void syncItemPickupState() {
+        com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway
+                .sendSetFunnelEnabled(isItemPickupActive());
+    }
+
+    
+    public boolean isItemPickupActive() {
+        return actionGroup.isSelected(2);
+    }
+
 
     
 
@@ -149,7 +165,14 @@ public final class LeftSidebarPanel implements RtsPanelApi {
 
         
         int actionY = baseY + selectGroup.totalHeight() + CROSS_GAP;
-        if (actionGroup.mouseClicked(mouseX, mouseY, bx, actionY) >= 0) return true;
+        int clicked = actionGroup.mouseClicked(mouseX, mouseY, bx, actionY);
+        if (clicked >= 0) {
+            // 物品拾取按钮（index 2）被点击时同步开关状态到服务端
+            if (clicked == 2) {
+                syncItemPickupState();
+            }
+            return true;
+        }
 
         return false;
     }

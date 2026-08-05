@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.RtsService;
 
@@ -58,9 +56,6 @@ public final class RtsPageServiceImpl implements RtsService {
     public void requestPage(ServerPlayer player, int page, String search, String category,
                             RtsStorageSort sort, boolean ascending, int pageSize,
                             boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
-            return;
-        }
         RtsStorageSession session = server.session().getOrCreate(player);
         refreshMissingGuiBindingIcons(player, session);
         session.browser.search = search == null ? "" : search;
@@ -91,7 +86,6 @@ public final class RtsPageServiceImpl implements RtsService {
 
     public void markStorageViewDirty(ServerPlayer player, RtsStorageSession session) {
         if (player == null || session == null) return;
-        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) return;
         if (session.transfer.storageViewDirty) return;
         session.transfer.storageViewDirty = true;
         PacketDistributor.sendToPlayer(player, new S2CRtsStorageDirtyPayload(true));

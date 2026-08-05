@@ -9,11 +9,7 @@ import com.rtsbuilding.rtsbuilding.network.feedback.RtsFeedbackPackets;
 import com.rtsbuilding.rtsbuilding.network.handler.ServerActionHandler;
 import com.rtsbuilding.rtsbuilding.network.message.C2SAction;
 import com.rtsbuilding.rtsbuilding.network.message.C2SCameraPosePayload;
-import com.rtsbuilding.rtsbuilding.network.message.S2CProgress;
-import com.rtsbuilding.rtsbuilding.network.message.S2CStateUpdate;
 import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
-import com.rtsbuilding.rtsbuilding.network.plugin.RtsPluginPackets;
-import com.rtsbuilding.rtsbuilding.network.progression.RtsProgressionPackets;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -40,19 +36,11 @@ public final class RtsPayloadRegistrar {
                     }
                 }));
 
-        // ── Generic S2C channels ──
-        registrar.playToClient(S2CStateUpdate.TYPE, S2CStateUpdate.STREAM_CODEC,
-                (p, ctx) -> com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleStateUpdate(p));
-        registrar.playToClient(S2CProgress.TYPE, S2CProgress.STREAM_CODEC,
-                (p, ctx) -> com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleProgress(p));
-
         // ── Legacy S2C-only domain registrations (server→client) ──
         RtsCameraPackets.register(registrar);
         RtsStoragePackets.register(registrar);
         RtsBuilderPackets.register(registrar);
         RtsCraftPackets.register(registrar);
-        RtsProgressionPackets.register(registrar);
-        RtsPluginPackets.register(registrar);
         RtsFeedbackPackets.register(registrar);
         RtsPathfindingPackets.register(registrar);
         BlueprintPayloadRegistrar.register(registrar);

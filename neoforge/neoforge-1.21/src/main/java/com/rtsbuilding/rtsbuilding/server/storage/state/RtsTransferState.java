@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * Mutable state container for remote GUI menu state and session data versioning.
  *
  * <p>Extracted from RtsStorageSession, aggregated by the responsibility of "remote menu interaction and data version tracking".
- * Contains the remote GUI menu's container ID and block position, quest detection time,
+ * Contains the remote GUI menu's container ID and block position,
  * storage view dirty flag, and page cache data version number.
  *
  * <h3>Design constraints</h3>
@@ -28,9 +28,6 @@ public class RtsTransferState {
 
     /** Block position of the remote GUI menu */
     public BlockPos remoteMenuPos;
-
-    /** Next tick time to detect RTS quests or progress */
-    public long nextQuestDetectTick;
 
     /** True when the client's storage browser page no longer matches the storage content. */
     public boolean storageViewDirty;

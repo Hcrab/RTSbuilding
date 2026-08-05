@@ -84,7 +84,6 @@ dependencies {
     runtimeOnly project(':addon-refinedstorage')
     runtimeOnly project(':addon-beyonddimensions')
     runtimeOnly project(':addon-sophisticatedbackpacks')
-    runtimeOnly project(':addon-ftb')
 
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
@@ -198,7 +197,6 @@ tasks.register('buildAddonJars') {
     dependsOn project(':addon-refinedstorage').tasks.named('jar')
     dependsOn project(':addon-beyonddimensions').tasks.named('jar')
     dependsOn project(':addon-sophisticatedbackpacks').tasks.named('jar')
-    dependsOn project(':addon-ftb').tasks.named('jar')
     doLast {
         println 'Addon JARs built — find them in each addon\\neoforge-1.21\\build\\libs\\ directory'
     }

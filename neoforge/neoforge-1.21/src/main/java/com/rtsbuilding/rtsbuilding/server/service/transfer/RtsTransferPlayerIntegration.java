@@ -3,9 +3,6 @@ package com.rtsbuilding.rtsbuilding.server.service.transfer;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
@@ -32,8 +29,8 @@ import java.util.List;
  *
  * <p>This class provides player-triggerable transfer operations, each method orchestrating a complete business workflow,
  * calling {@link RtsTransferExtractor} (extraction), {@link RtsTransferInserter} (insertion),
- * permission checks ({@code RtsProgressionManager}), dimension synchronization ({@code RtsLinkedStorageResolver})
- * and post-processing (quest detection, page refresh). All methods are {@code static},
+ * dimension synchronization ({@code RtsLinkedStorageResolver})
+ * and post-processing (page refresh). All methods are {@code static},
  * the class itself is a non-instantiable utility class.
  *
  * <p><b>Core operations:</b>
@@ -55,10 +52,8 @@ import java.util.List;
  *
  * <p><b>Design features:</b>
  * <ul>
- *   <li>All operations check {@code RtsProgressionManager.canUse} permission first</li>
  *   <li>After operation, calls {@code RtsServer.get().serviceOp().afterModification()}
- *       to trigger post-processing (page refresh, quest detection)</li>
- *   <li>After operation, calls {@code QuestService.runQuestDetect()} to trigger quest progress detection</li>
+ *       to trigger post-processing (page refresh)</li>
  *   <li>On overflow, notifies player via {@link RtsTransferInserter#sendStorageOverflowHint}</li>
  * </ul>
  */
@@ -68,9 +63,6 @@ public final class RtsTransferPlayerIntegration {
     }
 
     public static void returnCarriedToLinked(ServerPlayer player, RtsStorageSession session, String itemId, int amount) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
-            return;
-        }
         if (session == null) {
             return;
         }
@@ -79,9 +71,6 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-        if (activeLinked.isEmpty()) {
-            return;
-        }
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         ResourceLocation id = ResourceLocation.tryParse(itemId);
         if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
@@ -101,18 +90,16 @@ public final class RtsTransferPlayerIntegration {
         }
         ItemStack toStore = carried.split(returned);
         player.containerMenu.setCarried(carried);
-        // 溢出时兜底转入玩家背包/掉落（防丢失），但不弹出悬浮文字提示
+        // 溢出时兜底转入玩家背包/掉落（防丢失），但不弹出悬浮文字提示。
+        // 无绑定存储（仅背包计入存储视图）时 handlers 为空：物品全部自动退回玩家背包，
+        // 避免 carried 滞留服务端被 S2C 同步“还”回手上。
         RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, toStore);
         player.containerMenu.broadcastChanges();
         RtsServer.get().serviceOp().afterModification(player, session);
-        QuestService.runQuestDetect(player, session, false);
     }
 
     public static void quickDropLinkedItem(ServerPlayer player, RtsStorageSession session, String itemId,
             byte amount, double dropX, double dropY, double dropZ) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
-            return;
-        }
         if (session == null || !RtsCameraManager.isActive(player)) {
             return;
         }
@@ -140,8 +127,7 @@ public final class RtsTransferPlayerIntegration {
         Vec3 dropPos = new Vec3(dropX, dropY, dropZ);
         BlockPos dropBlock = BlockPos.containing(dropPos);
         if (!player.serverLevel().hasChunkAt(dropBlock)
-                || !RtsCameraManager.isWithinActionRange(player, dropBlock)
-                || !RtsProgressionManager.canAccessHomeRadius(player, dropBlock)) {
+                || !RtsCameraManager.isWithinActionRange(player, dropBlock)) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
             RtsServer.get().serviceOp().afterModification(player, session);
             return;
@@ -154,9 +140,6 @@ public final class RtsTransferPlayerIntegration {
     }
 
     public static void importMenuSlotToLinked(ServerPlayer player, RtsStorageSession session, int menuSlot) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
         if (session == null) {
             return;
         }
@@ -246,7 +229,6 @@ public final class RtsTransferPlayerIntegration {
         // 溢出兜底（转入玩家背包/掉落）保留，但不再弹出悬浮文字提示
         menu.broadcastChanges();
         RtsServer.get().serviceOp().afterModification(player, session);
-        QuestService.runQuestDetect(player, session, false);
     }
 
     public static void pickupLinkedToCarried(ServerPlayer player, RtsStorageSession session, ItemStack prototype, int amount) {
@@ -254,9 +236,6 @@ public final class RtsTransferPlayerIntegration {
     }
 
     public static void pickupLinkedToCarried(ServerPlayer player, RtsStorageSession session, ItemStack prototype, int amount, boolean fromInventory) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
-            return;
-        }
         if (session == null) {
             return;
         }
@@ -312,9 +291,6 @@ public final class RtsTransferPlayerIntegration {
     }
 
     public static void quickMoveLinkedItem(ServerPlayer player, RtsStorageSession session, ItemStack prototype, boolean fromInventory) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
-            return;
-        }
         if (session == null) {
             return;
         }
@@ -340,7 +316,6 @@ public final class RtsTransferPlayerIntegration {
                 RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, fromInv);
                 player.containerMenu.broadcastChanges();
                 RtsServer.get().serviceOp().afterModification(player, session);
-                QuestService.runQuestDetect(player, session, false);
             }
             return;
         }
@@ -366,13 +341,9 @@ public final class RtsTransferPlayerIntegration {
         }
         player.containerMenu.broadcastChanges();
         RtsServer.get().serviceOp().afterModification(player, session);
-        QuestService.runQuestDetect(player, session, false);
     }
 
     public static void fillPlayerInventoryFromLinked(ServerPlayer player, RtsStorageSession session) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
-            return;
-        }
         if (session == null) {
             return;
         }

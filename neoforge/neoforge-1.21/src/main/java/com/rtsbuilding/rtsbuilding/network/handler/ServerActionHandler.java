@@ -4,17 +4,13 @@ import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.common.item.RtsTerminalItem;
 import com.rtsbuilding.rtsbuilding.core.network.ActionType;
-import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlueprintResumeScanPayload;
-import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.network.message.C2SAction;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
-import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBlueprintJobService;
+import com.rtsbuilding.rtsbuilding.server.service.RtsFunnelService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsResumeScanResult;
@@ -163,7 +159,7 @@ public final class ServerActionHandler {
                 // Shift-click a slot in the open container menu: import that slot's item into linked storage.
                 RtsServer.get().transfer().importMenuSlotToLinked(p, t.getInt("slot"));
             }
-            case UNDO -> { if (RtsCameraManager.isActive(p)) ServerHistoryManager.executeUndo(p); }
+            case UNDO -> { if (RtsCameraManager.isActive(p) && isBuildMode(p)) ServerHistoryManager.executeUndo(p); }
             case CAMERA_POSE -> RtsCameraManager.updateCameraPose(p,
                     t.getDouble("x"), t.getDouble("y"), t.getDouble("z"),
                     t.getFloat("yaw"), t.getFloat("pitch"));
@@ -179,12 +175,19 @@ public final class ServerActionHandler {
                 });
             }
             case DELETE_WORKFLOW -> RtsWorkflowEngine.getInstance().deleteWorkflow(p, t.getInt("entryId"));
-            case REQUEST_PLUGINS -> LOG.debug("REQUEST_PLUGINS not yet migrated");
-            case SET_PROGRESSION -> LOG.debug("SET_PROGRESSION not yet migrated");
-            case SET_HOME -> LOG.debug("SET_HOME not yet migrated");
-            case BEGIN_HOME_SELECTION -> LOG.debug("BEGIN_HOME_SELECTION not yet migrated");
-            case REQUEST_PROGRESSION -> LOG.debug("REQUEST_PROGRESSION not yet migrated");
             case PATHFIND -> RtsServer.get().pathfinding().goTo(p, BlockPos.of(t.getLong("target")));
+            case FUNNEL_PICKUP -> {
+                if (!isInteractOrBlueprintMode(p)) return;
+                RtsFunnelService.INSTANCE.onFunnelPickupRequest(p, BlockPos.of(t.getLong("pos")));
+            }
+            case FUNNEL_BOX_PICKUP -> {
+                if (!isInteractOrBlueprintMode(p)) return;
+                var list = t.getList("entities", net.minecraft.nbt.Tag.TAG_INT);
+                var entityIds = new ArrayList<Integer>();
+                for (int i = 0; i < list.size(); i++) entityIds.add(((net.minecraft.nbt.IntTag) list.get(i)).getAsInt());
+                RtsFunnelService.INSTANCE.onFunnelBoxPickupRequest(p, entityIds);
+            }
+            case SET_FUNNEL -> RtsFunnelService.INSTANCE.setFunnelEnabled(p, t.getBoolean("enabled"));
             default -> LOG.debug("Unhandled: {} from {}", msg.actionType(), p.getName().getString());
         }
     }
@@ -193,5 +196,11 @@ public final class ServerActionHandler {
         if (!RtsCameraManager.isActive(p)) return true;
         var session = RtsServer.get().session().getIfPresent(p);
         return session != null && session.mode == BuilderMode.BUILD;
+    }
+
+    private static boolean isInteractOrBlueprintMode(ServerPlayer p) {
+        var session = RtsServer.get().session().getIfPresent(p);
+        return session != null
+                && (session.mode == BuilderMode.INTERACT || session.mode == BuilderMode.BLUEPRINT);
     }
 }

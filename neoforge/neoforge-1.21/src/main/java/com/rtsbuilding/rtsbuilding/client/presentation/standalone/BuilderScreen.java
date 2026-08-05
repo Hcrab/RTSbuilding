@@ -230,20 +230,50 @@ public class BuilderScreen extends Screen {
         }
         
         int rightW = getRightSidebarWidth();
-        if (rightW > 0 && mouseX >= this.width - rightW) {
+        if (rightW > 0 && mouseX >= getRtsVirtualWidth() - rightW) {
             return true;
         }
         
         int downH = getDownSidebarHeight();
-        if (downH > 0 && mouseY >= this.height - downH) {
+        if (downH > 0 && mouseY >= getRtsVirtualHeight() - downH) {
             return true;
         }
         return false;
     }
 
+    /**
+     * RTS 虚拟画布宽度（物理像素 ÷ RTS GUI 缩放）。
+     * <p>鼠标事件与 {@link #tick()} 中的漏斗检测都使用 RTS 虚拟坐标，
+     * 而 {@code this.width} 在非渲染帧期间是原版 GUI 缩放坐标，
+     * 两者只有 GUI 缩放等于 RTS GUI 缩放时才一致。面板/世界区域判定统一用虚拟尺寸，避免错位。</p>
+     */
+    public int getRtsVirtualWidth() {
+        return Math.max(1, (int) Math.round(
+                Minecraft.getInstance().getWindow().getScreenWidth() / getRtsGuiScale()));
+    }
+
+    /**
+     * RTS 虚拟画布高度（物理像素 ÷ RTS GUI 缩放）。
+     */
+    public int getRtsVirtualHeight() {
+        return Math.max(1, (int) Math.round(
+                Minecraft.getInstance().getWindow().getScreenHeight() / getRtsGuiScale()));
+    }
+
     
     public boolean isClickButtonSelected() {
         return leftSidebarPanel != null && leftSidebarPanel.isClickButtonSelected();
+    }
+
+    
+    public boolean isItemPickupActive() {
+        return leftSidebarPanel != null && leftSidebarPanel.isItemPickupActive();
+    }
+
+    // 相机是否激活（与服务端 RtsCameraManager 的漏斗/操作校验保持一致）
+    public boolean isCameraActive() {
+        CameraModule cam = kernel.module(CameraModule.class);
+        return cam != null && cam.isCameraEnabled();
     }
 
     
@@ -359,6 +389,8 @@ public class BuilderScreen extends Screen {
         cursorWrapHandler.tick(kernel.module(CameraModule.class), scaleManager.getRtsGuiScale(),
                 getRightSidebarWidth(), getDownSidebarHeight());
         screenCoordinator.tickContainerScreen();
+        // 物品拾取（漏斗）自动触发：点击模式跟随指针持续拾取，框选模式确认即拾取
+        buildInteractionHandler.handleTick(this, leftSidebarPanel);
     }
 
     

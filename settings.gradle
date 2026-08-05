@@ -28,6 +28,3 @@ project(":addon-beyonddimensions").projectDir = file("addons/addon-beyonddimensi
 
 include "addon-sophisticatedbackpacks"
 project(":addon-sophisticatedbackpacks").projectDir = file("addons/addon-sophisticatedbackpacks/neoforge-1.21")
-
-include "addon-ftb"
-project(":addon-ftb").projectDir = file("addons/addon-ftb/neoforge-1.21")

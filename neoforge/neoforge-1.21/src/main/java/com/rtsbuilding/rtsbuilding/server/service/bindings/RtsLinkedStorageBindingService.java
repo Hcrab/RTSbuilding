@@ -30,8 +30,8 @@ import java.util.UUID;
  * </ul>
  *
  * <p>Extracted from {@link RtsStorageBindings}, separating linked storage binding logic from quick slot
- * and GUI binding concerns. Block/chunk existence capability detection and progression gating
- * still come from {@link RtsLinkedCapabilities} and {@link RtsLinkedStorageResolver}.
+ * and GUI binding concerns. Block/chunk existence capability detection
+ * still comes from {@link RtsLinkedCapabilities} and {@link RtsLinkedStorageResolver}.
  * Part of Phase 2 service decoupling.
  */
 public final class RtsLinkedStorageBindingService {

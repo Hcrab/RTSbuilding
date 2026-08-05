@@ -3,9 +3,6 @@ package com.rtsbuilding.rtsbuilding.server.service.crafting;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
-import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
@@ -66,9 +63,6 @@ public final class RtsCraftingExecutor {
      * Opens the remote crafting terminal from RTS mode.
      */
     public static void openCraftTerminal(ServerPlayer player, RtsStorageSession session) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
         if (session == null) {
             return;
         }
@@ -100,9 +94,6 @@ public final class RtsCraftingExecutor {
      * Crafts the recipe into linked storage, up to {@code craftCount} times.
      */
     public static void craftRecipeToLinked(ServerPlayer player, RtsStorageSession session, String recipeId, int craftCount) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)) {
-            return;
-        }
         if (session == null) {
             return;
         }
@@ -190,7 +181,6 @@ public final class RtsCraftingExecutor {
             summary.append(".");
         }
         player.displayClientMessage(Component.literal(summary.toString()), true);
-        QuestService.runQuestDetect(player, session, false);
         // Automatically attempt to resume pending placement jobs after crafting completes
         RtsPendingPlacementService.tryResumeAfterStorageChange(player);
     }

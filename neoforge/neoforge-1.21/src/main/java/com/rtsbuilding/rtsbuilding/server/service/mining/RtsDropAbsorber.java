@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
-import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
@@ -18,15 +17,15 @@ import java.util.List;
 /**
  * 挖掘掉落物吸收器，负责在方块被远程破坏后自动收集掉落物品。
  *
- * <p>当会话启用了 {@code autoStoreMinedDrops}（且科技树解锁 {@code AUTO_STORE_MINED_DROPS} 功能）时，
+ * <p>当会话启用了 {@code autoStoreMinedDrops} 时，
  * 在破坏位置周围 1.25 格半径内扫描 {@link ItemEntity}，优先存入链接存储处理器，
  * 回退到玩家背包。若两个目标均已满，剩余物品留在世界中。
  *
- * <p>无状态工具类，所有配置存在于会话和科技树进度系统中。
+ * <p>无状态工具类，所有配置存在于会话中。
  * 核心方法：
  * <ul>
  *   <li>{@link #absorbNearbyMinedDrops} — 执行扫描和吸收逻辑</li>
- *   <li>{@link #absorbMinedDropsImmediately} — 便捷包装，吸收后自动触发任务检测和恢复挂起放置</li>
+ *   <li>{@link #absorbMinedDropsImmediately} — 便捷包装，吸收后自动恢复挂起放置</li>
  * </ul>
  */
 public final class RtsDropAbsorber {
@@ -80,16 +79,13 @@ public final class RtsDropAbsorber {
     }
 
     /**
-     * 便捷包装方法：调用 {@link #absorbNearbyMinedDrops}，如果吸收了任何掉落物，
-     * 则触发任务检测。
+     * 便捷包装方法：调用 {@link #absorbNearbyMinedDrops} 吸收附近掉落物。
      */
     public static void absorbMinedDropsImmediately(ServerPlayer player, RtsStorageSession session, BlockPos pos) {
         if (player == null || session == null || pos == null) {
             return;
         }
-        if (absorbNearbyMinedDrops(player, pos, session)) {
-            QuestService.runQuestDetect(player, session, false);
-        }
+        absorbNearbyMinedDrops(player, pos, session);
         // 挖掘吸物后自动尝试恢复挂起放置作业
         RtsPendingPlacementService.tryResumeAfterStorageChange(player);
     }

@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.service.resolver;
 
 import com.rtsbuilding.rtsbuilding.api.compat.RtsCompatRegistry;
 import com.rtsbuilding.rtsbuilding.api.compat.RtsStorageNetworkProvider;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.storage.handler.RtsLinkedCapabilities;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
@@ -69,7 +68,6 @@ public final class RtsLinkedHandlerResolutionService {
                 IItemHandler handler = null;
 
                 if (sameDimension && !session.linkedStorageInfo.isDetached(ref)
-                        && RtsProgressionManager.canAccessHomeRadius(player, pos)
                         && player.serverLevel().hasChunkAt(pos)) {
                     handler = backpackLink
                             ? findMatchingBackpackBlockHandler(player, pos, backpackUuid)
@@ -167,9 +165,6 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 BlockPos pos = ref.pos();
-                if (!RtsProgressionManager.canAccessHomeRadius(player, pos)) {
-                    continue;
-                }
                 if (!player.serverLevel().hasChunkAt(pos)) {
                     continue;
                 }

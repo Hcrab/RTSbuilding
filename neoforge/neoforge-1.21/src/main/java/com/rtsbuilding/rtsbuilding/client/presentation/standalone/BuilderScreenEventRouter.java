@@ -1,8 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.presentation.standalone;
 
+import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.BuildingModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.client.presentation.event.dispatcher.EventDispatcher;
 import com.rtsbuilding.rtsbuilding.client.presentation.event.model.EventResult;
 import com.rtsbuilding.rtsbuilding.client.presentation.event.model.KeyPressEvent;
@@ -15,13 +18,20 @@ import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.BuilderScre
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.handler.EntityInteractionHandler;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.LeftSidebarPanel;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.TopBarPanel;
+import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.neoforged.neoforge.client.settings.KeyModifier;
 import org.lwjgl.glfw.GLFW;
 
 import static com.rtsbuilding.rtsbuilding.client.presentation.event.model.EventResult.CONSUMED;
 import static com.rtsbuilding.rtsbuilding.client.presentation.event.model.EventResult.PASS;
 
 public final class BuilderScreenEventRouter {
+
+    /** Ctrl+Z 最小触发间隔（毫秒）：GLFW 按住按键时以 repeat 形式每 tick 触发，这里限流防止连发 */
+    private static final long UNDO_MIN_INTERVAL_MS = 250L;
+
+    private static long lastUndoPressMs = 0L;
 
     private final SuperScreen superScreen;
 
@@ -229,42 +239,76 @@ public final class BuilderScreenEventRouter {
     private EventResult handleShortcut(KeyPressEvent event, RtsClientKernel kernel,
             TopBarPanel topBar, LeftSidebarPanel lb, GearMenuPanel gearMenu,
             BuilderScreen screen) {
-        if (RtsKeyMappings.OPEN_GEAR_MENU_KEY.matches(event.keyCode(), event.scanCode())) {
+        if (keyMatches(RtsKeyMappings.OPEN_GEAR_MENU_KEY, event)) {
             gearMenu.toggleOpen();
             topBar.setGearMenuOpen(gearMenu.isOpen());
             return CONSUMED;
         }
-        if (RtsKeyMappings.TOGGLE_DEBUG_OVERLAY_KEY.matches(event.keyCode(), event.scanCode())) {
+        if (keyMatches(RtsKeyMappings.TOGGLE_DEBUG_OVERLAY_KEY, event)) {
             topBar.toggleDebugOverlay();
             return CONSUMED;
         }
-        if (RtsKeyMappings.TOGGLE_CAMERA_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+        if (keyMatches(RtsKeyMappings.TOGGLE_CAMERA_MODE_KEY, event)) {
             CameraModule cam = kernel.module(CameraModule.class);
             if (cam != null) cam.togglePlayerOrbitMode();
             return CONSUMED;
         }
-        if (RtsKeyMappings.TOGGLE_SELECT_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+        if (keyMatches(RtsKeyMappings.TOGGLE_SELECT_MODE_KEY, event)) {
             lb.toggleSelectMode();
             if (lb.isClickButtonSelected()) screen.clearBoxSelection();
             return CONSUMED;
         }
-        if (RtsKeyMappings.TOGGLE_BIND_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+        if (keyMatches(RtsKeyMappings.TOGGLE_BIND_MODE_KEY, event)) {
             lb.toggleBindMode();
             return CONSUMED;
         }
-        if (RtsKeyMappings.TOGGLE_DIRECTION_ROTATE_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+        if (keyMatches(RtsKeyMappings.TOGGLE_DIRECTION_ROTATE_MODE_KEY, event)) {
             lb.toggleDirectionRotateMode();
             return CONSUMED;
         }
-        if (RtsKeyMappings.TOGGLE_ITEM_PICKUP_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+        if (keyMatches(RtsKeyMappings.TOGGLE_ITEM_PICKUP_MODE_KEY, event)) {
             lb.toggleItemPickupMode();
             return CONSUMED;
         }
-        if (RtsKeyMappings.CYCLE_MODE_KEY.matches(event.keyCode(), event.scanCode())) {
+        if (keyMatches(RtsKeyMappings.CYCLE_MODE_KEY, event)) {
             topBar.cycleMode();
             return CONSUMED;
         }
+        if (keyMatches(RtsKeyMappings.UNDO_KEY, event)) {
+            long now = System.currentTimeMillis();
+            if (now - lastUndoPressMs >= UNDO_MIN_INTERVAL_MS) {
+                lastUndoPressMs = now;
+                // 仅建造模式可撤销，避免其他模式下误触回滚
+                BuildingModule buildingModule = kernel.module(BuildingModule.class);
+                if (buildingModule != null && buildingModule.getMode() == BuilderMode.BUILD) {
+                    RtsClientPacketGateway.sendUndo();
+                }
+            }
+            return CONSUMED;
+        }
         return PASS;
+    }
+
+    /**
+     * 匹配按键绑定并显式校验修饰键。
+     * <p>
+     * NeoForge 的 {@link KeyMapping#matches(int, int)} 只匹配键码、不校验修饰键
+     * （原版行为，补丁未修改），因此 Alt+Z 与 Ctrl+Z 等同一键码的不同组合键会互相误触。
+     * 这里用事件携带的 GLFW 修饰位掩码做精确校验，保证组合键互不干扰。
+     */
+    private static boolean keyMatches(KeyMapping mapping, KeyPressEvent event) {
+        if (!mapping.matches(event.keyCode(), event.scanCode())) return false;
+        KeyModifier required = mapping.getKeyModifier();
+        int mods = event.modifiers();
+        boolean ctrl = (mods & GLFW.GLFW_MOD_CONTROL) != 0;
+        boolean alt = (mods & GLFW.GLFW_MOD_ALT) != 0;
+        boolean shift = (mods & GLFW.GLFW_MOD_SHIFT) != 0;
+        return switch (required) {
+            case SHIFT -> shift && !ctrl && !alt;
+            case CONTROL -> ctrl && !alt && !shift;
+            case ALT -> alt && !ctrl && !shift;
+            case NONE -> !ctrl && !alt && !shift;
+        };
     }
 
     private static boolean isAltDown() {

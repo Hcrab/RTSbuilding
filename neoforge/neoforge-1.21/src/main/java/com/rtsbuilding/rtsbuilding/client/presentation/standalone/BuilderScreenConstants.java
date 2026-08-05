@@ -162,8 +162,6 @@ public final class BuilderScreenConstants {
     
     public static final ResourceLocation TOPBAR_QUICK_BUILD = topbarTexture("quick_construction_button");
     
-    public static final ResourceLocation TOPBAR_QUEST_DETECT = topbarTexture("quest_detect_button");
-    
     public static final ResourceLocation TOPBAR_CHUNK_VIEW = topbarTexture("block_display_button");
     
     public static final ResourceLocation TOPBAR_GEAR = topbarTexture("setting_button");

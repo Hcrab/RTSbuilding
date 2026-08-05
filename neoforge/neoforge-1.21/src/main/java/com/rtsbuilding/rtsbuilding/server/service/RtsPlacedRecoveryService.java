@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
@@ -72,12 +70,6 @@ public final class RtsPlacedRecoveryService {
      */
     public static void breakPlaced(ServerPlayer player, BlockPos pos, Direction face, boolean allowAdjacentFallback) {
         boolean undoRecovery = allowAdjacentFallback;
-        if (!undoRecovery && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_BREAK)) {
-            return;
-        }
-        if (undoRecovery && !RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
-            return;
-        }
         RtsStorageSession session = RtsServer.get().session().getIfPresent(player);
         if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return;
@@ -192,7 +184,6 @@ public final class RtsPlacedRecoveryService {
         }
         if (processedAny) {
             RtsServer.get().page().markStorageViewDirty(player, session);
-            QuestService.runQuestDetect(player, session, false);
         }
     }
 

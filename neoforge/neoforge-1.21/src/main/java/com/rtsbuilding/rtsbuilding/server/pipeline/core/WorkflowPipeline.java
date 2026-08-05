@@ -18,7 +18,6 @@ import java.util.*;
  * <p>Usage:</p>
  * <pre>{@code
  * Pipeline.of(WorkflowType.MINE_SINGLE)
- *     .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_BREAK))
  *     .pipe(new SessionValidatePipe())
  *     .pipe(new WorkflowStartPipe())
  *     .pipe(new MiningExecutePipe())

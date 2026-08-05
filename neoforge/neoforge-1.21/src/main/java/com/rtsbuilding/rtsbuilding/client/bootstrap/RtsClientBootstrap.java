@@ -10,8 +10,6 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.building.Buildin
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.mining.MiningModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.pathfinding.PathfindingModule;
-import com.rtsbuilding.rtsbuilding.client.infrastructure.module.plugin.PluginModule;
-import com.rtsbuilding.rtsbuilding.client.infrastructure.module.progression.ProgressionModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.remote.RemoteMenuModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageModule;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
@@ -140,8 +138,6 @@ public final class RtsClientBootstrap {
             kernel.register(new BuildingModule());
             kernel.register(new MiningModule());
             kernel.register(new WorkflowModule());
-            kernel.register(new PluginModule());
-            kernel.register(new ProgressionModule());
             kernel.register(new RemoteMenuModule());
             kernel.register(new PathfindingModule());
 

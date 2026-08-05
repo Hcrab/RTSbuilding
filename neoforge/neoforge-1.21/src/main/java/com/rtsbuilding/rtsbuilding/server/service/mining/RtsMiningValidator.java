@@ -2,8 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -146,11 +144,10 @@ public final class RtsMiningValidator {
     // =========================================================================
 
     /**
-     * 如果自动储存挖掘掉落物功能在会话中启用且被玩家的进度解锁，返回 {@code true}。
+     * 如果自动储存挖掘掉落物功能在会话中启用，返回 {@code true}。
      */
     public static boolean canAutoStoreDrops(ServerPlayer player, RtsStorageSession session) {
-        return session.sessionFlags.autoStoreMinedDrops
-                && RtsProgressionManager.canUse(player, RtsFeature.AUTO_STORE_MINED_DROPS);
+        return session.sessionFlags.autoStoreMinedDrops;
     }
 
     /**

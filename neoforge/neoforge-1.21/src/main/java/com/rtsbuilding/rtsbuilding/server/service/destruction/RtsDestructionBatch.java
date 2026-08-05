@@ -3,8 +3,6 @@ package com.rtsbuilding.rtsbuilding.server.service.destruction;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
-import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.RtsBatchJobTickOps;
 import com.rtsbuilding.rtsbuilding.server.RtsServer;
 import com.rtsbuilding.rtsbuilding.server.service.mining.*;
@@ -64,9 +62,6 @@ public final class RtsDestructionBatch {
     public static boolean enqueueDestroyBatch(ServerPlayer player, RtsStorageSession session,
             List<BlockPos> positions, byte toolSlot, boolean toolProtectionEnabled,
             int workflowEntryId) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.AREA_DESTROY)) {
-            return false;
-        }
         if (session == null || positions == null || positions.isEmpty()) {
             return false;
         }
@@ -264,8 +259,10 @@ public final class RtsDestructionBatch {
                 j -> j.destroyedPositions.size(),
                 j -> j.skippedWhileProcessing,
                 (p, job) -> {
-                    if (!job.destroyedPositions.isEmpty()) {
-                        ServerHistoryManager.recordBreak(p, job.destroyedPositions, Direction.DOWN);
+                    // 使用破坏前捕获的 records（destroyedPositions 是破坏后的位置，
+                    // 事后重新捕获会得到空气状态，撤销记录将为空）
+                    if (!job.processedRecords.isEmpty()) {
+                        ServerHistoryManager.recordBreakWithRecords(p, job.processedRecords, Direction.DOWN);
                     }
                 },
                 (p, job) -> RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} completed destroy job #{} ({} destroyed)",

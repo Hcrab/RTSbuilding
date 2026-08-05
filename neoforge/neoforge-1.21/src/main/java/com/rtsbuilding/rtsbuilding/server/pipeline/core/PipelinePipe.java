@@ -24,8 +24,8 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.core;
  * <pre>{@code
  * // Lambda — simple validation
  * .pipe(ctx -> {
- *     if (!RtsProgressionManager.canUse(ctx.player(), RtsFeature.REMOTE_BREAK)) {
- *         return PipelineResult.failure("Feature not unlocked");
+ *     if (!ctx.hasSession()) {
+ *         return PipelineResult.failure("No active session");
  *     }
  *     return PipelineResult.success();
  * })

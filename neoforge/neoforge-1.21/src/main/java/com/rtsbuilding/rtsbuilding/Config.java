@@ -5,21 +5,6 @@ import net.neoforged.neoforge.common.ModConfigSpec;
 public class Config {
     private static final ModConfigSpec.Builder BUILDER = new ModConfigSpec.Builder();
 
-    public static final ModConfigSpec.BooleanValue ENABLE_SURVIVAL_PROGRESSION = BUILDER
-            .comment("Enable RTS Home anchors and home-radius limits.")
-            .translation("rtsbuilding.configuration.enableSurvivalProgression")
-            .define("enableSurvivalProgression", false);
-
-    public static final ModConfigSpec.BooleanValue SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS = BUILDER
-            .comment("When RTS Home is enabled, share RTS home anchors with the player's FTB Team, or vanilla scoreboard team when FTB Teams is unavailable.")
-            .translation("rtsbuilding.configuration.shareSurvivalProgressionWithTeams")
-            .define("shareSurvivalProgressionWithTeams", false);
-
-    public static final ModConfigSpec.IntValue MAX_ACTION_RADIUS_BLOCKS = BUILDER
-            .comment("Maximum RTS action radius in blocks.")
-            .translation("rtsbuilding.configuration.maxActionRadiusBlocks")
-            .defineInRange("maxActionRadiusBlocks", 128, 48, 512);
-
     public static final ModConfigSpec.BooleanValue ENABLE_BLUEPRINTS = BUILDER
             .comment("Enable the RTS blueprint library tab, local blueprint upload, and server-side blueprint placement.")
             .translation("rtsbuilding.configuration.enableBlueprints")
@@ -69,20 +54,6 @@ public class Config {
 
     public static final ModConfigSpec SPEC = BUILDER.build();
 
-    public static void setSurvivalProgressionEnabled(boolean enabled) {
-        ENABLE_SURVIVAL_PROGRESSION.set(enabled);
-        SPEC.save();
-    }
-
-    public static int maxActionRadiusBlocks() {
-        return MAX_ACTION_RADIUS_BLOCKS.getAsInt();
-    }
-
-    public static void setMaxActionRadiusBlocks(int radiusBlocks) {
-        MAX_ACTION_RADIUS_BLOCKS.set(Math.max(48, Math.min(512, radiusBlocks)));
-        SPEC.save();
-    }
-
     public static boolean areBlueprintsEnabled() {
         return ENABLE_BLUEPRINTS.getAsBoolean();
     }
@@ -91,13 +62,10 @@ public class Config {
         return MAX_BLUEPRINT_BLOCKS.getAsInt();
     }
 
-    public static void saveGeneralSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
-            boolean blueprintsEnabled, int maxBlueprintBlocks, boolean placementBlockGhostPreview,
-            boolean placeBlockGhostAnimation, boolean destroyBlockGhostAnimation, boolean placementWireframePreview,
+    public static void saveGeneralSettings(boolean blueprintsEnabled, int maxBlueprintBlocks,
+            boolean placementBlockGhostPreview, boolean placeBlockGhostAnimation,
+            boolean destroyBlockGhostAnimation, boolean placementWireframePreview,
             boolean placeWireframeAnimation, boolean destroyWireframeAnimation, boolean rangeDestroySkeleton) {
-        ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
-        SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
-        MAX_ACTION_RADIUS_BLOCKS.set(Math.max(48, Math.min(512, radiusBlocks)));
         ENABLE_BLUEPRINTS.set(blueprintsEnabled);
         MAX_BLUEPRINT_BLOCKS.set(Math.max(1, Math.min(200000, maxBlueprintBlocks)));
         USE_BLOCK_GHOST_PREVIEW.set(placementBlockGhostPreview);

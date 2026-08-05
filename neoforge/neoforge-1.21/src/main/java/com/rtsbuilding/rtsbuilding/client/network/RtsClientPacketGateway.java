@@ -152,28 +152,6 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(act(ActionType.ROTATE_BLOCK, t));
     }
 
-    public static void sendRequestPlugins() {
-        PacketDistributor.sendToServer(act(ActionType.REQUEST_PLUGINS, tag()));
-    }
-
-    public static void sendRequestProgressionState() {
-        PacketDistributor.sendToServer(act(ActionType.REQUEST_PROGRESSION, tag()));
-    }
-
-    public static void sendSetSurvivalProgression(boolean enabled) {
-        var t = tag(); t.putBoolean("enabled", enabled);
-        PacketDistributor.sendToServer(act(ActionType.SET_PROGRESSION, t));
-    }
-
-    public static void sendSetHome(BlockPos pos) {
-        var t = tag(); t.putLong("pos", pos.asLong());
-        PacketDistributor.sendToServer(act(ActionType.SET_HOME, t));
-    }
-
-    public static void sendBeginHomeSelection() {
-        PacketDistributor.sendToServer(act(ActionType.BEGIN_HOME_SELECTION, tag()));
-    }
-
     public static void sendPathfindingGoTo(BlockPos target) {
         var t = tag(); t.putLong("target", target.asLong());
         PacketDistributor.sendToServer(act(ActionType.PATHFIND, t));
@@ -331,5 +309,39 @@ public final class RtsClientPacketGateway {
         if (menuSlot < 0) return;
         var t = tag(); t.putInt("slot", menuSlot);
         PacketDistributor.sendToServer(act(ActionType.IMPORT_MENU_SLOT, t));
+    }
+
+    // ── Funnel (item pickup) ──
+
+    /**
+     * 同步物品拾取（漏斗）开关状态到服务端。
+     * 客户端点击左栏“物品拾取”按钮或按快捷键时发送，服务端据此开启/关闭漏斗能力。
+     */
+    public static void sendSetFunnelEnabled(boolean enabled) {
+        var t = tag(); t.putBoolean("enabled", enabled);
+        PacketDistributor.sendToServer(act(ActionType.SET_FUNNEL, t));
+    }
+
+    /**
+     * 点击模式漏斗：以目标方块位置为球心、半径 2 格持续吸取掉落物到储存空间。
+     * 服务端每 tick 最多提取 64 个物品，直到区域清空。
+     */
+    public static void sendFunnelPickup(BlockPos pos) {
+        if (pos == null) return;
+        var t = tag(); t.putLong("pos", pos.asLong());
+        PacketDistributor.sendToServer(act(ActionType.FUNNEL_PICKUP, t));
+    }
+
+    /**
+     * 框选模式漏斗：客户端同步框选区域内的掉落物实体 ID 列表给服务端，
+     * 服务端将这些实体一次性吸取到储存空间。
+     */
+    public static void sendFunnelBoxPickup(List<Integer> entityIds) {
+        if (entityIds == null || entityIds.isEmpty()) return;
+        var t = tag();
+        var list = new ListTag();
+        for (int id : entityIds) list.add(net.minecraft.nbt.IntTag.valueOf(id));
+        t.put("entities", list);
+        PacketDistributor.sendToServer(act(ActionType.FUNNEL_BOX_PICKUP, t));
     }
 }

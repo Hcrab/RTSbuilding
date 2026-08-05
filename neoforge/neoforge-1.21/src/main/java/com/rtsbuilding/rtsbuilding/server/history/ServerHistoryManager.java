@@ -1,9 +1,13 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
+import com.rtsbuilding.rtsbuilding.server.RtsServer;
+import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
+import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -24,12 +28,20 @@ import java.util.*;
  *   <li>服务端权威：所有记录在服务端管理，防止作弊</li>
  *   <li>过期自动清理：超过 10 分钟的历史记录自动清除</li>
  *   <li>容量限制：每栈最多 {@link RtsHistoryConstants#SHAPE_HISTORY_LIMIT} 条</li>
- *   <li>线程安全：使用 ConcurrentHashMap</li>
+ *   <li>线程安全：所有访问均在服务端游戏主线程，无需并发容器</li>
  * </ul>
  */
 public final class ServerHistoryManager {
     /** 清理间隔 */
     private static final long CLEANUP_INTERVAL_MS = 120_000L; // 2分钟
+
+    /** 撤销冷却：客户端 Ctrl+Z 按住时每 tick 触发，这里限流防止一次性撤销过多 */
+    private static final long UNDO_COOLDOWN_MS = 200L;
+
+    /** 单次撤销最多处理的方块数：超大批次（如整面墙放置）分多次撤销，避免单 tick 卡顿 */
+    private static final int UNDO_BUDGET_PER_TICK = 64;
+
+    private static final Map<UUID, Long> lastUndoExecTimes = new HashMap<>();
 
     private static final Map<UUID, PlayerHistory> playerHistories = new HashMap<>();
     private static long lastCleanupTime = System.currentTimeMillis();
@@ -94,33 +106,83 @@ public final class ServerHistoryManager {
 
     public static int executeUndo(ServerPlayer player) {
         if (player == null) return 0;
-        HistoryEntry entry = undo(player);
-        if (entry == null) return 0;
 
-        if (!entry.getDimension().equals(player.serverLevel().dimension())) {
-            PlayerHistory ph = playerHistories.get(player.getUUID());
-            if (ph != null) {
-                ph.undoStack.addLast(entry);
-            }
+        // 冷却检查：客户端 Ctrl+Z 按住时每 tick 触发（GLFW repeat），服务端限流
+        long now = System.currentTimeMillis();
+        Long lastExec = lastUndoExecTimes.get(player.getUUID());
+        if (lastExec != null && now - lastExec < UNDO_COOLDOWN_MS) {
             return 0;
         }
 
-        int executed = HistoryExecutor.executeUndo(player, entry);
-        if (executed < entry.getBlockCount()) {
-            if (executed <= 0) {
-                PlayerHistory ph0 = playerHistories.get(player.getUUID());
-                if (ph0 != null) {
-                    ph0.undoStack.add(entry);
-                }
+        PlayerHistory ph = playerHistories.get(player.getUUID());
+        HistoryEntry entry = popSameDimensionEntry(player, ph);
+        if (entry == null) {
+            lastUndoExecTimes.put(player.getUUID(), now);
+            if (ph == null || ph.undoStack.isEmpty()) {
+                feedback(player, "\u00a77[RTS] \u00a7c没有可撤销的操作");
             } else {
-                HistoryEntry remaining = entry.removeRestored(executed);
-                if (remaining != null) {
-                    updateUndoEntry(player, remaining);
-                }
+                feedback(player, "\u00a77[RTS] \u00a7c历史记录在其他维度，无法撤销");
             }
+            sendSync(player);
+            return 0;
         }
+
+        lastUndoExecTimes.put(player.getUUID(), now);
+
+        HistoryExecutor.UndoOutcome outcome = HistoryExecutor.executeUndo(player, entry, UNDO_BUDGET_PER_TICK);
+
+        // 预算未处理完的部分重新入栈（保持原始顺序），下次撤销继续
+        if (!outcome.pending().isEmpty()) {
+            ph.undoStack.addLast(new HistoryEntry(
+                    entry.isDestructive(), outcome.pending(), entry.getFace(), entry.getDimension()));
+        }
+
+        // 撤销后刷新工作流进度，确保进行中的批量作业显示与实际世界状态一致
+        RtsStorageSession session = RtsServer.get().session().getIfPresent(player);
+        if (session != null) {
+            RtsProgressRefresher.refreshWorkflowProgress(player, session);
+        }
+
+        // 撤销反馈（action bar）：成功 / 部分成功 / 全部失败
+        int total = entry.getBlockCount();
+        if (outcome.executed() > 0 && outcome.pending().isEmpty()) {
+            feedback(player, "\u00a77[RTS] \u00a7a已撤销 " + outcome.executed() + " 个方块");
+        } else if (outcome.executed() == 0 && outcome.pending().isEmpty()) {
+            feedback(player, "\u00a77[RTS] \u00a7c无法撤销：位置被占用或缺少对应物品");
+        } else {
+            feedback(player, "\u00a77[RTS] \u00a7e已撤销 " + outcome.executed() + "/" + total
+                    + " 个方块，再次按下 Ctrl+Z 继续");
+        }
+
         sendSync(player);
-        return executed;
+        return outcome.executed();
+    }
+
+    /**
+     * 从栈顶弹出与玩家当前维度一致的记录。
+     * <p>
+     * 维度不符的记录移到栈底保留（玩家回到该维度后仍可撤销），同时继续尝试下一条，
+     * 避免单条跨维度记录永久挡栈导致撤销死锁。
+     */
+    @Nullable
+    private static HistoryEntry popSameDimensionEntry(ServerPlayer player, @Nullable PlayerHistory ph) {
+        if (ph == null || ph.undoStack.isEmpty()) return null;
+        var currentDimension = player.serverLevel().dimension();
+        int guard = ph.undoStack.size();
+        while (guard-- > 0) {
+            HistoryEntry candidate = ph.undoStack.peekLast();
+            if (candidate.getDimension().equals(currentDimension)) {
+                ph.undoStack.removeLast();
+                return candidate;
+            }
+            // 维度不符：移到栈底保留记录，继续尝试下一条
+            ph.undoStack.addFirst(ph.undoStack.removeLast());
+        }
+        return null; // 栈中全部为其他维度的记录
+    }
+
+    private static void feedback(ServerPlayer player, String text) {
+        player.displayClientMessage(Component.literal(text), true);
     }
 
     public static void sendSync(ServerPlayer player) {
@@ -141,20 +203,6 @@ public final class ServerHistoryManager {
         if (ph == null) return null;
         if (ph.undoStack.isEmpty()) return null;
         return ph.undoStack.removeLast();
-    }
-
-    // ======================================================================
-    //  部分恢复支持
-    // ======================================================================
-
-    public static void updateUndoEntry(ServerPlayer player, HistoryEntry entry) {
-        if (player == null || entry == null) return;
-        PlayerHistory ph = playerHistories.get(player.getUUID());
-        if (ph == null) return;
-        if (!ph.undoStack.isEmpty()) {
-            ph.undoStack.removeLast();
-            ph.undoStack.add(entry);
-        }
     }
 
     // ======================================================================

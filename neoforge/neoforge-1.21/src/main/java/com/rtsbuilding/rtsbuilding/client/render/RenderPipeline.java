@@ -88,6 +88,7 @@ public final class RenderPipeline {
 
         registerPass(new BoundaryPass());
         registerPass(new InteractionTargetPass());
+        registerPass(new FunnelRangePass());
         registerPass(new LinkedStoragePass());
         var lsp = (LinkedStoragePass) passes.get(passes.size() - 1);
         this.linkedStoragePass = lsp;
