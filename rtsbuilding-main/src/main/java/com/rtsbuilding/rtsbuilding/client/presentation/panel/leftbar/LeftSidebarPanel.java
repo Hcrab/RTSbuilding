@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.ActionButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.SelectButtonGroup;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.UltimineButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -32,6 +33,8 @@ public final class LeftSidebarPanel implements RtsPanelApi {
     private final SelectButtonGroup selectGroup = new SelectButtonGroup();
     
     private final ActionButtonGroup actionGroup = new ActionButtonGroup();
+    
+    private final UltimineButtonGroup ultimineGroup = new UltimineButtonGroup();
 
     
     public void setCurrentWidth(int width) {
@@ -94,6 +97,11 @@ public final class LeftSidebarPanel implements RtsPanelApi {
         return actionGroup.isSelected(2);
     }
 
+    
+    public boolean isUltimineActive() {
+        return ultimineGroup.isSelected(0);
+    }
+
 
     
 
@@ -141,8 +149,15 @@ public final class LeftSidebarPanel implements RtsPanelApi {
         actionGroup.render(g, mouseX, mouseY, bx, actionY);
 
         
+        boolean buildMode = screen != null && screen.isBuildMode();
+        ultimineGroup.setShow(buildMode);
+        int ultimineY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
+        ultimineGroup.render(g, mouseX, mouseY, bx, ultimineY);
+
+        
         selectGroup.tickTooltips(mouseX, mouseY, bx, baseY);
         actionGroup.tickTooltips(mouseX, mouseY, bx, actionY);
+        ultimineGroup.tickTooltips(mouseX, mouseY, bx, ultimineY);
     }
 
     
@@ -174,6 +189,12 @@ public final class LeftSidebarPanel implements RtsPanelApi {
             return true;
         }
 
+        
+        int ultimineY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
+        if (ultimineGroup.mouseClicked(mouseX, mouseY, bx, ultimineY) >= 0) {
+            return true;
+        }
+
         return false;
     }
 
@@ -186,10 +207,13 @@ public final class LeftSidebarPanel implements RtsPanelApi {
         int bx = btnX();
         int baseY = groupBaseY();
         int actionY = baseY + selectGroup.totalHeight() + CROSS_GAP;
+        int ultimineY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
 
         selectGroup.renderTooltipOverlay(g, bx, baseY,
                 this.screen.width, this.screen.height);
         actionGroup.renderTooltipOverlay(g, bx, actionY,
+                this.screen.width, this.screen.height);
+        ultimineGroup.renderTooltipOverlay(g, bx, ultimineY,
                 this.screen.width, this.screen.height);
     }
 }

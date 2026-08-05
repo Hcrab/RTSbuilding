@@ -289,6 +289,12 @@ public class BuilderScreen extends Screen {
     }
 
     
+    public boolean isBuildMode() {
+        return topBarPanel != null
+                && topBarPanel.getCurrentMode() == com.rtsbuilding.rtsbuilding.client.presentation.panel.topbar.ModeSwitcher.Mode.BUILD;
+    }
+
+    
     public boolean isBindModeActive() {
         return leftSidebarPanel != null && leftSidebarPanel.isBindModeActive();
     }

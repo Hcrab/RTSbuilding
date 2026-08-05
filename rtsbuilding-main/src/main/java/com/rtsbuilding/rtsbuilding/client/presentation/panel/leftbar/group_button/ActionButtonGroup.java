@@ -82,6 +82,12 @@ public final class ActionButtonGroup extends AbstractButtonGroup {
         return (showBindButton ? 1 : 0) + (showRotateButton ? 1 : 0) + 1;
     }
 
+    
+    public int visibleHeight() {
+        int vis = visibleCount();
+        return vis * buttonSize + (vis - 1) * innerGap;
+    }
+
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, int originX, int originY) {
         int n = patternTextures.length;

@@ -17,6 +17,7 @@ import com.rtsbuilding.rtsbuilding.client.render.pass.BoxSelector;
 import com.rtsbuilding.rtsbuilding.client.render.util.CursorRaycaster;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -73,7 +74,7 @@ public final class BuildInteractionHandler {
 
         // 左键：挖掘
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT && !isAltDown()) {
-            return handleLeftClick(screen) ? CONSUMED : PASS;
+            return handleLeftClick(screen, leftSidebarPanel) ? CONSUMED : PASS;
         }
 
         return PASS;
@@ -197,7 +198,7 @@ public final class BuildInteractionHandler {
     }
 
     
-    private boolean handleLeftClick(BuilderScreen screen) {
+    private boolean handleLeftClick(BuilderScreen screen, LeftSidebarPanel leftSidebarPanel) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return false;
 
@@ -217,6 +218,15 @@ public final class BuildInteractionHandler {
         String toolItemId = buildingModule.getSelectedItemId();
         ItemStack toolPreview = buildingModule.getSelectedItemPreview();
         int toolSlot = mc.player != null ? mc.player.getInventory().selected : 0;
+
+        // 连锁挖掘按钮启用时：左键挖掘直接触发服务端连锁挖掘（一次点击一批，松开不中止）。
+        // 服务端 ULTIMINE 流程（RtsUltimineProcessor）从种子位置 BFS 收集同类型连通方块处理。
+        if (leftSidebarPanel != null && leftSidebarPanel.isUltimineActive()) {
+            miningModule.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
+                    toolSlot, RtsMiningValidator.ULTIMINE_MAX_BLOCKS, (byte) 0,
+                    toolItemId, toolPreview, false);
+            return true;
+        }
 
         miningModule.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
                 toolSlot, toolItemId, toolPreview, false, false);
