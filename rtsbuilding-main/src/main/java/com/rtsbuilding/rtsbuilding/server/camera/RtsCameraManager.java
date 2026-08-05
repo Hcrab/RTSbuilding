@@ -270,6 +270,23 @@ public final class RtsCameraManager {
             return;
         }
 
+        // 防御客户端异常上报：非有限坐标回退锚点，越界坐标钳位到边界内。
+        if (!Double.isFinite(x) || !Double.isFinite(y) || !Double.isFinite(z)) {
+            x = session.anchor().x;
+            y = session.anchor().y + session.heightOffset();
+            z = session.anchor().z;
+        }
+        double halfExtent = actionHalfExtent(player, session);
+        double anchorX = session.anchor().x;
+        double anchorZ = session.anchor().z;
+        double minY = session.anchor().y + MIN_HEIGHT;
+        double maxY = session.anchor().y + MAX_HEIGHT;
+        x = Mth.clamp(x, anchorX - halfExtent, anchorX + halfExtent);
+        z = Mth.clamp(z, anchorZ - halfExtent, anchorZ + halfExtent);
+        y = Mth.clamp(y, minY, maxY);
+        yaw = Mth.wrapDegrees(yaw);
+        pitch = Mth.clamp(Mth.wrapDegrees(pitch), -90.0F, 90.0F);
+
         // 无人机跟随相机：目标直接位于相机位置、朝向与相机一致。
         // 通过 setTarget 设置飞行目标，无人机在自身 tick 中以有限速度"飞向"目标（插值平滑），
         // 而非瞬移锁死，保证飞行动画可见。同时把相机俯仰角传给无人机，驱动相机云台上下角度动画。

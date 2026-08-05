@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
-import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
@@ -200,7 +199,6 @@ public record RtsWorkflowToken(
         if (entry != null) {
             entry.setSuspended(true);
             entry.setDetailMessage("等待物品...");
-            engine.fireEvent(WorkflowEventType.SUSPENDED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);
         }
     }
@@ -212,7 +210,6 @@ public record RtsWorkflowToken(
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
             entry.setPaused(true);
-            engine.fireEvent(WorkflowEventType.PAUSED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);
         }
     }
@@ -226,7 +223,6 @@ public record RtsWorkflowToken(
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null && entry.paused()) {
             entry.setPaused(false);
-            engine.fireEvent(WorkflowEventType.UNPAUSED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);
             return true;
         }
@@ -256,7 +252,6 @@ public record RtsWorkflowToken(
         if (entry != null && entry.suspended()) {
             entry.setSuspended(false);
             entry.setDetailMessage("");
-            engine.fireEvent(WorkflowEventType.RESUMED, playerId, entryId, entry);
             engine.notifyPlayer(playerId, dimension);
             return true;
         }
@@ -272,7 +267,6 @@ public record RtsWorkflowToken(
     public void complete() {
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
-            engine.fireEvent(WorkflowEventType.COMPLETED, playerId, entryId, entry);
             engine.removeEntry(playerId, dimension, entryId);
         }
     }
@@ -286,7 +280,6 @@ public record RtsWorkflowToken(
     public void cancel() {
         RtsWorkflowEntry entry = resolveEntry();
         if (entry != null) {
-            engine.fireEvent(WorkflowEventType.CANCELLED, playerId, entryId, entry);
             engine.removeEntry(playerId, dimension, entryId);
         }
     }

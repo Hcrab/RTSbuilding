@@ -334,6 +334,11 @@ public class BuilderScreen extends Screen {
     }
 
     
+    public boolean isUltimineActive() {
+        return leftSidebarPanel != null && leftSidebarPanel.isUltimineActive();
+    }
+
+    
     public boolean isBindModeActive() {
         return leftSidebarPanel != null && leftSidebarPanel.isBindModeActive();
     }

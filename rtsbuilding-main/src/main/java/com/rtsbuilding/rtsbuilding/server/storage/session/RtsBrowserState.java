@@ -20,9 +20,6 @@ import java.util.Set;
  */
 public class RtsBrowserState {
 
-    /** Default batch size for block placement. */
-    public static final int CRAFTABLE_BATCH_SIZE = 12;
-
     // ======================================================================
     // Storage browser state
     // ======================================================================
@@ -43,19 +40,4 @@ public class RtsBrowserState {
     public boolean pinyinSearchEnabled;
     /** Set of localized search hit IDs (used for client-side highlighting/quick filtering) */
     public final Set<String> localizedSearchMatches = new HashSet<>();
-
-    // ======================================================================
-    //  Crafting browser state
-    // ======================================================================
-
-    /** Crafting search keyword */
-    public String craftSearch = "";
-    /** Whether to show uncraftable recipes */
-    public boolean craftShowUnavailable;
-    /** Total number of requested crafting recipes (includes offset and limit, at least CRAFTABLE_BATCH_SIZE) */
-    public int craftRequestedCount = CRAFTABLE_BATCH_SIZE;
-    /** Pinyin fuzzy search toggle for crafting search */
-    public boolean craftPinyinSearchEnabled;
-    /** Localized hit ID set for crafting search */
-    public final Set<String> craftLocalizedSearchMatches = new HashSet<>();
 }

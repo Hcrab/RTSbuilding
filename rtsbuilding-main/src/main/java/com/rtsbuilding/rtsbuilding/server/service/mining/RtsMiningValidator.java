@@ -7,8 +7,11 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 
@@ -151,13 +154,6 @@ public final class RtsMiningValidator {
     }
 
     /**
-     * 如果连锁挖掘批次已提交（miningPos 为 null 但目标仍存在），返回 {@code true}。
-     */
-    public static boolean isCommittedUltimineBatch(RtsStorageSession session) {
-        return session.mining.miningPos == null && !session.mining.ultimineTargets.isEmpty();
-    }
-
-    /**
      * 检查活跃工具（来自租赁或选中槽位）是否在其最大耐久度的 5% 以内。
      * 当保护启用时，挖掘系统应停止以避免破坏工具。
      */
@@ -202,13 +198,54 @@ public final class RtsMiningValidator {
     /**
      * 如果客户端指示快捷栏中选中了非 BlockItem 的工具（即玩家明确选择了
      * 一个挖掘工具并期望系统借用它），返回 {@code true}。
+     *
+     * <p>网络链路（{@code ServerActionHandler}）不编码工具原型堆叠，
+     * {@code toolPrototype} 恒为空；此时回退到按 {@code toolItemId} 解析物品，
+     * 并以“不可堆叠 = 工具”的启发式判断，避免把红石/种子等可堆叠非方块
+     * 物品误判为选中的挖掘工具。</p>
      */
     public static boolean isSelectedMiningToolRequested(String toolItemId, ItemStack toolPrototype) {
-        return toolItemId != null
-                && !toolItemId.isBlank()
-                && toolPrototype != null
-                && !toolPrototype.isEmpty()
-                && !(toolPrototype.getItem() instanceof BlockItem);
+        if (toolItemId == null || toolItemId.isBlank()) {
+            return false;
+        }
+        ResourceLocation id = ResourceLocation.tryParse(toolItemId);
+        if (id == null || !BuiltInRegistries.ITEM.containsKey(id)) {
+            return false;
+        }
+        Item item = BuiltInRegistries.ITEM.get(id);
+        if (item instanceof BlockItem) {
+            return false;
+        }
+        if (toolPrototype != null && !toolPrototype.isEmpty()) {
+            return toolPrototype.getItem() == item;
+        }
+        return item.getDefaultMaxStackSize() == 1;
+    }
+
+    // =========================================================================
+    //  逐目标处理谓词（批处理/单方块共用）
+    // =========================================================================
+
+    /**
+     * 判断给定目标在当前会话工具/速度下是否可以实际破坏。
+     * <p>整合了动作半径、方块可破坏性、破坏速度与工具步进校验，
+     * 供批处理（{@code processUltimineTargets}）与单方块路径共用，避免重复验证。</p>
+     */
+    public static boolean isTargetMineable(ServerPlayer player, RtsStorageSession session, BlockPos target) {
+        if (session == null || target == null) {
+            return false;
+        }
+        if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) {
+            return false;
+        }
+        var level = player.serverLevel();
+        BlockState state = level.getBlockState(target);
+        if (!isBreakableBlock(state) || !hasValidDestroySpeed(state, level, target)) {
+            return false;
+        }
+        return MiningSpeedCalculator.computeRemoteDestroyStep(player, state, target,
+                session.mining.miningToolSlot, session.mining.miningToolLease.stack(),
+                session.mining.miningSelectedToolRequested) > 0.0F;
     }
 
     // =========================================================================

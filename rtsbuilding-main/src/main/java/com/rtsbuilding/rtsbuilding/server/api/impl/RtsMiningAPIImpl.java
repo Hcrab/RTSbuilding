@@ -30,8 +30,9 @@ public final class RtsMiningAPIImpl implements RtsMiningAPI {
     public void startUltimine(ServerPlayer player, Object pos, Direction face,
                               byte toolSlot, String toolItemId, ItemStack toolPrototype,
                               int requestedLimit, byte mode, boolean toolProtectionEnabled) {
+        // toolPrototype 在 ULTIMINE 服务端链路为死参数（协议未编码），仅保留 API 签名兼容
         REGISTRY.mining().startUltimine(player, (BlockPos) pos, face, toolSlot,
-                toolItemId, toolPrototype, requestedLimit, mode, toolProtectionEnabled);
+                toolItemId, requestedLimit, mode, toolProtectionEnabled);
     }
 
     @Override

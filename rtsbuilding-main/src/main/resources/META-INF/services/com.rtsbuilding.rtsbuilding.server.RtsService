@@ -1,6 +1,5 @@
 com.rtsbuilding.rtsbuilding.server.service.impl.RtsBindingServiceImpl
 com.rtsbuilding.rtsbuilding.server.service.impl.RtsBlueprintServiceImpl
-com.rtsbuilding.rtsbuilding.server.service.impl.RtsCraftingServiceImpl
 com.rtsbuilding.rtsbuilding.server.service.impl.RtsFluidServiceImpl
 com.rtsbuilding.rtsbuilding.server.service.impl.RtsInteractionServiceImpl
 com.rtsbuilding.rtsbuilding.server.service.impl.RtsMiningServiceImpl

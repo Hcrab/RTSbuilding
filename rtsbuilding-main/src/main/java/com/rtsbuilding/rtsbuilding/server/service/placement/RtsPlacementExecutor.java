@@ -80,7 +80,6 @@ public final class RtsPlacementExecutor {
      * @param itemId              储存物品 id（空白/null 为主手）
      * @param itemPrototype       提取的首选原型堆叠
      * @param rayDirY 用于延伸射程的射线上下文
-     * @param quickBuild          {@code true} 当这是快速建造批次的一部分时
      * @param refreshStoragePage  {@code true} 触发储存页面刷新
      * @param sendRemoteHint      {@code true} 发送菜单打开提示数据包
      * @return {@code true} 如果位置已处理且批次应继续，{@code false} 中止当前批处理作业
@@ -88,7 +87,7 @@ public final class RtsPlacementExecutor {
     public static boolean placeSelectedInternal(ServerPlayer player, RtsStorageSession session, BlockPos clickedPos,
                                                 Direction face, double hitX, double hitY, double hitZ, byte rotateSteps, boolean forcePlace,
                                                 boolean skipIfOccupied, String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY,
-                                                double rayOriginZ, double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild,
+                                                double rayOriginZ, double rayDirX, double rayDirY, double rayDirZ,
                                                 boolean forceEmptyHand, boolean refreshStoragePage, boolean sendRemoteHint) {
         if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, clickedPos) || face == null) {
             return false;
@@ -275,7 +274,7 @@ public final class RtsPlacementExecutor {
                 : creativeSource
                         ? RtsPlacementExtractor.creativeStack(item, preferredStack)
                         : includePlayerMainInventory
-                                ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, item, preferredStack)
+                                ? RtsPlacementExtractor.extractSelectedFromNetworkCached(player, extractHandlers, item, preferredStack)
                                 : RtsPlacementExtractor.extractSelectedFromLinkedCached(player, extractHandlers, item, preferredStack);
         if (extracted.isEmpty()) {
             RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
@@ -303,7 +302,18 @@ public final class RtsPlacementExecutor {
                 () -> InteractionHelper.useItemOnWithMainHand(player, level, extracted, hit, forcePlace));
         AbstractContainerMenu menuAfterSelectedUse = player.containerMenu;
         if (menuAfterSelectedUse != menuBeforeSelectedUse) {
+            // 打开了远程菜单：与 placeWithMainHand / placeWithForcedEmptyHand 分支保持一致，
+            // 立即终止本格放置，避免继续执行后续 fallback 放置逻辑。
+            // 从 carried 扣减的物品未消耗，需合并回 carried（合并不下的退回网络）。
+            if (fromCarried) {
+                ItemStack remain = RtsPlacementExtractor.mergeIntoCarried(player, carriedSource);
+                if (!remain.isEmpty()) {
+                    RtsTransferInserter.refundToLinked(insertHandlers, player, remain);
+                }
+                PacketDistributor.sendToPlayer(player, new S2CRtsCarriedSyncPayload(player.containerMenu.getCarried()));
+            }
             RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterSelectedUse, clickedPos);
+            return false;
         }
 
         TemporaryContextSwitcher.UseOnOutcome finalOutcome = selectedOutcome;

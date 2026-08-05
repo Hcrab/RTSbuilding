@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
-import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
@@ -41,7 +40,7 @@ import java.util.function.BiFunction;
  *   <li>{@link #clearValidation(ServerPlayer, RtsStorageSession)} — Clears remote menu state</li>
  *   <li>{@link #closeTracked(ServerPlayer, RtsStorageSession)} — Closes the tracked remote menu</li>
  *   <li>{@link #sendRemoteMenuOpenHint(ServerPlayer, BlockPos)} —
- *       Sends remote menu open hint packet, refreshes client-side block state and block entity data</li>
+ *       Sends vanilla block/block-entity update packets to refresh the client's remote menu target</li>
  * </ul>
  *
  * <p><b>Internal wrappers:</b>
@@ -142,7 +141,6 @@ public final class RtsRemoteMenuService {
         if (player == null || pos == null) {
             return;
         }
-        PacketDistributor.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
         if (!(player.level() instanceof ServerLevel level) || !level.hasChunkAt(pos)) {
             return;
         }

@@ -50,7 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *       {@link #ALERT_INTERVAL} tick，避免持续任务逼使 UI 缓存每 tick 全量重建。</li>
  * </ul>
  *
- * <p>触发条件：RTS 相机激活、会话处于交互（INTERACT）或蓝图（BLUEPRINT）模式、
+ * <p>触发条件：RTS 相机激活、会话处于交互（INTERACT）、建造（BUILD）或蓝图（BLUEPRINT）模式、
  * 目标在动作范围内。
  */
 public final class RtsFunnelService {
@@ -391,7 +391,7 @@ public final class RtsFunnelService {
     }
 
     /**
-     * 校验漏斗触发条件：RTS 相机激活、会话存在、处于交互或蓝图模式。
+     * 校验漏斗触发条件：RTS 相机激活、会话存在、处于交互、建造或蓝图模式。
      *
      * @return 校验通过时返回会话对象（供调用方复用，避免重复查询），否则 {@code null}
      */
@@ -403,7 +403,9 @@ public final class RtsFunnelService {
         if (session == null) {
             return null;
         }
-        if (session.mode != BuilderMode.INTERACT && session.mode != BuilderMode.BLUEPRINT) {
+        if (session.mode != BuilderMode.INTERACT
+                && session.mode != BuilderMode.BLUEPRINT
+                && session.mode != BuilderMode.BUILD) {
             return null;
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);

@@ -28,14 +28,14 @@ public final class MiningModule implements FeatureModule {
     
     
 
-    public void startMining(BlockPos pos, int face, int toolSlot, String selectedItemId, ItemStack selectedPreview,
+    public void startMining(BlockPos pos, int face, int toolSlot, String selectedItemId,
                             boolean blockRecovery, boolean toolProtection) {
         state.activePos = pos.immutable();
         state.activeFace = face;
         state.activeToolSlot = toolSlot;
         state.renderPos = state.activePos;
         state.renderStage = 0;
-        RtsClientPacketGateway.sendMineStart(pos, face, toolSlot, selectedItemId, selectedPreview, blockRecovery, toolProtection);
+        RtsClientPacketGateway.sendMineStart(pos, face, toolSlot, selectedItemId, blockRecovery, toolProtection);
     }
 
     public void abortMining(int toolSlot) {
@@ -49,13 +49,12 @@ public final class MiningModule implements FeatureModule {
     
     
     
-
+    
     public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode,
-                              String selectedItemId, ItemStack selectedPreview, boolean toolProtection) {
+                              String selectedItemId, boolean toolProtection) {
         state.activePos = pos.immutable();
-        state.renderPos = state.activePos;
-        state.renderStage = 0;
-        RtsClientPacketGateway.sendUltimineStart(pos, face, toolSlot, limit, mode, selectedItemId, selectedPreview, toolProtection);
+        state.activeFace = face;
+        RtsClientPacketGateway.sendUltimineStart(pos, face, toolSlot, limit, mode, selectedItemId, toolProtection);
     }
 
     
@@ -66,19 +65,19 @@ public final class MiningModule implements FeatureModule {
         state.applyMineProgress(pos, stage);
     }
 
+    
     public void applyUltimineProgress(int processed, int total) {
-        state.ultimineProcessed = processed;
-        state.ultimineTotal = total;
+        // processed < 0 表示服务端批次已结束：清除活跃状态，恢复“再次点击=新批次/取消”交互
+        if (processed < 0) {
+            state.activePos = null;
+            state.activeFace = -1;
+        }
     }
 
     
     
     
-
+    
     public MiningState getState() { return this.state; }
     public BlockPos getActivePos() { return state.activePos; }
-    public int getRenderStage() { return state.renderStage; }
-    public BlockPos getRenderPos() { return state.renderPos; }
-    public int getUltimineProcessed() { return state.ultimineProcessed; }
-    public int getUltimineTotal() { return state.ultimineTotal; }
 }

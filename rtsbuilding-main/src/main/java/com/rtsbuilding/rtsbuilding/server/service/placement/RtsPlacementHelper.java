@@ -38,18 +38,18 @@ public final class RtsPlacementHelper {
     }
 
     /**
-     * 清理点击偏移坐标，当提供的值为 {@link Double#isFinite(double) 非有限} 时
-     * 回退到基于面的默认值。
+     * 清理点击偏移坐标：非有限值时回退到基于面的默认值（0 或 1），
+     * 有限值则强制限制在方块内的 [0,1] 范围，防御客户端异常/恶意坐标。
      */
     public static double sanitizeHitOffset(double offset, Direction face, Direction.Axis axis) {
-        if (Double.isFinite(offset)) {
-            return offset;
+        if (!Double.isFinite(offset)) {
+            double fallback = 0.5D;
+            if (face != null && face.getAxis() == axis) {
+                fallback += face.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 0.5D : -0.5D;
+            }
+            return fallback;
         }
-        double fallback = 0.5D;
-        if (face != null && face.getAxis() == axis) {
-            fallback += face.getAxisDirection() == Direction.AxisDirection.POSITIVE ? 0.5D : -0.5D;
-        }
-        return fallback;
+        return Math.max(0.0D, Math.min(1.0D, offset));
     }
 
     /**

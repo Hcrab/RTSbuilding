@@ -1,7 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.jei;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.presentation.standalone.RtsCraftTerminalScreen;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.registration.IGuiHandlerRegistration;
@@ -20,9 +19,6 @@ public final class RtsJeiPlugin implements IModPlugin {
     @Override
     public void registerGuiHandlers(IGuiHandlerRegistration registration) {
         var ingredientManager = registration.getJeiHelpers().getIngredientManager();
-        registration.addGuiContainerHandler(
-                RtsCraftTerminalScreen.class,
-                new RtsCraftTerminalJeiGuiHandler(ingredientManager));
         registration.addGlobalGuiHandler(new RtsOverlayJeiGlobalGuiHandler(ingredientManager));
     }
 }

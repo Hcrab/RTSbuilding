@@ -4,6 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import net.minecraft.world.phys.Vec3;
 
+import java.util.List;
+
 public final class CornerBracketRenderer {
 
     
@@ -71,7 +73,6 @@ public final class CornerBracketRenderer {
             double maxX, double maxY, double maxZ,
             float r, float g, float b, float a,
             double distance, double thicknessMultiplier) {
-
         double scaledThickness = BRACKET_THICKNESS
                 * Math.max(MIN_THICKNESS_MULTIPLIER, thicknessMultiplier)
                 * Math.max(1.0D, distance / THICKNESS_SCALE_DISTANCE);
@@ -83,6 +84,28 @@ public final class CornerBracketRenderer {
         drawHorizontalRing(consumer, poseStack, minX, minZ, maxX, maxZ, maxY, r, g, b, a, halfThick);
         
         drawVerticalEdges(consumer, poseStack, minX, minZ, maxX, maxZ, minY, maxY, r, g, b, a, halfThick);
+    }
+
+    
+    /**
+     * 以当前项目边框风格（带厚度的粗线段）渲染一组外轮廓边线。
+     * <p>用于连锁挖掘预览：通过 {@link UltimineBlockMerger#getEdgeLines} 提取的
+     * 合并形状外轮廓边（内部边已被 VoxelShape 布尔合并消除），逐条绘制为粗线段，
+     * 使整个连通区域呈现连续、完全合并的边框。</p>
+     */
+    public static void renderEdges(PoseStack poseStack, VertexConsumer consumer,
+            List<UltimineBlockMerger.EdgeLine> edges,
+            float r, float g, float b, float a, double distance) {
+        if (edges == null || edges.isEmpty()) return;
+        double scaledThickness = BRACKET_THICKNESS
+                * Math.max(1.0D, distance / THICKNESS_SCALE_DISTANCE);
+        double halfThick = scaledThickness * 0.5D;
+        for (UltimineBlockMerger.EdgeLine edge : edges) {
+            drawSegment(consumer, poseStack,
+                    edge.x1(), edge.y1(), edge.z1(),
+                    edge.x2(), edge.y2(), edge.z2(),
+                    r, g, b, a, halfThick);
+        }
     }
 
     

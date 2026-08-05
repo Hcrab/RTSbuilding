@@ -18,6 +18,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerPlayer;
 
 import java.util.List;
 import java.util.Objects;
@@ -107,6 +108,16 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
         }
     }
 
+    /**
+     * 队列模式下将排队的实际目标数写入工作流 token。
+     */
+    private static void setQueueTotalBlocks(ServerPlayer player, int workflowEntryId, int queuedCount) {
+        if (queuedCount > 0 && workflowEntryId >= 0) {
+            RtsWorkflowEngine.getInstance().from(player, workflowEntryId)
+                    .ifPresent(token -> token.setTotalBlocks(queuedCount));
+        }
+    }
+
     @Override
     public PipelineResult execute(MiningContext ctx) {
         MiningContext mctx = ctx;
@@ -157,10 +168,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                             mctx.getWorkflowEntryId());
                     RtsbuildingMod.LOGGER.info("[UltimineExecutePipe] ULTIMINE queued {} blocks for {}",
                             queuedCount, mctx.player().getGameProfile().getName());
-                    if (queuedCount > 0 && mctx.hasWorkflowEntryId()) {
-                        RtsWorkflowEngine.getInstance().from(mctx.player(), mctx.getWorkflowEntryId())
-                                .ifPresent(token -> token.setTotalBlocks(queuedCount));
-                    }
+                    setQueueTotalBlocks(mctx.player(), mctx.getWorkflowEntryId(), queuedCount);
                     return PipelineResult.success();
                 }
 
@@ -186,10 +194,7 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                             mctx.getWorkflowEntryId());
                     RtsbuildingMod.LOGGER.info("[UltimineExecutePipe] AREA_MINE queued {} blocks for {}",
                             queuedCount, mctx.player().getGameProfile().getName());
-                    if (queuedCount > 0 && mctx.hasWorkflowEntryId()) {
-                        RtsWorkflowEngine.getInstance().from(mctx.player(), mctx.getWorkflowEntryId())
-                                .ifPresent(token -> token.setTotalBlocks(queuedCount));
-                    }
+                    setQueueTotalBlocks(mctx.player(), mctx.getWorkflowEntryId(), queuedCount);
                     return PipelineResult.success();
                 }
 

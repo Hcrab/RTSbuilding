@@ -25,11 +25,6 @@ public final class RtsStoragePackets {
                 ClientPayloadDispatcher::dispatchStorage);
 
         registrar.playToClient(
-                S2CRtsRemoteMenuHintPayload.TYPE,
-                S2CRtsRemoteMenuHintPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchStorage);
-
-        registrar.playToClient(
                 S2CRtsCarriedSyncPayload.TYPE,
                 S2CRtsCarriedSyncPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchStorage);

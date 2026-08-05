@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.kernel;
 
-import com.rtsbuilding.rtsbuilding.client.domain.state.CraftFeedbackInfo;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.core.BlockPos;
@@ -18,9 +17,6 @@ public sealed interface StateEvent {
 
     
     record StoragePageLoaded(int revision, S2CRtsStoragePagePayload payload) implements StateEvent {}
-
-    
-    record CraftFeedbackReceived(CraftFeedbackInfo info) implements StateEvent {}
 
     
     record DamageTaken(float amount, boolean lowHealth, float health) implements StateEvent {}

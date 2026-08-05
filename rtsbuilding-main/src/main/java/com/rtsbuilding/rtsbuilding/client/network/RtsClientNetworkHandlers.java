@@ -12,11 +12,8 @@ import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsDroneAnimPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 
@@ -97,20 +94,6 @@ public final class RtsClientNetworkHandlers {
         });
     }
 
-    public static void handleCraftables(S2CRtsCraftablesPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        ctx.enqueueWork(() -> {
-            StorageModule sm = kernel().module(StorageModule.class);
-            if (sm != null) sm.applyCraftables(payload);
-        });
-    }
-
-    public static void handleCraftFeedback(S2CRtsCraftFeedbackPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        ctx.enqueueWork(() -> {
-            StorageModule sm = kernel().module(StorageModule.class);
-            if (sm != null) sm.applyCraftFeedback(payload);
-        });
-    }
-
     
     
     
@@ -157,17 +140,16 @@ public final class RtsClientNetworkHandlers {
     
 
     public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        ctx.enqueueWork(() ->
-                kernel().dispatch(new StateEvent.DamageTaken(payload.amount(), false, 0)));
+        ctx.enqueueWork(() -> {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            float health = mc.player != null ? mc.player.getHealth() : 0.0F;
+            kernel().dispatch(new StateEvent.DamageTaken(payload.amount(), payload.lowHealth(), health));
+        });
     }
 
     
     
     
-
-    public static void handleRemoteMenuHint(S2CRtsRemoteMenuHintPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        
-    }
 
     /**
      * Mirrors the authoritative server carried stack into the client container menu.
@@ -192,7 +174,14 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleBreakAnimation(S2CRtsBreakAnimationPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-        
+        ctx.enqueueWork(() -> {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.level == null) return;
+            // 清除该位置残留裂纹，并触发方块破坏粒子反馈（2001 = 破坏粒子事件）
+            mc.level.destroyBlockProgress(0x525453, payload.pos(), -1);
+            mc.level.levelEvent(2001, payload.pos(),
+                    net.minecraft.world.level.block.Block.getId(payload.state()));
+        });
     }
 
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
@@ -201,6 +190,22 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleBlueprintStatus(S2CBlueprintStatusPayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
-
+        ctx.enqueueWork(() -> {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            if (mc.player == null) return;
+            String messageKey = payload.messageKey();
+            if (messageKey == null || messageKey.isBlank()) return;
+            net.minecraft.network.chat.Component message = net.minecraft.network.chat.Component.translatable(messageKey);
+            String detail = payload.detail();
+            if (detail != null && !detail.isBlank()) {
+                message = message.copy().append(" ").append(net.minecraft.network.chat.Component.literal(detail));
+            }
+            String prefix = switch (payload.status()) {
+                case S2CBlueprintStatusPayload.SUCCESS -> "§a[蓝图] ";
+                case S2CBlueprintStatusPayload.ERROR -> "§c[蓝图] ";
+                default -> "§7[蓝图] ";
+            };
+            mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(prefix).copy().append(message), true);
+        });
     }
 }

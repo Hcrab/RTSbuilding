@@ -277,6 +277,8 @@ public class RtsbuildingMod {
                 RtsServer.get().pathfinding().cancel(serverPlayer);
                 // Unregister the old dimension's storage tick service
                 RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
+                // 清理旧维度的 tickable 管道（防跨维度悬挂）
+                com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry.removeAll(serverPlayer.getUUID());
             }
         }
 

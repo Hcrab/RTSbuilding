@@ -40,6 +40,9 @@ import static com.rtsbuilding.rtsbuilding.client.presentation.event.model.EventR
 
 public final class BuildInteractionHandler {
 
+    
+    private static final byte ULTIMINE_MODE = 0;
+
     private final RtsClientKernel kernel;
     private final CameraInputLayer cameraInputLayer;
 
@@ -117,7 +120,7 @@ public final class BuildInteractionHandler {
 
     
     /**
-     * 每 tick 驱动：物品拾取（漏斗）自动触发，无需任何点击。<p>当物品拾取按钮启用且处于交互/蓝图模式时：</p>
+     * 每 tick 驱动：物品拾取（漏斗）自动触发，无需任何点击。<p>当物品拾取按钮启用且处于交互/建造/蓝图模式时：</p>
      * <ul>
      *   <li>点击模式：以鼠标指针指向的方块位置为圆心，直接请求服务端持续吸取周围掉落物（指针移动即更新目标）；</li>
      *   <li>框选模式：框选范围确认（COMPLETE）后立即吸取框内掉落物，
@@ -129,7 +132,7 @@ public final class BuildInteractionHandler {
         // 相机激活检查与服务端 RtsFunnelService.validate（RtsCameraManager.isActive）保持一致：
         // 未开启 RTS 相机时服务端会静默拒绝，这里直接不发包，避免无效请求
         if (leftSidebarPanel == null || !leftSidebarPanel.isItemPickupActive()
-                || (!screen.isInteractiveMode() && !screen.isBlueprintMode())
+                || (!screen.isInteractiveMode() && !screen.isBlueprintMode() && !screen.isBuildMode())
                 || !screen.isCameraActive()) {
             this.lastBoxPhase = BoxSelector.Phase.IDLE;
             return;
@@ -216,20 +219,24 @@ public final class BuildInteractionHandler {
         if (miningModule == null) return false;
 
         String toolItemId = buildingModule.getSelectedItemId();
-        ItemStack toolPreview = buildingModule.getSelectedItemPreview();
         int toolSlot = mc.player != null ? mc.player.getInventory().selected : 0;
 
         // 连锁挖掘按钮启用时：左键挖掘直接触发服务端连锁挖掘（一次点击一批，松开不中止）。
         // 服务端 ULTIMINE 流程（RtsUltimineProcessor）从种子位置 BFS 收集同类型连通方块处理。
         if (leftSidebarPanel != null && leftSidebarPanel.isUltimineActive()) {
+            // D3：批次进行中再次点击 = 取消当前批次
+            if (miningModule.getActivePos() != null) {
+                miningModule.abortMining(toolSlot);
+                return true;
+            }
             miningModule.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
-                    toolSlot, RtsMiningValidator.ULTIMINE_MAX_BLOCKS, (byte) 0,
-                    toolItemId, toolPreview, false);
+                    toolSlot, RtsMiningValidator.ULTIMINE_MAX_BLOCKS, ULTIMINE_MODE,
+                    toolItemId, false);
             return true;
         }
 
         miningModule.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
-                toolSlot, toolItemId, toolPreview, false, false);
+                toolSlot, toolItemId, false, false);
         this.miningActive = true;
         this.miningMouseButton = GLFW.GLFW_MOUSE_BUTTON_LEFT;
         return true;

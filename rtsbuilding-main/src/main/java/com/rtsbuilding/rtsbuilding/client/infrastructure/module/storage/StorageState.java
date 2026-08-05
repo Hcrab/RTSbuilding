@@ -4,8 +4,6 @@ import com.rtsbuilding.rtsbuilding.client.domain.state.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.domain.state.LinkedStorageEntry;
 import com.rtsbuilding.rtsbuilding.client.domain.state.RecentEntry;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.core.BlockPos;
@@ -27,7 +25,6 @@ public final class StorageState {
 
     private boolean storageCollapsed;
     private boolean storageLinked;
-    private boolean bdNetworkEnabled = true;
     private String linkedStorageName = "No Storage";
     private final List<BlockPos> linkedPositions = new ArrayList<>();
     
@@ -64,13 +61,7 @@ public final class StorageState {
     
     
     
-
-    private String craftablesSearch = "";
-    private boolean craftablesShowUnavailable;
-    private final List<Object> craftableEntries = new ArrayList<>();
-    private int craftablesRevision;
-    private boolean craftablesHasMore;
-
+    
     
     
     
@@ -231,25 +222,7 @@ public final class StorageState {
     
     
     
-
-    void requestCraftables() {
-        this.craftablesSearch = this.craftablesSearch.trim();
-        this.craftableEntries.clear();
-        if (this.craftablesSearch.isBlank()) return;
-        RtsClientPacketGateway.sendRequestCraftables(this.craftablesSearch, this.craftablesShowUnavailable, 0, 12);
-    }
-
-    void applyCraftables(S2CRtsCraftablesPayload payload) {
-        String search = payload.search() == null ? "" : payload.search().trim();
-        if (!this.craftablesSearch.equals(search)) return;
-        if (payload.offset() == 0) this.craftableEntries.clear();
-        this.craftablesHasMore = payload.hasMore();
-        this.craftablesRevision++;
-    }
-
-    void applyCraftFeedback(S2CRtsCraftFeedbackPayload payload) {
-        
-    }
+    
 
     void applyStorageDirty(S2CRtsStorageDirtyPayload payload) {
         if (payload == null || !payload.dirty()) {
@@ -298,7 +271,6 @@ public final class StorageState {
         this.storagePage = 0;
         this.storageTotalPages = 1;
         this.storageSearch = "";
-        this.craftableEntries.clear();
         this.scanRunning = false;
         this.viewDirty = false;
     }
@@ -326,7 +298,6 @@ public final class StorageState {
         }
         return result;
     }
-    public List<Object> getCraftableEntries() { return craftableEntries; }
     public List<String> getStorageCategories() { return storageCategories; }
     
     public List<LinkedStorageEntry> getLinkedStorageEntries() { return linkedStorageEntries; }
@@ -349,10 +320,5 @@ public final class StorageState {
     public void setStorageSearch(String search) {
         this.storageSearch = search == null ? "" : search;
         requestStoragePage(0);
-    }
-
-    public void setCraftablesSearch(String search) {
-        this.craftablesSearch = search == null ? "" : search.trim();
-        requestCraftables();
     }
 }

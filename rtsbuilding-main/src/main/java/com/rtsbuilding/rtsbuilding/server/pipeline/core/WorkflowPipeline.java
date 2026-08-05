@@ -101,15 +101,12 @@ public final class WorkflowPipeline<C extends PipelineContext> {
      *
      * <p>实际操作在<b>同步阶段之外</b>完成的管道
      *（例如等待方块破坏 Tick 的挖掘）应调用此方法，
-     * 以防止管道在同步阶段结束时触发过早的
-     * {@link WorkflowEventType#SYNC_PHASE_COMPLETED} 事件。
-     * COMPLETED 事件将由异步完成路径触发
+     * 以防止管道在同步阶段结束时触发过早的完成信号。
+     * 完成将由异步完成路径触发
      *（例如在 {@code finalizeMiningOperation} 中的 {@link WorkflowCompletePipe}）。</p>
      *
-     * <p>纯同步管道（例如放置）在所有 Pipe 成功时触发
-     * {@link WorkflowEventType#SYNC_PHASE_COMPLETED}。
-     * 实际的 {@link WorkflowEventType#COMPLETED} 稍后异步工作完成时触发
-     *（例如放置批处理）。</p>
+     * <p>纯同步管道（例如放置）在所有 Pipe 成功时完成；
+     * 实际完成稍后异步工作完成时触发（例如放置批处理）。</p>
      *
      * @return 此管道实例（流式）
      */

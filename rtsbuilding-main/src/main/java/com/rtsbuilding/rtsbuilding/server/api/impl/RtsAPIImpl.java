@@ -23,7 +23,6 @@ public final class RtsAPIImpl implements RtsAPI {
     private final RtsInteractionAPIImpl interactionApi = new RtsInteractionAPIImpl();
     private final RtsMiningAPIImpl miningApi = new RtsMiningAPIImpl();
     private final RtsTransferAPIImpl transferApi = new RtsTransferAPIImpl();
-    private final RtsCraftingAPIImpl craftingApi = new RtsCraftingAPIImpl();
     private final RtsFluidAPIImpl fluidApi = new RtsFluidAPIImpl();
     private final RtsBindingsAPIImpl bindingsApi = new RtsBindingsAPIImpl();
     private final RtsSessionQueryAPIImpl sessionApi = new RtsSessionQueryAPIImpl();
@@ -65,9 +64,6 @@ public final class RtsAPIImpl implements RtsAPI {
 
     @Override
     public RtsTransferAPI transfer() { return transferApi; }
-
-    @Override
-    public RtsCraftingAPI crafting() { return craftingApi; }
 
     @Override
     public RtsFluidAPI fluids() { return fluidApi; }

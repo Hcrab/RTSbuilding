@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
-import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
@@ -125,8 +124,7 @@ public interface IWorkflowEngine {
     // ======================================================================
 
     /**
-     * 根据条目 ID 删除工作流。通知客户端并触发
-     * {@link WorkflowEventType#CANCELLED} 事件。
+     * 根据条目 ID 删除工作流。通知客户端。
      */
     void deleteWorkflow(ServerPlayer player, int entryId);
 

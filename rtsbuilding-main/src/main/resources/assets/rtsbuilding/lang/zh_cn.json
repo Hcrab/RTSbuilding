@@ -82,6 +82,11 @@
   "tooltip.rtsbuilding.left.ultimine": "连锁挖掘",
   "tooltip.rtsbuilding.left.ultimine.desc": "一键挖掘相连的同类方块（占位）",
 
+  "tooltip.rtsbuilding.left.construction": "建造",
+  "tooltip.rtsbuilding.left.construction.desc": "放置方块",
+  "tooltip.rtsbuilding.left.destruction": "破坏",
+  "tooltip.rtsbuilding.left.destruction.desc": "移除方块",
+
   "screen.rtsbuilding.mode.interactive": "交互模式",
   "screen.rtsbuilding.mode.build": "建造模式",
   "screen.rtsbuilding.mode.blueprint": "蓝图模式",

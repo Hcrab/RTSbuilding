@@ -134,7 +134,6 @@ public final class RtsPipelineRegistration {
                 .pipe(new UltimineExecutePipe(RtsWorkflowType.ULTIMINE))
                 .pipe(new WorkflowProgressPipe(0))
                 .pipe(new SyncPipe())
-                .pipe(new SyncPipe())
                 .tickable(new UltimineTickPipe())
                 .register();
     }
@@ -155,7 +154,6 @@ public final class RtsPipelineRegistration {
                 .pipe(new ToolBorrowPipe())
                 .pipe(new UltimineExecutePipe(RtsWorkflowType.AREA_MINE))
                 .pipe(new WorkflowProgressPipe(0))
-                .pipe(new SyncPipe())
                 .pipe(new SyncPipe())
                 .tickable(new UltimineTickPipe())
                 .register();

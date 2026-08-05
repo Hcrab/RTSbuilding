@@ -52,9 +52,6 @@ public interface RtsAPI {
     /** Item transfer between linked storage and player inventory */
     RtsTransferAPI transfer();
 
-    /** Crafting terminal operations */
-    RtsCraftingAPI crafting();
-
     /** Fluid operations */
     RtsFluidAPI fluids();
 

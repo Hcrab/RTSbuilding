@@ -14,16 +14,6 @@ public final class MiningState {
     public BlockPos renderPos;
     public int renderStage = -1;
 
-    
-    public int ultimineProcessed = -1;
-    public int ultimineTotal;
-
-    
-    public int areaMinePhase;
-    public BlockPos areaMinePointA, areaMinePointB;
-    public int areaMineHeightOffset;
-    public int areaMineShape;
-
     public void applyMineProgress(BlockPos pos, int stage) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
@@ -48,10 +38,5 @@ public final class MiningState {
         activeFace = -1;
         renderPos = null;
         renderStage = -1;
-        ultimineProcessed = -1;
-        ultimineTotal = 0;
-        areaMinePhase = 0;
-        areaMinePointA = null;
-        areaMinePointB = null;
     }
 }

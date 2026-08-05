@@ -114,7 +114,6 @@ public final class RtsPlacementQuickBuild {
                 item,
                 templateStack,
                 RtsPlacementHelper.rotateState(state, job.rotateSteps()),
-                true,
                 sourceId.toString());
     }
 
@@ -168,7 +167,7 @@ public final class RtsPlacementQuickBuild {
                 extracted = creativeSource
                         ? RtsPlacementExtractor.creativeStack(plan.item(), plan.templateStack())
                         : includePlayerMainInventory
-                                ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, plan.item(), plan.templateStack())
+                                ? RtsPlacementExtractor.extractSelectedFromNetworkCached(player, extractHandlers, plan.item(), plan.templateStack())
                                 : RtsPlacementExtractor.extractSelectedFromLinked(extractHandlers, plan.item(), plan.templateStack());
                 if (extracted.isEmpty()) {
                     return false;
@@ -232,15 +231,12 @@ public final class RtsPlacementQuickBuild {
      * @param item                  要放置的方块物品
      * @param templateStack         单次计数模板堆叠（组件保留）
      * @param state                 完全旋转后的方块状态
-     * @param selectedStorageItem   此计划是从储存中提取（{@code true}）
-     *                              还是使用主手堆叠（{@code false}）
      * @param itemId                用于最近物品追踪的字符串编码物品 ID
      */
     public record StatePlacementPlan(
             Item item,
             ItemStack templateStack,
             BlockState state,
-            boolean selectedStorageItem,
             String itemId) {
         public StatePlacementPlan {
             templateStack = templateStack == null ? ItemStack.EMPTY : templateStack.copy();

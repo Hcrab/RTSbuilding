@@ -55,7 +55,7 @@ public final class RtsDamageFeedbackManager {
      * @param player 要检查的服务端玩家
      */
     public static void tick(ServerPlayer player) {
-        if (player == null) {
+        if (player == null || !RtsCameraManager.isActive(player)) {
             return;
         }
 
@@ -68,8 +68,8 @@ public final class RtsDamageFeedbackManager {
         }
 
         float lostHealth = previousHealth - currentHealth;
-        // 掉血量不足阈值，或者玩家不在 RTS 相机模式下，不发送反馈
-        if (lostHealth <= HEALTH_EPSILON || !RtsCameraManager.isActive(player)) {
+        // 掉血量不足阈值不发送反馈
+        if (lostHealth <= HEALTH_EPSILON) {
             return;
         }
 

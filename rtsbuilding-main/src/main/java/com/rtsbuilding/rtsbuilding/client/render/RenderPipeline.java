@@ -74,6 +74,8 @@ public final class RenderPipeline {
     public LinkedStoragePass linkedStoragePass;
     
     public EntitySelectHighlightPass entitySelectHighlightPass;
+    
+    public UltiminePreviewPass ultiminePreviewPass;
 
     
     
@@ -100,6 +102,9 @@ public final class RenderPipeline {
         var eshp = new EntitySelectHighlightPass();
         this.entitySelectHighlightPass = eshp;
         registerPass(eshp);
+        
+        this.ultiminePreviewPass = new UltiminePreviewPass();
+        registerPass(this.ultiminePreviewPass);
     }
 
     

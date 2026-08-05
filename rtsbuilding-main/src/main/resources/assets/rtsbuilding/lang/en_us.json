@@ -82,6 +82,11 @@
   "tooltip.rtsbuilding.left.ultimine": "Ultimine",
   "tooltip.rtsbuilding.left.ultimine.desc": "Mine connected matching blocks in one go (placeholder)",
 
+  "tooltip.rtsbuilding.left.construction": "Construction",
+  "tooltip.rtsbuilding.left.construction.desc": "Place blocks",
+  "tooltip.rtsbuilding.left.destruction": "Destruction",
+  "tooltip.rtsbuilding.left.destruction.desc": "Remove blocks",
+
   "screen.rtsbuilding.mode.interactive": "Interactive Mode",
   "screen.rtsbuilding.mode.build": "Build Mode",
   "screen.rtsbuilding.mode.blueprint": "Blueprint Mode",

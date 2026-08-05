@@ -166,7 +166,7 @@ public final class RtsTransferPlayerIntegration {
         }
         OverflowOutcome overflow = OverflowOutcome.EMPTY;
         if (menu instanceof CraftingMenu craftingMenu && menuSlot == 0) {
-            ItemStack[] craftBlueprint = RtsServer.get().crafting().snapshotCraftGridBlueprint(craftingMenu);
+            ItemStack[] craftBlueprint = RtsCraftGridSupport.snapshotCraftGridBlueprint(craftingMenu);
             ItemStack resultSnapshot = slot.getItem().copy();
             if (resultSnapshot.isEmpty()) {
                 return;
@@ -177,7 +177,7 @@ public final class RtsTransferPlayerIntegration {
                 Slot resultSlot = craftingMenu.getSlot(0);
                 ItemStack currentResult = resultSlot.getItem();
                 if (currentResult.isEmpty() || !ItemStack.isSameItemSameComponents(currentResult, resultPrototype)) {
-                    RtsServer.get().crafting().refillCraftGridFromBlueprint(
+                    RtsCraftGridSupport.refillCraftGridFromBlueprint(
                             craftingMenu, extractHandlers, player, craftBlueprint, false, true);
                     currentResult = resultSlot.getItem();
                     if (currentResult.isEmpty() || !ItemStack.isSameItemSameComponents(currentResult, resultPrototype)) {
@@ -202,13 +202,13 @@ public final class RtsTransferPlayerIntegration {
                 overflow = overflow.merge(RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(
                         insertHandlers, player, gained));
                 craftedAny = true;
-                RtsServer.get().crafting().refillCraftGridFromBlueprint(
+                RtsCraftGridSupport.refillCraftGridFromBlueprint(
                         craftingMenu, extractHandlers, player, craftBlueprint, false, true);
             }
             if (!craftedAny) {
                 return;
             }
-            RtsServer.get().crafting().refillCraftGridFromBlueprint(
+            RtsCraftGridSupport.refillCraftGridFromBlueprint(
                     craftingMenu, extractHandlers, player, craftBlueprint, true, true);
         } else {
             ItemStack inSlot = slot.getItem();

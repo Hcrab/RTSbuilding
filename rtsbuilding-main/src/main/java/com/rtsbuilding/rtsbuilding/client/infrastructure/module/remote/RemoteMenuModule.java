@@ -7,13 +7,10 @@ import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.presentation.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 
 public final class RemoteMenuModule implements FeatureModule {
 
@@ -42,11 +39,6 @@ public final class RemoteMenuModule implements FeatureModule {
     private boolean wasRemoteMenuOpen;
 
     
-    private boolean pendingCraftTerminalOpen;
-    
-    private int pendingCraftTerminalOpenTicks;
-
-    
     
     
 
@@ -62,8 +54,6 @@ public final class RemoteMenuModule implements FeatureModule {
                 
                 clearRemoteMenuValidationState();
                 this.relaxedRemoteMenu = null;
-                this.pendingCraftTerminalOpen = false;
-                this.pendingCraftTerminalOpenTicks = 0;
                 this.pendingRemoteMenuOpenTicks = 0;
                 this.screenlessRemoteMenuTicks = 0;
                 this.hasRemoteMenuOpen = false;
@@ -72,8 +62,6 @@ public final class RemoteMenuModule implements FeatureModule {
         } else if (event instanceof StateEvent.PlayerDied) {
             clearRemoteMenuValidationState();
             this.relaxedRemoteMenu = null;
-            this.pendingCraftTerminalOpen = false;
-            this.pendingCraftTerminalOpenTicks = 0;
             this.pendingRemoteMenuOpenTicks = 0;
             this.screenlessRemoteMenuTicks = 0;
             this.hasRemoteMenuOpen = false;
@@ -107,41 +95,6 @@ public final class RemoteMenuModule implements FeatureModule {
             }
         } else {
             this.screenlessRemoteMenuTicks = 0;
-        }
-
-        
-        
-        if (this.pendingCraftTerminalOpen
-                && mc.player.containerMenu instanceof CraftingMenu
-                && mc.player.containerMenu.containerId != 0
-                && !(mc.screen instanceof RtsCraftTerminalScreen)) {
-            Component pendingTitle = mc.screen != null
-                    ? mc.screen.getTitle()
-                    : Component.literal("RTS Craft Terminal");
-            mc.setScreen(new RtsCraftTerminalScreen(
-                    mc.player.containerMenu, mc.player.getInventory(), pendingTitle));
-            this.pendingCraftTerminalOpen = false;
-            this.pendingCraftTerminalOpenTicks = 0;
-        }
-
-        
-        if (mc.screen instanceof CraftingScreen craftingScreen
-                && mc.player != null
-                && craftingScreen.getMenu() instanceof CraftingMenu
-                && !(mc.screen instanceof RtsCraftTerminalScreen)
-                && shouldUseRtsCraftTerminalScreen(craftingScreen)) {
-            mc.setScreen(new RtsCraftTerminalScreen(
-                    craftingScreen.getMenu(),
-                    mc.player.getInventory(),
-                    craftingScreen.getTitle()));
-            this.pendingCraftTerminalOpen = false;
-            this.pendingCraftTerminalOpenTicks = 0;
-        } else if (this.pendingCraftTerminalOpen) {
-            if (this.pendingCraftTerminalOpenTicks > 0) {
-                this.pendingCraftTerminalOpenTicks--;
-            } else {
-                this.pendingCraftTerminalOpen = false;
-            }
         }
 
         
@@ -197,14 +150,6 @@ public final class RemoteMenuModule implements FeatureModule {
     }
 
     
-    public void openCraftTerminal() {
-        this.pendingCraftTerminalOpen = true;
-        this.pendingCraftTerminalOpenTicks = 120;
-        beginRemoteMenuOpenGrace();
-        RtsClientPacketGateway.sendOpenCraftTerminal();
-    }
-
-    
     public boolean isRemoteMenuOpen() {
         return this.hasRemoteMenuOpen;
     }
@@ -243,15 +188,6 @@ public final class RemoteMenuModule implements FeatureModule {
     private void clearRemoteMenuValidationState() {
         this.relaxedRemoteMenu = null;
         RtsRemoteMenuCompat.clearClientRemoteMenu();
-    }
-
-    
-    private boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
-        if (this.pendingCraftTerminalOpen) {
-            return true;
-        }
-        return craftingScreen.getTitle() != null
-                && "RTS Craft Terminal".equals(craftingScreen.getTitle().getString());
     }
 
     private RtsClientKernel kernel() {

@@ -156,7 +156,7 @@ public final class RtsInteractionServiceImpl implements RtsService {
         boolean storageChanged = placedPos != null
                 || (result.consumesAction() && menuAfterInteract == menuBeforeInteract);
         if (storageChanged) {
-            server.page().requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending, false);
+            server.page().requestPage(player, session.browser.page, session.browser.search, session.browser.category, session.browser.sort, session.browser.ascending);
         }
     }
 }

@@ -100,6 +100,11 @@ dependencies {
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
     testImplementation "net.neoforged:neoforge:${neo_version}"
 
+    // common/api 仅以 compileOnly 提供给 main；测试运行时需要它们的类
+    // （否则 AreaShapeTest/BlueprintFormatTest/RtsCountUtilTest 抛 NoClassDefFoundError）
+    testImplementation project(':rtsbuilding-common')
+    testImplementation project(':rtsbuilding-api')
+
     testImplementation 'org.openjdk.jmh:jmh-core:1.37'
     testAnnotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.37'
 

@@ -4,7 +4,6 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.presentation.standalone.RtsCraftTerminalScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
@@ -27,7 +26,7 @@ abstract class MinecraftSetScreenMixin {
             RtsbuildingMod.LOGGER.debug("RTS: BuilderScreen closing via setScreen(null)");
         }
         if (newScreen == null) return;
-        if (newScreen instanceof BuilderScreen || newScreen instanceof RtsCraftTerminalScreen) return;
+        if (newScreen instanceof BuilderScreen) return;
         if (newScreen instanceof AbstractContainerScreen<?>) {
             RtsbuildingMod.LOGGER.debug("RTS: setScreen({}) while current={}; intercepted={}",
                     newScreen.getClass().getSimpleName(),

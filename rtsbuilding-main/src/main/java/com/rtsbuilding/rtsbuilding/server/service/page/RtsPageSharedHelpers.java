@@ -224,8 +224,7 @@ public final class RtsPageSharedHelpers {
     }
 
     public static boolean shouldIncludePlayerMainInventoryInStorageView(ServerPlayer player, RtsStorageSession session) {
-        // 背包始终计入存储视图（合成终端专用界面除外）：背包条目以 MODE_PLAYER_INVENTORY
-        // 独立标识显示，与存储条目分开计数，物品进出背包都可在网格中正确反映
-        return player != null && !(player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu);
+        // 背包始终计入存储视图：背包条目以 MODE_PLAYER_INVENTORY 独立标识显示
+        return player != null;
     }
 }

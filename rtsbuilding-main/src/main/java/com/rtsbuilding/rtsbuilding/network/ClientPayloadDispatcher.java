@@ -6,11 +6,8 @@ import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsDroneAnimPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsCarriedSyncPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.neoforged.api.distmarker.Dist;
@@ -60,8 +57,6 @@ public final class ClientPayloadDispatcher {
                     RtsClientNetworkHandlers.handleStoragePage(p, ctx);
             case S2CRtsStorageDirtyPayload p ->
                     RtsClientNetworkHandlers.handleStorageDirty(p, ctx);
-            case S2CRtsRemoteMenuHintPayload p ->
-                    RtsClientNetworkHandlers.handleRemoteMenuHint(p, ctx);
             case S2CRtsCarriedSyncPayload p ->
                     RtsClientNetworkHandlers.handleCarriedSync(p, ctx);
             default -> {}
@@ -89,21 +84,6 @@ public final class ClientPayloadDispatcher {
                     RtsClientNetworkHandlers.handleWorkflowProgress(p, ctx);
             case S2CRtsWorkflowProgressBatchPayload p ->
                     RtsClientNetworkHandlers.handleWorkflowProgressBatch(p, ctx);
-            default -> {}
-        }
-    }
-
-    // ======================================================================
-    //  Craft domain
-    // ======================================================================
-
-    public static void dispatchCraft(Object payload, IPayloadContext ctx) {
-        if (!IS_CLIENT) return;
-        switch (payload) {
-            case S2CRtsCraftablesPayload p ->
-                    RtsClientNetworkHandlers.handleCraftables(p, ctx);
-            case S2CRtsCraftFeedbackPayload p ->
-                    RtsClientNetworkHandlers.handleCraftFeedback(p, ctx);
             default -> {}
         }
     }

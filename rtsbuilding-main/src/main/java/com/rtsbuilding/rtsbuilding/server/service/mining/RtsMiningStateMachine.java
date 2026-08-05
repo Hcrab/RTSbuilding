@@ -86,14 +86,8 @@ public final class RtsMiningStateMachine {
     private static void activateNextJob(ServerPlayer player, RtsStorageSession session) {
         MiningJob job = session.mining.ultimineJobQueue.removeFirst();
         RtsbuildingMod.LOGGER.info("[RtsMiningStateMachine] activateNextJob: entryId={}, {} targets for {}", job.workflowEntryId(), job.targets().size(), player.getGameProfile().getName());
-        session.mining.ultimineTargets.addAll(job.targets());
+        RtsUltimineProcessor.initBatchFields(session, job.targets(), Direction.DOWN, session.mining.miningToolSlot);
         session.mining.ultimineTotalTargets = job.totalTargets();
-        session.mining.ultimineProgressPos = job.targets().peekFirst();
-        session.mining.ultimineProcessedTargets = 0;
-        session.mining.ultimineBrokenTargets = 0;
-        session.mining.ultimineNotifyAccumulator = 0;
-        session.mining.ultimineProcessedPositions.clear();
-        session.mining.ultimineAbsorbedDrops = false;
         // Point the active workflow tracking to this job's entry
         session.mining.workflowEntryId = job.workflowEntryId();
         // 队列模式激活走批处理路径 (processUltimineTargets)，
@@ -196,16 +190,21 @@ public final class RtsMiningStateMachine {
         MiningBreakResult result = destroyMinedBlock(player, session, pos, session.mining.miningToolSlot);
         level.destroyBlockProgress(player.getId(), pos, -1);
 
-        if (result.broken() && !session.mining.ultimineTargets.isEmpty()) {
-            // Part of an ultimine batch — advance to next target
+        if (!session.mining.ultimineTargets.isEmpty()) {
+            // Part of an ultimine batch — advance to next target.
+            // B5：首个目标破坏失败也继续批次，不再丢弃剩余目标。
             removeUltimineTarget(session, pos);
-            session.mining.ultimineProcessedTargets = Math.max(session.mining.ultimineProcessedTargets, 1);
-            session.mining.ultimineBrokenTargets++;
-            session.mining.ultimineProcessedPositions.add(preRecord);
-            // Record any collateral blocks (multi-block structures)
-            MultiBlockTracker.recordCollateralBlocks(player.serverLevel(), session, neighborRecords, pos);
-            if (RtsMiningValidator.canAutoStoreDrops(player, session)) {
-                RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
+            session.mining.ultimineProcessedTargets++;
+            if (result.broken()) {
+                session.mining.ultimineBrokenTargets++;
+                if (preRecord != null) {
+                    session.mining.ultimineProcessedPositions.add(preRecord);
+                }
+                // Record any collateral blocks (multi-block structures)
+                MultiBlockTracker.recordCollateralBlocks(player.serverLevel(), session, neighborRecords, pos);
+                if (RtsMiningValidator.canAutoStoreDrops(player, session)) {
+                    RtsDropAbsorber.absorbMinedDropsImmediately(player, session, pos);
+                }
             }
             // 连锁挖掘中途进度：markDirty 只更新版本号，避免每方块一次完整 afterModification（含 requestPage + saveToPlayerNbt）
             // 完整的 afterModification（含页面刷新和持久化）在 finalizeMiningOperation 中执行
@@ -420,13 +419,6 @@ public final class RtsMiningStateMachine {
     //  Progress Calculation — 已迁移至 MiningSpeedCalculator
     // =========================================================================
 
-    /** @deprecated 使用 {@link MiningSpeedCalculator#computeRemoteDestroyStep} */
-    @Deprecated
-    public static float computeRemoteDestroyStep(ServerPlayer player, BlockState state, BlockPos pos, int toolSlot,
-            ItemStack linkedTool, boolean selectedToolRequested) {
-        return MiningSpeedCalculator.computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool, selectedToolRequested);
-    }
-
     // =========================================================================
     //  MiningDestroyOutcome (temporary swapper)
     // =========================================================================
@@ -541,7 +533,6 @@ public final class RtsMiningStateMachine {
         session.mining.ultimineProcessedTargets = 0;
         session.mining.ultimineBrokenTargets = 0;
         session.mining.ultimineNotifyAccumulator = 0;
-        session.mining.ultimineAbsorbedDrops = false;
         session.mining.ultimineLastProgressPos = null;
         session.mining.ultimineLastStage = -1;
         session.mining.miningFace = Direction.DOWN;

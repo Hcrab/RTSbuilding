@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
@@ -82,17 +83,14 @@ public final class ServerActionHandler {
                 var sort = com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort.byId(t.getByte("sort"));
                 RtsServer.get().page().requestPage(p, t.getInt("page"), t.getString("search"), t.getString("category"), sort, t.getBoolean("ascending"), t.getInt("pageSize"), true, new ArrayList<>());
             }
-            case CRAFT_RECIPE -> RtsServer.get().crafting().craftRecipeToLinked(p, t.getString("recipeId"), t.getInt("count"));
-            case REQUEST_CRAFTABLES -> RtsServer.get().crafting().requestCraftables(p, t.getString("search"), t.getBoolean("showUnavailable"), t.getInt("offset"), t.getInt("limit"), true, new ArrayList<>());
-            case OPEN_CRAFT_TERMINAL -> RtsServer.get().crafting().openCraftTerminal(p);
             case PLACE_BLOCK -> {
                 if (!isBuildMode(p)) return;
-                Direction face = Direction.from3DDataValue(t.getByte("face"));
+                Direction face = safeFace(t);
                 RtsServer.get().placement().placeSelected(p, BlockPos.of(t.getLong("pos")), face, t.getDouble("hitX"), t.getDouble("hitY"), t.getDouble("hitZ"), t.getByte("rotateSteps"), t.getBoolean("forcePlace"), t.getBoolean("skipIfOccupied"), t.getString("itemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getDouble("rayOriginX"), t.getDouble("rayOriginY"), t.getDouble("rayOriginZ"), t.getDouble("rayDirX"), t.getDouble("rayDirY"), t.getDouble("rayDirZ"), t.getBoolean("quickBuild"), false);
             }
             case PLACE_FLUID -> {
                 if (!isBuildMode(p)) return;
-                Direction face = Direction.from3DDataValue(t.getByte("face"));
+                Direction face = safeFace(t);
                 RtsServer.get().fluid().placeFluid(p, BlockPos.of(t.getLong("pos")), face, t.getDouble("hitX"), t.getDouble("hitY"), t.getDouble("hitZ"), t.getBoolean("forcePlace"), t.getString("fluidId"), t.getDouble("rayOriginX"), t.getDouble("rayOriginY"), t.getDouble("rayOriginZ"), t.getDouble("rayDirX"), t.getDouble("rayDirY"), t.getDouble("rayDirZ"));
             }
             case ROTATE_BLOCK -> RtsServer.get().placement().rotateBlock(p, BlockPos.of(t.getLong("pos")));
@@ -100,13 +98,13 @@ public final class ServerActionHandler {
             case SUBMIT_PENDING -> RtsServer.get().placement().submitPendingPlacement(p);
             case MINE_BLOCK -> {
                 if (!isBuildMode(p)) return;
-                Direction face = Direction.from3DDataValue(t.getByte("face"));
+                Direction face = safeFace(t);
                 RtsServer.get().mining().mine(p, BlockPos.of(t.getLong("pos")), face, t.getBoolean("start"), t.getByte("toolSlot"), t.getString("toolItemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getBoolean("allowPlacedBlockRecovery"), t.getBoolean("toolProtectionEnabled"));
             }
             case ULTIMINE -> {
                 if (!isBuildMode(p)) return;
-                Direction face = Direction.from3DDataValue(t.getByte("face"));
-                RtsServer.get().mining().startUltimine(p, BlockPos.of(t.getLong("pos")), face, t.getByte("toolSlot"), t.getString("toolItemId"), net.minecraft.world.item.ItemStack.EMPTY, t.getShort("limit") & 0xFFFF, t.getByte("mode"), t.getBoolean("toolProtectionEnabled"));
+                Direction face = safeFace(t);
+                RtsServer.get().mining().startUltimine(p, BlockPos.of(t.getLong("pos")), face, t.getByte("toolSlot"), t.getString("toolItemId"), t.getShort("limit") & 0xFFFF, t.getByte("mode"), t.getBoolean("toolProtectionEnabled"));
             }
             case AREA_MINE -> {
                 if (!isBuildMode(p)) return;
@@ -121,11 +119,12 @@ public final class ServerActionHandler {
             }
             case BREAK -> {
                 if (!isBuildMode(p)) return;
-                Direction face = Direction.from3DDataValue(t.getByte("face"));
+                Direction face = safeFace(t);
                 RtsPlacedRecoveryService.breakPlaced(p, BlockPos.of(t.getLong("pos")), face, t.getBoolean("allowAdjacentFallback"));
             }
             case INTERACT_BLOCK -> {
-                Direction face = Direction.from3DDataValue(t.getByte("face"));
+                if (!RtsCameraManager.isActive(p)) return;
+                Direction face = safeFace(t);
                 RtsServer.get().interaction().interactTarget(p, t.getInt("entityId"), BlockPos.of(t.getLong("clickedPos")), face, t.getDouble("hitX"), t.getDouble("hitY"), t.getDouble("hitZ"), t.getByte("sourceType"), t.getByte("toolSlot"), t.getString("itemId"), t.getDouble("rayOriginX"), t.getDouble("rayOriginY"), t.getDouble("rayOriginZ"), t.getDouble("rayDirX"), t.getDouble("rayDirY"), t.getDouble("rayDirZ"));
             }
             case QUICK_DROP -> RtsServer.get().transfer().quickDropLinkedItem(p, t.getString("itemId"), (byte) t.getInt("amount"), t.getDouble("dropX"), t.getDouble("dropY"), t.getDouble("dropZ"));
@@ -153,9 +152,6 @@ public final class ServerActionHandler {
                 RtsServer.get().transfer().importMenuSlotToLinked(p, t.getInt("slot"));
             }
             case UNDO -> { if (RtsCameraManager.isActive(p) && isBuildMode(p)) ServerHistoryManager.executeUndo(p); }
-            case CAMERA_POSE -> RtsCameraManager.updateCameraPose(p,
-                    t.getDouble("x"), t.getDouble("y"), t.getDouble("z"),
-                    t.getFloat("yaw"), t.getFloat("pitch"));
             case PAUSE_WORKFLOW -> {
                 int entryId = t.getInt("entryId");
                 var engine = RtsWorkflowEngine.getInstance();
@@ -170,11 +166,11 @@ public final class ServerActionHandler {
             case DELETE_WORKFLOW -> RtsWorkflowEngine.getInstance().deleteWorkflow(p, t.getInt("entryId"));
             case PATHFIND -> RtsServer.get().pathfinding().goTo(p, BlockPos.of(t.getLong("target")));
             case FUNNEL_PICKUP -> {
-                if (!isInteractOrBlueprintMode(p)) return;
+                if (!isFunnelAllowedMode(p)) return;
                 RtsFunnelService.INSTANCE.onFunnelPickupRequest(p, BlockPos.of(t.getLong("pos")));
             }
             case FUNNEL_BOX_PICKUP -> {
-                if (!isInteractOrBlueprintMode(p)) return;
+                if (!isFunnelAllowedMode(p)) return;
                 var list = t.getList("entities", net.minecraft.nbt.Tag.TAG_INT);
                 var entityIds = new ArrayList<Integer>();
                 for (int i = 0; i < list.size(); i++) entityIds.add(((net.minecraft.nbt.IntTag) list.get(i)).getAsInt());
@@ -186,14 +182,23 @@ public final class ServerActionHandler {
     }
 
     private static boolean isBuildMode(ServerPlayer p) {
-        if (!RtsCameraManager.isActive(p)) return true;
+        if (!RtsCameraManager.isActive(p)) return false;
         var session = RtsServer.get().session().getIfPresent(p);
         return session != null && session.mode == BuilderMode.BUILD;
     }
 
-    private static boolean isInteractOrBlueprintMode(ServerPlayer p) {
+    /** 漏斗（物品拾取）允许的模式：交互、建造、蓝图三种均可开启物品拾取。 */
+    private static boolean isFunnelAllowedMode(ServerPlayer p) {
         var session = RtsServer.get().session().getIfPresent(p);
         return session != null
-                && (session.mode == BuilderMode.INTERACT || session.mode == BuilderMode.BLUEPRINT);
+                && (session.mode == BuilderMode.INTERACT
+                || session.mode == BuilderMode.BLUEPRINT
+                || session.mode == BuilderMode.BUILD);
+    }
+
+    /** 解析客户端上报的面，越界值安全回退到 DOWN。 */
+    private static Direction safeFace(CompoundTag t) {
+        int raw = t.getByte("face") & 0xFF;
+        return raw >= 0 && raw < 6 ? Direction.from3DDataValue(raw) : Direction.DOWN;
     }
 }

@@ -13,7 +13,7 @@ import net.minecraft.world.phys.HitResult;
 /**
  * 漏斗（物品拾取）收集范围显示 pass。
  *
- * <p>当处于<b>交互模式</b>、已启用<b>点击模式</b>且开启<b>物品拾取（漏斗）</b>时，
+ * <p>当处于<b>交互、建造或蓝图模式</b>、已启用<b>点击模式</b>且开启<b>物品拾取（漏斗）</b>时，
  * 以鼠标指针指向的方块为中心绘制球形收集范围，与服务端 {@code RtsFunnelService}
  * 的球心吸取范围（半径 2 格）保持一致；指针移动时球体平滑跟随。
  *
@@ -52,11 +52,10 @@ public final class FunnelRangePass implements RenderPass {
     @Override
     public boolean shouldRender(Minecraft mc) {
         if (!(mc.screen instanceof BuilderScreen screen)) return false;
-        // 交互模式 + 点击模式 + 物品拾取（漏斗）启用 + RTS 相机激活
+        // 交互/建造/蓝图模式 + 点击模式 + 物品拾取（漏斗）启用 + RTS 相机激活
         // （相机激活与服务端 RtsFunnelService.validate 的 RtsCameraManager.isActive 一致，
         //  避免“球体可见但服务端静默拒绝”的假象）
         if (!screen.isCameraActive()) return false;
-        if (!screen.isInteractiveMode()) return false;
         if (!screen.isClickButtonSelected()) return false;
         if (!screen.isItemPickupActive()) return false;
         return isConfigSafe() && PerformanceConfig.shouldRenderInteractionHighlights();

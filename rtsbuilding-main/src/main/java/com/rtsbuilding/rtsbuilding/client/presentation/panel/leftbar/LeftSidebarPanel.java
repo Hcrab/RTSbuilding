@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar;
 
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.base.api.RtsPanelApi;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.ActionButtonGroup;
+import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.BuildDestroyButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.SelectButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.panel.leftbar.group_button.UltimineButtonGroup;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
@@ -34,6 +35,8 @@ public final class LeftSidebarPanel implements RtsPanelApi {
     
     private final ActionButtonGroup actionGroup = new ActionButtonGroup();
     
+    private final BuildDestroyButtonGroup buildDestroyGroup = new BuildDestroyButtonGroup();
+    
     private final UltimineButtonGroup ultimineGroup = new UltimineButtonGroup();
 
     
@@ -59,6 +62,9 @@ public final class LeftSidebarPanel implements RtsPanelApi {
 
     
     public void toggleSelectMode() {
+        if (selectGroup.isDisabled()) {
+            return;
+        }
         selectGroup.toggleSelection();
     }
 
@@ -145,18 +151,29 @@ public final class LeftSidebarPanel implements RtsPanelApi {
         actionGroup.setBlueprintMode(blueprint);
 
         
+        boolean buildMode = screen != null && screen.isBuildMode();
+        buildDestroyGroup.setShow(buildMode);
+        ultimineGroup.setShow(buildMode);
+        // 建造模式 + 连锁挖掘启用 → 禁用选择（点击/框选）模式按钮，并显示覆盖层
+        selectGroup.setDisabled(buildMode && ultimineGroup.isSelected(0));
+        // 连锁挖掘启用 → 直接禁用建造/破坏按钮组
+        buildDestroyGroup.setDisabled(ultimineGroup.isSelected(0));
+
+        
         int actionY = baseY + selectGroup.totalHeight() + CROSS_GAP;
         actionGroup.render(g, mouseX, mouseY, bx, actionY);
 
         
-        boolean buildMode = screen != null && screen.isBuildMode();
-        ultimineGroup.setShow(buildMode);
-        int ultimineY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
+        int buildDestroyY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
+        buildDestroyGroup.render(g, mouseX, mouseY, bx, buildDestroyY);
+
+        int ultimineY = buildDestroyY + buildDestroyGroup.visibleHeight() + CROSS_GAP;
         ultimineGroup.render(g, mouseX, mouseY, bx, ultimineY);
 
         
         selectGroup.tickTooltips(mouseX, mouseY, bx, baseY);
         actionGroup.tickTooltips(mouseX, mouseY, bx, actionY);
+        buildDestroyGroup.tickTooltips(mouseX, mouseY, bx, buildDestroyY);
         ultimineGroup.tickTooltips(mouseX, mouseY, bx, ultimineY);
     }
 
@@ -190,7 +207,13 @@ public final class LeftSidebarPanel implements RtsPanelApi {
         }
 
         
-        int ultimineY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
+        int buildDestroyY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
+        if (buildDestroyGroup.mouseClicked(mouseX, mouseY, bx, buildDestroyY) >= 0) {
+            return true;
+        }
+
+        
+        int ultimineY = buildDestroyY + buildDestroyGroup.visibleHeight() + CROSS_GAP;
         if (ultimineGroup.mouseClicked(mouseX, mouseY, bx, ultimineY) >= 0) {
             return true;
         }
@@ -207,11 +230,14 @@ public final class LeftSidebarPanel implements RtsPanelApi {
         int bx = btnX();
         int baseY = groupBaseY();
         int actionY = baseY + selectGroup.totalHeight() + CROSS_GAP;
-        int ultimineY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
+        int buildDestroyY = actionY + actionGroup.visibleHeight() + CROSS_GAP;
+        int ultimineY = buildDestroyY + buildDestroyGroup.visibleHeight() + CROSS_GAP;
 
         selectGroup.renderTooltipOverlay(g, bx, baseY,
                 this.screen.width, this.screen.height);
         actionGroup.renderTooltipOverlay(g, bx, actionY,
+                this.screen.width, this.screen.height);
+        buildDestroyGroup.renderTooltipOverlay(g, bx, buildDestroyY,
                 this.screen.width, this.screen.height);
         ultimineGroup.renderTooltipOverlay(g, bx, ultimineY,
                 this.screen.width, this.screen.height);

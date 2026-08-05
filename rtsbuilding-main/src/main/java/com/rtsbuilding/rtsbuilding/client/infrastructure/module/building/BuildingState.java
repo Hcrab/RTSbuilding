@@ -17,7 +17,4 @@ public final class BuildingState {
 
     
     public BuilderMode currentMode = BuilderMode.INTERACT;
-
-    
-    public int buildShapeOrdinal;
 }

@@ -1,13 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.workflow.core;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSyncService;
-import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowTimeoutService;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceService;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
@@ -18,7 +16,6 @@ import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.server.ServerLifecycleHooks;
 
 import javax.annotation.Nullable;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -26,8 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * 工作流引擎核心——{@link IWorkflowEngine} 的唯一实现。
  *
  * <p>本引擎使用每个玩家的 {@link RtsWorkflowSlotManager} 在内部管理工作流状态。
- * 所有生命周期操作都通过本引擎创建的 {@link RtsWorkflowToken} 实例进行。
- * 事件通过事件总线分发到已注册的监听器。</p>
+ * 所有生命周期操作都通过本引擎创建的 {@link RtsWorkflowToken} 实例进行。</p>
  *
  * <p>引擎设计为顶层单例服务。通过 {@link #getInstance()} 获取实例。</p>
  *
@@ -35,12 +31,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li><b>仅通过令牌的消费者 API：</b>外部代码绝不直接触碰条目。
  *       所有交互通过 {@link RtsWorkflowToken} 进行。</li>
- *   <li><b>事件驱动：</b>子系统通过响应工作流生命周期事件来工作，
- *       而非通过显式回调串联。</li>
  *   <li><b>基于条目 ID：</b>所有内部查找使用不可变的条目 ID，
  *       而非位置索引（索引会在删除时偏移）。</li>
- *   <li><b>超时安全：</b>{@link RtsWorkflowTimeoutService} 定期清理
- *       过时条目以防止槽位耗尽。</li>
  * </ul>
  */
 public final class RtsWorkflowEngine implements IWorkflowEngine {
@@ -74,9 +66,6 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      */
     private final Set<UUID> dirtyPlayers = ConcurrentHashMap.newKeySet();
 
-    /** 可选的超时服务（单独启动）。 */
-    private RtsWorkflowTimeoutService timeoutService;
-
     /**
      * 蓝图工作流重载处理器——服务端重启后自动恢复蓝图的 Tick 管道。
      * 由蓝图模块在初始化时注册，避免引擎直接依赖蓝图类型。
@@ -104,29 +93,6 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     /** 返回单例引擎实例。 */
     public static RtsWorkflowEngine getInstance() {
         return INSTANCE;
-    }
-
-    /**
-     * 启动超时服务。在模组初始化期间调用一次。
-     *
-     * @param checkInterval 扫描过期工作流的间隔
-     * @param maxIdleTime   清理前的最大空闲时间
-     */
-    public void startTimeoutService(Duration checkInterval, Duration maxIdleTime) {
-        if (timeoutService == null) {
-            timeoutService = new RtsWorkflowTimeoutService(playerSlots, playerRefs, syncService);
-            timeoutService.start(checkInterval, maxIdleTime);
-        }
-    }
-
-    /**
-     * 停止超时服务。在模组关闭时调用。
-     */
-    public void stopTimeoutService() {
-        if (timeoutService != null) {
-            timeoutService.stop();
-            timeoutService = null;
-        }
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -218,13 +184,6 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         dirtyPlayers.clear();
     }
 
-    /**
-     * 触发生命周期事件（预留 — 当前无监听器）。
-     * 包级私有——由 {@link RtsWorkflowToken} 调用。
-     */
-    void fireEvent(WorkflowEventType type, UUID playerId, int entryId, RtsWorkflowEntry entry) {
-    }
-
     // ──────────────────────────────────────────────────────────────────
     //  IWorkflowEngine — 启动器
     // ──────────────────────────────────────────────────────────────────
@@ -255,7 +214,6 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
 
         ResourceKey<Level> dimension = player.level().dimension();
         RtsWorkflowToken token = new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this);
-        fireEvent(WorkflowEventType.STARTED, player.getUUID(), entry.id(), entry);
         syncService.notifyPlayer(player, slots);
 
         RtsbuildingMod.LOGGER.info("[Workflow] {} 开始工作流 #{}: {} (共 {} 方块)",
@@ -427,7 +385,6 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
                 if (!entry.suspended() && !entry.paused()) {
                     entry.setPaused(true);
-                    fireEvent(WorkflowEventType.PAUSED, playerId, entry.id(), entry);
                     anyChanged = true;
                 }
             }
@@ -452,7 +409,6 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         RtsbuildingMod.LOGGER.info("[Workflow] {} 删除工作流 #{}: {}",
                 player.getGameProfile().getName(), entry.id(), entry.type());
 
-        fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entryId, entry);
         slots.removeEntryById(entryId);
 
         if (slots.occupiedCount() > 0) {
@@ -469,9 +425,6 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
         if (slots == null) return;
 
-        for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
-            fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entry.id(), entry);
-        }
         slots.clear();
         syncService.sendIdle(player);
     }

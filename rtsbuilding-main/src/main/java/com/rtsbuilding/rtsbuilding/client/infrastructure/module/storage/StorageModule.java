@@ -7,8 +7,6 @@ import com.rtsbuilding.rtsbuilding.client.kernel.FeatureModule;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
 import com.rtsbuilding.rtsbuilding.client.kernel.StateEvent;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.core.BlockPos;
@@ -64,14 +62,6 @@ public final class StorageModule implements FeatureModule {
         kernel().dispatch(new StateEvent.StoragePageLoaded(state.getRevision(), payload));
     }
 
-    public void applyCraftables(S2CRtsCraftablesPayload payload) {
-        state.applyCraftables(payload);
-    }
-
-    public void applyCraftFeedback(S2CRtsCraftFeedbackPayload payload) {
-        state.applyCraftFeedback(payload);
-    }
-
     public void applyStorageDirty(S2CRtsStorageDirtyPayload payload) {
         state.applyStorageDirty(payload);
     }
@@ -84,25 +74,12 @@ public final class StorageModule implements FeatureModule {
         state.requestStoragePage(page);
     }
 
-    public void requestCraftables() {
-        state.requestCraftables();
-    }
-
     public void setSearch(String search) {
         state.setStorageSearch(search);
     }
 
-    public void setCraftablesSearch(String search) {
-        state.setCraftablesSearch(search);
-    }
-
     public void linkStorage(BlockPos pos, boolean allowStore) {
         RtsClientPacketGateway.sendLinkStorage(pos, allowStore);
-    }
-
-    public void craftRecipe(String recipeId, int count) {
-        if (recipeId == null || recipeId.isBlank()) return;
-        RtsClientPacketGateway.sendCraftRecipe(recipeId, count);
     }
 
     
@@ -138,7 +115,6 @@ public final class StorageModule implements FeatureModule {
     public void restoreRecentEntry(String id) {
         state.restoreRecentEntry(id);
     }
-    public List<?> getCraftableEntries() { return state.getCraftableEntries(); }
 
     
     public List<LinkedStorageEntry> getLinkedStorageEntries() { return state.getLinkedStorageEntries(); }

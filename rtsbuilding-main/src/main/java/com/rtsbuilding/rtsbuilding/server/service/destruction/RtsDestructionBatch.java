@@ -167,9 +167,10 @@ public final class RtsDestructionBatch {
             // ── Tool durability check ────────────────────────────────────────
             if (job.toolProtectionEnabled && RtsMiningValidator.isToolNearBreak(player, session)) {
                 // Tool is about to break, suspend to pendingDestroyJobs
+                // 无工作流条目的作业 token 可能为 null，需 ifPresent 而非 get()（防 NPE）
                 session.destruction.destroyJobs.removeFirst();
                 session.destruction.pendingDestroyJobs.addLast(job);
-                tokenOpt.get().suspend();
+                tokenOpt.ifPresent(t -> t.suspend());
                 RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} tool near break, suspending destroy job #{}",
                         player.getGameProfile().getName(), job.workflowEntryId());
                 break;
@@ -228,7 +229,7 @@ public final class RtsDestructionBatch {
                         job.unconsumeLast();
                         session.destruction.destroyJobs.removeFirst();
                         session.destruction.pendingDestroyJobs.addLast(job);
-                        tokenOpt.get().suspend();
+                        tokenOpt.ifPresent(t -> t.suspend());
                         RtsbuildingMod.LOGGER.info("[RtsDestructionBatch] {} tool near break after block break, suspending destroy job #{}",
                                 player.getGameProfile().getName(), job.workflowEntryId());
                         madeProgress = false;
@@ -365,8 +366,9 @@ public final class RtsDestructionBatch {
     /**
      * 过滤给定的显式位置列表，返回可破坏的有效目标。
      * 按 Y 降序排列（从上往下破坏），去重，验证可达性/可破坏性/破坏速度。
+     * <p>供 destruction 批处理与 {@code RtsUltimineProcessor} 共用，避免重复实现。</p>
      */
-    private static Deque<BlockPos> collectAreaDestroyTargets(ServerPlayer player, List<BlockPos> positions,
+    public static Deque<BlockPos> collectAreaDestroyTargets(ServerPlayer player, List<BlockPos> positions,
             int toolSlot, ItemStack linkedTool, boolean selectedToolRequested, boolean creative) {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();

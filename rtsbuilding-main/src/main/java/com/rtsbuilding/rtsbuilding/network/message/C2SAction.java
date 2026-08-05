@@ -9,11 +9,9 @@ import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
 import javax.annotation.Nullable;
-import java.util.UUID;
 
 public record C2SAction(
         ActionType actionType,
-        @Nullable UUID workflowId,
         @Nullable CompoundTag params
 ) implements CustomPacketPayload {
     public static final Type<C2SAction> TYPE = new Type<>(
@@ -25,15 +23,18 @@ public record C2SAction(
 
     private static void encode(RegistryFriendlyByteBuf buf, C2SAction p) {
         buf.writeVarInt(p.actionType().ordinal());
-        buf.writeNullable(p.workflowId(), (b, id) -> b.writeUUID(id));
         buf.writeNullable(p.params(), (b, tag) -> b.writeNbt(tag));
     }
 
     private static C2SAction decode(RegistryFriendlyByteBuf buf) {
-        ActionType actionType = ActionType.values()[buf.readVarInt()];
-        UUID workflowId = buf.readNullable(b -> b.readUUID());
+        int ordinal = buf.readVarInt();
+        ActionType[] values = ActionType.values();
+        ActionType actionType = ordinal >= 0 && ordinal < values.length ? values[ordinal] : null;
         CompoundTag params = buf.readNullable(b -> b.readNbt());
-        return new C2SAction(actionType, workflowId, params);
+        if (actionType == null) {
+            return null;
+        }
+        return new C2SAction(actionType, params);
     }
 
     @Override

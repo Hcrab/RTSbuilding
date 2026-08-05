@@ -77,8 +77,7 @@ public final class BuildingModule implements FeatureModule {
     public void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 origin, Vec3 dir) {
         if (hit == null) return;
         RtsClientPacketGateway.sendPlace(hit, forcePlace, false,
-                state.selectedItemId, state.selectedItemPreview,
-                state.placeRotateSteps, origin, dir);
+                state.selectedItemId, state.placeRotateSteps, origin, dir, false);
     }
 
     public void placeFluid(BlockHitResult hit, boolean forcePlace, Vec3 origin, Vec3 dir) {

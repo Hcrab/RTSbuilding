@@ -71,9 +71,6 @@ public final class SessionSerializer {
         tag.putString("category", RtsStoragePageBuilder.normalizeCategory(v.category));
         tag.putInt("sort", (v.sort == null ? RtsStorageSort.QUANTITY : v.sort).ordinal());
         tag.putBoolean("ascending", v.ascending);
-        tag.putString("craft_search", v.craftSearch);
-        tag.putBoolean("craft_show_unavailable", v.craftShowUnavailable);
-        tag.putInt("craft_requested_count", Math.max(1, Math.min(999, v.craftRequestedCount)));
         return tag;
     }
 
@@ -100,11 +97,6 @@ public final class SessionSerializer {
         session.browser.category = RtsStoragePageBuilder.normalizeCategory(tag.getString("category"));
         session.browser.sort = parseSort(tag.getInt("sort"));
         session.browser.ascending = tag.contains("ascending", Tag.TAG_BYTE) && tag.getBoolean("ascending");
-        session.browser.craftSearch = tag.contains("craft_search", Tag.TAG_STRING) ? tag.getString("craft_search").trim() : "";
-        session.browser.craftShowUnavailable = tag.contains("craft_show_unavailable", Tag.TAG_BYTE) && tag.getBoolean("craft_show_unavailable");
-        session.browser.craftRequestedCount = tag.contains("craft_requested_count", Tag.TAG_INT)
-                ? Math.max(1, Math.min(999, tag.getInt("craft_requested_count")))
-                : RtsBrowserState.CRAFTABLE_BATCH_SIZE;
     }
 
     private static void loadFlagsFields(RtsStorageSession session, CompoundTag tag) {

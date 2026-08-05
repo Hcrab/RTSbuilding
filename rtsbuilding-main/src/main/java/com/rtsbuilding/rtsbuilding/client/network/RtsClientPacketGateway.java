@@ -6,10 +6,8 @@ import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
 import com.rtsbuilding.rtsbuilding.network.message.C2SAction;
 import com.rtsbuilding.rtsbuilding.network.message.C2SCameraPosePayload;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.LongTag;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
@@ -21,7 +19,7 @@ import java.util.List;
 public final class RtsClientPacketGateway {
     private RtsClientPacketGateway() {}
 
-    private static C2SAction act(ActionType type, CompoundTag t) { return new C2SAction(type, null, t); }
+    private static C2SAction act(ActionType type, CompoundTag t) { return new C2SAction(type, t); }
     private static CompoundTag tag() { return new CompoundTag(); }
 
     public static void sendSetMode(BuilderMode mode) {
@@ -32,16 +30,6 @@ public final class RtsClientPacketGateway {
     public static void sendToggleCamera(boolean startAtPlayerHead) {
         var t = tag(); t.putBoolean("startAtPlayerHead", startAtPlayerHead);
         PacketDistributor.sendToServer(act(ActionType.TOGGLE_CAMERA, t));
-    }
-
-    public static void sendSetAutoStoreMinedDrops(boolean enabled) {
-        var t = tag(); t.putBoolean("enabled", enabled);
-        PacketDistributor.sendToServer(act(ActionType.SET_AUTO_STORE, t));
-    }
-
-    public static void sendSetBdNetwork(boolean enabled) {
-        var t = tag(); t.putBoolean("enabled", enabled);
-        PacketDistributor.sendToServer(act(ActionType.SET_BD_NETWORK, t));
     }
 
     public static void sendLinkStorage(BlockPos pos, boolean allowStore) {
@@ -71,33 +59,12 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(act(ActionType.REQUEST_PAGE, t));
     }
 
-    public static void sendRequestCraftables(String search, boolean showUnavailable, int offset, int limit) {
-        var t = tag(); t.putString("search", search == null ? "" : search);
-        t.putBoolean("showUnavailable", showUnavailable); t.putInt("offset", offset); t.putInt("limit", limit);
-        PacketDistributor.sendToServer(act(ActionType.REQUEST_CRAFTABLES, t));
-    }
-
-    public static void sendCraftRecipe(String recipeId, int count) {
-        var t = tag(); t.putString("recipeId", recipeId == null ? "" : recipeId); t.putInt("count", count);
-        PacketDistributor.sendToServer(act(ActionType.CRAFT_RECIPE, t));
-    }
-
-    public static void sendOpenCraftTerminal() {
-        PacketDistributor.sendToServer(act(ActionType.OPEN_CRAFT_TERMINAL, tag()));
-    }
-
     public static void sendCloseRemoteMenu() {
         PacketDistributor.sendToServer(act(ActionType.CLOSE_REMOTE_MENU, tag()));
     }
 
     public static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied,
-                                  String itemId, ItemStack itemPrototype, int rotateSteps,
-                                  Vec3 rayOrigin, Vec3 rayDir) {
-        sendPlace(hit, forcePlace, skipIfOccupied, itemId, itemPrototype, rotateSteps, rayOrigin, rayDir, false);
-    }
-
-    public static void sendPlace(BlockHitResult hit, boolean forcePlace, boolean skipIfOccupied,
-                                  String itemId, ItemStack itemPrototype, int rotateSteps,
+                                  String itemId, int rotateSteps,
                                   Vec3 rayOrigin, Vec3 rayDir, boolean quickBuild) {
         var t = tag(); t.putLong("pos", hit.getBlockPos().asLong());
         t.putByte("face", (byte) hit.getDirection().get3DDataValue());
@@ -121,7 +88,7 @@ public final class RtsClientPacketGateway {
         PacketDistributor.sendToServer(act(ActionType.PLACE_FLUID, t));
     }
 
-    public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
+    public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId,
                                       boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
         var t = tag(); t.putLong("pos", pos.asLong()); t.putByte("face", (byte) face);
         t.putBoolean("start", true); t.putByte("toolSlot", (byte) Mth.clamp(toolSlot, 0, 8));
@@ -138,7 +105,7 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendUltimineStart(BlockPos pos, int face, int toolSlot, int limit, byte mode,
-                                          String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled) {
+                                          String toolItemId, boolean toolProtectionEnabled) {
         var t = tag(); t.putLong("pos", pos.asLong()); t.putByte("face", (byte) face);
         t.putByte("toolSlot", (byte) Mth.clamp(toolSlot, 0, 8));
         t.putString("toolItemId", toolItemId == null ? "" : toolItemId);
@@ -189,45 +156,6 @@ public final class RtsClientPacketGateway {
         t.putDouble("rayOriginX", rayOrigin.x); t.putDouble("rayOriginY", rayOrigin.y); t.putDouble("rayOriginZ", rayOrigin.z);
         t.putDouble("rayDirX", rayDir.x); t.putDouble("rayDirY", rayDir.y); t.putDouble("rayDirZ", rayDir.z);
         PacketDistributor.sendToServer(act(ActionType.INTERACT_BLOCK, t));
-    }
-
-    public static void sendInteractEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-        var t = tag(); t.putInt("entityId", entityId); t.putLong("clickedPos", BlockPos.containing(hitLocation).asLong());
-        t.putByte("face", (byte) 1); t.putDouble("hitX", hitLocation.x); t.putDouble("hitY", hitLocation.y); t.putDouble("hitZ", hitLocation.z);
-        t.putByte("sourceType", (byte) 1); t.putByte("toolSlot", (byte) Mth.clamp(toolSlot, 0, 8));
-        t.putDouble("rayOriginX", rayOrigin.x); t.putDouble("rayOriginY", rayOrigin.y); t.putDouble("rayOriginZ", rayOrigin.z);
-        t.putDouble("rayDirX", rayDir.x); t.putDouble("rayDirY", rayDir.y); t.putDouble("rayDirZ", rayDir.z);
-        PacketDistributor.sendToServer(act(ActionType.INTERACT_BLOCK, t));
-    }
-
-    public static void sendBreakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) {
-        var t = tag(); t.putLong("pos", pos.asLong()); t.putByte("face", (byte) face.get3DDataValue());
-        t.putBoolean("allowAdjacentFallback", allowAdjacentFallback);
-        PacketDistributor.sendToServer(act(ActionType.BREAK, t));
-    }
-
-    public static void sendAreaMine(int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
-                                     int toolSlot, String toolItemId, ItemStack toolPrototype,
-                                     byte shapeType, byte fillType, boolean toolProtectionEnabled) {
-        var t = tag(); t.putInt("minX", minX); t.putInt("maxX", maxX); t.putInt("minY", minY); t.putInt("maxY", maxY);
-        t.putInt("minZ", minZ); t.putInt("maxZ", maxZ);
-        t.putByte("toolSlot", (byte) Mth.clamp(toolSlot, 0, 8));
-        t.putString("toolItemId", toolItemId == null ? "" : toolItemId);
-        t.putByte("shapeType", shapeType); t.putByte("fillType", fillType); t.putBoolean("toolProtectionEnabled", toolProtectionEnabled);
-        PacketDistributor.sendToServer(act(ActionType.AREA_MINE, t));
-    }
-
-    public static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId,
-                                        ItemStack toolPrototype, boolean toolProtectionEnabled) {
-        if (positions == null || positions.isEmpty()) return;
-        var t = tag();
-        var list = new ListTag();
-        for (var p : positions) list.add(LongTag.valueOf(p.asLong()));
-        t.put("positions", list);
-        t.putByte("toolSlot", (byte) Mth.clamp(toolSlot, 0, 8));
-        t.putString("toolItemId", toolItemId == null ? "" : toolItemId);
-        t.putBoolean("toolProtectionEnabled", toolProtectionEnabled);
-        PacketDistributor.sendToServer(act(ActionType.AREA_DESTROY, t));
     }
 
     public static void sendPauseWorkflow(int entryId) {
@@ -340,7 +268,8 @@ public final class RtsClientPacketGateway {
         if (entityIds == null || entityIds.isEmpty()) return;
         var t = tag();
         var list = new ListTag();
-        for (int id : entityIds) list.add(net.minecraft.nbt.IntTag.valueOf(id));
+        int limit = Math.min(entityIds.size(), 256);
+        for (int i = 0; i < limit; i++) list.add(net.minecraft.nbt.IntTag.valueOf(entityIds.get(i)));
         t.put("entities", list);
         PacketDistributor.sendToServer(act(ActionType.FUNNEL_BOX_PICKUP, t));
     }

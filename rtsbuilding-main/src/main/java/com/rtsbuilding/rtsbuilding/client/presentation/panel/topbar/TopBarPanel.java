@@ -30,8 +30,6 @@ public final class TopBarPanel implements RtsPanelApi {
     private CameraModule cameraModule;
     
     private BuilderScreen screen;
-    private boolean quickBuildOpen;
-    private boolean guideOpen;
 
     
     private final TopBarLayoutHelper layout = new TopBarLayoutHelper();
@@ -136,25 +134,6 @@ public final class TopBarPanel implements RtsPanelApi {
             this.logoPopup.setOnGearMenuToggle(this.pendingOnGearMenuToggle);
             this.pendingOnGearMenuToggle = null;
         }
-    }
-
-    private void createButtons() {
-    }
-
-    public boolean isQuickBuildOpen() {
-        return quickBuildOpen;
-    }
-
-    public void toggleQuickBuild() {
-        this.quickBuildOpen = !this.quickBuildOpen;
-    }
-
-    public boolean isGuideOpen() {
-        return guideOpen;
-    }
-
-    public void toggleTopGuide() {
-        this.guideOpen = !this.guideOpen;
     }
 
     public void onRtsExited() {

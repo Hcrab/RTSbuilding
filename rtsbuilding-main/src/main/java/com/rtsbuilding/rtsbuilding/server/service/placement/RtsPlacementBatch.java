@@ -44,16 +44,12 @@ public final class RtsPlacementBatch {
 
     /**
      * Queues a batch of positions for remote placement. Sanitises input
-     * and caps the batch at
-     * {@link C2SRtsPlaceBatchPayload#MAX_POSITIONS} positions.
-     * <p>
-     * Quick-build jobs (shape builds) are limited to
+     * and caps the batch at {@link NetworkConstants#MAX_POSITIONS} positions.
+     *
+     * <p>Quick-build jobs (shape builds) are limited to
      * {@link #BUILD_BATCH_MAX_QUEUED_JOBS} queued jobs; when the queue is full,
      * new quick-build jobs are rejected. Single-block placements
-     * ({@code quickBuild = false}) bypass this limit.
-     */
-    /**
-     * Queues a batch of positions for remote placement.
+     * ({@code quickBuild = false}) bypass this limit.</p>
      *
      * @return {@code true} if the job was actually queued; {@code false} if the
      *         job was silently skipped (no valid positions, or quick-build queue
@@ -199,7 +195,6 @@ public final class RtsPlacementBatch {
                             job.rayDirX(),
                             job.rayDirY(),
                             job.rayDirZ(),
-                            job.quickBuild(),
                             job.forceEmptyHand(),
                             false,
                             job.sendRemoteHint());
@@ -222,7 +217,6 @@ public final class RtsPlacementBatch {
                     // 后续通过 resumePendingJob / submitPendingPlacement 唤醒
                     if (hasWorkflowEntry) {
                         job.unconsumeLast();
-                        remaining--;
                         session.placement.placeBatchJobs.removeFirst();
                         session.placement.pendingJobs.addLast(job);
                         madeProgress = false;

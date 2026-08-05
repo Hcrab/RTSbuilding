@@ -5,7 +5,6 @@ import com.rtsbuilding.rtsbuilding.client.domain.module.ModuleState;
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.camera.CameraModule;
 import com.rtsbuilding.rtsbuilding.client.input.InputPipeline;
 import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.presentation.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.render.RenderPipeline;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.Screen;
@@ -169,7 +168,7 @@ public final class RtsClientKernel {
     
     private void ensureBuilderScreenOpen() {
         Screen screen = mc().screen;
-        if (screen instanceof BuilderScreen || screen instanceof RtsCraftTerminalScreen) return;
+        if (screen instanceof BuilderScreen) return;
         if (screen != null) return;
         CameraModule cam = module(CameraModule.class);
         if (cam != null && cam.getState().isEnabled()) {

@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.common;
 
 import com.rtsbuilding.rtsbuilding.common.shape.generator.AreaShapeGenerator;
 import com.rtsbuilding.rtsbuilding.common.shape.generator.ShapeGeneratorRegistry;
-import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.core.BlockPos;
@@ -33,52 +32,8 @@ public final class AreaOperationExecutor {
     }
 
     // ======================================================================
-    //  Area Position Generation — batch-generate block positions for any operation
-    // ======================================================================
-
-    /**
-     * Generate target positions for an area operation (placement or destroy).
-     * <p>
-     * Shape-based position generation is independent of placement or destroy —
-     * the caller decides how to operate on these positions.
-     *
-     * @param shape    shape type
-     * @param start    anchor position
-     * @param end      second corner position
-     * @param height   height offset for 3D shapes
-     * @param face     clicked/placement face
-     * @param fillMode fill strategy
-     * @return list of absolute world coordinates
-     */
-    public static List<BlockPos> generatePositions(AreaShape shape, BlockPos start, BlockPos end,
-                                                   int height, Direction face, ShapeFillMode fillMode) {
-        AreaShapeGenerator generator = ShapeGeneratorRegistry.getGenerator(shape);
-        AreaShapeInput input = AreaShapeInput.of(start, end, height, face, face);
-        return generator.generatePositions(input, fillMode);
-    }
-
-    // ======================================================================
     //  Area Destroy — batch destroy blocks at many positions
     // ======================================================================
-
-    /**
-     * Generate target positions for an area destroy operation.
-     * <p>
-     * Semantically the same as {@link #generatePositions} — the position list
-     * is identical; the caller decides whether to place or destroy.
-     *
-     * @param shape    shape type
-     * @param start    anchor position
-     * @param end      second corner position
-     * @param height   height offset for 3D shapes
-     * @param face     clicked face
-     * @param fillMode fill strategy
-     * @return list of target positions to attempt destruction on
-     */
-    public static List<BlockPos> generateDestroyPositions(AreaShape shape, BlockPos start, BlockPos end,
-                                                           int height, Direction face, ShapeFillMode fillMode) {
-        return generatePositions(shape, start, end, height, face, fillMode);
-    }
 
     /**
      * Filter the destroy target list, keeping only positions that can be effectively destroyed.
@@ -100,56 +55,6 @@ public final class AreaOperationExecutor {
             valid.add(pos.immutable());
         }
         return valid;
-    }
-
-    /**
-     * Filter the placement target list, keeping only positions that can be effectively placed.
-     * <p>
-     * Conditions: within build height, replaceable, world interactable.
-     *
-     * @param level   server-side world
-     * @param targets original position list
-     * @param state   the block state to place
-     * @param player  the player performing the operation
-     * @return filtered list of placeable positions
-     */
-    public static List<BlockPos> filterPlaceableTargets(ServerLevel level, List<BlockPos> targets,
-                                                         BlockState state, ServerPlayer player) {
-        List<BlockPos> valid = new ArrayList<>();
-        for (BlockPos pos : targets) {
-            if (pos == null) continue;
-            if (pos.getY() < level.getMinBuildHeight() || pos.getY() >= level.getMaxBuildHeight()) continue;
-            if (!level.mayInteract(player, pos)) continue;
-            if (!state.canSurvive(level, pos)) continue;
-            if (!level.getBlockState(pos).canBeReplaced()) continue;
-            valid.add(pos.immutable());
-        }
-        return valid;
-    }
-
-    /**
-     * Validate whether a single position is a valid destroy target.
-     *
-     * @param level  server-side world
-     * @param pos    target block position
-     * @param player the player
-     * @return true if the block can be destroyed
-     */
-    public static boolean isValidDestroyTarget(ServerLevel level, BlockPos pos, ServerPlayer player) {
-        return AreaShapeGenerator.validateDestroyPosition(level, pos, player);
-    }
-
-    /**
-     * Validate whether a single position is a valid placement target.
-     *
-     * @param level  server-side world
-     * @param pos    target position
-     * @param state  the block state to place
-     * @param player the player
-     * @return true if a block can be placed here
-     */
-    public static boolean isValidPlacementTarget(ServerLevel level, BlockPos pos, BlockState state, ServerPlayer player) {
-        return AreaShapeGenerator.validatePlacementPosition(level, pos, state, player);
     }
 
     /**

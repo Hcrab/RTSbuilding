@@ -52,22 +52,22 @@ public final class RtsMiningServiceImpl implements RtsService {
                             .build());
             return;
         }
-        // 停止 — 委托给 STOP_MINING 流程
+        // 停止 — 委托给 STOP_MINING 流程。
+        // 不区分单方块/已提交的连锁批次：任何活跃挖掘都可中止（D3：提供取消入口）
         RtsStorageSession session = RtsServer.get().session().getIfPresent(player);
-        if (session != null && !RtsMiningValidator.isCommittedUltimineBatch(session)) {
+        if (session != null && (session.mining.miningPos != null || !session.mining.ultimineTargets.isEmpty())) {
             PipelineRegistry.execute(RtsWorkflowType.STOP_MINING,
                     MiningContext.builder(player).build());
         }
     }
 
     public void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot,
-                              String toolItemId, ItemStack toolPrototype, int requestedLimit,
+                              String toolItemId, int requestedLimit,
                               byte mode, boolean toolProtectionEnabled) {
         PipelineRegistry.execute(RtsWorkflowType.ULTIMINE,
                 MiningContext.builder(player)
                         .toolSlot(toolSlot)
                         .toolItemId(toolItemId)
-                        .toolPrototype(toolPrototype)
                         .pos(pos)
                         .face(face)
                         .requestedLimit(requestedLimit)

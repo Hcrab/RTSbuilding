@@ -49,11 +49,13 @@ public final class RtsToolLeaseManager {
     /**
      * 定位与 {@code toolPrototype} 匹配的实际工具，并借用单个副本，
      * 首先搜索玩家的主背包，然后是链接储存。
+     *
+     * <p>当 {@code toolPrototype} 为空（网络链路不编码原型）时，按
+     * {@code toolItemId} 解析物品并构造无组件的最小原型用于匹配。</p>
      */
     public static RtsToolLease borrowMiningTool(ServerPlayer player, RtsStorageSession session, String toolItemId,
             ItemStack toolPrototype, int selectedToolSlot) {
-        if (player == null || session == null || toolPrototype == null || toolPrototype.isEmpty()
-                || toolItemId == null || toolItemId.isBlank()) {
+        if (player == null || session == null || toolItemId == null || toolItemId.isBlank()) {
             return RtsToolLease.empty();
         }
         ResourceLocation id = ResourceLocation.tryParse(toolItemId);
@@ -61,11 +63,18 @@ public final class RtsToolLeaseManager {
             return RtsToolLease.empty();
         }
         Item item = BuiltInRegistries.ITEM.get(id);
-        if (item instanceof BlockItem || toolPrototype.getItem() != item) {
+        if (item instanceof BlockItem) {
             return RtsToolLease.empty();
         }
-
-        ItemStack prototype = toolPrototype.copy();
+        ItemStack prototype;
+        if (toolPrototype != null && !toolPrototype.isEmpty()) {
+            if (toolPrototype.getItem() != item) {
+                return RtsToolLease.empty();
+            }
+            prototype = toolPrototype.copy();
+        } else {
+            prototype = new ItemStack(item);
+        }
         prototype.setCount(1);
 
         RtsToolLease playerLease = borrowMiningToolFromPlayerInventory(player, prototype, selectedToolSlot);

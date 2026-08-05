@@ -27,6 +27,12 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
     private final TooltipController clickBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
     private final TooltipController selectBtnTooltip = TooltipController.builder().direction(TooltipController.Direction.RIGHT).build();
 
+    /** 禁用状态：建造模式开启连锁挖掘时，框选模式（第二个按钮）不可启用。 */
+    private boolean disabled;
+
+    /** 禁用覆盖层半透明黑色底（RGBA）。 */
+    private static final int OVERLAY_COLOR = 0x73000000;
+
     public SelectButtonGroup() {
         super(Direction.VERTICAL, DEFAULT_BTN_SIZE, DEFAULT_INNER_GAP, true,
                 null, null, null,
@@ -35,10 +41,58 @@ public final class SelectButtonGroup extends AbstractButtonGroup {
         selected[0] = true;
     }
 
+    public boolean isDisabled() {
+        return disabled;
+    }
+
+    /**
+     * 仅禁用框选模式（第二个按钮），点击模式保持可用。
+     * 进入禁用时强制回到点击模式选中态，退出时保持点击模式。
+     */
+    public void setDisabled(boolean disabled) {
+        this.disabled = disabled;
+        if (disabled) {
+            selected[0] = true;
+            selected[1] = false;
+        }
+    }
+
     
     public void toggleSelection() {
+        if (disabled) {
+            return;
+        }
         selected[0] = !selected[0];
         selected[1] = !selected[1];
+    }
+
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, int originX, int originY) {
+        super.render(g, mouseX, mouseY, originX, originY);
+        if (disabled) {
+            renderDisabledOverlay(g, originX, originY);
+        }
+    }
+
+    @Override
+    public int mouseClicked(double mx, double my, int originX, int originY) {
+        // 仅拦截框选按钮（index 1），点击按钮（index 0）保持可用
+        int selectY = originY + buttonSize + innerGap;
+        if (disabled && mx >= originX && mx < originX + buttonSize
+                && my >= selectY && my < selectY + buttonSize) {
+            return -1;
+        }
+        return super.mouseClicked(mx, my, originX, originY);
+    }
+
+    /**
+     * 在框选模式按钮上方绘制一层半透明黑色圆角矩形覆盖层，
+     * 表示该按钮当前无法启用。
+     */
+    private void renderDisabledOverlay(GuiGraphics g, int originX, int originY) {
+        int by = originY + buttonSize + innerGap;
+        SdfRenderer.drawRoundedRect(g, originX, by, buttonSize, buttonSize,
+                4f, OVERLAY_COLOR);
     }
 
     

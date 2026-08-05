@@ -28,17 +28,6 @@ public final class RtsStorageRecentEntries {
     private RtsStorageRecentEntries() {
     }
 
-    static void recordCraftedOutput(RtsStorageSession session, ItemStack crafted) {
-        if (crafted == null || crafted.isEmpty()) {
-            return;
-        }
-        recordRecentItem(
-                session,
-                crafted,
-                S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED,
-                crafted.getCount());
-    }
-
     /**
      * Records an item by resolving its registry key. If the key cannot be resolved,
      * the item is skipped; display names are never used as they change with language and resource packs.

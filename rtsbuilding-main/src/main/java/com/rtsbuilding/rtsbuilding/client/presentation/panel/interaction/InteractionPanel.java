@@ -7,7 +7,6 @@ import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.render.TextRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.theme.ThemeManager;
 import com.rtsbuilding.rtsbuilding.network.NetworkConstants;
-import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -765,13 +764,9 @@ public final class InteractionPanel extends RtsPanel {
         Minecraft mc = Minecraft.getInstance();
 
         // 等待服务端打开新容器：保持容器页视图，直到打开成功或超时
-        // 注意排除 RTS 自家菜单（合成终端 containerId 也非 0）：否则等待会被误判为已打开，
-        // pending 被提前清除后超时兜底失效，面板将卡在“点击上方标签打开容器”
         if (pageState.hasPending()) {
             var pendingMenu = mc.player != null ? mc.player.containerMenu : null;
-            boolean containerOpen = pendingMenu != null
-                    && pendingMenu.containerId != 0
-                    && !(pendingMenu instanceof RtsCraftTerminalMenu);
+            boolean containerOpen = pendingMenu != null && pendingMenu.containerId != 0;
             if (pageState.tickPending(containerOpen) == ContainerPageState.TickResult.TIMED_OUT) {
                 resetState();
                 setOpen(false);

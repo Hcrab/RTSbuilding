@@ -48,28 +48,6 @@ public final class RtsWorkflowSyncService {
         PacketDistributor.sendToPlayer(player, new S2CRtsWorkflowProgressBatchPayload(entries));
     }
 
-    public void notifyCompletion(ServerPlayer player, RtsWorkflowSlotManager slots,
-                                  RtsWorkflowEntry entry, int removedAtIndex) {
-        if (player == null || entry == null) return;
-
-        RtsWorkflowStatus status = entry.snapshot();
-        int remainingCount = slots.occupiedCount() - 1;
-        PacketDistributor.sendToPlayer(player, new S2CRtsWorkflowProgressPayload(
-                (byte) removedAtIndex,
-                (byte) remainingCount,
-                status.type() != null ? (byte) status.type().ordinal() : (byte) -1,
-                (byte) status.priority().rank(),
-                status.totalBlocks(),
-                status.completedBlocks(),
-                status.failedBlocks(),
-                status.missingItems(),
-                status.detailMessage(),
-                (byte) 0,
-                entry.id()));
-
-        notifyPlayer(player, slots);
-    }
-
     public void sendIdle(ServerPlayer player) {
         if (player != null) {
             PacketDistributor.sendToPlayer(player, S2CRtsWorkflowProgressPayload.idle());

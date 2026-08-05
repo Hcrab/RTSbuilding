@@ -19,7 +19,7 @@ import java.util.List;
  *
  * <p>提供递增的提取策略：
  * <ul>
- *   <li>{@link #extractSelectedFromNetwork} / {@link #extractSelectedFromNetworkCached} — 
+ *   <li>{@link #extractSelectedFromNetworkCached} — 
  *   从网络范围（链接处理器 + 玩家主背包）提取，优先通过 {@link com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage} 缓存</li>
  *   <li>{@link #extractSelectedFromLinked} / {@link #extractSelectedFromLinkedCached} — 
  *   仅从链接处理器提取</li>
@@ -166,15 +166,6 @@ public final class RtsPlacementExtractor {
                     player.getName().getString(), BuiltInRegistries.ITEM.getKey(item),
                     carried.getCount() - added, carried.getCount(), space, filled.getCount());
         }
-    }
-
-    /**
-     * 从网络（链接处理器 + 玩家主背包）提取一个单位的 {@code item}，
-     * 如果提供了原型则优先匹配。
-     */
-    public static ItemStack extractSelectedFromNetwork(List<IItemHandler> handlers, ServerPlayer player, Item item,
-                                                        ItemStack preferredStack) {
-        return extractSelectedFromNetworkCached(player, handlers, item, preferredStack);
     }
 
     /**
