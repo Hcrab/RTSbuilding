@@ -9,6 +9,8 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineUiAdapter;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
@@ -399,7 +401,9 @@ public final class CameraInputHandler {
             return false;
         }
         if (screen.isQuickBuildRangeDestroyMode() && !screen.isQuickBuildRangeDestroyChainMode()) {
-            return screen.handleQuickBuildRangeDestroyClick(mouseX, mouseY);
+            return screen.handleQuickBuildRangeDestroyClick(
+                    mouseX, mouseY,
+                    keyboard ? RtsTraceInputKind.KEYBOARD : RtsTraceInputKind.MOUSE);
         }
         if (!screen.isQuickBuildRangeDestroyMode() && screen.getShapeController().hasConfirmedDestroyWorkArea()) {
             return false;
@@ -407,7 +411,9 @@ public final class CameraInputHandler {
         if (screen.isQuickBuildRangeDestroyMode()
                 && this.controller.getAreaMinePhase() == MiningOperationService.AREA_MINE_PHASE_NEED_HEIGHT) {
             // 第三次点击：确认范围挖掘，直接发包执行，不需要再求 BlockHit
-            this.controller.confirmAreaMine(screen.getSelectedToolSlot(), screen.getShapeFillMode());
+            this.controller.confirmAreaMine(
+                    screen.getSelectedToolSlot(), screen.getShapeFillMode(),
+                    keyboard ? RtsTraceInputKind.KEYBOARD : RtsTraceInputKind.MOUSE);
         } else {
             // 如果指示框当前选中实体，阻止方块破坏
             InteractionTypes.InteractionTarget lookTarget = screen.pickInteractionTarget(false);
@@ -436,14 +442,18 @@ public final class CameraInputHandler {
                 if (preview.isEmpty()) {
                     preview = List.of(hit.getBlockPos().immutable());
                 }
-                if (!UltimineUiAdapter.confirmPreview(screen, hit, preview)) {
+                if (!UltimineUiAdapter.confirmPreview(
+                        screen, hit, preview,
+                        keyboard ? RtsTraceInputKind.KEYBOARD : RtsTraceInputKind.MOUSE)) {
                     return false;
                 }
             } else {
                 // 记录普通挖掘操作到撤回栈（等待服务端确认）
                 screen.getShapeController().recordPendingBreakForUndo(
                         List.of(hit.getBlockPos().immutable()), hit.getDirection(), screen.getSelectedToolSlot());
-                this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
+                this.controller.startMining(
+                        hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot(),
+                        keyboard ? RtsTraceInputKind.KEYBOARD : RtsTraceInputKind.MOUSE);
             }
         }
         this.leftMiningActive = true;
@@ -452,14 +462,14 @@ public final class CameraInputHandler {
         return true;
     }
 
-    public void stopActiveMining() {
+    public void stopActiveMining(RtsMiningStopOrigin origin) {
         if (!this.leftMiningActive && this.activeMiningMouseButton < 0 && !this.activeMiningKeyboard) {
             return;
         }
         this.leftMiningActive = false;
         this.activeMiningMouseButton = -1;
         this.activeMiningKeyboard = false;
-        this.controller.abortMining(screen.getSelectedToolSlot());
+        this.controller.abortMining(screen.getSelectedToolSlot(), origin);
     }
 
     public boolean isKeyboardMining() {

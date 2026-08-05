@@ -22,9 +22,7 @@ class RtsLatestLogExcerptTest {
     void keepsOnlyConfiguredTailWindows() throws IOException {
         List<String> lines = new ArrayList<>();
         for (int i = 0; i < 260; i++) {
-            lines.add(i % 3 == 0
-                    ? "[Server thread/INFO] [com.rtsbuilding.rtsbuilding.RtsbuildingMod/] RTS line " + i
-                    : "[Server thread/INFO] [minecraft/] General line " + i);
+            lines.add("[Server thread/INFO] [com.rtsbuilding.rtsbuilding.RtsbuildingMod/] RTS line " + i);
         }
         Path log = tempDir.resolve("latest.log");
         Files.write(log, lines, StandardCharsets.UTF_8);
@@ -33,10 +31,10 @@ class RtsLatestLogExcerptTest {
 
         assertTrue(result.available());
         assertEquals(200, result.latestLines().lines().count());
-        assertEquals(50, result.rtsLines().lines().count());
-        assertFalse(result.latestLines().contains("General line 1\n"));
-        assertTrue(result.latestLines().endsWith("General line 259"));
-        assertTrue(result.rtsLines().endsWith("RTS line 258"));
+        assertEquals(200, result.rtsLines().lines().count());
+        assertFalse(result.latestLines().contains("RTS line 1\n"));
+        assertTrue(result.latestLines().endsWith("RTS line 259"));
+        assertTrue(result.rtsLines().endsWith("RTS line 259"));
     }
 
     @Test
@@ -82,6 +80,23 @@ class RtsLatestLogExcerptTest {
         assertTrue(result.available());
         assertTrue(result.latestLines().contains("before bad bytes"));
         assertTrue(result.rtsLines().contains("operation completed"));
+    }
+
+    @Test
+    void recognizesAllStructuredRtsPrefixes() throws IOException {
+        Path log = tempDir.resolve("prefixes.log");
+        Files.writeString(log,
+                "[RTS-TRACE] event=INPUT_PRESS\n"
+                        + "[RTS-DIAG] event=TERMINAL\n"
+                        + "[RTS-SERVER-HEALTH] event=TICK_GAP\n",
+                StandardCharsets.UTF_8);
+
+        RtsLatestLogExcerpt.Result result = RtsLatestLogExcerpt.read(log);
+
+        assertEquals(3, result.rtsLines().lines().count());
+        assertTrue(result.rtsLines().contains("[RTS-TRACE]"));
+        assertTrue(result.rtsLines().contains("[RTS-DIAG]"));
+        assertTrue(result.rtsLines().contains("[RTS-SERVER-HEALTH]"));
     }
 
     @Test

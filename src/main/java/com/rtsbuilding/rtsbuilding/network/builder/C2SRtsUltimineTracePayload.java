@@ -1,0 +1,61 @@
+package com.rtsbuilding.rtsbuilding.network.builder;
+
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.CustomPacketPayload;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.RegistryFriendlyByteBuf;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.RtsForgeBufCodecs;
+import com.rtsbuilding.rtsbuilding.forgecompat.network.StreamCodec;
+import com.rtsbuilding.rtsbuilding.network.RtsTracedPayload;
+import net.minecraft.core.BlockPos;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
+
+/** 带 trace 的连锁挖掘 v2 包。 */
+public record C2SRtsUltimineTracePayload(
+        long traceId,
+        int sequence,
+        long clientTick,
+        int heldMs,
+        byte inputKind,
+        byte stopOrigin,
+        BlockPos pos,
+        byte face,
+        byte toolSlot,
+        String toolItemId,
+        ItemStack toolPrototype,
+        short limit,
+        byte mode,
+        boolean toolProtectionEnabled) implements CustomPacketPayload, RtsTracedPayload {
+    public static final Type<C2SRtsUltimineTracePayload> TYPE = new Type<>(
+            new ResourceLocation(RtsbuildingMod.MODID, "c2s_rts_ultimine_v2"), C2SRtsUltimineTracePayload.class);
+
+    public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsUltimineTracePayload> STREAM_CODEC = StreamCodec.of(
+            (buf, payload) -> {
+                C2SRtsMineTracePayload.writeTraceHeader(buf, payload.traceId(), payload.sequence(),
+                        payload.clientTick(), payload.heldMs(), payload.inputKind(), payload.stopOrigin());
+                buf.writeBlockPos(payload.pos());
+                buf.writeByte(payload.face());
+                buf.writeByte(payload.toolSlot());
+                C2SRtsMineTracePayload.writeTool(buf, payload.toolItemId(), payload.toolPrototype());
+                buf.writeShort(payload.limit());
+                buf.writeByte(payload.mode());
+                buf.writeBoolean(payload.toolProtectionEnabled());
+            },
+            buf -> {
+                var header = C2SRtsMineTracePayload.readTraceHeader(buf);
+                BlockPos pos = buf.readBlockPos();
+                byte face = buf.readByte();
+                byte toolSlot = buf.readByte();
+                String toolId = buf.readUtf(256);
+                ItemStack tool = buf.readBoolean() ? RtsForgeBufCodecs.readItem(buf) : ItemStack.EMPTY;
+                return new C2SRtsUltimineTracePayload(
+                        header.traceId(), header.sequence(), header.clientTick(), header.heldMs(),
+                        header.inputKind(), header.stopOrigin(), pos, face, toolSlot, toolId, tool,
+                        buf.readShort(), buf.readByte(), buf.readBoolean());
+            });
+
+    @Override
+    public Type<? extends CustomPacketPayload> type() {
+        return TYPE;
+    }
+}

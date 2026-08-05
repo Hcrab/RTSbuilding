@@ -22,7 +22,7 @@ import java.util.Set;
  */
 public final class RtsLatestLogExcerpt {
     public static final int LATEST_LINE_LIMIT = 200;
-    public static final int RTS_LINE_LIMIT = 50;
+    public static final int RTS_LINE_LIMIT = 200;
 
     private RtsLatestLogExcerpt() {
     }
@@ -91,7 +91,10 @@ public final class RtsLatestLogExcerpt {
             return false;
         }
         String normalized = line.toLowerCase(Locale.ROOT);
-        return normalized.contains("rtsbuilding")
+        return normalized.contains("[rts-trace]")
+                || normalized.contains("[rts-diag]")
+                || normalized.contains("[rts-server-health]")
+                || normalized.contains("rtsbuilding")
                 || normalized.contains("[workflow]")
                 || normalized.contains("[pipeline]")
                 || normalized.contains("[ultimine")

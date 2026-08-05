@@ -189,6 +189,10 @@ public final class RtsbuildingMod {
             RtsStoragePageRequestCoalescer.clearAll();
             RtsEffectAccumulator.INSTANCE.clearAll();
             RtsDeveloperMetrics.clearAll();
+            com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry.reset();
+            com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerHealthDiagnostics.reset();
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsAsyncJsonlWriter
+                    .flush(java.time.Duration.ofSeconds(2));
             if (durableFailure != null) {
                 throw durableFailure;
             }

@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
 import com.rtsbuilding.rtsbuilding.platform.RtsItemStacks;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 
 
 import java.util.ArrayList;
@@ -10,7 +13,9 @@ import java.util.Locale;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsBreakPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMineTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsDeleteWorkflowPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsScanResumePlacementPayload;
@@ -26,6 +31,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsFunnelTargetPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMineTracePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsOpenGuiBindingPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
@@ -55,6 +61,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsStoreHotbarSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltimineTracePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsRedoPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
@@ -595,8 +602,13 @@ public final class RtsClientPacketGateway {
 
     public static void sendAreaMine(int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
             int toolSlot, String toolItemId, ItemStack toolPrototype, byte shapeType, byte fillType,
-            boolean toolProtectionEnabled) {
-        PacketDistributor.sendToServer(new C2SRtsAreaMinePayload(
+            boolean toolProtectionEnabled, long traceId, RtsTraceInputKind inputKind) {
+        long volume = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "AREA_MINE", 0, inputKind, RtsMiningStopOrigin.NONE,
+                (int) Math.min(Integer.MAX_VALUE, volume));
+        PacketDistributor.sendToServer(new C2SRtsAreaMineTracePayload(
+                traceId, sequence, clientTick(), 0, inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(),
                 minX, maxX, minY, maxY, minZ, maxZ,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
@@ -613,9 +625,12 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
-        PacketDistributor.sendToServer(new C2SRtsMinePayload(
-                pos,
+            boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled,
+            long traceId, RtsTraceInputKind inputKind) {
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "MINE_START", 0, inputKind, RtsMiningStopOrigin.NONE, 1);
+        PacketDistributor.sendToServer(new C2SRtsMineTracePayload(
+                traceId, sequence, clientTick(), 0, inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(), pos,
                 (byte) face,
                 true,
                 (byte) Mth.clamp(toolSlot, 0, 8),
@@ -626,12 +641,14 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            boolean toolProtectionEnabled) {
+            boolean toolProtectionEnabled, long traceId, RtsTraceInputKind inputKind) {
         if (positions == null || positions.isEmpty()) {
             return;
         }
-        PacketDistributor.sendToServer(new C2SRtsAreaDestroyPayload(
-                positions,
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "AREA_DESTROY", 0, inputKind, RtsMiningStopOrigin.NONE, positions.size());
+        PacketDistributor.sendToServer(new C2SRtsAreaDestroyTracePayload(
+                traceId, sequence, clientTick(), 0, inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(), positions,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
@@ -639,9 +656,12 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
-            int limit, byte mode, boolean toolProtectionEnabled) {
-        PacketDistributor.sendToServer(new C2SRtsUltiminePayload(
-                pos,
+            int limit, byte mode, boolean toolProtectionEnabled,
+            long traceId, RtsTraceInputKind inputKind) {
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "ULTIMINE", 0, inputKind, RtsMiningStopOrigin.NONE, limit);
+        PacketDistributor.sendToServer(new C2SRtsUltimineTracePayload(
+                traceId, sequence, clientTick(), 0, inputKind.wireId(), RtsMiningStopOrigin.NONE.wireId(), pos,
                 (byte) face,
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
@@ -651,9 +671,13 @@ public final class RtsClientPacketGateway {
                 toolProtectionEnabled));
     }
 
-    public static void sendMineAbort(BlockPos pos, int face, int toolSlot) {
-        PacketDistributor.sendToServer(new C2SRtsMinePayload(
-                pos,
+    public static void sendMineAbort(BlockPos pos, int face, int toolSlot,
+            long traceId, int heldMs, RtsTraceInputKind inputKind, RtsMiningStopOrigin stopOrigin) {
+        RtsClientOperationDiagnostics.inputRelease(traceId, heldMs, inputKind, stopOrigin);
+        int sequence = RtsClientOperationDiagnostics.packetSend(
+                traceId, "MINE_STOP", heldMs, inputKind, stopOrigin, 1);
+        PacketDistributor.sendToServer(new C2SRtsMineTracePayload(
+                traceId, sequence, clientTick(), heldMs, inputKind.wireId(), stopOrigin.wireId(), pos,
                 (byte) face,
                 false,
                 (byte) Mth.clamp(toolSlot, 0, 8),
@@ -669,5 +693,10 @@ public final class RtsClientPacketGateway {
 
     public static void sendRedo() {
         PacketDistributor.sendToServer(new C2SRtsRedoPayload());
+    }
+
+    private static long clientTick() {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft != null && minecraft.level != null ? minecraft.level.getGameTime() : -1L;
     }
 }

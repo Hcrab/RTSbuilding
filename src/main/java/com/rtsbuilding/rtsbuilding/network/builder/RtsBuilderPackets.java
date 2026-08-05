@@ -89,6 +89,26 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleAreaDestroy);
 
         registrar.playToServer(
+                C2SRtsMineTracePayload.TYPE,
+                C2SRtsMineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleMineTrace);
+
+        registrar.playToServer(
+                C2SRtsUltimineTracePayload.TYPE,
+                C2SRtsUltimineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleUltimineTrace);
+
+        registrar.playToServer(
+                C2SRtsAreaMineTracePayload.TYPE,
+                C2SRtsAreaMineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaMineTrace);
+
+        registrar.playToServer(
+                C2SRtsAreaDestroyTracePayload.TYPE,
+                C2SRtsAreaDestroyTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaDestroyTrace);
+
+        registrar.playToServer(
                 C2SRtsPauseWorkflowPayload.TYPE,
                 C2SRtsPauseWorkflowPayload.STREAM_CODEC,
                 RtsInteractionHandlers::handlePauseWorkflow);
@@ -146,6 +166,11 @@ public final class RtsBuilderPackets {
         registrar.playToClient(
                 S2CRtsHarvestTierSkippedPayload.TYPE,
                 S2CRtsHarvestTierSkippedPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchBuilder);
+
+        registrar.playToClient(
+                S2CRtsOperationTerminalPayload.TYPE,
+                S2CRtsOperationTerminalPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);
 
         registrar.playToClient(

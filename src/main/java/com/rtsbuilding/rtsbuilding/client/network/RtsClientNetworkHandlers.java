@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
 
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 import com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen;
@@ -26,6 +27,7 @@ import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsOperationTerminalPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
@@ -109,6 +111,11 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleUltimineProgress(S2CRtsUltimineProgressPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyUltimineProgress(payload));
+    }
+
+    public static void handleOperationTerminal(
+            S2CRtsOperationTerminalPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> RtsClientOperationDiagnostics.serverTerminal(payload));
     }
 
     public static void handleHarvestTierSkipped(

@@ -61,6 +61,8 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.RtsUltimineCollector;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2IconResolver;
@@ -535,7 +537,7 @@ public class BuilderScreen extends Screen {
         closePlacementStateWheelImmediately();
         this.placementStateWheelConsumedMouseButton = -1;
         this.cameraInput.resetCameraVerticalHeld();
-        this.cameraInput.stopActiveMining();
+        this.cameraInput.stopActiveMining(RtsMiningStopOrigin.SCREEN_CLOSE);
         if (this.controller.isFunnelEnabled()) {
             this.controller.setFunnelEnabled(false);
         }
@@ -610,7 +612,7 @@ public class BuilderScreen extends Screen {
             return;
         }
         if (this.minecraft == null || !this.controller.isEnabled()) {
-            this.cameraInput.stopActiveMining();
+            this.cameraInput.stopActiveMining(RtsMiningStopOrigin.RTS_DISABLED);
             return;
         }
         long window = this.minecraft.getWindow().getWindow();
@@ -619,7 +621,9 @@ public class BuilderScreen extends Screen {
                 : this.cameraInput.getActiveMiningMouseButton() >= 0
                         && GLFW.glfwGetMouseButton(window, this.cameraInput.getActiveMiningMouseButton()) == GLFW.GLFW_PRESS;
         if (!miningInputDown) {
-            this.cameraInput.stopActiveMining();
+            this.cameraInput.stopActiveMining(this.cameraInput.isKeyboardMining()
+                    ? RtsMiningStopOrigin.LIFECYCLE_KEY_NOT_DOWN
+                    : RtsMiningStopOrigin.LIFECYCLE_MOUSE_NOT_DOWN);
             return;
         }
     }
@@ -691,7 +695,7 @@ public class BuilderScreen extends Screen {
             return false;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            this.cameraInput.stopActiveMining();
+            this.cameraInput.stopActiveMining(RtsMiningStopOrigin.NEW_ACTION_REPLACED);
             if (isWorldArea(mouseX, mouseY)) {
                 BlockHitResult hit = this.cursorPicker.pickBlockHit();
                 BlueprintPanel.handleCaptureWorldAction(
@@ -892,7 +896,7 @@ public class BuilderScreen extends Screen {
         InputConstants.Key mouseKey = InputConstants.Type.MOUSE.getOrCreate(button);
         if (this.shapeController.isAwaitingBatchDestroyConfirm()
                 && ClientKeyMappings.CONFIRM_BATCH_DESTROY.isActiveAndMatches(mouseKey)) {
-            this.shapeController.tryConfirmPendingRangeDestroy();
+            this.shapeController.tryConfirmPendingRangeDestroy(RtsTraceInputKind.MOUSE);
             return true;
         }
         if (this.shapeController.isAwaitingBatchPlaceConfirm()
@@ -934,7 +938,7 @@ public class BuilderScreen extends Screen {
             return true;
         }
         if (this.cameraInput.isLeftMiningActive() && !this.cameraInput.isKeyboardMining() && button == this.cameraInput.getActiveMiningMouseButton()) {
-            this.cameraInput.stopActiveMining();
+            this.cameraInput.stopActiveMining(RtsMiningStopOrigin.POINTER_RELEASE);
             return true;
         }
         if (handleFloatingWindowRelease(mouseX, mouseY, button)) {
@@ -1312,7 +1316,7 @@ public class BuilderScreen extends Screen {
         RtsPlacementRayFreeze.freeze(
                 this.cursorPicker.currentRayOrigin(),
                 this.cursorPicker.computeCursorRayDirection());
-        this.cameraInput.stopActiveMining();
+        this.cameraInput.stopActiveMining(RtsMiningStopOrigin.PLACEMENT_WHEEL_OPENED);
         this.cameraInput.cancelPointerGestures();
         this.rotationHandles.clear();
         this.modeWheel.close();
@@ -1668,7 +1672,7 @@ public class BuilderScreen extends Screen {
         }
         if (this.shapeController.isAwaitingBatchDestroyConfirm()
                 && ClientKeyMappings.CONFIRM_BATCH_DESTROY.matches(keyCode, scanCode)) {
-            this.shapeController.tryConfirmPendingRangeDestroy();
+            this.shapeController.tryConfirmPendingRangeDestroy(RtsTraceInputKind.KEYBOARD);
             return true;
         }
         if (this.shapeController.isAwaitingBatchPlaceConfirm()
@@ -1771,7 +1775,7 @@ public class BuilderScreen extends Screen {
         if (this.cameraInput.isLeftMiningActive()
                 && this.cameraInput.isKeyboardMining()
                 && ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)) {
-            this.cameraInput.stopActiveMining();
+            this.cameraInput.stopActiveMining(RtsMiningStopOrigin.KEY_RELEASE);
             return true;
         }
         if (this.cameraInput.updateCameraVerticalHeldState(keyCode, scanCode, false)) {
@@ -1842,7 +1846,7 @@ public class BuilderScreen extends Screen {
         if (mode == null || (this.controller.getMode() == mode && this.controller.isFunnelEnabled() == funnelEnabled)) {
             return false;
         }
-        this.cameraInput.stopActiveMining();
+        this.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
         this.shapeController.clearShapeBuildSession();
         this.controller.setMode(mode);
         this.controller.setFunnelEnabled(funnelEnabled);
@@ -2234,6 +2238,11 @@ public class BuilderScreen extends Screen {
     }
     /** Handles the left-click shape selection flow for Quick Build range destroy. */
     public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
+        return handleQuickBuildRangeDestroyClick(mouseX, mouseY, RtsTraceInputKind.UNKNOWN);
+    }
+
+    public boolean handleQuickBuildRangeDestroyClick(
+            double mouseX, double mouseY, RtsTraceInputKind inputKind) {
         if (!isQuickBuildRangeDestroyMode() || isQuickBuildRangeDestroyChainMode() || !isWorldArea(mouseX, mouseY)) {
             return false;
         }
@@ -2247,11 +2256,11 @@ public class BuilderScreen extends Screen {
             if (Config.isKeyboardBatchConfirmEnabled()) {
                 return true;
             }
-            return this.shapeController.tryConfirmPendingRangeDestroy();
+            return this.shapeController.tryConfirmPendingRangeDestroy(inputKind);
         }
         InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
         if (target != null && target.blockHit() != null) {
-            this.shapeController.selectRangeDestroyShape(target.blockHit(), mouseY, target.rayDir());
+            this.shapeController.selectRangeDestroyShape(target.blockHit(), mouseY, target.rayDir(), inputKind);
             return true;
         }
         return true;
@@ -2380,7 +2389,7 @@ public class BuilderScreen extends Screen {
         if (!canUseRangeCulling()) {
             return;
         }
-        this.cameraInput.stopActiveMining();
+        this.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
         this.shapeController.clearShapeBuildSession();
         this.cullingManager.toggleManagementMode();
         this.cullingPanel.setOpen(this.cullingManager.isManagementMode());
@@ -2411,7 +2420,7 @@ public class BuilderScreen extends Screen {
             enforceBlueprintPlacementModeLock();
             return;
         }
-        this.cameraInput.stopActiveMining();
+        this.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
         this.shapeController.clearShapeBuildSession();
         this.funnelHotkeyTemporaryMode = this.controller.getMode() != BuilderMode.FUNNEL;
         if (this.funnelHotkeyTemporaryMode) {
@@ -2470,7 +2479,7 @@ public class BuilderScreen extends Screen {
     private void updateModeWheelAltState() {
         boolean altDown = isAltDown();
         if (altDown && !this.modeWheelAltWasDown && canOpenModeWheel()) {
-            this.cameraInput.stopActiveMining();
+            this.cameraInput.stopActiveMining(RtsMiningStopOrigin.WINDOW_OPENED);
             this.cameraInput.cancelPointerGestures();
             this.funnelMouseHoldButton = -1;
             syncFunnelHoldState();
@@ -2502,7 +2511,7 @@ public class BuilderScreen extends Screen {
      * 因此对应按钮会同步显示为已选中样式。
      */
     private void selectModeFromWheel(BuilderMode mode) {
-        this.cameraInput.stopActiveMining();
+        this.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
         this.shapeController.clearShapeBuildSession();
         this.funnelHotkeyHeld = false;
         this.funnelHotkeyTemporaryMode = false;
@@ -2609,7 +2618,7 @@ public class BuilderScreen extends Screen {
         if (this.controller.getMode() == BuilderMode.INTERACT && !this.controller.isFunnelEnabled()) {
             return;
         }
-        this.cameraInput.stopActiveMining();
+        this.cameraInput.stopActiveMining(RtsMiningStopOrigin.MODE_SWITCH);
         this.shapeController.clearShapeBuildSession();
         this.controller.setFunnelEnabled(false);
         this.controller.setMode(BuilderMode.INTERACT);

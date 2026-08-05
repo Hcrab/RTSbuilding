@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBlockActionSoundPayload
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHarvestTierSkippedPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsOperationTerminalPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsPlaceAnimationPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
@@ -96,6 +97,8 @@ public final class ClientPayloadDispatcher {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleUltimineProgress(p, ctx);
         } else if (payload instanceof S2CRtsHarvestTierSkippedPayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleHarvestTierSkipped(p, ctx);
+        } else if (payload instanceof S2CRtsOperationTerminalPayload p) {
+            com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleOperationTerminal(p, ctx);
         } else if (payload instanceof S2CRtsWorkflowProgressPayload p) {
             com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers.handleWorkflowProgress(p, ctx);
         } else if (payload instanceof S2CRtsWorkflowProgressBatchPayload p) {
