@@ -1,0 +1,24 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev'
+}
+
+base {
+    archivesName = "rtsbuilding-technologized-${minecraft_version}"
+}
+
+neoForge {
+    version = project.neo_version
+    parchment {
+        mappingsVersion = project.parchment_mappings_version
+        minecraftVersion = project.parchment_minecraft_version
+    }
+}
+
+dependencies {
+    // Shared modules
+    compileOnly project(':rtsbuilding-api')
+    compileOnly project(':rtsbuilding-common')
+    // The main mod (RtsItems, Config, RtsTerminalEnergy, RtsBuildEnergy, geometry helpers…)
+    compileOnly project(':rtsbuilding-main')
+}

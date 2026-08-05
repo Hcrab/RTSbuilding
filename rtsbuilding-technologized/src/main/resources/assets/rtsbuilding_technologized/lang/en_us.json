@@ -1,0 +1,11 @@
+{
+  "itemGroup.rtsbuilding_technologized": "RTSbuilding Technologized",
+
+  "item.rtsbuilding_technologized.energy_bank": "Energy Bank",
+  "item.rtsbuilding_technologized.thermal_generator": "Thermal Generator",
+
+  "block.rtsbuilding_technologized.energy_bank": "Energy Bank",
+  "block.rtsbuilding_technologized.thermal_generator": "Thermal Generator",
+
+  "message.rtsbuilding_technologized.grid_no_energy": "Not enough grid energy for that operation!"
+}

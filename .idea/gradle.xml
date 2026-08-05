@@ -5,17 +5,17 @@
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
-        <option name="gradleJvm" value="#JAVA_HOME" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/addons/addon-ae2/neoforge-1.21" />
-            <option value="$PROJECT_DIR$/addons/addon-beyonddimensions/neoforge-1.21" />
-            <option value="$PROJECT_DIR$/addons/addon-refinedstorage/neoforge-1.21" />
-            <option value="$PROJECT_DIR$/addons/addon-sophisticatedbackpacks/neoforge-1.21" />
-            <option value="$PROJECT_DIR$/common" />
-            <option value="$PROJECT_DIR$/neoforge/neoforge-1.21" />
+            <option value="$PROJECT_DIR$/rtsaddon-ae2" />
+            <option value="$PROJECT_DIR$/rtsaddon-beyonddimensions" />
+            <option value="$PROJECT_DIR$/rtsaddon-refinedstorage" />
+            <option value="$PROJECT_DIR$/rtsaddon-sophisticatedbackpacks" />
             <option value="$PROJECT_DIR$/rtsbuilding-api" />
+            <option value="$PROJECT_DIR$/rtsbuilding-common" />
+            <option value="$PROJECT_DIR$/rtsbuilding-main" />
+            <option value="$PROJECT_DIR$/rtsbuilding-technologized" />
           </set>
         </option>
         <option name="resolveExternalAnnotations" value="true" />

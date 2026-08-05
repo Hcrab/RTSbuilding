@@ -1,0 +1,36 @@
+{
+  "variants": {
+    "facing=north,lit=false": {
+      "model": "rtsbuilding_technologized:block/thermal_generator_off",
+      "y": 0
+    },
+    "facing=south,lit=false": {
+      "model": "rtsbuilding_technologized:block/thermal_generator_off",
+      "y": 180
+    },
+    "facing=west,lit=false": {
+      "model": "rtsbuilding_technologized:block/thermal_generator_off",
+      "y": 270
+    },
+    "facing=east,lit=false": {
+      "model": "rtsbuilding_technologized:block/thermal_generator_off",
+      "y": 90
+    },
+    "facing=north,lit=true": {
+      "model": "rtsbuilding_technologized:block/thermal_generator_lit",
+      "y": 0
+    },
+    "facing=south,lit=true": {
+      "model": "rtsbuilding_technologized:block/thermal_generator_lit",
+      "y": 180
+    },
+    "facing=west,lit=true": {
+      "model": "rtsbuilding_technologized:block/thermal_generator_lit",
+      "y": 270
+    },
+    "facing=east,lit=true": {
+      "model": "rtsbuilding_technologized:block/thermal_generator_lit",
+      "y": 90
+    }
+  }
+}

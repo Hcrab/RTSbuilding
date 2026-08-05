@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "rtsbuilding_technologized:block/energy_bank"
+    }
+  }
+}

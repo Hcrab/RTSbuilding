@@ -1,0 +1,216 @@
+modLoader="javafml"
+logoFile="logo.png"
+loaderVersion="${loader_version_range}"
+license="${mod_license}"
+
+[[mods]]
+modId="${mod_id}"
+version="${mod_version}"
+displayName="${mod_name}"
+credits="卓清婉, 凌墨问, 可怜Bot, Yiran, ReConstruction-127"
+authors="${mod_authors}"
+displayURL="https://rts.ciallo.ltd/"
+description='''
+Build, manage storage, and interact with your base from an overhead RTS-style building panel.
+'''
+
+[[mods]]
+modId="rtsbuilding_technologized"
+version="${mod_version}"
+displayName="RTSbuilding Technologized"
+credits="卓清婉, 凌墨问, 可怜Bot, Yiran, ReConstruction-127"
+authors="${mod_authors}"
+description='''
+Built-in addon: the energy & power system for RTSbuilding — energy banks,
+thermal generators and the per-player energy grid that powers remote operations.
+'''
+
+[[mods]]
+modId="rtsbuilding_addon_ae2"
+version="${mod_version}"
+displayName="RTSbuilding AE2 Addon"
+credits="卓清婉, 凌墨问, 可怜Bot, Yiran, ReConstruction-127"
+authors="${mod_authors}"
+description='''
+AE2 storage network integration for the RTS building panel.
+'''
+
+[[mods]]
+modId="rtsbuilding_addon_refinedstorage"
+version="${mod_version}"
+displayName="RTSbuilding Refined Storage Addon"
+credits="卓清婉, 凌墨问, 可怜Bot, Yiran, ReConstruction-127"
+authors="${mod_authors}"
+description='''
+Refined Storage network integration for the RTS building panel.
+'''
+
+[[mods]]
+modId="rtsbuilding_addon_beyonddimensions"
+version="${mod_version}"
+displayName="RTSbuilding Beyond Dimensions Addon"
+credits="卓清婉, 凌墨问, 可怜Bot, Yiran, ReConstruction-127"
+authors="${mod_authors}"
+description='''
+Beyond Dimensions network integration for the RTS building panel.
+'''
+
+[[mods]]
+modId="rtsbuilding_addon_sophisticatedbackpacks"
+version="${mod_version}"
+displayName="RTSbuilding Sophisticated Backpacks Addon"
+credits="卓清婉, 凌墨问, 可怜Bot, Yiran, ReConstruction-127"
+authors="${mod_authors}"
+description='''
+Sophisticated Backpacks integration — link backpack inventories to the RTS storage panel.
+'''
+
+[[mixins]]
+config="${mod_id}.mixins.json"
+
+[[dependencies.${mod_id}]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.${mod_id}]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_technologized]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_technologized]]
+    modId="minecraft"
+    type="required"
+    versionRange="${minecraft_version_range}"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_technologized]]
+    modId="${mod_id}"
+    type="required"
+    versionRange="[${mod_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_ae2]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_ae2]]
+    modId="minecraft"
+    type="required"
+    versionRange="[${minecraft_version}]"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_ae2]]
+    modId="${mod_id}"
+    type="required"
+    versionRange="[${mod_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_ae2]]
+    modId="ae2"
+    type="optional"
+    versionRange="[15,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_refinedstorage]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_refinedstorage]]
+    modId="minecraft"
+    type="required"
+    versionRange="[${minecraft_version}]"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_refinedstorage]]
+    modId="${mod_id}"
+    type="required"
+    versionRange="[${mod_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_refinedstorage]]
+    modId="refinedstorage"
+    type="optional"
+    versionRange="[2,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_beyonddimensions]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_beyonddimensions]]
+    modId="minecraft"
+    type="required"
+    versionRange="[${minecraft_version}]"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_beyonddimensions]]
+    modId="${mod_id}"
+    type="required"
+    versionRange="[${mod_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_beyonddimensions]]
+    modId="beyonddimensions"
+    type="optional"
+    versionRange="[0.7,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_sophisticatedbackpacks]]
+    modId="neoforge"
+    type="required"
+    versionRange="[${neo_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_sophisticatedbackpacks]]
+    modId="minecraft"
+    type="required"
+    versionRange="[${minecraft_version}]"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_sophisticatedbackpacks]]
+    modId="${mod_id}"
+    type="required"
+    versionRange="[${mod_version},)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.rtsbuilding_addon_sophisticatedbackpacks]]
+    modId="sophisticatedbackpacks"
+    type="optional"
+    versionRange="[3,)"
+    ordering="NONE"
+    side="BOTH"

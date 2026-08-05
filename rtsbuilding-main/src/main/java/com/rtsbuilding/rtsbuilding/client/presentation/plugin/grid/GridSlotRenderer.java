@@ -1,0 +1,207 @@
+package com.rtsbuilding.rtsbuilding.client.presentation.plugin.grid;
+
+import com.mojang.blaze3d.systems.RenderSystem;
+import com.rtsbuilding.rtsbuilding.client.util.render.GuiRenderTypes;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.SpriteRegion;
+import com.rtsbuilding.rtsbuilding.client.util.render.model.TextureInfo;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.inventory.InventoryMenu;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.material.Fluid;
+import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.neoforged.neoforge.fluids.FluidStack;
+import net.neoforged.neoforge.fluids.FluidType;
+
+public final class GridSlotRenderer {
+
+    
+
+    
+
+    public static final int SLOT_SIZE = 18;
+    
+    public static final int ICON_OFFSET = 1;
+
+    
+
+    
+
+    public static final float AMOUNT_SCALE = 0.666f;
+    
+    public static final float INV_AMOUNT_SCALE = 1.0f / AMOUNT_SCALE;
+    
+    public static final int AMOUNT_COLOR = 0xFF_FFFFFF;
+
+    
+
+    
+
+    private static final ResourceLocation SLOTS_TEXTURE = ResourceLocation.tryParse(
+            "rtsbuilding:textures/gui/down/slots.png");
+    private static final int SLOTS_TEX_W = 32;
+    private static final int SLOTS_TEX_H = 48;
+    private static final int SLOTS_STATE_H = 16;
+    
+    private static final int SLOTS_SELECTED_V_OFFSET = 32;
+    private static final TextureInfo SLOTS_TEX_INFO = new TextureInfo(
+            SLOTS_TEXTURE, SLOTS_TEX_W, SLOTS_TEX_H,
+            TextureInfo.ThemeLayout.HORIZONTAL_PAIR,
+            TextureInfo.FilterMode.PIXEL);
+    
+    public static final SpriteRegion SLOT_NORMAL = new SpriteRegion(
+            SLOTS_TEX_INFO, 0, 0, SLOTS_TEX_W / 2, SLOTS_STATE_H);
+    
+    public static final SpriteRegion SLOT_HOVER = new SpriteRegion(
+            SLOTS_TEX_INFO, 0, SLOTS_STATE_H, SLOTS_TEX_W / 2, SLOTS_STATE_H);
+    
+    public static final SpriteRegion SLOT_SELECTED = new SpriteRegion(
+            SLOTS_TEX_INFO, 0, SLOTS_SELECTED_V_OFFSET, SLOTS_TEX_W / 2, SLOTS_STATE_H);
+
+    private GridSlotRenderer() {}
+
+    
+
+    
+
+    public static void drawIcon(GuiGraphics g, ItemStack stack, int slotX, int slotY) {
+        if (stack == null || stack.isEmpty()) return;
+
+        RenderSystem.disableDepthTest();
+        int iconX = slotX + ICON_OFFSET;
+        int iconY = slotY + ICON_OFFSET;
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(iconX, iconY, 0);
+        g.renderItem(stack, 0, 0);
+        pose.popPose();
+
+        RenderSystem.enableDepthTest();
+        g.renderItemDecorations(Minecraft.getInstance().font, stack, iconX, iconY);
+        RenderSystem.disableDepthTest();
+    }
+
+    
+
+    
+
+    public static void drawFluidIcon(GuiGraphics g, String fluidId, int slotX, int slotY) {
+        ResourceLocation id = ResourceLocation.tryParse(fluidId);
+        if (id == null || !BuiltInRegistries.FLUID.containsKey(id)) return;
+
+        Fluid fluid = BuiltInRegistries.FLUID.get(id);
+        FluidStack fluidStack = new FluidStack(fluid, FluidType.BUCKET_VOLUME);
+        IClientFluidTypeExtensions ext = IClientFluidTypeExtensions.of(fluid);
+        ResourceLocation stillTex = ext.getStillTexture(fluidStack);
+        if (stillTex == null) return;
+
+        TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(stillTex);
+
+        int iconX = slotX + ICON_OFFSET;
+        int iconY = slotY + ICON_OFFSET;
+
+        RenderSystem.disableDepthTest();
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(iconX, iconY, 0);
+
+        int color = ext.getTintColor(fluidStack);
+        float r = ((color >> 16) & 0xFF) / 255f;
+        float grn = ((color >> 8) & 0xFF) / 255f;
+        float b = (color & 0xFF) / 255f;
+        float a = ((color >> 24) & 0xFF) / 255f;
+        RenderSystem.setShaderColor(r, grn, b, a);
+        g.blit(0, 0, 0, 16, 16, sprite);
+        RenderSystem.setShaderColor(1f, 1f, 1f, 1f);
+
+        pose.popPose();
+        RenderSystem.enableDepthTest();
+    }
+
+    public static void drawOverlay(GuiGraphics g, int slotX, int slotY,
+                                   boolean hovered, boolean selected, int slotThemeOffset) {
+        drawOverlay(g, slotX, slotY, hovered, selected, slotThemeOffset, 1f, 1f);
+    }
+
+    public static void drawOverlay(GuiGraphics g, int slotX, int slotY,
+                                   boolean hovered, boolean selected, int slotThemeOffset,
+                                   float hoverAlpha, float selectedAlpha) {
+        RenderSystem.disableDepthTest();
+        var pose = g.pose();
+        pose.pushPose();
+        pose.translate(slotX, slotY, 300);
+
+        if (selected && selectedAlpha > 0.001f) {
+            drawOverlaySprite(g, SLOT_SELECTED, slotThemeOffset, 0, 0, SLOT_SIZE, SLOT_SIZE, selectedAlpha);
+        } else if (hovered && hoverAlpha > 0.001f) {
+            drawOverlaySprite(g, SLOT_HOVER, slotThemeOffset, 0, 0, SLOT_SIZE, SLOT_SIZE, hoverAlpha);
+        }
+
+        pose.popPose();
+    }
+
+    private static void drawOverlaySprite(GuiGraphics g, SpriteRegion region, int themeOffset,
+                                           int dstX, int dstY, int dstW, int dstH, float alpha) {
+        if (dstW <= 0 || dstH <= 0) return;
+        var texInfo = region.texture();
+        int texW = texInfo.fullWidth();
+        int texH = texInfo.fullHeight();
+        var renderType = GuiRenderTypes.fromTextureInfo(texInfo.location(), texInfo.filterMode());
+        var buffer = g.bufferSource().getBuffer(renderType);
+        var matrix = g.pose().last().pose();
+        float u0 = (float) (region.u() + themeOffset) / texW;
+        float v0 = (float) region.v() / texH;
+        float u1 = (float) (region.u() + themeOffset + region.regionWidth()) / texW;
+        float v1 = (float) (region.v() + region.regionHeight()) / texH;
+        buffer.addVertex(matrix, dstX, dstY + dstH, 0).setUv(u0, v1).setColor(1f, 1f, 1f, alpha);
+        buffer.addVertex(matrix, dstX + dstW, dstY + dstH, 0).setUv(u1, v1).setColor(1f, 1f, 1f, alpha);
+        buffer.addVertex(matrix, dstX + dstW, dstY, 0).setUv(u1, v0).setColor(1f, 1f, 1f, alpha);
+        buffer.addVertex(matrix, dstX, dstY, 0).setUv(u0, v0).setColor(1f, 1f, 1f, alpha);
+    }
+
+    
+
+    
+
+    public static void drawAmountText(GuiGraphics g, Font font, long count,
+                                       int slotX, int slotY) {
+        if (count < 1) return;
+
+        String text = formatAmount(count);
+        int textW = font.width(text);
+
+        int tx = (int) ((slotX + SLOT_SIZE) * INV_AMOUNT_SCALE - textW);
+        int ty = (int) ((slotY + SLOT_SIZE) * INV_AMOUNT_SCALE - font.lineHeight);
+
+        g.pose().pushPose();
+        g.pose().scale(AMOUNT_SCALE, AMOUNT_SCALE, 1.0f);
+        g.pose().translate(tx, ty, 200);
+
+        g.drawString(font, text, 1, 1, 0xFF_000000, false);
+        g.drawString(font, text, 0, 0, AMOUNT_COLOR, false);
+
+        g.pose().popPose();
+    }
+
+    
+
+    
+
+    public static String formatAmount(long count) {
+        if (count >= 1_000_000_000L) {
+            double val = count / 100_000_000.0;
+            return String.format("%.1fB", val / 10.0);
+        } else if (count >= 1_000_000L) {
+            double val = count / 100_000.0;
+            return String.format("%.1fM", val / 10.0);
+        } else if (count >= 1_000L) {
+            double val = count / 100.0;
+            return String.format("%.1fK", val / 10.0);
+        }
+        return String.valueOf(count);
+    }
+}
