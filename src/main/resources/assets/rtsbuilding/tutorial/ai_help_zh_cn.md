@@ -254,10 +254,10 @@ RTS 界面打开后，鼠标和键盘输入先经过界面输入路由。路由�
 普通日志使用三个稳定前缀，并避免逐方块或逐 tick 刷屏：
 
 - `[RTS-TRACE] side=C|S`：`INPUT_PRESS`、`INPUT_RELEASE`、`PACKET_SEND`、`NET_RECEIVE` 和客户端收到终态。
-- `[RTS-DIAG]`：Pipeline `BEGIN/RESULT`、`WORKFLOW_CREATED`、`TASK_SUBMITTED/FIRST_SLICE/WAIT/RESUME/PROGRESS`、精确停止来源和 `TERMINAL`。
+- `[RTS-DIAG]`：Pipeline `BEGIN/RESULT`、按原因聚合的 `FILTER`、`WORKFLOW_CREATED`、`TASK_SUBMITTED/FIRST_SLICE/WAIT/RESUME/PROGRESS`、精确停止来源和 `TERMINAL`。
 - `[RTS-SERVER-HEALTH]`：严重 tick 间隔及同期 RTS 切片、队列和持久化聚合；它只说明时间重叠，不把卡顿归因给某个模组。
 
-`TERMINAL` 会说明任务是否真正执行过、从提交到首次 slice 等了多少 tick、完成/失败数量，以及是否与近期 tick gap 重叠。`PERSIST_LOAD_*`、`PERSIST_SAVE_*` 和 `PERSIST_STOP_RESULT` 用于判断旧任务从哪里恢复、保存是否 ACK；不记录绝对路径、完整 NBT、蓝图或库存。
+批量目标只在筛选结束后按原因汇总，不逐方块刷日志。`FILTER` 会区分采掘等级不足、工具不适合、权限拒绝、不可破坏、重复目标和目标上限等入队前结果。`TERMINAL` 等待最终 Task snapshot 后只发送一次，说明任务是否真正执行过、从提交到首次 slice 等了多少 tick、最终完成/失败数量，以及是否与近期 tick gap 重叠。`PERSIST_LOAD_*`、`PERSIST_SAVE_*` 和 `PERSIST_STOP_RESULT` 用于判断旧任务从哪里恢复、保存是否 ACK；不记录绝对路径、完整 NBT、蓝图或库存。
 
 独立结构化文件位于 `logs/rtsbuilding/diagnostics-client.jsonl` 和 `logs/rtsbuilding/diagnostics-server.jsonl`。写入队列有界且不阻塞帧线程或服务端 tick；文件约 8 MiB 后轮转到 `.2/.3`，停服/断线会尽力 flush。队列满或写盘失败只丢诊断并累计/告警，不改变玩法结果。
 

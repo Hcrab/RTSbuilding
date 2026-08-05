@@ -246,10 +246,10 @@ Destruction operations use the fixed correlation chain `trace → seq → op →
 Normal logs use three stable prefixes without logging every block or tick:
 
 - `[RTS-TRACE] side=C|S`: `INPUT_PRESS`, `INPUT_RELEASE`, `PACKET_SEND`, `NET_RECEIVE`, and the client receiving a terminal result.
-- `[RTS-DIAG]`: Pipeline `BEGIN/RESULT`, `WORKFLOW_CREATED`, `TASK_SUBMITTED/FIRST_SLICE/WAIT/RESUME/PROGRESS`, exact stop origin, and `TERMINAL`.
+- `[RTS-DIAG]`: Pipeline `BEGIN/RESULT`, reason-aggregated `FILTER`, `WORKFLOW_CREATED`, `TASK_SUBMITTED/FIRST_SLICE/WAIT/RESUME/PROGRESS`, exact stop origin, and `TERMINAL`.
 - `[RTS-SERVER-HEALTH]`: serious tick gaps plus concurrent RTS slice, queue, and persistence aggregates. This shows overlap; it does not attribute a stall to one mod.
 
-`TERMINAL` reports whether the task ever executed, submit-to-first-slice wait, completed/failed counts, and overlap with a recent tick gap. `PERSIST_LOAD_*`, `PERSIST_SAVE_*`, and `PERSIST_STOP_RESULT` explain recovery and save ACKs without recording absolute paths, complete NBT, blueprints, or inventories.
+Batch targets are aggregated after filtering rather than logged per block. `FILTER` distinguishes pre-queue outcomes such as insufficient harvest tier, unsuitable tools, claim denial, unbreakable or duplicate targets, and target limits. `TERMINAL` waits for the final Task snapshot and is emitted once with whether the task ever executed, submit-to-first-slice wait, final completed/failed counts, and overlap with a recent tick gap. `PERSIST_LOAD_*`, `PERSIST_SAVE_*`, and `PERSIST_STOP_RESULT` explain recovery and save ACKs without recording absolute paths, complete NBT, blueprints, or inventories.
 
 Bounded structured files live at `logs/rtsbuilding/diagnostics-client.jsonl` and `logs/rtsbuilding/diagnostics-server.jsonl`. They rotate at about 8 MiB to `.2/.3`, and disconnect/server stop performs a best-effort flush. A full queue or write failure drops diagnostics and reports counters; it never blocks the frame/server tick or changes gameplay.
 

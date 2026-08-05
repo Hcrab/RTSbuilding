@@ -198,6 +198,36 @@ public final class RtsServerTraceRegistry {
                 "age_ticks", waitTicks(state.createdTick, player.getLevel().getGameTime()));
     }
 
+    /** 为批量筛选等晚于 Pipeline 创建的观察点恢复同一条 trace。 */
+    public static synchronized RtsOperationTraceContext traceForWorkflow(
+            ServerPlayer player, int workflowId) {
+        if (player == null || workflowId < 0) {
+            return RtsOperationTraceContext.legacy("TARGET_FILTER");
+        }
+        TraceState state = BY_WORKFLOW.get(new WorkflowKey(player.getUUID(), workflowId));
+        if (state == null) return RtsOperationTraceContext.legacy("TARGET_FILTER");
+        return new RtsOperationTraceContext(
+                state.traceId, state.lastSequence, -1L, 0,
+                RtsTraceInputKind.UNKNOWN, RtsMiningStopOrigin.NONE,
+                "TARGET_FILTER", state.lastOperationId, System.nanoTime(),
+                player.getLevel().getGameTime(), "SERVER_CORRELATED");
+    }
+
+    /**
+     * 记录不经过调度 slice、由外部命令直接终止的 durable task。
+     *
+     * <p>这里只消费已经完成状态迁移的最终 snapshot，不参与取消本身。</p>
+     */
+    public static synchronized void externalTaskTerminal(
+            TaskSnapshot snapshot, String outcome, String reason) {
+        if (snapshot == null || !snapshot.state().terminal()) return;
+        TraceState state = BY_TASK.get(snapshot.id().toString());
+        if (state == null) return;
+        state.lastServerTick = Math.max(state.lastServerTick, snapshot.updatedGameTime());
+        terminal(state, outcome, reason,
+                snapshot.succeededUnits(), snapshot.failedUnits(), snapshot.updatedGameTime());
+    }
+
     public static synchronized void workflowTerminal(
             UUID playerId,
             int workflowId,
@@ -207,6 +237,25 @@ public final class RtsServerTraceRegistry {
             int failed) {
         TraceState state = BY_WORKFLOW.get(new WorkflowKey(playerId, workflowId));
         if (state == null) return;
+        /*
+         * Durable executor 会先投影 Workflow 完成，再把最终 snapshot 交回调度器。
+         * 已绑定 Task 时必须由 onTaskSlice 使用最终 snapshot 发唯一终态，否则会提前
+         * 发出旧计数，随后又把同一任务误识别为“恢复任务”。这只调整诊断观察顺序，
+         * 不改变 Workflow 或 Task 的业务完成时机。
+         */
+        if (!"-".equals(state.taskId)) {
+            if (!state.workflowTerminalDeferred) {
+                state.workflowTerminalDeferred = true;
+                state.lastServerTick = RtsServerHealthDiagnostics.currentServerTick();
+                infoDiag("WORKFLOW_TERMINAL_DEFERRED", state,
+                        "outcome", safe(outcome, "UNKNOWN"),
+                        "reason", safe(reason, "UNKNOWN"),
+                        "completed", Math.max(0, completed),
+                        "failed", Math.max(0, failed),
+                        "waiting_for", "FINAL_TASK_SNAPSHOT");
+            }
+            return;
+        }
         String terminalReason = "CANCELLED".equalsIgnoreCase(outcome)
                 && !"NONE".equals(state.cancelOrigin)
                 ? state.cancelOrigin : reason;
@@ -494,6 +543,7 @@ public final class RtsServerTraceRegistry {
         private String cancelOrigin = "NONE";
         private boolean everExecuted;
         private boolean terminalSent;
+        private boolean workflowTerminalDeferred;
 
         private TraceState(UUID ownerId, ServerPlayer player, RtsOperationTraceContext trace) {
             this.ownerId = ownerId;

@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.task;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.destruction.RtsDestructionBatch;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
@@ -355,6 +356,12 @@ public final class RtsTaskEngine {
             }
             coordinator.replace(cancelled);
             coordinator.requestTombstone(cancelled.id(), cancelled.updatedGameTime());
+            try {
+                RtsServerTraceRegistry.externalTaskTerminal(
+                        cancelled, "CANCELLED", "WORKFLOW_CANCELLED");
+            } catch (RuntimeException diagnosticFailure) {
+                RtsbuildingMod.LOGGER.debug("RTS external task terminal diagnostic failed", diagnosticFailure);
+            }
             durableCancelled = true;
         }
         var session = ServiceRegistry.getInstance().session().getIfPresent(player);

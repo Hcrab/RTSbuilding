@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.mining;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.MiningContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
@@ -226,7 +227,8 @@ public record UltimineExecutePipe(RtsWorkflowType type) implements PipelinePipe<
                         mctx.player(), session, positions,
                         (byte) RtsMiningValidator.clampHotbarSlot(mctx.getToolSlot()),
                         mctx.isToolProtectionEnabled(),
-                        mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1);
+                        mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1,
+                        RtsOperationDiagnostics.effectiveTrace(mctx));
 
                 if (enqueued && mctx.hasWorkflowEntryId()) {
                     int totalTargets = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
