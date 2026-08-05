@@ -97,9 +97,15 @@ public final class RtsLinkedHandlerResolutionService {
                 if (session.bdCache.handlerStale || session.bdCache.handler == null) {
                     if (provider.getNetworkDisplayName(player) != null) {
                         if (session.bdCache.handler == null) {
-                            session.bdCache.handler = new LinkedItemHandlerView(provider.createItemHandler(player, BlockPos.ZERO), true);
+                            // 网络不可用（未连接）时 createItemHandler 可能返回 null —— 此时不包装，保持 null
+                            IItemHandler bdHandler = provider.createItemHandler(player, BlockPos.ZERO);
+                            if (bdHandler != null) {
+                                session.bdCache.handler = new LinkedItemHandlerView(bdHandler, true);
+                            }
                         }
-                        session.bdCache.name = provider.getNetworkDisplayName(player);
+                        if (session.bdCache.handler != null) {
+                            session.bdCache.name = provider.getNetworkDisplayName(player);
+                        }
                     } else {
                         session.bdCache.handler = null;
                         session.bdCache.fluidHandler = null;
@@ -137,10 +143,10 @@ public final class RtsLinkedHandlerResolutionService {
         for (LinkedHandler lh : handlers) {
             IItemHandler h = lh.handler();
             if (h instanceof LinkedItemHandlerView view) {
-                rawHandlers.add(view.getRawHandler());
-            } else {
-                rawHandlers.add(h);
+                h = view.getRawHandler();
             }
+            if (h == null) continue; // 防御：解析返回 null（如未连接的 BD 网络）
+            rawHandlers.add(h);
         }
         RtsStorageTickService.INSTANCE.registerPlayer(player, rawHandlers);
     }
