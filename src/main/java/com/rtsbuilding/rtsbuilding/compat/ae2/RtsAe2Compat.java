@@ -7,11 +7,11 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.items.IItemHandler;
+import cpw.mods.fml.common.Loader;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -47,8 +47,8 @@ public final class RtsAe2Compat {
         if (player == null || pos == null || REFLECTION == null) {
             return null;
         }
-        World world = player.world;
-        if (world == null || !world.isBlockLoaded(pos)) {
+        World world = player.worldObj;
+        if (world == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, pos)) {
             return null;
         }
         Object inventory = REFLECTION.findNetworkInventory(world, pos);
@@ -59,7 +59,7 @@ public final class RtsAe2Compat {
         if (handler instanceof ReportedCountItemHandler) {
             return Math.max(0L, ((ReportedCountItemHandler) handler).getReportedCount(slot));
         }
-        return fallbackStack == null || fallbackStack.isEmpty() ? 0L : Math.max(0L, fallbackStack.getCount());
+        return fallbackStack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(fallbackStack) ? 0L : Math.max(0L, fallbackStack.stackSize);
     }
 
     public static void releaseNetworkHandler(IItemHandler handler) {
@@ -107,16 +107,16 @@ public final class RtsAe2Compat {
         @Override
         public ItemStack getStackInSlot(int slot) {
             if (this.released || slot < 0 || slot >= this.slots.size()) {
-                return ItemStack.EMPTY;
+                return null;
             }
             SlotView view = this.slots.get(slot);
-            return view.amount > 0L ? view.displayStack.copy() : ItemStack.EMPTY;
+            return view.amount > 0L ? view.displayStack.copy() : null;
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) {
-                return ItemStack.EMPTY;
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                return null;
             }
             if (slot < 0 || slot >= getSlots()) {
                 return stack.copy();
@@ -126,14 +126,14 @@ public final class RtsAe2Compat {
 
         @Override
         public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) {
-                return ItemStack.EMPTY;
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                return null;
             }
             if (this.released || this.player == null || this.inventory == null) {
                 return stack.copy();
             }
             ItemStack remainder = this.reflection.insert(this.inventory, stack, this.player, simulate);
-            if (!simulate && remainder.getCount() < stack.getCount()) {
+            if (!simulate && remainder.stackSize < stack.stackSize) {
                 this.snapshotStale = true;
             }
             return remainder;
@@ -143,12 +143,12 @@ public final class RtsAe2Compat {
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
             if (this.released || this.player == null || this.inventory == null
                     || slot < 0 || slot >= this.slots.size() || amount <= 0) {
-                return ItemStack.EMPTY;
+                return null;
             }
             SlotView view = this.slots.get(slot);
             ItemStack extracted = this.reflection.extract(this.inventory, view.key, amount, this.player, simulate);
-            if (!simulate && !extracted.isEmpty()) {
-                long next = Math.max(0L, view.amount - extracted.getCount());
+            if (!simulate && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
+                long next = Math.max(0L, view.amount - extracted.stackSize);
                 this.slots.set(slot, new SlotView(view.key, view.displayStack, next));
                 this.snapshotStale = true;
             }
@@ -159,7 +159,7 @@ public final class RtsAe2Compat {
         public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
             if (this.released || this.player == null || this.inventory == null
                     || targetItem == null || amount <= 0) {
-                return ItemStack.EMPTY;
+                return null;
             }
             for (int slot = 0; slot < this.slots.size(); slot++) {
                 SlotView view = this.slots.get(slot);
@@ -167,14 +167,14 @@ public final class RtsAe2Compat {
                     continue;
                 }
                 ItemStack extracted = this.reflection.extract(this.inventory, view.key, amount, this.player, simulate);
-                if (!simulate && !extracted.isEmpty()) {
-                    long next = Math.max(0L, view.amount - extracted.getCount());
+                if (!simulate && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
+                    long next = Math.max(0L, view.amount - extracted.stackSize);
                     this.slots.set(slot, new SlotView(view.key, view.displayStack, next));
                     this.snapshotStale = true;
                 }
                 return extracted;
             }
-            return ItemStack.EMPTY;
+            return null;
         }
 
         @Override
@@ -362,7 +362,7 @@ public final class RtsAe2Compat {
         }
 
         private Object findNetworkInventory(World world, BlockPos pos) {
-            Object tile = world.getTileEntity(pos);
+            Object tile = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(world, pos);
             if (tile == null) {
                 return null;
             }
@@ -414,7 +414,7 @@ public final class RtsAe2Compat {
                 }
                 long amount = stackSize(entry);
                 ItemStack display = toItemStack(entry, 1);
-                if (amount > 0L && !display.isEmpty()) {
+                if (amount > 0L && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(display)) {
                     out.add(new SlotView(copyAeStack(entry), display, amount));
                 }
             }
@@ -422,7 +422,7 @@ public final class RtsAe2Compat {
         }
 
         private Object toAeStack(ItemStack stack) {
-            if (stack == null || stack.isEmpty()) {
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 return null;
             }
             Object aeStack = invoke(this.channelCreateStack, this.itemChannel, stack.copy());
@@ -440,30 +440,30 @@ public final class RtsAe2Compat {
             }
             Object remainder;
             try {
-                this.aeStackSetSize.invoke(input, (long) stack.getCount());
+                this.aeStackSetSize.invoke(input, (long) stack.stackSize);
                 remainder = this.inventoryInject.invoke(inventory, input,
                         simulate ? this.simulateAction : this.modulateAction, source);
             } catch (IllegalAccessException | InvocationTargetException | IllegalArgumentException failure) {
                 return stack.copy();
             }
             if (remainder == null) {
-                return ItemStack.EMPTY;
+                return null;
             }
-            long remaining = Math.max(0L, Math.min((long) stack.getCount(), stackSize(remainder)));
-            return remaining <= 0L ? ItemStack.EMPTY : toItemStack(remainder, (int) remaining);
+            long remaining = Math.max(0L, Math.min((long) stack.stackSize, stackSize(remainder)));
+            return remaining <= 0L ? null : toItemStack(remainder, (int) remaining);
         }
 
         private ItemStack extract(Object inventory, Object key, int amount, EntityPlayerMP player, boolean simulate) {
             if (key == null || amount <= 0) {
-                return ItemStack.EMPTY;
+                return null;
             }
             Object request = copyAeStack(key);
             if (request == null) {
-                return ItemStack.EMPTY;
+                return null;
             }
             Object source = actionSource(player);
             if (source == null) {
-                return ItemStack.EMPTY;
+                return null;
             }
             Object extracted;
             try {
@@ -471,10 +471,10 @@ public final class RtsAe2Compat {
                 extracted = this.inventoryExtract.invoke(inventory, request,
                         simulate ? this.simulateAction : this.modulateAction, source);
             } catch (IllegalAccessException | InvocationTargetException | IllegalArgumentException failure) {
-                return ItemStack.EMPTY;
+                return null;
             }
             long extractedAmount = stackSize(extracted);
-            return extractedAmount <= 0L ? ItemStack.EMPTY
+            return extractedAmount <= 0L ? null
                     : toItemStack(extracted, (int) Math.min(Integer.MAX_VALUE, extractedAmount));
         }
 
@@ -498,14 +498,14 @@ public final class RtsAe2Compat {
 
         private ItemStack toItemStack(Object aeStack, int count) {
             if (aeStack == null || count <= 0) {
-                return ItemStack.EMPTY;
+                return null;
             }
             Object value = invoke(this.aeItemCreateStack, aeStack);
-            ItemStack stack = value instanceof ItemStack ? (ItemStack) value : ItemStack.EMPTY;
-            if (stack.isEmpty()) {
-                return ItemStack.EMPTY;
+            ItemStack stack = value instanceof ItemStack ? (ItemStack) value : null;
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                return null;
             }
-            stack.setCount(count);
+            stack.stackSize = count;
             return stack;
         }
 

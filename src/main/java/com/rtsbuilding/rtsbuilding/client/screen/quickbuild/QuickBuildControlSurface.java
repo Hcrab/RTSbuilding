@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
-import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.ChatComponentText;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -62,7 +62,7 @@ final class QuickBuildControlSurface {
                     0, 0,
                     QuickBuildWindowLayout.SHAPE_SLOT,
                     QuickBuildWindowLayout.SHAPE_SLOT,
-                    new TextComponentString(""),
+                    new ChatComponentText(""),
                     QuickBuildIconCatalog.shapeTexture(option.shape),
                     0, normalV,
                     QuickBuildIconCatalog.SHAPE_SHEET_W,
@@ -89,7 +89,7 @@ final class QuickBuildControlSurface {
                     0, 0,
                     QuickBuildWindowLayout.CONTROL_W,
                     QuickBuildWindowLayout.CONTROL_H,
-                    new TextComponentString(control.label),
+                    new ChatComponentText(control.label),
                     ignored -> this.dispatch.accept(
                             QuickBuildUiAction.control(control.id)));
             button.enabled = control.enabled;

@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderInvalidator;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import org.lwjgl.input.Keyboard;
 
 import java.util.Comparator;

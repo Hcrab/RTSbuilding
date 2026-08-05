@@ -10,11 +10,11 @@ import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import java.util.List;
 
@@ -87,7 +87,7 @@ public final class MiningOperationService {
      */
     public void applyMineProgress(BlockPos pos, int stage) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.world == null) {
+        if (minecraft.theWorld == null) {
             return;
         }
 
@@ -98,9 +98,9 @@ public final class MiningOperationService {
         }
 
         if (this.mineRenderPos != null && !this.mineRenderPos.equals(pos)) {
-            minecraft.world.sendBlockBreakProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
+            com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(minecraft.theWorld, RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
         }
-        minecraft.world.sendBlockBreakProgress(RTS_MINE_RENDER_ID, pos, Math.min(9, stage));
+        com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(minecraft.theWorld, RTS_MINE_RENDER_ID, pos, Math.min(9, stage));
         this.mineRenderPos = pos.toImmutable();
         this.mineRenderStage = Math.min(9, stage);
     }
@@ -347,23 +347,23 @@ public final class MiningOperationService {
 
     private String selectedMiningToolItemId(String selectedItemId, ItemStack selectedItemPreview) {
         ItemStack prototype = selectedMiningToolPrototype(selectedItemId, selectedItemPreview);
-        if (prototype.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) {
             return "";
         }
-        ResourceLocation id = ForgeRegistries.ITEMS.getKey(prototype.getItem());
+        ResourceLocation id = RtsRegistries.ITEMS.getKey(prototype.getItem());
         return id == null ? "" : id.toString();
     }
 
     private ItemStack selectedMiningToolPrototype(String selectedItemId, ItemStack selectedItemPreview) {
-        if (isBlank(selectedItemId) || selectedItemPreview == null || selectedItemPreview.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (isBlank(selectedItemId) || selectedItemPreview == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(selectedItemPreview)) {
+            return null;
         }
         if (selectedItemPreview.getItem() instanceof ItemBlock
                 || RtsClientPluginCatalog.isPluginItem(selectedItemPreview)) {
-            return ItemStack.EMPTY;
+            return null;
         }
         ItemStack prototype = selectedItemPreview.copy();
-        prototype.setCount(1);
+        prototype.stackSize = 1;
         return prototype;
     }
 
@@ -488,14 +488,14 @@ public final class MiningOperationService {
 
     private void clearMineProgressRender(BlockPos fallbackPos) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.world != null
+        if (minecraft.theWorld != null
                 && this.mineRenderPos != null
                 && (fallbackPos == null || this.mineRenderPos.equals(fallbackPos))) {
-            minecraft.world.sendBlockBreakProgress(RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
+            com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(minecraft.theWorld, RTS_MINE_RENDER_ID, this.mineRenderPos, -1);
             this.mineRenderPos = null;
             this.mineRenderStage = -1;
-        } else if (minecraft.world != null && fallbackPos != null) {
-            minecraft.world.sendBlockBreakProgress(RTS_MINE_RENDER_ID, fallbackPos, -1);
+        } else if (minecraft.theWorld != null && fallbackPos != null) {
+            com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(minecraft.theWorld, RTS_MINE_RENDER_ID, fallbackPos, -1);
             if (fallbackPos.equals(this.mineRenderPos)) {
                 this.mineRenderPos = null;
                 this.mineRenderStage = -1;

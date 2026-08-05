@@ -7,14 +7,14 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -95,13 +95,13 @@ public final class ShapeWorldOperationPlanner {
             return false;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.world == null) {
+        if (mc == null || mc.theWorld == null) {
             return true;
         }
-        IBlockState state = mc.world.getBlockState(pos);
+        BlockState state = BlockState.fromWorld(mc.theWorld, pos);
         return !state.getMaterial().isLiquid()
-                && !state.getBlock().isAir(state, mc.world, pos)
-                && state.getBlockHardness(mc.world, pos) >= 0.0F;
+                && !state.getBlock().isAir(mc.theWorld, pos.getX(), pos.getY(), pos.getZ())
+                && state.getBlockHardness(mc.theWorld, pos) >= 0.0F;
     }
 
     public List<BlockPos> filterPlacementTargets(ShapeBuildTypes.Input input, List<BlockPos> targets) {
@@ -120,20 +120,20 @@ public final class ShapeWorldOperationPlanner {
             return this.controller.getSelectedItemPreview();
         }
         Minecraft mc = this.screen.getMinecraft();
-        return mc != null && mc.player != null ? mc.player.getHeldItemMainhand() : ItemStack.EMPTY;
+        return mc != null && mc.thePlayer != null ? mc.thePlayer.getHeldItem() : null;
     }
 
-    public IBlockState pendingGhostState(BlockPos targetPos) {
+    public BlockState pendingGhostState(BlockPos targetPos) {
         Minecraft mc = this.screen.getMinecraft();
         ItemStack stack = placementStack();
-        if (stack.isEmpty() || !(stack.getItem() instanceof ItemBlock)) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || !(stack.getItem() instanceof ItemBlock)) {
             return null;
         }
         ItemBlock blockItem = (ItemBlock) stack.getItem();
         if (targetPos == null) {
-            return blockItem.getBlock().getDefaultState();
+            return BlockState.defaultState(net.minecraft.block.Block.getBlockFromItem(blockItem));
         }
-        IBlockState state = BuildGhostBlockStateResolver.resolveStateWithCamera(
+        BlockState state = BuildGhostBlockStateResolver.resolveStateWithCamera(
                 mc, blockItem, stack, targetPos);
         if (state == null) {
             return null;
@@ -141,7 +141,7 @@ public final class ShapeWorldOperationPlanner {
         int degrees = this.modeState.activeRotateDegrees();
         return degrees == 0
                 ? state
-                : BuildGhostBlockStateResolver.applyRotation(state, degrees, mc.world, targetPos);
+                : BuildGhostBlockStateResolver.applyRotation(state, degrees, mc.theWorld, targetPos);
     }
 
     private boolean shouldSkipOccupiedTargets(ShapeBuildTypes.Input input) {
@@ -157,8 +157,8 @@ public final class ShapeWorldOperationPlanner {
             String itemId = this.controller.getSelectedItemId();
             ResourceLocation key = resourceLocation(itemId);
             return key != null
-                    && Item.REGISTRY.containsKey(key)
-                    && Item.REGISTRY.getObject(key) instanceof ItemBlock;
+                    && com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.containsKey(key)
+                    && com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getObject(key) instanceof ItemBlock;
         }
         return this.screen.canUseToolSlotShapeSource();
     }

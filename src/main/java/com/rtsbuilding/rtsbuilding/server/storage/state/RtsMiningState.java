@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.storage.state;
 
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;

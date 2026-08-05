@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.craft;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,7 +38,7 @@ public final class C2SRtsJeiTransferPayload implements IMessage {
         recipeId = RtsPacketBuffer.readString(buffer, MAX_RECIPE_ID_CHARS, "JEI recipe id");
         List<ItemStack> decoded = new ArrayList<>(GRID_SIZE);
         for (int i = 0; i < GRID_SIZE; i++) {
-            decoded.add(buffer.readBoolean() ? normalizeStack(RtsPacketBuffer.readItemStack(buffer)) : ItemStack.EMPTY);
+            decoded.add(buffer.readBoolean() ? normalizeStack(RtsPacketBuffer.readItemStack(buffer)) : null);
         }
         ingredientPrototypes = Collections.unmodifiableList(decoded);
         maxTransfer = buffer.readBoolean();
@@ -48,7 +48,7 @@ public final class C2SRtsJeiTransferPayload implements IMessage {
         if (!isValid()) throw new IllegalArgumentException("JEI transfer request is invalid");
         RtsPacketBuffer.writeString(buffer, recipeId, MAX_RECIPE_ID_CHARS, "JEI recipe id");
         for (ItemStack stack : ingredientPrototypes) {
-            boolean present = stack != null && !stack.isEmpty();
+            boolean present = stack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack);
             buffer.writeBoolean(present);
             if (present) RtsPacketBuffer.writeItemStack(buffer, normalizeStack(stack));
         }
@@ -58,15 +58,15 @@ public final class C2SRtsJeiTransferPayload implements IMessage {
     private static List<ItemStack> normalizeGrid(List<ItemStack> values) {
         List<ItemStack> result = new ArrayList<>(GRID_SIZE);
         for (int i = 0; i < GRID_SIZE; i++) {
-            result.add(values != null && i < values.size() ? normalizeStack(values.get(i)) : ItemStack.EMPTY);
+            result.add(values != null && i < values.size() ? normalizeStack(values.get(i)) : null);
         }
         return Collections.unmodifiableList(result);
     }
     private static List<ItemStack> emptyGrid() { return normalizeGrid(null); }
     private static ItemStack normalizeStack(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return null;
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 }

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 /** 切换当前玩家会话的 BD 网络来源。 */
 public final class C2SRtsSetBdNetworkPayload implements IMessage {
     private boolean enabled;

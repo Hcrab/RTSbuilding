@@ -2,13 +2,12 @@ package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.compat.create.BlueprintCreatePlacementCompat;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 import javax.annotation.Nullable;
@@ -34,15 +33,15 @@ public final class BlockPlacer {
      * @param state 要放置的方块状态
      * @return true 如果方块成功设置
      */
-    public static boolean setBlock(WorldServer level, BlockPos pos, IBlockState state) {
-        return level.setBlockState(pos, state, 3);
+    public static boolean setBlock(WorldServer level, BlockPos pos, BlockState state) {
+        return state.setInWorld(level, pos, 3);
     }
 
     /**
      * 蓝图专用放置入口；允许可选兼容插头收紧第三方方块的更新标志。
      */
-    public static boolean setBlueprintBlock(WorldServer level, BlockPos pos, IBlockState state) {
-        return level.setBlockState(pos, state, BlueprintCreatePlacementCompat.placementFlags(state));
+    public static boolean setBlueprintBlock(WorldServer level, BlockPos pos, BlockState state) {
+        return state.setInWorld(level, pos, BlueprintCreatePlacementCompat.placementFlags(state));
     }
 
     /**
@@ -60,29 +59,30 @@ public final class BlockPlacer {
      * @param tag   方块实体 NBT 数据（从蓝图保存）
      */
     public static void applyBlueprintBlockEntity(WorldServer level, BlockPos pos, @Nullable NBTTagCompound tag) {
-        if (tag == null || tag.isEmpty()) {
+        if (tag == null || com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(tag)) {
             return;
         }
-        TileEntity blockEntity = level.getTileEntity(pos);
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         if (blockEntity == null) {
             return;
         }
-        NBTTagCompound copy = tag.copy();
+        NBTTagCompound copy = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(tag);
         copy.setInteger("x", pos.getX());
         copy.setInteger("y", pos.getY());
         copy.setInteger("z", pos.getZ());
         try {
             blockEntity.readFromNBT(copy);
             blockEntity.markDirty();
-            IBlockState state = level.getBlockState(pos);
-            level.notifyBlockUpdate(pos, state, state, 3);
+            BlockState state = BlockState.fromWorld(level, pos);
+            com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.notifyBlockUpdate(
+                    level, pos, state, state, 3);
         } catch (RuntimeException ignored) {
         }
     }
 
     /** 在方块实体 NBT 应用完成后补齐第三方蓝图所需的标准放置回调。 */
     public static void finishBlueprintPlacement(
-            WorldServer level, BlockPos pos, IBlockState state, @Nullable ItemStack stack) {
+            WorldServer level, BlockPos pos, BlockState state, @Nullable ItemStack stack) {
         BlueprintCreatePlacementCompat.finishPlacement(level, pos, state, stack);
     }
 
@@ -97,17 +97,35 @@ public final class BlockPlacer {
      * @param placer 放置者（可为 null）
      */
     public static void applyQuickBuildBlockEntity(WorldServer level, BlockPos pos, ItemStack stack,
-            @Nullable IBlockState state, @Nullable EntityPlayer placer) {
-        if (stack == null || stack.isEmpty()) {
+            @Nullable BlockState state, @Nullable EntityPlayer placer) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return;
         }
-        ItemBlock.setTileEntityNBT(level, placer, pos, stack);
-        TileEntity blockEntity = level.getTileEntity(pos);
+        if (stack.hasTagCompound()
+                && stack.getTagCompound().hasKey("BlockEntityTag", 10)) {
+            TileEntity target = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat
+                    .getTileEntity(level, pos);
+            if (target != null) {
+                NBTTagCompound merged = new NBTTagCompound();
+                target.writeToNBT(merged);
+                NBTTagCompound supplied = stack.getTagCompound().getCompoundTag("BlockEntityTag");
+                for (Object keyObject : supplied.func_150296_c()) {
+                    String key = String.valueOf(keyObject);
+                    merged.setTag(key, supplied.getTag(key).copy());
+                }
+                merged.setInteger("x", pos.getX());
+                merged.setInteger("y", pos.getY());
+                merged.setInteger("z", pos.getZ());
+                target.readFromNBT(merged);
+            }
+        }
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         if (blockEntity != null) {
             blockEntity.markDirty();
         }
         if (state != null) {
-            state.getBlock().onBlockPlacedBy(level, pos, state, placer, stack);
+            state.getBlock().onBlockPlacedBy(
+                    level, pos.getX(), pos.getY(), pos.getZ(), placer, stack);
         }
     }
 }

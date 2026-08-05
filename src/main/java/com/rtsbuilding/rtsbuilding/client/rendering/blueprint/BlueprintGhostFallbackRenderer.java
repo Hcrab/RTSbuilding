@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.client.renderer.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
 import net.minecraft.client.renderer.RenderGlobal;
-import net.minecraft.util.EnumBlockRenderType;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.block.EnumBlockRenderType;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.List;
 
@@ -40,7 +40,7 @@ public final class BlueprintGhostFallbackRenderer {
             float r = block.missing() ? 1.00F : lineR;
             float g = block.missing() ? 0.25F : lineG;
             float b = block.missing() ? 0.25F : lineB;
-            RenderGlobal.drawBoundingBox(lineBuffer, minX, minY, minZ, maxX, maxY, maxZ,
+            com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.drawBoundingBox(lineBuffer, minX, minY, minZ, maxX, maxY, maxZ,
                     r, g, b, 0.90F);
         }
     }
@@ -52,7 +52,7 @@ public final class BlueprintGhostFallbackRenderer {
         if (block.missing()) {
             return true;
         }
-        IBlockState state = block.state();
+        BlockState state = block.state();
         return state == null || state.getRenderType() != EnumBlockRenderType.MODEL;
     }
 }

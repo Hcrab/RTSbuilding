@@ -12,16 +12,16 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsRemoteMenuResultPayload
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -115,8 +115,8 @@ public final class RtsPlacementActionHandlers1122 {
     public static final class Interact implements IMessageHandler<C2SRtsInteractPayload, IMessage> {
         @Override public IMessage onMessage(final C2SRtsInteractPayload message, MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
                     // 不在 Netty 线程读取世界状态；诊断上下文和交互都在服务端计划任务中处理。
                     logReceived(player, message);
@@ -127,13 +127,14 @@ public final class RtsPlacementActionHandlers1122 {
                     }
                     BlockPos authorityTarget = message.clickedPos();
                     if (message.entityId() >= 0) {
-                        Entity entity = player.getServerWorld().getEntityByID(message.entityId());
+                        Entity entity = player.getServerForPlayer().getEntityByID(message.entityId());
                         if (entity == null) {
                             sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.rejected(
                                     S2CRtsRemoteMenuResultPayload.REASON_TARGET_MISSING));
                             return;
                         }
-                        authorityTarget = entity.getPosition();
+                        authorityTarget = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat
+                                .blockPosition(entity);
                     }
                     if (!inRange(player, authorityTarget)) {
                         sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.rejected(
@@ -176,18 +177,18 @@ public final class RtsPlacementActionHandlers1122 {
 
         private static void logReceived(EntityPlayerMP player, C2SRtsInteractPayload message) {
             BlockPos pos = message.clickedPos();
-            boolean loaded = pos != null && player.getServerWorld().isBlockLoaded(pos);
+            boolean loaded = pos != null && com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), pos);
             String blockId = "unloaded";
             if (loaded) {
-                IBlockState state = player.getServerWorld().getBlockState(pos);
-                ResourceLocation id = Block.REGISTRY.getNameForObject(state.getBlock());
+                BlockState state = BlockState.fromWorld(player.getServerForPlayer(), pos);
+                ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getNameForObject(state.getBlock());
                 blockId = id == null ? state.getBlock().getClass().getName() : id.toString();
             }
             long distance = pos == null ? -1L
-                    : Math.round(Math.sqrt(player.getDistanceSqToCenter(pos)));
+                    : Math.round(Math.sqrt(com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.distanceSqToCenter(player, pos)));
             RtsbuildingMod.LOGGER.info(
                     "[RTS-TRACE] side=S event=C2S_RECEIVED trace={} kind=REMOTE_GUI player={} target={} entity={} source={} distance={} loadedBefore={} block={}",
-                    RtsTraceIds.format(message.traceId()), player.getName(), pos, message.entityId(),
+                    RtsTraceIds.format(message.traceId()), com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.name(player), pos, message.entityId(),
                     sourceName(message.sourceType()), distance, loaded, blockId);
         }
 
@@ -221,8 +222,8 @@ public final class RtsPlacementActionHandlers1122 {
     }
 
     private static void schedule(MessageContext context, final Action action) {
-        final EntityPlayerMP player = context.getServerHandler().player;
-        player.getServerWorld().addScheduledTask(new Runnable() {
+        final EntityPlayerMP player = context.getServerHandler().playerEntity;
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
             @Override public void run() {
                 if (cameraBoolean("isActive", new Class<?>[]{EntityPlayerMP.class}, player)) {
                     action.run(player);

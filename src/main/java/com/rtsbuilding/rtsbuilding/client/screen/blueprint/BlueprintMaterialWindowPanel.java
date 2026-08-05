@@ -9,9 +9,9 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -104,8 +104,8 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentTranslation("screen.rtsbuilding.blueprints.details_title");
+    protected IChatComponent getTitle() {
+        return new ChatComponentTranslation("screen.rtsbuilding.blueprints.details_title");
     }
 
     @Override

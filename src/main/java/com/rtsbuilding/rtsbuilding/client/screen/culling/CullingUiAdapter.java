@@ -6,9 +6,9 @@ import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiPhase;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiState;
 import com.rtsbuilding.rtsbuilding.uicore.culling.CullingUiTransition;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import org.lwjgl.input.Keyboard;
 
 /**

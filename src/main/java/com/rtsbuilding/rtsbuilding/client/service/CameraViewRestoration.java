@@ -10,13 +10,13 @@ final class CameraViewRestoration {
     private boolean bob = true;
 
     void capture(Minecraft minecraft) {
-        entity = minecraft.getRenderViewEntity();
+        entity = minecraft.renderViewEntity;
         thirdPersonView = minecraft.gameSettings.thirdPersonView;
         bob = minecraft.gameSettings.viewBobbing;
     }
 
     void restore(Minecraft minecraft, Entity fallback) {
-        minecraft.setRenderViewEntity(entity != null ? entity : fallback);
+        com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.setRenderViewEntity(minecraft, entity != null ? entity : fallback);
         minecraft.gameSettings.thirdPersonView = thirdPersonView;
         minecraft.gameSettings.viewBobbing = bob;
     }

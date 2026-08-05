@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.Objects;
 import java.util.function.BooleanSupplier;
@@ -73,13 +73,13 @@ public final class LinkedItemHandlerView implements IItemHandler, ReportedCountI
     @Override
     public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
         if (!allowsStore()) {
-            return stack == null ? ItemStack.EMPTY : stack.copy();
+            return stack == null ? null : stack.copy();
         }
         if (this.delegate instanceof AnySlotInsertItemHandler) {
             return ((AnySlotInsertItemHandler) this.delegate).insertItemAnywhere(stack, simulate);
         }
-        ItemStack remain = stack == null ? ItemStack.EMPTY : stack.copy();
-        for (int slot = 0; slot < this.delegate.getSlots() && !remain.isEmpty(); slot++) {
+        ItemStack remain = stack == null ? null : stack.copy();
+        for (int slot = 0; slot < this.delegate.getSlots() && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain); slot++) {
             remain = this.delegate.insertItem(slot, remain, simulate);
         }
         return remain;

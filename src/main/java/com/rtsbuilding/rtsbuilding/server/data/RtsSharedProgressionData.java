@@ -5,10 +5,11 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.storage.MapStorage;
-import net.minecraft.world.storage.WorldSavedData;
+import net.minecraft.world.WorldSavedData;
 import net.minecraftforge.common.util.Constants;
 
 import java.util.ArrayList;
@@ -49,8 +50,8 @@ public final class RtsSharedProgressionData extends WorldSavedData {
     }
 
     public static RtsSharedProgressionData get(WorldServer level) {
-        MapStorage storage = level.getMapStorage();
-        RtsSharedProgressionData data = (RtsSharedProgressionData) storage.getOrLoadData(
+        MapStorage storage = level.mapStorage;
+        RtsSharedProgressionData data = (RtsSharedProgressionData) storage.loadData(
                 RtsSharedProgressionData.class, DATA_NAME);
         if (data == null) {
             data = new RtsSharedProgressionData(DATA_NAME);
@@ -91,10 +92,11 @@ public final class RtsSharedProgressionData extends WorldSavedData {
             for (int j = 0; j < plugins.tagCount(); j++) {
                 NBTTagCompound pluginTag = plugins.getCompoundTagAt(j);
                 ResourceLocation pluginId = parseResourceLocation(pluginTag.getString(KEY_PLUGIN_ID));
-                ItemStack stack = new ItemStack(pluginTag.getCompoundTag(KEY_PLUGIN_STACK));
-                if (pluginId == null || stack.isEmpty()) continue;
-                UUID owner = pluginTag.hasUniqueId(KEY_PLUGIN_OWNER)
-                        ? pluginTag.getUniqueId(KEY_PLUGIN_OWNER) : null;
+                ItemStack stack = ItemStack.loadItemStackFromNBT(
+                        pluginTag.getCompoundTag(KEY_PLUGIN_STACK));
+                if (pluginId == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) continue;
+                UUID owner = NbtCompat.hasUuid(pluginTag, KEY_PLUGIN_OWNER)
+                        ? NbtCompat.getUuid(pluginTag, KEY_PLUGIN_OWNER) : null;
                 progression.plugins.add(new SharedPlugin(pluginId, stack,
                         pluginTag.getLong(KEY_PLUGIN_INSTALLED_GAME_TIME), owner,
                         pluginTag.getString(KEY_PLUGIN_OWNER_NAME)));
@@ -134,7 +136,7 @@ public final class RtsSharedProgressionData extends WorldSavedData {
         progression.plugins.clear();
         if (plugins != null) {
             for (SharedPlugin plugin : plugins) {
-                if (plugin != null && plugin.pluginId() != null && !plugin.stack().isEmpty()) {
+                if (plugin != null && plugin.pluginId() != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(plugin.stack())) {
                     progression.plugins.add(plugin);
                 }
             }
@@ -170,7 +172,7 @@ public final class RtsSharedProgressionData extends WorldSavedData {
     }
 
     @Override
-    public NBTTagCompound writeToNBT(NBTTagCompound tag) {
+    public void writeToNBT(NBTTagCompound tag) {
         NBTTagList encodedGroups = new NBTTagList();
         for (Map.Entry<String, SharedProgression> entry : groups.entrySet()) {
             String groupKey = entry.getKey();
@@ -199,12 +201,14 @@ public final class RtsSharedProgressionData extends WorldSavedData {
             if (!progression.plugins.isEmpty()) {
                 NBTTagList plugins = new NBTTagList();
                 for (SharedPlugin plugin : progression.plugins) {
-                    if (plugin == null || plugin.pluginId() == null || plugin.stack().isEmpty()) continue;
+                    if (plugin == null || plugin.pluginId() == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(plugin.stack())) continue;
                     NBTTagCompound pluginTag = new NBTTagCompound();
                     pluginTag.setString(KEY_PLUGIN_ID, plugin.pluginId().toString());
                     pluginTag.setTag(KEY_PLUGIN_STACK, copyOne(plugin.stack()).writeToNBT(new NBTTagCompound()));
                     pluginTag.setLong(KEY_PLUGIN_INSTALLED_GAME_TIME, plugin.installedGameTime());
-                    if (plugin.ownerId() != null) pluginTag.setUniqueId(KEY_PLUGIN_OWNER, plugin.ownerId());
+                    if (plugin.ownerId() != null) {
+                        NbtCompat.setUuid(pluginTag, KEY_PLUGIN_OWNER, plugin.ownerId());
+                    }
                     pluginTag.setString(KEY_PLUGIN_OWNER_NAME, plugin.ownerName());
                     plugins.appendTag(pluginTag);
                 }
@@ -213,12 +217,11 @@ public final class RtsSharedProgressionData extends WorldSavedData {
             encodedGroups.appendTag(groupTag);
         }
         tag.setTag(KEY_GROUPS, encodedGroups);
-        return tag;
     }
 
     private static ItemStack copyOne(ItemStack stack) {
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 
@@ -279,7 +282,7 @@ public final class RtsSharedProgressionData extends WorldSavedData {
         public SharedPlugin(ResourceLocation pluginId, ItemStack stack, long installedGameTime,
                 UUID ownerId, String ownerName) {
             this.pluginId = pluginId;
-            this.stack = stack == null ? ItemStack.EMPTY : copyOne(stack);
+            this.stack = stack == null ? null : copyOne(stack);
             this.installedGameTime = installedGameTime;
             this.ownerId = ownerId;
             this.ownerName = ownerName == null ? "" : ownerName;

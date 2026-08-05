@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiFormats;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 
 public final class RtsClientUiUtil {
     private static final float SLOT_COUNT_SCALE = 0.65F;

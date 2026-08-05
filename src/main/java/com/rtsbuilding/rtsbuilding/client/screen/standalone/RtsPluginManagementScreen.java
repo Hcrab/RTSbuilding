@@ -14,7 +14,7 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.resources.I18n;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
 import org.lwjgl.input.Mouse;
@@ -39,7 +39,7 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     private int selectedInventorySlot = -1;
     private int hoveredInventorySlot = -1;
     private String hoveredInstalledPluginId = "";
-    private ItemStack hoveredInstalledStack = ItemStack.EMPTY;
+    private ItemStack hoveredInstalledStack = null;
     private int installedScroll;
     private int refreshFeedbackTicks;
 
@@ -74,11 +74,11 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTick) {
         LegacyGuiGraphics g = new LegacyGuiGraphics(this.mc, this.width, this.height);
-        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, this.fontRenderer);
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, this.fontRendererObj);
         renderPageBackground(canvas);
         this.hoveredInventorySlot = -1;
         this.hoveredInstalledPluginId = "";
-        this.hoveredInstalledStack = ItemStack.EMPTY;
+        this.hoveredInstalledStack = null;
 
         PluginManagementLayout.Layout layout = resolveLayout();
         PluginManagementLayout.Rect panel = layout.panel;
@@ -89,7 +89,7 @@ public final class RtsPluginManagementScreen extends GuiScreen {
                 panel.width - PluginManagementLayout.FRAME_INSET * 2,
                 PluginManagementLayout.HEADER_H - PluginManagementLayout.FRAME_INSET,
                 PluginManagementStyle.HEADER_BACKGROUND);
-        g.drawString(this.fontRenderer, I18n.format("screen.rtsbuilding.plugins"), panel.x + PluginManagementLayout.PAD,
+        g.drawString(this.fontRendererObj, I18n.format("screen.rtsbuilding.plugins"), panel.x + PluginManagementLayout.PAD,
                 panel.y + PluginManagementLayout.HEADER_TITLE_TOP,
                 PluginManagementStyle.TITLE.toArgb(), false);
 
@@ -102,7 +102,7 @@ public final class RtsPluginManagementScreen extends GuiScreen {
 
         if (this.selectedInventorySlot >= 0) {
             ItemStack selected = inventoryStack(this.selectedInventorySlot);
-            if (!selected.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(selected)) {
                 g.renderItem(selected,
                         mouseX + PluginManagementLayout.CURSOR_ITEM_OFFSET,
                         mouseY + PluginManagementLayout.CURSOR_ITEM_OFFSET);
@@ -111,17 +111,17 @@ public final class RtsPluginManagementScreen extends GuiScreen {
 
         if (this.hoveredInventorySlot >= 0) {
             ItemStack hovered = inventoryStack(this.hoveredInventorySlot);
-            if (!hovered.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(hovered)) {
                 g.renderTooltip(hovered, mouseX, mouseY);
             }
-        } else if (!this.hoveredInstalledStack.isEmpty()) {
+        } else if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(this.hoveredInstalledStack)) {
             g.renderTooltip(this.hoveredInstalledStack, mouseX, mouseY);
         }
         super.drawScreen(mouseX, mouseY, partialTick);
     }
 
     @Override
-    protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
+    protected void mouseClicked(int mouseX, int mouseY, int button) {
         if (button != 0) {
             super.mouseClicked(mouseX, mouseY, button);
             return;
@@ -167,14 +167,14 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     }
 
     @Override
-    protected void mouseReleased(int mouseX, int mouseY, int button) {
+    protected void mouseMovedOrUp(int mouseX, int mouseY, int button) {
         if (button == 0
                 && this.selectedInventorySlot >= 0
                 && inside(mouseX, mouseY, this.installX, this.installY, this.installW, this.installH)) {
             installSelectedSlot();
             return;
         }
-        super.mouseReleased(mouseX, mouseY, button);
+        super.mouseMovedOrUp(mouseX, mouseY, button);
     }
 
     boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
@@ -189,11 +189,11 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     }
 
     @Override
-    public void handleMouseInput() throws IOException {
+    public void handleMouseInput() {
         super.handleMouseInput();
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0) {
-            ScaledResolution resolution = new ScaledResolution(this.mc);
+            ScaledResolution resolution = new ScaledResolution(this.mc, this.mc.displayWidth, this.mc.displayHeight);
             double x = Mouse.getEventX() * resolution.getScaledWidth() / (double) this.mc.displayWidth;
             double y = resolution.getScaledHeight()
                     - Mouse.getEventY() * resolution.getScaledHeight() / (double) this.mc.displayHeight - 1;
@@ -207,7 +207,7 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     }
 
     @Override
-    protected void keyTyped(char typedChar, int keyCode) throws IOException {
+    protected void keyTyped(char typedChar, int keyCode) {
         if (keyCode == Keyboard.KEY_ESCAPE) this.mc.displayGuiScreen(this.parent);
         else super.keyTyped(typedChar, keyCode);
     }
@@ -218,14 +218,14 @@ public final class RtsPluginManagementScreen extends GuiScreen {
                                    int x, int y, int w, int h, int mouseX, int mouseY) {
         drawFrame(canvas, x, y, w, h,
                 PluginManagementStyle.SURFACE_BACKGROUND, PluginManagementStyle.SURFACE_BORDER);
-        g.drawString(this.fontRenderer, I18n.format("screen.rtsbuilding.plugins.installed"),
+        g.drawString(this.fontRendererObj, I18n.format("screen.rtsbuilding.plugins.installed"),
                 x + PluginManagementLayout.SURFACE_TITLE_X,
                 y + PluginManagementLayout.SURFACE_TITLE_Y,
                 PluginManagementStyle.PRIMARY_TEXT.toArgb(), false);
         String teamName = this.controller.getPluginTeamName();
         boolean hasTeam = teamName != null && !teamName.trim().isEmpty();
         if (hasTeam) {
-            g.drawString(this.fontRenderer, trim(
+            g.drawString(this.fontRendererObj, trim(
                             I18n.format("screen.rtsbuilding.plugins.team", teamName),
                             PluginManagementLayout.contentWidth(w)),
                     x + PluginManagementLayout.SURFACE_TITLE_X,
@@ -272,19 +272,19 @@ public final class RtsPluginManagementScreen extends GuiScreen {
                             - PluginManagementLayout.ROW_BOTTOM_INSET,
                     hover ? PluginManagementStyle.ROW_HOVER : PluginManagementStyle.ROW_BACKGROUND);
             ItemStack stack = plugin.stack();
-            if (!stack.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 g.renderItem(stack,
                         x + PluginManagementLayout.ROW_ITEM_X,
                         rowY + PluginManagementLayout.ROW_ITEM_Y);
             }
-            String name = stack.isEmpty() ? plugin.pluginId() : stack.getDisplayName();
-            g.drawString(this.fontRenderer,
+            String name = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? plugin.pluginId() : stack.getDisplayName();
+            g.drawString(this.fontRendererObj,
                     trim(name, w - PluginManagementLayout.ROW_NAME_RIGHT_RESERVE),
                     x + PluginManagementLayout.ROW_TEXT_X,
                     rowY + PluginManagementLayout.ROW_NAME_Y,
                     PluginManagementStyle.TITLE.toArgb(), false);
             String status = pluginStatus(plugin);
-            g.drawString(this.fontRenderer,
+            g.drawString(this.fontRendererObj,
                     trim(status, w - PluginManagementLayout.ROW_STATUS_RIGHT_RESERVE),
                     x + PluginManagementLayout.ROW_TEXT_X,
                     rowY + PluginManagementLayout.ROW_STATUS_Y,
@@ -294,7 +294,7 @@ public final class RtsPluginManagementScreen extends GuiScreen {
                 canvas.fill(uninstallX, rowY + PluginManagementLayout.UNINSTALL_TOP,
                         PluginManagementLayout.UNINSTALL_W, PluginManagementLayout.UNINSTALL_H,
                         PluginManagementStyle.DANGER_BACKGROUND);
-                g.drawCenteredString(this.fontRenderer, I18n.format("screen.rtsbuilding.plugins.uninstall"), uninstallX + PluginManagementLayout.UNINSTALL_TEXT_X, rowY + PluginManagementLayout.UNINSTALL_TEXT_Y, PluginManagementStyle.DANGER_TEXT.toArgb());
+                g.drawCenteredString(this.fontRendererObj, I18n.format("screen.rtsbuilding.plugins.uninstall"), uninstallX + PluginManagementLayout.UNINSTALL_TEXT_X, rowY + PluginManagementLayout.UNINSTALL_TEXT_Y, PluginManagementStyle.DANGER_TEXT.toArgb());
             }
             rowY += PluginManagementLayout.INSTALLED_ROW_H;
         }
@@ -324,8 +324,8 @@ public final class RtsPluginManagementScreen extends GuiScreen {
         drawFrame(canvas, this.refreshX, this.refreshY, this.refreshW, this.refreshH, refreshFill,
                 refreshHover ? PluginManagementStyle.REFRESH_HOVER_BORDER
                         : PluginManagementStyle.REFRESH_BORDER);
-        g.drawCenteredString(this.fontRenderer, I18n.format("screen.rtsbuilding.plugins.refresh"), this.refreshX + this.refreshW / 2, this.refreshY + PluginManagementLayout.REFRESH_TEXT_TOP, PluginManagementStyle.PRIMARY_TEXT.toArgb());
-        g.drawString(this.fontRenderer, I18n.format("screen.rtsbuilding.plugins.install_area"),
+        g.drawCenteredString(this.fontRendererObj, I18n.format("screen.rtsbuilding.plugins.refresh"), this.refreshX + this.refreshW / 2, this.refreshY + PluginManagementLayout.REFRESH_TEXT_TOP, PluginManagementStyle.PRIMARY_TEXT.toArgb());
+        g.drawString(this.fontRendererObj, I18n.format("screen.rtsbuilding.plugins.install_area"),
                 x + PluginManagementLayout.CONTENT_TEXT_X,
                 y + PluginManagementLayout.INSTALL_TITLE_Y,
                 PluginManagementStyle.PRIMARY_TEXT.toArgb(), false);
@@ -342,7 +342,7 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     private void drawInventoryPlugins(LegacyGuiGraphics g, MinecraftUiCanvas canvas,
                                       PluginManagementLayout.Layout layout,
                                       int mouseX, int mouseY) {
-        g.drawString(this.fontRenderer, I18n.format("screen.rtsbuilding.plugins.inventory"),
+        g.drawString(this.fontRendererObj, I18n.format("screen.rtsbuilding.plugins.inventory"),
                 layout.inventoryTitleX, layout.inventoryTitleY,
                 PluginManagementStyle.PRIMARY_TEXT.toArgb(), false);
         int[] slots = displayedInventorySlots();
@@ -362,7 +362,7 @@ public final class RtsPluginManagementScreen extends GuiScreen {
                     : plugin ? PluginManagementStyle.SLOT_PLUGIN : PluginManagementStyle.SLOT_BACKGROUND;
             drawFrame(canvas, sx, sy, slot.width, slot.height, fill,
                     hover ? PluginManagementStyle.SLOT_HOVER_BORDER : PluginManagementStyle.SLOT_BORDER);
-            if (!stack.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 g.renderItem(stack,
                         sx + PluginManagementLayout.SLOT_CONTENT_INSET,
                         sy + PluginManagementLayout.SLOT_CONTENT_INSET);
@@ -451,14 +451,14 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     }
 
     private ItemStack inventoryStack(int slot) {
-        if (this.mc == null || this.mc.player == null) {
-            return ItemStack.EMPTY;
+        if (this.mc == null || this.mc.thePlayer == null) {
+            return null;
         }
-        InventoryPlayer inventory = this.mc.player.inventory;
-        if (slot < 0 || slot >= inventory.mainInventory.size()) {
-            return ItemStack.EMPTY;
+        InventoryPlayer inventory = this.mc.thePlayer.inventory;
+        if (slot < 0 || slot >= inventory.mainInventory.length) {
+            return null;
         }
-        return inventory.mainInventory.get(slot);
+        return inventory.mainInventory[slot];
     }
 
     private int[] displayedInventorySlots() {
@@ -474,8 +474,8 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     }
 
     private void drawWrapped(LegacyGuiGraphics g, String text, int x, int y, int width, int color) {
-        for (String line : this.fontRenderer.listFormattedStringToWidth(text, width)) {
-            g.drawString(this.fontRenderer, line, x, y, color, false);
+        for (String line : this.fontRendererObj.listFormattedStringToWidth(text, width)) {
+            g.drawString(this.fontRendererObj, line, x, y, color, false);
             y += 10;
         }
     }
@@ -523,7 +523,7 @@ public final class RtsPluginManagementScreen extends GuiScreen {
     }
 
     private String trim(String text, int width) {
-        return this.fontRenderer.trimStringToWidth(text == null ? "" : text, Math.max(8, width));
+        return this.fontRendererObj.trimStringToWidth(text == null ? "" : text, Math.max(8, width));
     }
 
     private boolean inside(double x, double y, int rx, int ry, int rw, int rh) {

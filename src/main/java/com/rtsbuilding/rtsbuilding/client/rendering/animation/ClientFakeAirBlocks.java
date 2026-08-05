@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -27,19 +27,19 @@ public final class ClientFakeAirBlocks {
     private ClientFakeAirBlocks() {
     }
 
-    public static void hideUntilServerState(BlockPos pos, IBlockState originalState, IBlockState resultState) {
+    public static void hideUntilServerState(BlockPos pos, BlockState originalState, BlockState resultState) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        WorldClient world = minecraft.world;
+        WorldClient world = minecraft.theWorld;
         if (world == null || pos == null) return;
         syncWorld(world);
-        if (!world.isBlockLoaded(pos)) return;
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, pos)) return;
 
-        IBlockState animationState = isAir(originalState, world, pos)
-                ? world.getBlockState(pos) : originalState;
-        IBlockState confirmedState = resultState == null ? Blocks.AIR.getDefaultState() : resultState;
+        BlockState animationState = isAir(originalState, world, pos)
+                ? BlockState.fromWorld(world, pos) : originalState;
+        BlockState confirmedState = resultState == null ? BlockState.defaultState(Blocks.air) : resultState;
         if (isAir(animationState, world, pos)
                 && isAir(confirmedState, world, pos)
-                && isAir(world.getBlockState(pos), world, pos)) return;
+                && isAir(BlockState.fromWorld(world, pos), world, pos)) return;
 
         BlockPos immutablePos = pos.toImmutable();
         long key = immutablePos.toLong();
@@ -49,12 +49,12 @@ public final class ClientFakeAirBlocks {
             ENTRIES.put(key, new FakeAirEntry(immutablePos, confirmedState,
                     System.currentTimeMillis() + NON_AIR_SETTLE_TIMEOUT_MS));
         }
-        world.setBlockState(immutablePos, Blocks.AIR.getDefaultState(), CLIENT_BLOCK_UPDATE_FLAGS);
+        BlockState.defaultState(Blocks.air).setInWorld(world, immutablePos, CLIENT_BLOCK_UPDATE_FLAGS);
     }
 
     public static void tick() {
         Minecraft minecraft = Minecraft.getMinecraft();
-        WorldClient world = minecraft.world;
+        WorldClient world = minecraft.theWorld;
         if (world == null) {
             ENTRIES.clear();
             activeWorld = null;
@@ -73,23 +73,23 @@ public final class ClientFakeAirBlocks {
                 iterator.remove();
                 continue;
             }
-            IBlockState current = world.getBlockState(entry.pos);
+            BlockState current = BlockState.fromWorld(world, entry.pos);
             if (current.equals(entry.confirmedState)) {
                 iterator.remove();
                 continue;
             }
             if (now < entry.settleAtMs) continue;
             iterator.remove();
-            if (world.isBlockLoaded(entry.pos) && isAir(world.getBlockState(entry.pos), world, entry.pos)) {
-                world.setBlockState(entry.pos, entry.confirmedState, CLIENT_BLOCK_UPDATE_FLAGS);
+            if (com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, entry.pos) && isAir(BlockState.fromWorld(world, entry.pos), world, entry.pos)) {
+                entry.confirmedState.setInWorld(world, entry.pos, CLIENT_BLOCK_UPDATE_FLAGS);
             }
         }
     }
 
-    private static boolean isAir(IBlockState state, WorldClient world, BlockPos pos) {
+    private static boolean isAir(BlockState state, WorldClient world, BlockPos pos) {
         if (state == null) return true;
         Block block = state.getBlock();
-        return block == Blocks.AIR || block.isAir(state, world, pos);
+        return block == Blocks.air || block.isAir(world, pos.getX(), pos.getY(), pos.getZ());
     }
 
     private static void syncWorld(WorldClient world) {
@@ -100,10 +100,10 @@ public final class ClientFakeAirBlocks {
 
     private static final class FakeAirEntry {
         private final BlockPos pos;
-        private final IBlockState confirmedState;
+        private final BlockState confirmedState;
         private final long settleAtMs;
 
-        private FakeAirEntry(BlockPos pos, IBlockState confirmedState, long settleAtMs) {
+        private FakeAirEntry(BlockPos pos, BlockState confirmedState, long settleAtMs) {
             this.pos = pos;
             this.confirmedState = confirmedState;
             this.settleAtMs = settleAtMs;

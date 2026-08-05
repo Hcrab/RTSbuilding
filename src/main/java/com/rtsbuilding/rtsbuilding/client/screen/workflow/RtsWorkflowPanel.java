@@ -11,9 +11,9 @@ import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiRow;
 import com.rtsbuilding.rtsbuilding.uicore.workflow.WorkflowUiState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowWindowLayout;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.fml.client.config.GuiUtils;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
+import cpw.mods.fml.client.config.GuiUtils;
 
 import java.util.Collections;
 import java.util.List;
@@ -34,8 +34,8 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentTranslation("screen.rtsbuilding.workflow.title");
+    protected IChatComponent getTitle() {
+        return new ChatComponentTranslation("screen.rtsbuilding.workflow.title");
     }
 
     @Override

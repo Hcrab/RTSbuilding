@@ -4,14 +4,14 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
 
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
@@ -25,12 +25,12 @@ public final class PlayerMoveTargetRenderer {
     }
 
     public static void render(Minecraft minecraft) {
-        if (minecraft == null || minecraft.world == null) return;
+        if (minecraft == null || minecraft.theWorld == null) return;
         RtsClientPathfinding.MoveTargetHighlight highlight = RtsClientPathfinding.getMoveTargetHighlight();
         if (highlight == null || highlight.alpha() <= 0.0F) return;
         BlockPos target = highlight.target();
         AxisAlignedBB bounds = new AxisAlignedBB(target).grow(0.045D);
-        RenderManager manager = minecraft.getRenderManager();
+        RenderManager manager = net.minecraft.client.renderer.entity.RenderManager.instance;
         Vec3d camera = new Vec3d(manager.viewerPosX, manager.viewerPosY, manager.viewerPosZ);
         double distance = camera.distanceTo(new Vec3d(target).add(0.5D, 0.5D, 0.5D));
 

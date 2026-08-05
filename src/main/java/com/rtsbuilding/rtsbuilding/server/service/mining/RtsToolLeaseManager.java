@@ -11,8 +11,8 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -23,15 +23,15 @@ public final class RtsToolLeaseManager {
 
     public static RtsToolLease borrowMiningTool(EntityPlayerMP player, RtsStorageSession session,
             String toolItemId, ItemStack toolPrototype, int selectedToolSlot) {
-        if (player == null || session == null || toolPrototype == null || toolPrototype.isEmpty()
+        if (player == null || session == null || toolPrototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(toolPrototype)
                 || toolItemId == null || toolItemId.trim().isEmpty()) return RtsToolLease.empty();
         ResourceLocation id;
         try { id = new ResourceLocation(toolItemId); } catch (RuntimeException invalid) { return RtsToolLease.empty(); }
-        Item item = ForgeRegistries.ITEMS.getValue(id);
+        Item item = RtsRegistries.ITEMS.getValue(id);
         if (item == null || item instanceof ItemBlock || toolPrototype.getItem() != item) return RtsToolLease.empty();
 
         ItemStack prototype = toolPrototype.copy();
-        prototype.setCount(1);
+        prototype.stackSize = 1;
         RtsToolLease playerLease = borrowFromPlayer(player, prototype, selectedToolSlot);
         if (!playerLease.isEmpty()) return playerLease;
 
@@ -64,70 +64,70 @@ public final class RtsToolLeaseManager {
     private static RtsToolLease borrowFromPlayerSlot(EntityPlayerMP player, ItemStack prototype, int slot) {
         if (slot < 0 || slot >= player.inventory.getSizeInventory()) return RtsToolLease.empty();
         ItemStack current = player.inventory.getStackInSlot(slot);
-        if (current.isEmpty() || !matchesMiningToolPrototype(current, prototype)) return RtsToolLease.empty();
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current) || !matchesMiningToolPrototype(current, prototype)) return RtsToolLease.empty();
         ItemStack borrowed = current.splitStack(1);
-        if (current.isEmpty()) player.inventory.setInventorySlotContents(slot, ItemStack.EMPTY);
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) player.inventory.setInventorySlotContents(slot, null);
         player.inventory.markDirty();
-        return borrowed.isEmpty() ? RtsToolLease.empty() : RtsToolLease.playerSlot(slot, borrowed);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(borrowed) ? RtsToolLease.empty() : RtsToolLease.playerSlot(slot, borrowed);
     }
 
     private static RtsToolLease borrowFromHandler(IItemHandler handler, ItemStack prototype) {
         if (handler == null) return RtsToolLease.empty();
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack visible = handler.getStackInSlot(slot);
-            if (visible.isEmpty() || !matchesMiningToolPrototype(visible, prototype)) continue;
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(visible) || !matchesMiningToolPrototype(visible, prototype)) continue;
             ItemStack simulated = handler.extractItem(slot, 1, true);
-            if (simulated.isEmpty() || !matchesMiningToolPrototype(simulated, prototype)) continue;
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(simulated) || !matchesMiningToolPrototype(simulated, prototype)) continue;
             ItemStack borrowed = handler.extractItem(slot, 1, false);
-            if (!borrowed.isEmpty() && matchesMiningToolPrototype(borrowed, prototype)) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(borrowed) && matchesMiningToolPrototype(borrowed, prototype)) {
                 return RtsToolLease.linkedSlot(handler, slot, borrowed);
             }
             // 非标准 handler 若模拟和执行不一致，必须归还实际提取物，不能吞掉。
-            if (!borrowed.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(borrowed)) {
                 ItemStack remain = handler.insertItem(slot, borrowed, false);
-                if (!remain.isEmpty()) RtsTransferInserter.insertToHandlerPreferExisting(handler, remain);
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) RtsTransferInserter.insertToHandlerPreferExisting(handler, remain);
             }
         }
         return RtsToolLease.empty();
     }
 
     static boolean matchesMiningToolPrototype(ItemStack stack, ItemStack prototype) {
-        if (stack == null || prototype == null || stack.isEmpty() || prototype.isEmpty()) return false;
+        if (stack == null || prototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) return false;
         if (sameExact(stack, prototype)) return true;
         if (stack.getItem() != prototype.getItem() || !stack.isItemStackDamageable()
                 || !prototype.isItemStackDamageable()) return false;
         ItemStack normalized = stack.copy();
         ItemStack expected = prototype.copy();
-        normalized.setCount(1);
-        expected.setCount(1);
+        normalized.stackSize = 1;
+        expected.stackSize = 1;
         normalized.setItemDamage(expected.getItemDamage());
         return sameExact(normalized, expected);
     }
 
     private static boolean sameExact(ItemStack a, ItemStack b) {
-        return ItemStack.areItemsEqual(a, b) && ItemStack.areItemStackTagsEqual(a, b);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(a, b) && ItemStack.areItemStackTagsEqual(a, b);
     }
 
     public static void returnMiningTool(EntityPlayerMP player, RtsStorageSession session, RtsToolLease lease) {
         if (player == null || session == null || lease == null || lease.isEmpty()) return;
         ItemStack remain = lease.returnToSource(player);
-        if (remain.isEmpty()) return;
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) return;
         List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(
                 RtsLinkedStorageResolver.resolveLinkedHandlers(player, session));
         RtsTransferInserter.storeToLinkedWithFallback(handlers, player, remain);
     }
 
     public static ItemStack protectBorrowedToolRemainder(EntityPlayerMP player, RtsToolLease lease, ItemStack remainder) {
-        if (remainder != null && !remainder.isEmpty()) return remainder;
+        if (remainder != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) return remainder;
         ItemStack original = lease.original();
-        if (!shouldProtectEmpty(original)) return ItemStack.EMPTY;
+        if (!shouldProtectEmpty(original)) return null;
         RtsbuildingMod.LOGGER.warn("RTS borrowed mining tool from {} became empty; restoring it for {}.",
-                lease.describeSource(), player == null ? "unknown player" : player.getName());
+                lease.describeSource(), player == null ? "unknown player" : com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.name(player));
         return original.copy();
     }
 
     private static boolean shouldProtectEmpty(ItemStack original) {
-        return original != null && !original.isEmpty() && !(original.getItem() instanceof ItemBlock)
+        return original != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(original) && !(original.getItem() instanceof ItemBlock)
                 && original.getMaxStackSize() == 1 && !original.isItemStackDamageable();
     }
 }

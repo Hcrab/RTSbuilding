@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 import java.util.function.Predicate;
@@ -46,7 +46,7 @@ public final class RtsTransferServiceImpl implements TransferService {
             IItemHandler handler = linkedHandler.handler();
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack stack = handler.getStackInSlot(slot);
-                if (stack.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                     continue;
                 }
                 if (!predicate.test(stack)) {

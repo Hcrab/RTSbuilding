@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.network.builder;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 单方块放置意图；物品原型保留完整 NBT，但真实物品必须由服务端重新提取。 */
 public final class C2SRtsPlacePayload implements IMessage {
@@ -16,7 +16,7 @@ public final class C2SRtsPlacePayload implements IMessage {
     private String statePreset = "";
     private boolean forcePlace, skipIfOccupied;
     private String itemId = "";
-    private ItemStack itemPrototype = ItemStack.EMPTY;
+    private ItemStack itemPrototype = null;
     private double rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ;
     private boolean quickBuild, forceEmptyHand;
 
@@ -35,7 +35,7 @@ public final class C2SRtsPlacePayload implements IMessage {
         this.statePreset = statePreset == null ? "" : statePreset;
         this.forcePlace = forcePlace; this.skipIfOccupied = skipIfOccupied;
         this.itemId = itemId == null ? "" : itemId;
-        this.itemPrototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype;
+        this.itemPrototype = itemPrototype == null ? null : itemPrototype;
         this.rayOriginX = rayOriginX; this.rayOriginY = rayOriginY; this.rayOriginZ = rayOriginZ;
         this.rayDirX = rayDirX; this.rayDirY = rayDirY; this.rayDirZ = rayDirZ;
         this.quickBuild = quickBuild; this.forceEmptyHand = forceEmptyHand;

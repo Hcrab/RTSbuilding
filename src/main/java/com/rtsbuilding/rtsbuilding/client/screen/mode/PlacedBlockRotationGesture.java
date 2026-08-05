@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.mode;
 
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import org.lwjgl.input.Keyboard;
 
 /**

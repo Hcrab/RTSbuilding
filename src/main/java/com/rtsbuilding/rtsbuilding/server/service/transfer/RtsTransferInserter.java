@@ -7,8 +7,8 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraftforge.items.IItemHandler;
+import net.minecraft.util.ChatComponentText;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -74,23 +74,23 @@ public final class RtsTransferInserter {
     }
 
     public static ItemStack insertToHandlerPreferExisting(IItemHandler handler, ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            return null;
         }
         ItemStack anySlotRemain = RtsLinkedHandlerViews.insertItemAnywhereIfSupported(handler, stack, false);
         if (anySlotRemain != null) {
             return anySlotRemain;
         }
         ItemStack remain = stack.copy();
-        for (int slot = 0; slot < handler.getSlots() && !remain.isEmpty(); slot++) {
+        for (int slot = 0; slot < handler.getSlots() && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain); slot++) {
             ItemStack slotStack = handler.getStackInSlot(slot);
-            if (slotStack.isEmpty() || !sameStackIdentity(slotStack, remain)) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(slotStack) || !sameStackIdentity(slotStack, remain)) {
                 continue;
             }
             remain = handler.insertItem(slot, remain, false);
         }
-        for (int slot = 0; slot < handler.getSlots() && !remain.isEmpty(); slot++) {
-            if (!handler.getStackInSlot(slot).isEmpty()) {
+        for (int slot = 0; slot < handler.getSlots() && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain); slot++) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(handler.getStackInSlot(slot))) {
                 continue;
             }
             remain = handler.insertItem(slot, remain, false);
@@ -103,7 +103,7 @@ public final class RtsTransferInserter {
     public static ItemStack storeToLinkedOnly(List<IItemHandler> handlers, ItemStack stack) {
         ItemStack remain = stack.copy();
         for (IItemHandler handler : handlers) {
-            if (remain.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 break;
             }
             remain = insertToHandler(handler, remain);
@@ -114,7 +114,7 @@ public final class RtsTransferInserter {
     public static ItemStack storeToLinkedOnlyPreferExisting(List<IItemHandler> handlers, ItemStack stack) {
         ItemStack remain = stack.copy();
         for (IItemHandler handler : handlers) {
-            if (remain.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 break;
             }
             remain = insertToHandlerPreferExisting(handler, remain);
@@ -128,23 +128,23 @@ public final class RtsTransferInserter {
             List<IItemHandler> handlers, EntityPlayerMP player, ItemStack stack) {
         ItemStack remain = stack.copy();
         for (IItemHandler handler : handlers) {
-            if (remain.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 break;
             }
             remain = insertToHandler(handler, remain);
         }
         int movedToInventory = 0;
-        if (!remain.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
             ItemStack invStack = remain.copy();
-            int before = invStack.getCount();
+            int before = invStack.stackSize;
             player.inventory.addItemStackToInventory(invStack);
-            movedToInventory = before - invStack.getCount();
+            movedToInventory = before - invStack.stackSize;
             remain = invStack;
         }
         int dropped = 0;
-        if (!remain.isEmpty()) {
-            dropped = remain.getCount();
-            player.dropItem(remain, false);
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
+            dropped = remain.stackSize;
+            player.dropPlayerItemWithRandomChoice(remain, false);
         }
         // Refresh cache so subsequent page builds see the updated state immediately
         refreshCache(player);
@@ -155,23 +155,23 @@ public final class RtsTransferInserter {
             List<IItemHandler> handlers, EntityPlayerMP player, ItemStack stack) {
         ItemStack remain = stack.copy();
         for (IItemHandler handler : handlers) {
-            if (remain.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 break;
             }
             remain = insertToHandlerPreferExisting(handler, remain);
         }
         int movedToInventory = 0;
-        if (!remain.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
             ItemStack invStack = remain.copy();
-            int before = invStack.getCount();
+            int before = invStack.stackSize;
             player.inventory.addItemStackToInventory(invStack);
-            movedToInventory = before - invStack.getCount();
+            movedToInventory = before - invStack.stackSize;
             remain = invStack;
         }
         int dropped = 0;
-        if (!remain.isEmpty()) {
-            dropped = remain.getCount();
-            player.dropItem(remain, false);
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
+            dropped = remain.stackSize;
+            player.dropPlayerItemWithRandomChoice(remain, false);
         }
         // Refresh cache so subsequent page builds see the updated state immediately
         refreshCache(player);
@@ -186,14 +186,14 @@ public final class RtsTransferInserter {
 
     public static void refundItem(IItemHandler handler, EntityPlayerMP player, ItemStack stack) {
         ItemStack remain = insertToHandler(handler, stack);
-        if (!remain.isEmpty()) {
-            player.dropItem(remain, false);
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
+            player.dropPlayerItemWithRandomChoice(remain, false);
         }
     }
 
     public static ItemStack moveToPlayerInventoryOnly(EntityPlayerMP player, ItemStack stack) {
-        if (player == null || stack == null || stack.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (player == null || stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            return null;
         }
         ItemStack remain = stack.copy();
         player.inventory.addItemStackToInventory(remain);
@@ -201,51 +201,52 @@ public final class RtsTransferInserter {
     }
 
     public static ItemStack moveLinkedStackIntoOpenMenu(EntityPlayerMP player, ItemStack stack) {
-        if (player == null || stack == null || stack.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (player == null || stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            return null;
         }
         Container menu = player.openContainer;
         if (menu == null) {
             return stack.copy();
         }
         ItemStack remain = stack.copy();
-        for (int pass = 0; pass < 2 && !remain.isEmpty(); pass++) {
+        for (int pass = 0; pass < 2 && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain); pass++) {
             boolean fillExisting = pass == 0;
             for (Slot slot : menu.inventorySlots) {
-                if (slot == null || slot.inventory == player.inventory || !slot.isEnabled() || !slot.isItemValid(remain)) {
+                if (slot == null || slot.inventory == player.inventory || !slot.func_111238_b()
+                        || !slot.isItemValid(remain)) {
                     continue;
                 }
                 ItemStack inSlot = slot.getStack();
                 if (fillExisting) {
-                    if (inSlot.isEmpty() || !sameStackIdentity(inSlot, remain)) {
+                    if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(inSlot) || !sameStackIdentity(inSlot, remain)) {
                         continue;
                     }
-                    int max = Math.min(slot.getItemStackLimit(remain), remain.getMaxStackSize());
-                    int free = Math.max(0, max - inSlot.getCount());
+                    int max = Math.min(slot.getSlotStackLimit(), remain.getMaxStackSize());
+                    int free = Math.max(0, max - inSlot.stackSize);
                     if (free <= 0) {
                         continue;
                     }
-                    int move = Math.min(free, remain.getCount());
+                    int move = Math.min(free, remain.stackSize);
                     if (move <= 0) {
                         continue;
                     }
-                    inSlot.grow(move);
+                    com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(inSlot, move);
                     slot.onSlotChanged();
-                    remain.shrink(move);
+                    com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(remain, move);
                     continue;
                 }
-                if (!inSlot.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(inSlot)) {
                     continue;
                 }
-                int move = Math.min(slot.getItemStackLimit(remain), remain.getCount());
+                int move = Math.min(slot.getSlotStackLimit(), remain.stackSize);
                 if (move <= 0) {
                     continue;
                 }
                 ItemStack placed = remain.copy();
-                placed.setCount(move);
+                placed.stackSize = move;
                 slot.putStack(placed);
                 slot.onSlotChanged();
-                remain.shrink(move);
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(remain, move);
             }
         }
         return remain;
@@ -284,11 +285,11 @@ public final class RtsTransferInserter {
         } else {
             message = context + ": linked+inventory full, dropped " + overflow.dropped() + ".";
         }
-        player.sendStatusMessage(new TextComponentString(message), true);
+        com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentText(message), true);
     }
 
     /** 1.12.2 没有组件系统；metadata 与完整 NBT 一起构成堆叠身份。 */
     private static boolean sameStackIdentity(ItemStack first, ItemStack second) {
-        return ItemStack.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
     }
 }

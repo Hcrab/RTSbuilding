@@ -13,10 +13,10 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -96,22 +96,22 @@ public final class RtsFluidServiceImpl implements FluidService {
         if (!RtsCameraManager.isActive(player) || pos == null) {
             return false;
         }
-        WorldServer level = player.getServerWorld();
-        if (!level.isBlockLoaded(pos)) {
+        WorldServer level = player.getServerForPlayer();
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) {
             return false;
         }
-        if (level.isBlockModifiable(player, pos)
+        if (com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockModifiable(level, player, pos)
                 && RtsCameraManager.isWithinActionRange(player, pos)) {
             return true;
         }
-        if (!level.isAirBlock(pos)) {
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isAirBlock(level, pos)) {
             return false;
         }
         BlockPos below = pos.down();
-        if (!level.isBlockLoaded(below)) {
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, below)) {
             return false;
         }
-        return level.isBlockModifiable(player, below)
+        return com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockModifiable(level, player, below)
                 && RtsCameraManager.isWithinActionRange(player, pos);
     }
 }

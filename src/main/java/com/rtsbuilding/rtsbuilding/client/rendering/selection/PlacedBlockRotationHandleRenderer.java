@@ -4,13 +4,13 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacedBlockRotationHandles;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
@@ -32,7 +32,7 @@ public final class PlacedBlockRotationHandleRenderer {
 
     public static void render(Minecraft minecraft) {
         if (minecraft == null || !(minecraft.currentScreen instanceof BuilderScreen)
-                || minecraft.world == null) {
+                || minecraft.theWorld == null) {
             return;
         }
         BuilderScreen screen = (BuilderScreen) minecraft.currentScreen;
@@ -42,14 +42,14 @@ public final class PlacedBlockRotationHandleRenderer {
         }
 
         EnumFacing cameraForward = screen.currentCameraHorizontalDirection();
-        handles.updateHover(minecraft.world, screen.currentRayOrigin(),
+        handles.updateHover(minecraft.theWorld, screen.currentRayOrigin(),
                 screen.computeCursorRayDirection(), cameraForward);
-        List<PlacedBlockRotationHandles.ArcHandle> arcs = handles.arcs(minecraft.world, cameraForward);
+        List<PlacedBlockRotationHandles.ArcHandle> arcs = handles.arcs(minecraft.theWorld, cameraForward);
         if (arcs == null || arcs.isEmpty()) {
             return;
         }
 
-        RenderManager renderManager = minecraft.getRenderManager();
+        RenderManager renderManager = net.minecraft.client.renderer.entity.RenderManager.instance;
         beginBuffers(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ);
         try {
             for (PlacedBlockRotationHandles.ArcHandle arc : arcs) {

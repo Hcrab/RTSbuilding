@@ -9,8 +9,8 @@ import net.minecraft.client.resources.I18n;
 import net.minecraft.client.resources.IResource;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.ForgeVersion;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.fml.common.ModContainer;
+import cpw.mods.fml.common.Loader;
+import cpw.mods.fml.common.ModContainer;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -43,16 +43,16 @@ public final class RtsAiHelpClipboard {
         if (tutorial == null) {
             return false;
         }
-        Path loaderGameDir = minecraft.gameDir.toPath();
+        Path loaderGameDir = com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.gameDir(minecraft).toPath();
         RtsLatestLogExcerpt.Result logs = RtsLatestLogExcerpt.readFirstAvailable(
                 loaderGameDir.resolve("logs").resolve("latest.log"),
-                minecraft.gameDir.toPath().resolve("logs").resolve("latest.log"),
+                com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.gameDir(minecraft).toPath().resolve("logs").resolve("latest.log"),
                 Paths.get("").toAbsolutePath().resolve("logs").resolve("latest.log"));
 
         String prompt = RtsAiHelpPrompt.compose(
                 chinese,
                 modVersion(RtsbuildingMod.MODID),
-                ForgeVersion.mcVersion,
+                cpw.mods.fml.common.Loader.MC_VERSION,
                 ForgeVersion.getVersion(),
                 language,
                 localizedMode(controller == null ? null : controller.getMode()),

@@ -1,10 +1,10 @@
 package com.rtsbuilding.rtsbuilding.common.placement;
 
 import net.minecraft.block.BlockSlab;
-import net.minecraft.block.properties.IProperty;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.IProperty;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * 待放置方块的轻量 1.12 {@link IBlockState} 预设。
+ * 待放置方块的轻量 1.12 {@link BlockState} 预设。
  *
  * <p>网络只传经过长度、字符和属性白名单约束的“属性=值”。服务端再针对实际
  * 方块的 {@link IProperty#getAllowedValues()} 解析；无法由当前状态表达的值保持不变。</p>
@@ -38,8 +38,8 @@ public final class PlacementStatePreset {
     }
 
     /** 只复制方向、轴、上下半部、半砖、附着面和 16 段角度。 */
-    public static String fromBlockState(IBlockState state) {
-        if (state == null || state.getBlock() == Blocks.AIR) {
+    public static String fromBlockState(BlockState state) {
+        if (state == null || state.getBlock() == Blocks.air) {
             return "";
         }
         Map<String, String> values = new LinkedHashMap<>();
@@ -53,11 +53,11 @@ public final class PlacementStatePreset {
         return encode(values);
     }
 
-    public static IBlockState apply(IBlockState state, String encoded) {
+    public static BlockState apply(BlockState state, String encoded) {
         if (state == null || encoded == null || encoded.trim().isEmpty()) {
             return state;
         }
-        IBlockState result = state;
+        BlockState result = state;
         for (Map.Entry<String, String> entry : decode(encoded).entrySet()) {
             IProperty<?> property = findProperty(result, entry.getKey());
             if (property != null && isAllowed(result, property, entry.getValue())) {
@@ -67,7 +67,7 @@ public final class PlacementStatePreset {
         return result;
     }
 
-    private static boolean isAllowed(IBlockState state, IProperty<?> property, String valueName) {
+    private static boolean isAllowed(BlockState state, IProperty<?> property, String valueName) {
         if (!isToken(property.getName()) || !isToken(valueName) || !hasValue(property, valueName)) {
             return false;
         }
@@ -84,13 +84,15 @@ public final class PlacementStatePreset {
                     || "upper".equals(valueName) || "lower".equals(valueName);
             if (!halfValue) return false;
             if (state.getBlock() instanceof BlockSlab) {
-                return !((BlockSlab) state.getBlock()).isDouble();
+                return !com.rtsbuilding.rtsbuilding.platform.block.BlockCompat.isDoubleSlab(
+                        (BlockSlab) state.getBlock());
             }
             return true;
         }
         if ("slab_type".equals(name)) {
             return state.getBlock() instanceof BlockSlab
-                    && !((BlockSlab) state.getBlock()).isDouble()
+                    && !com.rtsbuilding.rtsbuilding.platform.block.BlockCompat.isDoubleSlab(
+                            (BlockSlab) state.getBlock())
                     && ("top".equals(valueName) || "bottom".equals(valueName));
         }
         if ("attach_face".equals(name)) {
@@ -108,7 +110,7 @@ public final class PlacementStatePreset {
         return false;
     }
 
-    private static IProperty<?> findProperty(IBlockState state, String name) {
+    private static IProperty<?> findProperty(BlockState state, String name) {
         for (IProperty<?> property : state.getPropertyKeys()) {
             if (property.getName().equals(name)) return property;
         }
@@ -125,7 +127,7 @@ public final class PlacementStatePreset {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static IBlockState applyValue(IBlockState state, IProperty property, String valueName) {
+    private static BlockState applyValue(BlockState state, IProperty property, String valueName) {
         Collection<? extends Comparable> allowed = property.getAllowedValues();
         for (Comparable candidate : allowed) {
             if (valueName.equals(property.getName(candidate))) {
@@ -136,7 +138,7 @@ public final class PlacementStatePreset {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static Comparable<?> getValue(IBlockState state, IProperty property) {
+    private static Comparable<?> getValue(BlockState state, IProperty property) {
         return state.getValue(property);
     }
 

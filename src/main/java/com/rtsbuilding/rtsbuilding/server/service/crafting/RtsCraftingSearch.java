@@ -14,12 +14,12 @@ import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.item.crafting.Ingredient;
+import com.rtsbuilding.rtsbuilding.platform.crafting.Ingredient;
 import net.minecraft.item.crafting.ShapelessRecipes;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.common.crafting.IShapedRecipe;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.crafting.LegacyRecipeCompat;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,7 +65,7 @@ public final class RtsCraftingSearch {
                 !session.linkedStorageInfo.isEmpty()
                         && !(player.openContainer instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu));
         Map<String, List<CraftableCandidate>> grouped = new LinkedHashMap<String, List<CraftableCandidate>>();
-        for (IRecipe recipe : CraftingManager.REGISTRY) {
+        for (IRecipe recipe : LegacyRecipeCompat.recipes()) {
             if (!supportsWorkbenchCraftPanelRecipe(recipe)) continue;
             CraftableCandidate candidate = buildCraftableCandidate(player, recipe, available,
                     session.browser.craftSearch, pinyinSearchEnabled, session.browser.craftLocalizedSearchMatches);
@@ -145,25 +145,24 @@ public final class RtsCraftingSearch {
 
     private static CraftableCandidate buildCraftableCandidate(EntityPlayerMP player, IRecipe recipe,
             List<AvailableCraftItem> available, String search, boolean pinyin, Set<String> localized) {
-        if (recipe == null || recipe.getRegistryName() == null) return null;
+        String recipeId = LegacyRecipeCompat.id(recipe);
+        if (recipe == null || recipeId.isEmpty()) return null;
         ItemStack result = resolveCraftablePreviewResult(recipe, player);
-        if (result.isEmpty()) return null;
-        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(result.getItem());
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(result)) return null;
+        ResourceLocation itemId = RtsRegistries.ITEMS.getKey(result.getItem());
         if (itemId == null || !matchesCraftablesSearch(itemId, result.getDisplayName(), search, pinyin, localized)) return null;
         RecipeAvailability state = RtsCraftingAvailability.evaluateRecipeAvailability(recipe, available);
-        return new CraftableCandidate(recipe.getRegistryName().toString(), itemId.toString(), Math.max(1, result.getCount()),
+        return new CraftableCandidate(recipeId, itemId.toString(), Math.max(1, result.stackSize),
                 result.getDisplayName(), state.craftable(), state.missingSummary(), state.missingTotal(),
                 RtsCraftingUtils.buildRecipeSummary(recipe));
     }
 
     static boolean supportsWorkbenchCraftPanelRecipe(IRecipe recipe) {
-        if (recipe == null || recipe.getIngredients() == null || recipe.getIngredients().isEmpty() || !recipe.canFit(3, 3)) return false;
-        if (recipe instanceof IShapedRecipe) {
-            IShapedRecipe shaped = (IShapedRecipe) recipe;
-            if (shaped.getRecipeWidth() < 1 || shaped.getRecipeWidth() > 3
-                    || shaped.getRecipeHeight() < 1 || shaped.getRecipeHeight() > 3) return false;
-        } else if (recipe instanceof ShapelessRecipes && recipe.getIngredients().size() > 9) return false;
-        else if (recipe.getIngredients().size() > 9) return false;
+        LegacyRecipeCompat.Description description = LegacyRecipeCompat.describe(recipe);
+        if (recipe == null || description.isEmpty()) return false;
+        if (description.width() < 1 || description.width() > 3
+                || description.height() < 1 || description.height() > 3
+                || description.ingredients().size() > 9) return false;
         for (Ingredient ingredient : RtsCraftingUtils.mapCraftingIngredients(recipe)) {
             if (!RtsCraftingUtils.isIngredientEmpty(ingredient)) return true;
         }
@@ -171,27 +170,27 @@ public final class RtsCraftingSearch {
     }
 
     static ItemStack resolveCraftablePreviewResult(IRecipe recipe, EntityPlayerMP player) {
-        if (recipe == null || player == null) return ItemStack.EMPTY;
+        if (recipe == null || player == null) return null;
         ItemStack declared = recipe.getRecipeOutput();
-        if (declared != null && !declared.isEmpty()) return declared.copy();
+        if (declared != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(declared)) return declared.copy();
         InventoryCrafting grid = RtsCraftingUtils.newCraftingGrid();
         Ingredient[] mapped = RtsCraftingUtils.mapCraftingIngredients(recipe);
         for (int i = 0; i < mapped.length; i++) {
             if (RtsCraftingUtils.isIngredientEmpty(mapped[i])) continue;
             ItemStack[] choices = mapped[i].getMatchingStacks();
-            if (choices.length == 0 || choices[0].isEmpty()) return ItemStack.EMPTY;
+            if (choices.length == 0 || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(choices[0])) return null;
             grid.setInventorySlotContents(i, RtsCraftingUtils.one(choices[0]));
         }
-        if (!recipe.matches(grid, player.world)) return ItemStack.EMPTY;
+        if (!recipe.matches(grid, player.worldObj)) return null;
         ItemStack result = recipe.getCraftingResult(grid);
-        return result == null || result.isEmpty() ? ItemStack.EMPTY : result.copy();
+        return result == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(result) ? null : result.copy();
     }
 
     /** 输出分组包含 metadata/NBT；不同变体绝不能只因 item id 相同而合并。 */
     private static String exactOutputGroupKey(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return "";
-        ResourceLocation id = ForgeRegistries.ITEMS.getKey(stack.getItem());
-        return String.valueOf(id) + "#" + stack.getMetadata() + "#"
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return "";
+        ResourceLocation id = RtsRegistries.ITEMS.getKey(stack.getItem());
+        return String.valueOf(id) + "#" + stack.getItemDamage() + "#"
                 + (stack.hasTagCompound() ? stack.getTagCompound().toString() : "");
     }
 
@@ -202,7 +201,7 @@ public final class RtsCraftingSearch {
         String rawId = resultId.toString().toLowerCase(Locale.ROOT);
         if (localized != null && localized.contains(rawId)) return true;
         String lowerLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
-        String namespace = resultId.getNamespace().toLowerCase(Locale.ROOT);
+        String namespace = resultId.getResourceDomain().toLowerCase(Locale.ROOT);
         for (String token : query.split("\\s+")) {
             if (token == null || token.trim().isEmpty()) continue;
             if (token.startsWith("@")) {

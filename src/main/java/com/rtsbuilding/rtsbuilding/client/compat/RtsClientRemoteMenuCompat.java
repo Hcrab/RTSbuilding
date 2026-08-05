@@ -5,8 +5,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.inventory.Container;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /** 客户端远程容器存活与 GUI/Container 安全配对兼容层。 */
 @SideOnly(Side.CLIENT)
@@ -20,7 +20,7 @@ public final class RtsClientRemoteMenuCompat {
     }
 
     public static Container install(Minecraft minecraft, Container menu) {
-        if (minecraft == null || minecraft.player == null || menu == null) return menu;
+        if (minecraft == null || minecraft.thePlayer == null || menu == null) return menu;
 
         Container wrapped = RtsRemoteMenuCompat.wrapRemoteMenu(menu);
         if (RtsRemoteMenuCompat.isSupportedRemoteMenu(wrapped)) {
@@ -35,7 +35,7 @@ public final class RtsClientRemoteMenuCompat {
                     + " for screen " + screen.getClass().getName());
         }
 
-        minecraft.player.openContainer = wrapped;
+        minecraft.thePlayer.openContainer = wrapped;
         remapContainerScreenMenu(screen, wrapped);
         return wrapped;
     }

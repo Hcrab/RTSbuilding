@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 
 /**
  * 高级形状选区与交互会话之间的纯几何转换。

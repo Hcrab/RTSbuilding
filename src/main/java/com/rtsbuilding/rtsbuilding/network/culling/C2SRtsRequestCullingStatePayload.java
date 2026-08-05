@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.culling;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 请求当前玩家、当前维度的剔除状态。 */
 public final class C2SRtsRequestCullingStatePayload implements IMessage {

@@ -50,7 +50,7 @@ public final class RtsStorageUiPayloads {
         ItemStack[] source = session == null ? null : session.uiMemory.getQuickSlotPreviews();
         for (int i = 0; i < quickSlotCount; i++) {
             String itemId = itemIds == null || i >= itemIds.length ? "" : itemIds[i];
-            ItemStack preview = source == null || i >= source.length || source[i] == null ? ItemStack.EMPTY : source[i];
+            ItemStack preview = source == null || i >= source.length || source[i] == null ? null : source[i];
             previews.add(sanitizeQuickSlotPreview(itemId, preview));
         }
         return previews;
@@ -58,21 +58,21 @@ public final class RtsStorageUiPayloads {
 
     private static ItemStack sanitizeQuickSlotPreview(String itemId, ItemStack preview) {
         if (itemId == null || itemId.trim().isEmpty()) {
-            return ItemStack.EMPTY;
+            return null;
         }
         ResourceLocation key;
         try {
             key = new ResourceLocation(itemId);
         } catch (RuntimeException invalidId) {
-            return ItemStack.EMPTY;
+            return null;
         }
-        Item item = Item.REGISTRY.getObject(key);
-        if (item == null || !Item.REGISTRY.containsKey(key)) {
-            return ItemStack.EMPTY;
+        Item item = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getObject(key);
+        if (item == null || !com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.containsKey(key)) {
+            return null;
         }
-        if (preview != null && !preview.isEmpty() && preview.getItem() == item) {
+        if (preview != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) && preview.getItem() == item) {
             ItemStack copy = preview.copy();
-            copy.setCount(1);
+            copy.stackSize = 1;
             return copy;
         }
         return new ItemStack(item);

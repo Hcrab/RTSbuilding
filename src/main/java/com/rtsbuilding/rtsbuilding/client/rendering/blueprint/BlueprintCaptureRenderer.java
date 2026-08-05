@@ -6,14 +6,14 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.renderer.RenderGlobal;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 import java.util.List;
@@ -58,7 +58,7 @@ public final class BlueprintCaptureRenderer {
             return;
         }
 
-        RenderManager renderManager = Minecraft.getMinecraft().getRenderManager();
+        RenderManager renderManager = net.minecraft.client.renderer.entity.RenderManager.instance;
         beginOwnedBuffers(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ);
         try {
             appendCaptureGeometry(FILL_BUFFER, LINE_BUFFER, renderBox,
@@ -90,7 +90,7 @@ public final class BlueprintCaptureRenderer {
         if (includedBlocks != null) {
             for (BlockPos pos : includedBlocks) {
                 if (pos == null) continue;
-                RenderGlobal.addChainedFilledBoxVertices(fillBuffer,
+                com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.addChainedFilledBoxVertices(fillBuffer,
                         pos.getX() + 0.04D, pos.getY() + 0.04D, pos.getZ() + 0.04D,
                         pos.getX() + 0.96D, pos.getY() + 0.96D, pos.getZ() + 0.96D,
                         INCLUDED_BLOCK_R, INCLUDED_BLOCK_G, INCLUDED_BLOCK_B, INCLUDED_BLOCK_A);
@@ -99,15 +99,15 @@ public final class BlueprintCaptureRenderer {
         if (excludedBlocks != null) {
             for (BlockPos pos : excludedBlocks) {
                 if (pos == null) continue;
-                RenderGlobal.addChainedFilledBoxVertices(fillBuffer,
+                com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.addChainedFilledBoxVertices(fillBuffer,
                         pos.getX() + 0.07D, pos.getY() + 0.07D, pos.getZ() + 0.07D,
                         pos.getX() + 0.93D, pos.getY() + 0.93D, pos.getZ() + 0.93D,
                         EXCLUDED_BLOCK_R, EXCLUDED_BLOCK_G, EXCLUDED_BLOCK_B, EXCLUDED_BLOCK_FILL_A);
-                RenderGlobal.addChainedFilledBoxVertices(fillBuffer,
+                com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.addChainedFilledBoxVertices(fillBuffer,
                         pos.getX() + 0.18D, pos.getY() + 0.91D, pos.getZ() + 0.18D,
                         pos.getX() + 0.82D, pos.getY() + 0.99D, pos.getZ() + 0.82D,
                         EXCLUDED_BLOCK_R, EXCLUDED_BLOCK_G, EXCLUDED_BLOCK_B, EXCLUDED_BLOCK_MARK_A);
-                RenderGlobal.drawBoundingBox(lineBuffer,
+                com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.drawBoundingBox(lineBuffer,
                         pos.getX() + 0.06D, pos.getY() + 0.06D, pos.getZ() + 0.06D,
                         pos.getX() + 0.94D, pos.getY() + 0.94D, pos.getZ() + 0.94D,
                         EXCLUDED_BLOCK_R, EXCLUDED_BLOCK_G, EXCLUDED_BLOCK_B, EXCLUDED_BLOCK_LINE_A);
@@ -118,18 +118,18 @@ public final class BlueprintCaptureRenderer {
     }
 
     private static void appendBoundary(BufferBuilder lineBuffer, AxisAlignedBB box) {
-        RenderGlobal.drawBoundingBox(lineBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.drawBoundingBox(lineBuffer,
                 box.minX - 0.01D, box.minY - 0.01D, box.minZ - 0.01D,
                 box.maxX + 0.01D, box.maxY + 0.01D, box.maxZ + 0.01D,
                 BOUNDARY_BOX_R, BOUNDARY_BOX_G, BOUNDARY_BOX_B, BOUNDARY_BOX_A);
     }
 
     private static void beginOwnedBuffers(double translateX, double translateY, double translateZ) {
-        FILL_BUFFER.begin(GL11.GL_QUAD_STRIP, DefaultVertexFormats.POSITION_COLOR);
+        FILL_BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
         FILL_BUFFER.setTranslation(translateX, translateY, translateZ);
         try {
             // RenderGlobal#drawBoundingBox 输出一条带透明断点的连续线带。
-            LINE_BUFFER.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION_COLOR);
+            LINE_BUFFER.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
             LINE_BUFFER.setTranslation(translateX, translateY, translateZ);
         } catch (RuntimeException exception) {
             discard(FILL_BUFFER);

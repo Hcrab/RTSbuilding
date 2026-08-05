@@ -1,18 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.compat;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -39,17 +39,18 @@ final class RtsGuiCompatCandidateCatalog {
     static List<Candidate> discover() {
         Map<Class<?>, Boolean> activationCache = new HashMap<Class<?>, Boolean>();
         List<Candidate> result = new ArrayList<Candidate>();
-        for (Block block : ForgeRegistries.BLOCKS.getValuesCollection()) {
-            ResourceLocation id = block == null ? null : block.getRegistryName();
-            if (id == null || block == Blocks.AIR || Item.getItemFromBlock(block) == Items.AIR
-                    || "rtsbuilding".equals(id.getNamespace())) {
+        for (Block block : RtsRegistries.BLOCKS.getValuesCollection()) {
+            ResourceLocation id = block == null ? null
+                    : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getKey(block);
+            if (id == null || block == Blocks.air || Item.getItemFromBlock(block) == null
+                    || "rtsbuilding".equals(id.getResourceDomain())) {
                 continue;
             }
             boolean overridesActivation = overridesActivation(block, activationCache);
             for (Integer meta : metas(block)) {
                 try {
-                    IBlockState state = block.getStateFromMeta(meta.intValue());
-                    boolean tileEntity = block.hasTileEntity(state);
+                    BlockState state = BlockState.of(block, meta.intValue());
+                    boolean tileEntity = block.hasTileEntity(state.getMetadata());
                     if (tileEntity || overridesActivation) {
                         result.add(new Candidate(id.toString(), meta.intValue(),
                                 block.getClass().getName(), tileEntity, overridesActivation));
@@ -67,15 +68,8 @@ final class RtsGuiCompatCandidateCatalog {
 
     private static Set<Integer> metas(Block block) {
         Set<Integer> metas = new LinkedHashSet<Integer>();
-        metas.add(Integer.valueOf(0));
-        try {
-            for (IBlockState state : block.getBlockState().getValidStates()) {
-                int meta = block.getMetaFromState(state);
-                if (meta >= 0 && meta <= 15) metas.add(Integer.valueOf(meta));
-            }
-        } catch (RuntimeException | LinkageError ignored) {
-            // meta 0 仍可作为最低限度候选。
-        }
+        // 1.7.10 没有统一的 BlockStateContainer；运行时探针逐个验证 0..15 比猜测更可靠。
+        for (int meta = 0; meta <= 15; meta++) metas.add(Integer.valueOf(meta));
         return metas;
     }
 
@@ -85,9 +79,9 @@ final class RtsGuiCompatCandidateCatalog {
         if (cached != null) return cached.booleanValue();
         boolean value = false;
         try {
-            Method method = type.getMethod("onBlockActivated", World.class, BlockPos.class,
-                    IBlockState.class, net.minecraft.entity.player.EntityPlayer.class,
-                    EnumHand.class, EnumFacing.class,
+            Method method = type.getMethod("onBlockActivated", World.class,
+                    int.class, int.class, int.class,
+                    net.minecraft.entity.player.EntityPlayer.class, int.class,
                     float.class, float.class, float.class);
             value = method.getDeclaringClass() != Block.class;
         } catch (NoSuchMethodException | SecurityException ignored) {

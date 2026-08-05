@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
 import net.minecraft.item.ItemBlock;
-import net.minecraft.util.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
 import org.lwjgl.input.Mouse;
 
 
@@ -152,13 +152,13 @@ final class BuilderScreenLifecycleOwner {
             screen.updateModeWheelAltState();
             if (screen.controller.getMode() != BuilderMode.ROTATE
                     || screen.getMinecraft() == null
-                    || !screen.rotationHandles.targetStillMatches(screen.getMinecraft().world)) {
+                    || !screen.rotationHandles.targetStillMatches(screen.getMinecraft().theWorld)) {
                 screen.rotationHandles.clear();
             }
             if (screen.placementStateWheel.isOpen()
                     && !(screen.controller.getSelectedItemPreview().getItem() instanceof ItemBlock)
-                    && !(screen.getMinecraft().player != null
-                    && screen.getMinecraft().player.getHeldItemMainhand().getItem() instanceof ItemBlock)) {
+                    && !(screen.getMinecraft().thePlayer != null
+                    && screen.getMinecraft().thePlayer.getHeldItem().getItem() instanceof ItemBlock)) {
                 screen.closePlacementStateWheel();
             }
             if (screen.rtsFlightToggleCooldownTicks > 0) {
@@ -179,7 +179,7 @@ final class BuilderScreenLifecycleOwner {
                 return;
             }
             boolean miningInputDown = screen.cameraInput.isKeyboardMining()
-                    ? ClientKeyMappings.ACTION_BREAK.isKeyDown()
+                    ? ClientKeyMappings.ACTION_BREAK.getIsKeyPressed()
                     : screen.cameraInput.getActiveMiningMouseButton() >= 0
                             && Mouse.isButtonDown(screen.cameraInput.getActiveMiningMouseButton());
             if (!miningInputDown) {

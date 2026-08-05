@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.camera;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 服务端更新的相机锚点，用于同步移动边界和建筑区域显示。 */
 public final class S2CRtsCameraAnchorPayload implements IMessage {

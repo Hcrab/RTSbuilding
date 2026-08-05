@@ -123,7 +123,7 @@ public final class RtsAiChatSession {
     }
 
     private void runOnClient(int generation, Runnable action) {
-        Minecraft.getMinecraft().addScheduledTask(() -> {
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleClient(() -> {
             if (generation == this.requestGeneration) {
                 action.run();
             }

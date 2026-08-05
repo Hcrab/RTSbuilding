@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,8 +64,8 @@ final class BlueprintPlacementPreviewFactory {
         for (RtsBlueprintBlock block : entry.blueprint().blocks()) {
             BlockPos pos = anchor.add(BlueprintTransform.rotateAroundCenter(
                     block.relativePos(), y, x, z, centerOffset));
-            IBlockState state = block.isMissingBlock()
-                    ? Blocks.AIR.getDefaultState()
+            BlockState state = block.isMissingBlock()
+                    ? BlockState.defaultState(Blocks.air)
                     : BlueprintTransform.rotateState(block.state(), y, x, z);
             blocks.add(new BlueprintGhostBlock(
                     pos, state, block.isMissingBlock()));
@@ -96,7 +96,7 @@ final class BlueprintPlacementPreviewFactory {
         for (RtsBlueprintBlock block : blueprint.blocks()) {
             if (block == null
                     || (!block.isMissingBlock()
-                    && (block.state() == null || block.state().getBlock() == Blocks.AIR))) {
+                    && (block.state() == null || block.state().getBlock() == Blocks.air))) {
                 continue;
             }
             BlockPos pos = BlueprintTransform.rotateAroundCenter(

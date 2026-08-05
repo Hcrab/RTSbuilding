@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.task.mining;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.nbt.NBTTagCompound;
 
 import java.util.ArrayList;
@@ -88,8 +88,8 @@ public final class MiningTaskState {
         } else {
             List<NBTTagCompound> copiedHistory = new ArrayList<>(historyRecords.size());
             for (NBTTagCompound history : historyRecords) {
-                if (history == null || history.isEmpty()) throw new IllegalArgumentException("history record 不能为空");
-                copiedHistory.add(history.copy());
+                if (history == null || com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(history)) throw new IllegalArgumentException("history record 不能为空");
+                copiedHistory.add(com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(history));
             }
             this.historyRecords = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(copiedHistory);
         }
@@ -111,7 +111,9 @@ public final class MiningTaskState {
 
     public List<NBTTagCompound> historyRecords() {
         List<NBTTagCompound> copy = new ArrayList<NBTTagCompound>(historyRecords.size());
-        for (NBTTagCompound history : historyRecords) copy.add(history.copy());
+        for (NBTTagCompound history : historyRecords) {
+            copy.add(com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(history));
+        }
         return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(copy);
     }
 

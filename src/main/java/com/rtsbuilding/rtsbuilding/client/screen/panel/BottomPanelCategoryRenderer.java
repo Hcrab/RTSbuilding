@@ -91,7 +91,7 @@ public final class BottomPanelCategoryRenderer {
         int y = row.y + Math.max(0, (row.height - scaledTextHeight) / 2);
 
         graphics.pushPose();
-        net.minecraft.client.renderer.GlStateManager.translate(x, y, 0.0F);
+        com.rtsbuilding.rtsbuilding.platform.render.GlStateManager.translate(x, y, 0.0F);
         graphics.scale(
                 BottomPanelCategoryLayout.TEXT_SCALE,
                 BottomPanelCategoryLayout.TEXT_SCALE,

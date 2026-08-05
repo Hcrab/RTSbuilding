@@ -2,9 +2,9 @@ package com.rtsbuilding.rtsbuilding.network.storage;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 设置或清空一个远程 GUI 绑定；维度归属与距离仍由服务端会话校验。 */
 public final class C2SRtsSetGuiBindingPayload implements IMessage {

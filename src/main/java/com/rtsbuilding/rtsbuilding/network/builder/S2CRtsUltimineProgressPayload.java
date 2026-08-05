@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** Ultimine 总进度；processed 为负仍表示进度结束。 */
 public final class S2CRtsUltimineProgressPayload implements IMessage {

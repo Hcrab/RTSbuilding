@@ -11,7 +11,7 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.List;
 
@@ -87,13 +87,13 @@ final class BlueprintMaterialDialog {
                     g.fill(rowX, rowY, rowX + cellW, rowY + ROW_H,
                             BlueprintDialogStyle.ROW_HOVER.toArgb());
                 }
-                ItemStack preview = ItemStack.EMPTY;
+                ItemStack preview = null;
                 ResourceLocation id = parseResourceLocation(line.iconId);
-                Item item = id == null ? null : Item.REGISTRY.getObject(id);
+                Item item = id == null ? null : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getObject(id);
                 if (item != null) {
                     preview = new ItemStack(item);
                 }
-                if (!preview.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                     g.renderItem(preview, rowX + 4, rowY + 2);
                 } else {
                     g.fill(rowX + 6, rowY + 4, rowX + 20, rowY + 18,

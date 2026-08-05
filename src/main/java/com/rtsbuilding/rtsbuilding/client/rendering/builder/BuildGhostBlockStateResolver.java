@@ -3,21 +3,20 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemMonsterPlacer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.Rotation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.block.Rotation;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.World;
 
 /**
@@ -30,14 +29,14 @@ import net.minecraft.world.World;
 public final class BuildGhostBlockStateResolver {
     private BuildGhostBlockStateResolver() {}
 
-    public static IBlockState resolve(Minecraft minecraft, BlockPos targetPos) {
+    public static BlockState resolve(Minecraft minecraft, BlockPos targetPos) {
         ClientRtsController controller = ClientRtsController.get();
         ItemStack stack = resolveGhostItemStack(minecraft, controller);
-        if (stack.isEmpty() || !(stack.getItem() instanceof ItemBlock)) return null;
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || !(stack.getItem() instanceof ItemBlock)) return null;
         ItemBlock item = (ItemBlock) stack.getItem();
-        IBlockState state;
+        BlockState state;
         if (targetPos == null) {
-            state = item.getBlock().getDefaultState();
+            state = BlockState.defaultState(net.minecraft.block.Block.getBlockFromItem(item));
         } else {
             state = resolveStateWithCamera(minecraft, item, stack, targetPos);
             if (state == null) return null;
@@ -48,44 +47,40 @@ public final class BuildGhostBlockStateResolver {
 
     private static ItemStack resolveGhostItemStack(Minecraft minecraft, ClientRtsController controller) {
         ItemStack preview = controller.getSelectedItemPreview();
-        if (!preview.isEmpty() && preview.getItem() instanceof ItemBlock) return preview;
-        if (minecraft != null && minecraft.player != null) {
-            ItemStack hand = minecraft.player.getHeldItemMainhand();
-            if (!hand.isEmpty() && hand.getItem() instanceof ItemBlock) return hand;
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) && preview.getItem() instanceof ItemBlock) return preview;
+        if (minecraft != null && minecraft.thePlayer != null) {
+            ItemStack hand = minecraft.thePlayer.getHeldItem();
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(hand) && hand.getItem() instanceof ItemBlock) return hand;
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     public static ItemStack resolveSpawnEggStack(Minecraft minecraft) {
         ItemStack preview = ClientRtsController.get().getSelectedItemPreview();
-        if (!preview.isEmpty() && preview.getItem() instanceof ItemMonsterPlacer) return preview;
-        if (minecraft != null && minecraft.player != null) {
-            ItemStack hand = minecraft.player.getHeldItemMainhand();
-            if (!hand.isEmpty() && hand.getItem() instanceof ItemMonsterPlacer) return hand;
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) && preview.getItem() instanceof ItemMonsterPlacer) return preview;
+        if (minecraft != null && minecraft.thePlayer != null) {
+            ItemStack hand = minecraft.thePlayer.getHeldItem();
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(hand) && hand.getItem() instanceof ItemMonsterPlacer) return hand;
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     public static ItemStack resolveEndCrystalStack(Minecraft minecraft) {
-        ItemStack preview = ClientRtsController.get().getSelectedItemPreview();
-        if (!preview.isEmpty() && preview.getItem() == Items.END_CRYSTAL) return preview;
-        if (minecraft != null && minecraft.player != null) {
-            ItemStack hand = minecraft.player.getHeldItemMainhand();
-            if (!hand.isEmpty() && hand.getItem() == Items.END_CRYSTAL) return hand;
-        }
-        return ItemStack.EMPTY;
+        // 末影水晶物品在 1.9 才加入；1.7.10 只有实体，不能从玩家选择物解析预览。
+        return null;
     }
 
-    public static IBlockState resolveStateWithCamera(Minecraft minecraft, ItemBlock item,
+    public static BlockState resolveStateWithCamera(Minecraft minecraft, ItemBlock item,
             ItemStack stack, BlockPos targetPos) {
-        if (minecraft == null || minecraft.player == null || minecraft.world == null) return null;
-        Entity camera = minecraft.getRenderViewEntity();
-        if (camera == null) camera = minecraft.player;
-        float partial = minecraft.getRenderPartialTicks();
-        Vec3d eye = camera.getPositionEyes(partial);
-        Vec3d direction = camera.getLook(partial).normalize();
-        RayTraceResult hit = minecraft.world.rayTraceBlocks(eye, eye.add(direction.scale(128.0D)),
-                false, false, false);
+        if (minecraft == null || minecraft.thePlayer == null || minecraft.theWorld == null) return null;
+        Entity camera = minecraft.renderViewEntity;
+        if (camera == null) camera = minecraft.thePlayer;
+        float partial = com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.renderPartialTicks(minecraft);
+        Vec3d eye = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.positionEyes(camera, partial);
+        Vec3d direction = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat
+                .look(camera, partial).normalize();
+        RayTraceResult hit = RayTraceResult.trace(
+                minecraft.theWorld, eye, eye.add(direction.scale(128.0D)), false, false, false);
         EnumFacing face;
         Vec3d location;
         if (hit != null && hit.typeOfHit == RayTraceResult.Type.BLOCK && hit.sideHit != null) {
@@ -99,10 +94,9 @@ public final class BuildGhostBlockStateResolver {
         float hitX = clampHit(location.x - targetPos.getX());
         float hitY = clampHit(location.y - targetPos.getY());
         float hitZ = clampHit(location.z - targetPos.getZ());
-        EntityPlayer player = minecraft.player;
-        int metadata = item.getMetadata(stack.getMetadata());
-        return item.getBlock().getStateForPlacement(minecraft.world, targetPos, face,
-                hitX, hitY, hitZ, metadata, player, EnumHand.MAIN_HAND);
+        EntityPlayer player = minecraft.thePlayer;
+        return BlockState.forPlacement(item, stack, minecraft.theWorld, targetPos, face,
+                hitX, hitY, hitZ);
     }
 
     private static float clampHit(double value) {
@@ -113,7 +107,7 @@ public final class BuildGhostBlockStateResolver {
         return (float) Math.toDegrees(Math.atan2(-direction.x, direction.z));
     }
 
-    public static IBlockState applyRotation(IBlockState state, int rotateDegrees) {
+    public static BlockState applyRotation(BlockState state, int rotateDegrees) {
         if (state == null) return null;
         int turns = (rotateDegrees / 90) & 3;
         for (int i = 0; i < turns; i++) state = state.withRotation(Rotation.CLOCKWISE_90);
@@ -121,7 +115,7 @@ public final class BuildGhostBlockStateResolver {
     }
 
     /** 保留旧调用形状，1.12 的旋转不需要 World/BlockPos 参数。 */
-    public static IBlockState applyRotation(IBlockState state, int rotateDegrees, World world, BlockPos pos) {
+    public static BlockState applyRotation(BlockState state, int rotateDegrees, World world, BlockPos pos) {
         return applyRotation(state, rotateDegrees);
     }
 }

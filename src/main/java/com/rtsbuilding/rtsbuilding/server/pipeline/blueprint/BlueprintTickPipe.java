@@ -18,19 +18,19 @@ import com.rtsbuilding.rtsbuilding.server.task.TaskBudget;
 import com.rtsbuilding.rtsbuilding.server.task.TaskStepResult;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import java.util.ArrayList;
 import java.util.LinkedList;
@@ -49,7 +49,7 @@ public final class BlueprintTickPipe {
     public static TaskStepResult execute(BlueprintTaskPayload payload, TaskBudget budget) {
         BlueprintContext context = payload.context();
         EntityPlayerMP player = payload.player();
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         List<PlacementPlan> plans = context.getPlacementPlans();
         LinkedList<Integer> remaining = context.getRemainingQueue();
         if (plans == null || remaining == null) {
@@ -94,7 +94,7 @@ public final class BlueprintTickPipe {
                 payload.recordPlacementProgress(remaining.size() + deferred.size());
                 continue;
             }
-            if (!player.isCreative() && !hasAllMaterialsForPlan(player, plan)) {
+            if (!player.capabilities.isCreativeMode && !hasAllMaterialsForPlan(player, plan)) {
                 deferred.addLast(index);
                 exhaustedMissingCycle = payload.recordDeferredPlacement();
                 if (exhaustedMissingCycle) break;
@@ -186,12 +186,12 @@ public final class BlueprintTickPipe {
     private static PlaceResult attemptPlaceOne(EntityPlayerMP player, WorldServer level, PlacementPlan plan) {
         List<ItemStack> extracted = new ArrayList<ItemStack>(plan.items().size());
         BlueprintService service = blueprint();
-        if (!player.isCreative()) {
+        if (!player.capabilities.isCreativeMode) {
             if (plan.items().isEmpty()) {
                 if (plan.fluidCost() == FluidRegistry.WATER) {
                     if (!hasReusableWater(player)) return PlaceResult.UNSUPPORTED;
                 } else if (plan.fluidCost() == FluidRegistry.LAVA) {
-                    if (service.countFluidMb(player, FluidRegistry.LAVA) < Fluid.BUCKET_VOLUME) {
+                    if (service.countFluidMb(player, FluidRegistry.LAVA) < net.minecraftforge.fluids.FluidContainerRegistry.BUCKET_VOLUME) {
                         return PlaceResult.UNSUPPORTED;
                     }
                 } else {
@@ -200,7 +200,7 @@ public final class BlueprintTickPipe {
             } else {
                 for (Item item : plan.items()) {
                     ItemStack stack = service.extractMaterial(player, item, 1);
-                    if (stack.isEmpty()) {
+                    if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                         refund(player, extracted);
                         return PlaceResult.MISSING_MATERIALS;
                     }
@@ -209,25 +209,25 @@ public final class BlueprintTickPipe {
             }
         }
 
-        IBlockState replacedState = level.getBlockState(plan.target());
+        BlockState replacedState = BlockState.fromWorld(level, plan.target());
         if (!BlockPlacer.setBlueprintBlock(level, plan.target(), plan.state())) {
-            if (!player.isCreative()) refund(player, extracted);
+            if (!player.capabilities.isCreativeMode) refund(player, extracted);
             return PlaceResult.BLOCKED;
         }
-        if (!player.isCreative() && plan.fluidCost() == FluidRegistry.LAVA
-                && !service.extractFluid(player, FluidRegistry.LAVA, Fluid.BUCKET_VOLUME)) {
+        if (!player.capabilities.isCreativeMode && plan.fluidCost() == FluidRegistry.LAVA
+                && !service.extractFluid(player, FluidRegistry.LAVA, net.minecraftforge.fluids.FluidContainerRegistry.BUCKET_VOLUME)) {
             // 模拟计数与真实提取之间可能被其他任务抢先消耗；失败时恢复被替换的原状态。
-            level.setBlockState(plan.target(), replacedState, 3);
+            replacedState.setInWorld(level, plan.target(), 3);
             refund(player, extracted);
             return PlaceResult.UNSUPPORTED;
         }
         BlockPlacer.applyBlueprintBlockEntity(level, plan.target(), blockEntityTag(player, level, plan));
         BlockPlacer.finishBlueprintPlacement(
                 level, plan.target(), plan.state(),
-                extracted.isEmpty() ? ItemStack.EMPTY : extracted.get(0));
+                extracted.isEmpty() ? null : extracted.get(0));
         BlockPlacer.trackPlaced(level, plan.target());
         for (Item item : plan.items()) {
-            ResourceLocation id = ForgeRegistries.ITEMS.getKey(item);
+            ResourceLocation id = RtsRegistries.ITEMS.getKey(item);
             if (id != null) service.noteBlockPlaced(player, plan.target(), id.toString());
         }
         return PlaceResult.PLACED;
@@ -235,8 +235,9 @@ public final class BlueprintTickPipe {
 
     private static NBTTagCompound blockEntityTag(
             EntityPlayerMP player, WorldServer level, PlacementPlan plan) {
-        if (plan.blockEntityTag() == null || plan.blockEntityTag().isEmpty()) return null;
-        NBTTagCompound tag = player.isCreative() && player.canUseCommandBlock()
+        if (plan.blockEntityTag() == null || com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(plan.blockEntityTag())) return null;
+        NBTTagCompound tag = player.capabilities.isCreativeMode
+                && com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.canUseCommand(player, 2, "")
                 ? plan.blockEntityTag()
                 : BlueprintBlockEntitySanitizer.sanitizeForSurvivalPlacement(plan.blockEntityTag());
         return BlueprintCreatePlacementCompat.prepareBlockEntityTag(
@@ -244,19 +245,19 @@ public final class BlueprintTickPipe {
     }
 
     private static boolean canStillPlace(
-            EntityPlayerMP player, WorldServer level, BlockPos target, IBlockState state) {
+            EntityPlayerMP player, WorldServer level, BlockPos target, BlockState state) {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)) return false;
         if (!RtsClaimProtectionService.canPlaceBlock(player, target)) return false;
-        if (level.getTileEntity(target) != null) return false;
-        if (!BlueprintReplaceRules.canBlueprintReplace(level.getBlockState(target))) return false;
-        if (!state.getBlock().canPlaceBlockAt(level, target)) return false;
+        if (com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, target) != null) return false;
+        if (!BlueprintReplaceRules.canBlueprintReplace(BlockState.fromWorld(level, target))) return false;
+        if (!state.getBlock().canPlaceBlockAt(level, target.getX(), target.getY(), target.getZ())) return false;
         AxisAlignedBB collisionBox = state.getCollisionBoundingBox(level, target);
-        return collisionBox == null || collisionBox == Block.NULL_AABB
+        return collisionBox == null
                 || level.checkNoEntityCollision(collisionBox.offset(target), player);
     }
 
     private static boolean isAlreadyPlaced(WorldServer level, PlacementPlan plan) {
-        return level.getBlockState(plan.target()).getBlock() == plan.state().getBlock();
+        return BlockState.fromWorld(level, plan.target()).getBlock() == plan.state().getBlock();
     }
 
     private static boolean hasAllMaterialsForPlan(EntityPlayerMP player, PlacementPlan plan) {
@@ -264,7 +265,7 @@ public final class BlueprintTickPipe {
         if (plan.items().isEmpty()) {
             if (plan.fluidCost() == FluidRegistry.WATER) return hasReusableWater(player);
             if (plan.fluidCost() == FluidRegistry.LAVA) {
-                return service.countFluidMb(player, FluidRegistry.LAVA) >= Fluid.BUCKET_VOLUME;
+                return service.countFluidMb(player, FluidRegistry.LAVA) >= net.minecraftforge.fluids.FluidContainerRegistry.BUCKET_VOLUME;
             }
             return false;
         }
@@ -274,12 +275,12 @@ public final class BlueprintTickPipe {
 
     private static boolean hasReusableWater(EntityPlayerMP player) {
         BlueprintService service = blueprint();
-        return service.countMaterial(player, Items.WATER_BUCKET)
-                + service.countFluidMb(player, FluidRegistry.WATER) / Fluid.BUCKET_VOLUME >= 2L;
+        return service.countMaterial(player, Items.water_bucket)
+                + service.countFluidMb(player, FluidRegistry.WATER) / net.minecraftforge.fluids.FluidContainerRegistry.BUCKET_VOLUME >= 2L;
     }
 
     private static void refund(EntityPlayerMP player, List<ItemStack> stacks) {
-        for (ItemStack stack : stacks) if (!stack.isEmpty()) blueprint().refundMaterial(player, stack);
+        for (ItemStack stack : stacks) if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) blueprint().refundMaterial(player, stack);
     }
 
     private static BlueprintService blueprint() {

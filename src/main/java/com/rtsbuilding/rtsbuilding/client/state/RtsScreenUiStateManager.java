@@ -11,7 +11,7 @@ import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.persist.UiStateCache;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.LinkedHashMap;
 import java.util.Arrays;

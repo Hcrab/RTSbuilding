@@ -18,9 +18,9 @@ import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
 import net.minecraft.client.resources.I18n;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 
 import java.util.HashSet;
 import java.util.Arrays;
@@ -134,8 +134,8 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentTranslation("screen.rtsbuilding.settings.title");
+    protected IChatComponent getTitle() {
+        return new ChatComponentTranslation("screen.rtsbuilding.settings.title");
     }
 
     @Override

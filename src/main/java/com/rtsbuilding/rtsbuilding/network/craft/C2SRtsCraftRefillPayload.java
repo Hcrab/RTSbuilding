@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.craft;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -36,7 +36,7 @@ public final class C2SRtsCraftRefillPayload implements IMessage {
     @Override public void fromBytes(ByteBuf buffer) {
         List<ItemStack> decoded = new ArrayList<>(BLUEPRINT_SIZE);
         for (int i = 0; i < BLUEPRINT_SIZE; i++) {
-            decoded.add(buffer.readBoolean() ? normalizeStack(RtsPacketBuffer.readItemStack(buffer)) : ItemStack.EMPTY);
+            decoded.add(buffer.readBoolean() ? normalizeStack(RtsPacketBuffer.readItemStack(buffer)) : null);
         }
         blueprintStacks = Collections.unmodifiableList(decoded);
         craftedItemId = RtsPacketBuffer.readString(buffer, MAX_ITEM_ID_CHARS, "crafted item id");
@@ -46,7 +46,7 @@ public final class C2SRtsCraftRefillPayload implements IMessage {
         if (!isValid()) throw new IllegalArgumentException("craft refill request is invalid");
         for (int i = 0; i < BLUEPRINT_SIZE; i++) {
             ItemStack stack = blueprintStacks.get(i);
-            boolean present = stack != null && !stack.isEmpty();
+            boolean present = stack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack);
             buffer.writeBoolean(present);
             if (present) RtsPacketBuffer.writeItemStack(buffer, normalizeStack(stack));
         }
@@ -56,15 +56,15 @@ public final class C2SRtsCraftRefillPayload implements IMessage {
     private static List<ItemStack> normalizeBlueprint(List<ItemStack> values) {
         List<ItemStack> result = new ArrayList<>(BLUEPRINT_SIZE);
         for (int i = 0; i < BLUEPRINT_SIZE; i++) {
-            result.add(values != null && i < values.size() ? normalizeStack(values.get(i)) : ItemStack.EMPTY);
+            result.add(values != null && i < values.size() ? normalizeStack(values.get(i)) : null);
         }
         return Collections.unmodifiableList(result);
     }
     private static List<ItemStack> emptyBlueprint() { return normalizeBlueprint(null); }
     private static ItemStack normalizeStack(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return null;
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 }

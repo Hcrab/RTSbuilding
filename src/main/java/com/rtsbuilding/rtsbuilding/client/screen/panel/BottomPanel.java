@@ -33,8 +33,8 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.ChatComponentTranslation;
 
 import java.util.*;
 
@@ -144,8 +144,8 @@ public final class BottomPanel {
                 syncSearchBoxForActiveTab();
             }
             GuiTextField sb = screen.getSearchBox();
-            sb.x = browseLayout.searchField.x;
-            sb.y = browseLayout.searchField.y;
+            sb.xPosition = browseLayout.searchField.x;
+            sb.yPosition = browseLayout.searchField.y;
             sb.width = browseLayout.searchField.width;
             sb.height = browseLayout.searchField.height;
             if (sb instanceof WindowTextBox) {
@@ -242,14 +242,14 @@ public final class BottomPanel {
 
     boolean isCreativePlayer() {
         Minecraft mc = Minecraft.getMinecraft();
-        return mc != null && mc.player != null && mc.player.capabilities.isCreativeMode;
+        return mc != null && mc.thePlayer != null && mc.thePlayer.capabilities.isCreativeMode;
     }
 
     // ── Toolbar ── hotbar / pinned slots ──
 
     private void renderToolArea(LegacyGuiGraphics g, BottomBarUiState core,
             int mouseX, int mouseY, int storageX, int rowY, int storageW) {
-        if (Minecraft.getMinecraft() == null || Minecraft.getMinecraft().player == null) {
+        if (Minecraft.getMinecraft() == null || Minecraft.getMinecraft().thePlayer == null) {
             return;
         }
 
@@ -259,7 +259,7 @@ public final class BottomPanel {
         this.pinPage = tools.pinPage();
         BottomPanelToolRenderer.HoverResult hover = BottomPanelToolRenderer.render(
                 g, screen.font(), core,
-                Minecraft.getMinecraft().player.inventory,
+                Minecraft.getMinecraft().thePlayer.inventory,
                 this.controller, tools, mouseX, mouseY);
         this.hoveredToolSlot = hover.hotbarIndex;
         this.hoveredEmptyHandSlot = hover.emptyHand;
@@ -535,10 +535,10 @@ public final class BottomPanel {
     // ── Pin / toolbar helpers ──
 
     void setSelectedToolSlot(int slot) {
-        if (Minecraft.getMinecraft() == null || Minecraft.getMinecraft().player == null) {
+        if (Minecraft.getMinecraft() == null || Minecraft.getMinecraft().thePlayer == null) {
             return;
         }
-        Minecraft.getMinecraft().player.inventory.currentItem = MathHelper.clamp(slot, 0, 8);
+        Minecraft.getMinecraft().thePlayer.inventory.currentItem = MathHelper.clamp(slot, 0, 8);
     }
 
     int getFluidStripWidth(int storageWidth) {
@@ -562,7 +562,7 @@ public final class BottomPanel {
     }
 
     private static String translated(String key) {
-        return new TextComponentTranslation(key).getFormattedText();
+        return new ChatComponentTranslation(key).getFormattedText();
     }
 
     private static boolean isBlank(String value) {

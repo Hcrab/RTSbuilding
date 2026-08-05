@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.common.placement;
 
 import net.minecraft.block.BlockSlab;
-import net.minecraft.block.properties.IProperty;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.IProperty;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.Rotation;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.block.Rotation;
 
 import java.util.Collection;
 
@@ -20,8 +20,8 @@ public final class PlacedBlockRotationStep {
     private PlacedBlockRotationStep() {
     }
 
-    public static IBlockState rotate(IBlockState state, EnumFacing axisDirection, int quarterTurns) {
-        if (state == null || state.getBlock() == Blocks.AIR || axisDirection == null || quarterTurns == 0) {
+    public static BlockState rotate(BlockState state, EnumFacing axisDirection, int quarterTurns) {
+        if (state == null || state.getBlock() == Blocks.air || axisDirection == null || quarterTurns == 0) {
             return state;
         }
         int step = quarterTurns > 0 ? 1 : -1;
@@ -30,7 +30,7 @@ public final class PlacedBlockRotationStep {
                 step = -step;
             }
             Rotation rotation = step > 0 ? Rotation.CLOCKWISE_90 : Rotation.COUNTERCLOCKWISE_90;
-            IBlockState registered = state.getBlock().withRotation(state, rotation);
+            BlockState registered = state.withRotation(rotation);
             if (registered != null && !registered.equals(state)) {
                 return registered;
             }
@@ -39,13 +39,13 @@ public final class PlacedBlockRotationStep {
         return rotateStandardVertical(state, axisDirection, step);
     }
 
-    public static boolean supports(IBlockState state, EnumFacing axisDirection, int quarterTurns) {
-        IBlockState rotated = rotate(state, axisDirection, quarterTurns);
+    public static boolean supports(BlockState state, EnumFacing axisDirection, int quarterTurns) {
+        BlockState rotated = rotate(state, axisDirection, quarterTurns);
         return rotated != null && !rotated.equals(state);
     }
 
-    private static IBlockState rotateStandardHorizontal(IBlockState state, int step) {
-        IBlockState result = state;
+    private static BlockState rotateStandardHorizontal(BlockState state, int step) {
+        BlockState result = state;
         for (IProperty<?> property : state.getPropertyKeys()) {
             String name = property.getName();
             Comparable<?> current = getValue(result, property);
@@ -70,9 +70,9 @@ public final class PlacedBlockRotationStep {
         return result;
     }
 
-    private static IBlockState rotateStandardVertical(
-            IBlockState state, EnumFacing axisDirection, int step) {
-        IBlockState result = state;
+    private static BlockState rotateStandardVertical(
+            BlockState state, EnumFacing axisDirection, int step) {
+        BlockState result = state;
         boolean fullFacingChanged = false;
 
         for (IProperty<?> property : state.getPropertyKeys()) {
@@ -80,7 +80,7 @@ public final class PlacedBlockRotationStep {
             Comparable<?> current = getValue(result, property);
             if (isFacingProperty(name) && current instanceof EnumFacing) {
                 EnumFacing rotated = rotateDirection((EnumFacing) current, axisDirection, step);
-                IBlockState changed = setAllowedValue(result, property, rotated);
+                BlockState changed = setAllowedValue(result, property, rotated);
                 fullFacingChanged |= !changed.equals(result);
                 result = changed;
             } else if (isAxisProperty(name)) {
@@ -102,7 +102,8 @@ public final class PlacedBlockRotationStep {
             }
 
             if (result.getBlock() instanceof BlockSlab
-                    && !((BlockSlab) result.getBlock()).isDouble()) {
+                    && !com.rtsbuilding.rtsbuilding.platform.block.BlockCompat.isDoubleSlab(
+                            (BlockSlab) result.getBlock())) {
                 IProperty<?> slabHalf = findProperty(result, "half");
                 if (slabHalf != null) {
                     result = setByName(result, slabHalf, step > 0 ? "top" : "bottom");
@@ -168,23 +169,23 @@ public final class PlacedBlockRotationStep {
         return null;
     }
 
-    private static IProperty<?> findProperty(IBlockState state, String name) {
+    private static IProperty<?> findProperty(BlockState state, String name) {
         for (IProperty<?> property : state.getPropertyKeys()) {
             if (name.equals(property.getName())) return property;
         }
         return null;
     }
 
-    private static IBlockState setByNames(IBlockState state, IProperty<?> property, String[] names) {
+    private static BlockState setByNames(BlockState state, IProperty<?> property, String[] names) {
         for (String name : names) {
-            IBlockState changed = setByName(state, property, name);
+            BlockState changed = setByName(state, property, name);
             if (!changed.equals(state)) return changed;
         }
         return state;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static IBlockState setByName(IBlockState state, IProperty property, String valueName) {
+    private static BlockState setByName(BlockState state, IProperty property, String valueName) {
         Collection<? extends Comparable> allowed = property.getAllowedValues();
         for (Comparable candidate : allowed) {
             if (valueName.equals(property.getName(candidate))) {
@@ -195,12 +196,12 @@ public final class PlacedBlockRotationStep {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static IBlockState setAllowedValue(IBlockState state, IProperty property, Comparable value) {
+    private static BlockState setAllowedValue(BlockState state, IProperty property, Comparable value) {
         return property.getAllowedValues().contains(value) ? state.withProperty(property, value) : state;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static Comparable<?> getValue(IBlockState state, IProperty property) {
+    private static Comparable<?> getValue(BlockState state, IProperty property) {
         return state.getValue(property);
     }
 

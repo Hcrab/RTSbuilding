@@ -48,7 +48,7 @@ final class QuickBuildStatusRenderer {
                 QuickBuildStyle.SUCCESS_TEXT.toArgb(), false);
 
         int rightEdge = layout.contentX + textWidth;
-        if (!preview.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
             int itemX = layout.contentX + textWidth + QuickBuildWindowLayout.ITEM_GAP;
             graphics.renderItem(preview, itemX, itemY);
             // 1.12 的 RenderItem 是立即绘制；调用返回时图标已在当前 scissor 内提交。
@@ -62,7 +62,7 @@ final class QuickBuildStatusRenderer {
             int missingTextX = layout.missingTextX(rightEdge);
             graphics.drawString(screen.font(), missingText, missingTextX, textY,
                     QuickBuildStyle.ERROR_TEXT.toArgb(), false);
-            if (!preview.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                 int missingIconX = layout.missingIconX(
                         missingTextX, screen.font().getStringWidth(missingText));
                 graphics.renderItem(preview, missingIconX, itemY);

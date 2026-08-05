@@ -51,7 +51,7 @@ public final class ServerTickOrchestrator {
         SessionService sessionService = ServiceRegistry.getInstance().session();
         Map<UUID, Set<String>> changes = RtsStorageTickService.INSTANCE.tick();
         for (Map.Entry<UUID, Set<String>> entry : changes.entrySet()) {
-            EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(entry.getKey());
+            EntityPlayerMP player = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(entry.getKey());
             if (player == null) continue;
             RtsStorageSession session = sessionService.getIfPresent(player);
             if (session == null) continue;
@@ -66,7 +66,7 @@ public final class ServerTickOrchestrator {
         TaskScheduler.TickStats taskStats = RtsTaskEngine.INSTANCE.tick(server);
         RtsDeveloperMetrics.recordTaskTick(server, taskStats);
 
-        WorldServer overworld = server.getWorld(0);
+        WorldServer overworld = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(server, 0);
         RtsWorkflowEngine.getInstance().tickTimeoutService(
                 server, overworld == null ? 0L : overworld.getTotalWorldTime());
         RtsStoragePageRequestCoalescer.flushPending();

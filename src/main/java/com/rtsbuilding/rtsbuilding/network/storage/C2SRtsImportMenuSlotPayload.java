@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 /** 导入当前服务端容器中的槽位；handler 会再次按当前 window/menu 校验。 */
 public final class C2SRtsImportMenuSlotPayload implements IMessage {
     public static final int MAX_MENU_SLOT = 4095;

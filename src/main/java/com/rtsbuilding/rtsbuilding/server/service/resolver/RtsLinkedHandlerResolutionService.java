@@ -14,10 +14,10 @@ import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedFluidHandlerView;
 import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedItemHandlerView;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -69,7 +69,7 @@ public final class RtsLinkedHandlerResolutionService {
                 IItemHandler handler = null;
 
                 if (sameDimension && RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref)) {
-                    Object endpointIdentity = player.getServerWorld().getTileEntity(pos);
+                    Object endpointIdentity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(player.getServerForPlayer(), pos);
                     handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
                             player.getUniqueID(), currentDimension, pos, backpackUuid, endpointIdentity,
                             () -> backpackLink
@@ -88,7 +88,7 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
-                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), pos));
+                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerForPlayer(), pos));
                 BooleanSupplier storePermission = () -> RtsLinkedStorageResolver.isStoreAllowed(session, ref);
                 boolean allowStore = storePermission.getAsBoolean();
                 out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, storePermission), allowStore,
@@ -175,7 +175,7 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
-                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), pos));
+                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerForPlayer(), pos));
                 BooleanSupplier storePermission = () -> RtsLinkedStorageResolver.isStoreAllowed(session, ref);
                 boolean allowStore = storePermission.getAsBoolean();
                 out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, storePermission), allowStore,
@@ -247,7 +247,7 @@ public final class RtsLinkedHandlerResolutionService {
 
     private static IItemHandler findMatchingBackpackBlockHandler(
             EntityPlayerMP player, BlockPos pos, UUID expectedUuid) {
-        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.getServerWorld(), pos))) {
+        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.getServerForPlayer(), pos))) {
             return null;
         }
         return RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
@@ -257,7 +257,7 @@ public final class RtsLinkedHandlerResolutionService {
         if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
             return null;
         }
-        TileEntity blockEntity = level.getTileEntity(pos);
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         return RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
     }
 

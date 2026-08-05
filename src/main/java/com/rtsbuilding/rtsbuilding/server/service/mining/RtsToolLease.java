@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 /**
  * 一次真实工具借用。此对象保留来源槽位，方块破坏对 {@link #stack()} 的耐久和 NBT
@@ -10,7 +10,7 @@ import net.minecraftforge.items.IItemHandler;
  */
 public final class RtsToolLease {
     private static final RtsToolLease EMPTY = new RtsToolLease(
-            ItemStack.EMPTY, ItemStack.EMPTY, null, -1, -1, "none");
+            null, null, null, -1, -1, "none");
 
     private final ItemStack original;
     private final ItemStack stack;
@@ -21,8 +21,8 @@ public final class RtsToolLease {
 
     private RtsToolLease(ItemStack original, ItemStack stack, IItemHandler linkedHandler,
                          int linkedSlot, int playerSlot, String sourceDescription) {
-        this.original = original == null || original.isEmpty() ? ItemStack.EMPTY : original.copy();
-        this.stack = stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack;
+        this.original = original == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(original) ? null : original.copy();
+        this.stack = stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? null : stack;
         this.linkedHandler = linkedHandler;
         this.linkedSlot = linkedSlot;
         this.playerSlot = playerSlot;
@@ -39,7 +39,7 @@ public final class RtsToolLease {
         return new RtsToolLease(stack, stack, handler, slot, -1, "linked storage slot " + slot);
     }
 
-    public boolean isEmpty() { return stack.isEmpty(); }
+    public boolean isEmpty() { return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack); }
     public ItemStack stack() { return stack; }
     public ItemStack original() { return original; }
     public String describeSource() { return sourceDescription; }
@@ -50,7 +50,7 @@ public final class RtsToolLease {
 
     /** 返回无法放回原槽的真实 remainder，交给调用者走显式后备路径。 */
     public ItemStack returnToSource(EntityPlayerMP player) {
-        if (isEmpty()) return ItemStack.EMPTY;
+        if (isEmpty()) return null;
         ItemStack remain = stack.copy();
         if (playerSlot >= 0) {
             return returnToPlayerSlot(player, playerSlot, remain);
@@ -62,22 +62,22 @@ public final class RtsToolLease {
     }
 
     private static ItemStack returnToPlayerSlot(EntityPlayerMP player, int slot, ItemStack stack) {
-        if (player == null || stack == null || stack.isEmpty()
+        if (player == null || stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)
                 || slot < 0 || slot >= player.inventory.getSizeInventory()) {
-            return stack == null ? ItemStack.EMPTY : stack.copy();
+            return stack == null ? null : stack.copy();
         }
         ItemStack remain = stack.copy();
         ItemStack current = player.inventory.getStackInSlot(slot);
-        if (current.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) {
             player.inventory.setInventorySlotContents(slot, remain);
             player.inventory.markDirty();
-            return ItemStack.EMPTY;
+            return null;
         }
         if (sameExactStack(current, remain)) {
-            int moved = Math.min(remain.getCount(), Math.max(0, current.getMaxStackSize() - current.getCount()));
+            int moved = Math.min(remain.stackSize, Math.max(0, current.getMaxStackSize() - current.stackSize));
             if (moved > 0) {
-                current.grow(moved);
-                remain.shrink(moved);
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(current, moved);
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(remain, moved);
                 player.inventory.markDirty();
             }
         }
@@ -85,6 +85,6 @@ public final class RtsToolLease {
     }
 
     private static boolean sameExactStack(ItemStack left, ItemStack right) {
-        return ItemStack.areItemsEqual(left, right) && ItemStack.areItemStackTagsEqual(left, right);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(left, right) && ItemStack.areItemStackTagsEqual(left, right);
     }
 }

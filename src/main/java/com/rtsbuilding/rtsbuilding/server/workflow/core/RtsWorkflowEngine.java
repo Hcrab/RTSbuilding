@@ -16,8 +16,8 @@ import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceSe
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraft.util.ChatComponentTranslation;
+import cpw.mods.fml.common.FMLCommonHandler;
 
 import javax.annotation.Nullable;
 import java.time.Duration;
@@ -268,8 +268,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             String name = player.getGameProfile().getName();
             RtsbuildingMod.LOGGER.debug("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
                     name, RtsWorkflowSlotManager.MAX_SLOTS, type);
-            player.sendStatusMessage(
-                    new TextComponentTranslation("message.rtsbuilding.workflow.full_protected"), true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player,
+                    new ChatComponentTranslation("message.rtsbuilding.workflow.full_protected"), true);
             return Optional.empty();
         }
         entry.setType(type);
@@ -356,7 +356,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         for (RtsWorkflowEntry entry : slots.allEntries()) {
             NBTTagCompound extra = entry.getExtraData();
             if (entry.type() == RtsWorkflowType.BLUEPRINT_BUILD && extra != null
-                    && extra.hasUniqueId("durable_task_id")
+                    && com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.hasUuid(
+                            extra, "durable_task_id")
                     && taskId.equals(com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat
                             .getUuid(extra, "durable_task_id"))) {
                 return Optional.of(new RtsWorkflowToken(player.getUniqueID(), entry.id(), dimension, this));
@@ -616,8 +617,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         entry.setProtectedWorkflow(protectedWorkflow);
         syncService.notifyPlayer(player, slots);
 
-        player.sendStatusMessage(
-                new TextComponentTranslation(protectedWorkflow
+        com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player,
+                new ChatComponentTranslation(protectedWorkflow
                         ? "message.rtsbuilding.workflow.protected"
                         : "message.rtsbuilding.workflow.replaceable"),
                 true);
@@ -768,13 +769,13 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
     private EntityPlayerMP findPlayerByUUID(UUID playerId) {
         // 先检查缓存的引用
         EntityPlayerMP cached = playerRefs.get(playerId);
-        if (cached != null && cached.world != null && !cached.world.isRemote) {
+        if (cached != null && cached.worldObj != null && !cached.worldObj.isRemote) {
             return cached;
         }
         // 回退：扫描服务器的玩家列表
         MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
         if (server != null) {
-            EntityPlayerMP online = server.getPlayerList().getPlayerByUUID(playerId);
+            EntityPlayerMP online = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(playerId);
             if (online != null) {
                 playerRefs.put(playerId, online);
                 return online;

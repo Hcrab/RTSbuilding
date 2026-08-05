@@ -145,7 +145,7 @@ final class BlueprintResumePanelRenderer {
         boolean enough = available >= required;
         ItemStack displayStack =
                 WorkflowResumeRenderSupport.item(itemId);
-        if (!displayStack.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(displayStack)) {
             graphics.renderItem(
                     displayStack,
                     (int) row.itemIcon.getX(),

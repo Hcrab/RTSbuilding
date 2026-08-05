@@ -9,10 +9,10 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.play.server.SPacketSetSlot;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import net.minecraft.network.play.server.S2FPacketSetSlot;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 
@@ -46,7 +46,7 @@ public final class RtsTransferHandlers {
         @Override public IMessage onMessage(final C2SRtsLinkedQuickMovePayload message, MessageContext context) {
             if (!message.isValid()) return null;
             schedule(context, new Action() { @Override public void run(EntityPlayerMP player) {
-                logReceived(player, "QUICK_MOVE", -1, message.prototype(), message.prototype().getCount());
+                logReceived(player, "QUICK_MOVE", -1, message.prototype(), message.prototype().stackSize);
                 callTransfer("quickMoveLinkedItem", new Class<?>[]{EntityPlayerMP.class, ItemStack.class},
                         player, message.prototype());
             }}); return null;
@@ -71,7 +71,7 @@ public final class RtsTransferHandlers {
                 // 玩家背包的 ContainerPlayer 合法 windowId 就是 0；只按当前服务端容器及槽位边界校验。
                 if (menu == null || message.menuSlot() >= menu.inventorySlots.size()) return;
                 ItemStack stack = menu.inventorySlots.get(message.menuSlot()).getStack();
-                logReceived(player, "IMPORT_MENU_SLOT", message.menuSlot(), stack, stack.getCount());
+                logReceived(player, "IMPORT_MENU_SLOT", message.menuSlot(), stack, stack.stackSize);
                 callTransfer("importMenuSlotToLinked", new Class<?>[]{EntityPlayerMP.class, int.class},
                         player, message.menuSlot());
             }}); return null;
@@ -80,15 +80,15 @@ public final class RtsTransferHandlers {
 
     private interface Action { void run(EntityPlayerMP player); }
     private static void schedule(MessageContext context, final Action action) {
-        final EntityPlayerMP player = context.getServerHandler().player;
-        player.getServerWorld().addScheduledTask(new Runnable() { @Override public void run() {
+        final EntityPlayerMP player = context.getServerHandler().playerEntity;
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() { @Override public void run() {
             // overlay 可在 RTS 相机关闭后继续使用；权限、会话与真实链接均由 TransferService 复核。
             action.run(player);
         }});
     }
     private static void scheduleCarriedTransfer(MessageContext context, final Action action) {
-        final EntityPlayerMP player = context.getServerHandler().player;
-        player.getServerWorld().addScheduledTask(new Runnable() { @Override public void run() {
+        final EntityPlayerMP player = context.getServerHandler().playerEntity;
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() { @Override public void run() {
             try {
                 action.run(player);
             } finally {
@@ -102,8 +102,8 @@ public final class RtsTransferHandlers {
      */
     private static void syncCarriedStack(EntityPlayerMP player) {
         ItemStack carried = player.inventory.getItemStack();
-        player.connection.sendPacket(new SPacketSetSlot(
-                -1, -1, carried.isEmpty() ? ItemStack.EMPTY : carried.copy()));
+        player.playerNetServerHandler.sendPacket(new S2FPacketSetSlot(
+                -1, -1, com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried) ? null : carried.copy()));
     }
     private static void callTransfer(String method, Class<?>[] types, Object... arguments) {
         try {
@@ -119,11 +119,13 @@ public final class RtsTransferHandlers {
         RtsbuildingMod.LOGGER.info(
                 "[RTS-OVERLAY] side=S event=TRANSFER_RECEIVED action={} player={} menu={} window={} slot={} item={} amount={}",
                 action,
-                player.getName(),
+                player.getCommandSenderName(),
                 player.openContainer == null ? "null" : player.openContainer.getClass().getName(),
                 player.openContainer == null ? -1 : player.openContainer.windowId,
                 slot,
-                stack == null || stack.isEmpty() ? "empty" : stack.getItem().getRegistryName(),
+                stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)
+                        ? "empty" : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS
+                                .getKey(stack.getItem()),
                 amount);
     }
     private static RuntimeException propagate(String message, InvocationTargetException exception) {

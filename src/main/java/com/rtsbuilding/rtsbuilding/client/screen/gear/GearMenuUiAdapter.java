@@ -15,7 +15,7 @@ import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiValue;
 import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsWindowLayout;
 import net.minecraft.client.resources.I18n;
-import net.minecraftforge.fml.common.Loader;
+import cpw.mods.fml.common.Loader;
 
 import java.util.EnumMap;
 import java.util.EnumSet;

@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 客户端请求将范围内的真实服务端方块绕默认轴旋转一步。 */
 public final class C2SRtsRotateBlockPayload implements IMessage {

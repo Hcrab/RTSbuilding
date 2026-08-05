@@ -16,10 +16,10 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentText;
 import org.lwjgl.opengl.GL11;
 
 /** 1.12 RTS 窗口按钮，保留纯色/纹理、按下、选中和全局 hover 抑制语义。 */
@@ -37,21 +37,21 @@ public class WindowButton extends GuiButton {
     private boolean focusedVisual;
     private static boolean globalSkipHover;
 
-    public WindowButton(int x, int y, int width, int height, ITextComponent message, OnPress onPress) {
-        this(x, y, width, height, message, null, 0, 0, 0, 0, onPress);
+    public WindowButton(int xPosition, int yPosition, int width, int height, IChatComponent message, OnPress onPress) {
+        this(xPosition, yPosition, width, height, message, null, 0, 0, 0, 0, onPress);
     }
-    public WindowButton(int x, int y, int width, int height, String message, OnPress onPress) {
-        this(x, y, width, height, new TextComponentString(message == null ? "" : message), onPress);
+    public WindowButton(int xPosition, int yPosition, int width, int height, String message, OnPress onPress) {
+        this(xPosition, yPosition, width, height, new ChatComponentText(message == null ? "" : message), onPress);
     }
-    public WindowButton(int x, int y, int width, int height, ITextComponent message,
+    public WindowButton(int xPosition, int yPosition, int width, int height, IChatComponent message,
             ResourceLocation texture, int u, int v, int textureWidth, int textureHeight, OnPress onPress) {
-        this(x, y, width, height, message, texture, u, v, textureWidth, textureHeight,
+        this(xPosition, yPosition, width, height, message, texture, u, v, textureWidth, textureHeight,
                 v, textureHeight, textureWidth, textureHeight, onPress);
     }
-    public WindowButton(int x, int y, int width, int height, ITextComponent message,
+    public WindowButton(int xPosition, int yPosition, int width, int height, IChatComponent message,
             ResourceLocation texture, int u, int v, int textureWidth, int textureHeight,
             int hoverV, int hoverHeight, int fullWidth, int fullHeight, OnPress onPress) {
-        super(0, x, y, width, height, message == null ? "" : message.getUnformattedText());
+        super(0, xPosition, yPosition, width, height, message == null ? "" : message.getUnformattedText());
         this.onPress = onPress;
         this.textureLocation = texture;
         this.textureU = u; this.textureV = v;
@@ -62,25 +62,31 @@ public class WindowButton extends GuiButton {
 
     public void onPress() { if (onPress != null) onPress.onPress(this); }
 
-    @Override public void drawButton(Minecraft minecraft, int mouseX, int mouseY, float partialTicks) {
+    @Override public void drawButton(Minecraft minecraft, int mouseX, int mouseY) {
+        drawButton(minecraft, mouseX, mouseY, 0.0F);
+    }
+
+    public void drawButton(Minecraft minecraft, int mouseX, int mouseY, float partialTicks) {
         if (!visible) return;
-        hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
-        boolean effectiveHovered = !globalSkipHover && (hovered || focusedVisual);
+        boolean hoveredNow = mouseX >= xPosition && mouseY >= yPosition
+                && mouseX < xPosition + width && mouseY < yPosition + height;
+        this.field_146123_n = hoveredNow;
+        boolean effectiveHovered = !globalSkipHover && (hoveredNow || focusedVisual);
         UiControlVisualStyle visual = resolveVisual(effectiveHovered);
         LegacyGuiGraphics graphics = new LegacyGuiGraphics(minecraft,
-                new net.minecraft.client.gui.ScaledResolution(minecraft).getScaledWidth(),
-                new net.minecraft.client.gui.ScaledResolution(minecraft).getScaledHeight());
+                new net.minecraft.client.gui.ScaledResolution(minecraft, minecraft.displayWidth, minecraft.displayHeight).getScaledWidth(),
+                new net.minecraft.client.gui.ScaledResolution(minecraft, minecraft.displayWidth, minecraft.displayHeight).getScaledHeight());
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
             renderTexture(minecraft, graphics, visual, effectiveHovered);
         }
         else WindowButtonChromeRenderer.renderSolid(new MinecraftUiCanvas(graphics, minecraft.fontRenderer),
-                new UiRect(x, y, width, height), visual);
+                new UiRect(xPosition, yPosition, width, height), visual);
 
         FontRenderer font = minecraft.fontRenderer;
         String label = font.trimStringToWidth(displayString, WindowButtonLayout.textWidth(width));
         if (!label.isEmpty()) {
-            int textX = x + (width - font.getStringWidth(label)) / 2;
-            int textY = WindowButtonLayout.textY(y, height);
+            int textX = xPosition + (width - font.getStringWidth(label)) / 2;
+            int textY = WindowButtonLayout.textY(yPosition, height);
             font.drawString(label, textX, textY, visual.getText().toArgb(), false);
         }
     }
@@ -94,7 +100,7 @@ public class WindowButton extends GuiButton {
         try {
             minecraft.getTextureManager().bindTexture(textureLocation);
         } catch (RuntimeException exception) {
-            graphics.fill(x, y, x + width, y + height, WindowButtonStyle.MISSING_TEXTURE.toArgb());
+            graphics.fill(xPosition, yPosition, xPosition + width, yPosition + height, WindowButtonStyle.MISSING_TEXTURE.toArgb());
             return;
         }
         boolean activeTexture = useActiveTexture(
@@ -110,7 +116,8 @@ public class WindowButton extends GuiButton {
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
-            Gui.drawScaledCustomSizeModalRect(x, y, textureU, currentV, textureWidth, currentHeight,
+            com.rtsbuilding.rtsbuilding.platform.client.GuiCompat.drawScaledCustomSizeModalRect(
+                    xPosition, yPosition, textureU, currentV, textureWidth, currentHeight,
                     width, height, fullTextureWidth, fullTextureHeight);
         } finally {
             GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
@@ -120,7 +127,7 @@ public class WindowButton extends GuiButton {
         }
         if (visual.getOverlay().alpha() > 0) {
             // 锁定按钮沿用主线通用控件的 disabled overlay，不再与可用按钮长得一样。
-            graphics.fill(x, y, x + width, y + height, visual.getOverlay().toArgb());
+            graphics.fill(xPosition, yPosition, xPosition + width, yPosition + height, visual.getOverlay().toArgb());
         }
     }
 
@@ -151,10 +158,10 @@ public class WindowButton extends GuiButton {
         super.mouseReleased((int) mouseX, (int) mouseY);
         return button == 0 && wasPressed;
     }
-    public void setX(int value) { x = value; }
-    public void setY(int value) { y = value; }
-    public int getX() { return x; }
-    public int getY() { return y; }
+    public void setX(int value) { xPosition = value; }
+    public void setY(int value) { yPosition = value; }
+    public int getX() { return xPosition; }
+    public int getY() { return yPosition; }
     public void setFocused(boolean value) { focusedVisual = value; }
     public boolean isFocused() { return focusedVisual; }
     public void setVisualRole(UiControlRole role) {

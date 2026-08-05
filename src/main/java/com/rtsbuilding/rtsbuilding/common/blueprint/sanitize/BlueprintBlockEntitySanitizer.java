@@ -26,7 +26,7 @@ public final class BlueprintBlockEntitySanitizer {
      * @return 可安全用于生存放置的新 NBT，原始对象不会被修改
      */
     public static NBTTagCompound sanitizeForSurvivalPlacement(NBTTagCompound original) {
-        if (original == null || original.isEmpty()) {
+        if (original == null || com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(original)) {
             return new NBTTagCompound();
         }
         NBTTagCompound sanitized = sanitizeCompound(original, true);
@@ -34,7 +34,7 @@ public final class BlueprintBlockEntitySanitizer {
     }
 
     private static NBTTagCompound sanitizeCompound(NBTTagCompound source, boolean topLevel) {
-        if (source == null || source.isEmpty()) {
+        if (source == null || com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(source)) {
             return new NBTTagCompound();
         }
         if (!topLevel && looksLikeItemStack(source)) {
@@ -45,7 +45,7 @@ public final class BlueprintBlockEntitySanitizer {
         }
 
         NBTTagCompound out = new NBTTagCompound();
-        for (String key : source.getKeySet()) {
+        for (String key : source.func_150296_c()) {
             NBTBase value = source.getTag(key);
             if (value == null || shouldDropBlueprintKey(key)) {
                 continue;
@@ -71,7 +71,8 @@ public final class BlueprintBlockEntitySanitizer {
     private static NBTTagList sanitizeList(String key, NBTTagList source) {
         NBTTagList out = new NBTTagList();
         for (int i = 0; i < source.tagCount(); i++) {
-            NBTBase sanitized = sanitizeTag(key, source.get(i));
+            NBTBase sanitized = sanitizeTag(key,
+                    com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.listElement(source, i));
             if (sanitized != null) {
                 out.appendTag(sanitized);
             }

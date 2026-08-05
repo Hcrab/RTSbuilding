@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.resolver;
 
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -10,9 +12,9 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 import java.util.UUID;
@@ -47,7 +49,7 @@ public final class RtsLinkedStorageResolver {
      * 摘要和 UI 数据包使用的回退方块名称查询。
      */
     public static String resolveDisplayName(WorldServer level, BlockPos pos) {
-        return level.getBlockState(pos).getBlock().getLocalizedName();
+        return BlockState.fromWorld(level, pos).getBlock().getLocalizedName();
     }
 
     // ======================================================================
@@ -103,20 +105,20 @@ public final class RtsLinkedStorageResolver {
      */
     public static boolean canAccessWorldTarget(
             net.minecraft.entity.player.EntityPlayerMP player,
-            net.minecraft.util.math.BlockPos pos) {
+            com.rtsbuilding.rtsbuilding.platform.math.BlockPos pos) {
         if (!RtsCameraManager.isActive(player) || pos == null) {
             return false;
         }
 
-        net.minecraft.world.WorldServer level = player.getServerWorld();
-        if (!level.isBlockLoaded(pos)) {
+        net.minecraft.world.WorldServer level = player.getServerForPlayer();
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) {
             return false;
         }
         // ── Bedrock-layer boundary: reject positions below the world floor ──
         if (pos.getY() < 0 || pos.getY() >= level.getHeight()) {
             return false;
         }
-        if (!level.isBlockModifiable(player, pos)) {
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockModifiable(level, player, pos)) {
             return false;
         }
         return RtsCameraManager.isWithinActionRange(player, pos);
@@ -199,14 +201,15 @@ public final class RtsLinkedStorageResolver {
         if (player == null || session == null || ref == null || ref.pos() == null
                 || player.dimension != ref.dimension()
                 || session.linkedStorageInfo.isDetached(ref)
-                || !player.getServerWorld().isBlockLoaded(ref.pos())) {
+                || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), ref.pos())) {
             return false;
         }
         UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
         if (backpackUuid != null) {
-            return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(player.getServerWorld(), ref.pos()));
+            return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(player.getServerForPlayer(), ref.pos()));
         }
-        return !player.getServerWorld().isAirBlock(ref.pos());
+        return !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat
+                .isAirBlock(player.getServerForPlayer(), ref.pos());
     }
 
     // ======================================================================
@@ -242,7 +245,7 @@ public final class RtsLinkedStorageResolver {
     }
 
     public static int sanitizeLinkedStoragePriority(int priority) {
-        return net.minecraft.util.math.MathHelper.clamp(priority, -9999, 9999);
+        return com.rtsbuilding.rtsbuilding.platform.math.MathHelper.clamp(priority, -9999, 9999);
     }
 
 }

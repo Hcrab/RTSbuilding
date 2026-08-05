@@ -85,15 +85,15 @@ public final class MiningLoadoutState {
      */
     public static ItemStack getAssignedStack(EntityPlayerMP player, MiningLoadoutRole role) {
         OptionalInt slot = getSlot(player, role);
-        if (!slot.isPresent()) return ItemStack.EMPTY;
+        if (!slot.isPresent()) return null;
         return player.inventory.getStackInSlot(slot.getAsInt());
     }
 
     // ── 内部方法 ──
 
     private static String stackFingerprint(ItemStack stack) {
-        if (stack.isEmpty()) return "";
-        ResourceLocation key = Item.REGISTRY.getNameForObject(stack.getItem());
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return "";
+        ResourceLocation key = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(stack.getItem());
         return key == null ? "" : key.toString() + ":" + stack.getItemDamage();
     }
 

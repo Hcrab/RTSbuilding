@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 import org.lwjgl.input.Mouse;
 
 /**
@@ -635,7 +635,7 @@ public final class CameraOrbitService {
         if (!rtsEnabled || !this.localStateReady) {
             return;
         }
-        if (minecraft.world == null) {
+        if (minecraft.theWorld == null) {
             return;
         }
 
@@ -655,9 +655,9 @@ public final class CameraOrbitService {
 
         snapVisualMirrorCameraPose();
 
-        if (minecraft.getRenderViewEntity() != this.localMirrorCamera) {
+        if (minecraft.renderViewEntity != this.localMirrorCamera) {
             if (this.cameraRestoreCooldownTicks <= 0) {
-                minecraft.setRenderViewEntity(this.localMirrorCamera);
+                com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.setRenderViewEntity(minecraft, this.localMirrorCamera);
                 this.cameraRestoreCooldownTicks = CAMERA_RESTORE_COOLDOWN_TICKS;
             } else {
                 this.cameraRestoreCooldownTicks--;
@@ -739,14 +739,14 @@ public final class CameraOrbitService {
     }
 
     private void ensureLocalMirrorCamera(Minecraft minecraft) {
-        if (minecraft.world == null) {
+        if (minecraft.theWorld == null) {
             this.localMirrorCamera = null;
             return;
         }
-        if (this.localMirrorCamera != null && this.localMirrorCamera.world == minecraft.world) {
+        if (this.localMirrorCamera != null && this.localMirrorCamera.worldObj == minecraft.theWorld) {
             return;
         }
-        this.localMirrorCamera = new RtsCameraEntity(RtsEntities.RTS_CAMERA_ENTITY.get(), minecraft.world);
+        this.localMirrorCamera = new RtsCameraEntity(RtsEntities.RTS_CAMERA_ENTITY.get(), minecraft.theWorld);
         if (!this.visualPose.ready()) {
             snapVisualPoseToLocal();
         }

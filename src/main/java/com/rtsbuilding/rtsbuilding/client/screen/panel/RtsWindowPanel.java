@@ -23,9 +23,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentText;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
@@ -140,7 +140,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     protected abstract void handleContentClick(double mouseX, double mouseY, int button);
 
     /** Returns the localized title shown in the window title bar. */
-    protected abstract ITextComponent getTitle();
+    protected abstract IChatComponent getTitle();
 
     /** Default size used the first time the window opens or when reset. */
     protected abstract int getDefaultWidth();
@@ -646,7 +646,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     private WindowButton createCloseButton() {
         return new WindowButton(0, 0, CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE,
-                new TextComponentString(""), CLOSE_BUTTON_TEXTURE,
+                new ChatComponentText(""), CLOSE_BUTTON_TEXTURE,
                 0, 0,
                 CLOSE_SHEET_W, CLOSE_STATE_H,
                 CLOSE_STATE_H, CLOSE_STATE_H,

@@ -86,7 +86,7 @@ public final class DataCluster {
     public synchronized boolean flush() {
         if (!loaded) return true;
 
-        NBTTagCompound root = rawRoot == null ? new NBTTagCompound() : rawRoot.copy();
+        NBTTagCompound root = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(rawRoot);
         Map<String, Long> revisionsToConfirm = new HashMap<>();
         boolean hasDirty = false;
 
@@ -123,7 +123,7 @@ public final class DataCluster {
     public synchronized boolean flushAndClose() {
         if (!loaded) return true;
 
-        NBTTagCompound root = rawRoot == null ? new NBTTagCompound() : rawRoot.copy();
+        NBTTagCompound root = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(rawRoot);
         boolean hasLoadedCells = false;
         for (Cell<?> cell : cells.values()) {
             NBTTagCompound slot = new NBTTagCompound();
@@ -189,7 +189,7 @@ public final class DataCluster {
     private <T> T decodeFromRaw(DataComponent<T> component) {
         if (rawRoot != null && rawRoot.hasKey(component.key(), Constants.NBT.TAG_COMPOUND)) {
             NBTTagCompound slot = rawRoot.getCompoundTag(component.key());
-            if (!slot.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(slot)) {
                 T decoded = component.codec().decode(slot);
                 if (decoded != null) return decoded;
             }

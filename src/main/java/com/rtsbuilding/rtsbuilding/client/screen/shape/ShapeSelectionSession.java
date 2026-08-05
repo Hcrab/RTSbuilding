@@ -1,13 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 
 /**
  * 持有一次形状选区会话，并独占多次点击推进与滚轮尺寸调整。
@@ -200,9 +202,9 @@ public final class ShapeSelectionSession {
         }
         Minecraft mc = this.screen.getMinecraft();
         BlockPos clicked = hit.getBlockPos();
-        if (mc != null && mc.world != null) {
-            net.minecraft.block.state.IBlockState state = mc.world.getBlockState(clicked);
-            if (state.getBlock().isAir(state, mc.world, clicked)) {
+        if (mc != null && mc.theWorld != null) {
+            com.rtsbuilding.rtsbuilding.platform.block.BlockState state = BlockState.fromWorld(mc.theWorld, clicked);
+            if (state.getBlock().isAir(mc.theWorld, clicked.getX(), clicked.getY(), clicked.getZ())) {
                 return resolvePlanePoint(base, hit);
             }
         }
@@ -302,7 +304,7 @@ public final class ShapeSelectionSession {
     }
 
     private static Vec3d cameraOrigin(Minecraft minecraft) {
-        if (minecraft == null || minecraft.getRenderViewEntity() == null) return null;
-        return minecraft.getRenderViewEntity().getPositionEyes(minecraft.getRenderPartialTicks());
+        if (minecraft == null || minecraft.renderViewEntity == null) return null;
+        return com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.positionEyes(minecraft.renderViewEntity, com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.renderPartialTicks(minecraft));
     }
 }

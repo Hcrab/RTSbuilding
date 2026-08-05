@@ -10,11 +10,11 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.CraftFeedbackLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftFeedbackStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 import org.lwjgl.opengl.GL11;
 
 import java.util.List;
@@ -36,7 +36,7 @@ public final class RtsCraftFeedbackPopup {
         if (now >= controller.getCraftFeedbackExpiryMs() || controller.getCraftFeedbackCount() <= 0) return;
 
         ItemStack resultPreview = resolvePreview(controller.getCraftFeedbackItemId());
-        String resultLabel = resultPreview.isEmpty()
+        String resultLabel = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(resultPreview)
                 ? safe(controller.getCraftFeedbackItemId()) : resultPreview.getDisplayName();
         List<CraftFeedbackIngredient> ingredients = controller.getCraftFeedbackIngredients();
         int visibleRows = CraftFeedbackLayout.visibleRows(ingredients.size());
@@ -60,7 +60,7 @@ public final class RtsCraftFeedbackPopup {
         GlStateManager.disableDepth();
         drawPanelFrame(g, x, y, CraftFeedbackLayout.PANEL_W, panelH,
                 fill, borderLight, borderDark);
-        if (!resultPreview.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(resultPreview)) {
             g.renderItem(resultPreview, x + 8, y + 8);
             GlStateManager.disableDepth();
         }
@@ -75,7 +75,7 @@ public final class RtsCraftFeedbackPopup {
             CraftFeedbackIngredient ingredient = ingredients.get(i);
             g.fill(x + 8, rowY - 2, x + CraftFeedbackLayout.PANEL_W - 8,
                     rowY + 14, rowColor.toArgb());
-            if (ingredient.preview() != null && !ingredient.preview().isEmpty()) {
+            if (ingredient.preview() != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(ingredient.preview())) {
                 g.renderItem(ingredient.preview(), x + 10, rowY - 1);
                 GlStateManager.disableDepth();
             }
@@ -96,13 +96,13 @@ public final class RtsCraftFeedbackPopup {
     }
 
     private static ItemStack resolvePreview(String itemId) {
-        if (itemId == null || itemId.trim().isEmpty()) return ItemStack.EMPTY;
+        if (itemId == null || itemId.trim().isEmpty()) return null;
         try {
             ResourceLocation key = new ResourceLocation(itemId);
-            Item item = ForgeRegistries.ITEMS.getValue(key);
-            return item == null ? ItemStack.EMPTY : new ItemStack(item);
+            Item item = RtsRegistries.ITEMS.getValue(key);
+            return item == null ? null : new ItemStack(item);
         } catch (RuntimeException ignored) {
-            return ItemStack.EMPTY;
+            return null;
         }
     }
 

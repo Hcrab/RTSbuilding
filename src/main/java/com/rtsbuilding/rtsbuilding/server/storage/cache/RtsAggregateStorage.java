@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -100,8 +100,8 @@ public final class RtsAggregateStorage {
      * @return 剩余无法存入的物品堆叠
      */
     public ItemStack insert(ItemStack stack, boolean simulate) {
-        if (stack == null || stack.isEmpty() || this.flatOrdered.isEmpty()) {
-            return stack == null ? ItemStack.EMPTY : stack;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || this.flatOrdered.isEmpty()) {
+            return stack == null ? null : stack;
         }
         if (!inUse.compareAndSet(false, true)) return stack; // Prevent concurrent/reentrant use
         try {
@@ -110,7 +110,7 @@ public final class RtsAggregateStorage {
 
             // Phase 1: preferred storage (handlers that already have this item)
             for (CachedHandlerSlot cs : this.flatOrdered) {
-                if (remain.isEmpty()) break;
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) break;
                 if (cs.cache.getCount(stack.getItem()) > 0) {
                     remain = insertToHandler(cs.handler, remain, simulate);
                     trackChange(stack.getItem(), remain, stack, simulate);
@@ -121,7 +121,7 @@ public final class RtsAggregateStorage {
 
             // Phase 2: remaining handlers in priority order
             for (CachedHandlerSlot cs : remaining) {
-                if (remain.isEmpty()) break;
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) break;
                 remain = insertToHandler(cs.handler, remain, simulate);
                 trackChange(stack.getItem(), remain, stack, simulate);
             }
@@ -150,12 +150,12 @@ public final class RtsAggregateStorage {
      */
     public ItemStack extractMatching(Item targetItem, ItemStack preferred, int limit) {
         if (targetItem == null || limit <= 0 || this.flatOrdered.isEmpty()) {
-            return ItemStack.EMPTY;
+            return null;
         }
-        if (!inUse.compareAndSet(false, true)) return ItemStack.EMPTY;
+        if (!inUse.compareAndSet(false, true)) return null;
         try {
             int remaining = limit;
-            ItemStack out = ItemStack.EMPTY;
+            ItemStack out = null;
 
             // Extract from flatOrdered reversed (ascending priority — drain low-prio first)
             List<CachedHandlerSlot> reversed = new ArrayList<>(this.flatOrdered);
@@ -167,14 +167,14 @@ public final class RtsAggregateStorage {
                 // avoids O(slots) scan on 10000+ AE2 networks.
                 if (cs.cache.getCount(targetItem) <= 0L) continue;
                 ItemStack part = extractOneHandler(cs.handler, targetItem, preferred, remaining);
-                if (part.isEmpty()) continue;
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(part)) continue;
 
-                if (out.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out)) {
                     out = part;
                 } else if (sameItemAndTag(out, part)) {
-                    out.grow(part.getCount());
+                    com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(out, part.stackSize);
                 }
-                remaining -= part.getCount();
+                remaining -= part.stackSize;
 
                 // Mark this handler's cache as dirty
                 cs.cache.invalidate();
@@ -271,11 +271,11 @@ public final class RtsAggregateStorage {
     public ItemStack getPrototype(String itemId) {
         for (CachedHandlerSlot cs : this.flatOrdered) {
             ItemStack proto = cs.cache.getPrototype(itemId);
-            if (!proto.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(proto)) {
                 return proto;
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     public boolean isEmpty() {
@@ -293,8 +293,8 @@ public final class RtsAggregateStorage {
     }
 
     private static ItemStack insertToHandler(IItemHandler handler, ItemStack stack, boolean simulate) {
-        if (handler == null || stack == null || stack.isEmpty()) {
-            return stack == null ? ItemStack.EMPTY : stack;
+        if (handler == null || stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            return stack == null ? null : stack;
         }
 
         // 针对 AnySlotInsertItemHandler 的优化（如 AE2 网络）：
@@ -305,7 +305,7 @@ public final class RtsAggregateStorage {
         }
 
         ItemStack remain = stack.copy();
-        for (int slot = 0; slot < handler.getSlots() && !remain.isEmpty(); slot++) {
+        for (int slot = 0; slot < handler.getSlots() && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain); slot++) {
             remain = handler.insertItem(slot, remain, simulate);
         }
         return remain;
@@ -313,53 +313,53 @@ public final class RtsAggregateStorage {
 
     private static ItemStack extractOneHandler(IItemHandler handler, Item targetItem, ItemStack preferred, int limit) {
         if (handler == null || targetItem == null || limit <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
 
         // AnySlotInsertItemHandler 的批量提取快速路径（AE2、BD 等）：
         // 跳过逐槽位扫描，让处理器直接批量提取。
         // 仅当 preferred 为空（无需 NBT 变体）时安全。
-        if ((preferred == null || preferred.isEmpty()) && handler instanceof AnySlotInsertItemHandler) {
+        if ((preferred == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred)) && handler instanceof AnySlotInsertItemHandler) {
             return ((AnySlotInsertItemHandler) handler).extractItemAnywhere(targetItem, limit, false);
         }
 
         int remaining = limit;
-        ItemStack out = ItemStack.EMPTY;
+        ItemStack out = null;
         for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {
             ItemStack slotStack = handler.getStackInSlot(slot);
-            if (slotStack.isEmpty() || slotStack.getItem() != targetItem) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(slotStack) || slotStack.getItem() != targetItem) {
                 continue;
             }
-            if (preferred != null && !preferred.isEmpty()
+            if (preferred != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred)
                     && !sameItemAndTag(slotStack, preferred)) {
                 continue;
             }
             ItemStack extracted = handler.extractItem(slot, remaining, false);
-            if (extracted.isEmpty()) continue;
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) continue;
 
-            if (out.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out)) {
                 out = extracted;
             } else if (sameItemAndTag(out, extracted)) {
-                out.grow(extracted.getCount());
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(out, extracted.stackSize);
             } else {
                 // 错误变体——放回去。如果处理器拒绝接收（
                 // getStackInSlot 和 extractItem 调用之间的并发修改），
                 // 即使 NBT 变体不匹配也将其包含在输出中以防物品丢失。
                 // 数据安全 > 变体纯度。
                 ItemStack leftover = handler.insertItem(slot, extracted, false);
-                if (leftover.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(leftover)) {
                     continue; // 完全归还给了处理器——可以安全跳过
                 }
                 // 部分或完全拒绝接收——不能丢弃物品。
-                if (out.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out)) {
                     out = leftover;
                 } else {
-                    out.grow(leftover.getCount());
+                    com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(out, leftover.stackSize);
                 }
                 remaining = 0;
                 break;
             }
-            remaining -= extracted.getCount();
+            remaining -= extracted.stackSize;
         }
         return out;
     }
@@ -367,7 +367,7 @@ public final class RtsAggregateStorage {
     private void trackChange(Item originalItem, ItemStack remain, ItemStack original, boolean simulate) {
         // 仅在物品实际被插入时（剩余量减少）才标记待处理变更，
         // 避免失败/部分存储的尝试触发虚假的 UI 刷新。
-        if (!simulate && remain.getCount() < original.getCount()) {
+        if (!simulate && remain.stackSize < original.stackSize) {
             this.pendingChanges.add(itemId(originalItem));
         }
     }
@@ -382,12 +382,12 @@ public final class RtsAggregateStorage {
     // ---- 值类型 ------------------------------------------------------------
 
     private static String itemId(Item item) {
-        ResourceLocation id = item == null ? null : Item.REGISTRY.getNameForObject(item);
+        ResourceLocation id = item == null ? null : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(item);
         return id == null ? "" : id.toString();
     }
 
     private static boolean sameItemAndTag(ItemStack first, ItemStack second) {
-        return ItemStack.areItemsEqual(first, second)
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(first, second)
                 && ItemStack.areItemStackTagsEqual(first, second);
     }
 

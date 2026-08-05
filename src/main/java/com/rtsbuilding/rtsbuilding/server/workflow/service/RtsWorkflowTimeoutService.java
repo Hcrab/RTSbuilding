@@ -57,10 +57,11 @@ public final class RtsWorkflowTimeoutService {
                 slotManagers,
                 eventBus,
                 (playerId, dimension) -> RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension),
-                server -> server != null && server.isCallingFromMinecraftThread(),
+                server -> server != null
+                        && com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.isServerThread(),
                 (server, playerId, dimension, entryId) -> {
                     if (server == null) return;
-                    EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(playerId);
+                    EntityPlayerMP player = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(playerId);
                     if (player != null) {
                         RtsTaskEngine.INSTANCE.cancelWorkflowTask(player, dimension, entryId);
                     }
@@ -173,7 +174,7 @@ public final class RtsWorkflowTimeoutService {
                 : slotManagers.entrySet()) {
             UUID playerId = playerEntry.getKey();
             // 离线玩家无法安全完成历史收口；等其重新登录并恢复投影后再开始 30 秒计时。
-            if (server != null && server.getPlayerList().getPlayerByUUID(playerId) == null) {
+            if (server != null && com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(playerId) == null) {
                 continue;
             }
             Map<Integer, RtsWorkflowSlotManager> dimensions = playerEntry.getValue();

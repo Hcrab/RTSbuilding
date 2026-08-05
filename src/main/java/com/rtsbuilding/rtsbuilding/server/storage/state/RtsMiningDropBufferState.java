@@ -40,7 +40,7 @@ public final class RtsMiningDropBufferState {
      * Accepts a logical item count while keeping every buffered stack within the item's legal stack size.
      */
     public int enqueueMerged(ItemStack prototype, int requestedCount) {
-        if (prototype == null || prototype.isEmpty() || requestedCount <= 0 || isFull()) {
+        if (prototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype) || requestedCount <= 0 || isFull()) {
             return 0;
         }
         int remaining = Math.min(requestedCount, remainingCapacity());
@@ -49,19 +49,19 @@ public final class RtsMiningDropBufferState {
 
         for (ItemStack existing : stacks) {
             if (remaining <= 0) break;
-            if (!ItemStack.areItemsEqual(existing, prototype)
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(existing, prototype)
                     || !ItemStack.areItemStackTagsEqual(existing, prototype)) continue;
-            int free = Math.max(0, Math.min(maxStackSize, existing.getMaxStackSize()) - existing.getCount());
+            int free = Math.max(0, Math.min(maxStackSize, existing.getMaxStackSize()) - existing.stackSize);
             if (free <= 0) continue;
             int moved = Math.min(free, remaining);
-            existing.grow(moved);
+            com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(existing, moved);
             remaining -= moved;
         }
 
         while (remaining > 0 && stacks.size() < MAX_STACKS) {
             int chunkSize = Math.min(remaining, maxStackSize);
             ItemStack chunk = prototype.copy();
-            chunk.setCount(chunkSize);
+            chunk.stackSize = chunkSize;
             stacks.addLast(chunk);
             remaining -= chunkSize;
         }

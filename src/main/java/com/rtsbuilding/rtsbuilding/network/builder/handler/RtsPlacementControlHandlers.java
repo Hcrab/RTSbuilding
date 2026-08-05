@@ -5,11 +5,11 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsRotateBlockPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetModePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSubmitPendingPayload;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -33,8 +33,8 @@ public final class RtsPlacementControlHandlers {
         @Override
         public IMessage onMessage(final C2SRtsSetModePayload message, MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
                     if (isCameraActive(player)) setMode(player, message.mode());
                 }
@@ -47,8 +47,8 @@ public final class RtsPlacementControlHandlers {
         @Override
         public IMessage onMessage(final C2SRtsRotateBlockPayload message, MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
                     if (isWithinActionRange(player, message.pos())) {
                         Object placement = service("placement");
@@ -65,8 +65,8 @@ public final class RtsPlacementControlHandlers {
         @Override
         public IMessage onMessage(final C2SRtsOrientBlockPayload message, MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
                     if (isWithinActionRange(player, message.pos())) {
                         Object placement = service("placement");
@@ -84,8 +84,8 @@ public final class RtsPlacementControlHandlers {
     public static final class SubmitPendingHandler implements IMessageHandler<C2SRtsSubmitPendingPayload, IMessage> {
         @Override
         public IMessage onMessage(C2SRtsSubmitPendingPayload message, MessageContext context) {
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
                     if (isCameraActive(player)) {
                         Object placement = service("placement");

@@ -17,14 +17,14 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateQueries;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraftforge.client.event.RenderWorldLastEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
@@ -45,14 +45,14 @@ public final class RtsVisualOverlayRenderer {
     }
 
     @SubscribeEvent
-    public static void onRenderWorldLast(RenderWorldLastEvent event) {
+    public void onRenderWorldLast(RenderWorldLastEvent event) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft == null || minecraft.world == null || minecraft.player == null) return;
+        if (minecraft == null || minecraft.theWorld == null || minecraft.thePlayer == null) return;
 
         ClientRtsController controller = ClientRtsController.get();
         if (controller == null || !controller.hasBounds()) return;
 
-        RenderManager manager = minecraft.getRenderManager();
+        RenderManager manager = net.minecraft.client.renderer.entity.RenderManager.instance;
         Vec3d camera = new Vec3d(manager.viewerPosX, manager.viewerPosY, manager.viewerPosZ);
 
         // 顺序与 1.21 主线一致：先环境引导，再交互/建造，最后覆盖型预览和动画。
@@ -66,7 +66,7 @@ public final class RtsVisualOverlayRenderer {
         double minZ = controller.getAnchorZ() - radius;
         double maxZ = controller.getAnchorZ() + radius;
         BoundaryLineRenderer.renderBarrierBoundary(
-                minX, minZ, maxX, maxZ, controller.getAnchorY(), minecraft.world);
+                minX, minZ, maxX, maxZ, controller.getAnchorY(), minecraft.theWorld);
         StorageRenderer.renderLinkedStorages(minecraft, controller);
         InteractionTargetRenderer.renderHoveredInteractionTarget(minecraft, controller);
         PlayerMoveTargetRenderer.render(minecraft);

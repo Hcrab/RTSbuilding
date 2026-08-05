@@ -19,11 +19,11 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.ChatComponentText;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -84,18 +84,18 @@ public final class RtsTransferPlayerIntegration {
         }
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         ResourceLocation id = parseId(itemId);
-        if (id == null || !ForgeRegistries.ITEMS.containsKey(id)) {
+        if (id == null || !RtsRegistries.ITEMS.containsKey(id)) {
             return;
         }
         ItemStack carried = player.inventory.getItemStack();
-        if (carried.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
             return;
         }
-        ResourceLocation carriedId = ForgeRegistries.ITEMS.getKey(carried.getItem());
+        ResourceLocation carriedId = RtsRegistries.ITEMS.getKey(carried.getItem());
         if (carriedId == null || !itemId.equals(carriedId.toString())) {
             return;
         }
-        int returned = Math.min(amount, carried.getCount());
+        int returned = Math.min(amount, carried.stackSize);
         if (returned <= 0) {
             return;
         }
@@ -129,30 +129,30 @@ public final class RtsTransferPlayerIntegration {
         List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(activeLinked);
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
         ResourceLocation id = parseId(itemId);
-        if (id == null || !ForgeRegistries.ITEMS.containsKey(id)) {
+        if (id == null || !RtsRegistries.ITEMS.containsKey(id)) {
             return;
         }
-        Item item = ForgeRegistries.ITEMS.getValue(id);
+        Item item = RtsRegistries.ITEMS.getValue(id);
         int wanted = Math.max(1, Math.min(64, amount));
         ItemStack extracted = RtsTransferExtractor.extractMatchingFromQuickDropSources(
                 extractHandlers, player, item, wanted);
-        if (extracted.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
             return;
         }
         Vec3d dropPos = new Vec3d(dropX, dropY, dropZ);
         BlockPos dropBlock = new BlockPos(dropPos);
-        if (!player.getServerWorld().isBlockLoaded(dropBlock)
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), dropBlock)
                 || !RtsCameraManager.isWithinActionRange(player, dropBlock)) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
             ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             return;
         }
-        EntityItem dropped = new EntityItem(player.getServerWorld(), dropPos.x, dropPos.y, dropPos.z, extracted);
+        EntityItem dropped = new EntityItem(player.getServerForPlayer(), dropPos.x, dropPos.y, dropPos.z, extracted);
         dropped.motionX = 0.0D;
         dropped.motionY = 0.0D;
         dropped.motionZ = 0.0D;
-        dropped.setPickupDelay(10);
-        player.getServerWorld().spawnEntity(dropped);
+        com.rtsbuilding.rtsbuilding.platform.entity.EntityCompat.setPickupDelay(dropped, 10);
+        player.getServerForPlayer().spawnEntityInWorld(dropped);
         ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
     }
 
@@ -189,37 +189,37 @@ public final class RtsTransferPlayerIntegration {
             ContainerWorkbench craftingMenu = (ContainerWorkbench) menu;
             ItemStack[] craftBlueprint = ServiceRegistry.getInstance().crafting().snapshotCraftGridBlueprint(craftingMenu);
             ItemStack resultSnapshot = slot.getStack().copy();
-            if (resultSnapshot.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(resultSnapshot)) {
                 return;
             }
             ItemStack resultPrototype = resultSnapshot.copy();
-            resultPrototype.setCount(1);
+            resultPrototype.stackSize = 1;
             boolean craftedAny = false;
             for (int guard = 0; guard < RtsTransferUtils.SHIFT_IMPORT_MAX_CRAFT_ITERATIONS; guard++) {
                 Slot resultSlot = craftingMenu.getSlot(0);
                 ItemStack currentResult = resultSlot.getStack();
-                if (currentResult.isEmpty() || !sameStackIdentity(currentResult, resultPrototype)) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(currentResult) || !sameStackIdentity(currentResult, resultPrototype)) {
                     ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
                             craftingMenu, extractHandlers, player, craftBlueprint, false, true);
                     currentResult = resultSlot.getStack();
-                    if (currentResult.isEmpty() || !sameStackIdentity(currentResult, resultPrototype)) {
+                    if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(currentResult) || !sameStackIdentity(currentResult, resultPrototype)) {
                         break;
                     }
                 }
                 int[] before = RtsTransferExtractor.snapshotPlayerMatchingCounts(player, resultPrototype);
                 ItemStack moved = craftingMenu.transferStackInSlot(player, menuSlot);
-                if (moved.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(moved)) {
                     break;
                 }
                 ItemStack gained = RtsTransferExtractor.drainPlayerInventoryDelta(player, resultPrototype, before);
-                if (gained.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(gained)) {
                     break;
                 }
-                ResourceLocation gainedId = ForgeRegistries.ITEMS.getKey(gained.getItem());
+                ResourceLocation gainedId = RtsRegistries.ITEMS.getKey(gained.getItem());
                 if (gainedId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
                             session, gainedId.toString(),
-                            S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, gained.getCount());
+                            S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, gained.stackSize);
                 }
                 overflow = overflow.merge(RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(
                         insertHandlers, player, gained));
@@ -234,17 +234,17 @@ public final class RtsTransferPlayerIntegration {
                     craftingMenu, extractHandlers, player, craftBlueprint, true, true);
         } else {
             ItemStack inSlot = slot.getStack();
-            ItemStack moved = slot.decrStackSize(inSlot.getCount());
-            if (moved.isEmpty()) {
+            ItemStack moved = slot.decrStackSize(inSlot.stackSize);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(moved)) {
                 return;
             }
-            slot.onTake(player, moved);
+            slot.onPickupFromSlot(player, moved);
             if (menu instanceof ContainerWorkbench && menuSlot == 0) {
-                ResourceLocation craftedId = ForgeRegistries.ITEMS.getKey(moved.getItem());
+                ResourceLocation craftedId = RtsRegistries.ITEMS.getKey(moved.getItem());
                 if (craftedId != null) {
                     ServiceRegistry.getInstance().page().recordRecentItem(
                             session, craftedId.toString(),
-                            S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, moved.getCount());
+                            S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED, moved.stackSize);
                 }
             }
             overflow = RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, moved);
@@ -269,7 +269,7 @@ public final class RtsTransferPlayerIntegration {
         if (!RtsLinkedStorageResolver.hasAnyStorage(player, session) && !includePlayerMainInventory) {
             return;
         }
-        if (prototype == null || prototype.isEmpty() || amount <= 0) {
+        if (prototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype) || amount <= 0) {
             return;
         }
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
@@ -280,24 +280,24 @@ public final class RtsTransferPlayerIntegration {
         ItemStack carried = player.inventory.getItemStack();
         int maxStack = prototype.getMaxStackSize();
         int wanted = Math.min(amount, maxStack);
-        if (!carried.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
             if (!sameStackIdentity(carried, prototype)) {
                 return;
             }
-            wanted = Math.min(wanted, carried.getMaxStackSize() - carried.getCount());
+            wanted = Math.min(wanted, carried.getMaxStackSize() - carried.stackSize);
             if (wanted <= 0) {
                 return;
             }
         }
         ItemStack extracted = RtsTransferExtractor.extractMatchingFromNetwork(
                 extractHandlers, player, prototype.getItem(), prototype, wanted);
-        if (extracted.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
             return;
         }
-        if (carried.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
             player.inventory.setItemStack(extracted);
         } else {
-            carried.grow(extracted.getCount());
+            com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(carried, extracted.stackSize);
             player.inventory.setItemStack(carried);
         }
         player.openContainer.detectAndSendChanges();
@@ -312,7 +312,7 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        if (!RtsLinkedStorageResolver.hasAnyStorage(player, session) || prototype == null || prototype.isEmpty()) {
+        if (!RtsLinkedStorageResolver.hasAnyStorage(player, session) || prototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) {
             return;
         }
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
@@ -324,7 +324,7 @@ public final class RtsTransferPlayerIntegration {
         int maxStack = Math.max(1, prototype.getMaxStackSize());
         ItemStack extracted = RtsTransferExtractor.extractMatchingFromLinked(
                 extractHandlers, prototype.getItem(), prototype, maxStack);
-        if (extracted.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
             return;
         }
         ItemStack remain;
@@ -333,11 +333,11 @@ public final class RtsTransferPlayerIntegration {
             remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, extracted);
         } else {
             remain = RtsTransferInserter.moveLinkedStackIntoOpenMenu(player, extracted);
-            if (!remain.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
             }
         }
-        if (!remain.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, remain);
         }
         player.openContainer.detectAndSendChanges();
@@ -368,18 +368,18 @@ public final class RtsTransferPlayerIntegration {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 while (true) {
                     ItemStack preview = handler.getStackInSlot(slot);
-                    if (preview.isEmpty()) {
+                    if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                         break;
                     }
                     int requestAmount = Math.max(1, preview.getMaxStackSize());
                     ItemStack extracted = handler.extractItem(slot, requestAmount, false);
-                    if (extracted.isEmpty()) {
+                    if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                         break;
                     }
-                    int extractedCount = extracted.getCount();
+                    int extractedCount = extracted.stackSize;
                     ItemStack remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, extracted);
-                    movedCount += Math.max(0, extractedCount - remain.getCount());
-                    if (!remain.isEmpty()) {
+                    movedCount += Math.max(0, extractedCount - remain.stackSize);
+                    if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                         RtsTransferInserter.refundToLinked(insertHandlers, player, remain);
                         inventoryFull = true;
                         break outer;
@@ -390,13 +390,13 @@ public final class RtsTransferPlayerIntegration {
         if (movedCount > 0) {
             player.openContainer.detectAndSendChanges();
             ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
-            player.sendStatusMessage(
-                    new TextComponentString(inventoryFull
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player,
+                    new ChatComponentText(inventoryFull
                             ? "Moved " + movedCount + " items to inventory. Inventory is full."
                             : "Moved " + movedCount + " items to inventory."),
                     true);
         } else if (inventoryFull) {
-            player.sendStatusMessage(new TextComponentString("Inventory is full."), true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentText("Inventory is full."), true);
         }
     }
 
@@ -409,6 +409,6 @@ public final class RtsTransferPlayerIntegration {
     }
 
     private static boolean sameStackIdentity(ItemStack first, ItemStack second) {
-        return ItemStack.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
     }
 }

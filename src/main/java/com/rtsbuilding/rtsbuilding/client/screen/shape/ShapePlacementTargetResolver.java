@@ -1,20 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import net.minecraft.block.BlockSlab;
-import net.minecraft.block.BlockSnow;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemSlab;
 import net.minecraft.item.ItemSnow;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.item.ItemStack;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Objects;
 
 /**
  * 统一形状放置前的 Minecraft 目标位置解析。
@@ -120,11 +118,11 @@ public final class ShapePlacementTargetResolver {
             RayTraceResult hit,
             ItemStack placementStack) {
         if (minecraft == null
-                || minecraft.world == null
-                || minecraft.player == null
+                || minecraft.theWorld == null
+                || minecraft.thePlayer == null
                 || hit == null
                 || placementStack == null
-                || placementStack.isEmpty()) {
+                || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(placementStack)) {
             return null;
         }
         BlockPos clickedPos = hit.getBlockPos();
@@ -192,17 +190,17 @@ public final class ShapePlacementTargetResolver {
 
         private MinecraftPlacementWorld(Minecraft minecraft, ItemStack placementStack) {
             this.minecraft = minecraft;
-            this.placementStack = placementStack == null ? ItemStack.EMPTY : placementStack;
+            this.placementStack = placementStack == null ? null : placementStack;
         }
 
         @Override
         public boolean available() {
-            return this.minecraft != null && this.minecraft.world != null;
+            return this.minecraft != null && this.minecraft.theWorld != null;
         }
 
         @Override
         public boolean hasChunkAt(BlockPos pos) {
-            return available() && pos != null && this.minecraft.world.isBlockLoaded(pos);
+            return available() && pos != null && com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(this.minecraft.theWorld, pos);
         }
 
         @Override
@@ -210,50 +208,29 @@ public final class ShapePlacementTargetResolver {
             if (!hasChunkAt(pos) || face == null) {
                 return false;
             }
-            IBlockState state = this.minecraft.world.getBlockState(pos);
-            boolean blockReplaceable = state.getBlock().isReplaceable(this.minecraft.world, pos);
-            if (this.placementStack.isEmpty() || !(this.placementStack.getItem() instanceof ItemBlock)) {
+            BlockState state = BlockState.fromWorld(this.minecraft.theWorld, pos);
+            boolean blockReplaceable = state.getBlock().isReplaceable(
+                    this.minecraft.theWorld, pos.getX(), pos.getY(), pos.getZ());
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(this.placementStack) || !(this.placementStack.getItem() instanceof ItemBlock)) {
                 return blockReplaceable;
             }
 
             ItemBlock itemBlock = (ItemBlock) this.placementStack.getItem();
-            if (isMatchingSnowStack(state, itemBlock, face)) {
-                return true;
+            if ((itemBlock instanceof ItemSnow || itemBlock instanceof ItemSlab)
+                    && state.getBlock() == net.minecraft.block.Block.getBlockFromItem(itemBlock)
+                    && this.minecraft.thePlayer != null) {
+                return itemBlock.func_150936_a(
+                        this.minecraft.theWorld,
+                        pos.getX(), pos.getY(), pos.getZ(), face.getIndex(),
+                        this.minecraft.thePlayer, this.placementStack);
             }
-            if (isMatchingSlabMerge(state, itemBlock, face, this.placementStack)) {
-                return true;
-            }
-            if (!blockReplaceable || this.minecraft.player == null) {
+            if (!blockReplaceable || this.minecraft.thePlayer == null) {
                 return false;
             }
-            return itemBlock.canPlaceBlockOnSide(this.minecraft.world, pos, face,
-                    this.minecraft.player, this.placementStack);
-        }
-
-        /** 复现 ItemSnow#onItemUse 对多层雪的原位置堆叠规则，不执行任何世界修改。 */
-        private static boolean isMatchingSnowStack(IBlockState state, ItemBlock itemBlock,
-                EnumFacing face) {
-            if (!(itemBlock instanceof ItemSnow) || state.getBlock() != itemBlock.getBlock()) {
-                return false;
-            }
-            int layers = state.getValue(BlockSnow.LAYERS);
-            return layers < 8 && (face == EnumFacing.UP || layers == 1);
-        }
-
-        /** 1.12 的半砖合并语义位于 ItemSlab，而不在 Block#isReplaceable。 */
-        private static boolean isMatchingSlabMerge(IBlockState state, ItemBlock itemBlock,
-                EnumFacing face, ItemStack placementStack) {
-            if (!(itemBlock.getBlock() instanceof BlockSlab)
-                    || state.getBlock() != itemBlock.getBlock()) {
-                return false;
-            }
-            BlockSlab slab = (BlockSlab) itemBlock.getBlock();
-            boolean matchingVariant = Objects.equals(
-                    state.getValue(slab.getVariantProperty()), slab.getTypeForItem(placementStack));
-            if (!matchingVariant) return false;
-            BlockSlab.EnumBlockHalf half = state.getValue(BlockSlab.HALF);
-            return face == EnumFacing.UP && half == BlockSlab.EnumBlockHalf.BOTTOM
-                    || face == EnumFacing.DOWN && half == BlockSlab.EnumBlockHalf.TOP;
+            return itemBlock.func_150936_a(
+                    this.minecraft.theWorld,
+                    pos.getX(), pos.getY(), pos.getZ(), face.getIndex(),
+                    this.minecraft.thePlayer, this.placementStack);
         }
     }
 

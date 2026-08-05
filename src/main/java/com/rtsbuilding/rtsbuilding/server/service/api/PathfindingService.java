@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 /**
  * 寻路跟踪服务接口——追踪玩家在 RTS 模式下的移动目标。

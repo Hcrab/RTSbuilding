@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.nbt.CompressedStreamTools;
@@ -15,8 +15,8 @@ import net.minecraft.nbt.NBTTagInt;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
 import net.minecraft.world.World;
 
 import java.io.IOException;
@@ -85,8 +85,8 @@ public final class BlueprintWriters {
         BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
         for (int y = captureMinY; y <= maxY; y++) for (int z = minZ; z <= maxZ; z++) for (int x = minX; x <= maxX; x++) {
             cursor.setPos(x, y, z);
-            IBlockState state = world.getBlockState(cursor);
-            if (state.getBlock() == Blocks.AIR || state.getBlock() == Blocks.STRUCTURE_VOID) continue;
+            BlockState state = BlockState.fromWorld(world, cursor);
+            if (state.getBlock() == Blocks.air || state.getBlock() == Blocks.air) continue;
             blocks.add(new RtsBlueprintBlock(new BlockPos(x - minX, y - captureMinY, z - minZ), state,
                     captureBlockEntityTag(world, cursor), "", resolveMaterialItemId(state)));
             if (blocks.size() > maxCaptureBlocks()) {
@@ -149,34 +149,36 @@ public final class BlueprintWriters {
     }
 
     private static NBTTagCompound blockEntityTagCopy(RtsBlueprintBlock block) {
-        return block == null || block.blockEntityTag() == null ? new NBTTagCompound() : block.blockEntityTag().copy();
+        return block == null || block.blockEntityTag() == null ? new NBTTagCompound()
+                : com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(block.blockEntityTag());
     }
 
     private static NBTTagCompound captureBlockEntityTag(World world, BlockPos pos) {
-        TileEntity tile = world.getTileEntity(pos);
+        TileEntity tile = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(world, pos);
         if (tile == null) return new NBTTagCompound();
         try {
-            NBTTagCompound tag = tile.writeToNBT(new NBTTagCompound());
+            NBTTagCompound tag = new NBTTagCompound();
+            tile.writeToNBT(tag);
             tag.removeTag("x"); tag.removeTag("y"); tag.removeTag("z");
             return tag;
         } catch (RuntimeException ignored) { return new NBTTagCompound(); }
     }
 
-    private static String resolveMaterialItemId(IBlockState state) {
+    private static String resolveMaterialItemId(BlockState state) {
         Item item = BlueprintMaterialResolver.materialItem(state);
-        ResourceLocation id = Item.REGISTRY.getNameForObject(item);
+        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(item);
         return id == null ? "" : id.toString();
     }
 
     private static final class PaletteKey {
-        private final IBlockState state;
+        private final BlockState state;
         private final String missingBlockId;
-        private PaletteKey(IBlockState state, String missingBlockId) {
+        private PaletteKey(BlockState state, String missingBlockId) {
             this.state = state;
             this.missingBlockId = missingBlockId == null ? "" : missingBlockId;
         }
         static PaletteKey of(RtsBlueprintBlock block) {
-            return block.isMissingBlock() ? new PaletteKey(Blocks.AIR.getDefaultState(), block.missingBlockId())
+            return block.isMissingBlock() ? new PaletteKey(BlockState.defaultState(Blocks.air), block.missingBlockId())
                     : new PaletteKey(block.state(), "");
         }
         @Override public boolean equals(Object obj) {

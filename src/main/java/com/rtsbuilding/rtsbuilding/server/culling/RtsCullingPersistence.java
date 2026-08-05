@@ -6,8 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTTagLong;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraftforge.common.util.Constants;
 
 import java.util.ArrayList;
@@ -57,11 +56,12 @@ public final class RtsCullingPersistence {
                     BlockPos.fromLong(tag.getLong(NBT_MAX))));
         }
 
-        NBTTagList revealedTags = dimension.getTagList(NBT_REVEALED, Constants.NBT.TAG_LONG);
+        long[] revealedTags = com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat
+                .getLongArray(dimension, NBT_REVEALED);
         List<BlockPos> revealed = new ArrayList<BlockPos>(
-                Math.min(MAX_REVEALED_BLOCKS, revealedTags.tagCount()));
-        for (int index = 0; index < revealedTags.tagCount() && revealed.size() < MAX_REVEALED_BLOCKS; index++) {
-            revealed.add(BlockPos.fromLong(((NBTTagLong) revealedTags.get(index)).getLong()));
+                Math.min(MAX_REVEALED_BLOCKS, revealedTags.length));
+        for (int index = 0; index < revealedTags.length && revealed.size() < MAX_REVEALED_BLOCKS; index++) {
+            revealed.add(BlockPos.fromLong(revealedTags[index]));
         }
         return new State(boxes, revealed);
     }
@@ -70,7 +70,8 @@ public final class RtsCullingPersistence {
         if (player == null) {
             return;
         }
-        NBTTagCompound root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.CULLING).copy();
+        NBTTagCompound root = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(
+                SaveScheduler.INSTANCE.player(player).get(PlayerComponents.CULLING));
         encode(root, dimensionKey(player), boxes, revealed);
         SaveScheduler.INSTANCE.player(player).set(PlayerComponents.CULLING, root);
     }
@@ -103,15 +104,17 @@ public final class RtsCullingPersistence {
                 if (pos != null && revealedCount < MAX_REVEALED_BLOCKS) revealedCount++;
             }
         }
-        NBTTagList revealedTags = new NBTTagList();
+        long[] revealedTags = new long[revealedCount];
+        int revealedIndex = 0;
         if (revealed != null) {
             for (BlockPos pos : revealed) {
-                if (pos != null && revealedTags.tagCount() < revealedCount) {
-                    revealedTags.appendTag(new NBTTagLong(pos.toLong()));
+                if (pos != null && revealedIndex < revealedCount) {
+                    revealedTags[revealedIndex++] = pos.toLong();
                 }
             }
         }
-        dimension.setTag(NBT_REVEALED, revealedTags);
+        com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat.setLongArray(
+                dimension, NBT_REVEALED, revealedTags);
         dimensions.setTag(dimensionKey, dimension);
         root.setTag(NBT_DIMENSIONS, dimensions);
     }

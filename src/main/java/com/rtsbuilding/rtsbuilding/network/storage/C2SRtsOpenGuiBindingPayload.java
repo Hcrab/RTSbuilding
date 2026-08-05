@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import com.rtsbuilding.rtsbuilding.network.RtsTracedPayload;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 /** 打开当前玩家的指定 GUI 绑定槽位。 */
 public final class C2SRtsOpenGuiBindingPayload implements IMessage, RtsTracedPayload {
     public static final int SLOT_COUNT = 8;

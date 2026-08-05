@@ -1,14 +1,20 @@
 package com.rtsbuilding.rtsbuilding.common;
 
 import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 
 /** Forge 1.12.2 的 RTSBuilding 创造栏。创造栏不是注册表对象，由静态实例直接声明。 */
 public final class RtsCreativeTabs {
     public static final CreativeTabs RTSBUILDING_TAB = new CreativeTabs("rtsbuilding") {
         @Override
-        public ItemStack createIcon() {
-            return new ItemStack(RtsItems.RTS_CONTROL_CORE.get());
+        public Item getTabIconItem() {
+            return RtsItems.RTS_CONTROL_CORE.get();
+        }
+
+        @Override
+        public ItemStack getIconItemStack() {
+            return new ItemStack(getTabIconItem());
         }
     };
 

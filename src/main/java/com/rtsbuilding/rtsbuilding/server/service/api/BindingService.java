@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 /**
  * 存储绑定服务接口——管理玩家链接存储、快捷槽、GUI 绑定和建造模式切换等绑定操作。

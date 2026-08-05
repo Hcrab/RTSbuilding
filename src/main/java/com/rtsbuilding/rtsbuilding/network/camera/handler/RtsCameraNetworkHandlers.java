@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.network.camera.handler;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -23,8 +23,8 @@ public final class RtsCameraNetworkHandlers {
     public static final class ToggleHandler implements IMessageHandler<C2SRtsToggleCameraPayload, IMessage> {
         @Override
         public IMessage onMessage(final C2SRtsToggleCameraPayload message, MessageContext context) {
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override
                 public void run() {
                     invokeManager("toggle", new Class<?>[]{EntityPlayerMP.class, boolean.class},
@@ -41,8 +41,8 @@ public final class RtsCameraNetworkHandlers {
             if (!message.isValid()) {
                 return null;
             }
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override
                 public void run() {
                     invokeManager("move", new Class<?>[]{EntityPlayerMP.class, float.class, float.class, float.class,

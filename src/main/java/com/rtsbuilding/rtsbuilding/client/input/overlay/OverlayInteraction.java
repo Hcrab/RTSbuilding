@@ -22,14 +22,13 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.client.gui.inventory.GuiCrafting;
 import net.minecraft.client.gui.inventory.GuiInventory;
-import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.MathHelper;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 import org.lwjgl.input.Mouse;
 
 import java.util.ArrayList;
@@ -129,18 +128,18 @@ public final class OverlayInteraction {
             return false;
         }
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.player == null) {
+        if (minecraft.thePlayer == null) {
             return false;
         }
         StorageEntry entry = ClientRtsController.get().getStorageEntries().get(index);
-        ItemStack carried = minecraft.player.inventory.getItemStack();
+        ItemStack carried = minecraft.thePlayer.inventory.getItemStack();
         int wanted = requestedFromCarried(carried, entry.stack(), requestedAmount);
         if (wanted <= 0) {
             return false;
         }
         applyLocalCarriedPreview(entry.stack(), wanted);
         ItemStack request = entry.stack().copy();
-        request.setCount(1);
+        request.stackSize = 1;
         RtsPayloadRegistrar.sendToServer(new C2SRtsLinkedPickupPayload(request, wanted));
         RtsbuildingMod.LOGGER.info(
                 "[RTS-OVERLAY] side=C event=TRANSFER_SENT action=PICKUP item={} amount={} index={}",
@@ -152,30 +151,30 @@ public final class OverlayInteraction {
 
     public static boolean tryDepositCarriedToLinked(int requestedAmount) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.player == null) {
+        if (minecraft.thePlayer == null) {
             return false;
         }
-        ItemStack carried = minecraft.player.inventory.getItemStack();
-        if (carried.isEmpty()) {
+        ItemStack carried = minecraft.thePlayer.inventory.getItemStack();
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
             return false;
         }
-        ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(carried.getItem());
+        ResourceLocation itemId = RtsRegistries.ITEMS.getKey(carried.getItem());
         if (itemId == null) {
             return false;
         }
-        int amount = Math.max(1, Math.min(requestedAmount, carried.getCount()));
+        int amount = Math.max(1, Math.min(requestedAmount, carried.stackSize));
         RtsPayloadRegistrar.sendToServer(new C2SRtsReturnCarriedPayload(itemId.toString(), amount));
         RtsbuildingMod.LOGGER.info(
                 "[RTS-OVERLAY] side=C event=TRANSFER_SENT action=DEPOSIT item={} amount={}",
                 itemId, amount);
         ItemStack preview = carried.copy();
-        preview.setCount(amount);
+        preview.stackSize = amount;
         enqueueReturnPreview(preview);
-        carried.shrink(amount);
-        if (carried.isEmpty()) {
-            minecraft.player.inventory.setItemStack(ItemStack.EMPTY);
+        com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(carried, amount);
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
+            minecraft.thePlayer.inventory.setItemStack(null);
         } else {
-            minecraft.player.inventory.setItemStack(carried);
+            minecraft.thePlayer.inventory.setItemStack(carried);
         }
         pendingOverlayCarriedItemId = "";
         return true;
@@ -183,37 +182,37 @@ public final class OverlayInteraction {
 
     public static int requestedFromCarried(ItemStack carried, ItemStack target, int requestedAmount) {
         int requested = requestedAmount <= 0 ? 1 : requestedAmount;
-        if (carried.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
             return Math.min(requested, target.getMaxStackSize());
         }
         if (!sameItemAndTags(carried, target)) {
             return 0;
         }
-        return Math.min(requested, carried.getMaxStackSize() - carried.getCount());
+        return Math.min(requested, carried.getMaxStackSize() - carried.stackSize);
     }
 
     public static void applyLocalCarriedPreview(ItemStack pickedPrototype, int requested) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.player == null || pickedPrototype.isEmpty()) {
+        if (minecraft.thePlayer == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(pickedPrototype)) {
             return;
         }
-        ItemStack carried = minecraft.player.inventory.getItemStack();
+        ItemStack carried = minecraft.thePlayer.inventory.getItemStack();
         int wanted = Math.max(1, requested);
-        if (carried.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
             ItemStack preview = pickedPrototype.copy();
-            preview.setCount(Math.min(wanted, preview.getMaxStackSize()));
-            minecraft.player.inventory.setItemStack(preview);
+            preview.stackSize = Math.min(wanted, preview.getMaxStackSize());
+            minecraft.thePlayer.inventory.setItemStack(preview);
             return;
         }
         if (!sameItemAndTags(carried, pickedPrototype)) {
             return;
         }
-        int grow = Math.min(wanted, carried.getMaxStackSize() - carried.getCount());
+        int grow = Math.min(wanted, carried.getMaxStackSize() - carried.stackSize);
         if (grow <= 0) {
             return;
         }
-        carried.grow(grow);
-        minecraft.player.inventory.setItemStack(carried);
+        com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(carried, grow);
+        minecraft.thePlayer.inventory.setItemStack(carried);
     }
 
     // =========================================================================
@@ -224,14 +223,17 @@ public final class OverlayInteraction {
         if (screen == null || screen.inventorySlots == null) {
             return -1;
         }
-        Slot hovered = screen.getSlotUnderMouse();
+        Slot hovered = com.rtsbuilding.rtsbuilding.platform.client.GuiContainerCompat
+                .slotAt(screen, mouseX, mouseY);
         if (hovered != null && hovered.getHasStack()) {
             return screen.inventorySlots.inventorySlots.indexOf(hovered);
         }
         for (int i = 0; i < screen.inventorySlots.inventorySlots.size(); i++) {
             Slot slot = screen.inventorySlots.inventorySlots.get(i);
-            int sx = screen.getGuiLeft() + slot.xPos;
-            int sy = screen.getGuiTop() + slot.yPos;
+            int sx = com.rtsbuilding.rtsbuilding.platform.client.GuiContainerCompat.guiLeft(screen)
+                    + slot.xDisplayPosition;
+            int sy = com.rtsbuilding.rtsbuilding.platform.client.GuiContainerCompat.guiTop(screen)
+                    + slot.yDisplayPosition;
             if (inside(mouseX, mouseY, sx, sy, SLOT_SIZE, SLOT_SIZE) && slot.getHasStack()) {
                 return i;
             }
@@ -287,16 +289,16 @@ public final class OverlayInteraction {
 
     public static boolean canDragImportMenuSlot(GuiContainer screen, int menuSlot) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (!canImportMenuSlot(screen, menuSlot) || minecraft.player == null || screen == null || screen.inventorySlots == null) {
+        if (!canImportMenuSlot(screen, menuSlot) || minecraft.thePlayer == null || screen == null || screen.inventorySlots == null) {
             return false;
         }
         Slot slot = screen.inventorySlots.inventorySlots.get(menuSlot);
-        return isPlayerInventorySlot(slot, minecraft.player);
+        return isPlayerInventorySlot(slot, minecraft.thePlayer);
     }
 
     public static boolean canImportMenuSlot(GuiContainer screen, int menuSlot) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.player == null || screen == null || screen.inventorySlots == null
+        if (minecraft.thePlayer == null || screen == null || screen.inventorySlots == null
                 || menuSlot < 0 || menuSlot >= screen.inventorySlots.inventorySlots.size()) {
             return false;
         }
@@ -304,10 +306,10 @@ public final class OverlayInteraction {
             return false;
         }
         Slot slot = screen.inventorySlots.inventorySlots.get(menuSlot);
-        if (slot == null || !slot.getHasStack() || !slot.canTakeStack(minecraft.player)) {
+        if (slot == null || !slot.getHasStack() || !slot.canTakeStack(minecraft.thePlayer)) {
             return false;
         }
-        return !isPlayerInventorySlot(slot, minecraft.player) || isInventoryOrGuiCrafting(screen);
+        return !isPlayerInventorySlot(slot, minecraft.thePlayer) || isInventoryOrGuiCrafting(screen);
     }
 
     public static void endShiftImportDrag() {
@@ -326,9 +328,9 @@ public final class OverlayInteraction {
 
     private static boolean isLocalSophisticatedMenu(GuiContainer screen) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        return minecraft.player != null
+        return minecraft.thePlayer != null
                 && screen != null
-                && RtsRemoteMenuCompat.isLocalSophisticatedMenu(screen.inventorySlots, minecraft.player);
+                && RtsRemoteMenuCompat.isLocalSophisticatedMenu(screen.inventorySlots, minecraft.thePlayer);
     }
 
     // =========================================================================
@@ -337,7 +339,7 @@ public final class OverlayInteraction {
 
     public static boolean tryQuickMoveOverlayEntry(GuiContainer screen, double mouseX, double mouseY) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.player == null || !minecraft.player.inventory.getItemStack().isEmpty()) {
+        if (minecraft.thePlayer == null || !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(minecraft.thePlayer.inventory.getItemStack())) {
             return false;
         }
         OverlayLayoutHelper.OverlayLayout layout = OverlayLayoutHelper.resolveOverlayLayout(screen);
@@ -346,11 +348,11 @@ public final class OverlayInteraction {
             return false;
         }
         StorageEntry entry = ClientRtsController.get().getStorageEntries().get(idx);
-        if (entry == null || entry.stack().isEmpty()) {
+        if (entry == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entry.stack())) {
             return false;
         }
         ItemStack request = entry.stack().copy();
-        request.setCount(1);
+        request.stackSize = 1;
         RtsPayloadRegistrar.sendToServer(new C2SRtsLinkedQuickMovePayload(request));
         RtsbuildingMod.LOGGER.info(
                 "[RTS-OVERLAY] side=C event=TRANSFER_SENT action=QUICK_MOVE item={} index={}",
@@ -383,17 +385,17 @@ public final class OverlayInteraction {
         List<ItemStack> blueprint = new ArrayList<>(9);
         for (int i = 0; i < 9; i++) {
             Slot slot = menu.getSlot(1 + i);
-            ItemStack stack = slot == null ? ItemStack.EMPTY : slot.getStack();
-            blueprint.add(stack.isEmpty() ? ItemStack.EMPTY : copyOne(stack));
+            ItemStack stack = slot == null ? null : slot.getStack();
+            blueprint.add(com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? null : copyOne(stack));
         }
         Slot resultSlot = menu.getSlot(0);
-        ItemStack result = resultSlot == null ? ItemStack.EMPTY : resultSlot.getStack();
-        ResourceLocation resultId = result.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(result.getItem());
+        ItemStack result = resultSlot == null ? null : resultSlot.getStack();
+        ResourceLocation resultId = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(result) ? null : RtsRegistries.ITEMS.getKey(result.getItem());
         pendingCraftRefillScreen = screen;
         pendingCraftRefillButton = button;
         pendingCraftRefillBlueprint = blueprint;
         pendingCraftResultItemId = resultId == null ? "" : resultId.toString();
-        pendingCraftResultCount = result.isEmpty() ? 0 : result.getCount();
+        pendingCraftResultCount = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(result) ? 0 : result.stackSize;
     }
 
     public static void trySendPendingCraftRefill(GuiScreen screen, int button) {
@@ -426,7 +428,7 @@ public final class OverlayInteraction {
         pruneReturnQueue();
         int slot = -1;
         for (int i = 0; i < RETURN_SLOTS; i++) {
-            if (RETURN_QUEUE[i].isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(RETURN_QUEUE[i])) {
                 slot = i;
                 break;
             }
@@ -445,20 +447,20 @@ public final class OverlayInteraction {
     public static void pruneReturnQueue() {
         long now = System.currentTimeMillis();
         for (int i = 0; i < RETURN_SLOTS; i++) {
-            if (!RETURN_QUEUE[i].isEmpty() && now >= RETURN_QUEUE_EXPIRY[i]) {
-                RETURN_QUEUE[i] = ItemStack.EMPTY;
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(RETURN_QUEUE[i]) && now >= RETURN_QUEUE_EXPIRY[i]) {
+                RETURN_QUEUE[i] = null;
                 RETURN_QUEUE_EXPIRY[i] = 0L;
             }
         }
         int write = 0;
         for (int read = 0; read < RETURN_SLOTS; read++) {
-            if (RETURN_QUEUE[read].isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(RETURN_QUEUE[read])) {
                 continue;
             }
             if (write != read) {
                 RETURN_QUEUE[write] = RETURN_QUEUE[read];
                 RETURN_QUEUE_EXPIRY[write] = RETURN_QUEUE_EXPIRY[read];
-                RETURN_QUEUE[read] = ItemStack.EMPTY;
+                RETURN_QUEUE[read] = null;
                 RETURN_QUEUE_EXPIRY[read] = 0L;
             }
             write++;
@@ -600,12 +602,12 @@ public final class OverlayInteraction {
     }
 
     private static boolean sameItemAndTags(ItemStack left, ItemStack right) {
-        return ItemStack.areItemsEqual(left, right) && ItemStack.areItemStackTagsEqual(left, right);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(left, right) && ItemStack.areItemStackTagsEqual(left, right);
     }
 
     private static ItemStack copyOne(ItemStack stack) {
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 }

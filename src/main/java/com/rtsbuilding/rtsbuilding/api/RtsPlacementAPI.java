@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.api;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.List;
 
@@ -18,7 +18,7 @@ public interface RtsPlacementAPI {
      * 放置单个选中的方块。
      *
      * @param player           执行玩家
-     * @param clickedPos       点击的方块坐标（net.minecraft.util.math.BlockPos）
+     * @param clickedPos       点击的方块坐标（com.rtsbuilding.rtsbuilding.platform.math.BlockPos）
      * @param face             点击的面
      * @param hitX             X 命中坐标
      * @param hitY             Y 命中坐标

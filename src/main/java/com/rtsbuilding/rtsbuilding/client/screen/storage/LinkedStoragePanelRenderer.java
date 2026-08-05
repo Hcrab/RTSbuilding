@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.StorageWindowStyle;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.ChatComponentTranslation;
 
 /**
  * 绑定储存共享 chrome 到 Minecraft 文本、ItemStack 与本地化字形的薄适配层。
@@ -99,7 +99,7 @@ final class LinkedStoragePanelRenderer {
                 mouseY);
 
         ItemStack preview = platformEntry.preview();
-        if (preview != null && !preview.isEmpty()) {
+        if (preview != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
             graphics.renderItem(
                     preview,
                     (int) geometry.icon.getX(),
@@ -193,6 +193,6 @@ final class LinkedStoragePanelRenderer {
     }
 
     private static String translate(String key, Object... args) {
-        return new TextComponentTranslation(key, args).getFormattedText();
+        return new ChatComponentTranslation(key, args).getFormattedText();
     }
 }

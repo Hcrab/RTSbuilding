@@ -4,8 +4,8 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 
 import java.util.List;
 import java.util.function.Function;
@@ -88,11 +88,11 @@ public final class ShapeConfirmedDestroyWorkArea {
             return false;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.world == null) {
+        if (mc == null || mc.theWorld == null) {
             return true;
         }
-        IBlockState state = mc.world.getBlockState(pos);
-        return !state.getBlock().isAir(state, mc.world, pos)
+        BlockState state = BlockState.fromWorld(mc.theWorld, pos);
+        return !state.getBlock().isAir(mc.theWorld, pos.getX(), pos.getY(), pos.getZ())
                 && !state.getMaterial().isLiquid();
     }
 

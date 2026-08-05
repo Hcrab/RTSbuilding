@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.record;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.Objects;
 

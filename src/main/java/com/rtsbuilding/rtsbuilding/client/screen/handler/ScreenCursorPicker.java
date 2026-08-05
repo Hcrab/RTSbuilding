@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.handler;
 
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingRayClipper;
@@ -13,11 +15,11 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.rule.BlueprintReplaceRules;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 
 import java.util.List;
 
@@ -43,7 +45,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.world == null || mc.getRenderViewEntity() == null) {
+        if (mc == null || mc.theWorld == null || mc.renderViewEntity == null) {
             return null;
         }
         Vec3d camPos = cameraPosition(mc);
@@ -87,7 +89,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.world == null || mc.player == null || mc.getRenderViewEntity() == null) {
+        if (mc == null || mc.theWorld == null || mc.thePlayer == null || mc.renderViewEntity == null) {
             return null;
         }
         Vec3d camPos = cameraPosition(mc);
@@ -113,7 +115,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.world == null || mc.getRenderViewEntity() == null) {
+        if (mc == null || mc.theWorld == null || mc.renderViewEntity == null) {
             return null;
         }
         Vec3d camPos = cameraPosition(mc);
@@ -130,7 +132,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.world == null || mc.getRenderViewEntity() == null) {
+        if (mc == null || mc.theWorld == null || mc.renderViewEntity == null) {
             return null;
         }
         Vec3d camPos = cameraPosition(mc);
@@ -156,12 +158,12 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             return null;
         }
         Minecraft mc = this.screen.getMinecraft();
-        if (hit == null || mc == null || mc.world == null) {
+        if (hit == null || mc == null || mc.theWorld == null) {
             return null;
         }
         BlockPos clicked = hit.getBlockPos();
         // Blueprint dragging should keep the building center vertically above the cursor target.
-        return BlueprintReplaceRules.canBlueprintReplace(mc.world.getBlockState(clicked))
+        return BlueprintReplaceRules.canBlueprintReplace(BlockState.fromWorld(mc.theWorld, clicked))
                 ? clicked
                 : clicked.up();
     }
@@ -198,7 +200,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             boolean respectRangeCulling) {
         if (!respectRangeCulling) {
             Vec3d normalizedDir = dir.normalize();
-            RayTraceResult raw = mc.world.rayTraceBlocks(camPos,
+            RayTraceResult raw = RayTraceResult.trace(mc.theWorld, camPos,
                     camPos.add(normalizedDir.scale(BLOCK_RAY_DISTANCE)), includeFluidSource, false, false);
             return raw != null && raw.typeOfHit == RayTraceResult.Type.BLOCK ? raw : null;
         }
@@ -206,7 +208,8 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
                 camPos,
                 dir,
                 BLOCK_RAY_DISTANCE,
-                (start, end) -> mc.world.rayTraceBlocks(start, end, includeFluidSource, false, false),
+                (start, end) -> RayTraceResult.trace(
+                        mc.theWorld, start, end, includeFluidSource, false, false),
                 new RtsCullingRayClipper.CullingQuery() {
                     @Override
                     public boolean shouldCull(BlockPos pos) {
@@ -222,19 +225,19 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
 
     private RayTraceResult pickEntityHit(Vec3d camPos, Vec3d to, Vec3d dir) {
         Minecraft mc = this.screen.getMinecraft();
-        Entity cameraEntity = mc != null ? mc.getRenderViewEntity() : null;
-        if (cameraEntity == null || mc == null || mc.player == null) {
+        Entity cameraEntity = mc != null ? mc.renderViewEntity : null;
+        if (cameraEntity == null || mc == null || mc.thePlayer == null) {
             return null;
         }
-        AxisAlignedBB search = cameraEntity.getEntityBoundingBox().expand(
+        AxisAlignedBB search = com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(cameraEntity.boundingBox).expand(
                 dir.x * BLOCK_RAY_DISTANCE, dir.y * BLOCK_RAY_DISTANCE, dir.z * BLOCK_RAY_DISTANCE).grow(1.0D);
-        List<Entity> candidates = mc.world.getEntitiesWithinAABBExcludingEntity(cameraEntity, search);
+        List<Entity> candidates = mc.theWorld.getEntitiesWithinAABBExcludingEntity(cameraEntity, search);
         Entity closest = null;
         Vec3d closestHit = null;
         double closestDistance = BLOCK_RAY_DISTANCE * BLOCK_RAY_DISTANCE;
         for (Entity entity : candidates) {
-            if (entity == null || entity == mc.player || !entity.isEntityAlive() || !entity.canBeCollidedWith()) continue;
-            AxisAlignedBB bounds = entity.getEntityBoundingBox().grow(entity.getCollisionBorderSize());
+            if (entity == null || entity == mc.thePlayer || !entity.isEntityAlive() || !entity.canBeCollidedWith()) continue;
+            AxisAlignedBB bounds = com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(entity.boundingBox).grow(entity.getCollisionBorderSize());
             RayTraceResult intercept = bounds.calculateIntercept(camPos, to);
             if (bounds.contains(camPos)) {
                 if (closestDistance >= 0.0D) { closest = entity; closestHit = camPos; closestDistance = 0.0D; }
@@ -279,13 +282,14 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
 
     private RayTraceResult tryCreateBlueprintAirHit() {
         Minecraft mc = this.screen.getMinecraft();
-        if (mc == null || mc.world == null || mc.player == null
-                || mc.getRenderViewEntity() == null) {
+        if (mc == null || mc.theWorld == null || mc.thePlayer == null
+                || mc.renderViewEntity == null) {
             return null;
         }
         Vec3d camPos = cameraPosition(mc);
         Vec3d dir = computeCursorRayDirection();
-        double planeY = mc.player.getPosition().getY();
+        double planeY = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat
+                .blockPosition(mc.thePlayer).getY();
         double t = Math.abs(dir.y) < 1.0E-5D
                 ? BLUEPRINT_AIR_FALLBACK_DISTANCE
                 : (planeY - camPos.y) / dir.y;
@@ -333,7 +337,7 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
 
     private Vec3d resolveAirShapePlaneAnchor(EnumFacing face) {
         Minecraft mc = this.screen.getMinecraft();
-        if (face == null || mc == null || mc.player == null) {
+        if (face == null || mc == null || mc.thePlayer == null) {
             return null;
         }
         if (this.shapeController.getShapeBuildSession() != null) {
@@ -344,7 +348,8 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
                 return centerOf(this.shapeController.getShapeBuildSession().pointB());
             }
         }
-        return centerOf(mc.player.getPosition());
+        return centerOf(com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat
+                .blockPosition(mc.thePlayer));
     }
 
     private static Vec3d cameraPosition(Minecraft mc) {

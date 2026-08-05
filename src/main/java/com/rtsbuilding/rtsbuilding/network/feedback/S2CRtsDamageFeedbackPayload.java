@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.feedback;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 服务端下发的受伤反馈；数值只用于客户端视觉和声音强度。 */
 public final class S2CRtsDamageFeedbackPayload implements IMessage {

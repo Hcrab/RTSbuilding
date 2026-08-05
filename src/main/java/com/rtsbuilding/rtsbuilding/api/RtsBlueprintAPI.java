@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.api;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraftforge.fluids.Fluid;
 
 /**
@@ -64,7 +64,7 @@ public interface RtsBlueprintAPI {
      * 通知蓝图系统已放置一个方块（更新最近条目和声音）。
      *
      * @param player  执行放置的玩家
-     * @param pos     放置位置（使用 net.minecraft.util.math.BlockPos）
+     * @param pos     放置位置（使用 com.rtsbuilding.rtsbuilding.platform.math.BlockPos）
      * @param itemId  放置的物品 ID
      */
     void noteBlockPlaced(EntityPlayerMP player, BlockPos pos, String itemId);

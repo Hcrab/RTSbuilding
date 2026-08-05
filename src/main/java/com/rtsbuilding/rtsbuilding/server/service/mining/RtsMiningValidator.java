@@ -11,13 +11,13 @@ import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsPlacedRecoveryService;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.World;
 
 /**
@@ -116,10 +116,10 @@ public final class RtsMiningValidator {
      * 与旧代码不同，<b>含水方块是允许的</b>——仅排除纯流体
      * （方块本身实际上为空气的状态）。
      */
-    public static boolean isBreakableBlock(IBlockState state) {
+    public static boolean isBreakableBlock(BlockState state) {
         // 先检查 isAir——这也能捕获纯流体，因为
         // FluidState.isAir() 与 BlockState.isAir() 不同。
-        if (state == null || state.getBlock() == Blocks.AIR) {
+        if (state == null || state.getBlock() == Blocks.air) {
             return false;
         }
         // 注意：我们不在此处检查 state.getFluidState().isEmpty()。
@@ -133,16 +133,19 @@ public final class RtsMiningValidator {
      * 如果方块具有正的破坏速度，返回 {@code true}。
      * 不可破坏的方块（基岩、末地传送门框架等）返回 false。
      */
-    public static boolean hasValidDestroySpeed(IBlockState state, World level, BlockPos pos) {
+    public static boolean hasValidDestroySpeed(BlockState state, World level, BlockPos pos) {
         return state.getBlockHardness(level, pos) >= 0.0F;
     }
 
     /**
      * 实际工具保护：需要正确工具掉落的方块，必须由当前真正参与挖掘的工具正确采集。
      */
-    public static boolean canHarvestWithTool(IBlockState state, ItemStack tool, boolean creative) {
+    public static boolean canHarvestWithTool(BlockState state, ItemStack tool, boolean creative) {
         return creative || state == null || RtsMiningRules.requiredLevel(state) <= 0
-                || (tool != null && !tool.isEmpty() && tool.canHarvestBlock(state));
+                || (tool != null
+                && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(tool)
+                && net.minecraftforge.common.ForgeHooks.canToolHarvestBlock(
+                        state.getBlock(), state.getMetadata(), tool));
     }
 
     /**
@@ -152,7 +155,7 @@ public final class RtsMiningValidator {
      * 若直接使用 {@link #canHarvestWithTool}，拿着镐选中雪层时，连锁收集会在种子
      * 方块处得到零目标。这里仅放宽 0 级方块；石头及更高等级方块仍然要求真实工具。</p>
      */
-    private static boolean canUltimineWithTool(IBlockState state, ItemStack tool, boolean creative) {
+    private static boolean canUltimineWithTool(BlockState state, ItemStack tool, boolean creative) {
         return creative
                 || RtsMiningRules.requiredLevel(state) <= 0
                 || canHarvestWithTool(state, tool, false);
@@ -180,7 +183,7 @@ public final class RtsMiningValidator {
     }
 
     public static boolean canRangeMineWithTool(
-            IBlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
+            BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
         return canRangeMineRequiredLevel(
                 canHarvestWithTool(state, tool, creative),
                 creative,
@@ -207,7 +210,7 @@ public final class RtsMiningValidator {
      * 它们分别由工具检查、创造绕过和功能门提示负责。</p>
      */
     public static boolean isBlockedByRangeMiningHarvestTier(
-            IBlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
+            BlockState state, ItemStack tool, boolean creative, int maxRequiredLevel) {
         return isBlockedByRangeMiningHarvestTier(
                 canHarvestWithTool(state, tool, false),
                 creative,
@@ -224,16 +227,16 @@ public final class RtsMiningValidator {
 
     public static ItemStack resolveMiningTool(
             EntityPlayerMP player, int toolSlot, ItemStack linkedTool) {
-        if (linkedTool != null && !linkedTool.isEmpty()) {
+        if (linkedTool != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(linkedTool)) {
             return linkedTool;
         }
         if (player == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         int slot = clampHotbarSlot(toolSlot);
         return slot < player.inventory.getSizeInventory()
                 ? player.inventory.getStackInSlot(slot)
-                : ItemStack.EMPTY;
+                : null;
     }
 
     // =========================================================================
@@ -256,8 +259,8 @@ public final class RtsMiningValidator {
     public static boolean isUltimineCandidate(
             EntityPlayerMP player,
             BlockPos pos,
-            IBlockState state,
-            IBlockState seedState,
+            BlockState state,
+            BlockState seedState,
             int toolSlot,
             ItemStack linkedTool,
             boolean selectedToolRequested,
@@ -278,15 +281,15 @@ public final class RtsMiningValidator {
         if (creative) {
             return true;
         }
-        if (!hasValidDestroySpeed(state, player.getServerWorld(), pos)) {
+        if (!hasValidDestroySpeed(state, player.getServerForPlayer(), pos)) {
             return false;
         }
         ItemStack actualTool = resolveMiningTool(player, toolSlot, linkedTool);
         if (!canUltimineWithTool(state, actualTool, false)) {
             return false;
         }
-        float seedDestroySpeed = seedState.getBlockHardness(player.getServerWorld(), pos);
-        float candidateDestroySpeed = state.getBlockHardness(player.getServerWorld(), pos);
+        float seedDestroySpeed = seedState.getBlockHardness(player.getServerForPlayer(), pos);
+        float candidateDestroySpeed = state.getBlockHardness(player.getServerForPlayer(), pos);
         if (seedDestroySpeed >= 0.0F && candidateDestroySpeed > seedDestroySpeed * 1.5F) {
             return false;
         }
@@ -332,7 +335,7 @@ public final class RtsMiningValidator {
             return false;
         }
         ItemStack tool = activeMiningTool(player, session, toolSlot);
-        if (tool.isEmpty() || !tool.isItemStackDamageable()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(tool) || !tool.isItemStackDamageable()) {
             return false;
         }
         int maxDamage = tool.getMaxDamage();
@@ -350,7 +353,7 @@ public final class RtsMiningValidator {
      */
     public static ItemStack activeMiningTool(EntityPlayerMP player, RtsStorageSession session) {
         if (session == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         return activeMiningTool(player, session, session.mining.miningToolSlot);
     }
@@ -361,17 +364,17 @@ public final class RtsMiningValidator {
      */
     public static ItemStack activeMiningTool(EntityPlayerMP player, RtsStorageSession session, int toolSlot) {
         if (session == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
             return session.mining.miningToolLease.stack();
         }
         if (player == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         int slot = clampHotbarSlot(toolSlot);
         if (slot < 0 || slot >= player.inventory.getSizeInventory()) {
-            return ItemStack.EMPTY;
+            return null;
         }
         return player.inventory.getStackInSlot(slot);
     }
@@ -384,7 +387,7 @@ public final class RtsMiningValidator {
         return toolItemId != null
                 && !toolItemId.trim().isEmpty()
                 && toolPrototype != null
-                && !toolPrototype.isEmpty()
+                && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(toolPrototype)
                 && !(toolPrototype.getItem() instanceof ItemBlock)
                 && !RtsPluginService.isPluginItem(toolPrototype);
     }
@@ -417,12 +420,12 @@ public final class RtsMiningValidator {
         if (!RtsClaimProtectionService.canBreakBlock(player, seed, EnumFacing.DOWN)) {
             return new java.util.ArrayDeque<BlockPos>();
         }
-        IBlockState seedState = player.getServerWorld().getBlockState(seed);
+        BlockState seedState = BlockState.fromWorld(player.getServerForPlayer(), seed);
         if (!isBreakableBlock(seedState)) {
             return new java.util.ArrayDeque<BlockPos>();
         }
         if (!creative) {
-            if (!hasValidDestroySpeed(seedState, player.getServerWorld(), seed)) {
+            if (!hasValidDestroySpeed(seedState, player.getServerForPlayer(), seed)) {
                 return new java.util.ArrayDeque<BlockPos>();
             }
             // 连锁收集阶段只验证种子块能开挖；后续候选的工具判定留给批处理，
@@ -438,7 +441,7 @@ public final class RtsMiningValidator {
         }
 
         java.util.List<BlockPos> targets = RtsUltimineCollector.collect(
-                player.getServerWorld(),
+                player.getServerForPlayer(),
                 seed,
                 limit,
                 (candidatePos, state, seedBlockState) -> isUltimineCandidate(
@@ -463,11 +466,11 @@ public final class RtsMiningValidator {
      * 返回 {@code true} 指示挖掘应停止（恢复成功）。
      */
     public static boolean tryRecoverPlacedBlock(EntityPlayerMP player, RtsStorageSession session, BlockPos pos, EnumFacing face) {
-        if (PlacedBlockTrackerData.get(player.getServerWorld()).isPlaced(pos)
+        if (PlacedBlockTrackerData.get(player.getServerForPlayer()).isPlaced(pos)
                 && RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
-            IBlockState before = player.getServerWorld().getBlockState(pos);
+            BlockState before = BlockState.fromWorld(player.getServerForPlayer(), pos);
             RtsPlacedRecoveryService.breakPlaced(player, pos, face, false);
-            IBlockState after = player.getServerWorld().getBlockState(pos);
+            BlockState after = BlockState.fromWorld(player.getServerForPlayer(), pos);
             return !before.equals(after);
         }
         return false;

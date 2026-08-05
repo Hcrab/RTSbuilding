@@ -6,13 +6,13 @@ import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimat
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.World;
 
 import java.nio.file.Path;
@@ -162,11 +162,11 @@ final class BlueprintCaptureController {
             for (int z = minZ; z <= maxZ; z++) {
                 for (int x = minX; x <= maxX; x++) {
                     cursor.setPos(x, y, z);
-                    if (excludedBlocks.contains(cursor) || !level.isBlockLoaded(cursor)) {
+                    if (excludedBlocks.contains(cursor) || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, cursor)) {
                         continue;
                     }
-                    IBlockState state = level.getBlockState(cursor);
-                    if (state.getBlock() != Blocks.AIR && state.getBlock() != Blocks.STRUCTURE_VOID) {
+                    BlockState state = BlockState.fromWorld(level, cursor);
+                    if (state.getBlock() != Blocks.air && state.getBlock() != Blocks.air) {
                         blocks.add(cursor.toImmutable());
                     }
                 }
@@ -480,11 +480,11 @@ final class BlueprintCaptureController {
             for (int z = minZ; z <= maxZ; z++) {
                 for (int x = minX; x <= maxX; x++) {
                     cursor.setPos(x, y, z);
-                    if (excludedBlocks.contains(cursor) || !level.isBlockLoaded(cursor)) {
+                    if (excludedBlocks.contains(cursor) || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, cursor)) {
                         continue;
                     }
-                    IBlockState state = level.getBlockState(cursor);
-                    if (state.getBlock() != Blocks.AIR && state.getBlock() != Blocks.STRUCTURE_VOID) {
+                    BlockState state = BlockState.fromWorld(level, cursor);
+                    if (state.getBlock() != Blocks.air && state.getBlock() != Blocks.air) {
                         count++;
                     }
                 }

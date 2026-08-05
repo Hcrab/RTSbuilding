@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat;
 
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 /**
  * 维护网络库存快照的 {@link IItemHandler} 可实现此接口。

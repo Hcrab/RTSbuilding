@@ -9,9 +9,9 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiInventory;
 import net.minecraft.inventory.Slot;
 import net.minecraftforge.client.event.GuiScreenEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.relauncher.Side;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -22,7 +22,6 @@ import java.lang.reflect.Constructor;
  *
  * <p>这里只渲染按钮并发送安装意图，不在客户端直接修改背包。插件合法性和实际扣取仍由服务端判定。</p>
  */
-@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Side.CLIENT)
 public final class RtsPluginInventoryScreenEvents {
     private static final int VANILLA_INVENTORY_WIDTH = 176;
     private static final int VANILLA_INVENTORY_HEIGHT = 166;
@@ -38,14 +37,14 @@ public final class RtsPluginInventoryScreenEvents {
     }
 
     @SubscribeEvent
-    public static void onInventoryInit(GuiScreenEvent.InitGuiEvent.Post event) {
-        final GuiScreen screen = event.getGui();
+    public void onInventoryInit(GuiScreenEvent.InitGuiEvent.Post event) {
+        final GuiScreen screen = event.gui;
         if (!(screen instanceof GuiInventory) || !Config.isInventoryRtsButtonEnabled()) {
             return;
         }
         int x = vanillaInventoryLeft(screen) + BUTTON_X_INSET;
         int y = vanillaInventoryTop(screen) + BUTTON_Y_INSET;
-        event.getButtonList().add(new GuiButton(BUTTON_ID, x, y, BUTTON_WIDTH, BUTTON_HEIGHT, "RTS") {
+        event.buttonList.add(new GuiButton(BUTTON_ID, x, y, BUTTON_WIDTH, BUTTON_HEIGHT, "RTS") {
             @Override
             public boolean mousePressed(Minecraft minecraft, int mouseX, int mouseY) {
                 boolean pressed = super.mousePressed(minecraft, mouseX, mouseY);
@@ -57,21 +56,21 @@ public final class RtsPluginInventoryScreenEvents {
         });
     }
 
-    @SubscribeEvent
-    public static void onInventoryMousePressed(GuiScreenEvent.MouseInputEvent.Pre event) {
-        if (!(event.getGui() instanceof GuiInventory) || !Mouse.getEventButtonState() || !isShiftDown()) {
-            return;
+    public static boolean routeInventoryMousePressed(GuiScreen screen) {
+        if (!(screen instanceof GuiInventory) || !Mouse.getEventButtonState() || !isShiftDown()) {
+            return false;
         }
-        GuiInventory inventoryScreen = (GuiInventory) event.getGui();
-        Slot slot = inventoryScreen.getSlotUnderMouse();
+        GuiInventory inventoryScreen = (GuiInventory) screen;
+        Slot slot = com.rtsbuilding.rtsbuilding.platform.client.GuiContainerCompat
+                .slotUnderMouse(inventoryScreen);
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (slot == null || minecraft.player == null || slot.inventory != minecraft.player.inventory
+        if (slot == null || minecraft.thePlayer == null || slot.inventory != minecraft.thePlayer.inventory
                 || !RtsClientPluginCatalog.isPluginItem(slot.getStack())) {
-            return;
+            return false;
         }
         ClientRtsController.get().installPluginFromInventorySlot(slot.getSlotIndex());
         ClientRtsController.get().requestPluginState();
-        event.setCanceled(true);
+        return true;
     }
 
     private static void openPluginScreen(GuiScreen parent) {

@@ -2,10 +2,10 @@ package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 import java.util.ArrayList;
@@ -19,8 +19,8 @@ public final class MultiBlockTracker {
         List<HistoryBlockRecord> records = new ArrayList<HistoryBlockRecord>(6);
         for (EnumFacing direction : EnumFacing.values()) {
             BlockPos neighbor = pos.offset(direction);
-            IBlockState state = world.getBlockState(neighbor);
-            if (state.getBlock() != Blocks.AIR) {
+            BlockState state = BlockState.fromWorld(world, neighbor);
+            if (state.getBlock() != Blocks.air) {
                 records.add(new HistoryBlockRecord(neighbor.toImmutable(), state));
             }
         }
@@ -31,8 +31,8 @@ public final class MultiBlockTracker {
             List<HistoryBlockRecord> records, BlockPos brokenPos) {
         for (HistoryBlockRecord record : records) {
             if (record.pos().equals(brokenPos)) continue;
-            IBlockState current = world.getBlockState(record.pos());
-            if (current.getBlock() == Blocks.AIR && record.state().getBlock() != Blocks.AIR) {
+            BlockState current = BlockState.fromWorld(world, record.pos());
+            if (current.getBlock() == Blocks.air && record.state().getBlock() != Blocks.air) {
                 session.mining.ultimineProcessedPositions.add(record);
             }
         }

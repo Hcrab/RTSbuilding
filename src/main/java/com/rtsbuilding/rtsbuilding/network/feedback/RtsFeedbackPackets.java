@@ -1,12 +1,10 @@
 package com.rtsbuilding.rtsbuilding.network.feedback;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
-import net.minecraft.util.IThreadListener;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.relauncher.Side;
 
 import java.lang.reflect.InvocationTargetException;
 
@@ -28,8 +26,8 @@ public final class RtsFeedbackPackets {
             implements IMessageHandler<S2CRtsDamageFeedbackPayload, IMessage> {
         @Override
         public IMessage onMessage(final S2CRtsDamageFeedbackPayload message, MessageContext context) {
-            IThreadListener thread = FMLCommonHandler.instance().getWorldThread(context.netHandler);
-            thread.addScheduledTask(new Runnable() {
+
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.schedule(context, new Runnable() {
                 @Override public void run() {
                     invokeClient("handleDamageFeedback", S2CRtsDamageFeedbackPayload.class, message);
                 }

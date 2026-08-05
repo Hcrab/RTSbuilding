@@ -142,7 +142,7 @@ public final class RtsRemoteMenuCompat {
                 || !isSupportedRemoteMenu(menu) || player == null) {
             return false;
         }
-        if (player.world.isRemote) {
+        if (player.worldObj.isRemote) {
             return clientWindowPending || menu.windowId == clientWindowId;
         }
         if (player instanceof EntityPlayerMP) {

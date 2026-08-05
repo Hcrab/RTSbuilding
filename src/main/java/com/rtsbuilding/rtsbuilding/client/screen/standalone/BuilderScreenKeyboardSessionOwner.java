@@ -51,19 +51,19 @@ final class BuilderScreenKeyboardSessionOwner {
         }
 
     void handleRtsFlightToggle() {
-            if (screen.getMinecraft() == null || screen.getMinecraft().player == null) return;
-            if (!screen.getMinecraft().player.capabilities.allowFlying) return;
+            if (screen.getMinecraft() == null || screen.getMinecraft().thePlayer == null) return;
+            if (!screen.getMinecraft().thePlayer.capabilities.allowFlying) return;
 
-            boolean wasFlying = screen.getMinecraft().player.capabilities.isFlying;
-            screen.getMinecraft().player.capabilities.isFlying = !wasFlying;
+            boolean wasFlying = screen.getMinecraft().thePlayer.capabilities.isFlying;
+            screen.getMinecraft().thePlayer.capabilities.isFlying = !wasFlying;
 
             // When enabling flight while on ground, apply a jump impulse to lift off.
             // Vanilla MC won't actually start flying if the player stays on ground.
-            if (!wasFlying && screen.getMinecraft().player.onGround) {
-                screen.getMinecraft().player.jump();
+            if (!wasFlying && screen.getMinecraft().thePlayer.onGround) {
+                screen.getMinecraft().thePlayer.jump();
             }
 
-            screen.getMinecraft().player.sendPlayerAbilities();
+            screen.getMinecraft().thePlayer.sendPlayerAbilities();
         }
 
     boolean handleModeKeyPressed(int keyCode, int scanCode) {

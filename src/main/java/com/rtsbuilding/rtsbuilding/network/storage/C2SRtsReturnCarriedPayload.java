@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.storage;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 将当前服务端容器鼠标栈的一部分退回链接储存。 */
 public final class C2SRtsReturnCarriedPayload implements IMessage {

@@ -8,9 +8,9 @@ import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.io.IOException;
 import java.util.UUID;
@@ -256,9 +256,9 @@ final class BlueprintPlacementSession {
 
     private static EnumFacing currentHorizontalFacingDirection() {
         Minecraft minecraft = Minecraft.getMinecraft();
-        Entity camera = minecraft == null ? null : minecraft.getRenderViewEntity();
+        Entity camera = minecraft == null ? null : minecraft.renderViewEntity;
         if (camera != null) return EnumFacing.fromAngle(camera.rotationYaw);
-        if (minecraft != null && minecraft.player != null) return EnumFacing.fromAngle(minecraft.player.rotationYaw);
+        if (minecraft != null && minecraft.thePlayer != null) return EnumFacing.fromAngle(minecraft.thePlayer.rotationYaw);
         return EnumFacing.SOUTH;
     }
 

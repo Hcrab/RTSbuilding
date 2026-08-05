@@ -8,7 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 import java.util.ArrayList;
@@ -43,13 +43,13 @@ public final class RtsLinkedStorageBlockEventHandler {
      * 并刷新其存储页面。
      */
     public static void onLinkedStorageBlockBroken(WorldServer level, BlockPos pos) {
-        if (level == null || pos == null || level.getMinecraftServer() == null) {
+        if (level == null || pos == null || com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(level) == null) {
             return;
         }
-        int dimension = level.provider.getDimension();
+        int dimension = level.provider.dimensionId;
         for (Map.Entry<UUID, RtsStorageSession> entry
                 : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
-            EntityPlayerMP player = level.getMinecraftServer().getPlayerList().getPlayerByUUID(entry.getKey());
+            EntityPlayerMP player = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(level)).getPlayerByUUID(entry.getKey());
             if (player == null) {
                 continue;
             }
@@ -65,20 +65,20 @@ public final class RtsLinkedStorageBlockEventHandler {
      * 当背包存储方块被放置时调用。更新所有拥有该背包的会话的新位置。
      */
     public static void onLinkedStorageBlockPlaced(WorldServer level, BlockPos pos) {
-        if (level == null || pos == null || level.getMinecraftServer() == null || !RtsBackpackCompat.isAvailable()) {
+        if (level == null || pos == null || com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(level) == null || !RtsBackpackCompat.isAvailable()) {
             return;
         }
-        TileEntity blockEntity = level.getTileEntity(pos);
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         UUID backpackUuid = RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
         if (backpackUuid == null) {
             return;
         }
         String backpackItemId = RtsBackpackCompat.getBackpackItemId(blockEntity).orElse("");
-        LinkedStorageRef newRef = new LinkedStorageRef(level.provider.getDimension(), pos.toImmutable());
+        LinkedStorageRef newRef = new LinkedStorageRef(level.provider.dimensionId, pos.toImmutable());
         String displayName = RtsLinkedStorageResolver.resolveDisplayName(level, pos);
         for (Map.Entry<UUID, RtsStorageSession> entry
                 : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
-            EntityPlayerMP player = level.getMinecraftServer().getPlayerList().getPlayerByUUID(entry.getKey());
+            EntityPlayerMP player = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(level)).getPlayerByUUID(entry.getKey());
             if (player == null) {
                 continue;
             }
@@ -106,7 +106,7 @@ public final class RtsLinkedStorageBlockEventHandler {
         UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
         if (backpackUuid != null) {
             UUID breakingUuid = level == null ? null
-                    : RtsBackpackCompat.getBackpackUuid(level.getTileEntity(pos)).orElse(null);
+                    : RtsBackpackCompat.getBackpackUuid(com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos)).orElse(null);
             if (!backpackUuid.equals(breakingUuid)) {
                 return false;
             }
@@ -183,7 +183,7 @@ public final class RtsLinkedStorageBlockEventHandler {
         if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
             return null;
         }
-        TileEntity blockEntity = level.getTileEntity(pos);
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         return RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
     }
 

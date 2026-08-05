@@ -12,7 +12,7 @@ final class AvailableCraftItem {
     private final long count;
 
     AvailableCraftItem(ItemStack prototype, long count) {
-        this.prototype = prototype == null ? ItemStack.EMPTY : prototype;
+        this.prototype = prototype == null ? null : prototype;
         this.count = count;
     }
 
@@ -28,9 +28,9 @@ final class CraftIngredientPlan {
     }
 
     ItemStack prototypeAt(int slot) {
-        if (slot < 0 || slot >= prototypes.length) return ItemStack.EMPTY;
+        if (slot < 0 || slot >= prototypes.length) return null;
         ItemStack prototype = prototypes[slot];
-        return prototype == null ? ItemStack.EMPTY : prototype;
+        return prototype == null ? null : prototype;
     }
 }
 

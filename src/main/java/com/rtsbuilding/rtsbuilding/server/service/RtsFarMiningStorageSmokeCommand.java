@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsDropAbsorber;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningDropCapture;
@@ -16,10 +18,10 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.GameType;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.world.WorldSettings.GameType;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -40,8 +42,8 @@ public final class RtsFarMiningStorageSmokeCommand extends CommandBase {
     private static final String COMMAND_NAME = "rtsbuilding_far_mining_storage_smoke";
     private static final int TARGET_DISTANCE = 120;
 
-    @Override public String getName() { return COMMAND_NAME; }
-    @Override public String getUsage(ICommandSender sender) { return "/" + COMMAND_NAME; }
+    @Override public String getCommandName() { return COMMAND_NAME; }
+    @Override public String getCommandUsage(ICommandSender sender) { return "/" + COMMAND_NAME; }
     @Override public int getRequiredPermissionLevel() { return 2; }
 
     public static boolean isEnabled() {
@@ -49,8 +51,8 @@ public final class RtsFarMiningStorageSmokeCommand extends CommandBase {
     }
 
     @Override
-    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 0) throw new CommandException(getUsage(sender));
+    public void processCommand(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 0) throw new CommandException(getCommandUsage(sender));
         EntityPlayerMP player = getCommandSenderAsPlayer(sender);
         String result;
         try {
@@ -66,18 +68,18 @@ public final class RtsFarMiningStorageSmokeCommand extends CommandBase {
     }
 
     private static String runProductionPath(EntityPlayerMP player) {
-        WorldServer level = player.getServerWorld();
-        BlockPos base = player.getPosition();
+        WorldServer level = player.getServerForPlayer();
+        BlockPos base = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(player);
         BlockPos storagePos = base.add(2, 0, 0);
         BlockPos targetPos = base.add(0, 0, TARGET_DISTANCE);
         level.getChunkProvider().provideChunk(storagePos.getX() >> 4, storagePos.getZ() >> 4);
         level.getChunkProvider().provideChunk(targetPos.getX() >> 4, targetPos.getZ() >> 4);
-        level.setBlockState(storagePos.down(), Blocks.STONE.getDefaultState(), 3);
-        level.setBlockState(storagePos, Blocks.CHEST.getDefaultState(), 3);
-        level.setBlockState(targetPos.down(), Blocks.STONE.getDefaultState(), 3);
-        level.setBlockState(targetPos, Blocks.DIRT.getDefaultState(), 3);
+        BlockState.defaultState(Blocks.stone).setInWorld(level, storagePos.down(), 3);
+        BlockState.defaultState(Blocks.chest).setInWorld(level, storagePos, 3);
+        BlockState.defaultState(Blocks.stone).setInWorld(level, targetPos.down(), 3);
+        BlockState.defaultState(Blocks.dirt).setInWorld(level, targetPos, 3);
 
-        double distance = Math.sqrt(player.getDistanceSqToCenter(targetPos));
+        double distance = Math.sqrt(com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.distanceSqToCenter(player, targetPos));
         if (distance < 100.0D) {
             throw new IllegalStateException("target was not actually remote: " + distance);
         }
@@ -95,24 +97,24 @@ public final class RtsFarMiningStorageSmokeCommand extends CommandBase {
         IItemHandler storage = RtsLinkedCapabilities.findLinkedItemHandler(player, storagePos);
         if (storage == null) throw new IllegalStateException("vanilla chest capability was not resolved");
         int before = countDirt(storage);
-        int cobblestoneBefore = countBlock(storage, Blocks.COBBLESTONE);
-        GameType previous = player.interactionManager.getGameType();
+        int cobblestoneBefore = countBlock(storage, Blocks.cobblestone);
+        GameType previous = player.theItemInWorldManager.getGameType();
         RtsMiningStateMachine.MiningBreakResult breakResult;
         boolean directDropEnteredWorld;
         try {
-            player.interactionManager.setGameType(GameType.SURVIVAL);
+            player.theItemInWorldManager.setGameType(GameType.SURVIVAL);
             breakResult = RtsMiningStateMachine.destroyMinedBlock(player, session, targetPos, 0);
             // 模拟部分 1.12 老模组绕过 HarvestDropsEvent、直接生成掉落实体的行为。
             directDropEnteredWorld = RtsMiningDropCapture.capture(player, session, targetPos,
-                    () -> level.spawnEntity(new EntityItem(level,
+                    () -> level.spawnEntityInWorld(new EntityItem(level,
                             targetPos.getX() + 0.5D, targetPos.getY() + 0.5D, targetPos.getZ() + 0.5D,
-                            new ItemStack(Blocks.COBBLESTONE))));
+                            new ItemStack(Blocks.cobblestone))));
             RtsDropAbsorber.drainDropBuffer(player, session, 64, Long.MAX_VALUE);
         } finally {
-            player.interactionManager.setGameType(previous);
+            player.theItemInWorldManager.setGameType(previous);
         }
         int after = countDirt(storage);
-        int cobblestoneAfter = countBlock(storage, Blocks.COBBLESTONE);
+        int cobblestoneAfter = countBlock(storage, Blocks.cobblestone);
         if (!breakResult.broken()) throw new IllegalStateException("production mining path did not break target");
         if (after <= before) throw new IllegalStateException("linked chest did not receive the remote drop");
         if (directDropEnteredWorld) {
@@ -135,15 +137,15 @@ public final class RtsFarMiningStorageSmokeCommand extends CommandBase {
     }
 
     private static int countDirt(IItemHandler handler) {
-        return countBlock(handler, Blocks.DIRT);
+        return countBlock(handler, Blocks.dirt);
     }
 
     private static int countBlock(IItemHandler handler, net.minecraft.block.Block block) {
         int count = 0;
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
-            if (!stack.isEmpty() && stack.getItem() == net.minecraft.item.Item.getItemFromBlock(block)) {
-                count += stack.getCount();
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) && stack.getItem() == net.minecraft.item.Item.getItemFromBlock(block)) {
+                count += stack.stackSize;
             }
         }
         return count;

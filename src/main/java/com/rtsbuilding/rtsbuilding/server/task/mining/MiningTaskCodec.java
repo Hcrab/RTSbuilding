@@ -4,13 +4,12 @@ import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
 import com.rtsbuilding.rtsbuilding.server.task.MiningTaskPayload;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTUtil;
 import net.minecraft.init.Blocks;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraftforge.common.util.Constants;
 
 import java.util.ArrayList;
@@ -77,7 +76,10 @@ public final class MiningTaskCodec {
         NBTTagList encodedHistory = tag.getTagList("history", Constants.NBT.TAG_COMPOUND);
         if (encodedHistory.tagCount() > MAX_TARGETS * 7) throw new IllegalArgumentException("mining history 越界");
         List<NBTTagCompound> history = new ArrayList<NBTTagCompound>(encodedHistory.tagCount());
-        for (int i = 0; i < encodedHistory.tagCount(); i++) history.add(encodedHistory.getCompoundTagAt(i).copy());
+        for (int i = 0; i < encodedHistory.tagCount(); i++) {
+            history.add(com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(
+                    encodedHistory.getCompoundTagAt(i)));
+        }
         int workflow = tag.getInteger("workflow");
         MiningTaskState state = new MiningTaskState(
                 mode, workflow, targets, total,
@@ -92,8 +94,11 @@ public final class MiningTaskCodec {
     public static NBTTagCompound encodeHistory(HistoryBlockRecord record) {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setLong("pos", record.pos().toLong());
-        tag.setTag("state", NBTUtil.writeBlockState(new NBTTagCompound(), record.state()));
-        if (record.blockEntityData() != null) tag.setTag("block_entity", record.blockEntityData().copy());
+        tag.setTag("state", com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat
+                .writeBlockState(record.state()));
+        if (record.blockEntityData() != null) tag.setTag("block_entity",
+                com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(
+                        record.blockEntityData()));
         return tag;
     }
 
@@ -102,10 +107,12 @@ public final class MiningTaskCodec {
                 || !NbtCompat.hasType(tag, "state", Constants.NBT.TAG_COMPOUND)) {
             throw new IllegalArgumentException("mining history record 不完整");
         }
-        IBlockState state = NBTUtil.readBlockState(tag.getCompoundTag("state"));
-        if (state.getBlock() == Blocks.AIR) throw new IllegalArgumentException("mining history 不能记录空气");
+        BlockState state = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat
+                .readBlockState(tag.getCompoundTag("state"));
+        if (state.getBlock() == Blocks.air) throw new IllegalArgumentException("mining history 不能记录空气");
         NBTTagCompound blockEntity = NbtCompat.hasType(tag, "block_entity", Constants.NBT.TAG_COMPOUND)
-                ? tag.getCompoundTag("block_entity").copy() : null;
+                ? com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(
+                        tag.getCompoundTag("block_entity")) : null;
         return new HistoryBlockRecord(BlockPos.fromLong(tag.getLong("pos")), state, blockEntity);
     }
 

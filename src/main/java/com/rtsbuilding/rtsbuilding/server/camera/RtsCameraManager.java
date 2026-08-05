@@ -10,11 +10,11 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraft.util.text.TextFormatting;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.world.WorldServer;
 
 import java.util.Map;
@@ -83,9 +83,9 @@ public final class RtsCameraManager {
      */
     public static void start(EntityPlayerMP player, boolean startAtPlayerHead) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.sendStatusMessage(new TextComponentTranslation(
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(
                     "message.rtsbuilding.camera_locked",
-                    new TextComponentTranslation("item.rtsbuilding.rts_control_core")), true);
+                    new ChatComponentTranslation("item.rtsbuilding.rts_control_core")), true);
             return;
         }
         if (RtsProgressionManager.shouldStartHomeSelection(player)) {
@@ -93,14 +93,14 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canStartNormalRts(player)) {
-            TextComponentTranslation message = new TextComponentTranslation(
+            ChatComponentTranslation message = new ChatComponentTranslation(
                             RtsProgressionManager.hasHome(player)
                                     ? "message.rtsbuilding.home.too_far"
                                     : "message.rtsbuilding.home.required");
             if (RtsProgressionManager.hasHome(player)) {
-                message.getStyle().setColor(TextFormatting.RED).setBold(Boolean.TRUE);
+                message.getChatStyle().setColor(EnumChatFormatting.RED).setBold(Boolean.TRUE);
             }
-            player.sendStatusMessage(message, true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, message, true);
             return;
         }
         startNormal(player, startAtPlayerHead);
@@ -111,10 +111,10 @@ public final class RtsCameraManager {
      * <p>将锚点对齐到玩家脚下方块中心，并根据半径限制创建相机实体。</p>
      */
     private static void startNormal(EntityPlayerMP player, boolean startAtPlayerHead) {
-        cleanupOrphanCameras(player.getServer());
+        cleanupOrphanCameras(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player));
         RtsCameraEntityHelper.discardOwnedCameras(player);
-        WorldServer level = player.getServerWorld();
-        Vec3d playerPos = player.getPositionVector();
+        WorldServer level = player.getServerForPlayer();
+        Vec3d playerPos = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.position(player);
         // 将锚点对齐到方块中心，使相机边界与放置边界匹配
         Vec3d anchor = new Vec3d(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
         double maxRadius = RtsProgressionManager.getActionRadius(player);
@@ -159,13 +159,13 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.sendStatusMessage(new TextComponentTranslation(
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(
                     "message.rtsbuilding.camera_locked",
-                    new TextComponentTranslation("item.rtsbuilding.rts_control_core")), true);
+                    new ChatComponentTranslation("item.rtsbuilding.rts_control_core")), true);
             return;
         }
         if (!RtsProgressionManager.canChangeHome(player)) {
-            player.sendStatusMessage(new TextComponentTranslation(
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(
                     "message.rtsbuilding.home.cooldown",
                     RtsProgressionManager.remainingHomeCooldownDays(player)), true);
             return;
@@ -179,10 +179,10 @@ public final class RtsCameraManager {
      * <p>将锚点对齐到玩家所在区块中心（8, Y, 8），进入家选择会话。</p>
      */
     private static void startHomeSelection(EntityPlayerMP player, boolean startAtPlayerHead) {
-        cleanupOrphanCameras(player.getServer());
+        cleanupOrphanCameras(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player));
         RtsCameraEntityHelper.discardOwnedCameras(player);
-        WorldServer level = player.getServerWorld();
-        BlockPos playerPos = player.getPosition();
+        WorldServer level = player.getServerForPlayer();
+        BlockPos playerPos = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(player);
         // 计算玩家所在区块的中心坐标
         int centerChunkX = playerPos.getX() >> 4;
         int centerChunkZ = playerPos.getZ() >> 4;
@@ -224,7 +224,7 @@ public final class RtsCameraManager {
     public static void stop(EntityPlayerMP player) {
         Session session = SESSIONS.remove(player.getUniqueID());
         if (session != null) {
-            Entity entity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
+            Entity entity = RtsCameraEntityHelper.findCameraEntity(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player), session.cameraUuid());
             if (entity != null) {
                 entity.setDead();
             }
@@ -249,7 +249,7 @@ public final class RtsCameraManager {
         if (session == null || !session.homeSelection()) {
             return;
         }
-        Entity entity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
+        Entity entity = RtsCameraEntityHelper.findCameraEntity(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player), session.cameraUuid());
         if (entity != null) {
             entity.setDead();
         }
@@ -326,7 +326,7 @@ public final class RtsCameraManager {
         }
 
         // 更新锚点以跟随玩家实体的当前位置
-        Vec3d playerPos = player.getPositionVector();
+        Vec3d playerPos = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.position(player);
         Vec3d newAnchor = new Vec3d(Math.floor(playerPos.x) + 0.5D, playerPos.y, Math.floor(playerPos.z) + 0.5D);
 
         RtsCameraEntity camera = getOrRestoreCamera(player, session);
@@ -409,8 +409,8 @@ public final class RtsCameraManager {
      */
     @SuppressWarnings("resource")
     private static RtsCameraEntity getOrRestoreCamera(EntityPlayerMP player, Session session) {
-        Entity baseEntity = RtsCameraEntityHelper.findCameraEntity(player.getServer(), session.cameraUuid());
-        if (baseEntity instanceof RtsCameraEntity && baseEntity.world == player.getServerWorld()) {
+        Entity baseEntity = RtsCameraEntityHelper.findCameraEntity(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player), session.cameraUuid());
+        if (baseEntity instanceof RtsCameraEntity && baseEntity.worldObj == player.getServerForPlayer()) {
             RtsCameraEntity camera = (RtsCameraEntity) baseEntity;
             if (camera.getOwnerUuid() == null) {
                 camera.setOwnerUuid(player.getUniqueID());
@@ -427,7 +427,7 @@ public final class RtsCameraManager {
         }
 
         Vec3d cameraPos = session.cameraPos();
-        RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.getServerWorld(), player.getUniqueID(),
+        RtsCameraEntity restored = RtsCameraEntityHelper.createAndSpawnCamera(player.getServerForPlayer(), player.getUniqueID(),
                 cameraPos.x, cameraPos.y, cameraPos.z, session.yawDeg(), session.pitchDeg());
 
         SESSIONS.put(player.getUniqueID(), new Session(

@@ -15,11 +15,11 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 
@@ -110,8 +110,8 @@ public final class RtsBindingHandlers {
 
     private interface Action { void run(EntityPlayerMP player); }
     private static void schedule(MessageContext context, final boolean requireActive, final Action action) {
-        final EntityPlayerMP player = context.getServerHandler().player;
-        player.getServerWorld().addScheduledTask(new Runnable() { @Override public void run() {
+        final EntityPlayerMP player = context.getServerHandler().playerEntity;
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() { @Override public void run() {
             if (!requireActive || active(player)) action.run(player);
         }});
     }

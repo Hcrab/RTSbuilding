@@ -1,31 +1,39 @@
 package com.rtsbuilding.rtsbuilding.bootstrap;
 
-import net.minecraftforge.fml.relauncher.IFMLLoadingPlugin;
-import zone.rong.mixinbooter.IEarlyMixinLoader;
-
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+
+import cpw.mods.fml.relauncher.IFMLLoadingPlugin;
+
+import com.gtnewhorizon.gtnhmixins.IEarlyMixinLoader;
 
 /**
- * 在 Minecraft 基类加载前，把 RTSBuilding 的基础 Mixin 配置交给 MixinBooter。
+ * 把 RTSBuilding 的早期 Mixin 配置交给 GTNH 的 UniMixins 启动链。
  *
- * <p>MixinBooter 5 只从 Forge 的 coremod 列表中寻找 {@link IEarlyMixinLoader}，因此本类
- * 同时是一个无 ASM transformer 的最小 {@link IFMLLoadingPlugin}。它只负责配置发现，
- * 不持有兼容业务状态，也不自行改写字节码。</p>
- *
- * <p>引导类必须位于 Mixin 配置声明的包之外。Mixin 会保护其专用包，配置生效后直接加载
- * 其中的普通类会触发 {@code IllegalClassLoadError}。</p>
+ * <p>本类只负责配置发现，不持有玩法状态，也不自行改写字节码。1.12.2 使用的
+ * MixinBooter 5 接口与 GTNH 的加载器接口并不兼容，因此这里必须作为明确的
+ * 1.7.10 边界；不能仅靠改包名后继续返回配置列表。</p>
  */
-@IFMLLoadingPlugin.Name("RTSBuilding Mixin Loader")
-@IFMLLoadingPlugin.MCVersion("1.12.2")
+@IFMLLoadingPlugin.Name("RTSBuilding GTNH Mixin Loader")
+@IFMLLoadingPlugin.MCVersion("1.7.10")
 public final class RtsMixinConfigLoader implements IFMLLoadingPlugin, IEarlyMixinLoader {
-    private static final List<String> CONFIGS =
-            Collections.singletonList("mixins.rtsbuilding.json");
 
     @Override
-    public List<String> getMixinConfigs() {
-        return CONFIGS;
+    public String getMixinConfig() {
+        return "mixins.rtsbuilding_gtnh_early.json";
+    }
+
+    @Override
+    public List<String> getMixins(Set<String> loadedCoreMods) {
+        // 现有 1.12.2 Mixin 会逐项本地化后再加入；空列表保证首个 GTNH 启动基线安全。
+        // IEarlyMixinLoader 会用这里的结果替换配置文件里的 common mixins；
+        // client/server 数组仍由 Mixin 按运行侧处理。这里必须显式返回公共入口，
+        // 否则远程容器兼容层会看似打包成功、实际从未注入。
+        return Arrays.asList(
+                "ForgeHooksRemoteContainerMixin",
+                "ChestMenuMixin");
     }
 
     @Override
@@ -45,7 +53,7 @@ public final class RtsMixinConfigLoader implements IFMLLoadingPlugin, IEarlyMixi
 
     @Override
     public void injectData(Map<String, Object> data) {
-        // 配置由 MixinBooter 的早期加载阶段统一排队，这里不接管 Forge 注入数据。
+        // UniMixins 负责配置排队；RTSBuilding 不接管 Forge 注入数据。
     }
 
     @Override

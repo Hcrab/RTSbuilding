@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.Collections;

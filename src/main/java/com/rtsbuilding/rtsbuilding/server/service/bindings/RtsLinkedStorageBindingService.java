@@ -9,13 +9,13 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import net.minecraft.block.BlockChest;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 import java.util.UUID;
@@ -57,7 +57,7 @@ public final class RtsLinkedStorageBindingService {
 
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
         if (!RtsClaimProtectionService.canInteractBlock(
-                player, pos, EnumFacing.UP, EnumHand.MAIN_HAND, ItemStack.EMPTY)) {
+                player, pos, EnumFacing.UP, EnumHand.MAIN_HAND, null)) {
             return RtsStorageBindings.UpdateResult.none();
         }
 
@@ -68,8 +68,8 @@ public final class RtsLinkedStorageBindingService {
             return RtsStorageBindings.UpdateResult.refreshFirst(false);
         }
 
-        UUID backpackUuid = readBackpackUuid(player.getServerWorld(), pos);
-        String backpackItemId = readBackpackItemId(player.getServerWorld(), pos);
+        UUID backpackUuid = readBackpackUuid(player.getServerForPlayer(), pos);
+        String backpackItemId = readBackpackItemId(player.getServerForPlayer(), pos);
         byte normalizedMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
 
         if (session.linkedStorageInfo.contains(ref)) {
@@ -78,7 +78,7 @@ public final class RtsLinkedStorageBindingService {
                 session.linkedStorageInfo.remove(ref);
             } else {
                 session.linkedStorageInfo.setMode(ref, normalizedMode);
-                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), ref.pos()));
+                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerForPlayer(), ref.pos()));
                 applyBackpackMetadata(session, ref, backpackUuid, backpackItemId);
             }
         } else {
@@ -91,7 +91,7 @@ public final class RtsLinkedStorageBindingService {
                     return RtsStorageBindings.UpdateResult.none();
                 }
                 session.linkedStorageInfo.add(ref, normalizedMode, 0, backpackUuid, backpackItemId);
-                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), ref.pos()));
+                session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerForPlayer(), ref.pos()));
             }
         }
         // Mark BD network caches as stale so the resolver re-resolves them
@@ -128,7 +128,7 @@ public final class RtsLinkedStorageBindingService {
         }
         session.linkedStorageInfo.setMode(ref, normalizedMode);
         session.linkedStorageInfo.setPriority(ref, normalizedPriority);
-        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), ref.pos()));
+        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerForPlayer(), ref.pos()));
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 
@@ -157,7 +157,7 @@ public final class RtsLinkedStorageBindingService {
         if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
             return null;
         }
-        TileEntity blockEntity = level.getTileEntity(pos);
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         return RtsBackpackCompat.getBackpackUuid(blockEntity).orElse(null);
     }
 
@@ -165,7 +165,7 @@ public final class RtsLinkedStorageBindingService {
         if (level == null || pos == null || !RtsBackpackCompat.isAvailable()) {
             return "";
         }
-        TileEntity blockEntity = level.getTileEntity(pos);
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         return RtsBackpackCompat.getBackpackItemId(blockEntity).orElse("");
     }
 
@@ -176,11 +176,11 @@ public final class RtsLinkedStorageBindingService {
         if (player == null || session == null || pos == null) {
             return false;
         }
-        WorldServer level = player.getServerWorld();
-        if (!level.isBlockLoaded(pos)) {
+        WorldServer level = player.getServerForPlayer();
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) {
             return false;
         }
-        IBlockState state = level.getBlockState(pos);
+        BlockState state = BlockState.fromWorld(level, pos);
         if (!(state.getBlock() instanceof BlockChest)) {
             return false;
         }
@@ -195,11 +195,11 @@ public final class RtsLinkedStorageBindingService {
         if (player == null || session == null || pos == null) {
             return null;
         }
-        WorldServer level = player.getServerWorld();
-        if (!level.isBlockLoaded(pos)) {
+        WorldServer level = player.getServerForPlayer();
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) {
             return null;
         }
-        IBlockState state = level.getBlockState(pos);
+        BlockState state = BlockState.fromWorld(level, pos);
         if (!(state.getBlock() instanceof BlockChest)) {
             return null;
         }
@@ -211,13 +211,13 @@ public final class RtsLinkedStorageBindingService {
      * 直接扫描四个水平面既保留普通/陷阱箱子的类型隔离，也不会依赖客户端容器合并逻辑。
      */
     private static LinkedStorageRef findAdjacentChestLinkedRef(WorldServer level, RtsStorageSession session,
-            BlockPos pos, IBlockState state) {
+            BlockPos pos, BlockState state) {
         for (EnumFacing facing : EnumFacing.HORIZONTALS) {
             BlockPos connectedPos = pos.offset(facing);
-            if (level.getBlockState(connectedPos).getBlock() != state.getBlock()) {
+            if (BlockState.fromWorld(level, connectedPos).getBlock() != state.getBlock()) {
                 continue;
             }
-            LinkedStorageRef connectedRef = new LinkedStorageRef(level.provider.getDimension(), connectedPos);
+            LinkedStorageRef connectedRef = new LinkedStorageRef(level.provider.dimensionId, connectedPos);
             if (session.linkedStorageInfo.contains(connectedRef)) {
                 return connectedRef;
             }

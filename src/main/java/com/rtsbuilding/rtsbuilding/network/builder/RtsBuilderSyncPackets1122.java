@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.builder;
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsBuilderSyncHandlers1122;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 注册工作流控制及建造反馈的 1.12 固定协议编号。 */
 public final class RtsBuilderSyncPackets1122 {

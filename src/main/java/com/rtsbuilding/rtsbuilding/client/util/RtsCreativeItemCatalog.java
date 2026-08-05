@@ -6,10 +6,9 @@ import net.minecraft.client.resources.I18n;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.fml.common.ModContainer;
+import cpw.mods.fml.common.Loader;
+import cpw.mods.fml.common.ModContainer;
 
 import java.util.*;
 
@@ -83,7 +82,7 @@ public final class RtsCreativeItemCatalog {
         Map<String, String> tabLabels = new LinkedHashMap<>();
         Map<String, String> modLabels = new LinkedHashMap<>();
         Set<String> seenItems = new HashSet<>();
-        for (CreativeTabs tab : CreativeTabs.CREATIVE_TAB_ARRAY) {
+        for (CreativeTabs tab : CreativeTabs.creativeTabArray) {
             if (tab == null) continue;
             String tabLabel = tab.getTabLabel();
             String namespace = namespaceForTab(tab);
@@ -121,21 +120,21 @@ public final class RtsCreativeItemCatalog {
 
     private static String currentContextKey() {
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.world == null) {
+        if (mc == null || mc.theWorld == null) {
             return "no-level";
         }
-        String dimension = String.valueOf(mc.world.provider.getDimension());
-        boolean operatorTabs = mc.player != null && mc.player.canUseCommand(2, "gamemode");
+        String dimension = String.valueOf(mc.theWorld.provider.dimensionId);
+        boolean operatorTabs = mc.thePlayer != null && com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.canUseCommand(mc.thePlayer, 2, "gamemode");
         return dimension + "|op=" + operatorTabs;
     }
 
     private void addEntry(String categoryToken, ItemStack stack, Set<String> seenItems) {
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return;
         }
         ItemStack preview = stack.copy();
-        preview.setCount(1);
-        ResourceLocation itemId = Item.REGISTRY.getNameForObject(preview.getItem());
+        preview.stackSize = 1;
+        ResourceLocation itemId = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(preview.getItem());
         if (itemId == null) {
             return;
         }
@@ -146,21 +145,21 @@ public final class RtsCreativeItemCatalog {
         } catch (RuntimeException ex) {
             label = itemKey;
         }
-        String uniqueKey = categoryToken + "|" + itemKey + "|" + preview.getMetadata()
+        String uniqueKey = categoryToken + "|" + itemKey + "|" + preview.getItemDamage()
                 + "|" + String.valueOf(preview.getTagCompound());
         if (!seenItems.add(uniqueKey)) {
             return;
         }
-        String mod = itemId.getNamespace();
-        String name = itemId.getPath();
+        String mod = itemId.getResourceDomain();
+        String name = itemId.getResourcePath();
         this.entries.add(new CreativeEntry(preview, itemKey, categoryToken, label, mod, name,
                 RtsCreativeSearchCache.index(categoryToken, itemKey, label, mod, name)));
     }
 
     private static Collection<ItemStack> safeDisplayItems(CreativeTabs tab) {
         try {
-            NonNullList<ItemStack> stacks = NonNullList.create();
-            tab.displayAllRelevantItems(stacks);
+            List<ItemStack> stacks = new ArrayList<ItemStack>();
+            tab.displayAllReleventItems(stacks);
             return stacks;
         } catch (RuntimeException | LinkageError ex) {
             return Collections.emptyList();
@@ -169,7 +168,7 @@ public final class RtsCreativeItemCatalog {
 
     private static String safeTabLabel(CreativeTabs tab, String fallback) {
         try {
-            String label = I18n.format(tab.getTranslationKey());
+            String label = I18n.format(tab.getTranslatedTabLabel());
             return isBlank(label) ? fallback : label;
         } catch (RuntimeException ex) {
             return fallback;
@@ -178,9 +177,9 @@ public final class RtsCreativeItemCatalog {
 
     private static String namespaceForTab(CreativeTabs tab) {
         try {
-            ItemStack icon = tab.getIcon();
-            ResourceLocation id = icon.isEmpty() ? null : Item.REGISTRY.getNameForObject(icon.getItem());
-            return id == null ? "minecraft" : id.getNamespace();
+            ItemStack icon = tab.getIconItemStack();
+            ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(icon) ? null : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(icon.getItem());
+            return id == null ? "minecraft" : id.getResourceDomain();
         } catch (RuntimeException | LinkageError ignored) {
             return "minecraft";
         }
@@ -244,7 +243,7 @@ public final class RtsCreativeItemCatalog {
         } catch (RuntimeException ex) {
             key = null;
         }
-        return humanizeToken(key == null ? tabKey : key.getPath());
+        return humanizeToken(key == null ? tabKey : key.getResourcePath());
     }
 
     private static String humanizeToken(String token) {

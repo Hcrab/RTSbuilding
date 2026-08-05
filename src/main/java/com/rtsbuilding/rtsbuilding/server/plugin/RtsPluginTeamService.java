@@ -85,7 +85,7 @@ final class RtsPluginTeamService {
     }
 
     static List<EntityPlayerMP> relatedPlayers(EntityPlayerMP player) {
-        if (player == null || player.getServer() == null) {
+        if (player == null || com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player) == null) {
             return java.util.Collections.emptyList();
         }
         String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
@@ -93,7 +93,7 @@ final class RtsPluginTeamService {
             return java.util.Collections.singletonList(player);
         }
         List<EntityPlayerMP> related = new ArrayList<>();
-        for (EntityPlayerMP onlinePlayer : player.getServer().getPlayerList().getPlayers()) {
+        for (EntityPlayerMP onlinePlayer : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player)).getPlayers()) {
             if (onlinePlayer != null && sharedKey.equals(RtsProgressionManager.sharedProgressionKey(onlinePlayer))) {
                 related.add(onlinePlayer);
             }
@@ -179,7 +179,7 @@ final class RtsPluginTeamService {
 
     private static void addEffective(Map<ResourceLocation, EffectivePlugin> merged, RtsInstalledPlugin plugin,
             boolean personal, String ownerName) {
-        if (plugin == null || plugin.pluginId() == null || plugin.stack().isEmpty()) {
+        if (plugin == null || plugin.pluginId() == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(plugin.stack())) {
             return;
         }
         merged.putIfAbsent(plugin.pluginId(), new EffectivePlugin(plugin, personal, ownerName));

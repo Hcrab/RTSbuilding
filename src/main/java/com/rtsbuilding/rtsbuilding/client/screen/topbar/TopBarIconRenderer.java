@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
@@ -70,7 +70,7 @@ public final class TopBarIconRenderer {
                 GlStateManager.color(1.0F, 1.0F, 1.0F,
                         (float) Math.max(0.0D, Math.min(1.0D, weight)));
                 Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
-                Gui.drawModalRectWithCustomSizedTexture(x, y, 0.0F, 0.0F,
+                com.rtsbuilding.rtsbuilding.platform.client.GuiCompat.drawModalRectWithCustomSizedTexture(x, y, 0.0F, 0.0F,
                         size, size, size, size);
             }
         } finally {

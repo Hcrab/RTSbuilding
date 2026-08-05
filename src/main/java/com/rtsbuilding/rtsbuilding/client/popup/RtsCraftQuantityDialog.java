@@ -11,9 +11,9 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
@@ -32,7 +32,7 @@ public final class RtsCraftQuantityDialog {
 
     private boolean open;
     private String itemLabel = "";
-    private ItemStack preview = ItemStack.EMPTY;
+    private ItemStack preview = null;
     private final List<CraftRecipeOption> recipeOptions = new ArrayList<CraftRecipeOption>();
     private int selectedRecipeIndex;
     private int recipeScroll;
@@ -45,7 +45,7 @@ public final class RtsCraftQuantityDialog {
                      List<CraftRecipeOption> recipeOptions, int initialCount) {
         this.open = true;
         this.itemLabel = itemLabel == null ? "" : itemLabel;
-        this.preview = preview == null ? ItemStack.EMPTY : preview.copy();
+        this.preview = preview == null ? null : preview.copy();
         this.recipeOptions.clear();
         if (recipeOptions != null) this.recipeOptions.addAll(recipeOptions);
         this.selectedRecipeIndex = findDefaultRecipeIndex();
@@ -63,7 +63,7 @@ public final class RtsCraftQuantityDialog {
     public void close() {
         this.open = false;
         this.itemLabel = "";
-        this.preview = ItemStack.EMPTY;
+        this.preview = null;
         this.recipeOptions.clear();
         this.selectedRecipeIndex = 0;
         this.recipeScroll = 0;
@@ -100,7 +100,7 @@ public final class RtsCraftQuantityDialog {
                 RtsMainlineTheme.WINDOW_TITLE_TEXT.toArgb());
         drawSmallButton(g, font, layout.closeX(), layout.closeY(), CLOSE_SIZE, CLOSE_SIZE,
                 "x", CraftQuantityStyle.CLOSE_BACKGROUND);
-        if (!this.preview.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(this.preview)) {
             g.renderItem(this.preview, layout.panelX() + 8, layout.panelY() + 21);
             GlStateManager.disableDepth();
         }
@@ -183,7 +183,7 @@ public final class RtsCraftQuantityDialog {
         drawSmallButton(g, font, layout.confirmX(), layout.actionY(), ACTION_W, ACTION_H,
                 "Craft", RtsMainlineTheme.BUTTON_PRIMARY_BACKGROUND);
 
-        if (!this.preview.isEmpty() && UiRect.contains(
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(this.preview) && UiRect.contains(
                 layout.panelX() + 8, layout.panelY() + 21, 16, 16, mouseX, mouseY)) {
             g.renderTooltip(this.preview, mouseX, mouseY);
         }

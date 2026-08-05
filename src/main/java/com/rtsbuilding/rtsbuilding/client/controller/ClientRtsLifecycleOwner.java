@@ -38,14 +38,14 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.ChatComponentText;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -77,7 +77,7 @@ final class ClientRtsLifecycleOwner {
                 if (freshEnable) {
                     controller.cameraOrbitService.capturePreviousView(minecraft);
                     // Clear stale player input to prevent WASD presses from before entering RTS mode from affecting movement
-                    EntityPlayerSP localPlayer = minecraft.player;
+                    EntityPlayerSP localPlayer = minecraft.thePlayer;
                     if (localPlayer != null) {
                         localPlayer.movementInput.moveForward = 0.0F;
                         localPlayer.movementInput.moveStrafe = 0.0F;
@@ -144,7 +144,7 @@ final class ClientRtsLifecycleOwner {
                 minecraft.displayGuiScreen(null);
             }
 
-            controller.cameraOrbitService.restorePreviousView(minecraft, minecraft.player);
+            controller.cameraOrbitService.restorePreviousView(minecraft, minecraft.thePlayer);
         }
 
     void applyServerCameraAnchor(S2CRtsCameraAnchorPayload payload) {
@@ -160,7 +160,7 @@ final class ClientRtsLifecycleOwner {
 
     void preTick() {
             Minecraft minecraft = Minecraft.getMinecraft();
-            if (minecraft.player == null || !controller.enabled) {
+            if (minecraft.thePlayer == null || !controller.enabled) {
                 controller.clearRemoteMenuValidationState();
             }
         }
@@ -172,7 +172,7 @@ final class ClientRtsLifecycleOwner {
                 return;
             }
 
-            if (minecraft.player == null || minecraft.world == null) {
+            if (minecraft.thePlayer == null || minecraft.theWorld == null) {
                 return;
             }
             if (controller.handleDeathScreenHandoff(minecraft)) {
@@ -183,8 +183,8 @@ final class ClientRtsLifecycleOwner {
                 controller.funnelTargetCooldownTicks--;
             }
 
-            boolean hasRemoteMenuOpen = minecraft.player.openContainer != null
-                    && minecraft.player.openContainer.windowId != 0;
+            boolean hasRemoteMenuOpen = minecraft.thePlayer.openContainer != null
+                    && minecraft.thePlayer.openContainer.windowId != 0;
 
             if (hasRemoteMenuOpen
                     && minecraft.currentScreen == null
@@ -192,16 +192,16 @@ final class ClientRtsLifecycleOwner {
                 controller.screenlessRemoteMenuTicks++;
                 if (controller.screenlessRemoteMenuTicks == 1) {
                     RtsClientTraceTracker.screenMissing(
-                            minecraft.player.openContainer.windowId,
-                            minecraft.player.openContainer.getClass().getName(),
+                            minecraft.thePlayer.openContainer.windowId,
+                            minecraft.thePlayer.openContainer.getClass().getName(),
                             ClientRtsController.SCREENLESS_REMOTE_MENU_RECOVERY_TICKS);
                 }
                 if (controller.screenlessRemoteMenuTicks >= ClientRtsController.SCREENLESS_REMOTE_MENU_RECOVERY_TICKS) {
                     RtsClientTraceTracker.screenlessRecovery(
-                            minecraft.player.openContainer.windowId,
-                            minecraft.player.openContainer.getClass().getName());
+                            minecraft.thePlayer.openContainer.windowId,
+                            minecraft.thePlayer.openContainer.getClass().getName());
                     RtsClientPacketGateway.sendCloseRemoteMenu();
-                    minecraft.player.closeScreen();
+                    minecraft.thePlayer.closeScreen();
                     controller.clearRemoteMenuValidationState();
                     controller.relaxedRemoteMenu = null;
                     hasRemoteMenuOpen = false;
@@ -212,25 +212,25 @@ final class ClientRtsLifecycleOwner {
             }
 
             if (controller.pendingCraftTerminalOpen
-                    && minecraft.player.openContainer instanceof ContainerWorkbench
-                    && minecraft.player.openContainer.windowId != 0
+                    && minecraft.thePlayer.openContainer instanceof ContainerWorkbench
+                    && minecraft.thePlayer.openContainer.windowId != 0
                     && !(minecraft.currentScreen instanceof RtsCraftTerminalScreen)) {
-                ContainerWorkbench pendingMenu = (ContainerWorkbench) minecraft.player.openContainer;
-                minecraft.displayGuiScreen(new RtsCraftTerminalScreen(pendingMenu, minecraft.player.inventory,
-                        new TextComponentString("RTS Craft Terminal")));
+                ContainerWorkbench pendingMenu = (ContainerWorkbench) minecraft.thePlayer.openContainer;
+                minecraft.displayGuiScreen(new RtsCraftTerminalScreen(pendingMenu, minecraft.thePlayer.inventory,
+                        new ChatComponentText("RTS Craft Terminal")));
                 controller.pendingCraftTerminalOpen = false;
                 controller.pendingCraftTerminalOpenTicks = 0;
             }
 
             if (minecraft.currentScreen instanceof GuiCrafting
-                    && minecraft.player != null
+                    && minecraft.thePlayer != null
                     && ((GuiCrafting) minecraft.currentScreen).inventorySlots instanceof ContainerWorkbench
                     && !(minecraft.currentScreen instanceof RtsCraftTerminalScreen)) {
                 GuiCrafting craftingScreen = (GuiCrafting) minecraft.currentScreen;
                 if (controller.shouldUseRtsCraftTerminalScreen(craftingScreen)) {
                     ContainerWorkbench craftingMenu = (ContainerWorkbench) craftingScreen.inventorySlots;
-                    minecraft.displayGuiScreen(new RtsCraftTerminalScreen(craftingMenu, minecraft.player.inventory,
-                            new TextComponentString("RTS Craft Terminal")));
+                    minecraft.displayGuiScreen(new RtsCraftTerminalScreen(craftingMenu, minecraft.thePlayer.inventory,
+                            new ChatComponentText("RTS Craft Terminal")));
                     controller.pendingCraftTerminalOpen = false;
                     controller.pendingCraftTerminalOpenTicks = 0;
                 }
@@ -246,7 +246,7 @@ final class ClientRtsLifecycleOwner {
             if (hasRemoteMenuOpen) {
                 controller.pendingRemoteMenuOpenTicks = 0;
                 try {
-                    Container activeRemoteMenu = RtsClientRemoteMenuCompat.install(minecraft, minecraft.player.openContainer);
+                    Container activeRemoteMenu = RtsClientRemoteMenuCompat.install(minecraft, minecraft.thePlayer.openContainer);
                     if (controller.relaxedRemoteMenu != activeRemoteMenu) {
                         RtsClientTraceTracker.menuInstalled(
                                 activeRemoteMenu.windowId,
@@ -272,8 +272,8 @@ final class ClientRtsLifecycleOwner {
                 controller.pendingRemoteMenuOpenTicks--;
                 if (controller.pendingRemoteMenuOpenTicks == 0) {
                     RtsClientTraceTracker.hintTimeout(
-                            minecraft.player.openContainer == null
-                                    ? "null" : minecraft.player.openContainer.getClass().getName(),
+                            minecraft.thePlayer.openContainer == null
+                                    ? "null" : minecraft.thePlayer.openContainer.getClass().getName(),
                             minecraft.currentScreen == null
                                     ? "null" : minecraft.currentScreen.getClass().getName());
                 }
@@ -310,7 +310,7 @@ final class ClientRtsLifecycleOwner {
             // (including jumping and sneaking).
             // 1.12 的 isCurrentViewEntity() 由 LocalPlayerMixin 在 RTS 模式下返回 true，
             // so Minecraft's native sync mechanism handles position/rotation packets automatically.
-            EntityPlayerSP localPlayer = minecraft.player;
+            EntityPlayerSP localPlayer = minecraft.thePlayer;
             if (localPlayer != null) {
                 localPlayer.movementInput.jump = false;
                 localPlayer.movementInput.sneak = false;
@@ -339,7 +339,7 @@ final class ClientRtsLifecycleOwner {
         }
 
     boolean handleDeathScreenHandoff(Minecraft minecraft) {
-            boolean dead = minecraft.player == null || !minecraft.player.isEntityAlive() || minecraft.player.isDead;
+            boolean dead = minecraft.thePlayer == null || !minecraft.thePlayer.isEntityAlive() || minecraft.thePlayer.isDead;
             if (!dead) {
                 return false;
             }
@@ -359,7 +359,7 @@ final class ClientRtsLifecycleOwner {
                 minecraft.displayGuiScreen(null);
             }
 
-            controller.cameraOrbitService.restorePreviousView(minecraft, minecraft.player);
+            controller.cameraOrbitService.restorePreviousView(minecraft, minecraft.thePlayer);
 
             controller.enabled = false;
             RtsClientTraceTracker.reset("PLAYER_DEAD");

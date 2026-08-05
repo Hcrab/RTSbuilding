@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.craft;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,7 +85,7 @@ public final class C2SRtsJeiContainerTransferPayload implements IMessage {
                 return false;
             }
             for (ItemStack choice : choices) {
-                if (choice == null || choice.isEmpty()) {
+                if (choice == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(choice)) {
                     return false;
                 }
             }
@@ -158,7 +158,7 @@ public final class C2SRtsJeiContainerTransferPayload implements IMessage {
             List<ItemStack> copied = new ArrayList<ItemStack>();
             if (choices != null) {
                 for (ItemStack choice : choices) {
-                    if (choice != null && !choice.isEmpty()) {
+                    if (choice != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(choice)) {
                         copied.add(one(choice));
                     }
                 }
@@ -169,11 +169,11 @@ public final class C2SRtsJeiContainerTransferPayload implements IMessage {
     }
 
     private static ItemStack one(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            return null;
         }
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 }

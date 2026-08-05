@@ -6,10 +6,10 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPa
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsScanResumePlacementPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import net.minecraft.util.ChatComponentTranslation;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -39,8 +39,8 @@ public final class RtsBuilderSyncHandlers1122 {
             implements IMessageHandler<C2SRtsPauseWorkflowPayload, IMessage> {
         @Override public IMessage onMessage(final C2SRtsPauseWorkflowPayload message, MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() { togglePause(player, message.entryId()); }
             });
             return null;
@@ -52,8 +52,8 @@ public final class RtsBuilderSyncHandlers1122 {
         @Override public IMessage onMessage(final C2SRtsScanResumePlacementPayload message,
                                             MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() { scanResumePlacement(player, message.workflowEntryId()); }
             });
             return null;
@@ -65,8 +65,8 @@ public final class RtsBuilderSyncHandlers1122 {
         @Override public IMessage onMessage(final C2SRtsResumePlacementActionPayload message,
                                             MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
                     resumePlacement(player, message.strategy(), message.workflowEntryId());
                 }
@@ -124,7 +124,7 @@ public final class RtsBuilderSyncHandlers1122 {
         String key = suspended ? "message.rtsbuilding.workflow.resumed"
                 : paused ? "message.rtsbuilding.workflow.thread_resumed"
                 : "message.rtsbuilding.workflow.paused";
-        player.sendStatusMessage(new TextComponentTranslation(key), true);
+        com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(key), true);
     }
 
     private static Object storageSession(EntityPlayerMP player) {

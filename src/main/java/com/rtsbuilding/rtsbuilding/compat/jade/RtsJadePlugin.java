@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.jade;
 
-import net.minecraftforge.fml.common.Loader;
+import cpw.mods.fml.common.Loader;
 
 /**
  * Minecraft 1.12.2 上的 Jade/HWYLA 能力探测器。

@@ -11,18 +11,18 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.Collections;
 import java.util.List;
@@ -34,7 +34,7 @@ import java.util.List;
  * Forge 流体能力返回的真实值为准。本类不把容器降级为物品 ID，也不丢弃 metadata/NBT。
  */
 public final class RtsStorageFluids {
-    private static final int FLUID_TRANSFER_MB = Fluid.BUCKET_VOLUME;
+    private static final int FLUID_TRANSFER_MB = net.minecraftforge.fluids.FluidContainerRegistry.BUCKET_VOLUME;
 
     private RtsStorageFluids() {
     }
@@ -81,11 +81,11 @@ public final class RtsStorageFluids {
             return false;
         }
 
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         EnumFacing safeFace = face == null ? EnumFacing.UP : face;
         FluidStack transfer = new FluidStack(fluid, FLUID_TRANSFER_MB);
         int filledIntoBlock = RtsClaimProtectionService.canInteractBlock(
-                player, clickedPos, safeFace, EnumHand.MAIN_HAND, ItemStack.EMPTY)
+                player, clickedPos, safeFace, EnumHand.MAIN_HAND, null)
                 ? RtsFluidWorldPlacer.fillFluidHandlerAtTarget(level, clickedPos, safeFace, transfer)
                 : 0;
         if (filledIntoBlock > 0) {
@@ -136,13 +136,13 @@ public final class RtsStorageFluids {
             return false;
         }
         ResourceLocation id = resourceLocation(itemId);
-        Item item = id == null ? null : ForgeRegistries.ITEMS.getValue(id);
+        Item item = id == null ? null : RtsRegistries.ITEMS.getValue(id);
         if (item == null) {
             return false;
         }
 
         ItemStack extracted = gate.extractOneFromNetwork(extractItemHandlers, player, item);
-        if (extracted.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
             return false;
         }
 
@@ -174,13 +174,13 @@ public final class RtsStorageFluids {
                     session, fluidHandlers, insertFluid.getFluid(), inserted, true);
             if (rolledBack == inserted) {
                 gate.refundToLinked(insertItemHandlers, player, extracted);
-            } else if (!executed.remainder().isEmpty()) {
+            } else if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(executed.remainder())) {
                 gate.refundToLinked(insertItemHandlers, player, executed.remainder());
             }
             return false;
         }
 
-        if (!executed.remainder().isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(executed.remainder())) {
             gate.refundToLinked(insertItemHandlers, player, executed.remainder());
         }
         recordRecentFluid(session, insertFluid.getFluid(),
@@ -192,7 +192,7 @@ public final class RtsStorageFluids {
             RtsStorageSession session, List<LinkedFluidHandler> fluidHandlers, int toolSlot) {
         int slot = clampHotbarSlot(toolSlot);
         ItemStack inSlot = player.inventory.getStackInSlot(slot);
-        if (inSlot.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(inSlot)) {
             return false;
         }
 
@@ -234,8 +234,8 @@ public final class RtsStorageFluids {
     private static void consumeToolContainer(EntityPlayerMP player, FluidTransferGate gate, int slot,
             ItemStack originalSlot, ItemStack containerRemainder) {
         ItemStack remainingInSlot = originalSlot.copy();
-        remainingInSlot.shrink(1);
-        if (remainingInSlot.isEmpty()) {
+        com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(remainingInSlot, 1);
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainingInSlot)) {
             player.inventory.setInventorySlotContents(slot, containerRemainder);
         } else {
             player.inventory.setInventorySlotContents(slot, remainingInSlot);
@@ -249,12 +249,12 @@ public final class RtsStorageFluids {
 
     private static void moveToPlayerInventoryOrDrop(FluidTransferGate gate,
             EntityPlayerMP player, ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return;
         }
         ItemStack remainder = gate.moveToPlayerInventoryOnly(player, stack);
-        if (!remainder.isEmpty()) {
-            player.dropItem(remainder, false);
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) {
+            player.dropPlayerItemWithRandomChoice(remainder, false);
         }
     }
 
@@ -276,7 +276,7 @@ public final class RtsStorageFluids {
 
     private static ItemStack copyAmount(ItemStack source, int amount) {
         ItemStack copy = source.copy();
-        copy.setCount(amount);
+        copy.stackSize = amount;
         return copy;
     }
 

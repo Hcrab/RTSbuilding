@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -8,10 +8,10 @@ import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
-import net.minecraft.network.play.server.SPacketBlockChange;
-import net.minecraft.network.play.server.SPacketUpdateTileEntity;
+import net.minecraft.network.Packet;
+import net.minecraft.network.play.server.S23PacketBlockChange;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 /**
@@ -140,16 +140,25 @@ public final class RtsRemoteMenuService {
                     "[RTS-TRACE] side=S event=HINT_SENT trace={} kind=REMOTE_GUI target={}",
                     RtsTraceIds.format(traceId), pos);
         }
-        WorldServer level = player.getServerWorld();
-        if (level == null || !level.isBlockLoaded(pos)) {
+        WorldServer level = player.getServerForPlayer();
+        if (level == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) {
             return;
         }
-        player.connection.sendPacket(new SPacketBlockChange(level, pos));
-        TileEntity blockEntity = level.getTileEntity(pos);
+        player.playerNetServerHandler.sendPacket(new S23PacketBlockChange(
+                pos.getX(), pos.getY(), pos.getZ(), level));
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         if (blockEntity != null) {
-            SPacketUpdateTileEntity updatePacket = blockEntity.getUpdatePacket();
-            if (updatePacket != null) {
-                player.connection.sendPacket(updatePacket);
+            try {
+                Packet updatePacket = blockEntity.getDescriptionPacket();
+                if (updatePacket != null) {
+                    player.playerNetServerHandler.sendPacket(updatePacket);
+                }
+            } catch (RuntimeException | LinkageError failure) {
+                // 第三方 TE 的描述包只是开窗前的增量补强；坏实现不能把正常右键升级为崩服。
+                RtsbuildingMod.LOGGER.warn(
+                        "[RTS-TRACE] side=S event=TE_SYNC_FAILED trace={} kind=REMOTE_GUI target={} tile={} failure={} fallback=CHUNK_STATE",
+                        RtsTraceIds.format(traceId), pos, blockEntity.getClass().getName(),
+                        failure.getClass().getName());
             }
         }
     }

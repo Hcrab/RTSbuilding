@@ -14,7 +14,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -89,28 +89,28 @@ public final class RtsGenericJeiContainerFiller {
         for (int i = 0; i < targets.size(); i++) {
             ItemStack wanted = assignment.get(i);
             ItemStack extracted = takeOne(clearedPool, wanted);
-            boolean fromCleared = !extracted.isEmpty();
-            if (extracted.isEmpty()) {
+            boolean fromCleared = !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 extracted = RtsTransferExtractor.extractOneMatchingPrototypeCombined(
                         extractHandlers, player, wanted);
-                if (!extracted.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                     externallyExtracted.add(extracted.copy());
                 }
             }
-            if (extracted.isEmpty() || !targets.get(i).isItemValid(extracted)) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted) || !targets.get(i).isItemValid(extracted)) {
                 rollbackFirstSet(targets, originals, firstSetFromCleared,
                         externallyExtracted, insertHandlers, player);
                 logResult(player, container, windowId, "RACE_ROLLBACK", 0);
                 return;
             }
-            extracted.setCount(1);
+            extracted.stackSize = 1;
             targets.get(i).putStack(extracted);
             targets.get(i).onSlotChanged();
             firstSetFromCleared.add(fromCleared);
         }
 
         for (ItemStack remainder : clearedPool) {
-            if (!remainder.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) {
                 RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(
                         insertHandlers, player, remainder);
             }
@@ -172,7 +172,7 @@ public final class RtsGenericJeiContainerFiller {
             }
             boolean acceptsAny = false;
             for (ItemStack candidate : alternatives.get(i)) {
-                if (candidate != null && !candidate.isEmpty()
+                if (candidate != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(candidate)
                         && slot.isItemValid(candidate)) {
                     acceptsAny = true;
                     break;
@@ -190,7 +190,7 @@ public final class RtsGenericJeiContainerFiller {
         List<ItemStack> result = new ArrayList<ItemStack>(targets.size());
         for (Slot target : targets) {
             ItemStack stack = target.getStack();
-            result.add(stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copy());
+            result.add(stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? null : stack.copy());
         }
         return result;
     }
@@ -220,18 +220,18 @@ public final class RtsGenericJeiContainerFiller {
 
     private static void addIfRelevant(List<SourceBucket> target, ItemStack stack,
                                       List<List<ItemStack>> alternatives) {
-        if (stack == null || stack.isEmpty() || !matchesAny(stack, alternatives)) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || !matchesAny(stack, alternatives)) {
             return;
         }
         for (SourceBucket bucket : target) {
             if (sameStack(bucket.prototype, stack)) {
-                bucket.count += stack.getCount();
+                bucket.count += stack.stackSize;
                 return;
             }
         }
         ItemStack prototype = stack.copy();
-        prototype.setCount(1);
-        target.add(new SourceBucket(prototype, stack.getCount()));
+        prototype.stackSize = 1;
+        target.add(new SourceBucket(prototype, stack.stackSize));
     }
 
     private static boolean matchesAny(ItemStack stack,
@@ -300,10 +300,10 @@ public final class RtsGenericJeiContainerFiller {
         }
         List<ItemStack> result = new ArrayList<ItemStack>(assigned.length);
         for (ItemStack stack : assigned) {
-            if (stack == null || stack.isEmpty()) {
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 return null;
             }
-            stack.setCount(1);
+            stack.stackSize = 1;
             result.add(stack);
         }
         return result;
@@ -327,7 +327,7 @@ public final class RtsGenericJeiContainerFiller {
 
     private static void clearTargets(List<Slot> targets) {
         for (Slot target : targets) {
-            target.putStack(ItemStack.EMPTY);
+            target.putStack(null);
             target.onSlotChanged();
         }
     }
@@ -335,16 +335,16 @@ public final class RtsGenericJeiContainerFiller {
     private static ItemStack takeOne(List<ItemStack> pool, ItemStack prototype) {
         for (int i = 0; i < pool.size(); i++) {
             ItemStack stack = pool.get(i);
-            if (stack.isEmpty() || !sameStack(stack, prototype)) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || !sameStack(stack, prototype)) {
                 continue;
             }
             ItemStack one = stack.splitStack(1);
-            if (stack.isEmpty()) {
-                pool.set(i, ItemStack.EMPTY);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                pool.set(i, null);
             }
             return one;
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     private static boolean addAnotherCompleteSet(
@@ -357,8 +357,8 @@ public final class RtsGenericJeiContainerFiller {
             ItemStack current = targets.get(i).getStack();
             ItemStack wanted = assignment.get(i);
             int limit = Math.min(current.getMaxStackSize(),
-                    targets.get(i).getItemStackLimit(current));
-            if (!sameStack(current, wanted) || current.getCount() >= limit) {
+                    targets.get(i).getSlotStackLimit());
+            if (!sameStack(current, wanted) || current.stackSize >= limit) {
                 return false;
             }
         }
@@ -367,7 +367,7 @@ public final class RtsGenericJeiContainerFiller {
         for (ItemStack wanted : assignment) {
             ItemStack extracted = RtsTransferExtractor.extractOneMatchingPrototypeCombined(
                     extractHandlers, player, wanted);
-            if (extracted.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 for (ItemStack refund : acquired) {
                     RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(
                             insertHandlers, player, refund);
@@ -377,7 +377,7 @@ public final class RtsGenericJeiContainerFiller {
             acquired.add(extracted);
         }
         for (int i = 0; i < targets.size(); i++) {
-            targets.get(i).getStack().grow(acquired.get(i).getCount());
+            com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(targets.get(i).getStack(), acquired.get(i).stackSize);
             targets.get(i).onSlotChanged();
         }
         return true;
@@ -391,7 +391,7 @@ public final class RtsGenericJeiContainerFiller {
             List<IItemHandler> insertHandlers,
             EntityPlayerMP player) {
         for (int i = 0; i < fromCleared.size(); i++) {
-            targets.get(i).putStack(ItemStack.EMPTY);
+            targets.get(i).putStack(null);
             targets.get(i).onSlotChanged();
         }
         for (ItemStack extracted : externallyExtracted) {
@@ -407,7 +407,7 @@ public final class RtsGenericJeiContainerFiller {
     private static List<ItemStack> copyStacks(List<ItemStack> source) {
         List<ItemStack> result = new ArrayList<ItemStack>(source.size());
         for (ItemStack stack : source) {
-            result.add(stack == null || stack.isEmpty() ? ItemStack.EMPTY : stack.copy());
+            result.add(stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? null : stack.copy());
         }
         return result;
     }
@@ -424,8 +424,8 @@ public final class RtsGenericJeiContainerFiller {
 
     private static boolean sameStack(ItemStack left, ItemStack right) {
         return left != null && right != null
-                && !left.isEmpty() && !right.isEmpty()
-                && ItemStack.areItemsEqual(left, right)
+                && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(left) && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(right)
+                && com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(left, right)
                 && ItemStack.areItemStackTagsEqual(left, right);
     }
 
@@ -433,7 +433,7 @@ public final class RtsGenericJeiContainerFiller {
                                   int windowId, String result, int passes) {
         RtsbuildingMod.LOGGER.info(
                 "[RTS-JEI] side=S event=REMOTE_TRANSFER_RESULT player={} container={} window={} result={} passes={}",
-                player == null ? "null" : player.getName(),
+                player == null ? "null" : com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.name(player),
                 container == null ? "null" : container.getClass().getName(),
                 windowId, result, passes);
     }

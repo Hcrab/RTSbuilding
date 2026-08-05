@@ -6,9 +6,9 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IFluidHandler;
+import cpw.mods.fml.common.Loader;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.lang.reflect.Constructor;
@@ -229,7 +229,7 @@ public final class RtsBdCompat {
         }
 
         private long reportedCount(Object storage, ItemStack displayed) {
-            if (displayed == null || displayed.isEmpty()) {
+            if (displayed == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(displayed)) {
                 return 0L;
             }
             try {
@@ -243,7 +243,7 @@ public final class RtsBdCompat {
                 return amount instanceof Number ? Math.max(0L, ((Number) amount).longValue()) : 0L;
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException
                     | RuntimeException | LinkageError failure) {
-                return Math.max(0, displayed.getCount());
+                return Math.max(0, displayed.stackSize);
             }
         }
     }
@@ -271,13 +271,13 @@ public final class RtsBdCompat {
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            return delegate == null ? ItemStack.EMPTY : delegate.getStackInSlot(slot);
+            return delegate == null ? null : delegate.getStackInSlot(slot);
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (delegate == null || stack == null || stack.isEmpty()) {
-                return stack == null ? ItemStack.EMPTY : stack;
+            if (delegate == null || stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                return stack == null ? null : stack;
             }
             // BD 0.1.7.x 的 ItemStackType 构造器持有传入对象；传副本避免其返回 remainder 时改写调用方。
             return delegate.insertItem(slot, stack.copy(), simulate);
@@ -286,7 +286,7 @@ public final class RtsBdCompat {
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
             return delegate == null || amount <= 0
-                    ? ItemStack.EMPTY : delegate.extractItem(slot, amount, simulate);
+                    ? null : delegate.extractItem(slot, amount, simulate);
         }
 
         @Override
@@ -302,19 +302,19 @@ public final class RtsBdCompat {
         @Override
         public ItemStack tryExtractItem(Item target, int amount, boolean simulate) {
             if (delegate == null || target == null || amount <= 0) {
-                return ItemStack.EMPTY;
+                return null;
             }
             for (int slot = 0; slot < delegate.getSlots(); slot++) {
                 ItemStack candidate = delegate.getStackInSlot(slot);
-                if (candidate.isEmpty() || candidate.getItem() != target) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(candidate) || candidate.getItem() != target) {
                     continue;
                 }
                 ItemStack extracted = delegate.extractItem(slot, amount, simulate);
-                if (!extracted.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                     return extracted;
                 }
             }
-            return ItemStack.EMPTY;
+            return null;
         }
 
         @Override

@@ -5,15 +5,15 @@ import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockSlab;
-import net.minecraft.block.properties.IProperty;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.IProperty;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * 下一次 RTS 放置所使用的完整 1.12 {@link IBlockState} 选择轮盘。
+ * 下一次 RTS 放置所使用的完整 1.12 {@link BlockState} 选择轮盘。
  *
  * <p>本类只负责安全属性候选、分页、命中与预览，不修改世界，也不发送网络请求。
  * 确认后的完整状态由 BuilderScreen 转换为受限放置预设。</p>
@@ -48,7 +48,7 @@ public final class PlacementStateWheel {
     };
 
     private final List<RotationProperty<?>> properties = new ArrayList<RotationProperty<?>>();
-    private final List<IBlockState> placementChoices = new ArrayList<IBlockState>();
+    private final List<BlockState> placementChoices = new ArrayList<BlockState>();
     private boolean open;
     private boolean closing;
     private int centerX;
@@ -64,10 +64,10 @@ public final class PlacementStateWheel {
     public boolean isOpen() { return this.open; }
 
     /** 打开“下一次放置”轮盘；没有可预选属性时返回 false。 */
-    public boolean open(IBlockState state, double mouseX, double mouseY, int screenWidth,
+    public boolean open(BlockState state, double mouseX, double mouseY, int screenWidth,
             int screenHeight, float cameraYaw, float cameraPitch) {
         reset();
-        if (state == null || state.getMaterial() == net.minecraft.block.material.Material.AIR) return false;
+        if (state == null || state.getMaterial() == net.minecraft.block.material.Material.air) return false;
 
         for (String propertyName : PROPERTY_ORDER) addPropertyByName(state, propertyName);
         if (this.properties.isEmpty()) return false;
@@ -229,7 +229,7 @@ public final class PlacementStateWheel {
         return clamp(remaining, 0, PLACEMENT_PAGE_SIZE);
     }
 
-    private void drawOption(LegacyGuiGraphics graphics, IBlockState state, boolean current,
+    private void drawOption(LegacyGuiGraphics graphics, BlockState state, boolean current,
             int centerX, int centerY, float hover, float alpha, float openingProgress) {
         float scale = (0.72F + openingProgress * 0.28F) * (1.0F + hover * 0.12F);
         int radius = Math.max(6, Math.round(OPTION_RADIUS * scale));
@@ -239,7 +239,7 @@ public final class PlacementStateWheel {
                 color(ModeWheelStyle.optionBackground(current, hover).toArgb(), alpha));
 
         ItemStack stack = stackForState(state);
-        if (stack.isEmpty()) return;
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return;
         GlStateManager.pushMatrix();
         GlStateManager.translate(centerX, centerY + 1, 180.0F);
         GlStateManager.scale(scale, scale, 1.0F);
@@ -255,15 +255,15 @@ public final class PlacementStateWheel {
         }
     }
 
-    private static ItemStack stackForState(IBlockState state) {
+    private static ItemStack stackForState(BlockState state) {
         try {
             Block block = state.getBlock();
             Item item = Item.getItemFromBlock(block);
-            if (item == null) return ItemStack.EMPTY;
-            int metadata = block.getMetaFromState(state);
+            if (item == null) return null;
+            int metadata = state.getMetadata();
             return new ItemStack(item, 1, metadata);
         } catch (RuntimeException ignored) {
-            return ItemStack.EMPTY;
+            return null;
         }
     }
 
@@ -313,7 +313,7 @@ public final class PlacementStateWheel {
                 color(ModeWheelStyle.LABEL_TEXT.toArgb(), alpha));
     }
 
-    private void addPropertyByName(IBlockState state, String name) {
+    private void addPropertyByName(BlockState state, String name) {
         for (IProperty<?> property : state.getPropertyKeys()) {
             if (name.equals(property.getName()) && isSafeProperty(state, property)) {
                 addProperty(state, property);
@@ -322,7 +322,7 @@ public final class PlacementStateWheel {
         }
     }
 
-    private static boolean isSafeProperty(IBlockState state, IProperty<?> property) {
+    private static boolean isSafeProperty(BlockState state, IProperty<?> property) {
         String name = property.getName();
         Class<?> type = property.getValueClass();
         if (("facing".equals(name) || "horizontal_facing".equals(name))
@@ -337,7 +337,9 @@ public final class PlacementStateWheel {
             return true;
         }
         if ("half".equals(name)) {
-            if (state.getBlock() instanceof BlockSlab && ((BlockSlab) state.getBlock()).isDouble()) return false;
+            if (state.getBlock() instanceof BlockSlab
+                    && com.rtsbuilding.rtsbuilding.platform.block.BlockCompat.isDoubleSlab(
+                            (BlockSlab) state.getBlock())) return false;
             for (Object value : property.getAllowedValues()) {
                 String valueName = propertyValueNameUnchecked(property, (Comparable<?>) value);
                 if (!"top".equals(valueName) && !"bottom".equals(valueName)) return false;
@@ -354,7 +356,7 @@ public final class PlacementStateWheel {
         return false;
     }
 
-    private <T extends Comparable<T>> void addProperty(IBlockState state, IProperty<T> property) {
+    private <T extends Comparable<T>> void addProperty(BlockState state, IProperty<T> property) {
         for (RotationProperty<?> existing : this.properties) {
             if (existing.propertyName().equals(property.getName())) return;
         }
@@ -370,20 +372,20 @@ public final class PlacementStateWheel {
         }
     }
 
-    private static List<IBlockState> buildPlacementStates(IBlockState base,
+    private static List<BlockState> buildPlacementStates(BlockState base,
             List<RotationProperty<?>> properties) {
         List<Integer> counts = new ArrayList<Integer>(properties.size());
         for (RotationProperty<?> property : properties) counts.add(Integer.valueOf(property.options().size()));
-        List<IBlockState> states = new ArrayList<IBlockState>();
+        List<BlockState> states = new ArrayList<BlockState>();
         for (int[] indices : PlacementStateCombinationPlan.combinations(counts, PLACEMENT_CHOICE_LIMIT)) {
-            IBlockState state = base;
+            BlockState state = base;
             for (int i = 0; i < properties.size(); i++) state = applyOption(state, properties.get(i), indices[i]);
             if (!states.contains(state)) states.add(state);
         }
         return Collections.unmodifiableList(states);
     }
 
-    private static <T extends Comparable<T>> IBlockState applyOption(IBlockState state,
+    private static <T extends Comparable<T>> BlockState applyOption(BlockState state,
             RotationProperty<T> property, int optionIndex) {
         T original = property.options().get(optionIndex).value();
         String serialized = property.property().getName(original);
@@ -392,7 +394,7 @@ public final class PlacementStateWheel {
         return state.withProperty(property.property(), parsed.get());
     }
 
-    private String placementChoiceLabel(IBlockState state) {
+    private String placementChoiceLabel(BlockState state) {
         List<String> parts = new ArrayList<String>(this.properties.size());
         for (RotationProperty<?> property : this.properties) {
             Comparable<?> value = getValueUnchecked(state, property.property());
@@ -421,7 +423,7 @@ public final class PlacementStateWheel {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static Comparable<?> getValueUnchecked(IBlockState state, IProperty property) { return state.getValue(property); }
+    private static Comparable<?> getValueUnchecked(BlockState state, IProperty property) { return state.getValue(property); }
     @SuppressWarnings({"rawtypes", "unchecked"})
     private static String propertyValueNameUnchecked(IProperty property, Comparable value) { return property.getName(value); }
 
@@ -525,9 +527,9 @@ public final class PlacementStateWheel {
 
     /** 确认项携带轮盘实际预览的完整状态，避免多个属性在放置前漂移。 */
     public static final class PlacementChoice {
-        private final IBlockState state;
-        public PlacementChoice(IBlockState state) { this.state = state; }
-        public IBlockState state() { return this.state; }
+        private final BlockState state;
+        public PlacementChoice(BlockState state) { this.state = state; }
+        public BlockState state() { return this.state; }
         @Override public boolean equals(Object other) {
             return this == other || other instanceof PlacementChoice
                     && this.state.equals(((PlacementChoice) other).state);

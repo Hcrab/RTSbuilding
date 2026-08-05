@@ -47,41 +47,44 @@ final class CanonicalNbtHasher {
             case 0:
                 return;
             case 1:
-                digest.update(((NBTTagByte) tag).getByte());
+                digest.update(((NBTBase.NBTPrimitive) tag).func_150290_f());
                 return;
             case 2:
-                putShort(digest, ((NBTTagShort) tag).getShort());
+                putShort(digest, ((NBTBase.NBTPrimitive) tag).func_150289_e());
                 return;
             case 3:
-                putInt(digest, ((NBTTagInt) tag).getInt());
+                putInt(digest, ((NBTBase.NBTPrimitive) tag).func_150287_d());
                 return;
             case 4:
-                putLong(digest, ((NBTTagLong) tag).getLong());
+                putLong(digest, ((NBTTagLong) tag).func_150291_c());
                 return;
             case 5:
-                putInt(digest, Float.floatToIntBits(((NBTTagFloat) tag).getFloat()));
+                putInt(digest, Float.floatToIntBits(((NBTBase.NBTPrimitive) tag).func_150288_h()));
                 return;
             case 6:
-                putLong(digest, Double.doubleToLongBits(((NBTTagDouble) tag).getDouble()));
+                putLong(digest, Double.doubleToLongBits(((NBTBase.NBTPrimitive) tag).func_150286_g()));
                 return;
             case 7: {
-                byte[] values = ((NBTTagByteArray) tag).getByteArray();
+                byte[] values = ((NBTTagByteArray) tag).func_150292_c();
                 putInt(digest, values.length);
                 digest.update(values);
                 return;
             }
             case 8:
-                putCanonicalString(digest, ((NBTTagString) tag).getString(), "NBT 字符串");
+                putCanonicalString(digest, ((NBTTagString) tag).func_150285_a_(), "NBT 字符串");
                 return;
             case 9: {
                 NBTTagList list = (NBTTagList) tag;
                 putInt(digest, list.tagCount());
-                for (int i = 0; i < list.tagCount(); i++) hashTag(digest, list.get(i));
+                for (int i = 0; i < list.tagCount(); i++) {
+                    hashTag(digest,
+                            com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.listElement(list, i));
+                }
                 return;
             }
             case 10: {
                 NBTTagCompound compound = (NBTTagCompound) tag;
-                List<String> keys = new ArrayList<String>(compound.getKeySet());
+                List<String> keys = new ArrayList<String>(compound.func_150296_c());
                 Collections.sort(keys);
                 putInt(digest, keys.size());
                 for (String key : keys) {
@@ -93,7 +96,7 @@ final class CanonicalNbtHasher {
                 return;
             }
             case 11: {
-                int[] values = ((NBTTagIntArray) tag).getIntArray();
+                int[] values = ((NBTTagIntArray) tag).func_150302_c();
                 putInt(digest, values.length);
                 for (int value : values) putInt(digest, value);
                 return;

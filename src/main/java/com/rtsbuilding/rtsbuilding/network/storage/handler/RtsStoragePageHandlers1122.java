@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.network.storage.handler;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsRequestStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
 
@@ -18,8 +18,8 @@ public final class RtsStoragePageHandlers1122 {
     public static final class Request implements IMessageHandler<C2SRtsRequestStoragePagePayload,IMessage>{
         @Override public IMessage onMessage(final C2SRtsRequestStoragePagePayload m,MessageContext c){
             if(!m.isValid())return null;
-            final EntityPlayerMP p=c.getServerHandler().player;
-            p.getServerWorld().addScheduledTask(new Runnable(){@Override public void run(){
+            final EntityPlayerMP p=c.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(p, new Runnable(){@Override public void run(){
                 if(!active(p))return;
                 invokePage(p,m);
             }});

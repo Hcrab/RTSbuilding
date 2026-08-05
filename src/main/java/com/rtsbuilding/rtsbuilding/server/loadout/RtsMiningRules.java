@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.loadout;
 
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.block.material.Material;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
@@ -28,9 +28,9 @@ public final class RtsMiningRules {
      * @param state 要挖掘的方块状态
      * @return 所需的工具角色，如果不需要特定工具则返回 null
      */
-    public static MiningLoadoutRole requiredRole(IBlockState state) {
+    public static MiningLoadoutRole requiredRole(BlockState state) {
         if (state == null) return null;
-        String harvestTool = state.getBlock().getHarvestTool(state);
+        String harvestTool = state.getBlock().getHarvestTool(state.getMetadata());
         if ("pickaxe".equalsIgnoreCase(harvestTool)) return MiningLoadoutRole.PICK;
         if ("shovel".equalsIgnoreCase(harvestTool) || "spade".equalsIgnoreCase(harvestTool)) {
             return MiningLoadoutRole.SHOVEL;
@@ -45,14 +45,14 @@ public final class RtsMiningRules {
      * 早期生命周期和少数旧模组方块因此需要按原版材质补齐等价分类。
      */
     private static MiningLoadoutRole roleFromMaterial(Material material) {
-        if (material == Material.ROCK || material == Material.IRON || material == Material.ANVIL) {
+        if (material == Material.rock || material == Material.iron || material == Material.anvil) {
             return MiningLoadoutRole.PICK;
         }
-        if (material == Material.GROUND || material == Material.GRASS || material == Material.SAND
-                || material == Material.SNOW || material == Material.CRAFTED_SNOW || material == Material.CLAY) {
+        if (material == Material.ground || material == Material.grass || material == Material.sand
+                || material == Material.snow || material == Material.craftedSnow || material == Material.clay) {
             return MiningLoadoutRole.SHOVEL;
         }
-        if (material == Material.WOOD || material == Material.GOURD) {
+        if (material == Material.wood || material == Material.gourd) {
             return MiningLoadoutRole.AXE;
         }
         return null;
@@ -72,9 +72,9 @@ public final class RtsMiningRules {
      * @param state 要挖掘的方块状态
      * @return 所需的挖掘等级
      */
-    public static int requiredLevel(IBlockState state) {
+    public static int requiredLevel(BlockState state) {
         if (state == null) return 0;
-        int forgeLevel = state.getBlock().getHarvestLevel(state);
+        int forgeLevel = state.getBlock().getHarvestLevel(state.getMetadata());
         if (requiredRole(state) == MiningLoadoutRole.PICK) {
             // 1.21.1 原版石头、平滑石头等普通镐类方块不一定带 NEEDS_STONE_TOOL；
             // 但对 RTS 生存平衡来说，它们仍然是“需要基础采掘插件”的对象。
@@ -100,11 +100,11 @@ public final class RtsMiningRules {
      * @return 工具等级
      */
     public static int toolLevel(ItemStack stack) {
-        if (stack.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return 0;
         }
-        ResourceLocation key = Item.REGISTRY.getNameForObject(stack.getItem());
-        String path = key == null ? "" : key.getPath();
+        ResourceLocation key = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(stack.getItem());
+        String path = key == null ? "" : key.getResourcePath();
         if (path.contains("netherite")) {
             return 4;
         }
@@ -135,7 +135,7 @@ public final class RtsMiningRules {
      * @param state  要挖掘的方块状态
      * @return 如果玩家装备栏中有合适的工具则返回 true，否则返回 false
      */
-    public static boolean hasRequiredLoadoutTool(EntityPlayerMP player, IBlockState state) {
+    public static boolean hasRequiredLoadoutTool(EntityPlayerMP player, BlockState state) {
         MiningLoadoutRole role = requiredRole(state);
         if (role == null) {
             return true;
@@ -147,12 +147,13 @@ public final class RtsMiningRules {
         }
 
         ItemStack toolStack = player.inventory.getStackInSlot(slotOpt.getAsInt());
-        if (toolStack.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(toolStack)) {
             return false;
         }
 
         int required = requiredLevel(state);
         int actual = toolLevel(toolStack);
-        return actual >= required && toolStack.canHarvestBlock(state);
+        return actual >= required && net.minecraftforge.common.ForgeHooks.canToolHarvestBlock(
+                state.getBlock(), state.getMetadata(), toolStack);
     }
 }

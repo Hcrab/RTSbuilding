@@ -6,9 +6,9 @@ import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumActionResult;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.WorldServer;
 
 /**
@@ -75,7 +75,9 @@ public final class RtsToolSlotInteractor {
     public static EnumActionResult useItemInAirWithToolSlot(EntityPlayerMP player, WorldServer level, Vec3d hit,
             int toolSlot, RayContext rayContext) {
         int slot = clampHotbarSlot(toolSlot);
-        Vec3d fallback = hit == null ? player.getPositionEyes(1.0F) : hit;
+        Vec3d fallback = hit == null
+                ? com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.positionEyes(player, 1.0F)
+                : hit;
         return TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
                 fallback,

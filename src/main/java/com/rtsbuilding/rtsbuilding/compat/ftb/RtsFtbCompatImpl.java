@@ -104,7 +104,7 @@ final class RtsFtbCompatImpl {
             return RtsFtbCompat.QuestDetectResult.complete(scannedTasks, newlyCompletedTasks);
         } catch (Throwable throwable) {
             RtsbuildingMod.LOGGER.warn(
-                    "FTB Quests 1.12 detect failed for player {}.", player.getName(), throwable);
+                    "FTB Quests 1.12 detect failed for player {}.", com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.name(player), throwable);
             return RtsFtbCompat.QuestDetectResult.failed();
         }
     }
@@ -127,8 +127,8 @@ final class RtsFtbCompatImpl {
     private long countInPlayerInventory(Object itemTask, EntityPlayerMP player) {
         long total = 0L;
         for (ItemStack stack : player.inventory.mainInventory) {
-            if (!stack.isEmpty() && testItemTask(itemTask, stack)) {
-                total += stack.getCount();
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) && testItemTask(itemTask, stack)) {
+                total += stack.stackSize;
             }
         }
         return total;

@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.server.api.impl;
 import com.rtsbuilding.rtsbuilding.api.RtsFluidAPI;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 /**
  * {@link RtsFluidAPI} 的实现——委托给流体服务层。

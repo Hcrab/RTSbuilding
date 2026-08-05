@@ -1,75 +1,59 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.client.util.ITooltipFlag;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ActionResult;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.EnumHand;
+import net.minecraft.util.EnumChatFormatting;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.TextFormatting;
-import net.minecraft.util.text.translation.I18n;
+import net.minecraft.util.StatCollector;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 import java.util.Collections;
 import java.util.List;
 
-/**
- * 可真实安装的插件物品。
- *
- * <p>本类只把右击动作适配到权威服务；安装合法性、物品消耗、持久化和替换退回仍由
- * {@link RtsPluginService} 负责，不能在客户端预先扣除或复制物品。</p>
- */
+/** 可真实安装的插件物品；服务端负责合法性、消耗、持久化和替换退回。 */
 public class RtsPluginItem extends Item {
     private static final String REMOTE_CONTROL_PLUGIN = "remote_control_plugin";
     private static final String STORAGE_INTEGRATION_PLUGIN = "storage_integration_plugin";
     private static final String AREA_DESTROY_PLUGIN = "area_destroy_plugin";
 
-    /** 1.12.2 Item 没有 Properties；堆叠数和创造栏由集中注册器设置。 */
-    public RtsPluginItem() {
-        super();
-    }
-
     @Override
-    public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
-        ItemStack held = player.getHeldItem(hand);
-        if (!world.isRemote && player instanceof EntityPlayerMP
-                && RtsPluginService.installHeldPlugin((EntityPlayerMP) player, hand)) {
-            return new ActionResult<>(EnumActionResult.SUCCESS, player.getHeldItem(hand));
+    public ItemStack onItemRightClick(ItemStack held, World world, EntityPlayer player) {
+        if (!world.isRemote && player instanceof EntityPlayerMP) {
+            RtsPluginService.installHeldPlugin((EntityPlayerMP) player, EnumHand.MAIN_HAND);
         }
-        return new ActionResult<>(EnumActionResult.PASS, held);
+        return player.getHeldItem();
     }
 
     @Override
     @SideOnly(Side.CLIENT)
-    public void addInformation(ItemStack stack, World world, List<String> tooltip, ITooltipFlag flag) {
-        ResourceLocation itemId = stack.getItem().getRegistryName();
-        if (itemId == null || !RtsbuildingMod.MODID.equals(itemId.getNamespace())) return;
-
-        String pluginPath = itemId.getPath();
-        tooltip.add(TextFormatting.GRAY + localize("tooltip.rtsbuilding.plugin." + pluginPath));
+    public void addInformation(ItemStack stack, EntityPlayer player, List tooltip, boolean advanced) {
+        ResourceLocation itemId = RtsRegistries.ITEMS.getKey(stack.getItem());
+        if (itemId == null || !RtsbuildingMod.MODID.equals(itemId.getResourceDomain())) return;
+        String pluginPath = itemId.getResourcePath();
+        tooltip.add(EnumChatFormatting.GRAY + localize("tooltip.rtsbuilding.plugin." + pluginPath));
         appendDependencyTooltip(pluginPath, tooltip);
     }
 
     @SideOnly(Side.CLIENT)
-    private static void appendDependencyTooltip(String pluginPath, List<String> tooltip) {
+    private static void appendDependencyTooltip(String pluginPath, List tooltip) {
         List<String> dependencies = dependenciesFor(pluginPath);
         if (dependencies.isEmpty()) return;
-        if (!ClientKeyState.isControlDown()) {
-            tooltip.add(TextFormatting.DARK_GRAY
+        if (!net.minecraft.client.gui.GuiScreen.isCtrlKeyDown()) {
+            tooltip.add(EnumChatFormatting.DARK_GRAY
                     + localize("tooltip.rtsbuilding.plugin.dependencies.hold_ctrl"));
             return;
         }
-        tooltip.add(TextFormatting.DARK_GRAY
+        tooltip.add(EnumChatFormatting.DARK_GRAY
                 + localize("tooltip.rtsbuilding.plugin.dependencies.title"));
         for (String dependency : dependencies) {
-            tooltip.add(TextFormatting.GRAY + I18n.translateToLocalFormatted(
+            tooltip.add(EnumChatFormatting.GRAY + StatCollector.translateToLocalFormatted(
                     "tooltip.rtsbuilding.plugin.dependencies.requires", styledPluginName(dependency)));
         }
     }
@@ -93,28 +77,17 @@ public class RtsPluginItem extends Item {
     }
 
     private static String styledPluginName(String pluginPath) {
-        return colorFor(pluginPath) + localize("item.rtsbuilding." + pluginPath) + TextFormatting.RESET;
+        return colorFor(pluginPath) + localize("item.rtsbuilding." + pluginPath)
+                + EnumChatFormatting.RESET;
     }
 
-    private static TextFormatting colorFor(String pluginPath) {
-        if (REMOTE_CONTROL_PLUGIN.equals(pluginPath)) return TextFormatting.AQUA;
-        if (STORAGE_INTEGRATION_PLUGIN.equals(pluginPath)) return TextFormatting.GREEN;
-        return TextFormatting.GOLD;
+    private static EnumChatFormatting colorFor(String pluginPath) {
+        if (REMOTE_CONTROL_PLUGIN.equals(pluginPath)) return EnumChatFormatting.AQUA;
+        if (STORAGE_INTEGRATION_PLUGIN.equals(pluginPath)) return EnumChatFormatting.GREEN;
+        return EnumChatFormatting.GOLD;
     }
 
     private static String localize(String key) {
-        return I18n.translateToLocal(key);
-    }
-
-    /** 该嵌套类只会在 tooltip 的客户端调用路径中加载。 */
-    @SideOnly(Side.CLIENT)
-    private static final class ClientKeyState {
-        private ClientKeyState() {
-        }
-
-        private static boolean isControlDown() {
-            return FMLCommonHandler.instance().getSide().isClient()
-                    && net.minecraft.client.gui.GuiScreen.isCtrlKeyDown();
-        }
+        return StatCollector.translateToLocal(key);
     }
 }

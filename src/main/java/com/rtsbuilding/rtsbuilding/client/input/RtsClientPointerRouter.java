@@ -175,7 +175,7 @@ final class RtsClientPointerRouter {
                 }
                 clearOverlaySearchFocus();
                 int idx = resolveOverlaySlotIndex(mx, my, layout.gridX(), layout.gridY(), 1);
-                if (!minecraft.player.inventory.getItemStack().isEmpty()
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(minecraft.thePlayer.inventory.getItemStack())
                         && idx >= 0
                         && tryDepositCarriedToLinked(Integer.MAX_VALUE)) {
                     captureLeftRelease = true;
@@ -272,7 +272,7 @@ final class RtsClientPointerRouter {
             }
 
             int idx = resolveOverlaySlotIndex(mx, my, layout.gridX(), layout.gridY(), layout.storageRows());
-            if (!minecraft.player.inventory.getItemStack().isEmpty()
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(minecraft.thePlayer.inventory.getItemStack())
                     && idx >= 0
                     && tryDepositCarriedToLinked(Integer.MAX_VALUE)) {
                 captureLeftRelease = true;
@@ -293,7 +293,7 @@ final class RtsClientPointerRouter {
                     return;
                 }
                 int idx = resolveOverlaySlotIndex(mx, my, layout.gridX(), layout.gridY(), 1);
-                if (!minecraft.player.inventory.getItemStack().isEmpty()
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(minecraft.thePlayer.inventory.getItemStack())
                         && idx >= 0
                         && tryDepositCarriedToLinked(1)) {
                     captureRightRelease = true;
@@ -339,7 +339,7 @@ final class RtsClientPointerRouter {
             }
 
             int idx = resolveOverlaySlotIndex(mx, my, layout.gridX(), layout.gridY(), layout.storageRows());
-            if (!minecraft.player.inventory.getItemStack().isEmpty()
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(minecraft.thePlayer.inventory.getItemStack())
                     && idx >= 0
                     && tryDepositCarriedToLinked(1)) {
                 captureRightRelease = true;

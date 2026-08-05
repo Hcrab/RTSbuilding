@@ -9,14 +9,14 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineUiAdapter;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.Minecraft;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
 import org.lwjgl.input.Keyboard;
 
 import java.util.Collections;
@@ -489,34 +489,34 @@ public final class CameraInputHandler {
 
     public boolean tryPickHoveredBlockForPlacement() {
         Minecraft mc = screen.getMinecraft();
-        if (mc == null || mc.world == null) {
+        if (mc == null || mc.theWorld == null) {
             return false;
         }
         RayTraceResult hit = screen.pickBlockHit();
         if (hit == null || hit.typeOfHit != RayTraceResult.Type.BLOCK) {
             return false;
         }
-        IBlockState state = mc.world.getBlockState(hit.getBlockPos());
+        BlockState state = BlockState.fromWorld(mc.theWorld, hit.getBlockPos());
         Item item = Item.getItemFromBlock(state.getBlock());
-        if (item == Items.AIR) {
+        if (item == null) {
             return false;
         }
-        ResourceLocation itemId = Item.REGISTRY.getNameForObject(item);
+        ResourceLocation itemId = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(item);
         if (itemId == null) {
             return false;
         }
         ItemStack preview = new ItemStack(item);
-        if (preview.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
             return false;
         }
         screen.clearShapeBuildSession();
-        if (mc.player != null) {
-            final net.minecraft.entity.player.InventoryPlayer inventory = mc.player.inventory;
+        if (mc.thePlayer != null) {
+            final net.minecraft.entity.player.InventoryPlayer inventory = mc.thePlayer.inventory;
             RtsPickBlockPlacementSelector.Selection selection = RtsPickBlockPlacementSelector.resolve(
-                    inventory.mainInventory.size(),
+                    inventory.mainInventory.length,
                     slot -> {
-                        ItemStack candidate = inventory.mainInventory.get(slot);
-                        return !candidate.isEmpty() && candidate.getItem() == preview.getItem();
+                        ItemStack candidate = inventory.mainInventory[slot];
+                        return !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(candidate) && candidate.getItem() == preview.getItem();
                     });
             if (selection.route() == RtsPickBlockPlacementSelector.Route.HOTBAR) {
                 inventory.currentItem = selection.slot();
@@ -527,7 +527,10 @@ public final class CameraInputHandler {
             }
             if (selection.route() == RtsPickBlockPlacementSelector.Route.MAIN_INVENTORY
                     && mc.playerController != null) {
-                mc.playerController.pickItem(selection.slot());
+                // 1.7.10 没有 pickItem API；使用原版窗口的“与快捷栏槽位交换”协议，避免客户端背包失同步。
+                mc.playerController.windowClick(
+                        mc.thePlayer.inventoryContainer.windowId,
+                        selection.slot(), inventory.currentItem, 2, mc.thePlayer);
                 this.controller.clearPlacementSelectionPreserveMode();
                 this.controller.copyPlacementState(state);
                 this.controller.setMode(BuilderMode.INTERACT);

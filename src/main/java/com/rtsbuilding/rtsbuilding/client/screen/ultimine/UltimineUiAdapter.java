@@ -7,8 +7,8 @@ import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiPhase;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiState;
 import com.rtsbuilding.rtsbuilding.uicore.ultimine.UltimineUiTransition;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
 
 import java.util.List;
 

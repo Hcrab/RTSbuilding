@@ -10,9 +10,9 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.*;
 
@@ -359,7 +359,7 @@ public final class StorageStateManager {
             return "";
         }
         ItemStack preview = this.bindingState.bindingPreview(index);
-        if (preview != null && !preview.isEmpty()) {
+        if (preview != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
             // 服务端保存的 label 可能已经按服务端语言展开。优先用客户端
             // 物品预览重新解析名称，让 AE 线缆、机器等绑定跟随玩家的当前语言。
             return preview.getDisplayName();

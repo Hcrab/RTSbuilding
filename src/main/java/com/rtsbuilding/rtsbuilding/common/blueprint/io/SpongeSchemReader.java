@@ -7,8 +7,8 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
 import net.minecraftforge.common.util.Constants;
 
 import java.io.ByteArrayInputStream;
@@ -40,7 +40,7 @@ final class SpongeSchemReader {
             if (entry == null) continue;
             BlockPos pos = new BlockPos(index % width, index / (width * length), (index / width) % length);
             if (entry.isMissing()) out.add(RtsBlueprintBlock.missing(pos, entry.missingBlockId(), new NBTTagCompound()));
-            else if (entry.state().getBlock() != Blocks.AIR && entry.state().getBlock() != Blocks.STRUCTURE_VOID)
+            else if (entry.state().getBlock() != Blocks.air && entry.state().getBlock() != Blocks.air)
                 out.add(new RtsBlueprintBlock(pos, entry.state(), new NBTTagCompound()));
         }
         return RtsBlueprint.create(cleanName(fileName), fileName, BlueprintFormat.SPONGE_SCHEM,
@@ -58,7 +58,7 @@ final class SpongeSchemReader {
 
     private static Map<Integer, BlueprintNbtCompat.StateResult> readPalette(NBTTagCompound tag) {
         Map<Integer, BlueprintNbtCompat.StateResult> out = new HashMap<Integer, BlueprintNbtCompat.StateResult>();
-        for (String key : tag.getKeySet()) out.put(tag.getInteger(key), BlueprintNbtCompat.readStateString(key));
+        for (String key : tag.func_150296_c()) out.put(tag.getInteger(key), BlueprintNbtCompat.readStateString(key));
         return out;
     }
 

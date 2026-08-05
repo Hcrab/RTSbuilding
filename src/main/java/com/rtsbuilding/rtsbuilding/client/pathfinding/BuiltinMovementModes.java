@@ -1,14 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.pathfinding;
 
 import net.minecraft.block.material.Material;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.entity.SharedMonsterAttributes;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /** Forge 1.12 客户端内置移动模式。 */
 @SideOnly(Side.CLIENT)
@@ -20,7 +20,8 @@ public final class BuiltinMovementModes {
     static final MovementModeHandler ELYTRA = new MovementModeHandler() {
         @Override
         public boolean isActive(EntityPlayerSP player) {
-            return player.isElytraFlying();
+            // 鞘翅直到 1.9 才加入；保留模式槽位，1.7.10 永不激活。
+            return false;
         }
 
         @Override
@@ -55,9 +56,9 @@ public final class BuiltinMovementModes {
         @Override
         public boolean isActive(EntityPlayerSP player) {
             boolean submergedInWater = player.isInWater()
-                    && (player.isInsideOfMaterial(Material.WATER)
-                    || materialAtEyes(player) == Material.WATER);
-            return submergedInWater || (player.isInLava() && !player.onGround);
+                    && (player.isInsideOfMaterial(Material.water)
+                    || materialAtEyes(player) == Material.water);
+            return submergedInWater || (player.handleLavaMovement() && !player.onGround);
         }
 
         @Override
@@ -76,8 +77,8 @@ public final class BuiltinMovementModes {
     static final MovementModeHandler CRAWLING = new MovementModeHandler() {
         @Override
         public boolean isActive(EntityPlayerSP player) {
-            if (!player.onGround || player.isInWater() || player.isInLava()) return false;
-            AxisAlignedBB box = player.getEntityBoundingBox();
+            if (!player.onGround || player.isInWater() || player.handleLavaMovement()) return false;
+            AxisAlignedBB box = com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(player.boundingBox);
             boolean compactBody = box.maxY - box.minY <= 1.55D || player.height <= 1.55F;
             return compactBody || hasLowHeadroom(player, box);
         }
@@ -111,23 +112,23 @@ public final class BuiltinMovementModes {
         float friction = 0.6F;
         if (player.onGround) {
             BlockPos below = new BlockPos(player.posX,
-                    player.getEntityBoundingBox().minY - 0.01D, player.posZ);
-            IBlockState state = player.world.getBlockState(below);
-            friction = state.getBlock().getSlipperiness(state, player.world, below, player);
+                    com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(player.boundingBox).minY - 0.01D, player.posZ);
+            BlockState state = BlockState.fromWorld(player.worldObj, below);
+            friction = state.getBlock().slipperiness;
         }
         if (friction <= 0.0F) friction = 0.6F;
         return getMovementSpeed(player) * 2.15D * (0.6D / friction) * multiplier;
     }
 
     private static double getMovementSpeed(EntityPlayerSP player) {
-        return player.getEntityAttribute(SharedMonsterAttributes.MOVEMENT_SPEED)
+        return player.getEntityAttribute(SharedMonsterAttributes.movementSpeed)
                 .getAttributeValue();
     }
 
     private static Material materialAtEyes(EntityPlayerSP player) {
         BlockPos eyePos = new BlockPos(player.posX,
                 player.posY + player.getEyeHeight(), player.posZ);
-        return player.world.getBlockState(eyePos).getMaterial();
+        return BlockState.fromWorld(player.worldObj, eyePos).getMaterial();
     }
 
     private static boolean hasLowHeadroom(EntityPlayerSP player, AxisAlignedBB box) {
@@ -135,17 +136,17 @@ public final class BuiltinMovementModes {
         AxisAlignedBB standingProbe = new AxisAlignedBB(
                 box.minX + inset, box.minY + inset, box.minZ + inset,
                 box.maxX - inset, box.minY + 1.8D, box.maxZ - inset);
-        return !player.world.getCollisionBoxes(player, standingProbe).isEmpty();
+        return !player.worldObj.getCollidingBoundingBoxes(player, standingProbe).isEmpty();
     }
 
     /** 扫描真实碰撞箱内的液体材质，保留岩浆和普通液体的不同减速。 */
     private static double getFluidSlowFactor(EntityPlayerSP player) {
-        AxisAlignedBB box = player.getEntityBoundingBox();
+        AxisAlignedBB box = com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(player.boundingBox);
         BlockPos min = new BlockPos(box.minX, box.minY, box.minZ);
         BlockPos max = new BlockPos(box.maxX, box.maxY, box.maxZ);
         for (BlockPos.MutableBlockPos pos : BlockPos.getAllInBoxMutable(min, max)) {
-            Material material = player.world.getBlockState(pos).getMaterial();
-            if (material == Material.LAVA) return 0.15D;
+            Material material = BlockState.fromWorld(player.worldObj, pos).getMaterial();
+            if (material == Material.lava) return 0.15D;
             if (material.isLiquid()) return 0.3D;
         }
         return 1.0D;

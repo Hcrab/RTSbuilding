@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.WorldServer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -148,14 +148,14 @@ public final class BlueprintPersistence {
     public static void restoreFromEntry(EntityPlayerMP player,
                                          com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEntry entry) {
         NBTTagCompound data = entry.getExtraData();
-        if (data == null || data.isEmpty()) return;
+        if (data == null || com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(data)) return;
 
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
 
         // ── 重建蓝图 ─────────────────────────────────────────────
         NBTTagCompound structureTag = data.hasKey(KEY_BLUEPRINT_STRUCTURE, Constants.NBT.TAG_COMPOUND)
                 ? data.getCompoundTag(KEY_BLUEPRINT_STRUCTURE) : null;
-        if (structureTag == null || structureTag.isEmpty()) return;
+        if (structureTag == null || com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(structureTag)) return;
 
         String bpName = data.getString(KEY_BP_NAME);
         String bpSource = data.getString(KEY_BP_SOURCE);

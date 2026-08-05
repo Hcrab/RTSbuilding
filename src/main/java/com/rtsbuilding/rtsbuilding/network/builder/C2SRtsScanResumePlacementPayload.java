@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 请求扫描指定挂起放置工作流的剩余材料和冲突。 */
 public final class C2SRtsScanResumePlacementPayload implements IMessage {

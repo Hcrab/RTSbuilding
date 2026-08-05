@@ -20,9 +20,9 @@ public final class RtsInstalledPlugin {
     public long installedGameTime() { return installedGameTime; }
 
     static ItemStack copyOne(ItemStack source) {
-        if (source == null || source.isEmpty()) return ItemStack.EMPTY;
+        if (source == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(source)) return null;
         ItemStack copy = source.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 }

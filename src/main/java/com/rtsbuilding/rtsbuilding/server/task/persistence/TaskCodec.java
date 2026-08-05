@@ -101,7 +101,7 @@ public final class TaskCodec {
             if (schema == LEGACY_SCHEMA) expectedRootFields = ROOT_V1_FIELDS;
             else if (schema == CURRENT_SCHEMA) expectedRootFields = ROOT_V2_FIELDS;
             else throw new TaskCodecException("不支持的 task schema: " + schema);
-            if (!root.getKeySet().equals(expectedRootFields)) {
+            if (!root.func_150296_c().equals(expectedRootFields)) {
                 throw new TaskCodecException("task root 缺少字段或包含当前 schema 未知字段");
             }
 
@@ -194,7 +194,7 @@ public final class TaskCodec {
     }
 
     private static TaskAssetMetadata decodeAsset(NBTTagCompound tag) {
-        if (!tag.getKeySet().equals(ASSET_FIELDS)) {
+        if (!tag.func_150296_c().equals(ASSET_FIELDS)) {
             throw new TaskCodecException("asset metadata 缺少字段或包含未知字段");
         }
         requireUuid(tag, "asset_id");
@@ -247,7 +247,7 @@ public final class TaskCodec {
         Set<String> expected = new LinkedHashSet<>(SNAPSHOT_REQUIRED_FIELDS);
         if (tag.hasKey("workflow")) expected.add("workflow");
         if (tag.hasKey("wait")) expected.add("wait");
-        if (!tag.getKeySet().equals(expected)) {
+        if (!tag.func_150296_c().equals(expected)) {
             throw new TaskCodecException("task snapshot 缺少字段或包含未知字段");
         }
         requireUuid(tag, "id");
@@ -263,7 +263,7 @@ public final class TaskCodec {
                 throw new TaskCodecException("可选字段 wait 的 NBT 类型错误");
             }
             NBTTagCompound wait = tag.getCompoundTag("wait");
-            if (!wait.getKeySet().equals(WAIT_FIELDS)) {
+            if (!wait.func_150296_c().equals(WAIT_FIELDS)) {
                 throw new TaskCodecException("wait envelope 缺少字段或包含未知字段");
             }
             waitKey = new TaskWaitKey(requireString(wait, "kind"), requireString(wait, "value"));
@@ -278,7 +278,8 @@ public final class TaskCodec {
         if (!tag.hasKey("payload", Constants.NBT.TAG_COMPOUND)) {
             throw new TaskCodecException("缺少 NBTTagCompound 字段: payload");
         }
-        NBTTagCompound payload = tag.getCompoundTag("payload").copy();
+        NBTTagCompound payload = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(
+                tag.getCompoundTag("payload"));
         return new TaskSnapshot(
                 new TaskId(getUuid(tag, "id")),
                 new SubmissionId(getUuid(tag, "submission")),
@@ -372,10 +373,10 @@ public final class TaskCodec {
             case Constants.NBT.TAG_LONG:
             case Constants.NBT.TAG_DOUBLE: counter.add(8L); break;
             case Constants.NBT.TAG_BYTE_ARRAY:
-                counter.add(((NBTTagByteArray) tag).getByteArray().length);
+                counter.add(((NBTTagByteArray) tag).func_150292_c().length);
                 break;
             case Constants.NBT.TAG_STRING: {
-                String value = ((NBTTagString) tag).getString();
+                String value = ((NBTTagString) tag).func_150285_a_();
                 int bytes = NbtStringLimits.requireWritable(value, "payload string");
                 counter.add(2L + bytes);
                 break;
@@ -384,14 +385,15 @@ public final class TaskCodec {
                 NBTTagList list = (NBTTagList) tag;
                 counter.add(8L);
                 for (int i = 0; i < list.tagCount() && !counter.exceeded(); i++) {
-                    measureTag(list.get(i), counter, depth + 1);
+                    measureTag(com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.listElement(
+                            list, i), counter, depth + 1);
                 }
                 break;
             }
             case Constants.NBT.TAG_COMPOUND: {
                 NBTTagCompound compound = (NBTTagCompound) tag;
                 counter.add(8L);
-                for (String key : compound.getKeySet()) {
+                for (String key : compound.func_150296_c()) {
                     int keyBytes = NbtStringLimits.requireWritable(key, "payload key");
                     counter.add(3L + keyBytes);
                     measureTag(compound.getTag(key), counter, depth + 1);
@@ -400,7 +402,7 @@ public final class TaskCodec {
                 break;
             }
             case Constants.NBT.TAG_INT_ARRAY:
-                counter.add(((NBTTagIntArray) tag).getIntArray().length * 4L);
+                counter.add(((NBTTagIntArray) tag).func_150302_c().length * 4L);
                 break;
             default:
                 // 原生 1.12.2 只有 0..11；尤其没有 long-array。未知扩展必须 fail closed。
@@ -451,7 +453,7 @@ public final class TaskCodec {
     }
 
     private TaskTombstone decodeTombstone(NBTTagCompound tag) {
-        if (!tag.getKeySet().equals(TOMBSTONE_FIELDS)) {
+        if (!tag.func_150296_c().equals(TOMBSTONE_FIELDS)) {
             throw new TaskCodecException("tombstone 缺少字段或包含未知字段");
         }
         requireUuid(tag, "id");
@@ -474,7 +476,8 @@ public final class TaskCodec {
             throw new TaskCodecException("缺少 ListTag 字段: " + key);
         }
         NBTTagList list = (NBTTagList) value;
-        if (!list.isEmpty() && list.getTagType() != elementType) {
+        if (!com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(list)
+                && com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.listElementType(list) != elementType) {
             throw new TaskCodecException("ListTag 元素类型错误: " + key);
         }
         return list;

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import org.lwjgl.input.Mouse;
 
 /**
@@ -17,7 +17,7 @@ public final class RtsCursorRay {
     }
 
     public static Snapshot capture(Minecraft minecraft) {
-        Entity camera = minecraft == null ? null : minecraft.getRenderViewEntity();
+        Entity camera = minecraft == null ? null : minecraft.renderViewEntity;
         if (minecraft == null || camera == null) {
             return new Snapshot(Vec3d.ZERO, new Vec3d(0.0D, 0.0D, -1.0D));
         }
@@ -41,7 +41,7 @@ public final class RtsCursorRay {
                 .add(screenRight.scale(normalizedX * tanX))
                 .add(screenUp.scale(normalizedY * tanY))
                 .normalize();
-        return new Snapshot(camera.getPositionEyes(1.0F), direction);
+        return new Snapshot(com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.positionEyes(camera, 1.0F), direction);
     }
 
     public static final class Snapshot {

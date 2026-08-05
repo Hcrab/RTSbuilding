@@ -1,0 +1,15 @@
+dependencies {
+    // 首个可玩版本以 GTNH 2.8.4 稳定包自带的 GTNHLib 0.7.10 为 ABI 底线。
+    // 只引用该版本已经公开的捕获式 Tessellator API，避免开发环境能跑、稳定包却 NoSuchMethodError。
+    implementation("com.github.GTNewHorizons:GTNHLib:0.7.10:dev") {
+        // GTNH 本体已经提供运行时依赖；开发工作区只需要 API/dev jar，不能把第二份 GTNHLib 塞进模组。
+        transitive = false
+    }
+}
+
+// GTNHConvention 为通用 Java 17 开发环境添加了 0.9.20 下限约束，但首发目标是
+// GTNH 2.8.4 实际携带的 0.7.10。开发客户端由 RFG 使用 Java 8 启动，因此这里
+// 明确覆盖该通用约束，让编译和烟测都真正对着首发 ABI，而不是只在成品服务器上验证。
+configurations.configureEach {
+    resolutionStrategy.force("com.github.GTNewHorizons:GTNHLib:0.7.10")
+}

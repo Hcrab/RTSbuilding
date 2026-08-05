@@ -4,9 +4,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.layout.CategoryTypes;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.fml.common.ModContainer;
+import net.minecraft.util.ChatComponentTranslation;
+import cpw.mods.fml.common.Loader;
+import cpw.mods.fml.common.ModContainer;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -209,11 +209,11 @@ final class BottomPanelCategoryBuilder {
 
     private static String formatTabLabel(String tabKey) {
         ResourceLocation key = parseResourceLocation(tabKey);
-        String path = key == null ? tabKey : key.getPath();
+        String path = key == null ? tabKey : key.getResourcePath();
         try {
-            for (CreativeTabs tab : CreativeTabs.CREATIVE_TAB_ARRAY) {
+            for (CreativeTabs tab : CreativeTabs.creativeTabArray) {
                 if (tab != null && path.equals(tab.getTabLabel())) {
-                    String label = new TextComponentTranslation(
+                    String label = new ChatComponentTranslation(
                             "itemGroup." + tab.getTabLabel()).getFormattedText();
                     if (!isBlank(label)) {
                         return label;

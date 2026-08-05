@@ -39,10 +39,10 @@ public final class RtsPluginRegistry {
     }
 
     public static RtsPluginDefinition byItem(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return null;
         }
-        ResourceLocation itemId = Item.REGISTRY.getNameForObject(stack.getItem());
+        ResourceLocation itemId = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(stack.getItem());
         return itemId == null ? null : BY_ITEM.get(itemId);
     }
 

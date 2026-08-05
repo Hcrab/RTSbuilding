@@ -146,7 +146,7 @@ public final class RtsSessionServiceImpl implements SessionService {
         sessions.remove(player.getUniqueID());
         cleanupPlayerCaches(player);
         RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUniqueID());
-        RtsWorkflowEngine.getInstance().saveAll(player.getServer());
+        RtsWorkflowEngine.getInstance().saveAll(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player));
     }
 
     @Override
@@ -186,16 +186,16 @@ public final class RtsSessionServiceImpl implements SessionService {
 
         // 合并所有桥接组件的 NBT，统一反序列化
         NBTTagCompound root = new NBTTagCompound();
-        root.merge(cluster.get(SessionComponents.BROWSER));
-        root.merge(cluster.get(SessionComponents.FLAGS));
-        root.merge(cluster.get(SessionComponents.LINKED_STORAGE));
-        root.merge(cluster.get(SessionComponents.UI_MEMORY));
-        root.merge(cluster.get(SessionComponents.PLACEMENT));
-        root.merge(cluster.get(SessionComponents.DESTROY));
-        root.merge(cluster.get(SessionComponents.DROP_BUFFER));
-        root.merge(cluster.get(SessionComponents.FUNNEL));
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.merge(root, cluster.get(SessionComponents.BROWSER));
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.merge(root, cluster.get(SessionComponents.FLAGS));
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.merge(root, cluster.get(SessionComponents.LINKED_STORAGE));
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.merge(root, cluster.get(SessionComponents.UI_MEMORY));
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.merge(root, cluster.get(SessionComponents.PLACEMENT));
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.merge(root, cluster.get(SessionComponents.DESTROY));
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.merge(root, cluster.get(SessionComponents.DROP_BUFFER));
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.merge(root, cluster.get(SessionComponents.FUNNEL));
 
-        if (!root.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(root)) {
             SessionSerializer.loadAll(player, session, root);
         }
 

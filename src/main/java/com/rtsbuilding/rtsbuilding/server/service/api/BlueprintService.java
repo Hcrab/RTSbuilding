@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraftforge.fluids.Fluid;
 
 /**

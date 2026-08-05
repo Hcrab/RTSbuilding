@@ -6,18 +6,18 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.LinkedStorageEntry;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import net.minecraft.block.BlockChest;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.World;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
@@ -44,14 +44,14 @@ public final class StorageRenderer {
     }
 
     public static void renderLinkedStorages(Minecraft minecraft, ClientRtsController controller) {
-        if (minecraft == null || controller == null || minecraft.world == null) return;
-        World world = minecraft.world;
+        if (minecraft == null || controller == null || minecraft.theWorld == null) return;
+        World world = minecraft.theWorld;
         long now = System.currentTimeMillis();
         List<LinkedStorageEntry> entries = controller.getLinkedStorageEntries();
         Set<BlockPos> current = availablePositions(entries);
         updateMembership(world, entries, current, now);
         advanceAnimations(world, current, now);
-        RenderManager manager = minecraft.getRenderManager();
+        RenderManager manager = net.minecraft.client.renderer.entity.RenderManager.instance;
         Vec3d camera = new Vec3d(manager.viewerPosX,manager.viewerPosY,manager.viewerPosZ);
 
         BUFFER.begin(GL11.GL_QUADS,DefaultVertexFormats.POSITION_COLOR);
@@ -85,7 +85,7 @@ public final class StorageRenderer {
         if(!initialized){
             for(BlockPos pos:current)if(isLoadedStorage(world,pos)){
                 StorageAnim animation=new StorageAnim(Phase.BOUND,now);
-                animation.bounds=computeStorageBounds(world,pos,world.getBlockState(pos));
+                animation.bounds=computeStorageBounds(world,pos,BlockState.fromWorld(world, pos));
                 ANIMS.put(pos,animation);
             }
             previousPositions=new HashSet<BlockPos>(current);initialized=true;return;
@@ -115,7 +115,7 @@ public final class StorageRenderer {
             BlockPos pos=entry.getKey();StorageAnim animation=entry.getValue();
             if(animation.phase==Phase.BINDING){
                 if(current.contains(pos)&&isLoadedStorage(world,pos))
-                    animation.bounds=computeStorageBounds(world,pos,world.getBlockState(pos));
+                    animation.bounds=computeStorageBounds(world,pos,BlockState.fromWorld(world, pos));
                 if(animation.progress(now)>=1.0F)animation.phase=Phase.BOUND;
             }else if(animation.phase==Phase.UNBINDING){
                 if(animation.progress(now)>=1.0F)iterator.remove();
@@ -126,7 +126,7 @@ public final class StorageRenderer {
     private static void appendLinked(World world,LinkedStorageEntry entry,Vec3d camera,long now){
         BlockPos pos=entry.pos();
         if(!entry.worldAvailable()||pos==null||!isLoadedStorage(world,pos))return;
-        AxisAlignedBB full=computeStorageBounds(world,pos,world.getBlockState(pos));
+        AxisAlignedBB full=computeStorageBounds(world,pos,BlockState.fromWorld(world, pos));
         boolean extract=entry.mode()==C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
         float tr=extract?1.00F:0.24F,tg=extract?0.30F:0.55F,tb=extract?0.82F:1.00F;
         StorageAnim animation=ANIMS.get(pos);
@@ -167,14 +167,14 @@ public final class StorageRenderer {
     }
 
     private static boolean isLoadedStorage(World world,BlockPos pos){
-        return world.isBlockLoaded(pos,false)&&world.getBlockState(pos).getBlock()!=Blocks.AIR;
+        return com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, pos,false)&&BlockState.fromWorld(world, pos).getBlock()!=Blocks.air;
     }
 
-    private static AxisAlignedBB computeStorageBounds(World world,BlockPos pos,IBlockState state){
+    private static AxisAlignedBB computeStorageBounds(World world,BlockPos pos,BlockState state){
         if(state.getBlock() instanceof BlockChest){
             for(EnumFacing direction:EnumFacing.HORIZONTALS){
                 BlockPos adjacent=pos.offset(direction);
-                if(world.isBlockLoaded(adjacent,false)&&world.getBlockState(adjacent).getBlock()==state.getBlock()){
+                if(com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, adjacent,false)&&BlockState.fromWorld(world, adjacent).getBlock()==state.getBlock()){
                     return new AxisAlignedBB(Math.min(pos.getX(),adjacent.getX()),Math.min(pos.getY(),adjacent.getY()),
                             Math.min(pos.getZ(),adjacent.getZ()),Math.max(pos.getX(),adjacent.getX())+1.0D,
                             Math.max(pos.getY(),adjacent.getY())+1.0D,Math.max(pos.getZ(),adjacent.getZ())+1.0D);

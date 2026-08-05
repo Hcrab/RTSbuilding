@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.network;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /**
  * 服务端到客户端 RTS 自定义包的统一出口。
@@ -26,7 +26,7 @@ public final class RtsClientboundPackets {
     }
 
     public static boolean isGameTestServerPlayer(EntityPlayerMP player) {
-        MinecraftServer server = player == null ? null : player.getServer();
+        MinecraftServer server = player == null ? null : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player);
         return server != null && GAMETEST_SERVER_CLASS.equals(server.getClass().getName());
     }
 }

@@ -30,7 +30,7 @@ public final class PlayerComponents {
                 NbtCodec.of(
                         tag -> tag,
                         (tag, v) -> {
-                            for (String k : v.getKeySet()) {
+                            for (String k : v.func_150296_c()) {
                                 tag.setTag(k, v.getTag(k));
                             }
                         }

@@ -17,10 +17,11 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.item.crafting.Ingredient;
+import com.rtsbuilding.rtsbuilding.platform.crafting.Ingredient;
+import com.rtsbuilding.rtsbuilding.platform.crafting.LegacyRecipeCompat;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +33,7 @@ import java.util.List;
  * <ul>
  *   <li><b>蓝图填充</b>（{@link #refillCraftGridFromLinked}）— 根据预定义的物品蓝图，
  *   从链接存储逐槽填充合成网格，支持单次填充和多次堆叠填充（最多 64 轮）</li>
- *   <li><b>网络包填充</b>（{@link #refillCurrentCraftGridFromBlueprintIds} / 
+ *   <li><b>网络包填充</b>（{@link #refillCurrentCraftGridFromBlueprintIds} /
  *   {@link #refillCurrentCraftGridFromBlueprintStacks}）— 从客户端发送的物品 ID
  *   或物品原型栈列表填充当前合成网格</li>
  *   <li><b>JEI 一键填充</b>（{@link #applyJeiTransfer}）— 支持 JEI 配方传输集成，
@@ -106,16 +107,16 @@ public final class RtsCraftingGridFiller {
         for (int i = 0; i < blueprint.length; i++) {
             String itemId = blueprintIds.get(i);
             if (RtsCraftingUtils.isBlank(itemId)) {
-                blueprint[i] = ItemStack.EMPTY;
+                blueprint[i] = null;
                 continue;
             }
             ResourceLocation key;
             try { key = new ResourceLocation(itemId); } catch (RuntimeException invalid) { key = null; }
-            if (key == null || !ForgeRegistries.ITEMS.containsKey(key)) {
-                blueprint[i] = ItemStack.EMPTY;
+            if (key == null || !RtsRegistries.ITEMS.containsKey(key)) {
+                blueprint[i] = null;
                 continue;
             }
-            blueprint[i] = new ItemStack(ForgeRegistries.ITEMS.getValue(key));
+            blueprint[i] = new ItemStack(RtsRegistries.ITEMS.getValue(key));
         }
         refillCraftGridFromLinked(player, session, craftingMenu, blueprint);
     }
@@ -169,9 +170,7 @@ public final class RtsCraftingGridFiller {
         if (RtsCraftingUtils.isBlank(recipeId)) {
             return;
         }
-        ResourceLocation key;
-        try { key = new ResourceLocation(recipeId); } catch (RuntimeException invalid) { return; }
-        IRecipe craftingRecipe = CraftingManager.getRecipe(key);
+        IRecipe craftingRecipe = LegacyRecipeCompat.byId(recipeId);
         if (craftingRecipe == null) return;
 
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
@@ -193,18 +192,18 @@ public final class RtsCraftingGridFiller {
             for (int i = 0; i < 9; i++) {
                 Slot grid = craftingMenu.getSlot(1 + i);
                 ItemStack existing = grid.getStack();
-                if (existing.isEmpty()) {
-                    cleared.add(ItemStack.EMPTY);
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(existing)) {
+                    cleared.add(null);
                     continue;
                 }
                 ItemStack copy = existing.copy();
-                grid.putStack(ItemStack.EMPTY);
+                grid.putStack(null);
                 grid.onSlotChanged();
                 cleared.add(copy);
             }
         } else {
             for (int i = 0; i < 9; i++) {
-                cleared.add(ItemStack.EMPTY);
+                cleared.add(null);
             }
         }
 
@@ -219,19 +218,19 @@ public final class RtsCraftingGridFiller {
                 }
                 Slot grid = craftingMenu.getSlot(1 + i);
                 ItemStack existing = grid.getStack();
-                if (!existing.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(existing)) {
                     if (!ingredient.apply(existing)) {
                         continue;
                     }
-                    if (existing.getCount() >= existing.getMaxStackSize()) {
+                    if (existing.stackSize >= existing.getMaxStackSize()) {
                         continue;
                     }
                     ItemStack extracted = RtsTransferExtractor.extractOneMatchingPrototypeCombined(
                             extractHandlers, player, existing);
-                    if (extracted.isEmpty()) {
+                    if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                         continue;
                     }
-                    existing.grow(1);
+                    com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(existing, 1);
                     grid.onSlotChanged();
                     passInsertedAny = true;
                     anyInserted = true;
@@ -239,15 +238,15 @@ public final class RtsCraftingGridFiller {
                 }
 
                 ItemStack preferred = preferredPrototypes[i];
-                if (preferred.isEmpty() && plannedFallback != null) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred) && plannedFallback != null) {
                     preferred = plannedFallback.prototypeAt(i);
                 }
                 ItemStack extracted = RtsCraftingExecutor.extractOneMatchingIngredientCombined(
                         extractHandlers, player, ingredient, preferred);
-                if (extracted.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                     continue;
                 }
-                extracted.setCount(1);
+                extracted.stackSize = 1;
                 grid.putStack(extracted);
                 grid.onSlotChanged();
                 passInsertedAny = true;
@@ -263,7 +262,7 @@ public final class RtsCraftingGridFiller {
         }
 
         for (ItemStack stack : cleared) {
-            if (stack.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 continue;
             }
             RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, stack);
@@ -301,7 +300,7 @@ public final class RtsCraftingGridFiller {
             for (int i = 0; i < 9; i++) {
                 ItemStack blueprintStack = blueprint[i];
                 Ingredient ingredient = ingredients != null && i < ingredients.length ? ingredients[i] : Ingredient.EMPTY;
-                boolean hasBlueprint = blueprintStack != null && !blueprintStack.isEmpty();
+                boolean hasBlueprint = blueprintStack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(blueprintStack);
                 boolean hasIngredient = !RtsCraftingUtils.isIngredientEmpty(ingredient);
                 // 玩家实际摆放的 3x3 蓝图决定哪些槽需要回填。配方 Ingredient 通常被归一化到左上角，
                 // 不能让它在蓝图为空的槽凭空生成材料，否则中排摆放的台阶配方会被搬到最上排。
@@ -311,25 +310,25 @@ public final class RtsCraftingGridFiller {
                 boolean ingredientMatchesBlueprint = hasIngredient && ingredient.apply(blueprintStack);
                 Slot grid = menu.getSlot(1 + i);
                 ItemStack current = grid.getStack();
-                if (!current.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) {
                     if (ingredientMatchesBlueprint
                             ? !ingredient.apply(current)
                             : !RtsCraftingUtils.sameStack(current, blueprintStack)) {
                         continue;
                     }
-                    if (current.getCount() >= current.getMaxStackSize()) {
+                    if (current.stackSize >= current.getMaxStackSize()) {
                         continue;
                     }
                     ItemStack extracted = includePlayerFallback
                             ? RtsTransferExtractor.extractOneMatchingPrototypeCombined(handlers, player, current)
                             : RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, current);
-                    if (extracted.isEmpty() || !RtsCraftingUtils.sameStack(current, extracted)) {
-                        if (!extracted.isEmpty()) {
+                    if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted) || !RtsCraftingUtils.sameStack(current, extracted)) {
+                        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                             RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(handlers, player, extracted);
                         }
                         continue;
                     }
-                    current.grow(1);
+                    com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(current, 1);
                     grid.onSlotChanged();
                     inserted = true;
                     changed = true;
@@ -340,10 +339,10 @@ public final class RtsCraftingGridFiller {
                         handlers, player,
                         ingredientMatchesBlueprint ? ingredient : Ingredient.EMPTY,
                         blueprintStack, includePlayerFallback);
-                if (extracted.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                     continue;
                 }
-                extracted.setCount(1);
+                extracted.stackSize = 1;
                 grid.putStack(extracted);
                 grid.onSlotChanged();
                 inserted = true;
@@ -369,12 +368,12 @@ public final class RtsCraftingGridFiller {
             ItemStack extracted = includePlayerFallback
                     ? RtsCraftingExecutor.extractOneMatchingIngredientCombined(handlers, player, ingredient, preferred)
                     : RtsCraftingExecutor.extractOneMatchingIngredient(handlers, ingredient, preferred);
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 return extracted;
             }
         }
-        if (preferred == null || preferred.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (preferred == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred)) {
+            return null;
         }
         return includePlayerFallback
                 ? RtsTransferExtractor.extractOneMatchingPrototypeCombined(handlers, player, preferred)
@@ -386,7 +385,7 @@ public final class RtsCraftingGridFiller {
     private static ItemStack[] sanitizeIngredientPrototypes(Ingredient[] required, List<ItemStack> prototypes) {
         ItemStack[] sanitized = new ItemStack[9];
         for (int i = 0; i < sanitized.length; i++) {
-            sanitized[i] = ItemStack.EMPTY;
+            sanitized[i] = null;
         }
         if (required == null || required.length != 9 || prototypes == null) {
             return sanitized;
@@ -394,7 +393,7 @@ public final class RtsCraftingGridFiller {
         for (int i = 0; i < sanitized.length && i < prototypes.size(); i++) {
             Ingredient ingredient = required[i];
             ItemStack prototype = prototypes.get(i);
-            if (RtsCraftingUtils.isIngredientEmpty(ingredient) || prototype == null || prototype.isEmpty()) {
+            if (RtsCraftingUtils.isIngredientEmpty(ingredient) || prototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) {
                 continue;
             }
             if (ingredient.apply(prototype)) {

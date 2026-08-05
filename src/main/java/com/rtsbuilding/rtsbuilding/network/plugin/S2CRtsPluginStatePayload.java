@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.plugin;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -110,9 +110,9 @@ public final class S2CRtsPluginStatePayload implements IMessage {
     private static int safeInteger(Integer value) { return value == null ? 0 : value.intValue(); }
 
     private static ItemStack normalizeStack(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return null;
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 

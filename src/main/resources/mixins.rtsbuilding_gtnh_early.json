@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8.5-GTNH",
+  "package": "com.rtsbuilding.rtsbuilding.mixin",
+  "refmap": "mixins.rtsbuilding.refmap.json",
+  "target": "@env(DEFAULT)",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [],
+  "client": [
+    "GuiScreenOverlayInputMixin",
+    "BlockRenderDispatcherMixin",
+    "BlockEntityRenderDispatcherMixin"
+  ],
+  "server": []
+}

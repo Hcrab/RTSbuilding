@@ -4,9 +4,9 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.network.play.server.SPacketChunkData;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
+import net.minecraft.network.play.server.S21PacketChunkData;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.ChunkPos;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.ForgeChunkManager;
@@ -48,13 +48,14 @@ final class RtsRemoteMenuChunkLease {
             logPrepare(traceId, pos, "REJECTED", false, false);
             return false;
         }
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         if (level == null || pos.getY() < 0 || pos.getY() >= level.getHeight()) {
             logPrepare(traceId, pos, "INVALID_WORLD", false, false);
             return false;
         }
-        if (player.getDistanceSqToCenter(pos) <= VANILLA_INTERACTION_DISTANCE_SQ
-                && level.isBlockLoaded(pos)) {
+        if (player.getDistanceSq(pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D)
+                <= VANILLA_INTERACTION_DISTANCE_SQ
+                && com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) {
             logPrepare(traceId, pos, "NEAR_ALREADY_LOADED", false, true);
             return false;
         }
@@ -111,7 +112,7 @@ final class RtsRemoteMenuChunkLease {
         try {
             return ForgeChunkManager.requestPlayerTicket(
                     RtsbuildingMod.INSTANCE,
-                    player.getName(),
+                    player.getCommandSenderName(),
                     level,
                     ForgeChunkManager.Type.NORMAL);
         } catch (RuntimeException | LinkageError failure) {
@@ -127,7 +128,8 @@ final class RtsRemoteMenuChunkLease {
 
     private static boolean synchronizeClientChunk(EntityPlayerMP player, Chunk chunk) {
         try {
-            player.connection.sendPacket(new SPacketChunkData(chunk, FULL_CHUNK_SECTION_MASK));
+            player.playerNetServerHandler.sendPacket(
+                    new S21PacketChunkData(chunk, true, FULL_CHUNK_SECTION_MASK));
             return true;
         } catch (RuntimeException | LinkageError failure) {
             // 完整区块同步失败时，后续仍会发送方块与 TE 增量包；不能让第三方坏 update tag 崩服。

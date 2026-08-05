@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import com.rtsbuilding.rtsbuilding.network.RtsTracedPayload;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 public final class S2CRtsRemoteMenuHintPayload implements IMessage, RtsTracedPayload {
     private long traceId;
     private BlockPos pos;

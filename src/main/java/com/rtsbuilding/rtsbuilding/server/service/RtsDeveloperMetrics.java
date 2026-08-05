@@ -62,7 +62,7 @@ public final class RtsDeveloperMetrics {
     public static void recordTaskTick(MinecraftServer server, TaskScheduler.TickStats stats) {
         if (server == null || stats == null || ACTIVE.isEmpty()) return;
         for (Map.Entry<UUID, ActiveRun> entry : ACTIVE.entrySet()) {
-            EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(entry.getKey());
+            EntityPlayerMP player = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(entry.getKey());
             if (player == null) continue;
             RtsTaskEngine.TaskDiagnostics tasks = RtsTaskEngine.INSTANCE.diagnostics(player.getUniqueID());
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session =
@@ -72,7 +72,7 @@ public final class RtsDeveloperMetrics {
                 com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState buffer =
                         session.miningDropBuffer;
                 long age = buffer.firstQueuedGameTime < 0L ? 0L
-                        : Math.max(0L, player.getServerWorld().getTotalWorldTime() - buffer.firstQueuedGameTime);
+                        : Math.max(0L, player.getServerForPlayer().getTotalWorldTime() - buffer.firstQueuedGameTime);
                 bufferSample = new BufferSample(buffer.bufferedItems, buffer.stacks.size(), age);
             }
             recordTaskSample(entry.getKey(), stats, tasks, bufferSample);

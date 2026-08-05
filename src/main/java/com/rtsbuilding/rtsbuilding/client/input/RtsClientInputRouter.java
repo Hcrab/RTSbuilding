@@ -11,7 +11,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.inventory.GuiContainer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 import org.lwjgl.input.Keyboard;
 
 import static com.rtsbuilding.rtsbuilding.client.input.RtsClientInputGate.*;
@@ -136,26 +136,26 @@ final class RtsClientInputRouter {
         }
 
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.player == null) {
+        if (minecraft.thePlayer == null) {
             pendingOverlayCarriedItemId = "";
             return;
         }
 
-        ItemStack carried = minecraft.player.inventory.getItemStack();
-        if (carried.isEmpty()) {
+        ItemStack carried = minecraft.thePlayer.inventory.getItemStack();
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
             pendingOverlayCarriedItemId = "";
             return;
         }
 
-        ResourceLocation carriedId = ForgeRegistries.ITEMS.getKey(carried.getItem());
+        ResourceLocation carriedId = RtsRegistries.ITEMS.getKey(carried.getItem());
         if (carriedId == null || !pendingOverlayCarriedItemId.equals(carriedId.toString())) {
             pendingOverlayCarriedItemId = "";
             return;
         }
 
         RtsPayloadRegistrar.sendToServer(new C2SRtsReturnCarriedPayload(
-                pendingOverlayCarriedItemId, carried.getCount()));
-        minecraft.player.inventory.setItemStack(ItemStack.EMPTY);
+                pendingOverlayCarriedItemId, carried.stackSize));
+        minecraft.thePlayer.inventory.setItemStack(null);
         pendingOverlayCarriedItemId = "";
     }
 

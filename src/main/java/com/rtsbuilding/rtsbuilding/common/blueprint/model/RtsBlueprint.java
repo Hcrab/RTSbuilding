@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.blueprint.model;
 
 import com.rtsbuilding.rtsbuilding.common.blueprint.material.BlueprintMaterialResolver;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
 
 import java.util.ArrayList;
 import java.util.Collections;

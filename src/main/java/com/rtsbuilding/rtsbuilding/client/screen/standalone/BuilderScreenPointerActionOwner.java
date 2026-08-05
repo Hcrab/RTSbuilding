@@ -11,10 +11,10 @@ import com.rtsbuilding.rtsbuilding.client.screen.mode.PlacementStateWheel;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.ChatComponentTranslation;
 
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -146,7 +146,7 @@ final class BuilderScreenPointerActionOwner {
                 Vec3d direction = screen.cursorPicker.computeCursorRayDirection();
                 EnumFacing cameraForward = screen.currentCameraHorizontalDirection();
                 PlacedBlockRotationGesture gesture = screen.rotationHandles.hitGesture(
-                        screen.getMinecraft().world, origin, direction, cameraForward);
+                        screen.getMinecraft().theWorld, origin, direction, cameraForward);
                 if (gesture != null && screen.rotationHandles.targetPos() != null) {
                     screen.controller.rotateBlockStep(
                             screen.rotationHandles.targetPos(),
@@ -156,13 +156,13 @@ final class BuilderScreenPointerActionOwner {
                 }
                 RayTraceResult hit = screen.cursorPicker.pickBlockHit();
                 if (hit == null || !screen.rotationHandles.select(
-                        screen.getMinecraft().world,
+                        screen.getMinecraft().theWorld,
                         hit.getBlockPos(),
                         cameraForward)) {
                     screen.rotationHandles.clear();
-                    if (hit != null && screen.getMinecraft().player != null) {
-                        screen.getMinecraft().player.sendStatusMessage(
-                                new TextComponentTranslation(
+                    if (hit != null && screen.getMinecraft().thePlayer != null) {
+                        com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(screen.getMinecraft().thePlayer,
+                                new ChatComponentTranslation(
                                         "screen.rtsbuilding.rotation_wheel.unsupported"),
                                 true);
                     }

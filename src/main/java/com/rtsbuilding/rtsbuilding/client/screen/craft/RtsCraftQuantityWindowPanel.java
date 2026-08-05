@@ -24,11 +24,11 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentText;
 import org.lwjgl.input.Keyboard;
 
 import java.util.ArrayList;
@@ -46,7 +46,7 @@ import java.util.Objects;
  */
 public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
     private static final UiControlState ENABLED_CONTROL = UiControlState.enabled();
-    private ItemStack preview = ItemStack.EMPTY;
+    private ItemStack preview = null;
     private CraftQuantityState state = new CraftQuantityState(false, "", "",
             Collections.<CraftQuantityOption>emptyList(), 0, 0, 1, 1, true);
     private Request pendingRequest;
@@ -94,7 +94,7 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
         int visibleRows = CraftQuantityWindowLayout.visibleOptionRows(layout);
         CraftQuantityOption selected = this.state.selected();
 
-        if (!this.preview.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(this.preview)) {
             g.renderItem(this.preview, layout.x, layout.y);
             // Legacy RenderItem 会开启深度测试；窗口余下内容仍是二维 UI，立即恢复其预期状态。
             GlStateManager.disableDepth();
@@ -287,14 +287,14 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
 
     @Override
     protected void onClose() {
-        this.preview = ItemStack.EMPTY;
+        this.preview = null;
         this.state = new CraftQuantityState(false, "", "",
                 Collections.<CraftQuantityOption>emptyList(), 0, 0, 1, 1, true);
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentString(tr(
+    protected IChatComponent getTitle() {
+        return new ChatComponentText(tr(
                 "screen.rtsbuilding.craft_quantity.title", "Craft Recipe"));
     }
 
@@ -439,7 +439,7 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
      * 1.12 使用客户端 I18n；旧资源包缺少新键时保留 main 的英文文案，避免界面直接显示键名。
      */
     private static String tr(String key, String fallback, Object... arguments) {
-        return I18n.hasKey(key) ? I18n.format(key, arguments)
+        return net.minecraft.util.StatCollector.canTranslate(key) ? I18n.format(key, arguments)
                 : String.format(java.util.Locale.ROOT, fallback, arguments);
     }
 }

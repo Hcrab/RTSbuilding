@@ -13,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.Arrays;
 import java.util.List;
@@ -297,7 +297,7 @@ public final class OverlayRenderer {
                     ContainerOverlayStyle.QUICK_SLOT_BORDER_LIGHT,
                     ContainerOverlayStyle.QUICK_SLOT_BORDER_DARK);
 
-            if (!preview.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                 g.renderItem(preview, cx + 1, cy + 1);
                 if (itemId.equals(controller.getSelectedItemId())) {
                     g.fill(cx + 1, cy + 1, cx + SLOT_SIZE - 1, cy + SLOT_SIZE - 1,

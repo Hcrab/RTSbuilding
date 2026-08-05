@@ -315,7 +315,7 @@ final class BlueprintBlobAdmissionQueue {
         String format() { return format; }
 
         public NBTTagCompound structure() {
-            return structure.copy();
+            return com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(structure);
         }
 
         NBTTagCompound structureView() {
@@ -323,7 +323,8 @@ final class BlueprintBlobAdmissionQueue {
         }
 
         FreezeRequest frozenCopy() {
-            return new FreezeRequest(taskId, blockCount, name, sourceName, format, structure.copy());
+            return new FreezeRequest(taskId, blockCount, name, sourceName, format,
+                    com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(structure));
         }
 
         @Override public boolean equals(Object other) {

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 
 import java.util.ArrayList;
 import java.util.List;

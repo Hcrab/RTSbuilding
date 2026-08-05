@@ -303,7 +303,7 @@ public final class RtsServerGameTests {
     private static void checkNbtRoundTrip() throws Exception {
         UUID owner = UUID.fromString("55555555-5555-5555-5555-555555555555");
         NBTTagCompound root = new NBTTagCompound();
-        root.setUniqueId("owner", owner);
+        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.setUuid(root, "owner", owner);
         root.setInteger("dimension", -1);
         root.setString("submission", SubmissionId.fromLegacy(owner, "blueprint", "portable-test").toString());
         NBTTagCompound payload = new NBTTagCompound();
@@ -314,7 +314,8 @@ public final class RtsServerGameTests {
         CompressedStreamTools.writeCompressed(root, output);
         NBTTagCompound restored = CompressedStreamTools.readCompressed(
                 new ByteArrayInputStream(output.toByteArray()));
-        require(owner.equals(restored.getUniqueId("owner")), "owner UUID was lost");
+        require(owner.equals(com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getUuid(
+                restored, "owner")), "owner UUID was lost");
         require(restored.getInteger("dimension") == -1, "dimension was lost");
         require(restored.getCompoundTag("payload").getInteger("metadata") == 3, "metadata was lost");
         SubmissionId.parse(restored.getString("submission"));

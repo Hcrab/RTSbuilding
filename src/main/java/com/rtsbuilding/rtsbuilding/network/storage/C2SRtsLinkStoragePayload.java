@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 public final class C2SRtsLinkStoragePayload implements IMessage {
     public static final byte MODE_BIDIRECTIONAL=0, MODE_EXTRACT_ONLY=1;
     private BlockPos pos; private byte linkMode;

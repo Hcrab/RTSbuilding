@@ -7,12 +7,12 @@ import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -183,7 +183,7 @@ final class BuilderScreenModeSessionOwner {
             if (direction == null || screen.getMinecraft() == null || screen.getMinecraft().entityRenderer == null) {
                 return new double[] {0.0D, -1.0D};
             }
-            net.minecraft.entity.Entity camera = screen.getMinecraft().getRenderViewEntity();
+            net.minecraft.entity.Entity camera = screen.getMinecraft().renderViewEntity;
             if (camera == null) return new double[] {0.0D, -1.0D};
             float yawDeg = camera.rotationYaw;
             float pitchDeg = camera.rotationPitch;
@@ -195,7 +195,7 @@ final class BuilderScreenModeSessionOwner {
                     Math.cos(yaw) * Math.cos(pitch)).normalize();
             Vec3d right = new Vec3d(Math.cos(yaw), 0.0D, Math.sin(yaw)).normalize();
             Vec3d up = forward.crossProduct(right).normalize();
-            net.minecraft.util.math.Vec3i axis = direction.getDirectionVec();
+            com.rtsbuilding.rtsbuilding.platform.math.Vec3i axis = direction.getDirectionVec();
             Vec3d normal = new Vec3d(axis.getX(), axis.getY(), axis.getZ());
             return new double[] {-normal.dotProduct(right), -normal.dotProduct(up)};
         }
@@ -248,7 +248,7 @@ final class BuilderScreenModeSessionOwner {
         }
 
     void quickDropSelectedAtCursor() {
-            if (screen.getMinecraft() == null || screen.getMinecraft().getRenderViewEntity() == null) {
+            if (screen.getMinecraft() == null || screen.getMinecraft().renderViewEntity == null) {
                 return;
             }
             String dropItemId = "";
@@ -256,10 +256,10 @@ final class BuilderScreenModeSessionOwner {
                 dropItemId = screen.controller.getSelectedItemId();
             } else {
                 ItemStack toolStack = screen.getSelectedToolStack();
-                if (toolStack.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(toolStack)) {
                     return;
                 }
-                ResourceLocation id = ForgeRegistries.ITEMS.getKey(toolStack.getItem());
+                ResourceLocation id = RtsRegistries.ITEMS.getKey(toolStack.getItem());
                 if (id == null) {
                     return;
                 }

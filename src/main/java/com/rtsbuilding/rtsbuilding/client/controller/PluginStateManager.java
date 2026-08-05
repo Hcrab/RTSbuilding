@@ -33,9 +33,9 @@ public final class PluginStateManager {
                                                 Math.min(payload.ownerNames().size(), payload.stacks().size()))))));
         for (int i = 0; i < size; i++) {
             ItemStack stack = payload.stacks().get(i);
-            ItemStack preview = stack == null ? ItemStack.EMPTY : stack.copy();
-            if (!preview.isEmpty()) {
-                preview.setCount(1);
+            ItemStack preview = stack == null ? null : stack.copy();
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
+                preview.stackSize = 1;
             }
             this.installedPlugins.add(new InstalledPluginView(
                     safe(payload.pluginIds().get(i)),

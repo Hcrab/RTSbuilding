@@ -3,8 +3,8 @@ package com.rtsbuilding.rtsbuilding.server.service.crafting;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.item.crafting.Ingredient;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.crafting.Ingredient;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -54,7 +54,7 @@ final class RtsCraftingAvailability {
         List<AvailableCraftItem> remaining = RtsCraftingUtils.copyAvailableCraftItems(availableStacks);
         ItemStack[] planned = new ItemStack[9];
         for (int i = 0; i < planned.length; i++) {
-            planned[i] = ItemStack.EMPTY;
+            planned[i] = null;
         }
         List<Integer> requiredSlots = new ArrayList<>();
         for (int i = 0; i < required.length; i++) {
@@ -86,7 +86,7 @@ final class RtsCraftingAvailability {
             }
             for (int i = 0; i < handler.getSlots(); i++) {
                 ItemStack stack = handler.getStackInSlot(i);
-                if (stack.isEmpty()) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                     continue;
                 }
                 RtsCraftingUtils.mergeAvailableCraftItem(entries, stack,
@@ -98,8 +98,8 @@ final class RtsCraftingAvailability {
             int end = com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
             for (int slot = start; slot < end; slot++) {
                 ItemStack stack = player.inventory.getStackInSlot(slot);
-                if (!stack.isEmpty()) {
-                    RtsCraftingUtils.mergeAvailableCraftItem(entries, stack, stack.getCount());
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                    RtsCraftingUtils.mergeAvailableCraftItem(entries, stack, stack.stackSize);
                 }
             }
         }
@@ -129,7 +129,7 @@ final class RtsCraftingAvailability {
                 return true;
             }
             remaining.set(index, candidate);
-            planned[slot] = ItemStack.EMPTY;
+            planned[slot] = null;
         }
         return false;
     }
@@ -141,7 +141,7 @@ final class RtsCraftingAvailability {
         }
         for (int i = 0; i < remaining.size(); i++) {
             AvailableCraftItem item = remaining.get(i);
-            if (item == null || item.count() <= 0L || item.prototype().isEmpty()) {
+            if (item == null || item.count() <= 0L || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(item.prototype())) {
                 continue;
             }
             if (ingredient.apply(item.prototype())) {
@@ -157,7 +157,7 @@ final class RtsCraftingAvailability {
             return matches;
         }
         for (AvailableCraftItem item : remaining) {
-            if (item != null && item.count() > 0L && !item.prototype().isEmpty() && ingredient.apply(item.prototype())) {
+            if (item != null && item.count() > 0L && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(item.prototype()) && ingredient.apply(item.prototype())) {
                 matches++;
             }
         }

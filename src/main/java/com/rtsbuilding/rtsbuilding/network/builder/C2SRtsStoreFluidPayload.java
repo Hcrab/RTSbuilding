@@ -1,5 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
-import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;import io.netty.buffer.ByteBuf;import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;import io.netty.buffer.ByteBuf;import cpw.mods.fml.common.network.simpleimpl.IMessage;
 public final class C2SRtsStoreFluidPayload implements IMessage{
  public static final byte SOURCE_STORAGE_ITEM=0,SOURCE_TOOL_SLOT=1,SOURCE_PIN_ITEM=2;public static final int MAX_ITEM_ID_CHARS=128;
  private byte sourceType,toolSlot;private String itemId;

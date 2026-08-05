@@ -33,7 +33,7 @@ import com.rtsbuilding.rtsbuilding.client.state.RtsScreenUiStateManager;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.IChatComponent;
 
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -96,7 +96,7 @@ abstract class BuilderScreenComponentState extends GuiScreen {
     static final long CTRL_DOUBLE_CLICK_THRESHOLD_MS = 300;
     int rtsFlightToggleCooldownTicks = 0;
 
-    BuilderScreenComponentState(ITextComponent title) {
+    BuilderScreenComponentState(IChatComponent title) {
         // 1.12 的 GuiScreen 不持有标题；保留参数以稳定构造边界。
     }
 }

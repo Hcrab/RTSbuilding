@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.WorldServer;
@@ -71,7 +71,7 @@ public final class RtsProgressRefresher {
      */
     private static void refreshBlueprintProgress(EntityPlayerMP player) {
         UUID puid = player.getUniqueID();
-        long currentTick = player.getServerWorld().getTotalWorldTime();
+        long currentTick = player.getServerForPlayer().getTotalWorldTime();
         Long lastRefresh = BLUEPRINT_REFRESH_TICK.get(puid);
         boolean shouldScan = lastRefresh == null || (currentTick - lastRefresh) >= BLUEPRINT_REFRESH_INTERVAL;
         if (!shouldScan) return;
@@ -90,7 +90,7 @@ public final class RtsProgressRefresher {
             LinkedList<Integer> remaining = bctx.getRemainingQueue();
             if (plans == null || remaining == null || plans.isEmpty()) continue;
 
-            WorldServer level = player.getServerWorld();
+            WorldServer level = player.getServerForPlayer();
             int total = plans.size();
             Set<Integer> remainingSet = new HashSet<>(remaining);
             LinkedList<Integer> backToQueue = new LinkedList<>();
@@ -100,9 +100,9 @@ public final class RtsProgressRefresher {
                 BlockPlacementPlanner.PlacementPlan plan = plans.get(idx);
                 if (plan == null) continue;
                 if (remainingSet.contains(idx)) continue;
-                if (!level.isBlockLoaded(plan.target())) continue;
+                if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, plan.target())) continue;
 
-                IBlockState current = level.getBlockState(plan.target());
+                BlockState current = BlockState.fromWorld(level, plan.target());
                 if (current.getBlock() == plan.state().getBlock()) {
                     actualPlaced++;
                 } else {
@@ -114,8 +114,8 @@ public final class RtsProgressRefresher {
             remaining.removeIf(idx -> {
                 BlockPlacementPlanner.PlacementPlan plan = plans.get(idx);
                 if (plan == null) return false;
-                if (!level.isBlockLoaded(plan.target())) return false;
-                return level.getBlockState(plan.target()).getBlock() == plan.state().getBlock();
+                if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, plan.target())) return false;
+                return BlockState.fromWorld(level, plan.target()).getBlock() == plan.state().getBlock();
             });
 
             bctx.setPlacedCount(actualPlaced);
@@ -137,7 +137,7 @@ public final class RtsProgressRefresher {
      * 统计玩家主背包中与模板匹配的物品总量。
      */
     public static long countItemsInPlayerInventory(EntityPlayerMP player, ItemStack template) {
-        if (player == null || template == null || template.isEmpty()) return 0;
+        if (player == null || template == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(template)) return 0;
         boolean includePlayerInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player,
                 ServiceRegistry.getInstance().session().getIfPresent(player));
         if (!includePlayerInventory) return 0;
@@ -147,9 +147,9 @@ public final class RtsProgressRefresher {
         long count = 0;
         for (int slot = start; slot < end; slot++) {
             ItemStack stack = player.inventory.getStackInSlot(slot);
-            if (!stack.isEmpty() && ItemStack.areItemsEqual(stack, template)
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) && com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(stack, template)
                     && ItemStack.areItemStackTagsEqual(stack, template)) {
-                count = RtsCountUtil.saturatedAdd(count, stack.getCount());
+                count = RtsCountUtil.saturatedAdd(count, stack.stackSize);
             }
         }
         return count;

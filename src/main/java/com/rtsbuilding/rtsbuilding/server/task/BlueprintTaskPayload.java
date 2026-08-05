@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 import javax.annotation.Nullable;
@@ -87,7 +87,7 @@ public final class BlueprintTaskPayload implements TaskPayload {
 
     /** 正常进度最多每秒写一次快照；等待和终态由调用方强制写。 */
     public boolean shouldCheckpoint(boolean force) {
-        long tick = player().getServerWorld().getTotalWorldTime();
+        long tick = player().getServerForPlayer().getTotalWorldTime();
         if (!force && lastCheckpointTick != Long.MIN_VALUE && tick - lastCheckpointTick < 20L) {
             return false;
         }

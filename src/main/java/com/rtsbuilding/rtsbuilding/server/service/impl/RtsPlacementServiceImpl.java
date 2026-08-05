@@ -18,10 +18,10 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.util.ChatComponentText;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -198,11 +198,11 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         int count = com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService
                 .resumeAllPendingJobs(player, session);
         if (count > 0) {
-            player.sendStatusMessage(
-                    new TextComponentString("Resumed " + count + " pending placement job(s)."), true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player,
+                    new ChatComponentText("Resumed " + count + " pending placement job(s)."), true);
         } else {
-            player.sendStatusMessage(
-                    new TextComponentString("No pending placements can be resumed — insufficient items."), true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player,
+                    new ChatComponentText("No pending placements can be resumed — insufficient items."), true);
         }
         return count;
     }
@@ -212,7 +212,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         if (!canRotateBlock(player, pos)) {
             return;
         }
-        RtsPlacementHelper.rotatePlacedBlock(player.getServerWorld(), pos, (byte) 1);
+        RtsPlacementHelper.rotatePlacedBlock(player.getServerForPlayer(), pos, (byte) 1);
     }
 
     @Override
@@ -227,7 +227,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
             return;
         }
         RtsPlacementHelper.rotatePlacedBlockStep(
-                player.getServerWorld(),
+                player.getServerForPlayer(),
                 pos,
                 axisDirection,
                 quarterTurns);
@@ -241,13 +241,13 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         RtsStorageSession session = registry.session().getIfPresent(player);
         if (session == null
                 || session.mode != com.rtsbuilding.rtsbuilding.common.build.BuilderMode.ROTATE
-                || player.isSpectator()
+                || com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.isSpectator(player)
                 || !player.capabilities.allowEdit
                 || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
             return false;
         }
         if (!RtsClaimProtectionService.canInteractBlock(
-                player, pos, EnumFacing.UP, EnumHand.MAIN_HAND, ItemStack.EMPTY)) {
+                player, pos, EnumFacing.UP, EnumHand.MAIN_HAND, null)) {
             return false;
         }
         return true;

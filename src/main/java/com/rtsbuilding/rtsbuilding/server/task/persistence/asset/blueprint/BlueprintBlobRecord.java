@@ -33,10 +33,10 @@ public final class BlueprintBlobRecord {
             throw new IllegalArgumentException("蓝图 blob 文本元数据越界");
         }
         if (!sha256.matches("[0-9a-f]{64}")) throw new IllegalArgumentException("sha256 必须为小写十六进制");
-        if (structure.isEmpty()) throw new IllegalArgumentException("蓝图 structure 不能为空");
+        if (com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(structure)) throw new IllegalArgumentException("蓝图 structure 不能为空");
         this.blockCount = blockCount;
         this.sha256 = sha256.toLowerCase(Locale.ROOT);
-        this.structure = structure.copy();
+        this.structure = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(structure);
     }
 
     public TaskAssetId assetId() { return assetId; }
@@ -48,7 +48,7 @@ public final class BlueprintBlobRecord {
     public String sha256() { return sha256; }
 
     public NBTTagCompound structure() {
-        return structure.copy();
+        return com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(structure);
     }
 
     NBTTagCompound structureView() {

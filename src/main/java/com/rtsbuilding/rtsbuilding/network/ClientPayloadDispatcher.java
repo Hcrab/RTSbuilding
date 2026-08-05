@@ -18,11 +18,9 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import net.minecraft.util.IThreadListener;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -244,8 +242,8 @@ public final class ClientPayloadDispatcher {
     }
 
     private static void schedule(MessageContext context, Runnable task) {
-        IThreadListener thread = FMLCommonHandler.instance().getWorldThread(context.netHandler);
-        thread.addScheduledTask(task);
+
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.schedule(context, task);
     }
 
     private static void invokeController(String methodName, Class<?> payloadType, Object payload) {

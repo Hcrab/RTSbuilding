@@ -11,9 +11,9 @@ import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.StorageLinkDetailStyle;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentText;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
 
@@ -94,8 +94,8 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentString("");
+    protected IChatComponent getTitle() {
+        return new ChatComponentText("");
     }
 
     @Override

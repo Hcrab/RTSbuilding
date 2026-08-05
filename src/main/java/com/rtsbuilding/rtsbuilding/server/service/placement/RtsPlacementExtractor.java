@@ -7,7 +7,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -16,9 +16,9 @@ import java.util.List;
  *
  * <p>提供递增的提取策略：
  * <ul>
- *   <li>{@link #extractSelectedFromNetwork} / {@link #extractSelectedFromNetworkCached} — 
+ *   <li>{@link #extractSelectedFromNetwork} / {@link #extractSelectedFromNetworkCached} —
  *   从网络范围（链接处理器 + 玩家主背包）提取，优先通过 {@link com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage} 缓存</li>
- *   <li>{@link #extractSelectedFromLinked} / {@link #extractSelectedFromLinkedCached} — 
+ *   <li>{@link #extractSelectedFromLinked} / {@link #extractSelectedFromLinkedCached} —
  *   仅从链接处理器提取</li>
  *   <li>{@link #creativeStack} — 为创造模式玩家构造单个物品堆叠</li>
  *   <li>{@link #sanitizePrototype} — 验证物品原型与物品 ID 一致</li>
@@ -37,17 +37,17 @@ public final class RtsPlacementExtractor {
      * 当匹配时返回原型堆叠的单个计数副本，否则返回 {@link ItemStack#EMPTY}。
      */
     public static ItemStack sanitizePrototype(String itemId, ItemStack itemPrototype) {
-        if (itemId == null || itemId.trim().isEmpty() || itemPrototype == null || itemPrototype.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (itemId == null || itemId.trim().isEmpty() || itemPrototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(itemPrototype)) {
+            return null;
         }
         ResourceLocation expectedId;
-        try { expectedId = new ResourceLocation(itemId); } catch (RuntimeException invalid) { return ItemStack.EMPTY; }
-        ResourceLocation actualId = Item.REGISTRY.getNameForObject(itemPrototype.getItem());
+        try { expectedId = new ResourceLocation(itemId); } catch (RuntimeException invalid) { return null; }
+        ResourceLocation actualId = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(itemPrototype.getItem());
         if (expectedId == null || actualId == null || !expectedId.equals(actualId)) {
-            return ItemStack.EMPTY;
+            return null;
         }
         ItemStack copy = itemPrototype.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 
@@ -55,9 +55,9 @@ public final class RtsPlacementExtractor {
      * 构建单个计数的创造模式堆叠，可用时优先使用原型的组件。
      */
     public static ItemStack creativeStack(Item item, ItemStack preferredStack) {
-        if (preferredStack != null && !preferredStack.isEmpty()) {
+        if (preferredStack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferredStack)) {
             ItemStack copy = preferredStack.copy();
-            copy.setCount(1);
+            copy.stackSize = 1;
             return copy;
         }
         return new ItemStack(item);
@@ -83,18 +83,18 @@ public final class RtsPlacementExtractor {
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
         if (aggregate != null && !aggregate.isEmpty()) {
             ItemStack extracted;
-            if (preferredStack != null && !preferredStack.isEmpty()) {
+            if (preferredStack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferredStack)) {
                 extracted = aggregate.extractMatching(item, preferredStack, 1);
             } else {
                 extracted = aggregate.extract(item, 1);
             }
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 RtsStorageTickService.INSTANCE.alert(player.getUniqueID());
                 return extracted;
             }
         }
         // Fallback: direct linked extraction, then player inventory
-        if (preferredStack != null && !preferredStack.isEmpty()) {
+        if (preferredStack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferredStack)) {
             return RtsTransferExtractor.extractMatchingFromNetwork(handlers, player, item, preferredStack, 1);
         }
         return RtsTransferExtractor.extractOneFromNetwork(handlers, player, item);
@@ -105,7 +105,7 @@ public final class RtsPlacementExtractor {
      * 如果提供了原型则优先匹配。
      */
     public static ItemStack extractSelectedFromLinked(List<IItemHandler> handlers, Item item, ItemStack preferredStack) {
-        if (preferredStack != null && !preferredStack.isEmpty()) {
+        if (preferredStack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferredStack)) {
             return RtsTransferExtractor.extractMatchingFromLinked(handlers, item, preferredStack, 1);
         }
         return RtsTransferExtractor.extractOneFromLinked(handlers, item);
@@ -120,12 +120,12 @@ public final class RtsPlacementExtractor {
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
         if (aggregate != null && !aggregate.isEmpty()) {
             ItemStack extracted;
-            if (preferredStack != null && !preferredStack.isEmpty()) {
+            if (preferredStack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferredStack)) {
                 extracted = aggregate.extractMatching(item, preferredStack, 1);
             } else {
                 extracted = aggregate.extract(item, 1);
             }
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 RtsStorageTickService.INSTANCE.alert(player.getUniqueID());
                 return extracted;
             }

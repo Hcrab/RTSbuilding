@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.model;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fluids.capability.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.storage.IFluidHandler;
 
 /**
  * 已解析的链接流体处理器——将链接存储引用与其对应的流体处理器绑定。

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.shape;
 
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.HashSet;
 import java.util.LinkedHashSet;

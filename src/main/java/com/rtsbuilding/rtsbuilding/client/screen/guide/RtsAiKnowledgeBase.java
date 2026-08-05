@@ -10,8 +10,8 @@ import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiTopic;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.I18n;
 import net.minecraftforge.common.ForgeVersion;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.fml.common.ModContainer;
+import cpw.mods.fml.common.Loader;
+import cpw.mods.fml.common.ModContainer;
 
 import java.util.Locale;
 
@@ -36,7 +36,7 @@ public final class RtsAiKnowledgeBase {
         if (chinese) {
             text.append("## 当前游戏信息\n");
             appendInfo(text, "RTSBuilding 版本", modVersion(RtsbuildingMod.MODID));
-            appendInfo(text, "Minecraft 版本", ForgeVersion.mcVersion);
+            appendInfo(text, "Minecraft 版本", cpw.mods.fml.common.Loader.MC_VERSION);
             appendInfo(text, "Forge 版本", ForgeVersion.getVersion());
             appendInfo(text, "语言", language);
             appendInfo(text, "当前 RTS 模式", localizedMode(controller == null ? null : controller.getMode()));
@@ -44,7 +44,7 @@ public final class RtsAiKnowledgeBase {
         } else {
             text.append("## Current game information\n");
             appendInfo(text, "RTSBuilding version", modVersion(RtsbuildingMod.MODID));
-            appendInfo(text, "Minecraft version", ForgeVersion.mcVersion);
+            appendInfo(text, "Minecraft version", cpw.mods.fml.common.Loader.MC_VERSION);
             appendInfo(text, "Forge version", ForgeVersion.getVersion());
             appendInfo(text, "Language", language);
             appendInfo(text, "Current RTS mode", localizedMode(controller == null ? null : controller.getMode()));

@@ -321,7 +321,7 @@ public final class RtsWorkflowEntry {
         tag.setBoolean(NBT_PAUSED, paused);
         tag.setBoolean(NBT_PROTECTED, protectedWorkflow);
         tag.setBoolean(NBT_TERMINAL, terminal);
-        if (extraData != null && !extraData.isEmpty()) {
+        if (extraData != null && !com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(extraData)) {
             tag.setTag(NBT_EXTRA_DATA, extraData.copy());
         }
         tag.setLong(NBT_CREATED_AT, createdAt);
@@ -379,7 +379,8 @@ public final class RtsWorkflowEntry {
 
         // 恢复工作流类型特定的额外数据
         if (tag.hasKey(NBT_EXTRA_DATA, Constants.NBT.TAG_COMPOUND)) {
-            entry.extraData = tag.getCompoundTag(NBT_EXTRA_DATA).copy();
+            entry.extraData = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(
+                    tag.getCompoundTag(NBT_EXTRA_DATA));
         }
 
         // 恢复时间戳——仅在存在时覆盖

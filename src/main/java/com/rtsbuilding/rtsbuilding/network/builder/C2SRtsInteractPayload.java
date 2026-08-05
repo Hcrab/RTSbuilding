@@ -3,9 +3,9 @@ package com.rtsbuilding.rtsbuilding.network.builder;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import com.rtsbuilding.rtsbuilding.network.RtsTracedPayload;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 远程交互意图；实体、工具槽、链接物品及权限全部由服务端当前状态决定。 */
 public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {

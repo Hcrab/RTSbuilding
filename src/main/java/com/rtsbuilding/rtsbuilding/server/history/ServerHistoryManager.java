@@ -3,14 +3,14 @@ package com.rtsbuilding.rtsbuilding.server.history;
 import com.rtsbuilding.rtsbuilding.common.RtsHistoryConstants;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.world.WorldServer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.init.Blocks;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import javax.annotation.Nullable;
 
 import java.util.*;
@@ -47,7 +47,7 @@ public final class ServerHistoryManager {
         if (player == null || positions == null || positions.isEmpty()) {
             return;
         }
-        List<HistoryBlockRecord> records = captureBlocks(player.getServerWorld(), positions);
+        List<HistoryBlockRecord> records = captureBlocks(player.getServerForPlayer(), positions);
         if (records.isEmpty()) {
             return;
         }
@@ -65,7 +65,7 @@ public final class ServerHistoryManager {
         if (player == null || positions == null || positions.isEmpty()) {
             return;
         }
-        List<HistoryBlockRecord> records = captureBlocks(player.getServerWorld(), positions);
+        List<HistoryBlockRecord> records = captureBlocks(player.getServerForPlayer(), positions);
         if (records.isEmpty()) {
             return;
         }
@@ -200,9 +200,9 @@ public final class ServerHistoryManager {
 
     @Nullable
     public static HistoryBlockRecord captureBlock(WorldServer level, BlockPos pos) {
-        if (level == null || pos == null || !level.isBlockLoaded(pos)) return null;
-        IBlockState state = level.getBlockState(pos);
-        if (state.getBlock() == Blocks.AIR) return null;
+        if (level == null || pos == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) return null;
+        BlockState state = BlockState.fromWorld(level, pos);
+        if (state.getBlock() == Blocks.air) return null;
         NBTTagCompound beData = captureBlockEntityData(level, pos);
         return new HistoryBlockRecord(pos, state, beData);
     }
@@ -214,9 +214,9 @@ public final class ServerHistoryManager {
     private static List<HistoryBlockRecord> captureBlocks(WorldServer level, List<BlockPos> positions) {
         List<HistoryBlockRecord> records = new ArrayList<>(positions.size());
         for (BlockPos pos : positions) {
-            if (!level.isBlockLoaded(pos)) continue;
-            IBlockState state = level.getBlockState(pos);
-            if (state.getBlock() == Blocks.AIR) continue;
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) continue;
+            BlockState state = BlockState.fromWorld(level, pos);
+            if (state.getBlock() == Blocks.air) continue;
             NBTTagCompound beData = captureBlockEntityData(level, pos);
             records.add(new HistoryBlockRecord(pos, state, beData));
         }
@@ -225,10 +225,12 @@ public final class ServerHistoryManager {
 
     @Nullable
     private static NBTTagCompound captureBlockEntityData(WorldServer level, BlockPos pos) {
-        if (!level.isBlockLoaded(pos)) return null;
-        TileEntity blockEntity = level.getTileEntity(pos);
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, pos)) return null;
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         if (blockEntity == null) return null;
-        return blockEntity.writeToNBT(new NBTTagCompound());
+        NBTTagCompound tag = new NBTTagCompound();
+        blockEntity.writeToNBT(tag);
+        return tag;
     }
 
     // ======================================================================

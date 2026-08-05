@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WindowSliderLayout;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.function.Consumer;
 

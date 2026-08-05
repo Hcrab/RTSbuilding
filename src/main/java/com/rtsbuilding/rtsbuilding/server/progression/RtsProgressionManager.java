@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 public final class RtsProgressionManager {
     public static final int DEFAULT_MAX_ACTION_RADIUS_BLOCKS = 128;
@@ -166,7 +166,7 @@ public final class RtsProgressionManager {
             syncToPlayer(player);
             return;
         }
-        for (EntityPlayerMP onlinePlayer : player.getServer().getPlayerList().getPlayers()) {
+        for (EntityPlayerMP onlinePlayer : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player)).getPlayers()) {
             if (sharedKey.equals(RtsProgressionPersistence.sharedProgressionKey(onlinePlayer))) {
                 syncToPlayer(onlinePlayer);
             }

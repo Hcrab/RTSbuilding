@@ -4,9 +4,9 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGuiRenderState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.client.config.GuiUtils;
+import cpw.mods.fml.client.config.GuiUtils;
 
 import java.util.List;
 
@@ -55,19 +55,19 @@ public final class LegacyGuiGraphics {
     }
 
     public void renderItem(ItemStack stack, int x, int y) {
-        if (stack == null || stack.isEmpty()) return;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return;
         try (RtsGuiRenderState.Scope ignored = RtsGuiRenderState.beginItem()) {
-            minecraft.getRenderItem().renderItemAndEffectIntoGUI(stack, x, y);
-            minecraft.getRenderItem().renderItemOverlayIntoGUI(
-                    minecraft.fontRenderer, stack, x, y, null);
+            com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.renderItem().renderItemAndEffectIntoGUI(
+                    minecraft.fontRenderer, minecraft.getTextureManager(), stack, x, y);
+            com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.renderItem().renderItemOverlayIntoGUI(
+                    minecraft.fontRenderer, minecraft.getTextureManager(), stack, x, y, null);
         }
     }
 
     public void renderTooltip(ItemStack stack, int mouseX, int mouseY) {
-        if (stack == null || stack.isEmpty() || minecraft.player == null) return;
-        List<String> lines = stack.getTooltip(minecraft.player, minecraft.gameSettings.advancedItemTooltips
-                ? net.minecraft.client.util.ITooltipFlag.TooltipFlags.ADVANCED
-                : net.minecraft.client.util.ITooltipFlag.TooltipFlags.NORMAL);
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || minecraft.thePlayer == null) return;
+        List<String> lines = stack.getTooltip(
+                minecraft.thePlayer, minecraft.gameSettings.advancedItemTooltips);
         renderTooltipLines(lines, mouseX, mouseY);
     }
 
@@ -79,8 +79,24 @@ public final class LegacyGuiGraphics {
     public void renderTooltipLines(List<String> lines, int mouseX, int mouseY) {
         if (lines == null || lines.isEmpty()) return;
         try (RtsGuiRenderState.Scope ignored = RtsGuiRenderState.preserveForExternalGuiCall()) {
-            GuiUtils.drawHoveringText(
-                    lines, mouseX, mouseY, screenWidth, screenHeight, 300, minecraft.fontRenderer);
+            drawHoveringText(lines, mouseX, mouseY);
+        }
+    }
+
+    /** 1.7.10 Forge 没有公开的可复用悬浮提示入口，沿用原版布局并保持状态隔离。 */
+    private void drawHoveringText(List<String> lines, int mouseX, int mouseY) {
+        int width = 0;
+        for (String line : lines) width = Math.max(width, minecraft.fontRenderer.getStringWidth(line));
+        int x = mouseX + 12;
+        int y = mouseY - 12;
+        int height = lines.size() == 1 ? 8 : 8 + (lines.size() - 1) * 10;
+        if (x + width > screenWidth) x -= 28 + width;
+        if (y + height + 6 > screenHeight) y = screenHeight - height - 6;
+        this.fill(x - 3, y - 4, x + width + 3, y + height + 4, 0xF0100010);
+        int lineY = y;
+        for (String line : lines) {
+            minecraft.fontRenderer.drawStringWithShadow(line, x, lineY, 0xFFFFFFFF);
+            lineY += 10;
         }
     }
 }

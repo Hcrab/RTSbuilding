@@ -28,7 +28,7 @@ final class ClientRecordSupport {
         if (stack == null) {
             return 0;
         }
-        return Objects.hash(Item.getIdFromItem(stack.getItem()), stack.getCount(),
-                stack.getMetadata(), stack.getTagCompound());
+        return Objects.hash(Item.getIdFromItem(stack.getItem()), stack.stackSize,
+                stack.getItemDamage(), stack.getTagCompound());
     }
 }

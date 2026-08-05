@@ -79,7 +79,7 @@ public final class BlueprintBlobCodec {
 
     public BlueprintBlobRecord decode(NBTTagCompound root) {
         try {
-            if (!root.getKeySet().equals(EXACT_FIELDS)) {
+            if (!root.func_150296_c().equals(EXACT_FIELDS)) {
                 throw new BlobCodecException("蓝图 blob 包含缺失或未知字段");
             }
             require(root, "schema", Constants.NBT.TAG_INT);
@@ -152,9 +152,9 @@ public final class BlueprintBlobCodec {
         }
         try {
             // 1.12 的 compressed 便捷入口没有大小跟踪参数，显式解开 gzip 后走受限 DataInput。
-            DataInputStream data = new DataInputStream(new GZIPInputStream(input));
-            NBTTagCompound root = CompressedStreamTools.read(
-                    data, new NBTSizeTracker(MAX_DECODE_ACCOUNTING_BYTES));
+            DataInputStream data = new DataInputStream(com.google.common.io.ByteStreams.limit(
+                    new GZIPInputStream(input), MAX_DECODE_ACCOUNTING_BYTES));
+            NBTTagCompound root = CompressedStreamTools.read(data);
             if (root == null) throw new BlobCodecException("蓝图 blob NBT 根标签为空");
             return decode(root);
         } catch (IOException failure) {

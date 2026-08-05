@@ -6,6 +6,8 @@ import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsPositionBatchAssembler1122;
+import com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat;
+import com.rtsbuilding.rtsbuilding.platform.event.LegacyEventRegistrar;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
@@ -27,6 +29,8 @@ import com.rtsbuilding.rtsbuilding.server.service.ServerTickOrchestrator;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningDropCapture;
+import com.rtsbuilding.rtsbuilding.server.tracking.RtsBlockTrackingEvents;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
@@ -37,17 +41,17 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.world.ChunkEvent;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLServerStartedEvent;
-import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
-import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
-import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.PlayerEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.common.FMLCommonHandler;
+import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.event.FMLInitializationEvent;
+import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+import cpw.mods.fml.common.event.FMLServerStartedEvent;
+import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import cpw.mods.fml.common.event.FMLServerStoppedEvent;
+import cpw.mods.fml.common.event.FMLServerStoppingEvent;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.PlayerEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -59,9 +63,11 @@ import java.time.Duration;
  * <p>FML 生命周期只留在本类；游戏运行事件由实例化的 {@link GameEvents} 接收。入口不引用
  * net.minecraft.client 或客户端 bootstrap，因此专用服务端可以安全加载整个类。</p>
  */
-@Mod(modid = RtsbuildingMod.MODID)
+@Mod(modid = RtsbuildingMod.MODID, version = RtsbuildingMod.VERSION)
 public final class RtsbuildingMod {
     public static final String MODID = "rtsbuilding";
+    /** 首个 GTNH 可玩 alpha 的 FML 元数据版本；发布时与 Gradle version 一起更新。 */
+    public static final String VERSION = "1.1.6-1.7.10-gtnh-alpha.1";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 
     @Mod.Instance(MODID)
@@ -87,6 +93,10 @@ public final class RtsbuildingMod {
         RtsItems.register();
         RtsEntities.register(this);
         MinecraftForge.EVENT_BUS.register(gameEvents);
+        // 1.7.10 的玩家与 tick 事件位于 FML 总线；区块事件仍位于 Forge 总线。
+        FMLCommonHandler.instance().bus().register(gameEvents);
+        LegacyEventRegistrar.registerClass(RtsBlockTrackingEvents.class);
+        LegacyEventRegistrar.registerClass(RtsMiningDropCapture.class);
         if (event.getSide().isClient()) {
             initializeClientSide();
         }
@@ -151,11 +161,11 @@ public final class RtsbuildingMod {
     public void onServerStopping(FMLServerStoppingEvent event) {
         MinecraftServer server = requireActiveServer();
         try {
-            for (EntityPlayerMP player : server.getPlayerList().getPlayers()) {
+            for (EntityPlayerMP player : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayers()) {
                 RtsTaskEngine.INSTANCE.preparePlayerDetach(player);
             }
             RtsTaskEngine.INSTANCE.checkpointAllDurableExecutions(server);
-            for (EntityPlayerMP player : server.getPlayerList().getPlayers()) {
+            for (EntityPlayerMP player : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayers()) {
                 TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUniqueID());
                 RtsTaskEngine.INSTANCE.reconcilePlayerDetach(player);
             }
@@ -206,12 +216,16 @@ public final class RtsbuildingMod {
     }
 
     /** 游戏运行事件；只使用共同端和服务端类型。 */
-    private static final class GameEvents {
+    /**
+     * 1.7.10 会在 cpw.mods.fml.common.eventhandler 包中生成独立 ASM 调用器；
+     * 订阅器类型若为私有嵌套类，调用器跨包访问时会抛出 IllegalAccessError。
+     */
+    public static final class GameEvents {
         @SubscribeEvent
         public void onPlayerLogin(PlayerEvent.PlayerLoggedInEvent event) {
             if (!(event.player instanceof EntityPlayerMP)) return;
             EntityPlayerMP player = (EntityPlayerMP) event.player;
-            MinecraftServer server = player.getServer();
+            MinecraftServer server = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player);
             RtsCameraManager.cleanupOrphanCameras(server);
             RtsDamageFeedbackManager.remember(player);
             RtsProgressionManager.onPlayerLogin(player);
@@ -263,8 +277,10 @@ public final class RtsbuildingMod {
         /** 仅唤醒等待这个 chunk 的任务，不扫描玩家或全服任务。 */
         @SubscribeEvent
         public void onChunkLoad(ChunkEvent.Load event) {
-            if (event.getWorld() instanceof WorldServer) {
-                RtsTaskEngine.INSTANCE.resumeLoadedChunk((WorldServer) event.getWorld(), event.getChunk().getPos());
+            if (event.world instanceof WorldServer) {
+                RtsTaskEngine.INSTANCE.resumeLoadedChunk((WorldServer) event.world,
+                        new com.rtsbuilding.rtsbuilding.platform.math.ChunkPos(
+                                event.getChunk().xPosition, event.getChunk().zPosition));
             }
         }
 
@@ -278,6 +294,10 @@ public final class RtsbuildingMod {
 
         @SubscribeEvent
         public void onServerTick(TickEvent.ServerTickEvent event) {
+            if (event.phase == TickEvent.Phase.START) {
+                ThreadCompat.drainServerTasks();
+                return;
+            }
             if (event.phase != TickEvent.Phase.END) return;
             MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
             if (server == null) return;

@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumBlockRenderType;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.block.EnumBlockRenderType;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -23,12 +23,12 @@ final class ConfirmedPlacementRenderer {
     private ConfirmedPlacementRenderer() {
     }
 
-    static void add(BlockPos pos, IBlockState state) {
+    static void add(BlockPos pos, BlockState state) {
         addAt(pos, state, System.currentTimeMillis());
     }
 
-    static void addAt(BlockPos pos, IBlockState state, long addedAtMs) {
-        if (pos == null || state == null || state.getBlock() == Blocks.AIR) return;
+    static void addAt(BlockPos pos, BlockState state, long addedAtMs) {
+        if (pos == null || state == null || state.getBlock() == Blocks.air) return;
         PLACEMENTS.put(pos.toLong(), new PlacementEntry(pos.toImmutable(), state, addedAtMs));
     }
 
@@ -43,7 +43,7 @@ final class ConfirmedPlacementRenderer {
     static void renderModels(Minecraft minecraft, BufferBuilder fillBuffer,
             double cameraX, double cameraY, double cameraZ, long now) {
         pruneExpired(now);
-        if (minecraft == null || minecraft.world == null || PLACEMENTS.isEmpty()) return;
+        if (minecraft == null || minecraft.theWorld == null || PLACEMENTS.isEmpty()) return;
         for (PlacementEntry entry : PLACEMENTS.values()) {
             if (!isWithinBounds(entry.pos)) continue;
             float scale = computeGrowScale(now - entry.addedAtMs);
@@ -90,9 +90,9 @@ final class ConfirmedPlacementRenderer {
 
     private static final class PlacementEntry {
         private final BlockPos pos;
-        private final IBlockState state;
+        private final BlockState state;
         private final long addedAtMs;
-        private PlacementEntry(BlockPos pos, IBlockState state, long addedAtMs) {
+        private PlacementEntry(BlockPos pos, BlockState state, long addedAtMs) {
             this.pos = pos; this.state = state; this.addedAtMs = addedAtMs;
         }
     }

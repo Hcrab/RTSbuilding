@@ -2,12 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumBlockRenderType;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.block.EnumBlockRenderType;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -23,12 +23,12 @@ public final class DestroyGhostRenderer {
     private DestroyGhostRenderer() {
     }
 
-    public static void add(BlockPos pos, IBlockState state) {
+    public static void add(BlockPos pos, BlockState state) {
         addAt(pos, state, System.currentTimeMillis());
     }
 
-    static void addAt(BlockPos pos, IBlockState state, long addedAtMs) {
-        if (pos == null || state == null || state.getBlock() == Blocks.AIR) return;
+    static void addAt(BlockPos pos, BlockState state, long addedAtMs) {
+        if (pos == null || state == null || state.getBlock() == Blocks.air) return;
         GHOSTS.put(pos.toLong(), new DestroyGhostEntry(pos.toImmutable(), state, addedAtMs));
     }
 
@@ -43,7 +43,7 @@ public final class DestroyGhostRenderer {
     static void renderModels(Minecraft minecraft, BufferBuilder fillBuffer,
             double cameraX, double cameraY, double cameraZ, long now) {
         pruneExpired(now);
-        if (minecraft == null || minecraft.world == null || GHOSTS.isEmpty()) return;
+        if (minecraft == null || minecraft.theWorld == null || GHOSTS.isEmpty()) return;
         for (DestroyGhostEntry ghost : GHOSTS.values()) {
             if (!isWithinBounds(ghost.pos)) continue;
             float scale = computeShrinkScale(now - ghost.addedAtMs);
@@ -92,9 +92,9 @@ public final class DestroyGhostRenderer {
 
     private static final class DestroyGhostEntry {
         private final BlockPos pos;
-        private final IBlockState state;
+        private final BlockState state;
         private final long addedAtMs;
-        private DestroyGhostEntry(BlockPos pos, IBlockState state, long addedAtMs) {
+        private DestroyGhostEntry(BlockPos pos, BlockState state, long addedAtMs) {
             this.pos = pos; this.state = state; this.addedAtMs = addedAtMs;
         }
     }

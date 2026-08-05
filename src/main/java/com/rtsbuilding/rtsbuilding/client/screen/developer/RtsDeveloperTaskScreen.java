@@ -44,7 +44,7 @@ public final class RtsDeveloperTaskScreen extends GuiScreen {
     }
 
     @Override
-    protected void actionPerformed(GuiButton button) throws IOException {
+    protected void actionPerformed(GuiButton button) {
         if (button == null || !button.enabled) {
             return;
         }
@@ -62,7 +62,7 @@ public final class RtsDeveloperTaskScreen extends GuiScreen {
     }
 
     @Override
-    protected void keyTyped(char typedChar, int keyCode) throws IOException {
+    protected void keyTyped(char typedChar, int keyCode) {
         if (keyCode == Keyboard.KEY_ESCAPE) {
             this.mc.displayGuiScreen(this.parent);
             return;
@@ -77,7 +77,7 @@ public final class RtsDeveloperTaskScreen extends GuiScreen {
         RtsDeveloperTaskLayout.Layout layout = RtsDeveloperTaskLayout.resolve(
                 this.width, this.height, RtsDeveloperScenarioTracker.Scenario.values().length);
         RtsClientUiUtil.drawCenteredStringNoShadow(
-                graphics, this.fontRenderer,
+                graphics, this.fontRendererObj,
                 I18n.format("screen.rtsbuilding.developer.title"),
                 layout.centerX(), layout.titleY(), DeveloperScreenStyle.TITLE.toArgb());
 
@@ -88,7 +88,7 @@ public final class RtsDeveloperTaskScreen extends GuiScreen {
                     I18n.format(tracker.activeScenario().translationKey()),
                     tracker.currentStep() + "/" + tracker.requiredSteps());
             RtsClientUiUtil.drawCenteredStringNoShadow(
-                    graphics, this.fontRenderer, active,
+                    graphics, this.fontRendererObj, active,
                     layout.centerX(), layout.activeStatusY(),
                     DeveloperScreenStyle.ACTIVE_STATUS.toArgb());
         }

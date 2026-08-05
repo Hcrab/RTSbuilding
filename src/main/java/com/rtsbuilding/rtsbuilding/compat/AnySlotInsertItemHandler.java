@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.compat;
 
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 /**
  * 可选的批量物品处理扩展。实现类可以绕过逐槽扫描，直接访问大型网络库存。
@@ -18,19 +18,19 @@ public interface AnySlotInsertItemHandler {
      */
     default ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
         if (!(this instanceof IItemHandler) || targetItem == null || amount <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
         IItemHandler handler = (IItemHandler) this;
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack slotStack = handler.getStackInSlot(slot);
-            if (slotStack.isEmpty() || slotStack.getItem() != targetItem) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(slotStack) || slotStack.getItem() != targetItem) {
                 continue;
             }
             ItemStack extracted = handler.extractItem(slot, amount, simulate);
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 return extracted;
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 }

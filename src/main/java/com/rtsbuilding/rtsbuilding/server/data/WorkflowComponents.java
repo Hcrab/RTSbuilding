@@ -37,7 +37,7 @@ public final class WorkflowComponents {
             NbtCodec.of(
                     tag -> tag,                            // decode: 返回 slot 引用
                     (tag, v) -> {                           // encode: 复制所有键
-                        for (String key : v.getKeySet()) {
+                        for (String key : v.func_150296_c()) {
                             tag.setTag(key, v.getTag(key));
                         }
                     }

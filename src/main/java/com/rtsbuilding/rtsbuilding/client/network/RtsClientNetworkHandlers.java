@@ -28,8 +28,8 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 
 @SideOnly(Side.CLIENT)
@@ -39,7 +39,7 @@ public final class RtsClientNetworkHandlers {
 
     /** SimpleNetworkWrapper 的 Netty 线程不得直接修改客户端世界或 UI。 */
     private static void schedule(Runnable task) {
-        Minecraft.getMinecraft().addScheduledTask(task);
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleClient(task);
     }
 
     public static void handleCameraState(S2CRtsCameraStatePayload payload) {

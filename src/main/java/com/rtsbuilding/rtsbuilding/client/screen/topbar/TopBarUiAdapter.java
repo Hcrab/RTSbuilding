@@ -13,7 +13,7 @@ import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiTransition;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.fml.common.Loader;
+import cpw.mods.fml.common.Loader;
 
 import java.util.ArrayList;
 import java.util.List;

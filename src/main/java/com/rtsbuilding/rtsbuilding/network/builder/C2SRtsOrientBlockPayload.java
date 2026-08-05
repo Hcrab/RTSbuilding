@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 客户端只提交旋转轴与正负一步；方块状态始终由服务端重新读取。 */
 public final class C2SRtsOrientBlockPayload implements IMessage {

@@ -5,10 +5,10 @@ import com.rtsbuilding.rtsbuilding.common.shape.generator.ShapeGeneratorRegistry
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 import java.util.ArrayList;
@@ -93,9 +93,10 @@ public final class AreaOperationExecutor {
         List<BlockPos> valid = new ArrayList<>();
         for (BlockPos pos : targets) {
             if (pos == null) continue;
-            if (!level.isBlockModifiable(player, pos)) continue;
-            IBlockState state = level.getBlockState(pos);
-            if (state.getBlock().isAir(state, level, pos) || state.getBlockHardness(level, pos) < 0.0F) continue;
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockModifiable(level, player, pos)) continue;
+            BlockState state = BlockState.fromWorld(level, pos);
+            if (state.getBlock().isAir(level, pos.getX(), pos.getY(), pos.getZ())
+                    || state.getBlockHardness(level, pos) < 0.0F) continue;
             valid.add(pos.toImmutable());
         }
         return valid;
@@ -113,15 +114,15 @@ public final class AreaOperationExecutor {
      * @return 过滤后可放置的位置列表
      */
     public static List<BlockPos> filterPlaceableTargets(WorldServer level, List<BlockPos> targets,
-                                                         IBlockState state, EntityPlayerMP player) {
+                                                         BlockState state, EntityPlayerMP player) {
         List<BlockPos> valid = new ArrayList<>();
         for (BlockPos pos : targets) {
             if (pos == null) continue;
             if (pos.getY() < 0 || pos.getY() >= level.getActualHeight()) continue;
-            if (!level.isBlockModifiable(player, pos)) continue;
-            if (!state.getBlock().canPlaceBlockAt(level, pos)) continue;
-            IBlockState existing = level.getBlockState(pos);
-            if (!existing.getBlock().isReplaceable(level, pos)) continue;
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockModifiable(level, player, pos)) continue;
+            if (!state.getBlock().canPlaceBlockAt(level, pos.getX(), pos.getY(), pos.getZ())) continue;
+            BlockState existing = BlockState.fromWorld(level, pos);
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isReplaceable(level, pos)) continue;
             valid.add(pos.toImmutable());
         }
         return valid;
@@ -148,7 +149,7 @@ public final class AreaOperationExecutor {
      * @param player 玩家
      * @return true 如果此处可以放置方块
      */
-    public static boolean isValidPlacementTarget(WorldServer level, BlockPos pos, IBlockState state, EntityPlayerMP player) {
+    public static boolean isValidPlacementTarget(WorldServer level, BlockPos pos, BlockState state, EntityPlayerMP player) {
         return AreaShapeGenerator.validatePlacementPosition(level, pos, state, player);
     }
 

@@ -16,12 +16,12 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.util.Constants;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import java.util.Arrays;
 import java.util.UUID;
@@ -63,11 +63,11 @@ public final class SessionSerializer {
         NBTTagList stacks = new NBTTagList();
         int count = 0;
         for (ItemStack stack : session.miningDropBuffer.stacks) {
-            if (stack == null || stack.isEmpty()
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)
                     || stacks.tagCount() >= com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS) {
                 continue;
             }
-            int accepted = Math.min(stack.getCount(),
+            int accepted = Math.min(stack.stackSize,
                     com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_BUFFERED_ITEMS - count);
             if (accepted <= 0) break;
             int remaining = accepted;
@@ -95,9 +95,9 @@ public final class SessionSerializer {
         for (int i = 0; i < stacks.tagCount()
                 && buffer.stacks.size() < com.rtsbuilding.rtsbuilding.server.storage.state.RtsMiningDropBufferState.MAX_STACKS;
                 i++) {
-            ItemStack stack = new ItemStack(stacks.getCompoundTagAt(i));
-            if (stack.isEmpty()) continue;
-            int accepted = buffer.enqueueMerged(stack, stack.getCount());
+            ItemStack stack = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.read(stacks.getCompoundTagAt(i));
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) continue;
+            int accepted = buffer.enqueueMerged(stack, stack.stackSize);
             if (accepted <= 0) break;
         }
         // 旧存档的 since 表示“进入缓存的时间”，不能继续当成真实储存堵塞时间，否则登录即误回退。
@@ -119,7 +119,7 @@ public final class SessionSerializer {
         root.setInteger("funnel_cooldown", Math.max(0, session.funnel.funnelTickCooldown));
         NBTTagList stacks = new NBTTagList();
         for (ItemStack stack : session.funnel.funnelBuffer) {
-            if (stack != null && !stack.isEmpty()
+            if (stack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)
                     && stacks.tagCount() < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS) {
                 stacks.appendTag(stack.writeToNBT(new NBTTagCompound()));
             }
@@ -146,8 +146,8 @@ public final class SessionSerializer {
         for (int i = 0; i < stacks.tagCount()
                 && session.funnel.funnelBuffer.size()
                 < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.FUNNEL_BUFFER_MAX_STACKS; i++) {
-            ItemStack stack = new ItemStack(stacks.getCompoundTagAt(i));
-            if (!stack.isEmpty()) session.funnel.funnelBuffer.add(stack);
+            ItemStack stack = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.read(stacks.getCompoundTagAt(i));
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) session.funnel.funnelBuffer.add(stack);
         }
     }
 
@@ -247,7 +247,7 @@ public final class SessionSerializer {
             linkedTag.setByte("mode", linkMode);
             linkedTag.setInteger("priority", priority);
             UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
-            if (backpackUuid != null) linkedTag.setUniqueId("bpUuid", backpackUuid);
+            if (backpackUuid != null) NbtCompat.setUuid(linkedTag, "bpUuid", backpackUuid);
             String backpackItemId = session.linkedStorageInfo.getBackpackItemId(ref);
             if (isRegisteredItemId(backpackItemId)) linkedTag.setString("bpItem", backpackItemId);
             if (session.linkedStorageInfo.isDetached(ref)) linkedTag.setBoolean("bpDetached", true);
@@ -277,13 +277,13 @@ public final class SessionSerializer {
         if (!isBlank(legacyDimensionId)) legacyDimension = parseDimensionKey(legacyDimensionId);
 
         NBTTagList linkedEntries = root.getTagList("linked_entries", Constants.NBT.TAG_COMPOUND);
-        if (!linkedEntries.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(linkedEntries)) {
             loadLinkedStorageModern(linkedEntries, session);
             return;
         }
 
-        WorldServer level = player.getServerWorld();
-        int dimension = legacyDimension == null ? level.provider.getDimension() : legacyDimension;
+        WorldServer level = player.getServerForPlayer();
+        int dimension = legacyDimension == null ? level.provider.dimensionId : legacyDimension;
         long[] linkedPackedPositions = NbtCompat.getLongArray(root, "linked_positions");
         for (int i = 0; i < linkedPackedPositions.length; i++) {
             LinkedStorageRef ref = new LinkedStorageRef(dimension, BlockPos.fromLong(linkedPackedPositions[i]).toImmutable());
@@ -309,7 +309,8 @@ public final class SessionSerializer {
             if (!session.linkedStorageInfo.contains(ref)) {
                 byte linkMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkedTag.getByte("mode"));
                 int priority = linkedTag.hasKey("priority", Constants.NBT.TAG_INT) ? linkedTag.getInteger("priority") : 0;
-                UUID backpackUuid = linkedTag.hasUniqueId("bpUuid") ? linkedTag.getUniqueId("bpUuid") : null;
+                UUID backpackUuid = NbtCompat.hasUuid(linkedTag, "bpUuid")
+                        ? NbtCompat.getUuid(linkedTag, "bpUuid") : null;
                 String backpackItemId = isRegisteredItemId(linkedTag.getString("bpItem"))
                         ? linkedTag.getString("bpItem") : null;
                 session.linkedStorageInfo.add(ref, linkMode,
@@ -363,7 +364,7 @@ public final class SessionSerializer {
             long amount = tag.getLong("amount");
             if (isBlank(id) || amount <= 0L) continue;
             ResourceLocation key = parseResourceLocation(id);
-            if (key == null || !ForgeRegistries.ITEMS.containsKey(key)) continue;
+            if (key == null || !RtsRegistries.ITEMS.containsKey(key)) continue;
             session.uiMemory.addRecentEntryLast(new RecentEntry(
                     id, amount, Math.max(0L, tag.getLong("capacity")), tag.getByte("kind")));
             if (session.uiMemory.getRecentEntries().size() >= RtsStorageRecentEntries.RECENT_ENTRY_LIMIT) break;
@@ -378,15 +379,15 @@ public final class SessionSerializer {
             String itemId = session.uiMemory.getQuickSlotItemId(i);
             if (isBlank(itemId)) continue;
             ResourceLocation key = parseResourceLocation(itemId);
-            if (key == null || !ForgeRegistries.ITEMS.containsKey(key)) continue;
+            if (key == null || !RtsRegistries.ITEMS.containsKey(key)) continue;
 
             NBTTagCompound tag = new NBTTagCompound();
             tag.setInteger("slot", i);
             tag.setString("item_id", itemId);
             ItemStack preview = i < session.uiMemory.getQuickSlotPreviews().length
                     && session.uiMemory.getQuickSlotPreview(i) != null
-                    ? session.uiMemory.getQuickSlotPreview(i) : ItemStack.EMPTY;
-            if (!preview.isEmpty() && preview.getItem() == ForgeRegistries.ITEMS.getValue(key)) {
+                    ? session.uiMemory.getQuickSlotPreview(i) : null;
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) && preview.getItem() == RtsRegistries.ITEMS.getValue(key)) {
                 tag.setTag("stack", copyWithCount(preview, 1).writeToNBT(new NBTTagCompound()));
             }
             list.appendTag(tag);
@@ -396,7 +397,7 @@ public final class SessionSerializer {
 
     private static void loadQuickSlots(EntityPlayerMP player, RtsStorageSession session, NBTTagCompound root) {
         Arrays.fill(session.uiMemory.getQuickSlotItemIds(), "");
-        Arrays.fill(session.uiMemory.getQuickSlotPreviews(), ItemStack.EMPTY);
+        Arrays.fill(session.uiMemory.getQuickSlotPreviews(), null);
         NBTTagList list = root.getTagList("quick_slots", Constants.NBT.TAG_COMPOUND);
         for (int i = 0; i < list.tagCount(); i++) {
             NBTTagCompound tag = list.getCompoundTagAt(i);
@@ -404,16 +405,16 @@ public final class SessionSerializer {
             String itemId = tag.getString("item_id");
             if (slot < 0 || slot >= RtsStorageBindings.QUICK_SLOT_COUNT || isBlank(itemId)) continue;
             ResourceLocation key = parseResourceLocation(itemId);
-            if (key == null || !ForgeRegistries.ITEMS.containsKey(key)) continue;
+            if (key == null || !RtsRegistries.ITEMS.containsKey(key)) continue;
 
             session.uiMemory.setQuickSlotItemId(slot, itemId);
-            ItemStack preview = ItemStack.EMPTY;
+            ItemStack preview = null;
             if (tag.hasKey("stack", Constants.NBT.TAG_COMPOUND)) {
-                preview = new ItemStack(tag.getCompoundTag("stack"));
-                if (!preview.isEmpty() && preview.getItem() != ForgeRegistries.ITEMS.getValue(key)) preview = ItemStack.EMPTY;
+                preview = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.read(tag.getCompoundTag("stack"));
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) && preview.getItem() != RtsRegistries.ITEMS.getValue(key)) preview = null;
             }
-            session.uiMemory.setQuickSlotPreview(slot, preview.isEmpty()
-                    ? new ItemStack(ForgeRegistries.ITEMS.getValue(key))
+            session.uiMemory.setQuickSlotPreview(slot, com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)
+                    ? new ItemStack(RtsRegistries.ITEMS.getValue(key))
                     : copyWithCount(preview, 1));
         }
     }
@@ -454,7 +455,7 @@ public final class SessionSerializer {
             String label = tag.getString("label");
             String itemId = tag.getString("item_id");
             ResourceLocation itemKey = parseResourceLocation(itemId);
-            String normalizedItemId = itemKey != null && ForgeRegistries.ITEMS.containsKey(itemKey) ? itemId : "";
+            String normalizedItemId = itemKey != null && RtsRegistries.ITEMS.containsKey(itemKey) ? itemId : "";
             EnumFacing face = null;
             if (tag.hasKey("face", Constants.NBT.TAG_BYTE)) {
                 int faceId = tag.getByte("face");
@@ -487,7 +488,7 @@ public final class SessionSerializer {
                 break;
             }
             NBTTagCompound jobTag = new NBTTagCompound();
-            jobTag.setUniqueId("operation_id", job.operationId());
+            NbtCompat.setUuid(jobTag, "operation_id", job.operationId());
             jobTag.setString("dimension", dimensionName(job.dimension()));
             jobTag.setLong("target", job.targetPos().toLong());
             NBTTagList claims = new NBTTagList();
@@ -500,7 +501,7 @@ public final class SessionSerializer {
                     break;
                 }
                 NBTTagCompound claimTag = new NBTTagCompound();
-                claimTag.setUniqueId("id", claim.entityId());
+                NbtCompat.setUuid(claimTag, "id", claim.entityId());
                 claimTag.setInteger("ordinal", claim.ordinal());
                 claimTag.setTag("stack", claim.expectedStack().writeToNBT(new NBTTagCompound()));
                 claims.appendTag(claimTag);
@@ -525,7 +526,7 @@ public final class SessionSerializer {
             NBTTagCompound jobTag = recoveryList.getCompoundTagAt(i);
             Integer dimension = parseDimensionKey(jobTag.getString("dimension"));
             // 旧版没有 operationId/ordinal/stack，无法证明 claim 身份，保守留给世界实体自行处理。
-            if (dimension == null || !jobTag.hasUniqueId("operation_id")) continue;
+            if (dimension == null || !NbtCompat.hasUuid(jobTag, "operation_id")) continue;
             java.util.ArrayDeque<com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim>
                     claims = new java.util.ArrayDeque<>();
             NBTTagList encodedClaims = jobTag.getTagList("entities", Constants.NBT.TAG_COMPOUND);
@@ -536,20 +537,20 @@ public final class SessionSerializer {
                     < com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants.PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS; j++) {
                 NBTTagCompound claimTag = encodedClaims.getCompoundTagAt(j);
                 // 旧版只有 UUID、没有物品指纹；保守放弃自动接管，让实体继续留在世界中。
-                if (!claimTag.hasUniqueId("id")
+                if (!NbtCompat.hasUuid(claimTag, "id")
                         || !claimTag.hasKey("ordinal", Constants.NBT.TAG_INT)
                         || claimTag.getInteger("ordinal") < 0
                         || !claimTag.hasKey("stack", Constants.NBT.TAG_COMPOUND)) continue;
-                ItemStack expected = new ItemStack(claimTag.getCompoundTag("stack"));
-                if (expected.isEmpty()) continue;
+                ItemStack expected = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.read(claimTag.getCompoundTag("stack"));
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(expected)) continue;
                 claims.addLast(new com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryClaim(
-                        claimTag.getUniqueId("id"), claimTag.getInteger("ordinal"), expected));
+                        NbtCompat.getUuid(claimTag, "id"), claimTag.getInteger("ordinal"), expected));
                 loadedClaims++;
             }
             if (!claims.isEmpty()) {
                 session.placement.recoveryJobs.addLast(
                         new com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.PlacedRecoveryJob(
-                                jobTag.getUniqueId("operation_id"), dimension,
+                                NbtCompat.getUuid(jobTag, "operation_id"), dimension,
                                 BlockPos.fromLong(jobTag.getLong("target")).toImmutable(), claims));
             }
         }
@@ -587,12 +588,12 @@ public final class SessionSerializer {
     private static boolean isRegisteredItemId(String itemId) {
         if (isBlank(itemId)) return false;
         ResourceLocation key = parseResourceLocation(itemId);
-        return key != null && ForgeRegistries.ITEMS.containsKey(key);
+        return key != null && RtsRegistries.ITEMS.containsKey(key);
     }
 
     private static ItemStack copyWithCount(ItemStack stack, int count) {
         ItemStack copy = stack.copy();
-        copy.setCount(count);
+        copy.stackSize = count;
         return copy;
     }
 

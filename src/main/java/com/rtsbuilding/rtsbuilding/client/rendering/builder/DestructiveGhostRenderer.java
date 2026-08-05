@@ -3,14 +3,14 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.renderer.RenderGlobal;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import org.lwjgl.opengl.GL11;
 
 import java.util.Arrays;
@@ -53,7 +53,7 @@ public final class DestructiveGhostRenderer {
             AxisAlignedBB override) {
         if (preview == null || alpha <= 0.0F) return;
 
-        RenderManager manager = Minecraft.getMinecraft().getRenderManager();
+        RenderManager manager = net.minecraft.client.renderer.entity.RenderManager.instance;
         begin(LINES, GL11.GL_LINES, manager);
         begin(FILL, GL11.GL_QUADS, manager);
         begin(NODEPTH, GL11.GL_LINES, manager);
@@ -71,7 +71,7 @@ public final class DestructiveGhostRenderer {
                 double maxY = pos.getY() + .97D;
                 double maxZ = pos.getZ() + .97D;
                 if (renderFill) {
-                    RenderGlobal.addChainedFilledBoxVertices(
+                    com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.addChainedFilledBoxVertices(
                             FILL, minX, minY, minZ, maxX, maxY, maxZ,
                             lineRed, lineGreen, lineBlue, .16F * alpha);
                 }
@@ -90,7 +90,7 @@ public final class DestructiveGhostRenderer {
             float green = lerp(.86F, .95F, progress);
             float blue = lerp(.18F, .36F, progress);
             if (renderFill) {
-                RenderGlobal.addChainedFilledBoxVertices(
+                com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.addChainedFilledBoxVertices(
                         FILL,
                         envelope.minX, envelope.minY, envelope.minZ,
                         envelope.maxX, envelope.maxY, envelope.maxZ,

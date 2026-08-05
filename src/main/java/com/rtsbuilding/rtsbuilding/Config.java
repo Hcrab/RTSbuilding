@@ -362,7 +362,10 @@ public final class Config {
             property = configuration.get(category, key, Long.toString(defaultValue), comment);
             property.setMinValue((double) min).setMaxValue((double) max);
             finishProperty();
-            value = Math.max(min, Math.min(max, property.getLong(defaultValue)));
+            long parsed = defaultValue.longValue();
+            try { parsed = Long.parseLong(property.getString()); }
+            catch (NumberFormatException ignored) { property.set(parsed); }
+            value = Math.max(min, Math.min(max, parsed));
         }
 
         public long getAsLong() { return value; }
@@ -518,7 +521,7 @@ public final class Config {
     public static double dropScanRadius() { return DROP_SCAN_RADIUS.getAsDouble(); }
     public static int remotePlaceSoundsPerTick() { return REMOTE_PLACE_SOUNDS_PER_TICK.getAsInt(); }
     public static long internalFluidCapacityMb() {
-        return Math.max(1L, (long) INTERNAL_FLUID_CAPACITY_BUCKETS.getAsInt()) * Fluid.BUCKET_VOLUME;
+        return Math.max(1L, (long) INTERNAL_FLUID_CAPACITY_BUCKETS.getAsInt()) * net.minecraftforge.fluids.FluidContainerRegistry.BUCKET_VOLUME;
     }
 
     public static boolean migrateLegacyServerDefaults() {

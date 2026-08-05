@@ -21,7 +21,7 @@ public final class RtsCullingNetworkHandlers {
     public static void handleRequest(EntityPlayerMP player) {
         Object state = invokeStatic(PERSISTENCE, "load", new Class<?>[] {EntityPlayerMP.class}, player);
         List<RtsCullingBoxSnapshot> boxes = castList(invokeAccessor(state, "boxes"));
-        List<net.minecraft.util.math.BlockPos> revealed = castList(invokeAccessor(state, "revealed"));
+        List<com.rtsbuilding.rtsbuilding.platform.math.BlockPos> revealed = castList(invokeAccessor(state, "revealed"));
         RtsPayloadRegistrar.sendToPlayer(player, new S2CRtsCullingStatePayload(
                 Integer.toString(player.dimension), boxes, revealed));
     }

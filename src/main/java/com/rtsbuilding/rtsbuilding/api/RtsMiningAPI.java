@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.api;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.List;
 
@@ -18,7 +18,7 @@ public interface RtsMiningAPI {
      * 开始或停止对单个方块的远程挖掘。
      *
      * @param player                    执行玩家
-     * @param pos                       目标坐标（net.minecraft.util.math.BlockPos）
+     * @param pos                       目标坐标（com.rtsbuilding.rtsbuilding.platform.math.BlockPos）
      * @param face                      挖掘方向
      * @param start                     true=开始挖掘，false=停止
      * @param toolSlot                  工具栏格索引
@@ -35,7 +35,7 @@ public interface RtsMiningAPI {
      * 启动连锁挖掘。
      *
      * @param player               执行玩家
-     * @param pos                  起始坐标（net.minecraft.util.math.BlockPos）
+     * @param pos                  起始坐标（com.rtsbuilding.rtsbuilding.platform.math.BlockPos）
      * @param face                 挖掘方向
      * @param toolSlot             工具栏格索引
      * @param toolItemId           工具物品 ID

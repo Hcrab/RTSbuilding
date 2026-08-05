@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.io;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.properties.IProperty;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.IProperty;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
@@ -18,11 +18,11 @@ final class BlueprintNbtCompat {
     static StateResult readState(NBTTagCompound tag) {
         String name = tag.hasKey("Name", Constants.NBT.TAG_STRING) ? tag.getString("Name") : tag.getString("name");
         ResourceLocation id = parseId(name);
-        Block block = id == null ? null : Block.REGISTRY.getObject(id);
-        if (block == null || block == Blocks.AIR && !"minecraft:air".equals(name)) {
-            return new StateResult(Blocks.AIR.getDefaultState(), name == null ? "" : name);
+        Block block = id == null ? null : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getObject(id);
+        if (block == null || block == Blocks.air && !"minecraft:air".equals(name)) {
+            return new StateResult(BlockState.defaultState(Blocks.air), name == null ? "" : name);
         }
-        IBlockState state = block.getDefaultState();
+        BlockState state = BlockState.defaultState(block);
         String propertiesKey = tag.hasKey("Properties", Constants.NBT.TAG_COMPOUND) ? "Properties" : "properties";
         if (tag.hasKey(propertiesKey, Constants.NBT.TAG_COMPOUND)) {
             NBTTagCompound properties = tag.getCompoundTag(propertiesKey);
@@ -55,15 +55,15 @@ final class BlueprintNbtCompat {
         return readState(tag);
     }
 
-    static NBTTagCompound writeState(IBlockState state) {
+    static NBTTagCompound writeState(BlockState state) {
         NBTTagCompound out = new NBTTagCompound();
-        ResourceLocation id = Block.REGISTRY.getNameForObject(state.getBlock());
+        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getNameForObject(state.getBlock());
         out.setString("Name", id == null ? "minecraft:air" : id.toString());
         NBTTagCompound properties = new NBTTagCompound();
         for (Map.Entry<IProperty<?>, Comparable<?>> entry : state.getProperties().entrySet()) {
             properties.setString(entry.getKey().getName(), propertyValueName(entry.getKey(), entry.getValue()));
         }
-        if (!properties.isEmpty()) out.setTag("Properties", properties);
+        if (!com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(properties)) out.setTag("Properties", properties);
         return out;
     }
 
@@ -73,7 +73,7 @@ final class BlueprintNbtCompat {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static IBlockState applyProperty(IBlockState state, IProperty property, String value) {
+    private static BlockState applyProperty(BlockState state, IProperty property, String value) {
         Optional parsed = property.parseValue(value);
         return parsed.isPresent() ? state.withProperty(property, (Comparable) parsed.get()) : state;
     }
@@ -84,13 +84,13 @@ final class BlueprintNbtCompat {
     }
 
     static final class StateResult {
-        private final IBlockState state;
+        private final BlockState state;
         private final String missingBlockId;
-        StateResult(IBlockState state, String missingBlockId) {
+        StateResult(BlockState state, String missingBlockId) {
             this.state = state;
             this.missingBlockId = missingBlockId == null ? "" : missingBlockId;
         }
-        IBlockState state() { return state; }
+        BlockState state() { return state; }
         String missingBlockId() { return missingBlockId; }
         boolean isMissing() { return !missingBlockId.trim().isEmpty(); }
     }

@@ -13,8 +13,8 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsToolLease;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.entity.player.EntityPlayerMP;
 
 import java.util.List;
@@ -91,7 +91,7 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         }
 
         // ── 3. 创造模式快速路径 ───────────────────────────────────
-        if (player.isCreative()) {
+        if (player.capabilities.isCreativeMode) {
             EnumFacing actualFace = face == null ? EnumFacing.DOWN : face;
             // 在上下文数据中存储破坏信息，用于历史记录
             ctx.setData(HistoryRecordPipe.ARG_HISTORY_POSITIONS, com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(pos.toImmutable()));

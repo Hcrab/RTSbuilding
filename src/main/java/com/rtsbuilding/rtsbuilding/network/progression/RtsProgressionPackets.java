@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.progression;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.progression.handler.RtsProgressionNetworkHandlers;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 注册任务检测、家园选择和生存进度同步消息。 */
 public final class RtsProgressionPackets {

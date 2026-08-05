@@ -6,11 +6,11 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -118,8 +118,8 @@ public final class RtsMiningHandlers1122 {
     }
 
     private static void schedule(MessageContext context, final ServerAction action) {
-        final EntityPlayerMP player = context.getServerHandler().player;
-        player.getServerWorld().addScheduledTask(new Runnable() {
+        final EntityPlayerMP player = context.getServerHandler().playerEntity;
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
             @Override public void run() {
                 if (cameraBoolean("isActive", new Class<?>[]{EntityPlayerMP.class}, player)) {
                     action.run(player);

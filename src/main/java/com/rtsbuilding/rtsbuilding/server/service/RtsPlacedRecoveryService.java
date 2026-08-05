@@ -18,19 +18,19 @@ import com.rtsbuilding.rtsbuilding.server.storage.state.RtsPlacementState.Placed
 import com.rtsbuilding.rtsbuilding.server.task.BoundedQueueSelector;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.text.TextComponentString;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.ForgeHooks;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.*;
 
@@ -87,7 +87,7 @@ public final class RtsPlacedRecoveryService {
         if (!undoRecovery && !RtsLinkedStorageResolver.hasAnyStorage(player, session)) {
             return;
         }
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(level);
         BlockPos targetPos = pos.toImmutable();
         if (!tracker.isPlaced(targetPos)) {
@@ -102,7 +102,7 @@ public final class RtsPlacedRecoveryService {
             targetPos = adjacent;
         }
 
-        IBlockState state = level.getBlockState(targetPos);
+        BlockState state = BlockState.fromWorld(level, targetPos);
         if (isAir(state)) {
             tracker.clear(targetPos);
             return;
@@ -121,11 +121,11 @@ public final class RtsPlacedRecoveryService {
         }
 
         ItemStack recoveredBlock = recoveryStack(level, targetPos, state);
-        if (recoveredBlock.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(recoveredBlock)) {
             return;
         }
         boolean removed = recoverTrackedBlock(player, level, targetPos, state);
-        if (!removed || !isAir(level.getBlockState(targetPos))) {
+        if (!removed || !isAir(BlockState.fromWorld(level, targetPos))) {
             tracker.mark(targetPos);
             return;
         }
@@ -138,8 +138,8 @@ public final class RtsPlacedRecoveryService {
                 : enqueueRecoveryJob(player, session, targetPos, afterBreak.entities());
         if (recoveredEntity == null) {
             ItemStack remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, recoveredBlock.copy());
-            if (!remainder.isEmpty()) {
-                player.dropItem(remainder, false);
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) {
+                player.dropPlayerItemWithRandomChoice(remainder, false);
             }
         }
 
@@ -206,7 +206,7 @@ public final class RtsPlacedRecoveryService {
                     candidate -> candidate.claims().isEmpty()
                             || (candidate.requiredPersistedRevision() <= persistedPlacementRevision
                             && player.dimension == candidate.dimension()
-                            && player.getServerWorld().isBlockLoaded(candidate.targetPos())),
+                            && com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), candidate.targetPos())),
                     inspectionBudget);
             inspectedJobs += selection.inspected();
             if (!selection.found()) {
@@ -217,7 +217,7 @@ public final class RtsPlacedRecoveryService {
                 jobs.removeFirst();
                 continue;
             }
-            WorldServer jobLevel = player.getServerWorld();
+            WorldServer jobLevel = player.getServerForPlayer();
 
             // durability ACK、维度和区块门禁通过后才解析外部网络，避免等待落盘期间每 tick 探测 AE/RS。
             if (orderedLinked == null) {
@@ -231,19 +231,20 @@ public final class RtsPlacedRecoveryService {
                     && processedStacks < Math.max(1, maxUnits)
                     && System.nanoTime() < deadlineNanos) {
                 PlacedRecoveryClaim claim = job.claims().peekFirst();
-                Entity entity = jobLevel.getEntityFromUuid(claim.entityId());
+                Entity entity = com.rtsbuilding.rtsbuilding.platform.entity.EntityCompat.findByUuid(
+                        jobLevel, claim.entityId());
                 if (!(entity instanceof EntityItem) || entity.isDead) {
                     claimBlocked = true;
                     break;
                 }
                 EntityItem droppedEntity = (EntityItem) entity;
-                ItemStack droppedStack = droppedEntity.getItem();
+                ItemStack droppedStack = droppedEntity.getEntityItem();
                 if (!claim.matches(droppedStack)) {
                     claimBlocked = true;
                     break;
                 }
                 ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, droppedStack);
-                if (!remain.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                     overflow = overflow.merge(RtsTransferInserter.storeToLinkedWithFallback(handlers, player, remain));
                 }
                 // 单个实体的插入与源实体释放在同一服务端主线程调度片内完成。
@@ -266,8 +267,8 @@ public final class RtsPlacedRecoveryService {
             if (hasLinkedRecoveryTarget) {
                 RtsTransferInserter.sendStorageOverflowHint(player, "Absorb", overflow);
             } else if (overflow.dropped() > 0) {
-                player.sendStatusMessage(
-                        new TextComponentString("Inventory full, dropped " + overflow.dropped() + "."), true);
+                com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player,
+                        new ChatComponentText("Inventory full, dropped " + overflow.dropped() + "."), true);
             }
         }
         if (processedAny) {
@@ -309,7 +310,7 @@ public final class RtsPlacedRecoveryService {
         AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.5D);
         int safeLimit = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
         RtsBoundedItemEntityQuery.Result query = RtsBoundedItemEntityQuery.query(level, box, safeLimit,
-                entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty());
+                entity -> entity != null && !entity.isDead && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entity.getEntityItem()));
         if (query.saturated()) {
             return new NearbyDropSnapshot(Collections.<UUID>emptySet(), true);
         }
@@ -328,7 +329,7 @@ public final class RtsPlacedRecoveryService {
         AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.5D);
         int maxNewDrops = RtsServiceConstants.PLACED_RECOVERY_MAX_ENTITIES_PER_JOB;
         RtsBoundedItemEntityQuery.Result query = RtsBoundedItemEntityQuery.query(level, box, maxNewDrops,
-                entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty()
+                entity -> entity != null && !entity.isDead && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entity.getEntityItem())
                         && !safeExistingIds.contains(entity.getUniqueID()));
         if (query.saturated()) {
             return new NearbyDropCollection(Collections.<EntityItem>emptyList(), true);
@@ -372,25 +373,34 @@ public final class RtsPlacedRecoveryService {
         }
     }
 
-    static ItemStack recoveryStack(WorldServer level, BlockPos pos, IBlockState state) {
-        if (level == null || pos == null || state == null || isAir(state)) return ItemStack.EMPTY;
-        ItemStack stack = state.getBlock().getItem(level, pos, state);
-        if (stack.isEmpty()) {
+    static ItemStack recoveryStack(WorldServer level, BlockPos pos, BlockState state) {
+        if (level == null || pos == null || state == null || isAir(state)) return null;
+        net.minecraft.item.Item item = state.getBlock().getItem(
+                level, pos.getX(), pos.getY(), pos.getZ());
+        ItemStack stack = item == null ? null : new ItemStack(
+                item, 1, state.getBlock().getDamageValue(
+                        level, pos.getX(), pos.getY(), pos.getZ()));
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             Block block = state.getBlock();
-            stack = new ItemStack(block, 1, block.damageDropped(state));
+            stack = new ItemStack(block, 1, block.damageDropped(state.getMetadata()));
         }
         return stack;
     }
 
     static boolean recoverTrackedBlock(
-            EntityPlayerMP player, WorldServer level, BlockPos pos, IBlockState state) {
+            EntityPlayerMP player, WorldServer level, BlockPos pos, BlockState state) {
         if (player == null || level == null || pos == null || state == null || isAir(state)) return false;
         Integer breakExperience = TemporaryContextSwitcher.withTemporaryMainHandItem(
-                player, ItemStack.EMPTY,
-                () -> ForgeHooks.onBlockBreakEvent(
-                        level, player.interactionManager.getGameType(), player, pos));
+                player, null,
+                () -> {
+                    net.minecraftforge.event.world.BlockEvent.BreakEvent event =
+                            ForgeHooks.onBlockBreakEvent(
+                                    level, player.theItemInWorldManager.getGameType(), player,
+                                    pos.getX(), pos.getY(), pos.getZ());
+                    return event.isCanceled() ? -1 : event.getExpToDrop();
+                });
         if (breakExperience == null || breakExperience.intValue() < 0) return false;
-        return level.destroyBlock(pos, false);
+        return com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.destroyBlock(level, pos, false);
     }
 
     private static EntityItem materializeRecoveredBlock(
@@ -401,7 +411,7 @@ public final class RtsPlacedRecoveryService {
                 pos.getY() + 0.5D,
                 pos.getZ() + 0.5D,
                 recoveredBlock.copy());
-        return level.spawnEntity(entity) ? entity : null;
+        return level.spawnEntityInWorld(entity) ? entity : null;
     }
 
     private static PlacedRecoveryJob enqueueRecoveryJob(
@@ -427,9 +437,9 @@ public final class RtsPlacedRecoveryService {
         for (EntityItem droppedEntity : droppedEntities) {
             if (claims.size() >= availableClaims) break;
             if (droppedEntity == null) continue;
-            ItemStack droppedStack = droppedEntity.getItem();
-            if (droppedStack.isEmpty()) continue;
-            droppedEntity.setNoDespawn();
+            ItemStack droppedStack = droppedEntity.getEntityItem();
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(droppedStack)) continue;
+            com.rtsbuilding.rtsbuilding.platform.entity.EntityCompat.setNoDespawn(droppedEntity);
             claims.addLast(new PlacedRecoveryClaim(
                     droppedEntity.getUniqueID(), ordinal++, droppedStack));
         }
@@ -456,8 +466,8 @@ public final class RtsPlacedRecoveryService {
         return handlers;
     }
 
-    private static boolean isAir(IBlockState state) {
-        return state == null || state.getBlock() == Blocks.AIR;
+    private static boolean isAir(BlockState state) {
+        return state == null || state.getBlock() == Blocks.air;
     }
 
 }

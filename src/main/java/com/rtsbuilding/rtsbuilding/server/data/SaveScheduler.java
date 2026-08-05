@@ -68,7 +68,7 @@ public enum SaveScheduler {
      * 懒加载——首次调用时才读文件。
      */
     public DataCluster player(EntityPlayerMP player) {
-        MinecraftServer server = player.getServer();
+        MinecraftServer server = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player);
         if (server == null) {
             throw new IllegalStateException("无法在服务器未就绪时获取 DataCluster");
         }
@@ -225,14 +225,14 @@ public enum SaveScheduler {
             if (readResult instanceof RtsNbtStore.ReadResult.Missing) return;
             NBTTagCompound root = ((RtsNbtStore.ReadResult.Found) readResult).root();
             NBTTagCompound players = root.getCompoundTag("players");
-            if (players.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(players)) {
                 Files.delete(path);
                 Path tempPath = path.resolveSibling(fileName + ".tmp");
                 Files.deleteIfExists(tempPath);
                 RtsbuildingMod.LOGGER.info("[迁移] 已清理空的 {} 文件: {}", label, path.getFileName());
             } else {
                 RtsbuildingMod.LOGGER.warn("[迁移] {} 文件仍有 {} 名玩家数据未迁移 (需这些玩家登录一次)",
-                        label, players.getKeySet().size());
+                        label, players.func_150296_c().size());
             }
         } catch (IOException | RuntimeException e) {
             RtsbuildingMod.LOGGER.warn("[迁移] 检查 {} 文件失败: {}", label, e.getMessage());

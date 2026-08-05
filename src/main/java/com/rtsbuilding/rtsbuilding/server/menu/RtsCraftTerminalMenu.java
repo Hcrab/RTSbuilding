@@ -4,13 +4,12 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.World;
 
 /**
@@ -22,7 +21,7 @@ import net.minecraft.world.World;
 public final class RtsCraftTerminalMenu extends ContainerWorkbench {
 
     public RtsCraftTerminalMenu(InventoryPlayer inventory, World world, BlockPos pos) {
-        super(inventory, world, pos);
+        super(inventory, world, pos.getX(), pos.getY(), pos.getZ());
     }
 
     @Override
@@ -37,7 +36,7 @@ public final class RtsCraftTerminalMenu extends ContainerWorkbench {
     }
 
     @Override
-    public ItemStack slotClick(int slotId, int button, ClickType clickType, EntityPlayer player) {
+    public ItemStack slotClick(int slotId, int button, int clickMode, EntityPlayer player) {
         ItemStack[] blueprint = null;
         IRecipe recipe = null;
         if (slotId == 0 && player instanceof EntityPlayerMP) {
@@ -45,12 +44,12 @@ public final class RtsCraftTerminalMenu extends ContainerWorkbench {
             recipe = resolveCurrentRecipe((EntityPlayerMP) player);
         }
 
-        ItemStack result = super.slotClick(slotId, button, clickType, player);
+        ItemStack result = super.slotClick(slotId, button, clickMode, player);
 
         if (slotId == 0 && player instanceof EntityPlayerMP && blueprint != null) {
             EntityPlayerMP serverPlayer = (EntityPlayerMP) player;
             ItemStack carried = serverPlayer.inventory.getItemStack();
-            if (!carried.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
                 ServiceRegistry.getInstance().crafting().recordCraftedOutput(serverPlayer, carried.copy());
             }
             ServiceRegistry.getInstance().crafting()
@@ -63,17 +62,24 @@ public final class RtsCraftTerminalMenu extends ContainerWorkbench {
         ItemStack[] blueprint = new ItemStack[9];
         for (int i = 0; i < blueprint.length; i++) {
             ItemStack stack = this.getSlot(1 + i).getStack();
-            if (stack.isEmpty()) {
-                blueprint[i] = ItemStack.EMPTY;
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                blueprint[i] = null;
             } else {
                 blueprint[i] = stack.copy();
-                blueprint[i].setCount(1);
+                blueprint[i].stackSize = 1;
             }
         }
         return blueprint;
     }
 
     private IRecipe resolveCurrentRecipe(EntityPlayerMP player) {
-        return player == null ? null : CraftingManager.findMatchingRecipe(this.craftMatrix, player.world);
+        if (player == null) return null;
+        for (Object value : CraftingManager.getInstance().getRecipeList()) {
+            if (value instanceof IRecipe
+                    && ((IRecipe) value).matches(this.craftMatrix, player.worldObj)) {
+                return (IRecipe) value;
+            }
+        }
+        return null;
     }
 }

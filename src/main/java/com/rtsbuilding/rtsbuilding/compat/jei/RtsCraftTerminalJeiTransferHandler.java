@@ -94,7 +94,7 @@ public final class RtsCraftTerminalJeiTransferHandler
 
     @Nullable
     private static ResolvedRecipe resolveRecipe(IRecipeLayout recipeLayout, EntityPlayer player) {
-        if (recipeLayout == null || player == null || player.world == null) {
+        if (recipeLayout == null || player == null || player.worldObj == null) {
             return null;
         }
         List<ItemStack> prototypes = buildIngredientPrototypes(recipeLayout);
@@ -110,7 +110,7 @@ public final class RtsCraftTerminalJeiTransferHandler
 
         IRecipe recipe;
         try {
-            recipe = CraftingManager.findMatchingRecipe(matrix, player.world);
+            recipe = CraftingManager.findMatchingRecipe(matrix, player.worldObj);
         } catch (RuntimeException incompatibleRecipe) {
             return null;
         }
@@ -131,23 +131,23 @@ public final class RtsCraftTerminalJeiTransferHandler
 
     private static ItemStack choosePrototype(@Nullable IGuiIngredient<ItemStack> ingredient) {
         if (ingredient == null || !ingredient.isInput()) {
-            return ItemStack.EMPTY;
+            return null;
         }
         ItemStack displayed = ingredient.getDisplayedIngredient();
-        if (displayed != null && !displayed.isEmpty()) {
+        if (displayed != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(displayed)) {
             return one(displayed);
         }
         for (ItemStack candidate : ingredient.getAllIngredients()) {
-            if (candidate != null && !candidate.isEmpty()) {
+            if (candidate != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(candidate)) {
                 return one(candidate);
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     private static ItemStack one(ItemStack stack) {
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 

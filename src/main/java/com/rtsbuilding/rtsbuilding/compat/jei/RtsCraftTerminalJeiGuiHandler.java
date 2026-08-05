@@ -31,6 +31,6 @@ final class RtsCraftTerminalJeiGuiHandler implements IAdvancedGuiHandler<RtsCraf
             return null;
         }
         ItemStack stack = entry.stack();
-        return stack == null || stack.isEmpty() ? null : stack.copy();
+        return stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? null : stack.copy();
     }
 }

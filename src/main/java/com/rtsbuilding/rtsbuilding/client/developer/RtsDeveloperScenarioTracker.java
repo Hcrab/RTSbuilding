@@ -96,10 +96,10 @@ public final class RtsDeveloperScenarioTracker {
 
     private void append(String event, String detail) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft == null || minecraft.gameDir == null || runId == null) {
+        if (minecraft == null || com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.gameDir(minecraft) == null || runId == null) {
             return;
         }
-        Path file = minecraft.gameDir.toPath().resolve("logs").resolve("rtsbuilding-dev")
+        Path file = com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.gameDir(minecraft).toPath().resolve("logs").resolve("rtsbuilding-dev")
                 .resolve("scenario-" + runId + ".jsonl");
         long elapsedMillis = Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
         String line = "{\"time\":\"" + Instant.now() + "\",\"runId\":\"" + runId
@@ -110,9 +110,10 @@ public final class RtsDeveloperScenarioTracker {
 
     private void sendServerCheckpoint(String action) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft == null || minecraft.player == null || minecraft.getConnection() == null
+        if (minecraft == null || minecraft.thePlayer == null
+                || com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.connection(minecraft) == null
                 || active == null || runId == null) return;
-        minecraft.player.sendChatMessage("/rtsbuilding_dev " + action + " "
+        minecraft.thePlayer.sendChatMessage("/rtsbuilding_dev " + action + " "
                 + active.name().toLowerCase(Locale.ROOT) + " " + runId);
     }
 

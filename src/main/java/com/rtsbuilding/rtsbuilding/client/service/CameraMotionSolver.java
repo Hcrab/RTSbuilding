@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.service;
 
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.Objects;
 

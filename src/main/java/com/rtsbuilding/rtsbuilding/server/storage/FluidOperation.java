@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -65,7 +65,7 @@ public final class FluidOperation {
     public boolean extract(List<IItemHandler> handlers, Item targetItem) {
         if (finalized) return false;
         this.extracted = gate.extractOneFromNetwork(handlers, player, targetItem);
-        return this.extracted != null && !this.extracted.isEmpty();
+        return this.extracted != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(this.extracted);
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ public final class FluidOperation {
 
     private void rollback() {
         finalized = true;
-        if (extracted != null && !extracted.isEmpty()) {
+        if (extracted != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
             try {
                 gate.refundToLinked(insertHandlers, player, extracted);
             } catch (Exception e) {

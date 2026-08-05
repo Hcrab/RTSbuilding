@@ -27,7 +27,7 @@ final class BottomPanelToolInput {
             int button,
             BottomPanelLayoutTypes.BottomPanelLayout layout) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft == null || minecraft.player == null) {
+        if (minecraft == null || minecraft.thePlayer == null) {
             return false;
         }
         BottomPanelToolLayout tools = BottomPanelToolLayout.standard(
@@ -72,10 +72,10 @@ final class BottomPanelToolInput {
                     BottomBarUiAction.Type.STORE_FLUID_TOOL, hotbarIndex));
             return;
         }
-        ItemStack stack = minecraft.player.inventory.getStackInSlot(hotbarIndex);
+        ItemStack stack = minecraft.thePlayer.inventory.getStackInSlot(hotbarIndex);
         if (isShiftDown()
                 && RtsClientUiStateStore.isOverlayShiftImportEnabled()
-                && !stack.isEmpty()) {
+                && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             panel.dispatchCore(BottomBarUiAction.index(
                     BottomBarUiAction.Type.IMPORT_HOTBAR, hotbarIndex));
             return;

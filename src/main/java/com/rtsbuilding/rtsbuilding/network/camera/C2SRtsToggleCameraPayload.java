@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.camera;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 客户端请求切换自己的 RTS 相机会话。 */
 public final class C2SRtsToggleCameraPayload implements IMessage {

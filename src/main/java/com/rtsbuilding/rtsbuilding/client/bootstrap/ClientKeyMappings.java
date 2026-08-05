@@ -1,11 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraftforge.client.settings.KeyConflictContext;
-import net.minecraftforge.client.settings.KeyModifier;
-import net.minecraftforge.fml.client.registry.ClientRegistry;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.client.registry.ClientRegistry;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 import org.lwjgl.input.Keyboard;
 
 /** Forge 1.12 客户端按键表；鼠标键使用原版的 {@code button - 100} 编号。 */
@@ -30,9 +28,8 @@ public final class ClientKeyMappings {
     public static final KeyBinding MODE_ROTATE = key("key.rtsbuilding.mode_rotate", Keyboard.KEY_R);
     public static final KeyBinding MODE_FUNNEL = key("key.rtsbuilding.mode_funnel", Keyboard.KEY_F);
     public static final KeyBinding ACTION_PRIMARY = key("key.rtsbuilding.action_primary", MOUSE_RIGHT);
-    public static final KeyBinding MOVE_PLAYER = new KeyBinding(
-            "key.rtsbuilding.move_player", KeyConflictContext.GUI, KeyModifier.CONTROL,
-            MOUSE_RIGHT, CATEGORY);
+    // 1.7.10 的 KeyBinding 没有冲突上下文/修饰键；输入路由仍显式检查 Ctrl。
+    public static final KeyBinding MOVE_PLAYER = key("key.rtsbuilding.move_player", MOUSE_RIGHT);
     public static final KeyBinding ACTION_BREAK = key("key.rtsbuilding.action_break", MOUSE_LEFT);
     public static final KeyBinding CONFIRM_BATCH_PLACE = key("key.rtsbuilding.confirm_batch_place", Keyboard.KEY_RETURN);
     public static final KeyBinding CONFIRM_BATCH_DESTROY = key("key.rtsbuilding.confirm_batch_destroy", Keyboard.KEY_RETURN);

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.common.blueprint.rule;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.ResourceLocation;
 
@@ -25,9 +25,9 @@ public final class BlueprintReplaceRules {
 
     private BlueprintReplaceRules() {}
 
-    public static boolean canBlueprintReplace(IBlockState state) {
-        if (state == null || state.getBlock() == Blocks.AIR || state.getMaterial().isReplaceable()) return true;
-        return VANILLA_SOFT_REPLACEABLE.contains(Block.REGISTRY.getNameForObject(state.getBlock()));
+    public static boolean canBlueprintReplace(BlockState state) {
+        if (state == null || state.getBlock() == Blocks.air || state.getMaterial().isReplaceable()) return true;
+        return VANILLA_SOFT_REPLACEABLE.contains(com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getNameForObject(state.getBlock()));
     }
 
     private static ResourceLocation vanilla(String path) {

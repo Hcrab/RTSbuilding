@@ -2,10 +2,10 @@ package com.rtsbuilding.rtsbuilding.common.shape.generator;
 
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShapeInput;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 
@@ -55,7 +55,7 @@ public abstract class AreaShapeGenerator {
         if (pos.getY() < 0 || pos.getY() >= level.getHeight()) {
             return false;
         }
-        return level.isBlockModifiable(player, pos);
+        return com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockModifiable(level, player, pos);
     }
 
     /**
@@ -69,14 +69,14 @@ public abstract class AreaShapeGenerator {
      * @param player 执行操作的玩家
      * @return true 如果此处可以放置方块
      */
-    public static boolean validatePlacementPosition(World level, BlockPos pos, IBlockState state, EntityPlayer player) {
+    public static boolean validatePlacementPosition(World level, BlockPos pos, BlockState state, EntityPlayer player) {
         if (!validatePositionBase(level, pos, player)) {
             return false;
         }
-        if (!state.getBlock().canPlaceBlockAt(level, pos)) {
+        if (!state.getBlock().canPlaceBlockAt(level, pos.getX(), pos.getY(), pos.getZ())) {
             return false;
         }
-        return level.getBlockState(pos).getBlock().isReplaceable(level, pos);
+        return com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isReplaceable(level, pos);
     }
 
     /**
@@ -93,8 +93,9 @@ public abstract class AreaShapeGenerator {
         if (!validatePositionBase(level, pos, player)) {
             return false;
         }
-        IBlockState state = level.getBlockState(pos);
-        if (state.getBlock().isAir(state, level, pos) || state.getBlockHardness(level, pos) < 0.0F) {
+        BlockState state = BlockState.fromWorld(level, pos);
+        if (state.getBlock().isAir(level, pos.getX(), pos.getY(), pos.getZ())
+                || state.getBlockHardness(level, pos) < 0.0F) {
             return false;
         }
         return true;

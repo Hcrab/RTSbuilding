@@ -4,9 +4,7 @@
   "package": "com.rtsbuilding.rtsbuilding.mixin",
   "refmap": "mixins.rtsbuilding.refmap.json",
   "compatibilityLevel": "JAVA_8",
-  "client": [
-    "RecipeRegistryOverlayTransferMixin"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 0
   }

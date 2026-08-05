@@ -54,7 +54,7 @@ public final class RtsEffectAccumulator {
 
     /** 每个服务器 Tick 只允许一次提交；同 Tick 的重复调用是常数成本空操作。 */
     public RtsEffectCommitBarrier.CommitReport flush(MinecraftServer server) {
-        WorldServer overworld = server == null ? null : server.getWorld(0);
+        WorldServer overworld = server == null ? null : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(server, 0);
         if (overworld == null) {
             return new RtsEffectCommitBarrier.CommitReport(
                     Long.MIN_VALUE, true, 0, 0, 0, 0, 0, 0, ledger.pendingTargetCount());

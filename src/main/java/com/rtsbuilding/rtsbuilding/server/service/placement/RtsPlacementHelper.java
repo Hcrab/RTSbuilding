@@ -4,11 +4,11 @@ import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.common.placement.PlacedBlockRotationStep;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.Rotation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.block.Rotation;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 /**
@@ -58,9 +58,9 @@ public final class RtsPlacementHelper {
      * 将 {@link BlockState} 旋转指定数量的 90 度步数
      * （仅使用 {@code rotateSteps} 的最低两位）。
      */
-    public static IBlockState rotateState(IBlockState state, byte rotateSteps) {
+    public static BlockState rotateState(BlockState state, byte rotateSteps) {
         int turns = rotateSteps & 3;
-        IBlockState rotated = state;
+        BlockState rotated = state;
         for (int i = 0; i < turns; i++) {
             rotated = rotated.withRotation(Rotation.CLOCKWISE_90);
         }
@@ -75,8 +75,8 @@ public final class RtsPlacementHelper {
         if (turns == 0 || !RtsPlacedBlockRotation.canReadNeighborhood(level, pos)) {
             return;
         }
-        IBlockState state = level.getBlockState(pos);
-        IBlockState rotated = rotateState(state, rotateSteps);
+        BlockState state = BlockState.fromWorld(level, pos);
+        BlockState rotated = rotateState(state, rotateSteps);
         RtsPlacedBlockRotation.applyResolvedState(level, pos, state, rotated);
     }
 
@@ -90,8 +90,8 @@ public final class RtsPlacementHelper {
                 || Math.abs(quarterTurns) != 1) {
             return;
         }
-        IBlockState current = level.getBlockState(pos);
-        IBlockState rotated = PlacedBlockRotationStep.rotate(
+        BlockState current = BlockState.fromWorld(level, pos);
+        BlockState rotated = PlacedBlockRotationStep.rotate(
                 current, axisDirection, quarterTurns);
         RtsPlacedBlockRotation.applyResolvedState(
                 level, pos, current, rotated);
@@ -105,29 +105,29 @@ public final class RtsPlacementHelper {
                 || !RtsPlacedBlockRotation.canReadNeighborhood(level, pos)) {
             return;
         }
-        IBlockState current = level.getBlockState(pos);
-        IBlockState resolved = PlacementStatePreset.apply(current, encodedPreset);
+        BlockState current = BlockState.fromWorld(level, pos);
+        BlockState resolved = PlacementStatePreset.apply(current, encodedPreset);
         RtsPlacedBlockRotation.applyFreshPlacementState(level, pos, current, resolved);
     }
 
     /**
      * 通过比较点击位置及其相邻邻居的前后状态来检测方块实际放置的位置。
      */
-    public static BlockPos detectPlacedPos(WorldServer level, BlockPos clickedPos, IBlockState beforeClicked,
-                                            BlockPos adjacentPos, IBlockState beforeAdjacent) {
-        if (!level.isBlockLoaded(clickedPos)) {
+    public static BlockPos detectPlacedPos(WorldServer level, BlockPos clickedPos, BlockState beforeClicked,
+                                            BlockPos adjacentPos, BlockState beforeAdjacent) {
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, clickedPos)) {
             return null;
         }
-        IBlockState afterClicked = level.getBlockState(clickedPos);
-        if (!afterClicked.equals(beforeClicked) && afterClicked.getBlock() != net.minecraft.init.Blocks.AIR) {
+        BlockState afterClicked = BlockState.fromWorld(level, clickedPos);
+        if (!afterClicked.equals(beforeClicked) && afterClicked.getBlock() != net.minecraft.init.Blocks.air) {
             return clickedPos;
         }
 
-        if (beforeAdjacent == null || !level.isBlockLoaded(adjacentPos)) {
+        if (beforeAdjacent == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, adjacentPos)) {
             return null;
         }
-        IBlockState afterAdjacent = level.getBlockState(adjacentPos);
-        if (!afterAdjacent.equals(beforeAdjacent) && afterAdjacent.getBlock() != net.minecraft.init.Blocks.AIR) {
+        BlockState afterAdjacent = BlockState.fromWorld(level, adjacentPos);
+        if (!afterAdjacent.equals(beforeAdjacent) && afterAdjacent.getBlock() != net.minecraft.init.Blocks.air) {
             return adjacentPos;
         }
         return null;

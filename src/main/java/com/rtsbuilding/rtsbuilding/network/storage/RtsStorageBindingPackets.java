@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.storage.handler.RtsStorageBindingPacketHandlers;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 /** 注册储存链接和漏斗设置的 C2S 消息。 */
 public final class RtsStorageBindingPackets {
     private RtsStorageBindingPackets() { }

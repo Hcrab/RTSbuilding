@@ -4,10 +4,10 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.Loader;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.Loader;
 
 /** 1.12 FTB Quests、FTB Library 队伍和 FTB Utilities claims 的可选兼容入口。 */
 public final class RtsFtbCompat {

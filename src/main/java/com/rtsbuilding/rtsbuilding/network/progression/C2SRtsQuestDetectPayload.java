@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 请求服务端执行一次任务检测。 */
 public final class C2SRtsQuestDetectPayload implements IMessage {

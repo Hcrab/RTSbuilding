@@ -17,6 +17,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class GuiScreenOverlayInputMixin {
     @Inject(method = "handleMouseInput", at = @At("HEAD"), cancellable = true)
     private void rtsbuilding$routeOverlayMouseInput(CallbackInfo ci) {
+        if (com.rtsbuilding.rtsbuilding.client.plugin.RtsPluginInventoryScreenEvents
+                .routeInventoryMousePressed((GuiScreen) (Object) this)) {
+            ci.cancel();
+            return;
+        }
         if (RtsClientInputEvents1122.routeCurrentMouseInput(
                 (GuiScreen) (Object) this, "GUI_HEAD_MIXIN")) {
             ci.cancel();

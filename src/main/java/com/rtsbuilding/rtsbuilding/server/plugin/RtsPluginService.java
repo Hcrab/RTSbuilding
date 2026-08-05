@@ -9,9 +9,9 @@ import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.ChatComponentTranslation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -93,17 +93,17 @@ public final class RtsPluginService {
     }
 
     public static boolean installFromInventorySlot(EntityPlayerMP player, int inventorySlot) {
-        if (player == null || inventorySlot < 0 || inventorySlot >= player.inventory.mainInventory.size()) {
+        if (player == null || inventorySlot < 0 || inventorySlot >= player.inventory.mainInventory.length) {
             return fail(player, "message.rtsbuilding.plugin.invalid_slot");
         }
-        ItemStack stack = player.inventory.mainInventory.get(inventorySlot);
+        ItemStack stack = player.inventory.mainInventory[inventorySlot];
         InstallResult result = validateInstall(player, stack);
         if (!result.success()) {
             return fail(player, result.messageKey());
         }
         ItemStack installedStack = stack.splitStack(1);
-        if (stack.isEmpty()) {
-            player.inventory.setInventorySlotContents(inventorySlot, ItemStack.EMPTY);
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            player.inventory.setInventorySlotContents(inventorySlot, null);
         }
         player.inventory.markDirty();
         boolean replaced = addInstalled(player, result.definition(), installedStack);
@@ -118,14 +118,15 @@ public final class RtsPluginService {
         if (player == null || hand == null) {
             return false;
         }
-        ItemStack stack = player.getHeldItem(hand);
+        ItemStack stack = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.getHeldItem(
+                player, hand);
         InstallResult result = validateInstall(player, stack);
         if (!result.success()) {
             return fail(player, result.messageKey());
         }
         ItemStack installedStack = stack.splitStack(1);
-        if (stack.isEmpty()) {
-            player.setHeldItem(hand, ItemStack.EMPTY);
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, hand, null);
         }
         player.inventory.markDirty();
         boolean replaced = addInstalled(player, result.definition(), installedStack);
@@ -215,7 +216,7 @@ public final class RtsPluginService {
         if (migrated.isEmpty()) {
             return;
         }
-        player.sendStatusMessage(RtsLegacySkillTreeMigration.migrationMessage(migrated), false);
+        com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, RtsLegacySkillTreeMigration.migrationMessage(migrated), false);
         syncRelatedPlayers(player);
     }
 
@@ -275,7 +276,7 @@ public final class RtsPluginService {
             }
         }
         installed.add(new RtsPluginTeamService.StoredPlugin(
-                new RtsInstalledPlugin(definition.id(), installedStack, player.world.getTotalWorldTime()),
+                new RtsInstalledPlugin(definition.id(), installedStack, player.worldObj.getTotalWorldTime()),
                 player.getUniqueID(),
                 player.getGameProfile().getName()));
         RtsPluginTeamService.saveInstalledPlugins(player, installed);
@@ -285,26 +286,26 @@ public final class RtsPluginService {
 
     private static void returnReplacedPlugin(EntityPlayerMP player, ItemStack installedStack) {
         ItemStack returning = installedStack == null
-                ? ItemStack.EMPTY
+                ? null
                 : RtsInstalledPlugin.copyOne(installedStack);
-        if (returning.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(returning)) {
             return;
         }
         if (!player.inventory.addItemStackToInventory(returning)) {
-            player.dropItem(returning, false);
+            player.dropPlayerItemWithRandomChoice(returning, false);
         }
         player.inventory.markDirty();
     }
 
     /** 卸载是事务式操作；先证明整栈可放入，避免 InventoryPlayer 的部分插入制造复制。 */
     private static boolean canFitWholeStack(EntityPlayerMP player, ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return true;
-        int remaining = stack.getCount();
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return true;
+        int remaining = stack.stackSize;
         for (ItemStack slot : player.inventory.mainInventory) {
-            if (slot.isEmpty()) return true;
-            if (ItemStack.areItemsEqual(slot, stack) && ItemStack.areItemStackTagsEqual(slot, stack)) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(slot)) return true;
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(slot, stack) && ItemStack.areItemStackTagsEqual(slot, stack)) {
                 remaining -= Math.max(0, Math.min(slot.getMaxStackSize(), player.inventory.getInventoryStackLimit())
-                        - slot.getCount());
+                        - slot.stackSize);
                 if (remaining <= 0) return true;
             }
         }
@@ -337,7 +338,7 @@ public final class RtsPluginService {
 
     private static boolean fail(EntityPlayerMP player, String key) {
         if (player != null && key != null && !key.isEmpty()) {
-            player.sendStatusMessage(new TextComponentTranslation(key), true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(key), true);
         }
         return false;
     }
@@ -351,12 +352,12 @@ public final class RtsPluginService {
         if (player.openContainer != player.inventoryContainer) {
             player.openContainer.detectAndSendChanges();
         }
-        player.getServer().getPlayerList().syncPlayerInventory(player);
+        com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player)).syncPlayerInventory(player);
     }
 
     private static void success(EntityPlayerMP player, String key) {
         if (player != null && key != null && !key.isEmpty()) {
-            player.sendStatusMessage(new TextComponentTranslation(key), true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(key), true);
         }
     }
 

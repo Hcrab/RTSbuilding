@@ -24,18 +24,19 @@ public class WindowTextBox extends GuiTextField {
     private String placeholder = "";
     private boolean autoScrollToEnd = true;
     private boolean centeredText;
+    private Predicate<String> inputFilter = value -> true;
     private Consumer<String> responder = new Consumer<String>() {
         @Override public void accept(String value) { }
     };
 
     public enum InputMode { ANY, DIGITS_ONLY, LETTERS_ONLY }
 
-    public WindowTextBox(int x, int y, int width, int height) {
-        this(Minecraft.getMinecraft().fontRenderer, x, y, width, height);
+    public WindowTextBox(int xPosition, int yPosition, int width, int height) {
+        this(Minecraft.getMinecraft().fontRenderer, xPosition, yPosition, width, height);
     }
 
-    public WindowTextBox(FontRenderer font, int x, int y, int width, int height) {
-        super(NEXT_ID.incrementAndGet(), resolveFont(font), x, y, width, height);
+    public WindowTextBox(FontRenderer font, int xPosition, int yPosition, int width, int height) {
+        super(resolveFont(font), xPosition, yPosition, width, height);
         this.font = resolveFont(font);
         setEnableBackgroundDrawing(false);
         setTextColor(WindowTextBoxStyle.TEXT.toArgb());
@@ -57,7 +58,9 @@ public class WindowTextBox extends GuiTextField {
 
     @Override public void setText(String value) {
         String before = getText();
-        super.setText(value == null ? "" : value);
+        String safe = value == null ? "" : value;
+        if (!inputFilter.test(safe)) return;
+        super.setText(safe);
         if (autoScrollToEnd) scrollToEnd();
         notifyIfChanged(before);
     }
@@ -65,6 +68,7 @@ public class WindowTextBox extends GuiTextField {
     @Override public void writeText(String value) {
         String before = getText();
         super.writeText(value);
+        if (!inputFilter.test(getText())) super.setText(before);
         notifyIfChanged(before);
     }
 
@@ -103,16 +107,15 @@ public class WindowTextBox extends GuiTextField {
         renderWidget(graphics, mouseX, mouseY, partialTick);
     }
 
-    @Override public boolean mouseClicked(final int mouseX, final int mouseY, final int button) {
-        final boolean[] result = {false};
+    @Override public void mouseClicked(final int mouseX, final int mouseY, final int button) {
         withInnerGeometry(geometry().geometry, new Runnable() {
-            @Override public void run() { result[0] = WindowTextBox.super.mouseClicked(mouseX, mouseY, button); }
+            @Override public void run() { WindowTextBox.super.mouseClicked(mouseX, mouseY, button); }
         });
-        return result[0];
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        return mouseClicked((int) mouseX, (int) mouseY, button);
+        mouseClicked((int) mouseX, (int) mouseY, button);
+        return isFocused();
     }
 
     public WindowTextBox onTextChanged(Consumer<String> value) {
@@ -123,9 +126,7 @@ public class WindowTextBox extends GuiTextField {
     }
 
     public WindowTextBox setInputFilter(final Predicate<String> filter) {
-        setValidator(new com.google.common.base.Predicate<String>() {
-            @Override public boolean apply(String value) { return filter == null || filter.test(value); }
-        });
+        inputFilter = filter == null ? value -> true : filter;
         return this;
     }
 
@@ -141,33 +142,33 @@ public class WindowTextBox extends GuiTextField {
 
     public WindowTextBox setReadOnly(boolean readOnly) { setEnabled(!readOnly); return this; }
     public void setMaxLength(int length) { setMaxStringLength(length); }
-    public void setX(int value) { this.x = value; }
-    public void setY(int value) { this.y = value; }
-    public int getX() { return this.x; }
-    public int getY() { return this.y; }
+    public void setX(int value) { this.xPosition = value; }
+    public void setY(int value) { this.yPosition = value; }
+    public int getX() { return this.xPosition; }
+    public int getY() { return this.yPosition; }
 
-    public static WindowTextBox createDefault(int x, int y, int width) {
-        WindowTextBox box = new WindowTextBox(x, y, width, WindowTextBoxLayout.DEFAULT_H);
+    public static WindowTextBox createDefault(int xPosition, int yPosition, int width) {
+        WindowTextBox box = new WindowTextBox(xPosition, yPosition, width, WindowTextBoxLayout.DEFAULT_H);
         box.setPlaceholder("Search");
         box.setMaxStringLength(WindowTextBoxLayout.DEFAULT_MAX_LENGTH);
         return box;
     }
 
     private GeometryState geometry() {
-        UiRect bounds = new UiRect(x, y, width, height);
+        UiRect bounds = new UiRect(xPosition, yPosition, width, height);
         WindowTextBoxLayout.Geometry geometry = WindowTextBoxLayout.geometry(
                 bounds, font.FONT_HEIGHT, font.getStringWidth(getText()), centeredText, !getText().isEmpty());
         return new GeometryState(bounds, geometry);
     }
 
     private void withInnerGeometry(WindowTextBoxLayout.Geometry geometry, Runnable action) {
-        int oldX = x, oldY = y, oldWidth = width, oldHeight = height;
-        x = (int) geometry.inner.getX();
-        y = (int) geometry.inner.getY();
+        int oldX = xPosition, oldY = yPosition, oldWidth = width, oldHeight = height;
+        xPosition = (int) geometry.inner.getX();
+        yPosition = (int) geometry.inner.getY();
         width = Math.max(1, (int) geometry.inner.getWidth());
         height = Math.max(1, (int) geometry.inner.getHeight());
         try { action.run(); }
-        finally { x = oldX; y = oldY; width = oldWidth; height = oldHeight; }
+        finally { xPosition = oldX; yPosition = oldY; width = oldWidth; height = oldHeight; }
     }
 
     private void notifyIfChanged(String before) {

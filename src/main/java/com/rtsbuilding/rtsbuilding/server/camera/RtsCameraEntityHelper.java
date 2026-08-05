@@ -34,8 +34,8 @@ final class RtsCameraEntityHelper {
         if (server == null || cameraUuid == null) {
             return null;
         }
-        for (WorldServer level : server.worlds) {
-            Entity entity = level.getEntityFromUuid(cameraUuid);
+        for (WorldServer level : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.worlds(server)) {
+            Entity entity = com.rtsbuilding.rtsbuilding.platform.entity.EntityCompat.findByUuid(level, cameraUuid);
             if (entity != null) {
                 return entity;
             }
@@ -53,11 +53,11 @@ final class RtsCameraEntityHelper {
      * @param player   目标玩家
      */
     static void discardOwnedCameras(EntityPlayerMP player) {
-        if (player == null || player.getServer() == null) {
+        if (player == null || com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player) == null) {
             return;
         }
         UUID ownerUuid = player.getUniqueID();
-        for (WorldServer level : player.getServer().worlds) {
+        for (WorldServer level : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.worlds(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player))) {
             for (Entity entity : level.loadedEntityList) {
                 if (entity instanceof RtsCameraEntity) {
                     RtsCameraEntity camera = (RtsCameraEntity) entity;
@@ -90,7 +90,7 @@ final class RtsCameraEntityHelper {
         RtsCameraEntity camera = new RtsCameraEntity(RtsEntities.RTS_CAMERA_ENTITY.get(), level);
         camera.setOwnerUuid(ownerUuid);
         camera.snapTo(x, y, z, yaw, pitch);
-        level.spawnEntity(camera);
+        level.spawnEntityInWorld(camera);
         return camera;
     }
 
@@ -109,7 +109,7 @@ final class RtsCameraEntityHelper {
         if (server == null) {
             return;
         }
-        for (WorldServer level : server.worlds) {
+        for (WorldServer level : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.worlds(server)) {
             for (Entity entity : level.loadedEntityList) {
                 if (entity instanceof RtsCameraEntity) {
                     RtsCameraEntity camera = (RtsCameraEntity) entity;

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.compat.RtsGuiCompatMatrixSync;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
@@ -12,10 +12,10 @@ import net.minecraft.init.Blocks;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.util.ChatComponentText;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 /** 只在 GUI 自动探针启用时注册的 1.12.2 测试场地命令。 */
 public final class RtsGuiCompatSetupCommand extends CommandBase {
@@ -30,16 +30,16 @@ public final class RtsGuiCompatSetupCommand extends CommandBase {
     private static final String COMMAND_NAME = "rtsbuilding_gui_compat_setup";
     private static final int DEFAULT_TARGET_DISTANCE = 20;
 
-    @Override public String getName() { return COMMAND_NAME; }
-    @Override public String getUsage(ICommandSender sender) {
+    @Override public String getCommandName() { return COMMAND_NAME; }
+    @Override public String getCommandUsage(ICommandSender sender) {
         return "/" + COMMAND_NAME + " <caseId> [targetBlock] [distance] [meta] [x y z]";
     }
     @Override public int getRequiredPermissionLevel() { return 2; }
 
     @Override
-    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+    public void processCommand(ICommandSender sender, String[] args) throws CommandException {
         if (args.length < 1 || args.length > 7 || (args.length > 4 && args.length < 7)) {
-            throw new CommandException(getUsage(sender));
+            throw new CommandException(getCommandUsage(sender));
         }
         String targetBlock = args.length >= 2 ? args[1] : resolveTargetBlock(args[0]);
         Integer distance = args.length >= 3 ? parseDistance(args[2]) : null;
@@ -64,13 +64,13 @@ public final class RtsGuiCompatSetupCommand extends CommandBase {
         BlockPos acknowledgedTarget = explicitTarget;
         try {
             ResourceLocation blockId = new ResourceLocation(targetBlockId);
-            Block block = ForgeRegistries.BLOCKS.getValue(blockId);
-            if (block == null || block == Blocks.AIR) {
+            Block block = RtsRegistries.BLOCKS.getValue(blockId);
+            if (block == null || block == Blocks.air) {
                 throw new CommandException("RTS GUI compat: target block is not registered: " + targetBlockId);
             }
 
-            WorldServer level = player.getServerWorld();
-            BlockPos base = player.getPosition();
+            WorldServer level = player.getServerForPlayer();
+            BlockPos base = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(player);
             int distance = distanceOverride == null
                     ? resolveInt(TARGET_DISTANCE_PROPERTY, TARGET_DISTANCE_ENV, DEFAULT_TARGET_DISTANCE)
                     : distanceOverride.intValue();
@@ -88,22 +88,23 @@ public final class RtsGuiCompatSetupCommand extends CommandBase {
             // 潜影箱一类 GUI 会在打开前检查顶部伸展空间，因此每次必须先清掉上方残留，
             // 否则会把场地污染误报为“远距离打不开”。
             clearProbeBlock(level, targetPos.up());
-            level.setBlockState(targetPos.down(), Blocks.STONE.getDefaultState(), 3);
-            IBlockState desiredState = block.getStateFromMeta(meta);
+            BlockState.defaultState(Blocks.stone).setInWorld(level, targetPos.down(), 3);
+            BlockState desiredState = BlockState.of(block, meta);
             // 连续矩阵会在同一坐标替换数千种机器。必须先让旧方块带着自己的 TE
             // 完成原版 breakBlock：Blood Arsenal 等旧模组会在该回调里强制转换
             // world.getTileEntity。随后再明确 invalid/remove 捕获的旧实例，避免
             // Embers Breaker 仍留在本 tick 的更新队列里并对 air 读取 facing。
             clearProbeBlock(level, targetPos);
-            boolean placed = level.setBlockState(targetPos, desiredState, 3);
-            IBlockState actualState = level.getBlockState(targetPos);
+            boolean placed = desiredState.setInWorld(level, targetPos, 3);
+            BlockState actualState = BlockState.fromWorld(level, targetPos);
             if (!placed || actualState.getBlock() != block) {
                 throw new CommandException("RTS GUI compat: target state was rejected: "
                         + targetBlockId + " meta=" + meta + " actual="
-                        + String.valueOf(actualState.getBlock().getRegistryName()));
+                        + String.valueOf(com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS
+                                .getKey(actualState.getBlock())));
             }
             RtsGuiCompatMatrixSync.markSetupComplete(targetPos, targetBlockId, meta);
-            player.sendMessage(new TextComponentString("RTS GUI compat: " + caseId + " ready at "
+            player.addChatMessage(new ChatComponentText("RTS GUI compat: " + caseId + " ready at "
                     + targetPos.getX() + "," + targetPos.getY() + "," + targetPos.getZ()
                     + " block=" + targetBlockId + " meta=" + meta));
         } catch (CommandException exception) {
@@ -123,16 +124,16 @@ public final class RtsGuiCompatSetupCommand extends CommandBase {
      * 该顺序兼容 Blood Arsenal 对旧 TE 的强制转换，也避免 Embers 把旧 TE 留在本 tick 更新队列。
      */
     private static void clearProbeBlock(WorldServer level, BlockPos pos) {
-        TileEntity previousTile = level.getTileEntity(pos);
-        level.setBlockToAir(pos);
+        TileEntity previousTile = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
+        level.setBlockToAir(pos.getX(), pos.getY(), pos.getZ());
         if (previousTile != null) {
             previousTile.invalidate();
         }
-        TileEntity residualTile = level.getTileEntity(pos);
+        TileEntity residualTile = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(level, pos);
         if (residualTile != null) {
             residualTile.invalidate();
         }
-        level.removeTileEntity(pos);
+        level.removeTileEntity(pos.getX(), pos.getY(), pos.getZ());
     }
 
     private static String resolveTargetBlock(String caseId) {

@@ -1,16 +1,16 @@
 package com.rtsbuilding.rtsbuilding.compat.ae2;
 
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.World;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import cpw.mods.fml.common.Loader;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -23,15 +23,15 @@ public final class RtsAe2IconResolver {
     }
 
     public static String resolveGuiBindingIconItemId(World world, BlockPos pos, EnumFacing face, String labelHint) {
-        if (world == null || pos == null || !isAe2Loaded() || !world.isBlockLoaded(pos)) {
+        if (world == null || pos == null || !isAe2Loaded() || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, pos)) {
             return "";
         }
-        IBlockState state = world.getBlockState(pos);
-        if (state == null || state.getBlock() == Blocks.AIR) {
+        BlockState state = BlockState.fromWorld(world, pos);
+        if (state == null || state.getBlock() == Blocks.air) {
             return "";
         }
 
-        TileEntity tile = world.getTileEntity(pos);
+        TileEntity tile = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(world, pos);
         Object part = resolveDirectionalPart(tile, face);
         String partItemId = resolvePartItemId(part);
         if (!partItemId.isEmpty()) {
@@ -51,7 +51,7 @@ public final class RtsAe2IconResolver {
         }
 
         Item blockItem = Item.getItemFromBlock(state.getBlock());
-        ResourceLocation blockItemId = blockItem == null ? null : ForgeRegistries.ITEMS.getKey(blockItem);
+        ResourceLocation blockItemId = blockItem == null ? null : RtsRegistries.ITEMS.getKey(blockItem);
         return isAe2(blockItemId) ? blockItemId.toString() : "";
     }
 
@@ -86,10 +86,10 @@ public final class RtsAe2IconResolver {
             Method getItemStack = partClass.getMethod("getItemStack", stackKindClass);
             Object networkKind = Enum.valueOf((Class<? extends Enum>) stackKindClass.asSubclass(Enum.class), "NETWORK");
             Object value = getItemStack.invoke(part, networkKind);
-            if (!(value instanceof ItemStack) || ((ItemStack) value).isEmpty()) {
+            if (!(value instanceof ItemStack) || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(((ItemStack) value))) {
                 return "";
             }
-            ResourceLocation id = ForgeRegistries.ITEMS.getKey(((ItemStack) value).getItem());
+            ResourceLocation id = RtsRegistries.ITEMS.getKey(((ItemStack) value).getItem());
             return isAe2(id) ? id.toString() : "";
         } catch (ReflectiveOperationException | LinkageError ignored) {
             return "";
@@ -110,7 +110,7 @@ public final class RtsAe2IconResolver {
     private static String resolveRegisteredItemId(LinkedHashSet<String> candidates) {
         for (String path : candidates) {
             ResourceLocation id = resourceLocation("appliedenergistics2", path);
-            if (id != null && ForgeRegistries.ITEMS.containsKey(id)) {
+            if (id != null && RtsRegistries.ITEMS.containsKey(id)) {
                 return id.toString();
             }
         }
@@ -126,7 +126,7 @@ public final class RtsAe2IconResolver {
     }
 
     private static boolean isAe2(ResourceLocation id) {
-        return id != null && "appliedenergistics2".equals(id.getNamespace());
+        return id != null && "appliedenergistics2".equals(id.getResourceDomain());
     }
 
     private static boolean isAe2Loaded() {

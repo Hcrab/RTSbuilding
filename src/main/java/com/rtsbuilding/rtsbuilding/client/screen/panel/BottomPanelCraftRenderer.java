@@ -56,8 +56,8 @@ public final class BottomPanelCraftRenderer {
                 BottomPanelCraftStyle.SEARCH_BORDER_LIGHT,
                 BottomPanelCraftStyle.SEARCH_BORDER_DARK);
         if (searchBox != null) {
-            searchBox.x = layout.search.x + BottomPanelCraftLayout.SEARCH_CONTENT_INSET;
-            searchBox.y = layout.search.y + BottomPanelCraftLayout.SEARCH_CONTENT_INSET;
+            searchBox.xPosition = layout.search.x + BottomPanelCraftLayout.SEARCH_CONTENT_INSET;
+            searchBox.yPosition = layout.search.y + BottomPanelCraftLayout.SEARCH_CONTENT_INSET;
             searchBox.width = Math.max(
                     BottomPanelCraftLayout.SEARCH_MIN_CONTENT_W,
                     layout.search.width - BottomPanelCraftLayout.SEARCH_CONTENT_INSET * 2);

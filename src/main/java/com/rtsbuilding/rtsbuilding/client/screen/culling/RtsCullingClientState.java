@@ -6,9 +6,9 @@ import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingBoxSnapshot;
 import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -75,9 +75,9 @@ public final class RtsCullingClientState {
             return;
         }
         Minecraft minecraft = Minecraft.getMinecraft();
-        String currentDimension = minecraft.world == null
+        String currentDimension = minecraft.theWorld == null
                 ? ""
-                : Integer.toString(minecraft.world.provider.getDimension());
+                : Integer.toString(minecraft.theWorld.provider.dimensionId);
         if (!currentDimension.equals(payload.dimension())) {
             return;
         }
@@ -91,7 +91,8 @@ public final class RtsCullingClientState {
 
     private static void saveCurrentWorldState() {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.world == null || minecraft.getConnection() == null) {
+        if (minecraft.theWorld == null
+                || com.rtsbuilding.rtsbuilding.platform.client.MinecraftCompat.connection(minecraft) == null) {
             return;
         }
         List<RtsCullingBoxSnapshot> boxes = new ArrayList<RtsCullingBoxSnapshot>();
@@ -99,7 +100,7 @@ public final class RtsCullingClientState {
             boxes.add(new RtsCullingBoxSnapshot(box.min(), box.max()));
         }
         RtsPayloadRegistrar.sendToServer(new C2SRtsSaveCullingStatePayload(
-                Integer.toString(minecraft.world.provider.getDimension()),
+                Integer.toString(minecraft.theWorld.provider.dimensionId),
                 boxes, PERSISTENT_MANAGER.revealedBlocks()));
     }
 

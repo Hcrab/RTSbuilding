@@ -9,8 +9,8 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsResumePlacementActionPa
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayload;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WorkflowResumeWindowLayout;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 
 import java.util.Collections;
 import java.util.List;
@@ -29,8 +29,8 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentTranslation(
+    protected IChatComponent getTitle() {
+        return new ChatComponentTranslation(
                 "screen.rtsbuilding.workflow.resume_placement.title");
     }
 

@@ -4,13 +4,13 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintParseException;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
 import net.minecraftforge.common.util.Constants;
 
 import java.io.ByteArrayInputStream;
@@ -46,12 +46,13 @@ public final class VanillaStructureNbtReader {
             BlueprintNbtCompat.StateResult entry = palette.get(stateIndex);
             BlockPos pos = readPos(blockTag);
             NBTTagCompound blockEntityTag = blockTag.hasKey("nbt", Constants.NBT.TAG_COMPOUND)
-                    ? blockTag.getCompoundTag("nbt").copy() : new NBTTagCompound();
+                    ? com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(
+                            blockTag.getCompoundTag("nbt")) : new NBTTagCompound();
             if (entry.isMissing()) {
                 out.add(RtsBlueprintBlock.missing(pos, entry.missingBlockId(), blockEntityTag));
             } else {
-                IBlockState state = entry.state();
-                if (state.getBlock() != Blocks.AIR && state.getBlock() != Blocks.STRUCTURE_VOID) {
+                BlockState state = entry.state();
+                if (state.getBlock() != Blocks.air && state.getBlock() != Blocks.air) {
                     out.add(new RtsBlueprintBlock(pos, state, blockEntityTag, "",
                             blockTag.getString("rtsbuilding_material_item")));
                 }
@@ -73,13 +74,19 @@ public final class VanillaStructureNbtReader {
     private static Vec3i readSize(NBTTagCompound root) {
         NBTTagList values = root.getTagList("size", Constants.NBT.TAG_INT);
         return values.tagCount() < 3 ? new Vec3i(0, 0, 0)
-                : new Vec3i(values.getIntAt(0), values.getIntAt(1), values.getIntAt(2));
+                : new Vec3i(
+                        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(values, 0),
+                        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(values, 1),
+                        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(values, 2));
     }
 
     private static BlockPos readPos(NBTTagCompound blockTag) {
         NBTTagList values = blockTag.getTagList("pos", Constants.NBT.TAG_INT);
         return values.tagCount() < 3 ? BlockPos.ORIGIN
-                : new BlockPos(values.getIntAt(0), values.getIntAt(1), values.getIntAt(2));
+                : new BlockPos(
+                        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(values, 0),
+                        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(values, 1),
+                        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(values, 2));
     }
 
     private static String cleanName(String fileName) {

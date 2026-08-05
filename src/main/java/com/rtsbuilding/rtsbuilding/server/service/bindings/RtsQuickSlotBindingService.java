@@ -36,7 +36,7 @@ public final class RtsQuickSlotBindingService {
         }
 
         String normalized = "";
-        ItemStack normalizedPreview = ItemStack.EMPTY;
+        ItemStack normalizedPreview = null;
         if (itemId != null && !itemId.trim().isEmpty()) {
             ResourceLocation key;
             try {
@@ -44,17 +44,17 @@ public final class RtsQuickSlotBindingService {
             } catch (RuntimeException invalidId) {
                 return RtsStorageBindings.UpdateResult.none();
             }
-            if (!Item.REGISTRY.containsKey(key)) {
+            if (!com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.containsKey(key)) {
                 return RtsStorageBindings.UpdateResult.none();
             }
             normalized = itemId;
-            Item item = Item.REGISTRY.getObject(key);
+            Item item = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getObject(key);
             if (item == null) {
                 return RtsStorageBindings.UpdateResult.none();
             }
-            if (previewStack != null && !previewStack.isEmpty() && previewStack.getItem() == item) {
+            if (previewStack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(previewStack) && previewStack.getItem() == item) {
                 normalizedPreview = previewStack.copy();
-                normalizedPreview.setCount(1);
+                normalizedPreview.stackSize = 1;
             } else {
                 normalizedPreview = new ItemStack(item);
             }

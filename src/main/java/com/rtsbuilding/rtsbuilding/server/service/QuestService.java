@@ -66,7 +66,7 @@ public final class QuestService {
             }
             return;
         }
-        long now = player.getServerWorld().getTotalWorldTime();
+        long now = player.getServerForPlayer().getTotalWorldTime();
         if (!force && now < session.transfer.nextQuestDetectTick) {
             return;
         }

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common;
 
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.World;
 
 import java.util.*;
@@ -51,7 +51,7 @@ public final class RtsUltimineCollector {
         if (level == null || seed == null || limit <= 0 || filter == null) {
             return Collections.emptyList();
         }
-        return collect(seed, limit, maxRadius, level::getBlockState,
+        return collect(seed, limit, maxRadius, pos -> BlockState.fromWorld(level, pos),
                 (candidatePos, state, seedState) -> filter.test(candidatePos, state, seedState));
     }
 
@@ -152,7 +152,7 @@ public final class RtsUltimineCollector {
     /** 候选方块过滤器 —— 判断方块是否符合条件 */
     @FunctionalInterface
     public interface CandidateFilter {
-        boolean test(BlockPos pos, IBlockState state, IBlockState seedState);
+        boolean test(BlockPos pos, BlockState state, BlockState seedState);
     }
 
     /** 方块状态查找接口 —— 获取指定位置的方块状态（泛型友好） */

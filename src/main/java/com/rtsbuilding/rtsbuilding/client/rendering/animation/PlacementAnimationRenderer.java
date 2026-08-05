@@ -1,25 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyGhostBlockRenderer;
 import com.rtsbuilding.rtsbuilding.Config;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BlockModelRenderer;
-import net.minecraft.client.renderer.BlockRendererDispatcher;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
-import net.minecraft.client.renderer.block.model.IBakedModel;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.texture.TextureMap;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.BlockRenderLayer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraftforge.client.ForgeHooksClient;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import org.lwjgl.opengl.GL11;
 
-import java.nio.ByteBuffer;
 import java.util.List;
 
 /**
@@ -30,25 +23,23 @@ import java.util.List;
  * 私有 BLOCK 缓冲区；透明填充和线框分别写入私有 POSITION_COLOR 缓冲区。</p>
  */
 public final class PlacementAnimationRenderer {
-    private static final BufferBuilder MODEL_BUFFER = new BufferBuilder(2 * 1024 * 1024);
     private static final BufferBuilder FILL_BUFFER = new BufferBuilder(512 * 1024);
     private static final BufferBuilder LINE_BUFFER = new BufferBuilder(512 * 1024);
-    private static final WorldVertexBufferUploader MODEL_UPLOADER = new WorldVertexBufferUploader();
     private static final WorldVertexBufferUploader COLOR_UPLOADER = new WorldVertexBufferUploader();
 
     private PlacementAnimationRenderer() {
     }
 
-    public static void addPendingBatch(List<BlockPos> positions, IBlockState blockState) {
+    public static void addPendingBatch(List<BlockPos> positions, BlockState blockState) {
         PendingGhostRenderer.addPendingBatch(positions, blockState);
     }
 
-    public static void confirmPlacement(BlockPos pos, IBlockState state) {
+    public static void confirmPlacement(BlockPos pos, BlockState state) {
         PendingGhostRenderer.remove(pos);
         if (shouldRenderPlaceAnimationLayers()) ConfirmedPlacementRenderer.add(pos, state);
     }
 
-    public static void addDestroy(BlockPos pos, IBlockState state) {
+    public static void addDestroy(BlockPos pos, BlockState state) {
         PendingGhostRenderer.remove(pos);
         if (shouldRenderDestroyLayers()) DestroyGhostRenderer.add(pos, state);
     }
@@ -61,8 +52,8 @@ public final class PlacementAnimationRenderer {
 
     /** 使用本类私有缓冲区绘制当前全部动画。 */
     public static void render(Minecraft minecraft) {
-        if (minecraft == null || minecraft.world == null) return;
-        RenderManager manager = minecraft.getRenderManager();
+        if (minecraft == null || minecraft.theWorld == null) return;
+        RenderManager manager = net.minecraft.client.renderer.entity.RenderManager.instance;
         double cameraX = manager.viewerPosX;
         double cameraY = manager.viewerPosY;
         double cameraZ = manager.viewerPosZ;
@@ -115,81 +106,12 @@ public final class PlacementAnimationRenderer {
         render(minecraft);
     }
 
-    static boolean renderBlockModel(Minecraft minecraft, IBlockState state, BlockPos pos,
+    static boolean renderBlockModel(Minecraft minecraft, BlockState state, BlockPos pos,
             float alpha, float scale, double cameraX, double cameraY, double cameraZ) {
-        if (minecraft == null || minecraft.world == null || state == null || pos == null) return false;
-        BlockRendererDispatcher dispatcher = minecraft.getBlockRendererDispatcher();
-        BlockModelRenderer renderer = dispatcher.getBlockModelRenderer();
-        IBakedModel model = dispatcher.getModelForState(state);
-        boolean rendered = false;
-        boolean closed = false;
-        MODEL_BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.BLOCK);
-        MODEL_BUFFER.setTranslation(-cameraX, -cameraY, -cameraZ);
-        try {
-            for (BlockRenderLayer layer : BlockRenderLayer.values()) {
-                if (!state.getBlock().canRenderInLayer(state, layer)) continue;
-                ForgeHooksClient.setRenderLayer(layer);
-                rendered |= renderer.renderModel(minecraft.world, model, state, pos,
-                        MODEL_BUFFER, false, MathHelper.getPositionRandom(pos));
-            }
-            if (!rendered || MODEL_BUFFER.getVertexCount() == 0) {
-                MODEL_BUFFER.finishDrawing();
-                MODEL_BUFFER.reset();
-                closed = true;
-                return false;
-            }
-            transformModelVertices(MODEL_BUFFER, pos, scale, cameraX, cameraY, cameraZ, alpha);
-            drawModelBuffer(minecraft);
-            closed = true;
-            return true;
-        } finally {
-            ForgeHooksClient.setRenderLayer(null);
-            MODEL_BUFFER.setTranslation(0.0D, 0.0D, 0.0D);
-            if (!closed) discardBuffer(MODEL_BUFFER);
-        }
+        return LegacyGhostBlockRenderer.renderAt(minecraft, state, pos, alpha, scale);
     }
 
     /** 将私有模型缓冲区中的位置围绕方块中心缩放，并统一压入动画透明度。 */
-    private static void transformModelVertices(BufferBuilder buffer, BlockPos pos, float scale,
-            double cameraX, double cameraY, double cameraZ, float alpha) {
-        float safeScale = Math.max(0.0F, scale);
-        int alphaByte = Math.max(0, Math.min(255, Math.round(alpha * 255.0F)));
-        int stride = buffer.getVertexFormat().getSize();
-        int colorOffset = buffer.getVertexFormat().getColorOffset();
-        float centerX = (float) (pos.getX() + 0.5D - cameraX);
-        float centerY = (float) (pos.getY() + 0.5D - cameraY);
-        float centerZ = (float) (pos.getZ() + 0.5D - cameraZ);
-        ByteBuffer bytes = buffer.getByteBuffer();
-        for (int vertex = 0; vertex < buffer.getVertexCount(); vertex++) {
-            int offset = vertex * stride;
-            float x = bytes.getFloat(offset);
-            float y = bytes.getFloat(offset + 4);
-            float z = bytes.getFloat(offset + 8);
-            bytes.putFloat(offset, centerX + (x - centerX) * safeScale);
-            bytes.putFloat(offset + 4, centerY + (y - centerY) * safeScale);
-            bytes.putFloat(offset + 8, centerZ + (z - centerZ) * safeScale);
-            bytes.put(offset + colorOffset + 3, (byte) alphaByte);
-        }
-    }
-
-    private static void drawModelBuffer(Minecraft minecraft) {
-        minecraft.getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
-        GlStateManager.enableBlend();
-        GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
-                GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA,
-                GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
-        GlStateManager.depthMask(false);
-        GlStateManager.disableCull();
-        try {
-            RtsOwnedBufferUploader.draw(MODEL_BUFFER);
-        } finally {
-            GlStateManager.enableCull();
-            GlStateManager.depthMask(true);
-            GlStateManager.disableBlend();
-            GlStateManager.resetColor();
-        }
-    }
-
     private static void drawColorBuffer(BufferBuilder buffer, boolean lines) {
         if (buffer.getVertexCount() == 0) {
             buffer.finishDrawing();
@@ -249,7 +171,7 @@ public final class PlacementAnimationRenderer {
         buffer.pos(x2,y2,z2).color(red,green,blue,alpha).endVertex();
     }
 
-    static void renderFilledBox(BufferBuilder buffer, double x1, double y1, double z1,
+    public static void renderFilledBox(BufferBuilder buffer, double x1, double y1, double z1,
             double x2, double y2, double z2, float red, float green, float blue, float alpha) {
         quad(buffer,x1,y1,z1,x2,y1,z1,x2,y1,z2,x1,y1,z2,red,green,blue,alpha);
         quad(buffer,x1,y2,z1,x1,y2,z2,x2,y2,z2,x2,y2,z1,red,green,blue,alpha);

@@ -4,8 +4,8 @@ import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import com.rtsbuilding.rtsbuilding.network.RtsProtocolLimits;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -23,7 +23,7 @@ public final class C2SRtsAreaDestroyPayload implements IMessage {
     private List<BlockPos> positions = Collections.emptyList();
     private byte toolSlot;
     private String toolItemId = "";
-    private ItemStack toolPrototype = ItemStack.EMPTY;
+    private ItemStack toolPrototype = null;
     private boolean toolProtectionEnabled;
 
     public C2SRtsAreaDestroyPayload() {
@@ -45,7 +45,7 @@ public final class C2SRtsAreaDestroyPayload implements IMessage {
         this.positions = immutableCopy(positions);
         this.toolSlot = toolSlot;
         this.toolItemId = toolItemId == null ? "" : toolItemId;
-        this.toolPrototype = toolPrototype == null ? ItemStack.EMPTY : toolPrototype.copy();
+        this.toolPrototype = toolPrototype == null ? null : toolPrototype.copy();
         this.toolProtectionEnabled = toolProtectionEnabled;
     }
 

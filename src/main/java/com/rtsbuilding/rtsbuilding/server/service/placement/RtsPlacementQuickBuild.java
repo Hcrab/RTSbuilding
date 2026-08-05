@@ -11,18 +11,18 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -79,10 +79,10 @@ public final class RtsPlacementQuickBuild {
 
         ResourceLocation id;
         try { id = new ResourceLocation(jobItemId); } catch (RuntimeException invalid) { return null; }
-        Item item = Item.REGISTRY.getObject(id);
+        Item item = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getObject(id);
         if (item == null) return null;
         ItemStack templateStack = job.itemPrototype();
-        if (templateStack.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(templateStack)) {
             templateStack = new ItemStack(item);
         }
 
@@ -92,22 +92,21 @@ public final class RtsPlacementQuickBuild {
         ItemBlock blockItem = (ItemBlock) item;
 
         BlockPos templatePos = job.templatePosition();
-        if (templatePos == null || job.face() == null || !player.getServerWorld().isBlockLoaded(templatePos)) {
+        if (templatePos == null || job.face() == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), templatePos)) {
             return null;
         }
-        templateStack.setCount(1);
+        templateStack.stackSize = 1;
         RayTraceResult hit = job.templateHit(templatePos);
-        IBlockState state = blockItem.getBlock().getStateForPlacement(
-                player.getServerWorld(), templatePos, job.face(),
+        BlockState state = BlockState.forPlacement(
+                blockItem, templateStack, player.getServerForPlayer(), templatePos, job.face(),
                 (float) (hit.hitVec.x - templatePos.getX()),
                 (float) (hit.hitVec.y - templatePos.getY()),
-                (float) (hit.hitVec.z - templatePos.getZ()),
-                blockItem.getMetadata(templateStack.getMetadata()), player, EnumHand.MAIN_HAND);
+                (float) (hit.hitVec.z - templatePos.getZ()));
         if (state == null) {
             return null;
         }
 
-        ResourceLocation sourceId = Item.REGISTRY.getNameForObject(item);
+        ResourceLocation sourceId = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(item);
         if (sourceId == null) {
             return null;
         }
@@ -149,7 +148,7 @@ public final class RtsPlacementQuickBuild {
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
 
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
             return true;
         }
@@ -158,7 +157,7 @@ public final class RtsPlacementQuickBuild {
         }
 
         ItemStack placementStack = plan.templateStack();
-        ItemStack extracted = ItemStack.EMPTY;
+        ItemStack extracted = null;
         boolean refundExtractedOnFailure = false;
         List<IItemHandler> insertHandlers = java.util.Collections.emptyList();
         // 完全改为使用储存空间的方块进行放置
@@ -176,23 +175,23 @@ public final class RtsPlacementQuickBuild {
                     : includePlayerMainInventory
                             ? RtsPlacementExtractor.extractSelectedFromNetwork(extractHandlers, player, plan.item(), plan.templateStack())
                             : RtsPlacementExtractor.extractSelectedFromLinked(extractHandlers, plan.item(), plan.templateStack());
-            if (extracted.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 return false;
             }
             refundExtractedOnFailure = !creativeSource;
             placementStack = extracted.copy();
-            placementStack.setCount(1);
+            placementStack.stackSize = 1;
         }
 
         boolean placed = BlockPlacer.setBlock(level, targetPos, plan.state());
         if (!placed) {
-            if (refundExtractedOnFailure && !extracted.isEmpty()) {
+            if (refundExtractedOnFailure && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
             }
             return true;
         }
 
-        IBlockState placedState = level.getBlockState(targetPos);
+        BlockState placedState = BlockState.fromWorld(level, targetPos);
         if (placedState.getBlock() == plan.state().getBlock()) {
             BlockPlacer.applyQuickBuildBlockEntity(level, targetPos, placementStack, placedState, player);
         }
@@ -204,24 +203,26 @@ public final class RtsPlacementQuickBuild {
         return true;
     }
 
-    static boolean canPlaceStateAt(WorldServer level, EntityPlayerMP player, BlockPos targetPos, IBlockState state) {
+    static boolean canPlaceStateAt(WorldServer level, EntityPlayerMP player, BlockPos targetPos, BlockState state) {
         return canPlaceStateAt(level, player, targetPos, state, false);
     }
 
-    static boolean canPlaceStateAt(WorldServer level, EntityPlayerMP player, BlockPos targetPos, IBlockState state,
+    static boolean canPlaceStateAt(WorldServer level, EntityPlayerMP player, BlockPos targetPos, BlockState state,
                                    boolean creativeOverwrite) {
-        if (level == null || targetPos == null || state == null || !level.isBlockLoaded(targetPos)) {
+        if (level == null || targetPos == null || state == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, targetPos)) {
             return false;
         }
-        IBlockState current = level.getBlockState(targetPos);
-        if (!creativeOverwrite && current.getBlock() != net.minecraft.init.Blocks.AIR && !current.getMaterial().isReplaceable()) {
+        BlockState current = BlockState.fromWorld(level, targetPos);
+        if (!creativeOverwrite && current.getBlock() != net.minecraft.init.Blocks.air && !current.getMaterial().isReplaceable()) {
             return false;
         }
         if (creativeOverwrite) {
-            return state.getBlock().canPlaceBlockAt(level, targetPos);
+            return state.getBlock().canPlaceBlockAt(
+                    level, targetPos.getX(), targetPos.getY(), targetPos.getZ());
         }
         AxisAlignedBB box = state.getCollisionBoundingBox(level, targetPos);
-        return state.getBlock().canPlaceBlockAt(level, targetPos)
+        return state.getBlock().canPlaceBlockAt(
+                level, targetPos.getX(), targetPos.getY(), targetPos.getZ())
                 && (box == null || level.checkNoEntityCollision(box.offset(targetPos)));
     }
 
@@ -238,21 +239,21 @@ public final class RtsPlacementQuickBuild {
     public static final class StatePlacementPlan {
         private final Item item;
         private final ItemStack templateStack;
-        private final IBlockState state;
+        private final BlockState state;
         private final boolean selectedStorageItem;
         private final String itemId;
-        public StatePlacementPlan(Item item, ItemStack templateStack, IBlockState state,
+        public StatePlacementPlan(Item item, ItemStack templateStack, BlockState state,
                                   boolean selectedStorageItem, String itemId) {
             this.item = item;
-            this.templateStack = templateStack == null ? ItemStack.EMPTY : templateStack.copy();
-            if (!this.templateStack.isEmpty()) this.templateStack.setCount(1);
+            this.templateStack = templateStack == null ? null : templateStack.copy();
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(this.templateStack)) this.templateStack.stackSize = 1;
             this.state = state;
             this.selectedStorageItem = selectedStorageItem;
             this.itemId = itemId;
         }
         public Item item() { return item; }
         public ItemStack templateStack() { return templateStack.copy(); }
-        public IBlockState state() { return state; }
+        public BlockState state() { return state; }
         public boolean selectedStorageItem() { return selectedStorageItem; }
         public String itemId() { return itemId; }
     }

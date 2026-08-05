@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.network.progression;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 提交家园坐标；合法性和可提交条件由服务端进度管理器决定。 */
 public final class C2SRtsSetHomePayload implements IMessage {

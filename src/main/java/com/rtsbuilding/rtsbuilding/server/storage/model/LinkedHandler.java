@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.model;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 /**
  * 已解析的链接物品处理器——将链接存储引用与其对应的物品处理器绑定。

@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.ArrayList;
 import java.util.Collections;

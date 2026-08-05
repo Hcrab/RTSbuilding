@@ -17,11 +17,11 @@ import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.item.ItemStack;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -66,33 +66,34 @@ final class BuilderScreenPreviewQueryOwner {
         }
 
     List<BlockPos> collectUltiminePreviewBlocks() {
-            if (screen.getMinecraft() == null || screen.getMinecraft().world == null) {
+            if (screen.getMinecraft() == null || screen.getMinecraft().theWorld == null) {
                 return Collections.emptyList();
             }
             if (!screen.isQuickBuildRangeDestroyChainMode()) {
                 return Collections.emptyList();
             }
             BlockPos seed = screen.controller.getMineProgressPos();
-            if (seed == null || screen.getMinecraft().world.isAirBlock(seed)) {
+            if (seed == null || com.rtsbuilding.rtsbuilding.platform.world.WorldCompat
+                    .isAirBlock(screen.getMinecraft().theWorld, seed)) {
                 RayTraceResult hit = screen.cursorPicker.pickBlockHit();
                 if (hit == null) {
                     return Collections.emptyList();
                 }
                 seed = hit.getBlockPos();
             }
-            IBlockState seedState = screen.getMinecraft().world.getBlockState(seed);
-            if (seedState.getMaterial() == Material.AIR) {
+            BlockState seedState = BlockState.fromWorld(screen.getMinecraft().theWorld, seed);
+            if (seedState.getMaterial() == Material.air) {
                 return Collections.emptyList();
             }
-            boolean creative = screen.getMinecraft().player != null && screen.getMinecraft().player.isCreative();
+            boolean creative = screen.getMinecraft().thePlayer != null && screen.getMinecraft().thePlayer.capabilities.isCreativeMode;
             List<BlockPos> raw = RtsUltimineCollector.collect(
-                    screen.getMinecraft().world,
+                    screen.getMinecraft().theWorld,
                     seed,
                     screen.getUltimineLimit(),
                     (pos, state, originalState) -> {
-                        if (state.getMaterial() == Material.AIR
+                        if (state.getMaterial() == Material.air
                                 || state.getMaterial().isLiquid()
-                                || (!creative && state.getBlockHardness(screen.getMinecraft().world, pos) < 0.0F)) {
+                                || (!creative && state.getBlockHardness(screen.getMinecraft().theWorld, pos) < 0.0F)) {
                             return false;
                         }
                         return state.getBlock() == originalState.getBlock();
@@ -152,7 +153,7 @@ final class BuilderScreenPreviewQueryOwner {
     String selectedItemStatusLabel() {
             ItemStack preview = screen.controller.getSelectedItemPreview();
             String label = screen.controller.getSelectedItemLabel();
-            if (preview != null && !preview.isEmpty() && preview.isItemStackDamageable()) {
+            if (preview != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) && preview.isItemStackDamageable()) {
                 int max = preview.getMaxDamage();
                 int durability = Math.max(0, max - preview.getItemDamage());
                 return label + " " + durability + "/" + max;
@@ -168,13 +169,13 @@ final class BuilderScreenPreviewQueryOwner {
                 return screen.controller.getSelectedFluidPreview();
             }
             if (screen.controller.isEmptyHandSelected()) {
-                return ItemStack.EMPTY;
+                return null;
             }
-            if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
-                return ItemStack.EMPTY;
+            if (screen.getMinecraft() == null || screen.getMinecraft().thePlayer == null) {
+                return null;
             }
-            ItemStack hand = screen.getMinecraft().player.getHeldItemMainhand();
-            return hand.isEmpty() ? ItemStack.EMPTY : hand;
+            ItemStack hand = screen.getMinecraft().thePlayer.getHeldItem();
+            return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(hand) ? null : hand;
         }
 
     boolean shouldRenderFunnelCursor() {
@@ -194,8 +195,8 @@ final class BuilderScreenPreviewQueryOwner {
         }
 
     EnumFacing currentCameraHorizontalDirection() {
-            if (screen.getMinecraft() != null && screen.getMinecraft().getRenderViewEntity() != null) {
-                return screen.getMinecraft().getRenderViewEntity().getHorizontalFacing();
+            if (screen.getMinecraft() != null && screen.getMinecraft().renderViewEntity != null) {
+                return EnumFacing.fromAngle(screen.getMinecraft().renderViewEntity.rotationYaw);
             }
             return EnumFacing.NORTH;
         }

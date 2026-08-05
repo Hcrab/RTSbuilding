@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 public final class C2SRtsSetFunnelPayload implements IMessage {
     private boolean enabled;
     public C2SRtsSetFunnelPayload() { }

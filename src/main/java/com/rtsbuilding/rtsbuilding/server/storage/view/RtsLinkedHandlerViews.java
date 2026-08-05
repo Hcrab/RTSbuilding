@@ -4,8 +4,8 @@ import com.rtsbuilding.rtsbuilding.compat.AnySlotInsertItemHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.handler.RtsLinkedCapabilities;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 /**
  * 处理器包装视图和链接存储解析的物品插入辅助方法。
@@ -30,8 +30,8 @@ public final class RtsLinkedHandlerViews {
      * 如果处理器不支持则返回 {@code null}，调用者可回退到逐槽位插入。
      */
     public static ItemStack insertItemAnywhereIfSupported(IItemHandler handler, ItemStack stack, boolean simulate) {
-        if (handler == null || stack == null || stack.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (handler == null || stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            return null;
         }
         if (handler instanceof LinkedItemHandlerView
                 && ((LinkedItemHandlerView) handler).supportsAnySlotInsert()) {
@@ -52,8 +52,8 @@ public final class RtsLinkedHandlerViews {
         if (supported != null) {
             return supported;
         }
-        ItemStack remain = stack == null ? ItemStack.EMPTY : stack.copy();
-        for (int slot = 0; handler != null && slot < handler.getSlots() && !remain.isEmpty(); slot++) {
+        ItemStack remain = stack == null ? null : stack.copy();
+        for (int slot = 0; handler != null && slot < handler.getSlots() && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain); slot++) {
             remain = handler.insertItem(slot, remain, simulate);
         }
         return remain;

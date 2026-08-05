@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.compat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiMainMenu;
 import net.minecraft.client.gui.GuiScreen;
@@ -13,20 +13,20 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.world.GameType;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.world.WorldSettings.GameType;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
 import net.minecraftforge.client.ClientCommandHandler;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -45,7 +45,6 @@ import java.util.logging.Logger;
  * 支持客户端命令手动运行，也可按环境变量自动布置、交互、稳定性判定和退出。
  */
 @SideOnly(Side.CLIENT)
-@Mod.EventBusSubscriber(modid = "rtsbuilding", value = Side.CLIENT)
 public final class RtsGuiCompatProbe {
     private static final Logger LOGGER = Logger.getLogger("rtsbuilding");
     private static final int SCREENLESS_MENU_TICK_LIMIT = 8;
@@ -97,7 +96,7 @@ public final class RtsGuiCompatProbe {
     }
 
     @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
+    public void onClientTick(TickEvent.ClientTickEvent event) {
         if (REPORT_PATH == null || event.phase != TickEvent.Phase.END) return;
         ensureClientCommandRegistered();
 
@@ -135,7 +134,7 @@ public final class RtsGuiCompatProbe {
 
     private static int startFromCommand(String requestedCaseId) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft.player == null || minecraft.world == null) {
+        if (minecraft.thePlayer == null || minecraft.theWorld == null) {
             writeRow("run-start", "FAIL", "", "", "", -1,
                     "Client world or player is not ready.");
             return 0;
@@ -150,7 +149,7 @@ public final class RtsGuiCompatProbe {
             return 0;
         }
 
-        IBlockState state = minecraft.world.getBlockState(hit.getBlockPos());
+        BlockState state = BlockState.fromWorld(minecraft.theWorld, hit.getBlockPos());
         String targetBlock = registryName(state.getBlock());
         if (!isBlank(TARGET_BLOCK) && !TARGET_BLOCK.equals(targetBlock)) {
             writeRow("run-start", "FAIL", currentScreenClass(minecraft),
@@ -160,10 +159,11 @@ public final class RtsGuiCompatProbe {
             return 0;
         }
 
-        Vec3d origin = minecraft.player.getPositionEyes(1.0F);
+        Vec3d origin = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.positionEyes(minecraft.thePlayer, 1.0F);
         Vec3d rayDir = hit.hitVec.subtract(origin);
         rayDir = rayDir.lengthSquared() < 1.0E-6D
-                ? minecraft.player.getLookVec() : rayDir.normalize();
+                ? com.rtsbuilding.rtsbuilding.platform.math.Vec3d.fromNative(
+                        minecraft.thePlayer.getLookVec()) : rayDir.normalize();
 
         String runCase = isBlank(requestedCaseId) ? CASE_ID : requestedCaseId;
         activeRun = new SmokeRun(runCase, targetBlock, hit, origin, rayDir);
@@ -193,7 +193,7 @@ public final class RtsGuiCompatProbe {
                     target.getZ() + 0.5D);
             return new RayTraceResult(center, EnumFacing.UP, target);
         }
-        RayTraceResult hit = minecraft.objectMouseOver;
+        RayTraceResult hit = RayTraceResult.fromNative(minecraft.objectMouseOver);
         if (hit != null && hit.typeOfHit == RayTraceResult.Type.BLOCK
                 && (isBlank(TARGET_BLOCK) || matchesTargetBlock(minecraft, hit.getBlockPos()))) {
             return hit;
@@ -202,13 +202,13 @@ public final class RtsGuiCompatProbe {
     }
 
     private static boolean matchesTargetBlock(Minecraft minecraft, BlockPos pos) {
-        if (minecraft.world == null) return false;
-        return TARGET_BLOCK.equals(registryName(minecraft.world.getBlockState(pos).getBlock()));
+        if (minecraft.theWorld == null) return false;
+        return TARGET_BLOCK.equals(registryName(BlockState.fromWorld(minecraft.theWorld, pos).getBlock()));
     }
 
     private static RayTraceResult findNearestTargetHit(Minecraft minecraft) {
-        if (minecraft.player == null || minecraft.world == null || isBlank(TARGET_BLOCK)) return null;
-        BlockPos playerPos = minecraft.player.getPosition();
+        if (minecraft.thePlayer == null || minecraft.theWorld == null || isBlank(TARGET_BLOCK)) return null;
+        BlockPos playerPos = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(minecraft.thePlayer);
         BlockPos nearest = null;
         double bestDistance = Double.MAX_VALUE;
         int radius = Math.max(1, TARGET_SEARCH_RADIUS);
@@ -271,7 +271,7 @@ public final class RtsGuiCompatProbe {
         }
 
         if (activeRun.stage == SmokeStage.OBSERVE) {
-            Container menu = minecraft.player == null ? null : minecraft.player.openContainer;
+            Container menu = minecraft.thePlayer == null ? null : minecraft.thePlayer.openContainer;
             boolean hasMenu = menu != null && menu.windowId != 0;
             boolean hasScreen = minecraft.currentScreen != null;
             boolean menuMatches = hasMenu && matchesRegex(menu.getClass().getName(), EXPECTED_MENU_REGEX);
@@ -327,7 +327,7 @@ public final class RtsGuiCompatProbe {
                                     String screenTitle, String menuClass, int containerId) {
         if (autoRun == null || autoRun.finished) return;
         autoRun.totalTicks++;
-        if (minecraft.player == null || minecraft.world == null || minecraft.player.connection == null) {
+        if (minecraft.thePlayer == null || minecraft.theWorld == null || minecraft.thePlayer.sendQueue == null) {
             if (!autoRun.worldLaunchSent && minecraft.currentScreen instanceof GuiMainMenu) {
                 autoRun.mainMenuTicks++;
                 if (autoRun.mainMenuTicks >= AUTO_MAIN_MENU_STABLE_TICKS) {
@@ -354,7 +354,7 @@ public final class RtsGuiCompatProbe {
             if (autoRun.stageTicks < AUTO_WORLD_READY_DELAY) return;
             if (!isBlank(SETUP_COMMAND)) {
                 String setupCommand = prepareAutoSetupCommand(minecraft);
-                minecraft.player.sendChatMessage("/" + setupCommand);
+                minecraft.thePlayer.sendChatMessage("/" + setupCommand);
                 writeRow("auto-setup-command", "INFO", screenClass, screenTitle, menuClass,
                         containerId, "/" + setupCommand);
                 autoRun.stage = AutoStage.WAIT_SETUP;
@@ -369,8 +369,8 @@ public final class RtsGuiCompatProbe {
             if (autoRun.targetPos != null) {
                 if (!matchesTargetBlock(minecraft, autoRun.targetPos)) {
                     if (autoRun.stageTicks >= AUTO_SETUP_SYNC_TIMEOUT) {
-                        String actual = registryName(minecraft.world
-                                .getBlockState(autoRun.targetPos).getBlock());
+                        String actual = registryName(BlockState.fromWorld(
+                                minecraft.theWorld, autoRun.targetPos).getBlock());
                         writeRow("auto-setup-sync", "FAIL", screenClass, screenTitle,
                                 menuClass, containerId, "pos=" + autoRun.targetPos
                                         + " expected=" + TARGET_BLOCK + " actual=" + actual);
@@ -418,11 +418,11 @@ public final class RtsGuiCompatProbe {
 
         BlockPos targetPos;
         if (parts.length >= 8) {
-            targetPos = new BlockPos(parseSignedInt(parts[5], minecraft.player.posX),
-                    parseSignedInt(parts[6], minecraft.player.posY),
-                    parseSignedInt(parts[7], minecraft.player.posZ));
+            targetPos = new BlockPos(parseSignedInt(parts[5], minecraft.thePlayer.posX),
+                    parseSignedInt(parts[6], minecraft.thePlayer.posY),
+                    parseSignedInt(parts[7], minecraft.thePlayer.posZ));
         } else {
-            targetPos = minecraft.player.getPosition().add(0, 0, Math.max(2, distance));
+            targetPos = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(minecraft.thePlayer).add(0, 0, Math.max(2, distance));
         }
         autoRun.targetPos = targetPos;
         return "rtsbuilding_gui_compat_setup " + caseId + " " + targetBlock + " "
@@ -504,7 +504,8 @@ public final class RtsGuiCompatProbe {
                     field.setAccessible(true);
                     Object inventory = field.get(screen);
                     if (inventory instanceof IInventory) {
-                        ITextComponent title = ((IInventory) inventory).getDisplayName();
+                        IChatComponent title = new net.minecraft.util.ChatComponentText(
+                                ((IInventory) inventory).getInventoryName());
                         if (title != null) return title.getUnformattedText();
                     }
                 } catch (ReflectiveOperationException | SecurityException ignored) {
@@ -517,14 +518,14 @@ public final class RtsGuiCompatProbe {
     }
 
     private static String currentMenuClass(Minecraft minecraft) {
-        Container menu = minecraft == null || minecraft.player == null
-                ? null : minecraft.player.openContainer;
+        Container menu = minecraft == null || minecraft.thePlayer == null
+                ? null : minecraft.thePlayer.openContainer;
         return menu == null || menu.windowId == 0 ? "" : menu.getClass().getName();
     }
 
     private static int currentContainerId(Minecraft minecraft) {
-        Container menu = minecraft == null || minecraft.player == null
-                ? null : minecraft.player.openContainer;
+        Container menu = minecraft == null || minecraft.thePlayer == null
+                ? null : minecraft.thePlayer.openContainer;
         return menu == null ? -1 : menu.windowId;
     }
 
@@ -574,8 +575,8 @@ public final class RtsGuiCompatProbe {
     }
 
     private static String registryName(Block block) {
-        return Block.REGISTRY.getNameForObject(block) == null
-                ? "" : Block.REGISTRY.getNameForObject(block).toString();
+        return com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getNameForObject(block) == null
+                ? "" : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getNameForObject(block).toString();
     }
 
     private static boolean isBlank(String value) {
@@ -672,14 +673,14 @@ public final class RtsGuiCompatProbe {
 
     /** Forge 1.12 客户端命令替代 Brigadier 注册事件。 */
     private static final class ProbeCommand extends CommandBase {
-        @Override public String getName() { return "rtsbuilding_gui_compat_run"; }
-        @Override public String getUsage(ICommandSender sender) {
+        @Override public String getCommandName() { return "rtsbuilding_gui_compat_run"; }
+        @Override public String getCommandUsage(ICommandSender sender) {
             return "/rtsbuilding_gui_compat_run [caseId]";
         }
         @Override public int getRequiredPermissionLevel() { return 0; }
 
         @Override
-        public void execute(MinecraftServer server, ICommandSender sender, String[] args)
+        public void processCommand(ICommandSender sender, String[] args)
                 throws CommandException {
             String caseId = args.length == 0 ? CASE_ID : args[0];
             if (startFromCommand(caseId) != 1) {

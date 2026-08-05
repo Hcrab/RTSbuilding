@@ -14,7 +14,7 @@ import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementSliceResult;
 import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementResumePolicy;
 import com.rtsbuilding.rtsbuilding.server.task.placement.PlacementTaskState;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
@@ -23,12 +23,12 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagLong;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.util.Constants;
 
@@ -94,7 +94,7 @@ public final class RtsPlacementBatch {
             int workflowEntryId) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             if (sendRemoteHint && player != null) {
-                player.sendStatusMessage(new TextComponentTranslation(
+                com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(
                         "message.rtsbuilding.quick_build.remote_place_locked"), true);
             }
             return false;
@@ -103,7 +103,7 @@ public final class RtsPlacementBatch {
             return false;
         }
         if (quickBuild && (itemId == null || itemId.trim().isEmpty())) {
-            player.sendStatusMessage(new TextComponentTranslation(
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(
                     "message.rtsbuilding.quick_build.select_material"), true);
             return false;
         }
@@ -232,14 +232,14 @@ public final class RtsPlacementBatch {
                 BlockPos targetPos = job.quickBuild()
                         ? clickedPos
                         : RtsPlacementExecutor.placementTargetPos(
-                                player.getServerWorld(), clickedPos, job.face());
-                if (!player.getServerWorld().isBlockLoaded(targetPos)) {
+                                player.getServerForPlayer(), clickedPos, job.face());
+                if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), targetPos)) {
                     job.unconsumeLast();
                     break;
                 }
-                IBlockState targetState = player.getServerWorld().getBlockState(targetPos);
+                BlockState targetState = BlockState.fromWorld(player.getServerForPlayer(), targetPos);
                 boolean alreadyExpected = targetState.getBlock() == expectedBlock;
-                boolean conflict = !alreadyExpected && targetState.getBlock() != Blocks.AIR
+                boolean conflict = !alreadyExpected && targetState.getBlock() != Blocks.air
                         && !targetState.getMaterial().isReplaceable();
                 if (alreadyExpected
                         || (conflict && state.resumePolicy() == PlacementResumePolicy.SKIP_CONFLICTS)) {
@@ -290,33 +290,35 @@ public final class RtsPlacementBatch {
         String itemId = job.itemId();
         ResourceLocation id;
         try { id = new ResourceLocation(itemId); } catch (RuntimeException invalid) { return null; }
-        Item registered = Item.REGISTRY.getObject(id);
+        Item registered = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getObject(id);
         if (!(registered instanceof ItemBlock)) return null;
         ItemBlock blockItem = (ItemBlock) registered;
-        Block expectedBlock = blockItem.getBlock();
-        return expectedBlock == Blocks.AIR ? null : expectedBlock;
+        Block expectedBlock = net.minecraft.block.Block.getBlockFromItem(blockItem);
+        return expectedBlock == Blocks.air ? null : expectedBlock;
     }
 
     /** 覆盖策略的单格世界事务；调用点已经受 TaskStore revision ACK 与 slice 预算保护。 */
     private static boolean prepareOverwriteConflict(
-            EntityPlayerMP player, BlockPos pos, IBlockState current, List<BlockPos> dropPositions) {
-        WorldServer level = player.getServerWorld();
+            EntityPlayerMP player, BlockPos pos, BlockState current, List<BlockPos> dropPositions) {
+        WorldServer level = player.getServerForPlayer();
         if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.UP)) return false;
 
         // 1.12 的 canHarvestBlock 会重新查询世界状态，必须在清空气方块前完成判断。
         boolean canHarvest = player.capabilities.isCreativeMode
-                || current.getBlock().canHarvestBlock(level, pos, player);
-        List<ItemStack> drops = current.getBlock().getDrops(level, pos, current, 0);
-        level.setBlockToAir(pos);
+                || net.minecraftforge.common.ForgeHooks.canHarvestBlock(
+                        current.getBlock(), player, current.getMetadata());
+        List<ItemStack> drops = current.getBlock().getDrops(
+                level, pos.getX(), pos.getY(), pos.getZ(), current.getMetadata(), 0);
+        level.setBlockToAir(pos.getX(), pos.getY(), pos.getZ());
         if (canHarvest) {
             for (ItemStack drop : drops) {
-                if (!drop.isEmpty()) {
-                    Block.spawnAsEntity(level, pos, drop);
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(drop)) {
+                    com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.spawnItem(level, pos, drop);
                 }
             }
             if (!drops.isEmpty()) dropPositions.add(pos.toImmutable());
         } else {
-            player.sendStatusMessage(new TextComponentTranslation(
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(
                     "message.rtsbuilding.placement.tool_required", current.getBlock().getLocalizedName()), true);
         }
         return true;
@@ -343,13 +345,13 @@ public final class RtsPlacementBatch {
         boolean keepGoing;
         if (statePlan != null) {
             BlockPos trackedPos = clickedPos;
-            IBlockState beforeState = player.getServerWorld().getBlockState(trackedPos);
+            BlockState beforeState = BlockState.fromWorld(player.getServerForPlayer(), trackedPos);
             boolean creativeOverwrite = job.overwriteExisting() && player.capabilities.isCreativeMode;
             keepGoing = RtsPlacementQuickBuild.placeStateBatchEntry(
                     player, session, clickedPos, statePlan, creativeOverwrite);
-            if (keepGoing && (creativeOverwrite || beforeState.getBlock() == Blocks.AIR
+            if (keepGoing && (creativeOverwrite || beforeState.getBlock() == Blocks.air
                     || beforeState.getMaterial().isReplaceable())
-                    && player.getServerWorld().getBlockState(trackedPos).getBlock() != Blocks.AIR) {
+                    && BlockState.fromWorld(player.getServerForPlayer(), trackedPos).getBlock() != Blocks.air) {
                 job.placedPositions.add(trackedPos);
             } else if (keepGoing) {
                 job.skippedWhileProcessing++;
@@ -362,9 +364,9 @@ public final class RtsPlacementBatch {
                 clickedPos.getY() + job.hitOffsetY(),
                 clickedPos.getZ() + job.hitOffsetZ());
         BlockPos adjPos = clickedPos.offset(job.face());
-        IBlockState beforeClicked = player.getServerWorld().getBlockState(clickedPos);
-        IBlockState beforeAdjacent = player.getServerWorld().isBlockLoaded(adjPos)
-                ? player.getServerWorld().getBlockState(adjPos) : null;
+        BlockState beforeClicked = BlockState.fromWorld(player.getServerForPlayer(), clickedPos);
+        BlockState beforeAdjacent = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), adjPos)
+                ? BlockState.fromWorld(player.getServerForPlayer(), adjPos) : null;
         keepGoing = RtsPlacementExecutor.placeSelectedInternal(
                 player,
                 session,
@@ -391,7 +393,7 @@ public final class RtsPlacementBatch {
                 job.sendRemoteHint());
         if (keepGoing) {
             BlockPos actualPos = RtsPlacementHelper.detectPlacedPos(
-                    player.getServerWorld(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
+                    player.getServerForPlayer(), clickedPos, beforeClicked, adjPos, beforeAdjacent);
             if (actualPos != null) job.placedPositions.add(actualPos);
             else job.skippedWhileProcessing++;
         }
@@ -453,7 +455,7 @@ public final class RtsPlacementBatch {
             this.skipIfOccupied = skipIfOccupied;
             this.overwriteExisting = overwriteExisting;
             this.itemId = itemId;
-            this.itemPrototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
+            this.itemPrototype = itemPrototype == null ? null : itemPrototype.copy();
             this.rayOriginX = rayOriginX;
             this.rayOriginY = rayOriginY;
             this.rayOriginZ = rayOriginZ;
@@ -579,7 +581,7 @@ public final class RtsPlacementBatch {
             tag.setBoolean(NBT_SKIP_IF_OCCUPIED, skipIfOccupied);
             tag.setBoolean(NBT_OVERWRITE_EXISTING, overwriteExisting);
             tag.setString(NBT_ITEM_ID, itemId);
-            if (!itemPrototype.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(itemPrototype)) {
                 tag.setTag(NBT_ITEM_PROTOTYPE, itemPrototype.writeToNBT(new NBTTagCompound()));
             }
             tag.setDouble(NBT_RAY_ORIGIN_X, rayOriginX);
@@ -605,7 +607,8 @@ public final class RtsPlacementBatch {
             NBTTagList encodedPositions = tag.getTagList(NBT_POSITIONS, Constants.NBT.TAG_LONG);
             List<BlockPos> positions = new ArrayList<BlockPos>(encodedPositions.tagCount());
             for (int i = 0; i < encodedPositions.tagCount(); i++) {
-                positions.add(BlockPos.fromLong(((NBTTagLong) encodedPositions.get(i)).getLong()));
+                positions.add(BlockPos.fromLong(
+                        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getLongAt(encodedPositions, i)));
             }
             EnumFacing face = EnumFacing.byIndex(tag.getByte(NBT_FACE));
             double hitOffsetX = tag.getDouble(NBT_HIT_OFFSET_X);
@@ -617,9 +620,9 @@ public final class RtsPlacementBatch {
             boolean skipIfOccupied = tag.getBoolean(NBT_SKIP_IF_OCCUPIED);
             boolean overwriteExisting = tag.getBoolean(NBT_OVERWRITE_EXISTING);
             String itemId = tag.getString(NBT_ITEM_ID);
-            ItemStack itemPrototype = ItemStack.EMPTY;
+            ItemStack itemPrototype = null;
             if (tag.hasKey(NBT_ITEM_PROTOTYPE, Constants.NBT.TAG_COMPOUND)) {
-                itemPrototype = new ItemStack(tag.getCompoundTag(NBT_ITEM_PROTOTYPE));
+                itemPrototype = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.read(tag.getCompoundTag(NBT_ITEM_PROTOTYPE));
             }
             double rayOriginX = tag.getDouble(NBT_RAY_ORIGIN_X);
             double rayOriginY = tag.getDouble(NBT_RAY_ORIGIN_Y);

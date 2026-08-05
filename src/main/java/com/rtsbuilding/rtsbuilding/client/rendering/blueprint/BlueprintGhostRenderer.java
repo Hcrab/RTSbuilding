@@ -5,11 +5,11 @@ import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
 import org.lwjgl.opengl.GL11;
 
 import java.util.List;
@@ -44,7 +44,7 @@ public final class BlueprintGhostRenderer {
             return;
         }
 
-        RenderManager renderManager = minecraft.getRenderManager();
+        RenderManager renderManager = net.minecraft.client.renderer.entity.RenderManager.instance;
         double cameraX = renderManager.viewerPosX;
         double cameraY = renderManager.viewerPosY;
         double cameraZ = renderManager.viewerPosZ;

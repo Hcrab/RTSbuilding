@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 public final class C2SRtsUpdateLinkedStoragePayload implements IMessage {
     public static final int MIN_PRIORITY=-9999, MAX_PRIORITY=9999;
     private BlockPos pos; private byte linkMode; private int priority;

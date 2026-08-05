@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsPlacementControlHandlers;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 注册模式选择、方块旋转和挂起放置提交消息。 */
 public final class RtsPlacementControlPackets {

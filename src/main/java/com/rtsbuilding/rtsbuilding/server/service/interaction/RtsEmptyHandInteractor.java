@@ -8,9 +8,9 @@ import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.UseOnOut
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumActionResult;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.WorldServer;
 
 /**
@@ -45,15 +45,15 @@ public final class RtsEmptyHandInteractor {
                 Config.remotePovBlockReach(),
                 () -> {
                     if (targetEntity != null) {
-                        return InteractionHelper.useItemOnEntityWithMainHand(player, level, ItemStack.EMPTY, targetEntity, hit).result();
+                        return InteractionHelper.useItemOnEntityWithMainHand(player, level, null, targetEntity, hit).result();
                     }
                     if (blockHit != null) {
-                        UseOnOutcome primary = InteractionHelper.useItemOnWithMainHand(player, level, ItemStack.EMPTY, blockHit, false);
+                        UseOnOutcome primary = InteractionHelper.useItemOnWithMainHand(player, level, null, blockHit, false);
                         if (primary.result() == EnumActionResult.SUCCESS) {
                             return primary.result();
                         }
                     }
-                    return InteractionHelper.useItemWithMainHand(player, level, ItemStack.EMPTY, false).result();
+                    return InteractionHelper.useItemWithMainHand(player, level, null, false).result();
                 });
     }
 }

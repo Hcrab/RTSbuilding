@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;

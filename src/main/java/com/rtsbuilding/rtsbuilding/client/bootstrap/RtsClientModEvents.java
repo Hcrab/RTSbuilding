@@ -2,16 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraRenderSync;
-import com.rtsbuilding.rtsbuilding.client.rendering.RtsVisualOverlayRenderer;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
+import com.rtsbuilding.rtsbuilding.platform.event.LegacyEventRegistrar;
 import net.minecraft.client.Minecraft;
-import net.minecraftforge.client.event.ModelRegistryEvent;
-import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.client.registry.RenderingRegistry;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.client.registry.RenderingRegistry;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 import java.lang.reflect.Method;
 import java.util.logging.Logger;
@@ -23,7 +19,6 @@ import java.util.logging.Logger;
  * {@link ModelRegistryEvent} 中兜底注册。公共模组入口无需静态引用本类。</p>
  */
 @SideOnly(Side.CLIENT)
-@Mod.EventBusSubscriber(modid = "rtsbuilding", value = Side.CLIENT)
 public final class RtsClientModEvents {
     private static final Logger LOGGER = Logger.getLogger("rtsbuilding");
     private static boolean registered;
@@ -31,18 +26,14 @@ public final class RtsClientModEvents {
     private RtsClientModEvents() {
     }
 
-    @SubscribeEvent
-    public static void onModelRegistry(ModelRegistryEvent event) {
-        register();
-    }
-
     public static synchronized void register() {
         if (registered) return;
         ClientKeyMappings.register();
         RenderingRegistry.registerEntityRenderingHandler(
-                RtsCameraEntity.class, RtsCameraEntityRenderer::new);
-        MinecraftForge.EVENT_BUS.register(RtsCameraRenderSync.INSTANCE);
-        MinecraftForge.EVENT_BUS.register(RtsVisualOverlayRenderer.class);
+                RtsCameraEntity.class,
+                new RtsCameraEntityRenderer(net.minecraft.client.renderer.entity.RenderManager.instance));
+        LegacyEventRegistrar.registerInstance(RtsCameraRenderSync.INSTANCE);
+        registerLegacyClientSubscribers();
         initializeMovementModes();
         registered = true;
 
@@ -50,6 +41,25 @@ public final class RtsClientModEvents {
         String username = minecraft.getSession() == null
                 ? "unknown" : minecraft.getSession().getUsername();
         LOGGER.info("RTSBuilding 客户端初始化完成，当前用户 " + username);
+    }
+
+    private static void registerLegacyClientSubscribers() {
+        String prefix = "com.rtsbuilding.rtsbuilding.client.";
+        String[] subscribers = {
+                "compat.RtsClientOnboardingReminder",
+                "compat.RtsGuiCompatMatrixProbe",
+                "compat.RtsGuiCompatProbe",
+                "compat.RtsClientStartupSmoke",
+                "event.ClientGuiEventHandler",
+                "input.ClientInputHandler",
+                "input.RtsClientInputGate",
+                "input.RtsClientInputEvents1122",
+                "plugin.RtsPluginInventoryScreenEvents",
+                "rendering.RtsVisualOverlayRenderer"
+        };
+        for (String subscriber : subscribers) {
+            LegacyEventRegistrar.registerByName(prefix + subscriber);
+        }
     }
 
     private static void initializeMovementModes() {

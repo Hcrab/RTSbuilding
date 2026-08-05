@@ -23,12 +23,12 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeWorldOperationPlanne
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import net.minecraft.client.Minecraft;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import org.lwjgl.input.Keyboard;
 
 import java.util.Collections;
@@ -292,7 +292,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
                         ShapePlacementTargetResolver.minecraftWorld(
                                 this.screen.getMinecraft(),
                                 this.worldOperations.placementStack()));
-                IBlockState pendingState = resolvePendingGhostBlockState(placePos);
+                BlockState pendingState = resolvePendingGhostBlockState(placePos);
                 if (placePos != null) {
                     PlacementAnimationRenderer.addPendingBatch(Collections.singletonList(placePos.toImmutable()), pendingState);
                 }
@@ -637,7 +637,7 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
 
     // ===== Internal helpers =====
 
-    private IBlockState resolvePendingGhostBlockState(BlockPos targetPos) {
+    private BlockState resolvePendingGhostBlockState(BlockPos targetPos) {
         return this.worldOperations.pendingGhostState(targetPos);
     }
 

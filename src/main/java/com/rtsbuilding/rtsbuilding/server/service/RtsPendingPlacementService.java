@@ -6,15 +6,15 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import javax.annotation.Nullable;
 import java.util.List;
@@ -107,13 +107,13 @@ public final class RtsPendingPlacementService {
         ResourceLocation id = parseResourceLocation(itemId);
         String itemLabel = itemId;
         Block expectedBlock = null;
-        if (id != null && ForgeRegistries.ITEMS.containsKey(id)) {
-            Item item = ForgeRegistries.ITEMS.getValue(id);
+        if (id != null && RtsRegistries.ITEMS.containsKey(id)) {
+            Item item = RtsRegistries.ITEMS.getValue(id);
             if (item != null) {
                 ItemStack stack = new ItemStack(item);
                 itemLabel = stack.getDisplayName();
                 if (item instanceof ItemBlock) {
-                    expectedBlock = ((ItemBlock) item).getBlock();
+                    expectedBlock = net.minecraft.block.Block.getBlockFromItem(item);
                 }
             }
         }
@@ -123,21 +123,21 @@ public final class RtsPendingPlacementService {
         int alreadyPlacedCount = 0;
         int conflictCount = 0;
 
-        if (expectedBlock != null && expectedBlock != Blocks.AIR) {
+        if (expectedBlock != null && expectedBlock != Blocks.air) {
             for (BlockPos pos : remaining) {
                 BlockPos targetPos = job.quickBuild()
                         ? pos
                         : com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor
-                        .placementTargetPos(player.getServerWorld(), pos, job.face());
-                if (!player.getServerWorld().isBlockLoaded(targetPos)) {
+                        .placementTargetPos(player.getServerForPlayer(), pos, job.face());
+                if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), targetPos)) {
                     continue;
                 }
-                IBlockState currentState = player.getServerWorld().getBlockState(targetPos);
+                BlockState currentState = BlockState.fromWorld(player.getServerForPlayer(), targetPos);
                 Block currentBlock = currentState.getBlock();
 
                 if (currentBlock == expectedBlock) {
                     alreadyPlacedCount++;
-                } else if (currentBlock != Blocks.AIR
+                } else if (currentBlock != Blocks.air
                         && !currentState.getMaterial().isReplaceable()) {
                     conflictCount++;
                 }
@@ -147,10 +147,10 @@ public final class RtsPendingPlacementService {
         ItemStack template = resolveTemplate(job.itemPrototype(), itemId);
         final ItemStack finalTemplate = template;
         long availableItems = 0;
-        if (!finalTemplate.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(finalTemplate)) {
             availableItems = ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,
-                    stack -> stack != null && !stack.isEmpty()
-                            && ItemStack.areItemsEqual(stack, finalTemplate)
+                    stack -> stack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)
+                            && com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(stack, finalTemplate)
                             && ItemStack.areItemStackTagsEqual(stack, finalTemplate));
             availableItems = RtsCountUtil.saturatedAdd(availableItems,
                     RtsProgressRefresher.countItemsInPlayerInventory(player, finalTemplate));
@@ -273,12 +273,12 @@ public final class RtsPendingPlacementService {
 
     @Nullable
     private static ItemStack resolveTemplate(ItemStack template, String itemId) {
-        if (!template.isEmpty() || itemId == null || itemId.trim().isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(template) || itemId == null || itemId.trim().isEmpty()) {
             return template;
         }
         ResourceLocation fallbackId = parseResourceLocation(itemId);
-        if (fallbackId != null && ForgeRegistries.ITEMS.containsKey(fallbackId)) {
-            Item item = ForgeRegistries.ITEMS.getValue(fallbackId);
+        if (fallbackId != null && RtsRegistries.ITEMS.containsKey(fallbackId)) {
+            Item item = RtsRegistries.ITEMS.getValue(fallbackId);
             if (item != null) return new ItemStack(item);
         }
         return template;

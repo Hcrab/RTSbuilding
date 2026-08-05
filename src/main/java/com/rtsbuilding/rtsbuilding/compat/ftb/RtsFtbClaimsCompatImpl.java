@@ -1,13 +1,13 @@
 package com.rtsbuilding.rtsbuilding.compat.ftb;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.lang.reflect.Method;
 
@@ -28,9 +28,9 @@ final class RtsFtbClaimsCompatImpl {
     RtsFtbClaimsCompatImpl() throws ReflectiveOperationException {
         Class<?> claimedChunksClass = Class.forName("com.feed_the_beast.ftbutilities.data.ClaimedChunks");
         this.blockBlockEditingMethod = claimedChunksClass.getMethod(
-                "blockBlockEditing", EntityPlayer.class, BlockPos.class, IBlockState.class);
+                "blockBlockEditing", EntityPlayer.class, BlockPos.class, BlockState.class);
         this.blockBlockInteractionsMethod = claimedChunksClass.getMethod(
-                "blockBlockInteractions", EntityPlayer.class, BlockPos.class, IBlockState.class);
+                "blockBlockInteractions", EntityPlayer.class, BlockPos.class, BlockState.class);
         this.blockItemUseMethod = claimedChunksClass.getMethod(
                 "blockItemUse", EntityPlayer.class, EnumHand.class, BlockPos.class);
         this.canAttackEntityMethod = claimedChunksClass.getMethod(

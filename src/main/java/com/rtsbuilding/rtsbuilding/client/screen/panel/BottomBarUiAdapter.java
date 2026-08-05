@@ -192,7 +192,7 @@ final class BottomBarUiAdapter {
         for (StorageEntry entry : panel.controller.getStorageEntries()) {
             result.add(new BottomBarUiEntry(BottomBarUiEntry.Kind.STORAGE, i++,
                     entry.itemId(), entry.name(), entry.count(), 0,
-                    !selected.isEmpty() && sameItemAndTag(entry.stack(), selected), true));
+                    !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(selected) && sameItemAndTag(entry.stack(), selected), true));
         }
         return result;
     }
@@ -212,7 +212,7 @@ final class BottomBarUiAdapter {
             RtsCreativeItemCatalog.CreativeEntry entry = entries.get(i);
             result.add(new BottomBarUiEntry(BottomBarUiEntry.Kind.CREATIVE, i,
                     entry.itemId(), entry.label(), 0, 0,
-                    !selected.isEmpty() && sameItemAndTag(entry.stack(), selected), true));
+                    !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(selected) && sameItemAndTag(entry.stack(), selected), true));
         }
         return result;
     }
@@ -258,13 +258,14 @@ final class BottomBarUiAdapter {
     private static List<BottomBarUiToolSlot> tools(BottomPanel panel) {
         List<BottomBarUiToolSlot> result = new ArrayList<>();
         Minecraft mc = Minecraft.getMinecraft();
-        int selectedHotbar = mc != null && mc.player != null ? mc.player.inventory.currentItem : -1;
+        int selectedHotbar = mc != null && mc.thePlayer != null ? mc.thePlayer.inventory.currentItem : -1;
         for (int i = 0; i < 9; i++) {
-            ItemStack stack = mc != null && mc.player != null
-                    ? mc.player.inventory.getStackInSlot(i) : ItemStack.EMPTY;
+            ItemStack stack = mc != null && mc.thePlayer != null
+                    ? mc.thePlayer.inventory.getStackInSlot(i) : null;
             result.add(new BottomBarUiToolSlot(BottomBarUiToolSlot.Kind.HOTBAR, i,
-                    itemId(stack), stack.isEmpty() ? "" : stack.getDisplayName(),
-                    stack.getCount(), i == selectedHotbar && !panel.controller.hasSelectedItem()
+                    itemId(stack), com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? "" : stack.getDisplayName(),
+                    com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.count(stack),
+                    i == selectedHotbar && !panel.controller.hasSelectedItem()
                             && !panel.controller.hasSelectedFluid() && !panel.controller.isEmptyHandSelected(),
                     false, false));
         }
@@ -355,13 +356,13 @@ final class BottomBarUiAdapter {
     }
 
     private static String itemId(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) return "";
-        ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return "";
+        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(stack.getItem());
         return id == null ? "" : id.toString();
     }
 
     private static boolean sameItemAndTag(ItemStack first, ItemStack second) {
-        return ItemStack.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
     }
 
     private static boolean isBlank(String value) {

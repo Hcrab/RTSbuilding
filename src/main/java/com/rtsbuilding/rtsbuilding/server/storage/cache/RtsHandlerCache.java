@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.*;
 
@@ -130,7 +130,7 @@ public final class RtsHandlerCache {
 
     /** 返回指定物品在所有缓存槽位中的总数量。 */
     public long getCount(Item item) {
-        ResourceLocation id = item == null ? null : Item.REGISTRY.getNameForObject(item);
+        ResourceLocation id = item == null ? null : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(item);
         return id == null ? 0L : this.countsByItem.getOrDefault(id.toString(), 0L);
     }
 
@@ -154,7 +154,7 @@ public final class RtsHandlerCache {
      */
     public ItemStack getPrototype(String itemId) {
         ItemStack stack = this.prototypeByItem.get(itemId);
-        return stack != null ? stack.copy() : ItemStack.EMPTY;
+        return stack != null ? stack.copy() : null;
     }
 
     /**
@@ -171,7 +171,7 @@ public final class RtsHandlerCache {
     /** 返回缓存槽位中存储的 ItemStack。 */
     public ItemStack getStackInSlot(int slot) {
         CachedSlot entry = getSlot(slot);
-        return entry.isEmpty() ? ItemStack.EMPTY : entry.toItemStack();
+        return entry.isEmpty() ? null : entry.toItemStack();
     }
 
     /** 返回当前缓存的槽位数。 */
@@ -227,15 +227,15 @@ public final class RtsHandlerCache {
     private static CachedSlot readSlot(IItemHandler handler, int slot) {
         try {
             ItemStack stack = handler.getStackInSlot(slot);
-            if (stack == null || stack.isEmpty()) {
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 return CachedSlot.EMPTY;
             }
-            ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+            ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(stack.getItem());
             if (id == null) return CachedSlot.EMPTY;
             // 对返回代表性堆叠的 AE2/BD 等使用真实报告计数
             long count = (handler instanceof ReportedCountItemHandler)
                     ? Math.max(0L, ((ReportedCountItemHandler) handler).getReportedCount(slot))
-                    : stack.getCount();
+                    : stack.stackSize;
             // ReportedCount 处理器（如 AE2 网络）通过 getStackInSlot() 返回原型的全新副本——
             // 可直接保留引用。原版处理器返回槽位 ItemStack 的活动引用，
             // 可能被外部修改——必须快照以保持缓存一致。
@@ -256,7 +256,7 @@ public final class RtsHandlerCache {
         // 对于 ReportedCountItemHandler（如 AE2 网络），显示堆叠是原型且 NBT 不随槽位变化——
         // 跳过昂贵的 isSameItemSameComponents() 检查以避免 10000+ 次 NBT 比较。
         if (!skipNbtCompare && oldEntry.count > 0 && newEntry.count > 0) {
-            if (!ItemStack.areItemsEqual(oldEntry.fullStack, newEntry.fullStack)
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(oldEntry.fullStack, newEntry.fullStack)
                     || !ItemStack.areItemStackTagsEqual(oldEntry.fullStack, newEntry.fullStack)) return true;
         }
         return false;
@@ -283,7 +283,7 @@ public final class RtsHandlerCache {
             }
         } else {
             this.countsByItem.merge(itemId, count, Long::sum);
-            if (prototype != null && !prototype.isEmpty()) {
+            if (prototype != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) {
                 this.prototypeByItem.putIfAbsent(itemId, prototype);
             }
         }
@@ -297,7 +297,7 @@ public final class RtsHandlerCache {
      * 缓存的槽位快照。同时存储逻辑数量和完整的 ItemStack，用于保持 NBT 的比较。
      */
     public static final class CachedSlot {
-        public static final CachedSlot EMPTY = new CachedSlot("", null, 0, ItemStack.EMPTY);
+        public static final CachedSlot EMPTY = new CachedSlot("", null, 0, null);
 
         private final String itemId;
         private final Item item;
@@ -321,16 +321,16 @@ public final class RtsHandlerCache {
         }
 
         ItemStack toItemStack() {
-            if (isEmpty() || item == null) return ItemStack.EMPTY;
+            if (isEmpty() || item == null) return null;
             ItemStack copy = fullStack.copy();
-            copy.setCount((int) Math.min(count, Integer.MAX_VALUE));
+            copy.stackSize = (int) Math.min(count, Integer.MAX_VALUE);
             return copy;
         }
 
         ItemStack toPrototype() {
-            if (isEmpty() || item == null) return ItemStack.EMPTY;
+            if (isEmpty() || item == null) return null;
             ItemStack proto = fullStack.copy();
-            proto.setCount(1);
+            proto.stackSize = 1;
             return proto;
         }
 

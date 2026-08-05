@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.camera;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 客户端提交的一帧相机输入；服务端仍持有会话、位置和边界的最终权威。 */
 public final class C2SRtsCameraMovePayload implements IMessage {

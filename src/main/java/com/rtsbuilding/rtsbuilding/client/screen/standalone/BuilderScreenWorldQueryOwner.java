@@ -9,12 +9,12 @@ import net.minecraft.item.ItemBlock;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.init.Items;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -117,37 +117,38 @@ final class BuilderScreenWorldQueryOwner {
         }
 
     int getSelectedToolSlot() {
-            if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
+            if (screen.getMinecraft() == null || screen.getMinecraft().thePlayer == null) {
                 return 0;
             }
-            return MathHelper.clamp(screen.getMinecraft().player.inventory.currentItem, 0, 8);
+            return MathHelper.clamp(screen.getMinecraft().thePlayer.inventory.currentItem, 0, 8);
         }
 
     ItemStack getSelectedToolStack() {
-            if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
-                return ItemStack.EMPTY;
+            if (screen.getMinecraft() == null || screen.getMinecraft().thePlayer == null) {
+                return null;
             }
-            return screen.getMinecraft().player.inventory.getStackInSlot(screen.getSelectedToolSlot());
+            return screen.getMinecraft().thePlayer.inventory.getStackInSlot(screen.getSelectedToolSlot());
         }
 
     String resolveGuiBindingItemId(RayTraceResult hit) {
-            if (hit == null || screen.getMinecraft() == null || screen.getMinecraft().world == null) {
+            if (hit == null || screen.getMinecraft() == null || screen.getMinecraft().theWorld == null) {
                 return "";
             }
             BlockPos pos = hit.getBlockPos();
-            if (!screen.getMinecraft().world.isBlockLoaded(pos)) {
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(screen.getMinecraft().theWorld, pos)) {
                 return "";
             }
-            IBlockState state = screen.getMinecraft().world.getBlockState(pos);
+            BlockState state = BlockState.fromWorld(screen.getMinecraft().theWorld, pos);
             ItemStack preview = state.getBlock().getPickBlock(
-                    state, hit, screen.getMinecraft().world, pos, screen.getMinecraft().player);
-            if (preview.isEmpty()) {
+                    hit.toNative(), screen.getMinecraft().theWorld,
+                    pos.getX(), pos.getY(), pos.getZ(), screen.getMinecraft().thePlayer);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                 preview = new ItemStack(Item.getItemFromBlock(state.getBlock()));
             }
-            if (preview.isEmpty() || preview.getItem() == Items.AIR) {
-                return RtsAe2IconResolver.resolveGuiBindingIconItemId(screen.getMinecraft().world, pos, hit.sideHit, "");
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) || preview.getItem() == null) {
+                return RtsAe2IconResolver.resolveGuiBindingIconItemId(screen.getMinecraft().theWorld, pos, hit.sideHit, "");
             }
-            ResourceLocation id = ForgeRegistries.ITEMS.getKey(preview.getItem());
+            ResourceLocation id = RtsRegistries.ITEMS.getKey(preview.getItem());
             return id == null ? "" : id.toString();
         }
 
@@ -156,11 +157,11 @@ final class BuilderScreenWorldQueryOwner {
                 return false;
             }
             ItemStack stack = screen.getSelectedToolStack();
-            return !stack.isEmpty() && stack.getItem() instanceof ItemBlock;
+            return !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) && stack.getItem() instanceof ItemBlock;
         }
 
     boolean tryAssignQuickSlotFromToolSelection(int pinIndex) {
-            if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
+            if (screen.getMinecraft() == null || screen.getMinecraft().thePlayer == null) {
                 return false;
             }
             if (screen.controller.isEmptyHandSelected()) {
@@ -168,8 +169,8 @@ final class BuilderScreenWorldQueryOwner {
             }
             int slot = screen.bottomPanel.hoveredToolSlot >= 0 ? screen.bottomPanel.hoveredToolSlot : screen.getSelectedToolSlot();
             slot = MathHelper.clamp(slot, 0, 8);
-            ItemStack stack = screen.getMinecraft().player.inventory.getStackInSlot(slot);
-            if (stack.isEmpty()) {
+            ItemStack stack = screen.getMinecraft().thePlayer.inventory.getStackInSlot(slot);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 return false;
             }
             screen.controller.assignQuickSlotFromToolItem(pinIndex, stack);
@@ -177,16 +178,17 @@ final class BuilderScreenWorldQueryOwner {
         }
 
     void setSelectedToolSlot(int slot) {
-            if (screen.getMinecraft() == null || screen.getMinecraft().player == null) {
+            if (screen.getMinecraft() == null || screen.getMinecraft().thePlayer == null) {
                 return;
             }
-            screen.getMinecraft().player.inventory.currentItem = MathHelper.clamp(slot, 0, 8);
+            screen.getMinecraft().thePlayer.inventory.currentItem = MathHelper.clamp(slot, 0, 8);
         }
 
     boolean hasMainHandItem() {
             return screen.getMinecraft() != null
-                    && screen.getMinecraft().player != null
-                    && !screen.getMinecraft().player.getHeldItemMainhand().isEmpty();
+                    && screen.getMinecraft().thePlayer != null
+                    && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(
+                            screen.getMinecraft().thePlayer.getHeldItem());
         }
 
     boolean isAltDownForInput() {

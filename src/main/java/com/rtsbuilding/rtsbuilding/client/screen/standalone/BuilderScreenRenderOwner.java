@@ -19,9 +19,9 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGuiRenderState;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatComponentTranslation;
 
 import java.util.List;
 
@@ -135,20 +135,20 @@ final class BuilderScreenRenderOwner {
                         && screen.bottomPanel.hoveredRecentEntry >= 0
                         && screen.bottomPanel.hoveredRecentEntry < screen.controller.getRecentEntries().size()) {
                     RecentEntry entry = screen.controller.getRecentEntries().get(screen.bottomPanel.hoveredRecentEntry);
-                    if (!entry.preview().isEmpty()) {
+                    if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entry.preview())) {
                         screen.leftDockedTooltipRenderer.render(g, entry.preview());
                     } else {
-                        screen.leftDockedTooltipRenderer.render(g, new TextComponentString(entry.label()));
+                        screen.leftDockedTooltipRenderer.render(g, new ChatComponentText(entry.label()));
                     }
                 }
                 if (!placementSelectionActive
                         && screen.bottomPanel.hoveredFluidEntry >= 0
                         && screen.bottomPanel.hoveredFluidEntry < screen.controller.getFluidEntries().size()) {
                     FluidEntry fluid = screen.controller.getFluidEntries().get(screen.bottomPanel.hoveredFluidEntry);
-                    if (!fluid.preview().isEmpty()) {
+                    if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(fluid.preview())) {
                         screen.leftDockedTooltipRenderer.render(g, fluid.preview());
                     } else {
-                        screen.leftDockedTooltipRenderer.render(g, new TextComponentString(fluid.label()));
+                        screen.leftDockedTooltipRenderer.render(g, new ChatComponentText(fluid.label()));
                     }
                 }
                 if (screen.bottomPanel.hoveredCraftableEntry >= 0 && screen.bottomPanel.hoveredCraftableEntry < screen.controller.getCraftableEntries().size()) {
@@ -173,7 +173,7 @@ final class BuilderScreenRenderOwner {
                     String detail = screen.controller.hasGuiBinding(screen.bottomPanel.hoveredGuiBindingSlot)
                             ? screen.controller.getGuiBindingLabel(screen.bottomPanel.hoveredGuiBindingSlot)
                             : screen.text("screen.rtsbuilding.tooltip.gui_empty");
-                    screen.leftDockedTooltipRenderer.render(g, new TextComponentString(detail));
+                    screen.leftDockedTooltipRenderer.render(g, new ChatComponentText(detail));
                     screen.leftDockedTooltipRenderer.renderDetail(
                             g,
                             screen.pendingGuiBindSlot == screen.bottomPanel.hoveredGuiBindingSlot
@@ -185,7 +185,7 @@ final class BuilderScreenRenderOwner {
                 }
                 if (screen.bottomPanel.hoveredEmptyHandSlot) {
                     screen.leftDockedTooltipRenderer.render(
-                            g, new TextComponentTranslation("screen.rtsbuilding.tooltip.empty_hand"));
+                            g, new ChatComponentTranslation("screen.rtsbuilding.tooltip.empty_hand"));
                     screen.leftDockedTooltipRenderer.renderDetail(
                             g, screen.text("screen.rtsbuilding.tooltip.empty_hand_detail"),
                             TooltipStyle.COUNT);
@@ -198,7 +198,7 @@ final class BuilderScreenRenderOwner {
                     screen.drawGuiBindCursor(g, mouseX, mouseY);
                 } else {
                     ItemStack cursorPreview = screen.resolveCursorPreview();
-                    if (!cursorPreview.isEmpty() && !screen.isSearchFocused()
+                    if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(cursorPreview) && !screen.isSearchFocused()
                             && !screen.isMouseOverFloatingWindow(mouseX, mouseY)) {
                         g.renderItem(cursorPreview, mouseX + 10, mouseY + 10);
                     }

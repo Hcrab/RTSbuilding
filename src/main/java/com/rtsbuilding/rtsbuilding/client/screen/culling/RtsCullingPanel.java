@@ -13,9 +13,9 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.client.resources.I18n;
 import org.lwjgl.opengl.GL11;
 
@@ -125,8 +125,8 @@ public final class RtsCullingPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentTranslation("screen.rtsbuilding.culling.title");
+    protected IChatComponent getTitle() {
+        return new ChatComponentTranslation("screen.rtsbuilding.culling.title");
     }
 
     @Override
@@ -195,7 +195,7 @@ public final class RtsCullingPanel extends RtsWindowPanel {
         }
         @Override public void pushClip(UiRect clip) {
             Minecraft mc = Minecraft.getMinecraft();
-            ScaledResolution scaled = new ScaledResolution(mc);
+            ScaledResolution scaled = new ScaledResolution(mc, mc.displayWidth, mc.displayHeight);
             int factor = scaled.getScaleFactor();
             GL11.glEnable(GL11.GL_SCISSOR_TEST);
             GL11.glScissor(round(clip.getX()) * factor,

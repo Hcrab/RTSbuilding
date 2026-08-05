@@ -9,14 +9,14 @@ import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import javax.annotation.Nullable;
 import java.util.*;
@@ -61,7 +61,7 @@ public final class RtsBlueprintJobService {
             return null;
         }
 
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         int totalRemaining = remaining.size();
         int alreadyPlacedCount = 0;
         int conflictCount = 0;
@@ -69,12 +69,12 @@ public final class RtsBlueprintJobService {
         for (int idx : remaining) {
             PlacementPlan plan = plans.get(idx);
             if (plan == null) continue;
-            if (!level.isBlockLoaded(plan.target())) continue;
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, plan.target())) continue;
 
-            IBlockState current = level.getBlockState(plan.target());
+            BlockState current = BlockState.fromWorld(level, plan.target());
             if (current.getBlock() == plan.state().getBlock()) {
                 alreadyPlacedCount++;
-            } else if (current.getBlock() != Blocks.AIR && !current.getMaterial().isReplaceable()) {
+            } else if (current.getBlock() != Blocks.air && !current.getMaterial().isReplaceable()) {
                 conflictCount++;
             }
         }
@@ -89,7 +89,7 @@ public final class RtsBlueprintJobService {
                 PlacementPlan plan = plans.get(idx);
                 if (plan == null) continue;
                 for (Item item : plan.items()) {
-                    ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(item);
+                    ResourceLocation itemId = RtsRegistries.ITEMS.getKey(item);
                     if (itemId != null) {
                         matReqs.merge(itemId, 1, Integer::sum);
                     }
@@ -147,7 +147,7 @@ public final class RtsBlueprintJobService {
             PlacementPlan plan = plans.get(idx);
             if (plan == null) continue;
             for (Item item : plan.items()) {
-                ResourceLocation itemId = ForgeRegistries.ITEMS.getKey(item);
+                ResourceLocation itemId = RtsRegistries.ITEMS.getKey(item);
                 if (itemId != null) {
                     materialRequirements.merge(itemId, 1, Integer::sum);
                 }
@@ -202,7 +202,7 @@ public final class RtsBlueprintJobService {
         com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
                 .resumeBlueprint(player, workflowEntryId);
         RtsbuildingMod.LOGGER.info("[Blueprint] {} 手动恢复了蓝图作业 #{} (剩余 {} 方块)",
-                player.getName(), workflowEntryId, status.remainingBlocks());
+                com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.name(player), workflowEntryId, status.remainingBlocks());
         return true;
     }
 
@@ -211,15 +211,15 @@ public final class RtsBlueprintJobService {
     // ======================================================================
 
     private static String itemLabel(ResourceLocation id) {
-        if (id == null || !ForgeRegistries.ITEMS.containsKey(id)) {
+        if (id == null || !RtsRegistries.ITEMS.containsKey(id)) {
             return id != null ? id.toString() : "unknown";
         }
-        return new ItemStack(ForgeRegistries.ITEMS.getValue(id)).getDisplayName();
+        return new ItemStack(RtsRegistries.ITEMS.getValue(id)).getDisplayName();
     }
 
     private static long countMaterial(EntityPlayerMP player, ResourceLocation itemId) {
-        if (itemId == null || !ForgeRegistries.ITEMS.containsKey(itemId)) return 0;
-        ItemStack template = new ItemStack(ForgeRegistries.ITEMS.getValue(itemId));
+        if (itemId == null || !RtsRegistries.ITEMS.containsKey(itemId)) return 0;
+        ItemStack template = new ItemStack(RtsRegistries.ITEMS.getValue(itemId));
         long available = 0;
         available = RtsCountUtil.saturatedAdd(available,
                 ServiceRegistry.getInstance().transfer().countLinkedItemsMatching(player,
@@ -233,7 +233,7 @@ public final class RtsBlueprintJobService {
      * 扫描结果：四项平行列表 + 进度计数。
      */
     private static boolean sameStackIdentity(ItemStack first, ItemStack second) {
-        return ItemStack.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(first, second) && ItemStack.areItemStackTagsEqual(first, second);
     }
 
     public static final class RtsBlueprintMaterialsScan {

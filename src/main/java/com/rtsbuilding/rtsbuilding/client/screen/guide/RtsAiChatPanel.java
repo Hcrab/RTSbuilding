@@ -12,8 +12,8 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.AiChatStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 import net.minecraft.client.resources.I18n;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
@@ -182,8 +182,8 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentTranslation("screen.rtsbuilding.ai_chat.title");
+    protected IChatComponent getTitle() {
+        return new ChatComponentTranslation("screen.rtsbuilding.ai_chat.title");
     }
 
     @Override

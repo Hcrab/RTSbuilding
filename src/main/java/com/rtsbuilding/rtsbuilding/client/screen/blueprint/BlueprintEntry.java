@@ -8,8 +8,8 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.init.Items;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.Vec3i;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -70,10 +70,10 @@ final class BlueprintEntry {
         Vec3i size = blueprint.size();
         List<ItemStack> preview = new ArrayList<ItemStack>();
         for (ResourceLocation id : blueprint.requiredItems().keySet()) {
-            Item item = ForgeRegistries.ITEMS.getValue(id);
-            if (item == null || item == Items.AIR) continue;
+            Item item = RtsRegistries.ITEMS.getValue(id);
+            if (item == null || item == null) continue;
             ItemStack stack = new ItemStack(item);
-            if (!stack.isEmpty()) preview.add(stack);
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) preview.add(stack);
             if (preview.size() >= 18) break;
         }
 
@@ -85,9 +85,9 @@ final class BlueprintEntry {
                 continue;
             }
             Material material = block.state().getMaterial();
-            if (material == Material.WATER || material == Material.LAVA) continue;
+            if (material == Material.water || material == Material.lava) continue;
             Item item = Item.getItemFromBlock(block.state().getBlock());
-            if (item == null || item == Items.AIR) {
+            if (item == null || item == null) {
                 increment(unsupported, block.state().getBlock().getLocalizedName());
             }
         }

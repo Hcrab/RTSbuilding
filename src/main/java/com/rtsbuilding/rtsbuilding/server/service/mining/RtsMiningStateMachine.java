@@ -21,14 +21,14 @@ import com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskCodec;
 import com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState;
 import com.rtsbuilding.rtsbuilding.server.task.mining.MiningWaitHint;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 import javax.annotation.Nullable;
@@ -167,9 +167,9 @@ public final class RtsMiningStateMachine {
             return MiningAdvance.ended(1, 0, 1);
         }
 
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         BlockPos pos = session.mining.miningPos;
-        IBlockState state = level.getBlockState(pos);
+        BlockState state = BlockState.fromWorld(level, pos);
         // FIXED: No longer incorrectly excludes waterlogged blocks
         if (!RtsMiningValidator.isBreakableBlock(state)
                 || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
@@ -191,7 +191,7 @@ public final class RtsMiningStateMachine {
         if (session.mining.miningProgress < 1.0F) {
             int stage = RtsMiningValidator.visibleMiningStage(session.mining.miningProgress);
             if (stage != session.mining.miningStage) {
-                level.sendBlockBreakProgress(player.getEntityId(), pos, stage);
+                com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(level, player.getEntityId(), pos, stage);
                 RtsMiningNetworkHelper.sendMineProgress(player, pos, stage);
                 session.mining.miningStage = stage;
             }
@@ -201,12 +201,12 @@ public final class RtsMiningStateMachine {
         // --- Progress complete: break the block ---
 
         // Capture before-state for history (must be done before destroy)
-        HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.getServerWorld(), pos);
+        HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.getServerForPlayer(), pos);
         // Also capture neighbor states for multi-block tracking
-        List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(player.getServerWorld(), pos);
+        List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(player.getServerForPlayer(), pos);
 
         MiningBreakResult result = destroyMinedBlock(player, session, pos, session.mining.miningToolSlot);
-        level.sendBlockBreakProgress(player.getEntityId(), pos, -1);
+        com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(level, player.getEntityId(), pos, -1);
 
         if (result.broken() && !session.mining.ultimineTargets.isEmpty()) {
             // Part of an ultimine batch — advance to next target
@@ -217,7 +217,7 @@ public final class RtsMiningStateMachine {
                 session.mining.ultimineProcessedPositions.add(preRecord);
             }
             // Record any collateral blocks (multi-block structures)
-            MultiBlockTracker.recordCollateralBlocks(player.getServerWorld(), session, neighborRecords, pos);
+            MultiBlockTracker.recordCollateralBlocks(player.getServerForPlayer(), session, neighborRecords, pos);
             reportWorkflowResult(player, session, 1, 0);
             // 连锁挖掘中途进度：只延迟标脏，避免每方块一次同步刷新储存页。
             // 完整的 afterModification（含页面刷新和持久化）在 finalizeMiningOperation 中执行
@@ -238,8 +238,8 @@ public final class RtsMiningStateMachine {
             }
             // Add any collateral blocks
             for (HistoryBlockRecord nr : neighborRecords) {
-                IBlockState currentState = player.getServerWorld().getBlockState(nr.pos());
-                if (currentState.getBlock() == Blocks.AIR && nr.state().getBlock() != Blocks.AIR) {
+                BlockState currentState = BlockState.fromWorld(player.getServerForPlayer(), nr.pos());
+                if (currentState.getBlock() == Blocks.air && nr.state().getBlock() != Blocks.air) {
                     miningRecords.add(nr);
                 }
             }
@@ -365,7 +365,7 @@ public final class RtsMiningStateMachine {
         if (mode == MiningTaskState.Mode.PROGRESSIVE_SINGLE && !remaining.isEmpty()
                 && unitLimit > 0 && System.nanoTime() < deadlineNanos) {
             BlockPos target = remaining.get(0);
-            if (!player.getServerWorld().isBlockLoaded(target)) {
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), target)) {
                 waitHint = MiningWaitHint.chunk(player.dimension, target);
             } else if (RtsMiningValidator.isToolNearBreak(player, session)) {
                 waitHint = MiningWaitHint.tool();
@@ -377,7 +377,7 @@ public final class RtsMiningStateMachine {
                 progress = 0.0F;
                 stage = -1;
             } else {
-                IBlockState targetState = player.getServerWorld().getBlockState(target);
+                BlockState targetState = BlockState.fromWorld(player.getServerForPlayer(), target);
                 float step = MiningSpeedCalculator.computeRemoteDestroyStep(
                         player, targetState, target, state.toolSlot(),
                         session.mining.miningToolLease.stack(), state.selectedToolRequested());
@@ -389,7 +389,7 @@ public final class RtsMiningStateMachine {
                         deferUntilNextTick = true;
                         int nextStage = RtsMiningValidator.visibleMiningStage(progress);
                         if (nextStage != stage) {
-                            player.getServerWorld().sendBlockBreakProgress(player.getEntityId(), target, nextStage);
+                            com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(player.getServerForPlayer(), player.getEntityId(), target, nextStage);
                             RtsMiningNetworkHelper.sendMineProgress(player, target, nextStage);
                             stage = nextStage;
                         }
@@ -422,7 +422,7 @@ public final class RtsMiningStateMachine {
                 break;
             }
             BlockPos target = remaining.get(0);
-            if (!player.getServerWorld().isBlockLoaded(target)) {
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), target)) {
                 waitHint = MiningWaitHint.chunk(player.dimension, target);
                 break;
             }
@@ -432,7 +432,7 @@ public final class RtsMiningStateMachine {
                 failed++;
                 continue;
             }
-            IBlockState targetState = player.getServerWorld().getBlockState(target);
+            BlockState targetState = BlockState.fromWorld(player.getServerForPlayer(), target);
             float step = MiningSpeedCalculator.computeRemoteDestroyStep(
                     player, targetState, target, state.toolSlot(),
                     session.mining.miningToolLease.stack(), state.selectedToolRequested());
@@ -471,23 +471,23 @@ public final class RtsMiningStateMachine {
     private static boolean canDetachedMineTarget(EntityPlayerMP player, BlockPos target, EnumFacing face) {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, target)
                 || !RtsClaimProtectionService.canBreakBlock(player, target, face)) return false;
-        IBlockState targetState = player.getServerWorld().getBlockState(target);
+        BlockState targetState = BlockState.fromWorld(player.getServerForPlayer(), target);
         return RtsMiningValidator.isBreakableBlock(targetState)
-                && RtsMiningValidator.hasValidDestroySpeed(targetState, player.getServerWorld(), target);
+                && RtsMiningValidator.hasValidDestroySpeed(targetState, player.getServerForPlayer(), target);
     }
 
     private static boolean destroyDetachedTarget(
             EntityPlayerMP player, RtsStorageSession session, BlockPos target,
             List<NBTTagCompound> history) {
-        HistoryBlockRecord before = ServerHistoryManager.captureBlock(player.getServerWorld(), target);
-        List<HistoryBlockRecord> neighbors = MultiBlockTracker.captureNeighborRecords(player.getServerWorld(), target);
+        HistoryBlockRecord before = ServerHistoryManager.captureBlock(player.getServerForPlayer(), target);
+        List<HistoryBlockRecord> neighbors = MultiBlockTracker.captureNeighborRecords(player.getServerForPlayer(), target);
         MiningBreakResult result = destroyMinedBlock(player, session, target, session.mining.miningToolSlot);
         if (!result.broken()) return false;
         if (before != null) history.add(MiningTaskCodec.encodeHistory(before));
         for (HistoryBlockRecord neighbor : neighbors) {
             if (!neighbor.pos().equals(target)
-                    && player.getServerWorld().getBlockState(neighbor.pos()).getBlock() == Blocks.AIR
-                    && neighbor.state().getBlock() != Blocks.AIR) {
+                    && BlockState.fromWorld(player.getServerForPlayer(), neighbor.pos()).getBlock() == Blocks.air
+                    && neighbor.state().getBlock() != Blocks.air) {
                 history.add(MiningTaskCodec.encodeHistory(neighbor));
             }
         }
@@ -495,7 +495,7 @@ public final class RtsMiningStateMachine {
     }
 
     private static void clearDetachedProgress(EntityPlayerMP player, BlockPos target) {
-        player.getServerWorld().sendBlockBreakProgress(player.getEntityId(), target, -1);
+        com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(player.getServerForPlayer(), player.getEntityId(), target, -1);
         RtsMiningNetworkHelper.clearMineProgress(player, target);
     }
 
@@ -571,7 +571,7 @@ public final class RtsMiningStateMachine {
         // Complete workflow tracking via entry ID if single-block mining was active
         BlockPos progressPos = session.mining.miningPos != null ? session.mining.miningPos : session.mining.ultimineProgressPos;
         if (progressPos != null) {
-            player.getServerWorld().sendBlockBreakProgress(player.getEntityId(), progressPos, -1);
+            com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(player.getServerForPlayer(), player.getEntityId(), progressPos, -1);
             RtsMiningNetworkHelper.sendMineProgress(player, progressPos, -1);
         }
         if (hadUltimine) {
@@ -671,7 +671,7 @@ public final class RtsMiningStateMachine {
                 ? session.mining.miningPos
                 : session.mining.ultimineProgressPos;
         if (progressPos != null) {
-            player.getServerWorld().sendBlockBreakProgress(player.getEntityId(), progressPos, -1);
+            com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(player.getServerForPlayer(), player.getEntityId(), progressPos, -1);
             RtsMiningNetworkHelper.sendMineProgress(player, progressPos, -1);
         }
         boolean hadUltimine = session.mining.ultimineProgressPos != null
@@ -736,13 +736,13 @@ public final class RtsMiningStateMachine {
     public static MiningBreakResult destroyMinedBlock(EntityPlayerMP player, RtsStorageSession session, BlockPos pos, int toolSlot) {
         EnumFacing face = session != null && session.mining.miningFace != null ? session.mining.miningFace : EnumFacing.DOWN;
         if (!RtsClaimProtectionService.canBreakBlock(player, pos, face)) {
-            return new MiningBreakResult(false, ItemStack.EMPTY);
+            return new MiningBreakResult(false, null);
         }
-        IBlockState beforeState = player.getServerWorld().getBlockState(pos);
+        BlockState beforeState = BlockState.fromWorld(player.getServerForPlayer(), pos);
         if (RtsMiningRules.requiredLevel(beforeState) > 0
                 && !RtsMiningValidator.canHarvestWithTool(
-                beforeState, RtsMiningValidator.activeMiningTool(player, session, toolSlot), player.isCreative())) {
-            return new MiningBreakResult(false, ItemStack.EMPTY);
+                beforeState, RtsMiningValidator.activeMiningTool(player, session, toolSlot), player.capabilities.isCreativeMode)) {
+            return new MiningBreakResult(false, null);
         }
         return RtsMiningDropCapture.capture(player, session, pos, () -> {
             boolean broken;
@@ -755,18 +755,19 @@ public final class RtsMiningStateMachine {
                 broken = outcome.broken();
             } else if (session.mining.miningSelectedToolRequested) {
                 broken = false;
-                remainder = ItemStack.EMPTY;
+                remainder = null;
             } else {
                 int previousSlot = player.inventory.currentItem;
                 player.inventory.currentItem = RtsMiningValidator.clampHotbarSlot(toolSlot);
-                try { broken = player.interactionManager.tryHarvestBlock(pos); }
+                try { broken = player.theItemInWorldManager.tryHarvestBlock(
+                        pos.getX(), pos.getY(), pos.getZ()); }
                 finally { player.inventory.currentItem = previousSlot; }
-                remainder = ItemStack.EMPTY;
+                remainder = null;
             }
             if (broken) {
-                IBlockState resultState = player.getServerWorld().getBlockState(pos);
+                BlockState resultState = BlockState.fromWorld(player.getServerForPlayer(), pos);
                 RtsMiningNetworkHelper.sendBreakAnimation(player, pos, beforeState, resultState);
-                RtsPlacementSound.playRemoteBlockBreakSound(player, player.getServerWorld(), pos, beforeState);
+                RtsPlacementSound.playRemoteBlockBreakSound(player, player.getServerForPlayer(), pos, beforeState);
             }
             return new MiningBreakResult(broken, remainder);
         });
@@ -778,7 +779,7 @@ public final class RtsMiningStateMachine {
 
     /** @deprecated 使用 {@link MiningSpeedCalculator#computeRemoteDestroyStep} */
     @Deprecated
-    public static float computeRemoteDestroyStep(EntityPlayerMP player, IBlockState state, BlockPos pos, int toolSlot,
+    public static float computeRemoteDestroyStep(EntityPlayerMP player, BlockState state, BlockPos pos, int toolSlot,
             ItemStack linkedTool, boolean selectedToolRequested) {
         return MiningSpeedCalculator.computeRemoteDestroyStep(player, state, pos, toolSlot, linkedTool, selectedToolRequested);
     }
@@ -793,15 +794,16 @@ public final class RtsMiningStateMachine {
      * original main-hand item.
      */
     static MiningBreakResult destroyBlockWithTemporaryMainHand(EntityPlayerMP player, BlockPos pos, ItemStack tool) {
-        ItemStack previousMainHand = player.getHeldItemMainhand();
-        player.setHeldItem(EnumHand.MAIN_HAND, tool);
+        ItemStack previousMainHand = player.getHeldItem();
+        com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, EnumHand.MAIN_HAND, tool);
         boolean broken;
         ItemStack remainder;
         try {
-            broken = player.interactionManager.tryHarvestBlock(pos);
+            broken = player.theItemInWorldManager.tryHarvestBlock(
+                    pos.getX(), pos.getY(), pos.getZ());
         } finally {
-            remainder = player.getHeldItemMainhand().copy();
-            player.setHeldItem(EnumHand.MAIN_HAND, previousMainHand);
+            remainder = player.getHeldItem().copy();
+            com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, EnumHand.MAIN_HAND, previousMainHand);
         }
         return new MiningBreakResult(broken, remainder);
     }

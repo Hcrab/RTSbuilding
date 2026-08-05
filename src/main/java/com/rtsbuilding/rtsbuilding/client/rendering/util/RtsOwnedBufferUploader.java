@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 
 /**
  * 提交 RTS 渲染器自己拥有的 {@link BufferBuilder}。

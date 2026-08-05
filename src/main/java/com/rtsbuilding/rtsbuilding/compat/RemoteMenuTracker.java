@@ -60,10 +60,10 @@ public final class RemoteMenuTracker {
     }
 
     public boolean shouldForceStillValid(Container menu, EntityPlayer player) {
-        if (!isSupported(menu) || player == null || player.world == null) {
+        if (!isSupported(menu) || player == null || player.worldObj == null) {
             return false;
         }
-        if (player.world.isRemote) {
+        if (player.worldObj.isRemote) {
             return this.clientMenuPending || menu.windowId == this.clientMenuId;
         }
         if (player instanceof EntityPlayerMP) {

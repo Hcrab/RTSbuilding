@@ -38,15 +38,14 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.init.SoundEvents;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.ChatComponentTranslation;
+import net.minecraft.util.ChatComponentText;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -235,8 +234,8 @@ final class ClientRtsCommandOwner {
             Minecraft minecraft = Minecraft.getMinecraft();
             BlockPos target = payload == null ? null : payload.pos();
             long traceId = payload == null ? 0L : payload.traceId();
-            long distance = target != null && minecraft.player != null
-                    ? Math.round(Math.sqrt(minecraft.player.getDistanceSqToCenter(target)))
+            long distance = target != null && minecraft.thePlayer != null
+                    ? Math.round(Math.sqrt(com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.distanceSqToCenter(minecraft.thePlayer, target)))
                     : -1L;
             if (traceId != 0L) {
                 RtsClientTraceTracker.hintReceived(
@@ -262,7 +261,7 @@ final class ClientRtsCommandOwner {
 
     void applyDamageFeedback(S2CRtsDamageFeedbackPayload payload) {
             Minecraft minecraft = Minecraft.getMinecraft();
-            if (minecraft.player == null) {
+            if (minecraft.thePlayer == null) {
                 return;
             }
             if (minecraft.currentScreen instanceof BuilderScreen) {
@@ -271,7 +270,7 @@ final class ClientRtsCommandOwner {
             }
             if (RtsClientUiStateStore.isRtsSoundsEnabled() && controller.isDamageSoundEnabled()) {
                 float volume = MathHelper.clamp(0.45F + Math.max(0.0F, payload.amount()) * 0.08F, 0.45F, 1.2F);
-                minecraft.player.playSound(SoundEvents.ENTITY_PLAYER_HURT, volume, 1.0F);
+                minecraft.thePlayer.playSound("game.player.hurt", volume, 1.0F);
             }
             if (payload.lowHealth() && controller.isDamageAutoReturnEnabled() && controller.enabled) {
                 RtsClientPacketGateway.sendToggleCamera(controller.isStartCameraAtPlayerHead());
@@ -352,17 +351,17 @@ final class ClientRtsCommandOwner {
         }
 
     void handleRemoteMenuOpenFailure(Minecraft minecraft, Throwable throwable) {
-            String menuClass = minecraft.player != null && minecraft.player.openContainer != null
-                    ? minecraft.player.openContainer.getClass().getName()
+            String menuClass = minecraft.thePlayer != null && minecraft.thePlayer.openContainer != null
+                    ? minecraft.thePlayer.openContainer.getClass().getName()
                     : "null";
             String screenClass = minecraft.currentScreen != null ? minecraft.currentScreen.getClass().getName() : "null";
             RtsClientTraceTracker.openFailed(menuClass, screenClass, throwable);
             controller.clearRemoteMenuValidationState();
             controller.pendingRemoteMenuOpenTicks = 0;
-            if (minecraft.player != null) {
+            if (minecraft.thePlayer != null) {
                 RtsClientPacketGateway.sendCloseRemoteMenu();
-                minecraft.player.closeScreen();
-                minecraft.player.sendStatusMessage(new TextComponentString("Open failed."), true);
+                minecraft.thePlayer.closeScreen();
+                com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(minecraft.thePlayer, new ChatComponentText("Open failed."), true);
             }
             minecraft.displayGuiScreen(null);
         }
@@ -374,8 +373,8 @@ final class ClientRtsCommandOwner {
 
     boolean isLocalPlayerCreative() {
             Minecraft minecraft = Minecraft.getMinecraft();
-            return minecraft != null && minecraft.player != null
-                    && minecraft.player.capabilities.isCreativeMode;
+            return minecraft != null && minecraft.thePlayer != null
+                    && minecraft.thePlayer.capabilities.isCreativeMode;
         }
 
 }

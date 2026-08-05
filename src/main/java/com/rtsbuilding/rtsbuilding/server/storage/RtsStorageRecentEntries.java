@@ -33,14 +33,14 @@ public final class RtsStorageRecentEntries {
     }
 
     static void recordCraftedOutput(RtsStorageSession session, ItemStack crafted) {
-        if (crafted == null || crafted.isEmpty()) {
+        if (crafted == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(crafted)) {
             return;
         }
         recordRecentItem(
                 session,
                 crafted,
                 S2CRtsStoragePagePayload.RECENT_ITEM_CRAFTED,
-                crafted.getCount());
+                crafted.stackSize);
     }
 
     /**
@@ -48,10 +48,10 @@ public final class RtsStorageRecentEntries {
      * 该物品被跳过；从不使用显示名称，因为它们随语言和资源包变化。
      */
     static void recordRecentItem(RtsStorageSession session, ItemStack stack, byte kind, long amount) {
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return;
         }
-        ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(stack.getItem());
         if (id == null) {
             return;
         }

@@ -40,19 +40,19 @@ final class WorkflowResumeRenderSupport {
 
     static ItemStack item(String itemId) {
         if (itemId == null || itemId.isEmpty()) {
-            return ItemStack.EMPTY;
+            return null;
         }
         final ResourceLocation id;
         try {
             id = new ResourceLocation(itemId);
         } catch (RuntimeException exception) {
-            return ItemStack.EMPTY;
+            return null;
         }
-        if (!Item.REGISTRY.containsKey(id)) {
-            return ItemStack.EMPTY;
+        if (!com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.containsKey(id)) {
+            return null;
         }
-        Item item = Item.REGISTRY.getObject(id);
-        return item == null ? ItemStack.EMPTY : new ItemStack(item);
+        Item item = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getObject(id);
+        return item == null ? null : new ItemStack(item);
     }
 
     static String truncate(

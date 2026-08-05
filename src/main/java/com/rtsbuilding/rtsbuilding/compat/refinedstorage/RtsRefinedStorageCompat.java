@@ -11,12 +11,12 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.capabilities.Capability;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.items.IItemHandler;
+import cpw.mods.fml.common.Loader;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -45,14 +45,14 @@ public final class RtsRefinedStorageCompat {
 
     public static boolean isNetworkNodePosition(EntityPlayerMP player, BlockPos pos) {
         if (player == null || pos == null || REFLECTION == null) return false;
-        WorldServer world = player.getServerWorld();
-        return world != null && world.isBlockLoaded(pos) && REFLECTION.hasNetworkNodeProxy(world, pos);
+        WorldServer world = player.getServerForPlayer();
+        return world != null && com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, pos) && REFLECTION.hasNetworkNodeProxy(world, pos);
     }
 
     public static IItemHandler createNetworkItemHandler(EntityPlayerMP player, BlockPos pos) {
         if (player == null || pos == null || REFLECTION == null) return null;
-        WorldServer world = player.getServerWorld();
-        if (world == null || !world.isBlockLoaded(pos)) return null;
+        WorldServer world = player.getServerForPlayer();
+        if (world == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, pos)) return null;
 
         RsNetworkRef network = REFLECTION.findNetwork(world, pos);
         if (network == null || network.storageCache() == null) return null;
@@ -97,21 +97,21 @@ public final class RtsRefinedStorageCompat {
 
         @Override
         public ItemStack getStackInSlot(int slot) {
-            if (slot < 0 || slot >= this.slots.size()) return ItemStack.EMPTY;
+            if (slot < 0 || slot >= this.slots.size()) return null;
             SlotView view = this.slots.get(slot);
-            return view.amount() > 0L ? view.displayStack().copy() : ItemStack.EMPTY;
+            return view.amount() > 0L ? view.displayStack().copy() : null;
         }
 
         @Override
         public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return null;
             if (slot < 0 || slot >= getSlots()) return stack.copy();
             return insertItemAnywhere(stack, simulate);
         }
 
         @Override
         public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return null;
             if (!this.reflection.isAllowed(this.player, this.network, "INSERT")) return stack.copy();
 
             InsertResult result = this.reflection.insert(this.network, stack, simulate);
@@ -122,15 +122,15 @@ public final class RtsRefinedStorageCompat {
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot < 0 || slot >= this.slots.size() || amount <= 0) return ItemStack.EMPTY;
-            if (!this.reflection.isAllowed(this.player, this.network, "EXTRACT")) return ItemStack.EMPTY;
+            if (slot < 0 || slot >= this.slots.size() || amount <= 0) return null;
+            if (!this.reflection.isAllowed(this.player, this.network, "EXTRACT")) return null;
 
             SlotView view = this.slots.get(slot);
-            if (view.amount() <= 0L) return ItemStack.EMPTY;
+            if (view.amount() <= 0L) return null;
             ItemStack extracted = this.reflection.extract(this.network, view.prototype(), amount, simulate);
-            if (extracted.isEmpty()) return ItemStack.EMPTY;
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) return null;
             if (!simulate) {
-                long nextAmount = Math.max(0L, view.amount() - extracted.getCount());
+                long nextAmount = Math.max(0L, view.amount() - extracted.stackSize);
                 this.slots.set(slot, new SlotView(view.prototype(), nextAmount));
             }
             return extracted;
@@ -138,20 +138,20 @@ public final class RtsRefinedStorageCompat {
 
         @Override
         public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
-            if (targetItem == null || amount <= 0) return ItemStack.EMPTY;
-            if (!this.reflection.isAllowed(this.player, this.network, "EXTRACT")) return ItemStack.EMPTY;
+            if (targetItem == null || amount <= 0) return null;
+            if (!this.reflection.isAllowed(this.player, this.network, "EXTRACT")) return null;
             for (int slot = 0; slot < this.slots.size(); slot++) {
                 SlotView view = this.slots.get(slot);
                 if (view.amount() <= 0L || view.displayStack().getItem() != targetItem) continue;
                 ItemStack extracted = this.reflection.extract(this.network, view.prototype(), amount, simulate);
-                if (extracted.isEmpty()) return ItemStack.EMPTY;
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) return null;
                 if (!simulate) {
-                    long nextAmount = Math.max(0L, view.amount() - extracted.getCount());
+                    long nextAmount = Math.max(0L, view.amount() - extracted.stackSize);
                     this.slots.set(slot, new SlotView(view.prototype(), nextAmount));
                 }
                 return extracted;
             }
-            return ItemStack.EMPTY;
+            return null;
         }
 
         @Override
@@ -161,7 +161,7 @@ public final class RtsRefinedStorageCompat {
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return stack != null && !stack.isEmpty();
+            return stack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack);
         }
 
         @Override
@@ -202,7 +202,7 @@ public final class RtsRefinedStorageCompat {
 
         private SlotView(ItemStack prototype, long amount) {
             this.prototype = prototype.copy();
-            this.prototype.setCount(1);
+            this.prototype.stackSize = 1;
             this.displayStack = this.prototype.copy();
             this.amount = amount;
         }
@@ -355,7 +355,7 @@ public final class RtsRefinedStorageCompat {
 
         private Object findProxy(WorldServer world, BlockPos pos) {
             if (world == null || pos == null || this.networkNodeProxyCapability == null) return null;
-            TileEntity tile = world.getTileEntity(pos);
+            TileEntity tile = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(world, pos);
             if (tile == null) return null;
             Object proxy = getCapability(tile, null);
             if (proxy != null) return proxy;
@@ -384,19 +384,19 @@ public final class RtsRefinedStorageCompat {
             for (Object value : (Collection<?>) stacks) {
                 if (!(value instanceof ItemStack)) continue;
                 ItemStack stack = (ItemStack) value;
-                if (stack.isEmpty() || stack.getCount() <= 0) continue;
-                result.add(new SlotView(stack, stack.getCount()));
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || stack.stackSize <= 0) continue;
+                result.add(new SlotView(stack, stack.stackSize));
             }
             return result;
         }
 
         private InsertResult insert(Object network, ItemStack stack, boolean simulate) {
-            int requested = stack.getCount();
+            int requested = stack.stackSize;
             InvocationResult call = invokeResult(this.networkInsertItem, network, stack, requested,
                     simulate ? this.actionSimulate : this.actionPerform);
             if (!call.succeeded) return new InsertResult(false, 0, stack.copy());
-            ItemStack remainder = call.value instanceof ItemStack ? ((ItemStack) call.value).copy() : ItemStack.EMPTY;
-            int remainderCount = remainder.isEmpty() ? 0 : Math.max(0, Math.min(requested, remainder.getCount()));
+            ItemStack remainder = call.value instanceof ItemStack ? ((ItemStack) call.value).copy() : null;
+            int remainderCount = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder) ? 0 : Math.max(0, Math.min(requested, remainder.stackSize));
             return new InsertResult(true, requested - remainderCount, remainder);
         }
 
@@ -404,7 +404,7 @@ public final class RtsRefinedStorageCompat {
             InvocationResult call = invokeResult(this.networkExtractItem, network, prototype, amount,
                     this.compareFlags, simulate ? this.actionSimulate : this.actionPerform);
             return call.succeeded && call.value instanceof ItemStack
-                    ? ((ItemStack) call.value).copy() : ItemStack.EMPTY;
+                    ? ((ItemStack) call.value).copy() : null;
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})

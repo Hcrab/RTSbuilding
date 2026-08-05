@@ -16,7 +16,7 @@ import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.resources.I18n;
-import net.minecraftforge.fml.client.config.GuiUtils;
+import cpw.mods.fml.client.config.GuiUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;

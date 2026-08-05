@@ -4,12 +4,11 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.item.ItemBlock;
-import net.minecraft.item.ItemEndCrystal;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.ItemMonsterPlacer;
-import net.minecraft.util.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
 
 import java.util.List;
 
@@ -124,13 +123,13 @@ public final class ShapeGhostPreviewProvider {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
         RayTraceResult hit = this.screen.pickBlockHit();
-        if (hit == null || mc == null || mc.world == null || mc.player == null) {
+        if (hit == null || mc == null || mc.theWorld == null || mc.thePlayer == null) {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
         ItemStack stack = this.controller.hasSelectedItem()
                 ? this.controller.getSelectedItemPreview()
-                : mc.player.getHeldItemMainhand();
-        if (stack.isEmpty()) {
+                : mc.thePlayer.getHeldItem();
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return ShapeDataRecords.GhostPreview.EMPTY;
         }
         BlockPos target = ShapePlacementTargetResolver.resolveSingleGhostTarget(mc, hit, stack);
@@ -143,12 +142,11 @@ public final class ShapeGhostPreviewProvider {
         if (this.controller.hasSelectedItem() || this.screen.canUseToolSlotShapeSource()) {
             return true;
         }
-        if (mc == null || mc.player == null) {
+        if (mc == null || mc.thePlayer == null) {
             return false;
         }
-        return mc.player.getHeldItemMainhand().getItem() instanceof ItemBlock
-                || mc.player.getHeldItemMainhand().getItem() instanceof ItemMonsterPlacer
-                || mc.player.getHeldItemMainhand().getItem() instanceof ItemEndCrystal;
+        return mc.thePlayer.getHeldItem().getItem() instanceof ItemBlock
+                || mc.thePlayer.getHeldItem().getItem() instanceof ItemMonsterPlacer;
     }
 
     private boolean ready() {

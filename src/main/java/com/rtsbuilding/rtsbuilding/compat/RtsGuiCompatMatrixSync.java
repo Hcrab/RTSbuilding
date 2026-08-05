@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat;
 
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 /**
  * 大型整合包 GUI 矩阵的集成服 ACK 通道。

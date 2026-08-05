@@ -14,17 +14,17 @@ import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionSliceResul
 import com.rtsbuilding.rtsbuilding.server.task.destruction.DestructionTaskState;
 import com.google.common.base.Optional;
 import net.minecraft.block.Block;
-import net.minecraft.block.properties.IProperty;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.IProperty;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagLong;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.util.Constants;
 
@@ -80,7 +80,7 @@ public final class RtsDestructionBatch {
         boolean creative = player.capabilities.isCreativeMode;
         boolean selectedToolRequested = session.mining.miningSelectedToolRequested;
         ItemStack linkedTool = (creative || session.mining.miningToolLease == null)
-                ? ItemStack.EMPTY
+                ? null
                 : session.mining.miningToolLease.stack();
 
         // 收集并验证目标
@@ -175,7 +175,7 @@ public final class RtsDestructionBatch {
         int limit = Math.max(0, Math.min(DESTROY_MAX_BLOCKS_PER_TICK, maxBlocks));
         int processed = 0;
         DestructionSliceResult.Outcome outcome = DestructionSliceResult.Outcome.CONTINUE;
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         // 同一 slice 的掉落先合并进轻量缓存，避免每破坏一个方块都触发一次外部储存写入。
         List<BlockPos> dropsToAbsorb = new ArrayList<>();
 
@@ -188,14 +188,14 @@ public final class RtsDestructionBatch {
                 job.skippedWhileProcessing++;
                 continue;
             }
-            IBlockState blockState = level.getBlockState(target);
+            BlockState blockState = BlockState.fromWorld(level, target);
             if (!RtsMiningValidator.isBreakableBlock(blockState)
                     || !RtsMiningValidator.hasValidDestroySpeed(blockState, level, target)) {
                 job.skippedWhileProcessing++;
                 continue;
             }
             ItemStack linkedTool = session.mining.miningToolLease == null
-                    ? ItemStack.EMPTY : session.mining.miningToolLease.stack();
+                    ? null : session.mining.miningToolLease.stack();
             if (!player.capabilities.isCreativeMode
                     && MiningSpeedCalculator.computeRemoteDestroyStep(
                             player, blockState, target, job.toolSlot(), linkedTool,
@@ -283,7 +283,7 @@ public final class RtsDestructionBatch {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
 
         // 按 Y 降序排列（从上往下逐层破坏）
         List<BlockPos> sortedPositions = new ArrayList<>(positions);
@@ -304,7 +304,7 @@ public final class RtsDestructionBatch {
             if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.DOWN)) {
                 continue;
             }
-            IBlockState state = level.getBlockState(pos);
+            BlockState state = BlockState.fromWorld(level, pos);
             if (!RtsMiningValidator.isBreakableBlock(state)
                     || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
                 continue;
@@ -340,8 +340,8 @@ public final class RtsDestructionBatch {
         List<HistoryBlockRecord> records = new ArrayList<>(6);
         for (EnumFacing dir : EnumFacing.values()) {
             BlockPos neighbor = pos.offset(dir);
-            IBlockState state = level.getBlockState(neighbor);
-            if (state.getBlock() != Blocks.AIR) {
+            BlockState state = BlockState.fromWorld(level, neighbor);
+            if (state.getBlock() != Blocks.air) {
                 records.add(new HistoryBlockRecord(neighbor.toImmutable(), state));
             }
         }
@@ -358,8 +358,8 @@ public final class RtsDestructionBatch {
             if (nr.pos().equals(brokenPos)) {
                 continue;
             }
-            IBlockState currentState = level.getBlockState(nr.pos());
-            if (currentState.getBlock() == Blocks.AIR && nr.state().getBlock() != Blocks.AIR) {
+            BlockState currentState = BlockState.fromWorld(level, nr.pos());
+            if (currentState.getBlock() == Blocks.air && nr.state().getBlock() != Blocks.air) {
                 job.processedRecords.add(nr);
             }
         }
@@ -376,31 +376,32 @@ public final class RtsDestructionBatch {
     }
 
     private static HistoryBlockRecord decodeHistoryRecord(EntityPlayerMP player, NBTTagCompound tag) {
-        IBlockState state = readBlockState(tag.getCompoundTag("state"));
-        if (state.getBlock() == Blocks.AIR) throw new IllegalArgumentException("detached destruction history 方块状态无效");
+        BlockState state = readBlockState(tag.getCompoundTag("state"));
+        if (state.getBlock() == Blocks.air) throw new IllegalArgumentException("detached destruction history 方块状态无效");
         NBTTagCompound blockEntity = tag.hasKey("blockEntity", Constants.NBT.TAG_COMPOUND)
-                ? tag.getCompoundTag("blockEntity").copy() : null;
+                ? com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(
+                        tag.getCompoundTag("blockEntity")) : null;
         return new HistoryBlockRecord(BlockPos.fromLong(tag.getLong("pos")), state, blockEntity);
     }
 
-    private static NBTTagCompound writeBlockState(IBlockState state) {
+    private static NBTTagCompound writeBlockState(BlockState state) {
         NBTTagCompound tag = new NBTTagCompound();
-        ResourceLocation id = Block.REGISTRY.getNameForObject(state.getBlock());
+        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getNameForObject(state.getBlock());
         tag.setString("Name", id == null ? "minecraft:air" : id.toString());
         NBTTagCompound properties = new NBTTagCompound();
         for (Map.Entry<IProperty<?>, Comparable<?>> entry : state.getProperties().entrySet()) {
             properties.setString(entry.getKey().getName(), propertyName(entry.getKey(), entry.getValue()));
         }
-        if (!properties.isEmpty()) tag.setTag("Properties", properties);
+        if (!com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(properties)) tag.setTag("Properties", properties);
         return tag;
     }
 
-    private static IBlockState readBlockState(NBTTagCompound tag) {
+    private static BlockState readBlockState(NBTTagCompound tag) {
         Block block;
-        try { block = Block.REGISTRY.getObject(new ResourceLocation(tag.getString("Name"))); }
-        catch (RuntimeException invalid) { return Blocks.AIR.getDefaultState(); }
-        if (block == null) return Blocks.AIR.getDefaultState();
-        IBlockState state = block.getDefaultState();
+        try { block = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getObject(new ResourceLocation(tag.getString("Name"))); }
+        catch (RuntimeException invalid) { return BlockState.defaultState(Blocks.air); }
+        if (block == null) return BlockState.defaultState(Blocks.air);
+        BlockState state = BlockState.defaultState(block);
         NBTTagCompound properties = tag.getCompoundTag("Properties");
         for (IProperty<?> property : state.getPropertyKeys()) {
             if (properties.hasKey(property.getName(), Constants.NBT.TAG_STRING)) {
@@ -411,7 +412,7 @@ public final class RtsDestructionBatch {
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    private static IBlockState applyProperty(IBlockState state, IProperty property, String value) {
+    private static BlockState applyProperty(BlockState state, IProperty property, String value) {
         Optional parsed = property.parseValue(value);
         return parsed.isPresent() ? state.withProperty(property, (Comparable) parsed.get()) : state;
     }
@@ -548,7 +549,8 @@ public final class RtsDestructionBatch {
             NBTTagList encodedPositions = tag.getTagList(NBT_POSITIONS, Constants.NBT.TAG_LONG);
             List<BlockPos> positions = new ArrayList<BlockPos>(encodedPositions.tagCount());
             for (int i = 0; i < encodedPositions.tagCount(); i++) {
-                positions.add(BlockPos.fromLong(((NBTTagLong) encodedPositions.get(i)).getLong()));
+                positions.add(BlockPos.fromLong(
+                        com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getLongAt(encodedPositions, i)));
             }
             byte toolSlot = tag.getByte(NBT_TOOL_SLOT);
             boolean toolProtectionEnabled = tag.getBoolean(NBT_TOOL_PROTECTION);

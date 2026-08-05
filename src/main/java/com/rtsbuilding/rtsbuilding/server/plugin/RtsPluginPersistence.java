@@ -36,11 +36,11 @@ final class RtsPluginPersistence {
             ResourceLocation pluginId = parseId(tag.getString(NBT_PLUGIN_ID));
             if (pluginId == null) continue;
 
-            ItemStack stack = new ItemStack(tag.getCompoundTag(NBT_STACK));
-            if (stack.isEmpty()) {
+            ItemStack stack = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.read(tag.getCompoundTag(NBT_STACK));
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 RtsPluginDefinition definition = RtsPluginRegistry.byId(pluginId);
                 if (definition == null) continue;
-                Item item = Item.REGISTRY.getObject(definition.itemId());
+                Item item = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getObject(definition.itemId());
                 if (item == null) continue;
                 stack = new ItemStack(item);
             }
@@ -53,7 +53,7 @@ final class RtsPluginPersistence {
         NBTTagCompound root = new NBTTagCompound();
         NBTTagList list = new NBTTagList();
         for (RtsInstalledPlugin plugin : installed) {
-            if (plugin == null || plugin.pluginId() == null || plugin.stack().isEmpty()) continue;
+            if (plugin == null || plugin.pluginId() == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(plugin.stack())) continue;
 
             NBTTagCompound tag = new NBTTagCompound();
             tag.setString(NBT_PLUGIN_ID, plugin.pluginId().toString());

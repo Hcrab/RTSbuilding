@@ -10,12 +10,12 @@ import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.storage.FluidContainerCompat;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.FluidUtil;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,12 +47,13 @@ final class StoragePagePayloadDecoder {
         int itemSize = Math.min(payload.itemStacks().size(), payload.counts().size());
         for (int i = 0; i < itemSize; i++) {
             ItemStack stack = payload.itemStacks().get(i);
-            if (stack == null || stack.isEmpty()) continue;
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) continue;
             ItemStack preview = stack.copy();
-            preview.setCount(1);
-            ResourceLocation id = preview.getItem().getRegistryName();
+            preview.stackSize = 1;
+            ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS
+                    .getKey(preview.getItem());
             if (id != null) items.add(new StorageEntry(preview, id.toString(), payload.counts().get(i),
-                    id.getNamespace(), id.getPath()));
+                    id.getResourceDomain(), id.getResourcePath()));
         }
 
         Map<String, Long> totals = new LinkedHashMap<>();
@@ -61,7 +62,7 @@ final class StoragePagePayloadDecoder {
             for (int i = 0; i < totalSize; i++) {
                 String itemId = payload.totalItemIds().get(i);
                 ResourceLocation id = parseId(itemId);
-                if (id != null && ForgeRegistries.ITEMS.containsKey(id)) {
+                if (id != null && RtsRegistries.ITEMS.containsKey(id)) {
                     totals.put(itemId, Math.max(0L, payload.totalItemCounts().get(i)));
                 }
             }
@@ -74,11 +75,11 @@ final class StoragePagePayloadDecoder {
             ResourceLocation id = parseId(fluidId);
             Fluid fluid = id == null ? null : FluidRegistry.getFluid(fluidId);
             if (fluid == null) continue;
-            FluidStack stack = new FluidStack(fluid, Fluid.BUCKET_VOLUME);
+            FluidStack stack = new FluidStack(fluid, net.minecraftforge.fluids.FluidContainerRegistry.BUCKET_VOLUME);
             fluids.add(new FluidEntry(fluidId, fluid.getLocalizedName(stack),
                     payload.fluidAmounts().get(i), payload.fluidCapacities().get(i),
-                    id.getNamespace(), id.getPath(),
-                    FluidUtil.getFilledBucket(stack)));
+                    id.getResourceDomain(), id.getResourcePath(),
+                    FluidContainerCompat.getFilledBucket(stack)));
         }
 
         List<RecentEntry> recent = new ArrayList<>();
@@ -96,7 +97,7 @@ final class StoragePagePayloadDecoder {
             String itemId = payload.funnelBufferItemIds().get(i);
             ResourceLocation id = parseId(itemId);
             long count = Math.max(0L, payload.funnelBufferCounts().get(i));
-            Item item = id == null ? null : ForgeRegistries.ITEMS.getValue(id);
+            Item item = id == null ? null : RtsRegistries.ITEMS.getValue(id);
             if (item != null && count > 0L) {
                 funnel.add(new FunnelBufferEntry(new ItemStack(item), itemId, count));
             }
@@ -112,10 +113,10 @@ final class StoragePagePayloadDecoder {
         byte mode = index < payload.linkedModes().size() ? payload.linkedModes().get(index) : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL;
         int priority = index < payload.linkedPriorities().size() ? payload.linkedPriorities().get(index) : 0;
         boolean available = index < payload.linkedWorldAvailable().size() && Boolean.TRUE.equals(payload.linkedWorldAvailable().get(index));
-        ItemStack preview = ItemStack.EMPTY;
+        ItemStack preview = null;
         String iconId = index < payload.linkedIconItemIds().size() ? payload.linkedIconItemIds().get(index) : "";
         ResourceLocation iconKey = parseId(iconId);
-        Item icon = iconKey == null ? null : ForgeRegistries.ITEMS.getValue(iconKey);
+        Item icon = iconKey == null ? null : RtsRegistries.ITEMS.getValue(iconKey);
         if (icon != null) preview = new ItemStack(icon);
         return new LinkedStorageEntry(pos, label, mode, priority, preview, available);
     }
@@ -129,11 +130,12 @@ final class StoragePagePayloadDecoder {
         if (fluidKind) {
             Fluid fluid = FluidRegistry.getFluid(idText);
             if (fluid == null) return null;
-            FluidStack stack = new FluidStack(fluid, Fluid.BUCKET_VOLUME);
+            FluidStack stack = new FluidStack(fluid, net.minecraftforge.fluids.FluidContainerRegistry.BUCKET_VOLUME);
             return new RecentEntry(true, idText, fluid.getLocalizedName(stack),
-                    Math.max(0L, amount), Math.max(0L, capacity), kind, FluidUtil.getFilledBucket(stack));
+                    Math.max(0L, amount), Math.max(0L, capacity), kind,
+                    FluidContainerCompat.getFilledBucket(stack));
         }
-        Item item = ForgeRegistries.ITEMS.getValue(id);
+        Item item = RtsRegistries.ITEMS.getValue(id);
         if (item == null) return null;
         ItemStack preview = new ItemStack(item);
         return new RecentEntry(false, idText, preview.getDisplayName(), Math.max(0L, amount), 0L, kind, preview);

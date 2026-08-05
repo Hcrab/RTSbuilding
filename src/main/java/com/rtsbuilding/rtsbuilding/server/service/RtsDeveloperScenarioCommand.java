@@ -7,7 +7,7 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.ChatComponentTranslation;
 
 import java.nio.file.Paths;
 import java.time.Instant;
@@ -18,13 +18,13 @@ public final class RtsDeveloperScenarioCommand extends CommandBase {
     public RtsDeveloperScenarioCommand() {
     }
 
-    @Override public String getName() { return "rtsbuilding_dev"; }
-    @Override public String getUsage(ICommandSender sender) { return "/rtsbuilding_dev <start|finish> <task> <runId>"; }
+    @Override public String getCommandName() { return "rtsbuilding_dev"; }
+    @Override public String getCommandUsage(ICommandSender sender) { return "/rtsbuilding_dev <start|finish> <task> <runId>"; }
     @Override public int getRequiredPermissionLevel() { return 2; }
 
     @Override
-    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
-        if (args.length != 3) throw new CommandException(getUsage(sender));
+    public void processCommand(ICommandSender sender, String[] args) throws CommandException {
+        if (args.length != 3) throw new CommandException(getCommandUsage(sender));
         checkpoint(getCommandSenderAsPlayer(sender), args[0], args[1], args[2]);
     }
 
@@ -32,14 +32,14 @@ public final class RtsDeveloperScenarioCommand extends CommandBase {
         String safeAction = trim(action, 16);
         String safeTask = trim(task, 48);
         String safeRunId = trim(runId, 64);
-        if (!player.canUseCommand(2, "rtsbuilding_dev")) {
-            player.sendMessage(new TextComponentTranslation(
+        if (!com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.canUseCommand(player, 2, "rtsbuilding_dev")) {
+            player.addChatMessage(new ChatComponentTranslation(
                     "message.rtsbuilding.developer.server_metrics_requires_op"));
             return;
         }
         if ("start".equals(safeAction)) {
             if (!RtsDeveloperMetrics.begin(player, safeRunId, safeTask)) {
-                player.sendMessage(new TextComponentTranslation(
+                player.addChatMessage(new ChatComponentTranslation(
                         "message.rtsbuilding.developer.run_mismatch"));
                 return;
             }
@@ -47,7 +47,7 @@ public final class RtsDeveloperScenarioCommand extends CommandBase {
         } else if ("finish".equals(safeAction)) {
             RtsDeveloperMetrics.FinishResult finish = RtsDeveloperMetrics.finish(player, safeRunId, safeTask);
             if (!finish.accepted()) {
-                player.sendMessage(new TextComponentTranslation(
+                player.addChatMessage(new ChatComponentTranslation(
                         "message.rtsbuilding.developer.run_mismatch"));
                 return;
             }
@@ -55,7 +55,7 @@ public final class RtsDeveloperScenarioCommand extends CommandBase {
         } else {
             return;
         }
-        player.sendMessage(new TextComponentTranslation(
+        player.addChatMessage(new ChatComponentTranslation(
                 "message.rtsbuilding.developer.checkpoint_saved", safeRunId));
     }
 

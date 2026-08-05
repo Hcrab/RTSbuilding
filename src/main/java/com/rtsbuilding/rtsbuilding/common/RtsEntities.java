@@ -3,8 +3,7 @@ package com.rtsbuilding.rtsbuilding.common;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.registry.EntityRegistry;
+import cpw.mods.fml.common.registry.EntityRegistry;
 
 /**
  * 1.12.2 实体注册边界。旧 Forge 没有 EntityType 注册表，因此显式保存实体类和追踪参数，
@@ -24,7 +23,6 @@ public final class RtsEntities {
 
     private static <T extends Entity> void register(Registration<T> registration, Object modInstance) {
         EntityRegistry.registerModEntity(
-                new ResourceLocation(RtsbuildingMod.MODID, registration.id),
                 registration.entityClass,
                 registration.id,
                 registration.numericId,

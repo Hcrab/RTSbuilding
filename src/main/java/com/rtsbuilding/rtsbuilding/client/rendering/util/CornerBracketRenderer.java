@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-import net.minecraft.client.renderer.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
 
 /** 向 1.12 POSITION_COLOR 私有缓冲追加有体感宽度的包围盒角框。 */
 public final class CornerBracketRenderer {

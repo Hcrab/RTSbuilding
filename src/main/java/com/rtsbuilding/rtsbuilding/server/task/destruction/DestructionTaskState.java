@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.destruction;
 
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
 
 import java.util.ArrayList;
@@ -142,7 +142,7 @@ public final class DestructionTaskState {
         List<NBTTagCompound> copy = new ArrayList<>(tags.size());
         for (NBTTagCompound tag : tags) {
             if (tag == null) throw new IllegalArgumentException("historyRecords 不能包含 null");
-            copy.add(tag.copy());
+            copy.add(com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(tag));
         }
         return com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(copy);
     }

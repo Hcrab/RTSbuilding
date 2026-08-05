@@ -1,13 +1,21 @@
-[{
-	"modid": "${mod_id}",
-	"name": "${mod_name}",
-	"version": "${mod_version}",
-	"mcversion": "1.12.2",
-	"description": "${mod_description}",
-	"authorList": ["${mod_authors}"],
-	"credits": "${mod_credits}",
-	"url": "${mod_url}",
-	"updateJSON": "${mod_update_json}",
-	"guiFactory": "com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap",
-	"logoFile": "${mod_logo_path}"
-}]
+{
+  "modListVersion": 2,
+  "modList": [{
+    "modid": "${modId}",
+    "name": "${modName}",
+    "description": "Build, manage storage, and interact with your base from an overhead RTS-style building panel.",
+    "version": "${modVersion}",
+    "mcversion": "${minecraftVersion}",
+    "url": "https://rts.ciallo.ltd/",
+    "updateUrl": "",
+    "authorList": ["JerryLunar / 寄居蟹L-crab"],
+    "credits": "Building made easier.",
+    "logoFile": "logo.png",
+    "screenshots": [],
+    "parent": "",
+    "requiredMods": [],
+    "dependencies": [],
+    "dependants": [],
+    "useDependencyInformation": false
+  }]
+}

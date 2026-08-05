@@ -32,7 +32,7 @@ final class RtsRawGuiInputAdapter {
 
     static boolean routeMouse(GuiScreen screen, String source) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        ScaledResolution scaled = new ScaledResolution(minecraft);
+        ScaledResolution scaled = new ScaledResolution(minecraft, minecraft.displayWidth, minecraft.displayHeight);
         double mouseX = Mouse.getEventX() * (double) scaled.getScaledWidth() / minecraft.displayWidth;
         double mouseY = scaled.getScaledHeight()
                 - Mouse.getEventY() * (double) scaled.getScaledHeight() / minecraft.displayHeight - 1.0D;

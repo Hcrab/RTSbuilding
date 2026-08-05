@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
@@ -19,29 +19,31 @@ import java.util.Objects;
  */
 public final class HistoryBlockRecord {
     private final BlockPos pos;
-    private final IBlockState state;
+    private final BlockState state;
     @Nullable
     private final NBTTagCompound blockEntityData;
 
-    public HistoryBlockRecord(BlockPos pos, IBlockState state,
+    public HistoryBlockRecord(BlockPos pos, BlockState state,
             @Nullable NBTTagCompound blockEntityData) {
         BlockPos sourcePos = Objects.requireNonNull(pos, "pos");
         this.pos = new BlockPos(sourcePos.getX(), sourcePos.getY(), sourcePos.getZ());
         this.state = Objects.requireNonNull(state, "state");
-        this.blockEntityData = blockEntityData == null ? null : blockEntityData.copy();
+        this.blockEntityData = blockEntityData == null ? null
+                : com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(blockEntityData);
     }
 
     public BlockPos pos() { return pos; }
-    public IBlockState state() { return state; }
+    public BlockState state() { return state; }
     @Nullable
     public NBTTagCompound blockEntityData() {
-        return blockEntityData == null ? null : blockEntityData.copy();
+        return blockEntityData == null ? null
+                : com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(blockEntityData);
     }
 
     /**
      * 便捷构造器，提供向后兼容性。
      */
-    public HistoryBlockRecord(BlockPos pos, IBlockState state) {
+    public HistoryBlockRecord(BlockPos pos, BlockState state) {
         this(pos, state, null);
     }
 }

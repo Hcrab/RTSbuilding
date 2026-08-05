@@ -1,30 +1,32 @@
 package com.rtsbuilding.rtsbuilding.client.compat;
 
+import net.minecraft.util.ResourceLocation;
+
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.compat.RtsGuiCompatMatrixSync;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.inventory.Container;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.GameType;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.world.WorldSettings.GameType;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.Loader;
-import net.minecraftforge.fml.common.LoaderState;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.Loader;
+import cpw.mods.fml.common.LoaderState;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,7 +47,6 @@ import java.util.Set;
  * 的 RTS 兼容回归。</p>
  */
 @SideOnly(Side.CLIENT)
-@Mod.EventBusSubscriber(modid = "rtsbuilding", value = Side.CLIENT)
 public final class RtsGuiCompatMatrixProbe {
     private static final String BUILDER_SCREEN =
             "com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen";
@@ -88,7 +89,7 @@ public final class RtsGuiCompatMatrixProbe {
     }
 
     @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
+    public void onClientTick(TickEvent.ClientTickEvent event) {
         if (event.phase != TickEvent.Phase.END || run == null || run.finished) return;
         Minecraft minecraft = Minecraft.getMinecraft();
         try {
@@ -279,7 +280,7 @@ public final class RtsGuiCompatMatrixProbe {
         }
 
         private void startFarMiningStorageSmoke(Minecraft minecraft) {
-            minecraft.player.sendChatMessage("/rtsbuilding_far_mining_storage_smoke");
+            minecraft.thePlayer.sendChatMessage("/rtsbuilding_far_mining_storage_smoke");
             moveTo(Phase.WAIT_FAR_MINING_STORAGE);
         }
 
@@ -313,11 +314,11 @@ public final class RtsGuiCompatMatrixProbe {
         private void prepare(Minecraft minecraft, boolean nearPhase) {
             closeExternalScreen(minecraft);
             int distance = nearPhase ? NEAR_DISTANCE : FAR_DISTANCE;
-            targetPos = minecraft.player.getPosition().add(0, 0, distance);
+            targetPos = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(minecraft.thePlayer).add(0, 0, distance);
             setupAckObserved = false;
             setupAckTicks = 0;
             setupBaseline = RtsGuiCompatMatrixSync.setupSequence();
-            minecraft.player.sendChatMessage("/rtsbuilding_gui_compat_setup matrix "
+            minecraft.thePlayer.sendChatMessage("/rtsbuilding_gui_compat_setup matrix "
                     + candidate.blockId() + " " + distance + " " + candidate.meta()
                     + " " + targetPos.getX() + " " + targetPos.getY() + " " + targetPos.getZ());
             moveTo(nearPhase ? Phase.WAIT_NEAR_SETUP : Phase.WAIT_FAR_SETUP);
@@ -347,9 +348,9 @@ public final class RtsGuiCompatMatrixProbe {
                 }
             }
             setupAckTicks++;
-            IBlockState state = minecraft.world.getBlockState(targetPos);
+            BlockState state = BlockState.fromWorld(minecraft.theWorld, targetPos);
             String actual = registryName(state.getBlock());
-            TileEntity clientTile = minecraft.world.getTileEntity(targetPos);
+            TileEntity clientTile = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(minecraft.theWorld, targetPos);
             boolean tileReady = !candidate.tileEntity() || clientTile != null;
             if (!candidate.blockId().equals(actual) || !tileReady) {
                 if (setupAckTicks >= CLIENT_SETUP_SYNC_TIMEOUT_TICKS) {
@@ -377,7 +378,7 @@ public final class RtsGuiCompatMatrixProbe {
             controller.selectEmptyHand();
             Vec3d hit = new Vec3d(targetPos.getX() + 0.5D,
                     targetPos.getY() + 0.5D, targetPos.getZ() + 0.5D);
-            Vec3d origin = minecraft.player.getPositionEyes(1.0F);
+            Vec3d origin = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.positionEyes(minecraft.thePlayer, 1.0F);
             Vec3d direction = hit.subtract(origin).normalize();
             resetObservation();
             interactionBaseline = RtsGuiCompatMatrixSync.interactionSequence();
@@ -490,9 +491,9 @@ public final class RtsGuiCompatMatrixProbe {
         }
 
         private void closeExternalScreen(Minecraft minecraft) {
-            if (minecraft.player != null && minecraft.player.openContainer != null
-                    && minecraft.player.openContainer.windowId != 0) {
-                minecraft.player.closeScreen();
+            if (minecraft.thePlayer != null && minecraft.thePlayer.openContainer != null
+                    && minecraft.thePlayer.openContainer.windowId != 0) {
+                minecraft.thePlayer.closeScreen();
             } else if (minecraft.currentScreen != null
                     && !BUILDER_SCREEN.equals(minecraft.currentScreen.getClass().getName())) {
                 minecraft.displayGuiScreen(null);
@@ -561,8 +562,8 @@ public final class RtsGuiCompatMatrixProbe {
     }
 
     private static boolean hasPlayableWorld(Minecraft minecraft) {
-        return minecraft != null && minecraft.player != null && minecraft.world != null
-                && minecraft.player.connection != null;
+        return minecraft != null && minecraft.thePlayer != null && minecraft.theWorld != null
+                && minecraft.thePlayer.sendQueue != null;
     }
 
     private static String externalScreenClass(GuiScreen screen) {
@@ -572,13 +573,15 @@ public final class RtsGuiCompatMatrixProbe {
     }
 
     private static String currentMenuClass(Minecraft minecraft) {
-        Container menu = minecraft == null || minecraft.player == null
-                ? null : minecraft.player.openContainer;
+        Container menu = minecraft == null || minecraft.thePlayer == null
+                ? null : minecraft.thePlayer.openContainer;
         return menu == null || menu.windowId == 0 ? "" : menu.getClass().getName();
     }
 
     private static String registryName(Block block) {
-        return block == null || block.getRegistryName() == null ? "" : block.getRegistryName().toString();
+        ResourceLocation id = block == null ? null
+                : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getKey(block);
+        return id == null ? "" : id.toString();
     }
 
     private static Path resolvePath(String property, String environment) {

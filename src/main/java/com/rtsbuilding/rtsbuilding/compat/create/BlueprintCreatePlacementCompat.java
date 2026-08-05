@@ -1,11 +1,11 @@
 package com.rtsbuilding.rtsbuilding.compat.create;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.WorldServer;
 
 import javax.annotation.Nullable;
@@ -27,7 +27,7 @@ public final class BlueprintCreatePlacementCompat {
     }
 
     /** 1.12.2 无 UPDATE_KNOWN_SHAPE；Create Legacy 也没有要求抑制邻居通知的公开放置协议。 */
-    public static int placementFlags(IBlockState state) {
+    public static int placementFlags(BlockState state) {
         return NOTIFY_NEIGHBORS_AND_CLIENTS;
     }
 
@@ -37,12 +37,12 @@ public final class BlueprintCreatePlacementCompat {
      */
     @Nullable
     public static NBTTagCompound prepareBlockEntityTag(
-            WorldServer level, BlockPos target, IBlockState state,
+            WorldServer level, BlockPos target, BlockState state,
             @Nullable NBTTagCompound original) {
-        if (original == null || original.isEmpty()) {
+        if (original == null || com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(original)) {
             return original;
         }
-        NBTTagCompound prepared = original.copy();
+        NBTTagCompound prepared = (NBTTagCompound) original.copy();
         if (isLegacyBelt(state)) {
             // 这些字段是 Create Legacy TileEntityBeltBase 的瞬时运输/插值状态，不能跨世界复制。
             removeAll(prepared,
@@ -59,14 +59,14 @@ public final class BlueprintCreatePlacementCompat {
      * 使用 1.12 原版放置回调完成初始化。Create Legacy 未安装时，普通模组与原版方块行为不变。
      */
     public static void finishPlacement(
-            WorldServer level, BlockPos target, IBlockState state, @Nullable ItemStack stack) {
+            WorldServer level, BlockPos target, BlockState state, @Nullable ItemStack stack) {
         if (level == null || target == null || !isCreateBlock(state)) {
             return;
         }
         try {
             Block block = state.getBlock();
-            block.onBlockPlacedBy(
-                    level, target, state, null, stack == null ? ItemStack.EMPTY : stack);
+            block.onBlockPlacedBy(level, target.getX(), target.getY(), target.getZ(),
+                    null, stack);
         } catch (RuntimeException ignored) {
             // 可选第三方回调失败不能回滚已经成功写入世界的整批蓝图。
         }
@@ -78,21 +78,22 @@ public final class BlueprintCreatePlacementCompat {
         }
     }
 
-    private static boolean isLegacyBelt(IBlockState state) {
+    private static boolean isLegacyBelt(BlockState state) {
         ResourceLocation id = registryName(state);
-        if (id == null || !CREATE_NAMESPACE.equals(id.getNamespace())) {
+        if (id == null || !CREATE_NAMESPACE.equals(id.getResourceDomain())) {
             return false;
         }
-        return BELT_STRAIGHT.equals(id.getPath()) || BELT_DIAGONAL.equals(id.getPath());
+        return BELT_STRAIGHT.equals(id.getResourcePath()) || BELT_DIAGONAL.equals(id.getResourcePath());
     }
 
-    private static boolean isCreateBlock(IBlockState state) {
+    private static boolean isCreateBlock(BlockState state) {
         ResourceLocation id = registryName(state);
-        return id != null && CREATE_NAMESPACE.equals(id.getNamespace());
+        return id != null && CREATE_NAMESPACE.equals(id.getResourceDomain());
     }
 
     @Nullable
-    private static ResourceLocation registryName(IBlockState state) {
-        return state == null || state.getBlock() == null ? null : state.getBlock().getRegistryName();
+    private static ResourceLocation registryName(BlockState state) {
+        return state == null || state.getBlock() == null ? null
+                : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS.getKey(state.getBlock());
     }
 }

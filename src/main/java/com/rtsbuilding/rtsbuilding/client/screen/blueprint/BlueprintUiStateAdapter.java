@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
 import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -77,8 +77,8 @@ final class BlueprintUiStateAdapter {
         BuildStats stats = BlueprintMaterialInspector.buildStats(entry, controller);
         List<BlueprintMaterialUiState.Row> rows = new ArrayList<>();
         for (DetailLine line : BlueprintMaterialInspector.detailLines(entry, controller)) {
-            ResourceLocation iconKey = line.preview().isEmpty() ? null
-                    : Item.REGISTRY.getNameForObject(line.preview().getItem());
+            ResourceLocation iconKey = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(line.preview()) ? null
+                    : com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(line.preview().getItem());
             String iconId = iconKey == null ? "" : iconKey.toString();
             rows.add(new BlueprintMaterialUiState.Row(
                     iconId, line.label(), line.detail(), line.tone()));

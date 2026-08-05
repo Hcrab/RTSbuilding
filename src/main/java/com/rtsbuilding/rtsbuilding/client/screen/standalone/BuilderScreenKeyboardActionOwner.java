@@ -12,7 +12,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import org.lwjgl.input.Keyboard;
 import net.minecraft.client.settings.KeyBinding;
 
@@ -167,7 +167,7 @@ final class BuilderScreenKeyboardActionOwner {
             if (screen.controller.getMode() != BuilderMode.ROTATE
                     || !screen.rotationHandles.hasTarget()
                     || screen.getMinecraft() == null
-                || screen.getMinecraft().world == null) {
+                || screen.getMinecraft().theWorld == null) {
                 return false;
             }
             PlacedBlockRotationGesture gesture =
@@ -177,7 +177,7 @@ final class BuilderScreenKeyboardActionOwner {
             }
         EnumFacing cameraForward = screen.currentCameraHorizontalDirection();
             boolean supported = screen.rotationHandles.arcs(
-                screen.getMinecraft().world, cameraForward)
+                screen.getMinecraft().theWorld, cameraForward)
                     .stream()
                     .anyMatch(arc -> arc.gesture() == gesture);
             if (supported && screen.rotationHandles.targetPos() != null) {

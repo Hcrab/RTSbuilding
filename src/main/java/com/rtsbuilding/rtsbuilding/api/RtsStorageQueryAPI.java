@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.api;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.function.Predicate;
 
@@ -27,7 +27,7 @@ public interface RtsStorageQueryAPI {
      * 检查玩家是否可以访问指定坐标的方块目标。
      *
      * @param player 目标玩家
-     * @param pos    目标坐标（使用 net.minecraft.util.math.BlockPos）
+     * @param pos    目标坐标（使用 com.rtsbuilding.rtsbuilding.platform.math.BlockPos）
      * @return 如果在 RTS 相机范围内且可以交互则返回 true
      */
     boolean canAccessTarget(EntityPlayerMP player, BlockPos pos);

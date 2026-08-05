@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.network.storage;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 /** 将玩家自己的指定快捷栏槽位存入链接储存。 */
 public final class C2SRtsStoreHotbarSlotPayload implements IMessage {
     private byte slot;

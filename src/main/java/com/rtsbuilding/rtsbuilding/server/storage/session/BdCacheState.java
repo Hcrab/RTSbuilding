@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.session;
 
-import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 /**
  * 单个 RtsStorageSession 范围内的 BD（更好的描述）网络缓存状态。

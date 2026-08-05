@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.Objects;
 
@@ -14,17 +14,17 @@ import java.util.Objects;
  */
 public final class BlueprintGhostBlock {
     private final BlockPos pos;
-    private final IBlockState state;
+    private final BlockState state;
     private final boolean missing;
 
-    public BlueprintGhostBlock(BlockPos pos, IBlockState state, boolean missing) {
+    public BlueprintGhostBlock(BlockPos pos, BlockState state, boolean missing) {
         this.pos = pos;
         this.state = state;
         this.missing = missing;
     }
 
     public BlockPos pos() { return pos; }
-    public IBlockState state() { return state; }
+    public BlockState state() { return state; }
     public boolean missing() { return missing; }
 
     @Override public boolean equals(Object other) {

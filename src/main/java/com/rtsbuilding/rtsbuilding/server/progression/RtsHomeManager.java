@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.data.RtsSharedProgressionData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager.HomeAnchor;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -20,8 +20,8 @@ final class RtsHomeManager {
         if (player == null) {
             return;
         }
-        int chunkX = player.getPosition().getX() >> 4;
-        int chunkZ = player.getPosition().getZ() >> 4;
+        int chunkX = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(player).getX() >> 4;
+        int chunkZ = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(player).getZ() >> 4;
         HOME_SELECTIONS.put(player.getUniqueID(), new HomeSelection(player.dimension, chunkX, chunkZ));
     }
 
@@ -101,7 +101,7 @@ final class RtsHomeManager {
         if (home == null || home.dimension() != player.dimension) {
             return false;
         }
-        return isWithinHomeOpeningChunks(home.pos(), player.getPosition());
+        return isWithinHomeOpeningChunks(home.pos(), com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(player));
     }
 
     static boolean isWithinHomeOpeningChunks(BlockPos homePos, BlockPos playerPos) {
@@ -132,7 +132,7 @@ final class RtsHomeManager {
         if (home == null) {
             return 0L;
         }
-        long elapsed = Math.max(0L, player.getServerWorld().getTotalWorldTime() - home.setGameTime());
+        long elapsed = Math.max(0L, player.getServerForPlayer().getTotalWorldTime() - home.setGameTime());
         return Math.max(0L, RtsProgressionManager.HOME_RELOCATION_COOLDOWN_TICKS - elapsed);
     }
 
@@ -157,11 +157,11 @@ final class RtsHomeManager {
             root.setInteger(RtsProgressionPersistence.NBT_VERSION, 1);
             root.setLong(RtsProgressionPersistence.NBT_HOME_POS, pos.toImmutable().toLong());
             root.setString(RtsProgressionPersistence.NBT_HOME_DIMENSION, dimensionName(player.dimension));
-            root.setLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME, player.getServerWorld().getTotalWorldTime());
+            root.setLong(RtsProgressionPersistence.NBT_HOME_SET_GAME_TIME, player.getServerForPlayer().getTotalWorldTime());
             RtsProgressionPersistence.save(player, root);
         } else {
             RtsProgressionPersistence.sharedProgressionData(player).setHome(
-                    sharedKey, pos, player.dimension, player.getServerWorld().getTotalWorldTime());
+                    sharedKey, pos, player.dimension, player.getServerForPlayer().getTotalWorldTime());
         }
         endHomeSelection(player);
         return true;

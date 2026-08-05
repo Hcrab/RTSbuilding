@@ -13,12 +13,12 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.world.WorldServer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 
 import java.util.*;
 
@@ -73,8 +73,8 @@ public final class RtsUltimineProcessor {
         }
         int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
 
-        if (player.isCreative()) {
-            Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, ItemStack.EMPTY, false,
+        if (player.capabilities.isCreativeMode) {
+            Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, null, false,
                     limit, true, mode);
             if (targets.isEmpty()) {
                 return false;
@@ -132,32 +132,32 @@ public final class RtsUltimineProcessor {
         int clampedMinZ = limited.minZ();
         int clampedMaxZ = limited.maxZ();
 
-        boolean selectedToolRequested = !player.isCreative() && session.mining.miningSelectedToolRequested;
-        RtsToolLease toolLease = player.isCreative()
+        boolean selectedToolRequested = !player.capabilities.isCreativeMode && session.mining.miningSelectedToolRequested;
+        RtsToolLease toolLease = player.capabilities.isCreativeMode
                 ? RtsToolLease.empty()
                 : session.mining.miningToolLease;
-        if (!player.isCreative() && toolLease == null) {
+        if (!player.capabilities.isCreativeMode && toolLease == null) {
             return false;
         }
 
         // 使用共享形状系统
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                player.getServerWorld(),
+                player.getServerForPlayer(),
                 clampedMinX, clampedMaxX,
                 clampedMinY, clampedMaxY,
                 clampedMinZ, clampedMaxZ,
                 player,
                 shapeType, fillType);
         ItemStack actualTool = RtsMiningValidator.resolveMiningTool(player, slot, toolLease.stack());
-        int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, player.isCreative());
+        int maxRequiredLevel = RtsMiningValidator.rangeMiningMaxRequiredLevel(player, player.capabilities.isCreativeMode);
         Deque<BlockPos> targets = filterRangeMiningTargets(
-                player, candidatePositions, actualTool, player.isCreative(), maxRequiredLevel);
+                player, candidatePositions, actualTool, player.capabilities.isCreativeMode, maxRequiredLevel);
 
         if (targets.isEmpty()) {
             return false;
         }
 
-        if (player.isCreative()) {
+        if (player.capabilities.isCreativeMode) {
             breakCreativeUltimineTargets(player, session, targets, slot);
             return false;
         }
@@ -190,8 +190,8 @@ public final class RtsUltimineProcessor {
         }
 
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
-        if (player.isCreative()) {
-            Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, ItemStack.EMPTY, false, true);
+        if (player.capabilities.isCreativeMode) {
+            Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, null, false, true);
             if (targets.isEmpty()) {
                 return;
             }
@@ -243,8 +243,8 @@ public final class RtsUltimineProcessor {
         int slot = RtsMiningValidator.clampHotbarSlot(toolSlot);
 
         // Creative mode: break immediately to avoid slow per-tick processing
-        if (player.isCreative()) {
-            Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, ItemStack.EMPTY, false, true);
+        if (player.capabilities.isCreativeMode) {
+            Deque<BlockPos> targets = collectAreaDestroyTargets(player, positions, slot, null, false, true);
             if (targets.isEmpty()) {
                 return 0;
             }
@@ -303,8 +303,8 @@ public final class RtsUltimineProcessor {
         int limit = Math.max(1, Math.min(Math.min(RtsMiningValidator.ultimineMaxBlocks(), progressionLimit), requestedLimit));
 
         // Creative mode: break immediately
-        if (player.isCreative()) {
-            Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, ItemStack.EMPTY, false,
+        if (player.capabilities.isCreativeMode) {
+            Deque<BlockPos> targets = RtsMiningValidator.collectUltimineTargets(player, pos, slot, null, false,
                     limit, true, mode);
             if (targets.isEmpty()) {
                 return 0;
@@ -370,9 +370,9 @@ public final class RtsUltimineProcessor {
         int clampedMaxZ = limitBox.maxZ();
 
         // Creative mode: break immediately
-        if (player.isCreative()) {
+        if (player.capabilities.isCreativeMode) {
             List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                    player.getServerWorld(),
+                    player.getServerForPlayer(),
                     clampedMinX, clampedMaxX,
                     clampedMinY, clampedMaxY,
                     clampedMinZ, clampedMaxZ,
@@ -405,7 +405,7 @@ public final class RtsUltimineProcessor {
         }
 
         List<BlockPos> candidatePositions = AreaOperationExecutor.scanAreaMineTargets(
-                player.getServerWorld(),
+                player.getServerForPlayer(),
                 clampedMinX, clampedMaxX,
                 clampedMinY, clampedMaxY,
                 clampedMinZ, clampedMaxZ,
@@ -476,7 +476,7 @@ public final class RtsUltimineProcessor {
         if (player == null || positions == null || positions.isEmpty()) {
             return new ArrayDeque<>();
         }
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         // 从上往下逐层破坏：按Y降序排列
         List<BlockPos> sortedPositions = new ArrayList<>(positions);
         sortedPositions.sort(Comparator.<BlockPos>comparingInt(BlockPos::getY).reversed());
@@ -516,7 +516,7 @@ public final class RtsUltimineProcessor {
             if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.DOWN)) {
                 continue;
             }
-            IBlockState state = level.getBlockState(pos);
+            BlockState state = BlockState.fromWorld(level, pos);
             // FIXED: No longer incorrectly excludes waterlogged blocks
             if (!RtsMiningValidator.isBreakableBlock(state)
                     || !RtsMiningValidator.hasValidDestroySpeed(state, level, pos)) {
@@ -556,7 +556,7 @@ public final class RtsUltimineProcessor {
         List<BlockPos> harvestTierBlockedPositions = new ArrayList<>();
         int toolBlockedTargets = 0;
         for (BlockPos pos : candidatePositions) {
-            IBlockState state = player.getServerWorld().getBlockState(pos);
+            BlockState state = BlockState.fromWorld(player.getServerForPlayer(), pos);
             if (RtsMiningValidator.canRangeMineWithTool(state, actualTool, creative, maxRequiredLevel)) {
                 targets.addLast(pos);
                 continue;
@@ -692,7 +692,7 @@ public final class RtsUltimineProcessor {
             return RtsMiningStateMachine.MiningAdvance.ended(0, 0, 0);
         }
 
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         int processedThisTick = 0;
         int brokenBeforeThisTick = session.mining.ultimineBrokenTargets;
         boolean autoStoreDrops = RtsMiningValidator.canAutoStoreDrops(player, session);
@@ -720,7 +720,7 @@ public final class RtsUltimineProcessor {
             if (!RtsClaimProtectionService.canBreakBlock(player, target, session.mining.miningFace)) {
                 continue;
             }
-            IBlockState targetState = level.getBlockState(target);
+            BlockState targetState = BlockState.fromWorld(level, target);
             if (!RtsMiningValidator.isBreakableBlock(targetState)
                     || !RtsMiningValidator.hasValidDestroySpeed(targetState, level, target)) {
                 continue;
@@ -731,7 +731,7 @@ public final class RtsUltimineProcessor {
             }
 
             // Capture before state for history (including neighbors for multi-block tracking)
-            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.getServerWorld(), target);
+            HistoryBlockRecord preRecord = ServerHistoryManager.captureBlock(player.getServerForPlayer(), target);
             List<HistoryBlockRecord> neighborRecords = MultiBlockTracker.captureNeighborRecords(level, target);
 
             RtsMiningStateMachine.MiningBreakResult result = RtsMiningStateMachine.destroyMinedBlock(

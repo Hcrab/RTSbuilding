@@ -22,12 +22,12 @@ final class CameraInputSampler {
         boolean s = Keyboard.isKeyDown(Keyboard.KEY_S);
         boolean a = Keyboard.isKeyDown(Keyboard.KEY_A);
         boolean d = Keyboard.isKeyDown(Keyboard.KEY_D);
-        boolean up = ClientKeyMappings.CAMERA_UP.isKeyDown()
-                || ClientKeyMappings.CAMERA_UP_SECONDARY.isKeyDown()
+        boolean up = ClientKeyMappings.CAMERA_UP.getIsKeyPressed()
+                || ClientKeyMappings.CAMERA_UP_SECONDARY.getIsKeyPressed()
                 || builder && invokeBoolean(screen, "isCameraUpActionHeld");
-        boolean down = ClientKeyMappings.CAMERA_DOWN.isKeyDown()
+        boolean down = ClientKeyMappings.CAMERA_DOWN.getIsKeyPressed()
                 || builder && invokeBoolean(screen, "isCameraDownActionHeld");
-        boolean fast = minecraft != null && minecraft.gameSettings.keyBindSprint.isKeyDown();
+        boolean fast = minecraft != null && minecraft.gameSettings.keyBindSprint.getIsKeyPressed();
         return new Input((w ? 1.0F : 0.0F) - (s ? 1.0F : 0.0F),
                 (a ? 1.0F : 0.0F) - (d ? 1.0F : 0.0F),
                 (up ? 1.0F : 0.0F) - (down ? 1.0F : 0.0F), fast);

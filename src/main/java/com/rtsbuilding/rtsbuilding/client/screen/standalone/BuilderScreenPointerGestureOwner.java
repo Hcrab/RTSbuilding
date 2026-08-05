@@ -8,10 +8,10 @@ import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import net.minecraft.util.ChatComponentTranslation;
 import org.lwjgl.input.Mouse;
 
 
@@ -171,35 +171,36 @@ final class BuilderScreenPointerGestureOwner {
         }
 
     boolean openPlacementStateWheel(double mouseX, double mouseY) {
-            if (screen.getMinecraft() == null || screen.getMinecraft().world == null) {
+            if (screen.getMinecraft() == null || screen.getMinecraft().theWorld == null) {
                 return false;
             }
             ItemStack selected = screen.controller.getSelectedItemPreview();
             if (!(selected.getItem() instanceof ItemBlock)
-                    && (screen.getMinecraft().player == null
-                    || !(screen.getMinecraft().player.getHeldItemMainhand().getItem() instanceof ItemBlock))) {
+                    && (screen.getMinecraft().thePlayer == null
+                    || !(screen.getMinecraft().thePlayer.getHeldItem().getItem() instanceof ItemBlock))) {
                 return false;
             }
             RayTraceResult hit = screen.cursorPicker.pickBlockHit();
             BlockPos targetPos = hit == null
                     ? null
-                    : screen.getMinecraft().world.getBlockState(hit.getBlockPos()).getBlock()
-                            .isReplaceable(screen.getMinecraft().world, hit.getBlockPos())
+                    : BlockState.fromWorld(screen.getMinecraft().theWorld, hit.getBlockPos()).getBlock()
+                            .isReplaceable(screen.getMinecraft().theWorld,
+                                    hit.getBlockPos().getX(), hit.getBlockPos().getY(), hit.getBlockPos().getZ())
                             ? hit.getBlockPos()
                             : hit.getBlockPos().offset(hit.sideHit);
-            IBlockState state = BuildGhostBlockStateResolver.resolve(screen.getMinecraft(), targetPos);
+            BlockState state = BuildGhostBlockStateResolver.resolve(screen.getMinecraft(), targetPos);
             if (state == null) {
                 return false;
             }
-            net.minecraft.entity.Entity camera = screen.getMinecraft().getRenderViewEntity();
+            net.minecraft.entity.Entity camera = screen.getMinecraft().renderViewEntity;
             if (camera == null) return false;
             int uiWidth = screen.guiScaleCoordinator.viewportWidth();
             int uiHeight = screen.guiScaleCoordinator.viewportHeight();
             if (!screen.placementStateWheel.open(
                     state, mouseX, mouseY, uiWidth, uiHeight, camera.rotationYaw, camera.rotationPitch)) {
-                if (screen.getMinecraft().player != null) {
-                    screen.getMinecraft().player.sendStatusMessage(
-                            new TextComponentTranslation("screen.rtsbuilding.placement_state_wheel.unsupported"), true);
+                if (screen.getMinecraft().thePlayer != null) {
+                    com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(screen.getMinecraft().thePlayer,
+                            new ChatComponentTranslation("screen.rtsbuilding.placement_state_wheel.unsupported"), true);
                 }
                 return true;
             }

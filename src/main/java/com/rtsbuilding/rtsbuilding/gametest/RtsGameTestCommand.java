@@ -4,8 +4,8 @@ import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.util.ChatComponentText;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -33,12 +33,12 @@ public final class RtsGameTestCommand extends CommandBase {
     private static final Path LATEST_REPORT = REPORT_DIRECTORY.resolve("latest.json");
 
     @Override
-    public String getName() {
+    public String getCommandName() {
         return "rtsbuilding_test";
     }
 
     @Override
-    public String getUsage(ICommandSender sender) {
+    public String getCommandUsage(ICommandSender sender) {
         return "/rtsbuilding_test <list|portable|strict|run <scenario>>";
     }
 
@@ -48,7 +48,7 @@ public final class RtsGameTestCommand extends CommandBase {
     }
 
     @Override
-    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+    public void processCommand(ICommandSender sender, String[] args) throws CommandException {
         if (args.length == 1 && "list".equalsIgnoreCase(args[0])) {
             list(sender);
             return;
@@ -70,7 +70,7 @@ public final class RtsGameTestCommand extends CommandBase {
                 throw new CommandException(unknown.getMessage());
             }
         } else {
-            throw new CommandException(getUsage(sender));
+            throw new CommandException(getCommandUsage(sender));
         }
 
         Summary summary = summarize(results);
@@ -85,7 +85,7 @@ public final class RtsGameTestCommand extends CommandBase {
                 + " blocked=" + summary.blocked + " failed=" + summary.failed
                 + " mode=" + mode + " report=" + report.toAbsolutePath();
         System.out.println(marker);
-        sender.sendMessage(new TextComponentString(marker));
+        sender.addChatMessage(new ChatComponentText(marker));
 
         boolean strict = "strict".equals(mode) || mode.startsWith("scenario:");
         if (summary.failed > 0 || (strict && summary.blocked > 0)) {
@@ -99,9 +99,9 @@ public final class RtsGameTestCommand extends CommandBase {
         for (RtsServerGameTests.Scenario scenario : scenarios) {
             String line = (scenario.isPortable() ? "PORTABLE " : "BLOCKED ") + scenario.id()
                     + " [" + scenario.group() + "] " + scenario.intent();
-            sender.sendMessage(new TextComponentString(line));
+            sender.addChatMessage(new ChatComponentText(line));
         }
-        sender.sendMessage(new TextComponentString("RTS_112_GAMETEST_INVENTORY total=" + scenarios.size()));
+        sender.addChatMessage(new ChatComponentText("RTS_112_GAMETEST_INVENTORY total=" + scenarios.size()));
     }
 
     private static Summary summarize(List<RtsServerGameTests.Result> results) {
@@ -158,15 +158,14 @@ public final class RtsGameTestCommand extends CommandBase {
     }
 
     @Override
-    public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender,
-            String[] args, BlockPos targetPos) {
+    public List<String> addTabCompletionOptions(ICommandSender sender, String[] args) {
         if (args.length == 1) {
             return getListOfStringsMatchingLastWord(args, "list", "portable", "strict", "run");
         }
         if (args.length == 2 && "run".equalsIgnoreCase(args[0])) {
             List<String> ids = new ArrayList<String>();
             for (RtsServerGameTests.Scenario scenario : RtsServerGameTests.scenarios()) ids.add(scenario.id());
-            return getListOfStringsMatchingLastWord(args, ids);
+            return getListOfStringsMatchingLastWord(args, ids.toArray(new String[ids.size()]));
         }
         return Collections.emptyList();
     }

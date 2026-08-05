@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.selection;
 
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.function.LongSupplier;
 

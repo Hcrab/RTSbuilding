@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 以跳过冲突（0）或覆盖冲突（1）的策略恢复挂起放置。 */
 public final class C2SRtsResumePlacementActionPayload implements IMessage {

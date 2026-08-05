@@ -2,11 +2,11 @@ package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.util.EnumBlockRenderType;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.block.EnumBlockRenderType;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -27,11 +27,11 @@ public final class PendingGhostRenderer {
     private PendingGhostRenderer() {
     }
 
-    public static void addPendingBatch(List<BlockPos> positions, IBlockState blockState) {
+    public static void addPendingBatch(List<BlockPos> positions, BlockState blockState) {
         addPendingBatchAt(positions, blockState, System.currentTimeMillis());
     }
 
-    static void addPendingBatchAt(List<BlockPos> positions, IBlockState blockState, long addedAtMs) {
+    static void addPendingBatchAt(List<BlockPos> positions, BlockState blockState, long addedAtMs) {
         if (positions == null || positions.isEmpty()) return;
         for (BlockPos pos : positions) {
             if (pos != null) {
@@ -55,7 +55,7 @@ public final class PendingGhostRenderer {
     static void renderModels(Minecraft minecraft, BufferBuilder fillBuffer,
             double cameraX, double cameraY, double cameraZ, long now) {
         pruneExpired(now);
-        if (minecraft == null || minecraft.world == null || GHOSTS.isEmpty()) return;
+        if (minecraft == null || minecraft.theWorld == null || GHOSTS.isEmpty()) return;
         for (PendingGhostEntry ghost : GHOSTS.values()) {
             if (!isWithinBounds(ghost.pos)) continue;
             float scale = computeGrowScale(now - ghost.addedAtMs);
@@ -114,10 +114,10 @@ public final class PendingGhostRenderer {
 
     private static final class PendingGhostEntry {
         private final BlockPos pos;
-        private final IBlockState state;
+        private final BlockState state;
         private final long addedAtMs;
 
-        private PendingGhostEntry(BlockPos pos, IBlockState state, long addedAtMs) {
+        private PendingGhostEntry(BlockPos pos, BlockState state, long addedAtMs) {
             this.pos = pos;
             this.state = state;
             this.addedAtMs = addedAtMs;

@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.diagnostic;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsRemoteMenuResultPayload;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.LinkedHashMap;
 import java.util.Map;

@@ -52,6 +52,6 @@ final class CameraVisualPoseState {
 
     private static float approachAngle(float current, float target, float alpha) {
         float next = RtsCameraSmoothingMath.interpolateAngleDegrees(current, target, alpha);
-        return Math.abs(net.minecraft.util.math.MathHelper.wrapDegrees(target - next)) <= ROTATION_EPSILON ? target : next;
+        return Math.abs(com.rtsbuilding.rtsbuilding.platform.math.MathHelper.wrapDegrees(target - next)) <= ROTATION_EPSILON ? target : next;
     }
 }

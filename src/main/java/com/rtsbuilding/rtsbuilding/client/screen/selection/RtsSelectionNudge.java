@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.selection;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import org.lwjgl.input.Keyboard;
 
 /**
@@ -53,12 +53,12 @@ public final class RtsSelectionNudge {
 
     private static EnumFacing currentHorizontalFacingDirection() {
         Minecraft minecraft = Minecraft.getMinecraft();
-        Entity camera = minecraft == null ? null : minecraft.getRenderViewEntity();
+        Entity camera = minecraft == null ? null : minecraft.renderViewEntity;
         if (camera != null) {
             return EnumFacing.fromAngle(camera.rotationYaw);
         }
-        if (minecraft != null && minecraft.player != null) {
-            return EnumFacing.fromAngle(minecraft.player.rotationYaw);
+        if (minecraft != null && minecraft.thePlayer != null) {
+            return EnumFacing.fromAngle(minecraft.thePlayer.rotationYaw);
         }
         return EnumFacing.SOUTH;
     }

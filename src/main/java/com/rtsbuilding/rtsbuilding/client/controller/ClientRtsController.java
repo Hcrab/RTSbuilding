@@ -38,14 +38,13 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.SoundEvent;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.ChatComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -334,6 +333,6 @@ public static AreaMineBounds computeAreaMineBounds(BlockPos pointA, BlockPos poi
     public void rotatePlacementClockwise() { this.interactionOwner.rotatePlacementClockwise(); }
     public void rotatePlacementCounterClockwise() { this.interactionOwner.rotatePlacementCounterClockwise(); }
     public void setPlacementStateProperty(String propertyName, String valueName) { this.interactionOwner.setPlacementStateProperty(propertyName, valueName); }
-    public void copyPlacementState(IBlockState state) { this.interactionOwner.copyPlacementState(state); }
+    public void copyPlacementState(BlockState state) { this.interactionOwner.copyPlacementState(state); }
     public void syncVisualCameraFrame() { this.interactionOwner.syncVisualCameraFrame(); }
 }

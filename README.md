@@ -90,6 +90,15 @@ point I already cannot play without it.
 - This first public port is a beta: keep a backup and report compatibility
   failures with `logs/latest.log`.
 
+#### Minecraft 1.7.10 / GT New Horizons
+
+- An experimental GTNH-first backport of the Forge 1.12.2 feature baseline.
+- Targets Forge 10.13.4.1614, GT New Horizons 2.8.4, and the GTNHLib 0.7.10 ABI.
+- Client RTS startup smoke tests and an official GTNH 2.8.4 dedicated-server
+  boot have passed.
+- This line is still alpha. Remote GT/AE2/ModularUI menus and Angelica visual
+  compatibility need broader in-pack testing before a normal release.
+
 ### Contributors and credits
 
 **Hcrab** is the project author and primary maintainer, responsible for the
@@ -117,6 +126,8 @@ Special thanks to the following contributors:
 - `main`: Minecraft 1.21.1 / NeoForge.
 - `forge-1.20.1`: Minecraft 1.20.1 / Forge.
 - `forge-1.12.2`: Minecraft 1.12.2 / Forge.
+- `forge-1.7.10-gtnh`: Minecraft 1.7.10 / Forge, developed and tested against
+  GT New Horizons first.
 
 The `forge-1.12.2` branch uses the Gradle wrapper and pinned toolchains to emit a
 Java 8-compatible mod JAR. Run:
@@ -130,6 +141,18 @@ On Windows:
 ```powershell
 .\gradlew.bat build --no-daemon --no-configuration-cache
 ```
+
+The `forge-1.7.10-gtnh` branch uses the GTNH Gradle convention plugins and a
+pinned Java toolchain. Build it on Windows with:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-1.7.10-gtnh.ps1
+```
+
+The branch also includes separate PowerShell launchers for the development
+client, a clean GTNH instance, and a lighter GTNH test instance. They prepare
+the environment only when invoked; cloning or building the source does not
+launch Minecraft.
 
 ---
 
@@ -202,6 +225,15 @@ On Windows:
 - 首个公开移植版仍为 Beta；请先备份存档，并在报告兼容问题时附上
   `logs/latest.log`。
 
+#### Minecraft 1.7.10 / GT New Horizons
+
+- 以 Forge 1.12.2 功能基线为底本、优先适配 GTNH 的实验性全量回移版本。
+- 目标环境为 Forge 10.13.4.1614、GT New Horizons 2.8.4 与
+  GTNHLib 0.7.10 ABI。
+- 已通过 RTS 客户端启动冒烟测试，并验证官方 GTNH 2.8.4 专用服务端可以完整启动。
+- 当前仍为 Alpha；远程打开 GT/AE2/ModularUI 菜单，以及 Angelica 下的视觉兼容，
+  仍需要更多整合包内实测。
+
 ### 贡献者与鸣谢
 
 **Hcrab** 是项目作者与主要维护者，负责整体设计方向、核心玩法、主要功能实现、
@@ -225,6 +257,8 @@ On Windows:
 - `main`：Minecraft 1.21.1 / NeoForge。
 - `forge-1.20.1`：Minecraft 1.20.1 / Forge。
 - `forge-1.12.2`：Minecraft 1.12.2 / Forge。
+- `forge-1.7.10-gtnh`：Minecraft 1.7.10 / Forge，优先针对 GT New Horizons
+  开发与验证。
 
 `forge-1.12.2` 分支使用 Gradle Wrapper 与锁定的工具链，最终输出兼容 Java 8 的
 模组 JAR。构建命令：
@@ -238,3 +272,13 @@ Linux/macOS:
 ```bash
 ./gradlew build --no-daemon --no-configuration-cache
 ```
+
+`forge-1.7.10-gtnh` 分支使用 GTNH Gradle 约定插件与锁定的 Java 工具链。
+Windows 下可运行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-1.7.10-gtnh.ps1
+```
+
+该分支还分别提供开发客户端、纯净 GTNH 实例和轻量 GTNH 测试实例的 PowerShell
+启动脚本。只有主动运行脚本时才会准备或启动实例；克隆和构建源码本身不会启动游戏。

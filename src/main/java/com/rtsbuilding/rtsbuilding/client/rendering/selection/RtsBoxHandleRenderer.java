@@ -3,14 +3,14 @@ package com.rtsbuilding.rtsbuilding.client.rendering.selection;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingAxisHandle;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.renderer.RenderGlobal;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
@@ -55,7 +55,7 @@ public final class RtsBoxHandleRenderer {
             return;
         }
 
-        RenderManager renderManager = Minecraft.getMinecraft().getRenderManager();
+        RenderManager renderManager = net.minecraft.client.renderer.entity.RenderManager.instance;
         beginBuffers(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ);
         try {
             appendAxisHandles(FILL_BUFFER, LINE_BUFFER, box,
@@ -116,17 +116,17 @@ public final class RtsBoxHandleRenderer {
 
     private static void appendHandleBox(BufferBuilder fillBuffer, BufferBuilder lineBuffer,
             AxisAlignedBB box, AxisColor color, float fillAlpha, float lineAlpha) {
-        RenderGlobal.addChainedFilledBoxVertices(fillBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.addChainedFilledBoxVertices(fillBuffer,
                 box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ,
                 color.r(), color.g(), color.b(), fillAlpha);
-        RenderGlobal.drawBoundingBox(lineBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.drawBoundingBox(lineBuffer,
                 box.minX, box.minY, box.minZ, box.maxX, box.maxY, box.maxZ,
                 color.r(), color.g(), color.b(), lineAlpha);
     }
 
     private static void beginBuffers(double translateX, double translateY, double translateZ) {
         // RenderGlobal#addChainedFilledBoxVertices 输出的是连续 quad strip（每盒 30 顶点）。
-        FILL_BUFFER.begin(GL11.GL_QUAD_STRIP, DefaultVertexFormats.POSITION_COLOR);
+        FILL_BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
         FILL_BUFFER.setTranslation(translateX, translateY, translateZ);
         try {
             LINE_BUFFER.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);

@@ -15,13 +15,13 @@ import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraft.world.World;
 import org.lwjgl.input.Keyboard;
 
@@ -44,7 +44,7 @@ public final class BlueprintPanel {
             BlueprintPanel::setStatus, BlueprintPanel::onLibrarySelectionChanged);
     private static final BlueprintPlacementSession PLACEMENT = new BlueprintPlacementSession(
             LIBRARY::selectedEntry, BlueprintPanel::setStatus);
-    private static ITextComponent statusText = new TextComponentTranslation(
+    private static IChatComponent statusText = new ChatComponentTranslation(
             "screen.rtsbuilding.blueprints.status.ready");
     private static int statusColor = BlueprintLibraryStyle.STATUS_DEFAULT_TEXT.toArgb();
 
@@ -232,7 +232,7 @@ public final class BlueprintPanel {
     static int captureSizeY() { return CAPTURE.sizeY(); }
     static int captureSizeZ() { return CAPTURE.sizeZ(); }
     static long countCaptureBlocks() {
-        return CAPTURE.countCapturableBlocks(Minecraft.getMinecraft().world);
+        return CAPTURE.countCapturableBlocks(Minecraft.getMinecraft().theWorld);
     }
     static String captureSaveProgressLine() { return CAPTURE.saveProgressLine(); }
     public static void updateCaptureHoverPoint(BlockPos pos) { CAPTURE.updateHoverPoint(pos); }
@@ -255,7 +255,7 @@ public final class BlueprintPanel {
     }
     public static List<BlockPos> getCaptureIncludedBlocksForRender(int limit) {
         return Config.areBlueprintsEnabled()
-                ? CAPTURE.includedBlocksForRender(Minecraft.getMinecraft().world, limit)
+                ? CAPTURE.includedBlocksForRender(Minecraft.getMinecraft().theWorld, limit)
                 : Collections.<BlockPos>emptyList();
     }
     public static boolean shouldRenderCaptureBlockHighlights(int limit) {
@@ -386,12 +386,12 @@ public final class BlueprintPanel {
     }
     static boolean deleteLibraryEntry(String fileName) { return LIBRARY.delete(fileName); }
 
-    static ITextComponent statusText() { return statusText; }
+    static IChatComponent statusText() { return statusText; }
     static int statusColor() { return statusColor; }
     public static void setStatus(byte status, String messageKey, String detail) {
         statusText = detail == null || detail.trim().isEmpty()
-                ? new TextComponentTranslation(messageKey)
-                : new TextComponentTranslation(messageKey, detail);
+                ? new ChatComponentTranslation(messageKey)
+                : new ChatComponentTranslation(messageKey, detail);
         if (status == S2CBlueprintStatusPayload.SUCCESS) {
             statusColor = BlueprintLibraryStyle.STATUS_SUCCESS_TEXT.toArgb();
         } else if (status == S2CBlueprintStatusPayload.ERROR) {
@@ -412,7 +412,7 @@ public final class BlueprintPanel {
                     "screen.rtsbuilding.blueprints.status.save_busy", "");
             return;
         }
-        World level = Minecraft.getMinecraft().world;
+        World level = Minecraft.getMinecraft().theWorld;
         if (level == null) {
             setStatus(S2CBlueprintStatusPayload.ERROR,
                     "screen.rtsbuilding.blueprints.status.save_failed", "No world");
@@ -473,7 +473,7 @@ public final class BlueprintPanel {
     private static void openCaptureNameDialog() {
         DIALOGS.openCaptureName(
                 sanitizeFileBase("captured_" + System.currentTimeMillis()),
-                CAPTURE.countCapturableBlocks(Minecraft.getMinecraft().world));
+                CAPTURE.countCapturableBlocks(Minecraft.getMinecraft().theWorld));
         LIBRARY.setSearchFocused(false);
     }
 
@@ -509,7 +509,7 @@ public final class BlueprintPanel {
 
     private static void startCaptureSave(String requestedName) {
         BlueprintCaptureSaveCoordinator.start(
-                CAPTURE, Minecraft.getMinecraft().world,
+                CAPTURE, Minecraft.getMinecraft().theWorld,
                 requestedName, BlueprintPanel::setStatus);
     }
 

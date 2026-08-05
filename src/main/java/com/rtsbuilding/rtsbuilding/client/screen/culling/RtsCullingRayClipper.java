@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 
 /** 命中被剔除方块时，从剔除盒出口之后继续裁剪的纯射线循环。 */
 public final class RtsCullingRayClipper {

@@ -19,10 +19,10 @@ import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatComponentTranslation;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -149,7 +149,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                     BlueprintWindowStyle.INFO_TEXT.toArgb(), w);
         }
 
-        ITextComponent status = saving
+        IChatComponent status = saving
                 ? literal(state.status)
                 : complete
                         ? tr("screen.rtsbuilding.blueprints.capture_blocks",
@@ -319,17 +319,17 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 chromeCanvas(g), new UiRect(x, y, w, h));
     }
 
-    private void drawSectionTitle(LegacyGuiGraphics g, ITextComponent text, int x, int y) {
+    private void drawSectionTitle(LegacyGuiGraphics g, IChatComponent text, int x, int y) {
         g.drawString(font(), text.getUnformattedText(), x, y,
                 BlueprintWindowStyle.SECTION_TITLE_TEXT.toArgb(), false);
     }
 
-    private void drawLabel(LegacyGuiGraphics g, ITextComponent text, int x, int y, int color, int maxWidth) {
+    private void drawLabel(LegacyGuiGraphics g, IChatComponent text, int x, int y, int color, int maxWidth) {
         g.drawString(font(), BlueprintPanelUi.trim(font(), text.getUnformattedText(), maxWidth),
                 x, y, color, false);
     }
 
-    private void renderStatusLine(LegacyGuiGraphics g, int x, int y, int w, ITextComponent status, int color) {
+    private void renderStatusLine(LegacyGuiGraphics g, int x, int y, int w, IChatComponent status, int color) {
         if (status == null) {
             return;
         }
@@ -344,7 +344,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     }
 
     private void renderStatusLines(LegacyGuiGraphics g, int x, int y, int w,
-            ITextComponent firstLine, ITextComponent secondLine, int color) {
+            IChatComponent firstLine, IChatComponent secondLine, int color) {
         BlueprintWindowChromeRenderer.renderStatus(
                 chromeCanvas(g), new UiRect(x, y, w, STATUS_H));
         int firstY = y + Math.max(2, (STATUS_H - font().FONT_HEIGHT * 2 - 3) / 2);
@@ -354,7 +354,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
                 BlueprintWindowStyle.INFO_TEXT.toArgb());
     }
 
-    private void drawCenteredStatusLine(LegacyGuiGraphics g, ITextComponent text, int x, int y, int w, int color) {
+    private void drawCenteredStatusLine(LegacyGuiGraphics g, IChatComponent text, int x, int y, int w, int color) {
         if (text == null) {
             return;
         }
@@ -693,7 +693,7 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
+    protected IChatComponent getTitle() {
         return tr(BlueprintUiStateAdapter.snapshot().isCapture()
                 ? "screen.rtsbuilding.blueprints.window_title_capture"
                 : "screen.rtsbuilding.blueprints.window_title_placement");
@@ -943,12 +943,12 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
         return Minecraft.getMinecraft().fontRenderer;
     }
 
-    private static ITextComponent tr(String key, Object... args) {
-        return new TextComponentTranslation(key, args);
+    private static IChatComponent tr(String key, Object... args) {
+        return new ChatComponentTranslation(key, args);
     }
 
-    private static ITextComponent literal(String value) {
-        return new TextComponentString(value == null ? "" : value);
+    private static IChatComponent literal(String value) {
+        return new ChatComponentText(value == null ? "" : value);
     }
 
     private static final class FooterButton {

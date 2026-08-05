@@ -2,8 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 /**
  * 远程交互服务接口——处理 RTS 模式下与方块/实体的远程交互。

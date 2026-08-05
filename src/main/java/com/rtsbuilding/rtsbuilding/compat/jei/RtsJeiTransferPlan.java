@@ -148,7 +148,7 @@ final class RtsJeiTransferPlan {
     }
 
     private static void addUnique(List<ItemStack> target, ItemStack candidate) {
-        if (candidate == null || candidate.isEmpty()
+        if (candidate == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(candidate)
                 || target.size() >= MAX_ALTERNATIVES_PER_INPUT) {
             return;
         }
@@ -158,7 +158,7 @@ final class RtsJeiTransferPlan {
             }
         }
         ItemStack copy = candidate.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         target.add(copy);
     }
 
@@ -199,8 +199,8 @@ final class RtsJeiTransferPlan {
                 continue;
             }
             ItemStack stack = slot.getStack();
-            if (stack != null && !stack.isEmpty()) {
-                target.add(SnapshotSource.exact(stack.copy(), stack.getCount()));
+            if (stack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                target.add(SnapshotSource.exact(stack.copy(), stack.stackSize));
             }
         }
     }
@@ -269,15 +269,15 @@ final class RtsJeiTransferPlan {
     }
 
     private static String itemId(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return "";
         }
-        ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(stack.getItem());
         return id == null ? "" : id.toString();
     }
 
     private static boolean sameStack(ItemStack left, ItemStack right) {
-        return ItemStack.areItemsEqual(left, right)
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(left, right)
                 && ItemStack.areItemStackTagsEqual(left, right);
     }
 

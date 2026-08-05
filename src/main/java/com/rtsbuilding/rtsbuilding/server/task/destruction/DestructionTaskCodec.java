@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.destruction;
 import com.rtsbuilding.rtsbuilding.server.task.DestructionTaskPayload;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraftforge.common.util.Constants;
@@ -69,7 +69,8 @@ public final class DestructionTaskCodec {
                 targets.size(), "destroyed");
         NBTTagList encodedHistory = (NBTTagList) tag.getTag("history");
         if (encodedHistory.tagCount() > 0
-                && encodedHistory.getTagType() != Constants.NBT.TAG_COMPOUND) {
+                && com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.listElementType(encodedHistory)
+                        != Constants.NBT.TAG_COMPOUND) {
             throw new IllegalArgumentException("destruction history 元素类型无效");
         }
         long maxHistory = (long) targets.size() * DestructionTaskState.MAX_HISTORY_RECORDS_PER_TARGET;
@@ -84,7 +85,7 @@ public final class DestructionTaskCodec {
             if (record.hasKey("blockEntity") && !record.hasKey("blockEntity", Constants.NBT.TAG_COMPOUND)) {
                 throw new IllegalArgumentException("destruction history blockEntity 类型无效");
             }
-            history.add(record.copy());
+            history.add(com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(record));
         }
 
         int workflow = tag.getInteger("workflow");

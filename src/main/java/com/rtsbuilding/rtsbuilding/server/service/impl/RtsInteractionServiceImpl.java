@@ -25,20 +25,20 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumActionResult;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.WorldServer;
 
 /**
@@ -79,13 +79,13 @@ public final class RtsInteractionServiceImpl implements InteractionService {
                 rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ);
 
-        WorldServer level = player.getServerWorld();
+        WorldServer level = player.getServerForPlayer();
         Entity targetEntity = null;
         RayTraceResult blockHit = null;
         BlockPos effectiveBlockPos = null;
-        IBlockState beforeClicked = null;
+        BlockState beforeClicked = null;
         BlockPos adjacentPos = null;
-        IBlockState beforeAdjacent = null;
+        BlockState beforeAdjacent = null;
         boolean useItemInAir = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR;
         boolean preparedRemoteChunk = false;
 
@@ -95,8 +95,9 @@ public final class RtsInteractionServiceImpl implements InteractionService {
                 return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_TARGET_MISSING,
                         "TARGET_MISSING");
             }
-            effectiveBlockPos = targetEntity.getPosition();
-            if (!level.isBlockLoaded(effectiveBlockPos) || !level.isBlockModifiable(player, effectiveBlockPos)) {
+            effectiveBlockPos = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(targetEntity);
+            if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, effectiveBlockPos)
+                    || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockModifiable(level, player, effectiveBlockPos)) {
                 return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_TARGET_UNAVAILABLE,
                         "TARGET_UNAVAILABLE");
             }
@@ -120,18 +121,19 @@ public final class RtsInteractionServiceImpl implements InteractionService {
                         new Vec3d(hitX, hitY, hitZ),
                         face == null ? EnumFacing.UP : face,
                         effectiveBlockPos);
-                beforeClicked = level.getBlockState(effectiveBlockPos);
+                beforeClicked = BlockState.fromWorld(level, effectiveBlockPos);
                 adjacentPos = effectiveBlockPos.offset(blockHit.sideHit);
-                beforeAdjacent = level.isBlockLoaded(adjacentPos) ? level.getBlockState(adjacentPos) : null;
+                beforeAdjacent = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, adjacentPos) ? BlockState.fromWorld(level, adjacentPos) : null;
             }
         }
 
         ItemStack toolSnapshot = sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT || sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR
-                ? player.inventory.getStackInSlot(RtsMiningValidator.clampHotbarSlot(toolSlot)).copy()
-                : ItemStack.EMPTY;
+                ? com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.copyOrNull(
+                        player.inventory.getStackInSlot(RtsMiningValidator.clampHotbarSlot(toolSlot)))
+                : null;
         ItemStack soundStack = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
                 ? SoundService.createSoundStack(itemId)
-                : toolSnapshot.copy();
+                : com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.copyOrNull(toolSnapshot);
         ItemStack protectionStack = oneItemCopy(soundStack);
         if (targetEntity != null && !RtsClaimProtectionService.canInteractEntity(
                 player, targetEntity, EnumHand.MAIN_HAND, protectionStack, false)) {
@@ -148,7 +150,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
                 return rejected(traceId, S2CRtsRemoteMenuResultPayload.REASON_CLAIM_DENIED,
                         "CLAIM_DENIED_BLOCK");
             }
-            if (!protectionStack.isEmpty() && protectionStack.getItem() instanceof ItemBlock
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(protectionStack) && protectionStack.getItem() instanceof ItemBlock
                     && !RtsClaimProtectionService.canPlaceBlock(
                             player, interactionPlacementTarget(level, effectiveBlockPos, hitFace))) {
                 if (preparedRemoteChunk) {
@@ -214,7 +216,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
                     level, effectiveBlockPos, beforeClicked, adjacentPos, beforeAdjacent);
             if (placedPos != null) {
                 PlacedBlockTrackerData.get(level).mark(placedPos);
-                if (!soundStack.isEmpty() && soundStack.getItem() instanceof ItemBlock) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(soundStack) && soundStack.getItem() instanceof ItemBlock) {
                     RtsPlacementSound.playRemotePlacedBlockAnimation(player, placedPos);
                     RtsPlacementSound.playRemotePlacedBlockSound(player, level, placedPos);
                 } else {
@@ -230,8 +232,8 @@ public final class RtsInteractionServiceImpl implements InteractionService {
             if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
                     && itemId != null && !itemId.trim().isEmpty()) {
                 registry.page().recordRecentItem(session, itemId, S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
-            } else if (!toolSnapshot.isEmpty()) {
-                ResourceLocation toolId = Item.REGISTRY.getNameForObject(toolSnapshot.getItem());
+            } else if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(toolSnapshot)) {
+                ResourceLocation toolId = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(toolSnapshot.getItem());
                 if (toolId != null) {
                     registry.page().recordRecentItem(session, toolId.toString(), S2CRtsStoragePagePayload.RECENT_ITEM_USED, 1L);
                 }
@@ -271,8 +273,8 @@ public final class RtsInteractionServiceImpl implements InteractionService {
     }
 
     private static BlockPos interactionPlacementTarget(WorldServer level, BlockPos clickedPos, EnumFacing face) {
-        if (level.isBlockLoaded(clickedPos)
-                && level.getBlockState(clickedPos).getBlock().isReplaceable(level, clickedPos)) {
+        if (com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, clickedPos)
+                && com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isReplaceable(level, clickedPos)) {
             return clickedPos;
         }
         return clickedPos.offset(face == null ? EnumFacing.UP : face);
@@ -280,11 +282,11 @@ public final class RtsInteractionServiceImpl implements InteractionService {
 
     /** 保护模组只需要一个用于判权的副本，绝不能缩减真实工具或储存堆。 */
     private static ItemStack oneItemCopy(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            return null;
         }
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 

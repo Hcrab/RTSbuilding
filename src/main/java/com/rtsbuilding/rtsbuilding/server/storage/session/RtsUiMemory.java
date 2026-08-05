@@ -34,7 +34,7 @@ public final class RtsUiMemory {
         this.quickSlotItemIds = new String[RtsStorageBindings.QUICK_SLOT_COUNT];
         Arrays.fill(this.quickSlotItemIds, "");
         this.quickSlotPreviews = new ItemStack[RtsStorageBindings.QUICK_SLOT_COUNT];
-        Arrays.fill(this.quickSlotPreviews, ItemStack.EMPTY);
+        Arrays.fill(this.quickSlotPreviews, null);
         this.guiBindings = new GuiBinding[RtsStorageBindings.GUI_BINDING_SLOT_COUNT];
     }
 
@@ -91,9 +91,9 @@ public final class RtsUiMemory {
     // ======================================================================
 
     public ItemStack getQuickSlotPreview(int slot) {
-        if (slot < 0 || slot >= quickSlotPreviews.length) return ItemStack.EMPTY;
+        if (slot < 0 || slot >= quickSlotPreviews.length) return null;
         ItemStack stack = quickSlotPreviews[slot];
-        return stack == null ? ItemStack.EMPTY : stack;
+        return stack == null ? null : stack;
     }
 
     public void setQuickSlotPreview(int slot, ItemStack stack) {

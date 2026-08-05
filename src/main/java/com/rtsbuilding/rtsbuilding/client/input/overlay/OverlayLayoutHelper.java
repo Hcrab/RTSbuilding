@@ -16,7 +16,7 @@ import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.awt.Rectangle;
 import java.util.Objects;
@@ -89,12 +89,12 @@ public final class OverlayLayoutHelper {
         private final Rectangle area;
 
         public JeiOverlayIngredient(net.minecraft.item.ItemStack stack, Rectangle area) {
-            this.stack = stack == null ? net.minecraft.item.ItemStack.EMPTY : stack.copy();
+            this.stack = stack == null ? null : stack.copy();
             this.area = area == null ? null : new Rectangle(area);
         }
 
         public net.minecraft.item.ItemStack stack() {
-            return this.stack.isEmpty() ? net.minecraft.item.ItemStack.EMPTY : this.stack.copy();
+            return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(this.stack) ? null : this.stack.copy();
         }
 
         public Rectangle area() {
@@ -426,7 +426,7 @@ public final class OverlayLayoutHelper {
         if (minecraft == null || minecraft.displayWidth <= 0) {
             return OVERLAY_TARGET_GUI_SCALE;
         }
-        ScaledResolution resolution = new ScaledResolution(minecraft);
+        ScaledResolution resolution = new ScaledResolution(minecraft, minecraft.displayWidth, minecraft.displayHeight);
         double scale = minecraft.displayWidth / (double) Math.max(1, resolution.getScaledWidth());
         return scale > 0.0D && Double.isFinite(scale) ? scale : OVERLAY_TARGET_GUI_SCALE;
     }
@@ -437,13 +437,13 @@ public final class OverlayLayoutHelper {
 
     public static int overlayVirtualWidth(OverlayProfile profile) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        int width = minecraft == null ? 1 : new ScaledResolution(minecraft).getScaledWidth();
+        int width = minecraft == null ? 1 : new ScaledResolution(minecraft, minecraft.displayWidth, minecraft.displayHeight).getScaledWidth();
         return Math.max(1, (int) Math.round(width / Math.max(0.001D, profile.renderScale())));
     }
 
     public static int overlayVirtualHeight(OverlayProfile profile) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        int height = minecraft == null ? 1 : new ScaledResolution(minecraft).getScaledHeight();
+        int height = minecraft == null ? 1 : new ScaledResolution(minecraft, minecraft.displayWidth, minecraft.displayHeight).getScaledHeight();
         return Math.max(1, (int) Math.round(height / Math.max(0.001D, profile.renderScale())));
     }
 

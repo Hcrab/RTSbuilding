@@ -29,13 +29,13 @@ import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.fml.common.Loader;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatComponentTranslation;
+import cpw.mods.fml.common.Loader;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -63,7 +63,7 @@ public final class BuilderScreen extends BuilderScreenComponentState {
     private final BuilderScreenPreviewQueryOwner previewQueryOwner = new BuilderScreenPreviewQueryOwner(this);
 
 public BuilderScreen(ClientRtsController controller) {
-        super(new TextComponentString("RTS Builder"));
+        super(new ChatComponentText("RTS Builder"));
         this.controller = controller;
         BuilderScreenInputHost inputHost =
                 new BuilderScreenInputHost(this);
@@ -156,7 +156,7 @@ public BuilderScreen(ClientRtsController controller) {
     }
 
 public FontRenderer font() {
-        return this.fontRenderer;
+        return this.fontRendererObj;
     }
 
 public int topBarBottomY() {
@@ -247,9 +247,9 @@ public boolean canUseQuickBuild() {
     }
 
 public void showQuickBuildLockedMessage() {
-        if (this.mc != null && this.mc.player != null) {
-            this.mc.player.sendStatusMessage(
-                    new TextComponentTranslation("message.rtsbuilding.quick_build.remote_place_locked"), true);
+        if (this.mc != null && this.mc.thePlayer != null) {
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(this.mc.thePlayer,
+                    new ChatComponentTranslation("message.rtsbuilding.quick_build.remote_place_locked"), true);
         }
     }
 
@@ -342,7 +342,7 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) { return this.pointerGestureOwner.mouseDragged(mouseX, mouseY, button, dragX, dragY); }
     public void mouseMoved(double mouseX, double mouseY) { this.pointerGestureOwner.mouseMoved(mouseX, mouseY); }
     @Override
-    protected void mouseReleased(int mouseX, int mouseY, int button) {
+    protected void mouseMovedOrUp(int mouseX, int mouseY, int button) {
         mouseReleased((double) mouseX, (double) mouseY, button);
         if (button == this.legacyDragButton) {
             this.legacyDragButton = -1;
@@ -387,7 +387,7 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
                 mouseX, mouseY, scrollX, scrollY);
     }
     @Override
-    public void handleMouseInput() throws java.io.IOException {
+    public void handleMouseInput() {
         super.handleMouseInput();
         int wheel = Mouse.getEventDWheel();
         if (wheel != 0) {
@@ -405,7 +405,7 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
         return this.keyPressRouter.keyPressed(keyCode, scanCode, modifiers);
     }
     @Override
-    protected void keyTyped(char typedChar, int keyCode) throws java.io.IOException {
+    protected void keyTyped(char typedChar, int keyCode) {
         // 1.12 把物理按键和字符输入合并在同一次 keyTyped 回调里。
         // 即使文本框已经消费了按键阶段，也必须继续投递可打印字符；否则搜索、AI 和插件输入框只能获得空字符。
         boolean keyHandled = keyPressed(keyCode, 0, 0);
@@ -418,7 +418,7 @@ boolean forwardUnhandledMouseClicked(double mouseX, double mouseY, int button) {
         super.keyTyped(typedChar, keyCode);
     }
     @Override
-    public void handleKeyboardInput() throws java.io.IOException {
+    public void handleKeyboardInput() {
         int keyCode = Keyboard.getEventKey() == Keyboard.KEY_NONE
                 ? Keyboard.getEventCharacter() + 256
                 : Keyboard.getEventKey();

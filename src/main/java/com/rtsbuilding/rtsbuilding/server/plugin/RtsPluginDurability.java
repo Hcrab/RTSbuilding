@@ -23,7 +23,7 @@ final class RtsPluginDurability {
         if (player == null) {
             return false;
         }
-        MinecraftServer server = player.getServer();
+        MinecraftServer server = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player);
         if (server == null) {
             return false;
         }
@@ -40,16 +40,16 @@ final class RtsPluginDurability {
             // 队伍共享插件使用 SavedData；save() 只提交异步任务，必须等 IO worker 真正完成。
             String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
             if (!sharedKey.isEmpty()) {
-                WorldServer storageLevel = server.getWorld(0);
+                WorldServer storageLevel = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(server, 0);
                 if (storageLevel == null) {
-                    storageLevel = player.getServerWorld();
+                    storageLevel = player.getServerForPlayer();
                 }
-                storageLevel.getMapStorage().saveAllData();
-                ThreadedFileIOBase.getThreadedIOInstance().waitForFinish();
+                storageLevel.mapStorage.saveAllData();
+                ThreadedFileIOBase.threadedIOInstance.waitForFinish();
             }
 
             // 插件物品已经从背包扣除或退回；同一检查点保存玩家文件，避免状态与物品只存一边。
-            server.getPlayerList().saveAllPlayerData();
+            com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).saveAllPlayerData();
             return true;
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();

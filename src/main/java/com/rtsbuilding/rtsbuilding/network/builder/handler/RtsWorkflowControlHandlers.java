@@ -5,9 +5,9 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetWorkflowProtectedPay
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -33,8 +33,8 @@ public final class RtsWorkflowControlHandlers {
             if (!message.isValid()) {
                 return null;
             }
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override
                 public void run() {
                     invokeEngine("deleteWorkflow", new Class<?>[]{EntityPlayerMP.class, int.class},
@@ -52,8 +52,8 @@ public final class RtsWorkflowControlHandlers {
             if (!message.isValid()) {
                 return null;
             }
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override
                 public void run() {
                     invokeEngine("setWorkflowProtected",
@@ -68,8 +68,8 @@ public final class RtsWorkflowControlHandlers {
     public static final class UndoHandler implements IMessageHandler<C2SRtsUndoPayload, IMessage> {
         @Override
         public IMessage onMessage(C2SRtsUndoPayload message, MessageContext context) {
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override
                 public void run() {
                     // 撤回只允许在玩家自己的活跃 RTS 会话中执行，历史管理器再按玩家取栈。

@@ -101,7 +101,7 @@ final class BottomPanelCraftInput {
     }
 
     private static boolean contains(GuiTextField field, double mouseX, double mouseY) {
-        return mouseX >= field.x && mouseX < field.x + field.width
-                && mouseY >= field.y && mouseY < field.y + field.height;
+        return mouseX >= field.xPosition && mouseX < field.xPosition + field.width
+                && mouseY >= field.yPosition && mouseY < field.yPosition + field.height;
     }
 }

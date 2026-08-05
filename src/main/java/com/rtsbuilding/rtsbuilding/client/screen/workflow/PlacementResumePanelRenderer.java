@@ -51,7 +51,7 @@ final class PlacementResumePanelRenderer {
             S2CRtsResumePlacementScanPayload data) {
         ItemStack displayStack =
                 WorkflowResumeRenderSupport.item(data.itemId());
-        if (!displayStack.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(displayStack)) {
             graphics.renderItem(
                     displayStack,
                     (int) geometry.itemIcon.getX(),

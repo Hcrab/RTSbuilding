@@ -8,7 +8,7 @@ import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.common.network.ByteBufUtils;
+import cpw.mods.fml.common.network.ByteBufUtils;
 
 /**
  * 1.12.2 数据包的公共 ByteBuf 约定。
@@ -121,11 +121,11 @@ public final class RtsPacketBuffer {
 
     /** 使用 Forge/Minecraft 原生格式保留物品、damage 和完整 NBT；原型只作匹配提示。 */
     public static void writeItemStack(ByteBuf buffer, ItemStack stack) {
-        ByteBufUtils.writeItemStack(buffer, stack == null ? ItemStack.EMPTY : stack);
+        ByteBufUtils.writeItemStack(buffer, stack == null ? null : stack);
     }
 
     public static ItemStack readItemStack(ByteBuf buffer) {
         ItemStack stack = ByteBufUtils.readItemStack(buffer);
-        return stack == null ? ItemStack.EMPTY : stack;
+        return stack == null ? null : stack;
     }
 }

@@ -184,7 +184,7 @@ public final class BuilderScreenConstants {
 
     // ======================== Miscellaneous ========================
     /** Funnel cursor item stack (hopper) */
-    public static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(Blocks.HOPPER);
+    public static final ItemStack FUNNEL_CURSOR_STACK = new ItemStack(Blocks.hopper);
     /** Storage link detail action button height */
     public static final int STORAGE_LINK_DETAIL_ACTION_H = 16;
     /** "All" category token */

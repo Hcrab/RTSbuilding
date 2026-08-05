@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.builder;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsPlacementActionHandlers1122;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 剩余放置/交互 C2S 的固定 discriminator 表。 */
 public final class RtsPlacementActionPackets1122 {

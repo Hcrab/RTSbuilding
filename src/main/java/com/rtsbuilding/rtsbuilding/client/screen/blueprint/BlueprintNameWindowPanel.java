@@ -8,9 +8,9 @@ import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -112,8 +112,8 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentTranslation(BlueprintUiStateAdapter.snapshot().captureNameMode
+    protected IChatComponent getTitle() {
+        return new ChatComponentTranslation(BlueprintUiStateAdapter.snapshot().captureNameMode
                 ? "screen.rtsbuilding.blueprints.name_dialog_capture_title"
                 : "screen.rtsbuilding.blueprints.name_dialog_rename_title");
     }

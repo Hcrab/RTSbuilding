@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.resources.I18n;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import org.lwjgl.input.Keyboard;
 
 import java.io.IOException;
@@ -45,7 +45,7 @@ public final class RtsHomeScreen extends GuiScreen {
     }
 
     @Override
-    protected void actionPerformed(GuiButton button) throws IOException {
+    protected void actionPerformed(GuiButton button) {
         if (button.id == HOME_BUTTON && button.enabled) {
             this.mc.displayGuiScreen(null);
             this.controller.beginHomeSelection();
@@ -72,7 +72,7 @@ public final class RtsHomeScreen extends GuiScreen {
         int contentW = contentWidth();
         int x = (this.width - contentW) / 2;
         int y = 42;
-        drawCenteredString(this.fontRenderer, I18n.format("screen.rtsbuilding.home"), this.width / 2, 12,
+        drawCenteredString(this.fontRendererObj, I18n.format("screen.rtsbuilding.home"), this.width / 2, 12,
                 StandaloneScreenStyle.TITLE_TEXT.toArgb());
         drawInfoRow(x, y, contentW, I18n.format("screen.rtsbuilding.progression.title"),
                 I18n.format(this.controller.isProgressionEnabled()
@@ -105,7 +105,7 @@ public final class RtsHomeScreen extends GuiScreen {
         y += ROW_H + 10;
 
         String warning = I18n.format("screen.rtsbuilding.home.warning");
-        List<String> lines = this.fontRenderer.listFormattedStringToWidth(warning, contentW - 20);
+        List<String> lines = this.fontRendererObj.listFormattedStringToWidth(warning, contentW - 20);
         int warningHeight = 18 + Math.max(1, lines.size()) * 10;
         int warningBottom = Math.max(y + 24, Math.min(this.height - FOOTER_H - 8, y + warningHeight));
         drawRect(x, y, x + contentW, warningBottom, StandaloneScreenStyle.WARNING_BACKGROUND.toArgb());
@@ -117,7 +117,7 @@ public final class RtsHomeScreen extends GuiScreen {
     @Override public boolean doesGuiPauseGame() { return false; }
 
     @Override
-    protected void keyTyped(char typedChar, int keyCode) throws IOException {
+    protected void keyTyped(char typedChar, int keyCode) {
         if (keyCode == Keyboard.KEY_ESCAPE) this.mc.displayGuiScreen(this.parent);
         else super.keyTyped(typedChar, keyCode);
     }
@@ -142,7 +142,7 @@ public final class RtsHomeScreen extends GuiScreen {
 
     private void drawWrapped(List<String> lines, int x, int y, UiColor color) {
         for (String line : lines) {
-            this.fontRenderer.drawString(line, x, y, color.toArgb(), false);
+            this.fontRendererObj.drawString(line, x, y, color.toArgb(), false);
             y += 10;
         }
     }
@@ -151,9 +151,9 @@ public final class RtsHomeScreen extends GuiScreen {
         int labelW = Math.min(132, Math.max(92, width / 3));
         drawRect(x, y, x + width, y + ROW_H, StandaloneScreenStyle.INFO_ROW_BACKGROUND.toArgb());
         drawRect(x, y, x + width, y + 1, StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
-        this.fontRenderer.drawString(label, x + 10, y + 9, StandaloneScreenStyle.INFO_LABEL.toArgb(), false);
-        String valueText = this.fontRenderer.trimStringToWidth(value, width - labelW - 24);
-        this.fontRenderer.drawString(valueText, x + labelW, y + 9, valueColor.toArgb(), false);
+        this.fontRendererObj.drawString(label, x + 10, y + 9, StandaloneScreenStyle.INFO_LABEL.toArgb(), false);
+        String valueText = this.fontRendererObj.trimStringToWidth(value, width - labelW - 24);
+        this.fontRendererObj.drawString(valueText, x + labelW, y + 9, valueColor.toArgb(), false);
     }
 
     private void renderPageBackground() {

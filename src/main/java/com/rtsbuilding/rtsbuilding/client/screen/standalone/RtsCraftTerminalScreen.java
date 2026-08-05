@@ -20,15 +20,15 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.IChatComponent;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
@@ -53,10 +53,10 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
     private static final int CARRIED_IMPORT_Y_OFF = LINK_PANEL_H - CARRIED_IMPORT_H - 7;
 
     private final ContainerWorkbench workbench;
-    private final ITextComponent terminalTitle;
+    private final IChatComponent terminalTitle;
     private GuiTextField searchBox;
 
-    public RtsCraftTerminalScreen(ContainerWorkbench menu, InventoryPlayer inventory, ITextComponent title) {
+    public RtsCraftTerminalScreen(ContainerWorkbench menu, InventoryPlayer inventory, IChatComponent title) {
         super(menu);
         this.workbench = menu;
         this.terminalTitle = title;
@@ -69,7 +69,7 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         int panelX = this.guiLeft + LINK_PANEL_X_OFF;
         int panelY = this.guiTop + LINK_PANEL_Y_OFF;
         int searchW = LINK_GRID_W - LINK_SEARCH_CLEAR_W - 4;
-        this.searchBox = new NoShadowTextField(0, this.fontRenderer, panelX + LINK_SEARCH_X_OFF + 2,
+        this.searchBox = new NoShadowTextField(0, this.fontRendererObj, panelX + LINK_SEARCH_X_OFF + 2,
                 panelY + LINK_SEARCH_Y_OFF + 2, searchW, 8);
         this.searchBox.setEnableBackgroundDrawing(false);
         this.searchBox.setCanLoseFocus(true);
@@ -86,7 +86,6 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         renderCraftResultFallback();
         if (this.searchBox != null) this.searchBox.drawTextBox();
         renderHoveredLinkedTooltip(mouseX, mouseY);
-        renderHoveredToolTip(mouseX, mouseY);
     }
 
     @Override protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
@@ -109,11 +108,12 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
 
     @Override protected void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
         String title = this.terminalTitle == null ? "RTS Craft Terminal" : this.terminalTitle.getUnformattedText();
-        this.fontRenderer.drawString(title, 28, 6, CraftTerminalStyle.TEXT.toArgb(), false);
+        this.fontRendererObj.drawString(title, 28, 6, CraftTerminalStyle.TEXT.toArgb(), false);
     }
 
-    @Override protected void mouseClicked(int mouseX, int mouseY, int button) throws IOException {
-        Slot hovered = getSlotUnderMouse();
+    @Override protected void mouseClicked(int mouseX, int mouseY, int button) {
+        Slot hovered = com.rtsbuilding.rtsbuilding.platform.client.GuiContainerCompat
+                .slotAt(this, mouseX, mouseY);
         if ((button == 0 || button == 1) && GuiScreen.isShiftKeyDown() && hovered != null
                 && hovered.getHasStack()) {
             int menuSlot = this.inventorySlots.inventorySlots.indexOf(hovered);
@@ -127,15 +127,15 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         super.mouseClicked(mouseX, mouseY, button);
     }
 
-    @Override protected void mouseReleased(int mouseX, int mouseY, int state) {
-        super.mouseReleased(mouseX, mouseY, state);
+    @Override protected void mouseMovedOrUp(int mouseX, int mouseY, int state) {
+        super.mouseMovedOrUp(mouseX, mouseY, state);
     }
 
-    @Override public void handleMouseInput() throws IOException {
+    @Override public void handleMouseInput() {
         super.handleMouseInput();
         int wheel = Mouse.getEventDWheel();
         if (wheel == 0) return;
-        ScaledResolution sr = new ScaledResolution(this.mc);
+        ScaledResolution sr = new ScaledResolution(this.mc, this.mc.displayWidth, this.mc.displayHeight);
         double x = Mouse.getEventX() * sr.getScaledWidth() / (double) this.mc.displayWidth;
         double y = sr.getScaledHeight() - Mouse.getEventY() * sr.getScaledHeight() / (double) this.mc.displayHeight - 1;
         mouseScrolled(x, y, wheel > 0 ? 1D : -1D);
@@ -149,7 +149,7 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         return true;
     }
 
-    @Override protected void keyTyped(char typedChar, int keyCode) throws IOException {
+    @Override protected void keyTyped(char typedChar, int keyCode) {
         if (this.searchBox != null && this.searchBox.isFocused()) {
             if (keyCode == Keyboard.KEY_ESCAPE) {
                 this.searchBox.setText(""); this.searchBox.setFocused(false); return;
@@ -172,18 +172,18 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
                 CraftTerminalStyle.LINK_TITLE_BACKGROUND.toArgb());
         g.fill(panelX + 1, panelY + 16, panelX + LINK_PANEL_W - 1, panelY + 17,
                 CraftTerminalStyle.LINK_TITLE_DIVIDER.toArgb());
-        g.drawString(fontRenderer, "Linked", panelX + 6, panelY + 5, CraftTerminalStyle.TEXT.toArgb(), false);
+        g.drawString(fontRendererObj, "Linked", panelX + 6, panelY + 5, CraftTerminalStyle.TEXT.toArgb(), false);
         drawMiniButton(g, panelX + SORT_BUTTON_X_OFF, panelY + BUTTON_ROW_Y_OFF, sortShort(controller.getStorageSort()));
         drawMiniButton(g, panelX + DIR_BUTTON_X_OFF, panelY + BUTTON_ROW_Y_OFF,
                 controller.isStorageSortAscending() ? "A" : "D");
         drawMiniButton(g, panelX + PAGE_PREV_X_OFF, panelY + BUTTON_ROW_Y_OFF, "<");
         drawMiniButton(g, panelX + PAGE_NEXT_X_OFF, panelY + BUTTON_ROW_Y_OFF, ">");
         String page = (controller.getStoragePage() + 1) + "/" + controller.getStorageTotalPages();
-        g.drawString(fontRenderer, page, panelX + LINK_PANEL_W - fontRenderer.getStringWidth(page) - 44,
+        g.drawString(fontRendererObj, page, panelX + LINK_PANEL_W - fontRendererObj.getStringWidth(page) - 44,
                 panelY + 9, CraftTerminalStyle.MUTED_TEXT.toArgb(), false);
         ItemStack carried = carried();
         drawSmallButton(g, panelX + CARRIED_IMPORT_X_OFF, panelY + CARRIED_IMPORT_Y_OFF,
-                CARRIED_IMPORT_W, CARRIED_IMPORT_H, "STORE", CraftTerminalStyle.importBackground(!carried.isEmpty()));
+                CARRIED_IMPORT_W, CARRIED_IMPORT_H, "STORE", CraftTerminalStyle.importBackground(!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)));
 
         int searchX = panelX + LINK_SEARCH_X_OFF, searchY = panelY + LINK_SEARCH_Y_OFF;
         drawPanelFrame(g, searchX, searchY, LINK_GRID_W, LINK_SEARCH_H, CraftTerminalStyle.SEARCH_BACKGROUND,
@@ -191,7 +191,7 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         int clearX = searchX + LINK_GRID_W - LINK_SEARCH_CLEAR_W;
         drawPanelFrame(g, clearX, searchY, LINK_SEARCH_CLEAR_W, LINK_SEARCH_H, CraftTerminalStyle.CLEAR_BACKGROUND,
                 CraftTerminalStyle.CLEAR_BORDER_LIGHT, CraftTerminalStyle.SEARCH_BORDER_DARK);
-        g.drawCenteredString(fontRenderer, searchBox != null && !searchBox.getText().isEmpty() ? "x" : ".",
+        g.drawCenteredString(fontRendererObj, searchBox != null && !searchBox.getText().isEmpty() ? "x" : ".",
                 clearX + LINK_SEARCH_CLEAR_W / 2, searchY + 2, CraftTerminalStyle.TEXT.toArgb());
 
         List<StorageEntry> entries = controller.getStorageEntries();
@@ -212,7 +212,7 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
 
     private void renderHoveredLinkedTooltip(int mouseX, int mouseY) {
         StorageEntry entry = getLinkedEntryAt(mouseX, mouseY);
-        if (entry != null && !entry.stack().isEmpty()) graphics().renderTooltip(entry.stack(), mouseX, mouseY);
+        if (entry != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entry.stack())) graphics().renderTooltip(entry.stack(), mouseX, mouseY);
     }
 
     private boolean handleLinkedPanelClick(double mouseX, double mouseY, int button) {
@@ -234,7 +234,7 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         if (UiRect.contains(panelX + PAGE_NEXT_X_OFF, rowY, MINI_BUTTON_W, MINI_BUTTON_H, mouseX, mouseY)) { controller.nextPage(); return true; }
         if (UiRect.contains(panelX + CARRIED_IMPORT_X_OFF, panelY + CARRIED_IMPORT_Y_OFF,
                 CARRIED_IMPORT_W, CARRIED_IMPORT_H, mouseX, mouseY)) return returnCarriedToLinked(button == 1 ? 1 : Integer.MAX_VALUE);
-        if (!carried().isEmpty() && isInsideLinkedGrid(mouseX, mouseY))
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried()) && isInsideLinkedGrid(mouseX, mouseY))
             return returnCarriedToLinked(button == 1 ? 1 : Integer.MAX_VALUE);
         int linked = resolveLinkedSlotIndex(mouseX, mouseY);
         if (linked >= 0) {
@@ -245,45 +245,45 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
     }
 
     private boolean pickupFromLinked(StorageEntry entry, int requestedAmount) {
-        if (entry == null || entry.stack().isEmpty()) return false;
+        if (entry == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entry.stack())) return false;
         ItemStack carried = carried();
         int requested = requestedAmount <= 0 ? 1 : requestedAmount, wanted;
-        if (carried.isEmpty()) wanted = Math.min(requested, entry.stack().getMaxStackSize());
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) wanted = Math.min(requested, entry.stack().getMaxStackSize());
         else {
             if (!sameStack(carried, entry.stack())) return false;
-            wanted = Math.min(requested, carried.getMaxStackSize() - carried.getCount());
+            wanted = Math.min(requested, carried.getMaxStackSize() - carried.stackSize);
         }
         if (wanted <= 0) return false;
         applyLocalCarriedPreview(entry.stack(), wanted);
-        ItemStack request = entry.stack().copy(); request.setCount(1);
+        ItemStack request = entry.stack().copy(); request.stackSize = 1;
         RtsPayloadRegistrar.sendToServer(new C2SRtsLinkedPickupPayload(request, wanted));
         return true;
     }
 
     private boolean returnCarriedToLinked(int requestedAmount) {
         ItemStack carried = carried();
-        if (carried.isEmpty()) return false;
-        ResourceLocation id = Item.REGISTRY.getNameForObject(carried.getItem());
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) return false;
+        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(carried.getItem());
         if (id == null) return false;
-        int amount = Math.max(1, Math.min(requestedAmount, carried.getCount()));
+        int amount = Math.max(1, Math.min(requestedAmount, carried.stackSize));
         RtsPayloadRegistrar.sendToServer(new C2SRtsReturnCarriedPayload(id.toString(), amount));
-        carried.shrink(amount); setCarried(carried.isEmpty() ? ItemStack.EMPTY : carried); return true;
+        com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(carried, amount); setCarried(com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried) ? null : carried); return true;
     }
 
     private void applyLocalCarriedPreview(ItemStack prototype, int requested) {
-        if (prototype == null || prototype.isEmpty()) return;
+        if (prototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) return;
         ItemStack carried = carried();
-        if (carried.isEmpty()) {
-            ItemStack preview = prototype.copy(); preview.setCount(Math.min(requested, preview.getMaxStackSize())); setCarried(preview); return;
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(carried)) {
+            ItemStack preview = prototype.copy(); preview.stackSize = Math.min(requested, preview.getMaxStackSize()); setCarried(preview); return;
         }
         if (!sameStack(carried, prototype)) return;
-        int grow = Math.min(requested, carried.getMaxStackSize() - carried.getCount());
-        if (grow > 0) { carried.grow(grow); setCarried(carried); }
+        int grow = Math.min(requested, carried.getMaxStackSize() - carried.stackSize);
+        if (grow > 0) { com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(carried, grow); setCarried(carried); }
     }
 
-    private ItemStack carried() { return this.mc == null || this.mc.player == null ? ItemStack.EMPTY : this.mc.player.inventory.getItemStack(); }
-    private void setCarried(ItemStack stack) { if (this.mc != null && this.mc.player != null) this.mc.player.inventory.setItemStack(stack); }
-    private static boolean sameStack(ItemStack a, ItemStack b) { return ItemStack.areItemsEqual(a, b) && ItemStack.areItemStackTagsEqual(a, b); }
+    private ItemStack carried() { return this.mc == null || this.mc.thePlayer == null ? null : this.mc.thePlayer.inventory.getItemStack(); }
+    private void setCarried(ItemStack stack) { if (this.mc != null && this.mc.thePlayer != null) this.mc.thePlayer.inventory.setItemStack(stack); }
+    private static boolean sameStack(ItemStack a, ItemStack b) { return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(a, b) && ItemStack.areItemStackTagsEqual(a, b); }
 
     private int resolveLinkedSlotIndex(double mouseX, double mouseY) {
         int gridX = guiLeft + LINK_PANEL_X_OFF + LINK_GRID_X_OFF, gridY = guiTop + LINK_PANEL_Y_OFF + LINK_GRID_Y_OFF;
@@ -324,19 +324,19 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
 
     private void drawCountOverlay(LegacyGuiGraphics g, int x, int y, String count) {
         RtsClientUiUtil.drawSlotCountOverlay(
-                g, fontRenderer, x, y, LINK_SLOT_SIZE, count,
+                g, fontRendererObj, x, y, LINK_SLOT_SIZE, count,
                 CraftTerminalStyle.COUNT_TEXT.toArgb());
     }
     private void drawMiniButton(LegacyGuiGraphics g, int x, int y, String label) { drawSmallButton(g, x, y, MINI_BUTTON_W, MINI_BUTTON_H, label, CraftTerminalStyle.MINI_BUTTON_BACKGROUND); }
     private void drawSmallButton(LegacyGuiGraphics g, int x, int y, int w, int h, String label, UiColor fill) {
         drawPanelFrame(g, x, y, w, h, fill, CraftTerminalStyle.BUTTON_BORDER_LIGHT, CraftTerminalStyle.BUTTON_BORDER_DARK);
-        g.drawCenteredString(fontRenderer, label, x + w / 2, y + 2, CraftTerminalStyle.BUTTON_TEXT.toArgb());
+        g.drawCenteredString(fontRendererObj, label, x + w / 2, y + 2, CraftTerminalStyle.BUTTON_TEXT.toArgb());
     }
     private static String sortShort(RtsStorageSort sort) {
         if (sort == RtsStorageSort.QUANTITY) return "Q"; if (sort == RtsStorageSort.MOD) return "M"; return "N";
     }
     private void drawPanelFrame(LegacyGuiGraphics g, int x, int y, int w, int h, UiColor fill, UiColor light, UiColor dark) {
-        UiChromeRenderer.frame(new MinecraftUiCanvas(g, fontRenderer), new UiRect(x, y, w, h), 1D, fill, light, dark);
+        UiChromeRenderer.frame(new MinecraftUiCanvas(g, fontRendererObj), new UiRect(x, y, w, h), 1D, fill, light, dark);
     }
     private LegacyGuiGraphics graphics() { return new LegacyGuiGraphics(this.mc, this.width, this.height); }
 
@@ -345,7 +345,7 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         private final net.minecraft.client.gui.FontRenderer font;
         private final int drawX, drawY, drawW, drawH;
         private NoShadowTextField(int id, net.minecraft.client.gui.FontRenderer font, int x, int y, int w, int h) {
-            super(id, font, x, y, w, h); this.font = font; this.drawX = x; this.drawY = y; this.drawW = w; this.drawH = h;
+            super(font, x, y, w, h); this.font = font; this.drawX = x; this.drawY = y; this.drawW = w; this.drawH = h;
         }
         @Override public void drawTextBox() {
             if (!getVisible()) return;

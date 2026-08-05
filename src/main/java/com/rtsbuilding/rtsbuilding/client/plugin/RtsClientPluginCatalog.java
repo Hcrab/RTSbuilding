@@ -39,10 +39,11 @@ public final class RtsClientPluginCatalog {
     }
 
     public static boolean isPluginItem(ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return false;
         }
-        ResourceLocation itemId = stack.getItem().getRegistryName();
+        ResourceLocation itemId = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS
+                .getKey(stack.getItem());
         return itemId != null && PLUGIN_ITEMS.contains(itemId);
     }
 

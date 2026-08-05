@@ -10,11 +10,9 @@ import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.IThreadListener;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 
@@ -149,15 +147,15 @@ public final class RtsCraftNetworkHandlers {
     }
 
     private static void scheduleServer(MessageContext context, final ServerAction action) {
-        final EntityPlayerMP player = context.getServerHandler().player;
-        player.getServerWorld().addScheduledTask(new Runnable() {
+        final EntityPlayerMP player = context.getServerHandler().playerEntity;
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
             @Override public void run() { action.run(player); }
         });
     }
 
     private static void scheduleClient(MessageContext context, Runnable task) {
-        IThreadListener thread = FMLCommonHandler.instance().getWorldThread(context.netHandler);
-        thread.addScheduledTask(task);
+
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.schedule(context, task);
     }
 
     private static void invokeClient(String method, Class<?> payloadType, Object payload) {

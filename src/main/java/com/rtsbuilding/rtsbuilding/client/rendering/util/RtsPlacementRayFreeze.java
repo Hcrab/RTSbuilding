@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 
 /**
  * R 放置状态面板打开期间使用的客户端射线快照。

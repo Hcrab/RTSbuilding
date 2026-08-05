@@ -64,7 +64,7 @@ public final class BottomPanelToolRenderer {
                 drawEmptyHandMark(graphics, cellX, rowY, slotSize);
             } else {
                 ItemStack stack = inventory.getStackInSlot(cell);
-                if (!stack.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                     graphics.renderItem(stack, cellX + CONTENT_INSET, rowY + CONTENT_INSET);
                 }
             }
@@ -100,7 +100,7 @@ public final class BottomPanelToolRenderer {
                         BottomPanelToolStyle.PIN_PAGER_TEXT);
             } else if (pinIndex >= 0) {
                 ItemStack preview = controller.getQuickSlotPreview(pinIndex);
-                if (!preview.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                     graphics.renderItem(
                             preview, cellX + CONTENT_INSET, rowY + CONTENT_INSET);
                     if (pin != null && pin.selected) {

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.storage.state;
 
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -74,7 +74,7 @@ public class RtsPlacementState {
         public PlacedRecoveryClaim(UUID entityId, int ordinal, ItemStack expectedStack) {
             if (entityId == null) throw new IllegalArgumentException("entityId 不能为空");
             if (ordinal < 0) throw new IllegalArgumentException("ordinal 不能为负数");
-            if (expectedStack == null || expectedStack.isEmpty()) {
+            if (expectedStack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(expectedStack)) {
                 throw new IllegalArgumentException("expectedStack 不能为空");
             }
             this.entityId = entityId;
@@ -91,7 +91,7 @@ public class RtsPlacementState {
         /** 只有物品、组件和数量完全相同，才允许消费这个世界实体。 */
         public boolean matches(ItemStack actual) {
             return actual != null
-                    && !actual.isEmpty()
+                    && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(actual)
                     && ItemStack.areItemStacksEqual(actual, expectedStack);
         }
 
@@ -104,7 +104,7 @@ public class RtsPlacementState {
         }
         @Override public int hashCode() {
             return java.util.Objects.hash(entityId, ordinal, expectedStack.getItem(),
-                    expectedStack.getMetadata(), expectedStack.getCount(), expectedStack.getTagCompound());
+                    expectedStack.getItemDamage(), expectedStack.stackSize, expectedStack.getTagCompound());
         }
     }
 }

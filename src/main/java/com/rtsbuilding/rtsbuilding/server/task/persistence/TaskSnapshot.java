@@ -77,7 +77,7 @@ public final class TaskSnapshot {
         this.cursorUnits = cursorUnits;
         this.succeededUnits = succeededUnits;
         this.failedUnits = failedUnits;
-        this.payload = payload.copy();
+        this.payload = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(payload);
     }
 
     public TaskId id() { return id; }
@@ -98,7 +98,7 @@ public final class TaskSnapshot {
 
     /** 防止调用方通过 NBT 引用绕过 revision 与脏标记。 */
     public NBTTagCompound payload() {
-        return payload.copy();
+        return com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(payload);
     }
 
     /** persistence 包内部只读测量入口；调用者严禁修改返回标签。 */

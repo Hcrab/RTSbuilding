@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 /**
  * 流体服务接口——管理流体抽取和放置。

@@ -1,5 +1,5 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
-import io.netty.buffer.ByteBuf;import net.minecraft.util.EnumFacing;import net.minecraft.util.math.BlockPos;import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import io.netty.buffer.ByteBuf;import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;import cpw.mods.fml.common.network.simpleimpl.IMessage;
 public final class C2SRtsBreakPayload implements IMessage{
  private BlockPos pos;private byte face;private boolean allowAdjacentFallback;
  public C2SRtsBreakPayload(){}public C2SRtsBreakPayload(BlockPos p,byte f,boolean a){pos=p;face=f;allowAdjacentFallback=a;}

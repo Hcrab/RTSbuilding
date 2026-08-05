@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -93,14 +93,14 @@ final class StorageCraftState {
         int optionFlatIndex = 0;
         for (int i = 0; i < size; i++) {
             ResourceLocation id = parseId(payload.resultItemIds().get(i));
-            Item item = id == null ? null : ForgeRegistries.ITEMS.getValue(id);
+            Item item = id == null ? null : RtsRegistries.ITEMS.getValue(id);
             if (item == null) {
                 optionFlatIndex += i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
                 continue;
             }
             ItemStack stack = new ItemStack(item);
             int resultCount = Math.max(1, payload.resultCounts().get(i));
-            stack.setCount(Math.min(resultCount, stack.getMaxStackSize()));
+            stack.stackSize = Math.min(resultCount, stack.getMaxStackSize());
             int optionCount = i < payload.recipeOptionCounts().size() ? Math.max(0, payload.recipeOptionCounts().get(i)) : 0;
             List<CraftRecipeOption> options = new ArrayList<>(optionCount);
             for (int optionIndex = 0; optionIndex < optionCount; optionIndex++) {
@@ -121,7 +121,7 @@ final class StorageCraftState {
             }
             entries.add(new CraftableEntry(stack, payload.recipeIds().get(i), payload.resultItemIds().get(i), resultCount,
                     payload.craftable().get(i), payload.missingSummaries().get(i),
-                    id.getNamespace(), id.getPath(), immutable(options)));
+                    id.getResourceDomain(), id.getResourcePath(), immutable(options)));
         }
         search = payloadSearch;
         showUnavailable = payload.showUnavailable();
@@ -138,7 +138,7 @@ final class StorageCraftState {
         for (int i = 0; i < size; i++) {
             String consumedId = payload.consumedItemIds().get(i);
             ResourceLocation key = parseId(consumedId);
-            Item item = key == null ? null : ForgeRegistries.ITEMS.getValue(key);
+            Item item = key == null ? null : RtsRegistries.ITEMS.getValue(key);
             if (item == null) continue;
             ItemStack preview = new ItemStack(item);
             decoded.add(new CraftFeedbackIngredient(consumedId, preview.getDisplayName(), preview,

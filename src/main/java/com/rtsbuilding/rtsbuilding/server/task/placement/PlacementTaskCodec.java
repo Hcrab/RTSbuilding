@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.task.placement;
 import com.rtsbuilding.rtsbuilding.server.task.PlacementTaskPayload;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.DimensionIdCodec;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.NbtCompat;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.common.util.Constants;
 

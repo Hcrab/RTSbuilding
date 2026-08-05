@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 /**
  * RTS 界面的轻量几何图形绘制器。

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.plugin;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.plugin.handler.RtsPluginNetworkHandlers;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 插件域稳定 discriminator：68-71。 */
 public final class RtsPluginPackets {

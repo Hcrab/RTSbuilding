@@ -16,13 +16,13 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumActionResult;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumActionResult;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -67,13 +67,13 @@ public final class RtsLinkedItemInteractor {
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
 
         ResourceLocation id = parseId(itemId);
-        if (id == null || !ForgeRegistries.ITEMS.containsKey(id)) {
+        if (id == null || !RtsRegistries.ITEMS.containsKey(id)) {
             return EnumActionResult.PASS;
         }
 
-        Item item = ForgeRegistries.ITEMS.getValue(id);
+        Item item = RtsRegistries.ITEMS.getValue(id);
         ItemStack extracted = extractSelectedItem(player, extractHandlers, item, includePlayerMainInventory, creativeSource);
-        if (extracted.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
             return EnumActionResult.PASS;
         }
 
@@ -111,7 +111,7 @@ public final class RtsLinkedItemInteractor {
             ItemStack afterSecondaryOn = secondaryOn.remainder().copy();
             return InteractionHelper.useItemWithMainHand(player, level, afterSecondaryOn, true);
                 });
-        if (!creativeSource && !outcome.remainder().isEmpty()) {
+        if (!creativeSource && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(outcome.remainder())) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, outcome.remainder());
         }
         // Force-refresh slot cache and invalidate page cache after linked-item interaction

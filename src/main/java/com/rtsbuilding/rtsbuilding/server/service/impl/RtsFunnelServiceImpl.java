@@ -15,11 +15,11 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -59,9 +59,9 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             handlers.add(h.handler());
         }
         for (ItemStack buffered : session.funnel.funnelBuffer) {
-            if (buffered.isEmpty()) continue;
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(buffered)) continue;
             ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, buffered);
-            if (!remain.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 RtsTransferInserter.storeToLinkedWithFallback(handlers, player, remain);
             }
         }
@@ -106,7 +106,7 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         }
         if (!RtsClaimProtectionService.canInteractBlock(
                 player, session.funnel.funnelTarget, EnumFacing.UP,
-                EnumHand.MAIN_HAND, ItemStack.EMPTY)) return new FunnelTickResult(0, true);
+                EnumHand.MAIN_HAND, null)) return new FunnelTickResult(0, true);
         if (!RtsCameraManager.isWithinActionRange(player, session.funnel.funnelTarget)) {
             return new FunnelTickResult(0, true);
         }
@@ -146,17 +146,17 @@ public final class RtsFunnelServiceImpl implements FunnelService {
                 && processed < maxUnits && System.nanoTime() < deadlineNanos; i++) {
             processed++;
             ItemStack buffered = session.funnel.funnelBuffer.get(i);
-            if (buffered.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(buffered)) {
                 session.funnel.funnelBuffer.remove(i);
                 i--;
                 changed = true;
                 continue;
             }
             ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, buffered);
-            if (!remain.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
             }
-            if (remain.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 session.funnel.funnelBuffer.remove(i);
                 i--;
                 changed = true;
@@ -174,8 +174,8 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         int queryLimit = Math.min(RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK, Math.max(0, maxUnits));
         if (queryLimit == 0) return new WorkResult(0, false);
         List<EntityItem> drops = RtsBoundedItemEntityQuery.query(
-                player.getServerWorld(), box, queryLimit,
-                entity -> entity != null && entity.isEntityAlive() && !entity.getItem().isEmpty()).entities();
+                player.getServerForPlayer(), box, queryLimit,
+                entity -> entity != null && entity.isEntityAlive() && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entity.getEntityItem())).entities();
 
         int processedEntities = 0;
         int processedItems = 0;
@@ -189,31 +189,31 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             }
             if (System.nanoTime() >= deadlineNanos) break;
             if (drop == null || !drop.isEntityAlive()) continue;
-            ItemStack worldStack = drop.getItem();
-            if (worldStack.isEmpty()) continue;
+            ItemStack worldStack = drop.getEntityItem();
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(worldStack)) continue;
             processedEntities++;
 
-            int batchSize = Math.min(worldStack.getCount(),
+            int batchSize = Math.min(worldStack.stackSize,
                     RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK - processedItems);
             if (batchSize <= 0) break;
             // 批量插入：一次传入整个 batch，减少存储调用次数
             ItemStack batch = worldStack.copy();
-            batch.setCount(batchSize);
+            batch.stackSize = batchSize;
             ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, batch);
-            if (!remain.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                 remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
             }
             // A 阶段不把新掉落复制到尚未落盘的缓冲区；放不下的 remainder 继续由世界实体持有。
-            int inserted = batchSize - (remain.isEmpty() ? 0 : remain.getCount());
+            int inserted = batchSize - (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain) ? 0 : remain.stackSize);
             if (inserted > 0) {
-                worldStack.shrink(inserted);
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(worldStack, inserted);
                 processedItems += inserted;
                 changed = true;
             }
-            if (worldStack.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(worldStack)) {
                 drop.setDead();
             } else {
-                drop.setItem(worldStack);
+                drop.setEntityItemStack(worldStack);
             }
         }
         return new WorkResult(processedEntities, changed);

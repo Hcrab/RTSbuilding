@@ -16,10 +16,10 @@ import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentTranslation;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.util.ChatComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,8 +53,8 @@ public final class RtsDropAbsorber {
             if (queryLimit <= 0) break;
             AxisAlignedBB box = new AxisAlignedBB(pos).grow(radius);
             RtsBoundedItemEntityQuery.Result query = RtsBoundedItemEntityQuery.query(
-                    player.getServerWorld(), box, queryLimit,
-                    entity -> entity != null && !entity.isDead && !entity.getItem().isEmpty()
+                    player.getServerForPlayer(), box, queryLimit,
+                    entity -> entity != null && !entity.isDead && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entity.getEntityItem())
                             && !unique.contains(entity));
             unique.addAll(query.entities());
             if (query.saturated()) break;
@@ -72,12 +72,12 @@ public final class RtsDropAbsorber {
                 int amount = Math.min(remaining, max);
                 ItemStack offered = copyWithCount(group.template, amount);
                 ItemStack remainder = context.store(offered);
-                if (!remainder.isEmpty()) remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, remainder);
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, remainder);
                 int accepted = amount - count(remainder);
                 if (accepted <= 0) break;
                 remaining -= accepted;
                 changed = true;
-                if (!remainder.isEmpty()) break;
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) break;
             }
             consumeEntities(group.entities, group.totalCount - remaining);
         }
@@ -87,8 +87,8 @@ public final class RtsDropAbsorber {
     private static List<DropGroup> groupDrops(List<EntityItem> entities) {
         List<DropGroup> groups = new ArrayList<DropGroup>();
         for (EntityItem entity : entities) {
-            if (entity == null || entity.isDead || entity.getItem().isEmpty()) continue;
-            ItemStack stack = entity.getItem();
+            if (entity == null || entity.isDead || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entity.getEntityItem())) continue;
+            ItemStack stack = entity.getEntityItem();
             DropGroup target = null;
             for (DropGroup group : groups) {
                 if (sameExact(group.template, stack)) { target = group; break; }
@@ -98,7 +98,7 @@ public final class RtsDropAbsorber {
                 groups.add(target);
             }
             target.entities.add(entity);
-            target.totalCount += stack.getCount();
+            target.totalCount += stack.stackSize;
         }
         return groups;
     }
@@ -107,11 +107,11 @@ public final class RtsDropAbsorber {
         int remaining = accepted;
         for (EntityItem entity : entities) {
             if (remaining <= 0) break;
-            ItemStack stack = entity.getItem();
-            int consumed = Math.min(remaining, stack.getCount());
+            ItemStack stack = entity.getEntityItem();
+            int consumed = Math.min(remaining, stack.stackSize);
             remaining -= consumed;
-            if (consumed == stack.getCount()) entity.setDead();
-            else entity.setItem(copyWithCount(stack, stack.getCount() - consumed));
+            if (consumed == stack.stackSize) entity.setDead();
+            else entity.setEntityItemStack(copyWithCount(stack, stack.stackSize - consumed));
         }
     }
 
@@ -131,12 +131,12 @@ public final class RtsDropAbsorber {
             List<EntityItem> entities) {
         boolean changed = false;
         for (EntityItem entity : entities) {
-            if (entity == null || entity.isDead || entity.getItem().isEmpty()) continue;
-            int accepted = enqueueStack(session.miningDropBuffer, entity.getItem());
+            if (entity == null || entity.isDead || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entity.getEntityItem())) continue;
+            int accepted = enqueueStack(session.miningDropBuffer, entity.getEntityItem());
             if (accepted <= 0) break;
-            int remaining = entity.getItem().getCount() - accepted;
+            int remaining = entity.getEntityItem().stackSize - accepted;
             if (remaining <= 0) entity.setDead();
-            else entity.setItem(copyWithCount(entity.getItem(), remaining));
+            else entity.setEntityItemStack(copyWithCount(entity.getEntityItem(), remaining));
             changed = true;
         }
         finishEnqueue(player, session.miningDropBuffer, changed);
@@ -153,11 +153,11 @@ public final class RtsDropAbsorber {
         Iterator<ItemStack> iterator = drops.iterator();
         while (iterator.hasNext()) {
             ItemStack stack = iterator.next();
-            if (stack == null || stack.isEmpty()) continue;
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) continue;
             int accepted = enqueueStack(session.miningDropBuffer, stack);
             if (accepted <= 0) break;
-            if (accepted >= stack.getCount()) iterator.remove();
-            else stack.shrink(accepted);
+            if (accepted >= stack.stackSize) iterator.remove();
+            else com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(stack, accepted);
             changed = true;
         }
         finishEnqueue(player, session.miningDropBuffer, changed);
@@ -165,11 +165,11 @@ public final class RtsDropAbsorber {
     }
 
     private static int enqueueStack(RtsMiningDropBufferState buffer, ItemStack stack) {
-        return stack == null || stack.isEmpty() ? 0 : buffer.enqueueMerged(stack, stack.getCount());
+        return stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? 0 : buffer.enqueueMerged(stack, stack.stackSize);
     }
 
     private static void finishEnqueue(EntityPlayerMP player, RtsMiningDropBufferState buffer, boolean changed) {
-        long tick = player.getServerWorld().getTotalWorldTime();
+        long tick = player.getServerForPlayer().getTotalWorldTime();
         buffer.updateFullState(tick);
         if (changed) RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
     }
@@ -178,7 +178,7 @@ public final class RtsDropAbsorber {
             int maxStacks, long deadlineNanos) {
         RtsMiningDropBufferState buffer = session.miningDropBuffer;
         if (buffer.isEmpty() || maxStacks <= 0) return 0;
-        long tick = player.getServerWorld().getTotalWorldTime();
+        long tick = player.getServerForPlayer().getTotalWorldTime();
         boolean fallback = buffer.fallbackEligible(tick, 60L);
         DropInsertContext context = createInsertContext(player, session);
         int processed = 0;
@@ -189,33 +189,33 @@ public final class RtsDropAbsorber {
         while (processed < limit && System.nanoTime() < deadlineNanos && !buffer.stacks.isEmpty()) {
             ItemStack original = buffer.stacks.removeFirst();
             ItemStack remainder = context.store(original.copy());
-            int stored = original.getCount() - count(remainder);
+            int stored = original.stackSize - count(remainder);
             storageChanged |= stored > 0;
             if (stored > 0) buffer.markStorageProgress();
-            if (stored <= 0 && fallback && !remainder.isEmpty()) {
+            if (stored <= 0 && fallback && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) {
                 remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, remainder);
-                if (!remainder.isEmpty()) mergeRemainder(worldRemainders, remainder);
-                buffer.bufferedItems -= original.getCount();
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) mergeRemainder(worldRemainders, remainder);
+                buffer.bufferedItems -= original.stackSize;
                 fellBack = true;
-            } else if (!remainder.isEmpty()) {
+            } else if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) {
                 buffer.stacks.addFirst(remainder);
                 buffer.bufferedItems -= stored;
                 if (stored <= 0) { buffer.markStorageBlocked(tick); break; }
             } else {
-                buffer.bufferedItems -= original.getCount();
+                buffer.bufferedItems -= original.stackSize;
             }
             processed++;
         }
-        for (ItemStack stack : worldRemainders) player.dropItem(stack, false);
+        for (ItemStack stack : worldRemainders) player.dropPlayerItemWithRandomChoice(stack, false);
         notifyStorageChanged(player, context, storageChanged);
         if (storageChanged) QuestService.runQuestDetect(player, session, false);
         if (fellBack && buffer.shouldNotifyFallback()) {
             RtsDeveloperMetrics.recordBufferFallback(player);
-            player.sendStatusMessage(new TextComponentTranslation("message.rtsbuilding.drop_buffer.fallback"), true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation("message.rtsbuilding.drop_buffer.fallback"), true);
         }
         buffer.updateFullState(tick);
         if (buffer.shouldNotifyFull(tick, 20L)) {
-            player.sendStatusMessage(new TextComponentTranslation("message.rtsbuilding.drop_buffer.full"), true);
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation("message.rtsbuilding.drop_buffer.full"), true);
             buffer.fullNoticeSent = true;
         }
         buffer.clearTimingWhenEmpty();
@@ -227,7 +227,7 @@ public final class RtsDropAbsorber {
         RtsMiningDropBufferState buffer = session.miningDropBuffer;
         while (!buffer.stacks.isEmpty()) {
             ItemStack remainder = RtsTransferInserter.moveToPlayerInventoryOnly(player, buffer.stacks.removeFirst());
-            if (!remainder.isEmpty()) player.dropItem(remainder, false);
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) player.dropPlayerItemWithRandomChoice(remainder, false);
         }
         buffer.clearTimingWhenEmpty();
     }
@@ -263,23 +263,23 @@ public final class RtsDropAbsorber {
         ItemStack remaining = incoming.copy();
         for (ItemStack existing : merged) {
             if (!sameExact(existing, remaining)) continue;
-            int moved = Math.min(remaining.getCount(), existing.getMaxStackSize() - existing.getCount());
-            if (moved > 0) { existing.grow(moved); remaining.shrink(moved); }
-            if (remaining.isEmpty()) return;
+            int moved = Math.min(remaining.stackSize, existing.getMaxStackSize() - existing.stackSize);
+            if (moved > 0) { com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(existing, moved); com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(remaining, moved); }
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remaining)) return;
         }
-        while (!remaining.isEmpty()) {
-            int amount = Math.min(remaining.getCount(), remaining.getMaxStackSize());
+        while (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remaining)) {
+            int amount = Math.min(remaining.stackSize, remaining.getMaxStackSize());
             merged.add(copyWithCount(remaining, amount));
-            remaining.shrink(amount);
+            com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(remaining, amount);
         }
     }
 
-    private static int count(ItemStack stack) { return stack == null || stack.isEmpty() ? 0 : stack.getCount(); }
+    private static int count(ItemStack stack) { return stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? 0 : stack.stackSize; }
     private static ItemStack copyWithCount(ItemStack stack, int amount) {
-        ItemStack copy = stack.copy(); copy.setCount(amount); return copy;
+        ItemStack copy = stack.copy(); copy.stackSize = amount; return copy;
     }
     private static boolean sameExact(ItemStack a, ItemStack b) {
-        return ItemStack.areItemsEqual(a, b) && ItemStack.areItemStackTagsEqual(a, b);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(a, b) && ItemStack.areItemStackTagsEqual(a, b);
     }
 
     private static final class DropGroup {
@@ -296,7 +296,7 @@ public final class RtsDropAbsorber {
             this.aggregate = aggregate; this.handlers = handlers;
         }
         ItemStack store(ItemStack stack) {
-            if (stack == null || stack.isEmpty()) return ItemStack.EMPTY;
+            if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) return null;
             if (aggregate != null && !aggregate.isEmpty()) return aggregate.insert(stack, false);
             return handlers == null || handlers.isEmpty()
                     ? stack.copy() : RtsTransferInserter.storeToLinkedOnly(handlers, stack);

@@ -8,9 +8,9 @@ import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.util.ChatComponentTranslation;
 
 /**
  * 检查玩家是否已解锁所需的进度功能。
@@ -43,12 +43,12 @@ public final class ProgressionGatePipe implements PipelinePipe<PipelineContext> 
     public PipelineResult execute(PipelineContext ctx) {
         if (!RtsProgressionManager.canUse(ctx.player(), feature)) {
             ResourceLocation pluginId = BuiltInRtsPluginCatalog.requiredPluginFor(feature);
-            ITextComponent pluginName = pluginId == null
-                    ? new TextComponentString(feature.name())
-                    : new TextComponentTranslation("item." + pluginId.getNamespace()
-                            + "." + pluginId.getPath());
-            ctx.player().sendStatusMessage(
-                    new TextComponentTranslation("message.rtsbuilding.plugin_required", pluginName), true);
+            IChatComponent pluginName = pluginId == null
+                    ? new ChatComponentText(feature.name())
+                    : new ChatComponentTranslation("item." + pluginId.getResourceDomain()
+                            + "." + pluginId.getResourcePath());
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(ctx.player(),
+                    new ChatComponentTranslation("message.rtsbuilding.plugin_required", pluginName), true);
             return PipelineResult.failure("Feature not unlocked: " + feature.name());
         }
         return PipelineResult.success();

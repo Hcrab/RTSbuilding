@@ -13,10 +13,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  */
 @Mixin(TileEntityRendererDispatcher.class)
 public abstract class BlockEntityRenderDispatcherMixin {
-    @Inject(method = "render(Lnet/minecraft/tileentity/TileEntity;FI)V", at = @At("HEAD"), cancellable = true)
+    @Inject(method = "renderTileEntity(Lnet/minecraft/tileentity/TileEntity;F)V",
+            at = @At("HEAD"), cancellable = true)
     private void rtsbuilding$skipCulledBlockEntity(TileEntity tileEntity, float partialTicks,
-            int destroyStage, CallbackInfo ci) {
-        if (tileEntity != null && RtsCullingClientState.shouldCull(tileEntity.getPos())) {
+            CallbackInfo ci) {
+        if (tileEntity != null && RtsCullingClientState.shouldCull(
+                new com.rtsbuilding.rtsbuilding.platform.math.BlockPos(
+                        tileEntity.xCoord, tileEntity.yCoord, tileEntity.zCoord))) {
             ci.cancel();
         }
     }

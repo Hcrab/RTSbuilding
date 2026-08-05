@@ -52,7 +52,7 @@ public final class RtsTaskEngine {
                 .coordinator();
         durableRuntime.beginTick(server, coordinator);
         var sessionService = ServiceRegistry.getInstance().session();
-        for (var player : server.getPlayerList().getPlayers()) {
+        for (var player : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayers()) {
             var session = sessionService.getIfPresent(player);
             if (session == null) continue;
             drainMiningBuffer(player, session);
@@ -63,7 +63,7 @@ public final class RtsTaskEngine {
         java.util.LinkedHashMap<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId,
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot> durableCandidates =
                 new java.util.LinkedHashMap<>();
-        for (var player : server.getPlayerList().getPlayers()) {
+        for (var player : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayers()) {
             coordinator.query().runnableFor(player.getUniqueID(), dimensionId(player.dimension))
                     .stream()
                     .filter(snapshot -> snapshot.type() == TaskType.PLACEMENT
@@ -183,11 +183,11 @@ public final class RtsTaskEngine {
     public void checkpointAllDurableExecutions(MinecraftServer server) {
         durableRuntime.checkpointMiningExecutions(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.coordinator(),
-                server.getWorld(0).getTotalWorldTime());
+                com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(server, 0).getTotalWorldTime());
         durableRuntime.checkpointDestructionExecutions(
                 com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.coordinator(),
-                server.getWorld(0).getTotalWorldTime());
-        durableBlueprintBridge.checkpointAll(server.getWorld(0).getTotalWorldTime());
+                com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(server, 0).getTotalWorldTime());
+        durableBlueprintBridge.checkpointAll(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(server, 0).getTotalWorldTime());
     }
 
     /** persistence.stop 成功后调用，清除单例中的旧世界引用。 */
@@ -532,7 +532,7 @@ public final class RtsTaskEngine {
             com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession session,
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator) {
         if (player == null || session == null
-                || (!player.isCreative()
+                || (!player.capabilities.isCreativeMode
                 && !session.mining.miningSelectedToolRequested
                 && (session.mining.miningToolLease == null
                 || session.mining.miningToolLease.isEmpty()))
@@ -550,14 +550,14 @@ public final class RtsTaskEngine {
 
     /** Chunk Load 事件只命中该 chunk 的 WaitIndex 桶。 */
     public void resumeLoadedChunk(net.minecraft.world.WorldServer level,
-            net.minecraft.util.math.ChunkPos chunkPos) {
+            com.rtsbuilding.rtsbuilding.platform.math.ChunkPos chunkPos) {
         if (level == null || chunkPos == null) return;
         var runtime = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE;
         // GameTest/专用服务器会在 ServerStarting 之前提升出生区块；此时还没有恢复索引可唤醒。
         if (!runtime.isStarted()) return;
         var coordinator = runtime.coordinator();
         var key = new com.rtsbuilding.rtsbuilding.server.task.persistence.TaskWaitKey(
-                "chunk", level.provider.getDimension() + ":" + chunkPos.x + ":" + chunkPos.z);
+                "chunk", level.provider.dimensionId + ":" + chunkPos.x + ":" + chunkPos.z);
         for (var snapshot : coordinator.query().waitingFor(key)) {
             coordinator.replace(snapshot.nextRevision(
                     com.rtsbuilding.rtsbuilding.server.task.persistence.TaskLifecycleState.QUEUED,
@@ -694,8 +694,8 @@ public final class RtsTaskEngine {
         if (job.quickBuild() && !makeRoomForDurableTaskFamily(
                 player, coordinator, TaskType.PLACEMENT, Config.buildBatchMaxQueuedJobs(),
                 RtsTaskEngine::occupiesQuickBuildSlot)) {
-            player.sendStatusMessage(
-                    new net.minecraft.util.text.TextComponentTranslation(
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player,
+                    new net.minecraft.util.ChatComponentTranslation(
                             "message.rtsbuilding.quick_build.queue_full",
                             Config.buildBatchMaxQueuedJobs()),
                     true);
@@ -828,8 +828,8 @@ public final class RtsTaskEngine {
         if (!makeRoomForDurableTaskFamily(
                 player, coordinator, TaskType.DESTRUCTION,
                 RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS, ignored -> true)) {
-            player.sendStatusMessage(
-                    new net.minecraft.util.text.TextComponentTranslation(
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player,
+                    new net.minecraft.util.ChatComponentTranslation(
                             "message.rtsbuilding.range_destroy.queue_full",
                             RtsDestructionBatch.DESTROY_MAX_QUEUED_JOBS),
                     true);
@@ -857,16 +857,16 @@ public final class RtsTaskEngine {
     public boolean submitMiningTargets(
             net.minecraft.entity.player.EntityPlayerMP player,
             int workflowEntryId,
-            java.util.Collection<net.minecraft.util.math.BlockPos> targets,
-            net.minecraft.util.EnumFacing face,
+            java.util.Collection<com.rtsbuilding.rtsbuilding.platform.math.BlockPos> targets,
+            com.rtsbuilding.rtsbuilding.platform.math.EnumFacing face,
             int toolSlot,
             boolean selectedToolRequested,
             boolean toolProtectionEnabled,
             boolean progressiveSingle) {
         if (player == null || targets == null || targets.isEmpty() || workflowEntryId < 0) return false;
-        java.util.List<net.minecraft.util.math.BlockPos> immutableTargets = targets.stream()
+        java.util.List<com.rtsbuilding.rtsbuilding.platform.math.BlockPos> immutableTargets = targets.stream()
                 .filter(java.util.Objects::nonNull)
-                .map(net.minecraft.util.math.BlockPos::new)
+                .map(com.rtsbuilding.rtsbuilding.platform.math.BlockPos::new)
                 .collect(Collectors.toList());
         if (immutableTargets.isEmpty()) return false;
         var state = new com.rtsbuilding.rtsbuilding.server.task.mining.MiningTaskState(
@@ -1074,7 +1074,7 @@ public final class RtsTaskEngine {
             com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator coordinator) {
         java.util.Set<com.rtsbuilding.rtsbuilding.server.task.identity.TaskId> activeIds =
                 new java.util.HashSet<>();
-        for (var player : server.getPlayerList().getPlayers()) {
+        for (var player : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayers()) {
             for (var snapshot : coordinator.query().ownedBy(player.getUniqueID())) {
                 if (snapshot.type() != TaskType.PLACEMENT && snapshot.type() != TaskType.DESTRUCTION
                         && snapshot.type() != TaskType.MINING) continue;
@@ -1319,7 +1319,7 @@ public final class RtsTaskEngine {
     }
 
     private static long gameTime(net.minecraft.entity.player.EntityPlayerMP player) {
-        return player.getServerWorld().getTotalWorldTime();
+        return player.getServerForPlayer().getTotalWorldTime();
     }
 
     private boolean isTaskEngineWorkflow(

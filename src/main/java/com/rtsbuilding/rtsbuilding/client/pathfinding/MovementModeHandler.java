@@ -1,9 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.pathfinding;
 
 import net.minecraft.client.entity.EntityPlayerSP;
-import net.minecraft.util.math.Vec3d;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * 客户端移动策略接口。第三方模组可把自定义策略注册到

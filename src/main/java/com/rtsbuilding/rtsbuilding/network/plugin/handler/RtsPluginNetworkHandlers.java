@@ -6,12 +6,10 @@ import com.rtsbuilding.rtsbuilding.network.plugin.C2SRtsUninstallPluginPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.IThreadListener;
 import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 
@@ -27,8 +25,8 @@ public final class RtsPluginNetworkHandlers {
         @Override public IMessage onMessage(final C2SRtsInstallPluginPayload message,
                                             MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
                     if (message.inventorySlot() < player.inventory.getSizeInventory()) {
                         RtsPluginService.installFromInventorySlot(player, message.inventorySlot());
@@ -49,8 +47,8 @@ public final class RtsPluginNetworkHandlers {
             } catch (IllegalArgumentException invalidId) {
                 return null;
             }
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() { RtsPluginService.uninstall(player, pluginId); }
             });
             return null;
@@ -59,8 +57,8 @@ public final class RtsPluginNetworkHandlers {
 
     public static final class Request implements IMessageHandler<C2SRtsRequestPluginsPayload, IMessage> {
         @Override public IMessage onMessage(C2SRtsRequestPluginsPayload message, MessageContext context) {
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() { RtsPluginService.syncToPlayer(player); }
             });
             return null;
@@ -81,8 +79,8 @@ public final class RtsPluginNetworkHandlers {
     }
 
     private static void scheduleClient(MessageContext context, Runnable task) {
-        IThreadListener thread = FMLCommonHandler.instance().getWorldThread(context.netHandler);
-        thread.addScheduledTask(task);
+
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.schedule(context, task);
     }
 
     private static void invokeClient(String method, Class<?> payloadType, Object payload) {

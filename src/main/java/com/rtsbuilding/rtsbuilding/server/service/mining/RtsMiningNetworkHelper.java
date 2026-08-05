@@ -6,10 +6,10 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.util.ChatComponentTranslation;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,7 +20,7 @@ public final class RtsMiningNetworkHelper {
     public static void sendMineProgress(EntityPlayerMP player, BlockPos pos, int stage) {
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsMineProgressPayload(pos, (byte) stage));
     }
-    public static void sendBreakAnimation(EntityPlayerMP player, BlockPos pos, IBlockState state, IBlockState result) {
+    public static void sendBreakAnimation(EntityPlayerMP player, BlockPos pos, BlockState state, BlockState result) {
         if (player != null && pos != null) RtsClientboundPackets.sendToPlayer(player,
                 new S2CRtsBreakAnimationPayload(pos.toImmutable(), state, result));
     }
@@ -39,12 +39,12 @@ public final class RtsMiningNetworkHelper {
     }
     public static void notifyHarvestTierLimit(EntityPlayerMP player, List<BlockPos> positions) {
         if (player == null || positions == null || positions.isEmpty()) return;
-        player.sendStatusMessage(new TextComponentTranslation("message.rtsbuilding.plugin.harvest_tier_limited"), true);
+        com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation("message.rtsbuilding.plugin.harvest_tier_limited"), true);
         sendHarvestTierSkipped(player, positions);
     }
     public static void clearMineProgress(EntityPlayerMP player, BlockPos pos) {
         if (player == null || pos == null) return;
-        player.getServerWorld().sendBlockBreakProgress(player.getEntityId(), pos, -1);
+        com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.sendBlockBreakProgress(player.getServerForPlayer(), player.getEntityId(), pos, -1);
         sendMineProgress(player, pos, -1);
     }
     public static void sendUltimineBatchProgress(EntityPlayerMP player, RtsStorageSession session) {

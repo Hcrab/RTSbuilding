@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 客户端选择建造模式；有效枚举范围最终由服务端 BuilderMode 决定。 */
 public final class C2SRtsSetModePayload implements IMessage {

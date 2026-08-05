@@ -7,7 +7,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ResourceLocation;
 
@@ -116,7 +116,7 @@ public final class BuilderModeWheel {
         Minecraft.getMinecraft().getTextureManager().bindTexture(texture);
         GlStateManager.enableBlend();
         GlStateManager.color(1.0F, 1.0F, 1.0F, alpha);
-        Gui.drawModalRectWithCustomSizedTexture(cx - size / 2, cy - size / 2,
+        com.rtsbuilding.rtsbuilding.platform.client.GuiCompat.drawModalRectWithCustomSizedTexture(cx - size / 2, cy - size / 2,
                 0.0F, 0.0F, size, size, size, size);
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
     }

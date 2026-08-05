@@ -3,15 +3,15 @@ package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.renderer.RenderGlobal;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
@@ -26,13 +26,13 @@ public final class ChunkGuideRenderer {
     }
 
     public static void renderChunkGuides(Minecraft minecraft, Vec3d cameraPosition) {
-        if (minecraft == null || minecraft.world == null || cameraPosition == null) return;
+        if (minecraft == null || minecraft.theWorld == null || cameraPosition == null) return;
         int centerChunkX = MathHelper.floor(cameraPosition.x) >> 4;
         int centerChunkZ = MathHelper.floor(cameraPosition.z) >> 4;
-        int sourceY = minecraft.player == null
-                ? MathHelper.floor(cameraPosition.y) : MathHelper.floor(minecraft.player.posY);
-        int guideY = MathHelper.clamp(sourceY, 0, minecraft.world.getActualHeight() - 1);
-        RenderManager manager = minecraft.getRenderManager();
+        int sourceY = minecraft.thePlayer == null
+                ? MathHelper.floor(cameraPosition.y) : MathHelper.floor(minecraft.thePlayer.posY);
+        int guideY = MathHelper.clamp(sourceY, 0, minecraft.theWorld.getActualHeight() - 1);
+        RenderManager manager = net.minecraft.client.renderer.entity.RenderManager.instance;
 
         beginBuffers(-manager.viewerPosX, -manager.viewerPosY, -manager.viewerPosZ);
         try {
@@ -59,7 +59,7 @@ public final class ChunkGuideRenderer {
     private static void appendChunk(Minecraft minecraft, int chunkX, int chunkZ, int guideY) {
         int startX = chunkX << 4, startZ = chunkZ << 4;
         int endX = startX + 15, endZ = startZ + 15;
-        if (!minecraft.world.isBlockLoaded(new BlockPos(startX, guideY, startZ), false)) return;
+        if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(minecraft.theWorld, new BlockPos(startX, guideY, startZ), false)) return;
         Color color = colorFor(chunkX, chunkZ);
         for (int x = startX; x <= endX; x++) {
             appendCell(x, startZ, guideY, color);
@@ -75,9 +75,9 @@ public final class ChunkGuideRenderer {
         double inset = 0.04D;
         double x1 = x + inset, y1 = y + inset, z1 = z + inset;
         double x2 = x + 1.0D - inset, y2 = y + 1.0D - inset, z2 = z + 1.0D - inset;
-        RenderGlobal.addChainedFilledBoxVertices(FILL_BUFFER,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.addChainedFilledBoxVertices(FILL_BUFFER,
                 x1, y1, z1, x2, y2, z2, color.r, color.g, color.b, color.a);
-        RenderGlobal.drawBoundingBox(LINE_BUFFER,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.drawBoundingBox(LINE_BUFFER,
                 x1, y1, z1, x2, y2, z2,
                 Math.min(1.0F, color.r + 0.18F), Math.min(1.0F, color.g + 0.18F),
                 Math.min(1.0F, color.b + 0.18F), 0.92F);
@@ -110,7 +110,7 @@ public final class ChunkGuideRenderer {
     }
 
     private static void beginBuffers(double x, double y, double z) {
-        FILL_BUFFER.begin(GL11.GL_QUAD_STRIP, DefaultVertexFormats.POSITION_COLOR);
+        FILL_BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
         FILL_BUFFER.setTranslation(x, y, z);
         try {
             LINE_BUFFER.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);

@@ -8,13 +8,11 @@ import net.minecraft.init.Blocks;
 import net.minecraft.nbt.CompressedStreamTools;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTTagLongArray;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
 import net.minecraftforge.common.util.Constants;
 
 import java.io.ByteArrayInputStream;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,7 +29,7 @@ final class LitematicReader {
             throw new BlueprintParseException("Litematic 文件缺少 Regions 数据: " + fileName);
         List<PendingBlock> pending = new ArrayList<PendingBlock>();
         NBTTagCompound regions = root.getCompoundTag("Regions");
-        for (String name : regions.getKeySet()) {
+        for (String name : regions.func_150296_c()) {
             if (regions.hasKey(name, Constants.NBT.TAG_COMPOUND)) readRegion(fileName, regions.getCompoundTag(name), pending);
         }
         if (pending.isEmpty()) return RtsBlueprint.create(readName(root, fileName), fileName, BlueprintFormat.LITEMATIC,
@@ -46,7 +44,8 @@ final class LitematicReader {
         List<RtsBlueprintBlock> blocks = new ArrayList<RtsBlueprintBlock>(pending.size());
         for (PendingBlock pendingBlock : pending) {
             BlockPos pos = pendingBlock.pos.add(offset);
-            NBTTagCompound nbt = pendingBlock.nbt == null ? new NBTTagCompound() : pendingBlock.nbt.copy();
+            NBTTagCompound nbt = pendingBlock.nbt == null ? new NBTTagCompound()
+                    : (NBTTagCompound) pendingBlock.nbt.copy();
             BlueprintNbtCompat.StateResult state = pendingBlock.state;
             blocks.add(state.isMissing() ? RtsBlueprintBlock.missing(pos, state.missingBlockId(), nbt)
                     : new RtsBlueprintBlock(pos, state.state(), nbt));
@@ -75,7 +74,7 @@ final class LitematicReader {
             int paletteIndex=palette.size()==1?0:packed(states,index,bits);
             if(paletteIndex<0||paletteIndex>=palette.size())continue;
             BlueprintNbtCompat.StateResult entry=palette.get(paletteIndex);
-            if(!entry.isMissing()&&(entry.state().getBlock()==Blocks.AIR||entry.state().getBlock()==Blocks.STRUCTURE_VOID))continue;
+            if(!entry.isMissing()&&(entry.state().getBlock()==Blocks.air||entry.state().getBlock()==Blocks.air))continue;
             int sx=index%aw,sz=(index/aw)%al,sy=index/(aw*al);
             BlockPos local=new BlockPos(coord(sx,width),coord(sy,height),coord(sz,length));
             BlockPos absolute=new BlockPos(position.getX()+local.getX(),position.getY()+local.getY(),position.getZ()+local.getZ());
@@ -88,7 +87,7 @@ final class LitematicReader {
         Map<BlockPos,NBTTagCompound> out=new HashMap<BlockPos,NBTTagCompound>();
         NBTTagList list=region.getTagList("TileEntities",Constants.NBT.TAG_COMPOUND);
         for(int i=0;i<list.tagCount();i++){
-            NBTTagCompound tag=list.getCompoundTagAt(i); BlockPos pos=tilePos(tag); if(pos!=null)out.put(pos,tag.copy());
+            NBTTagCompound tag=list.getCompoundTagAt(i); BlockPos pos=tilePos(tag); if(pos!=null)out.put(pos,(NBTTagCompound)tag.copy());
         }
         return out;
     }
@@ -108,14 +107,16 @@ final class LitematicReader {
 
     /** 1.12 的 NBTTagLongArray 已能解码 TAG_Long_Array，但没有公开数组访问器。 */
     private static long[] longArray(NBTTagCompound root,String key)throws BlueprintParseException{
-        if(!root.hasKey(key,Constants.NBT.TAG_LONG_ARRAY))return new long[0];
-        try{
-            NBTTagLongArray tag=(NBTTagLongArray)root.getTag(key);
-            for(Field field:NBTTagLongArray.class.getDeclaredFields()){
-                if(field.getType()==long[].class){field.setAccessible(true);long[] value=(long[])field.get(tag);return value==null?new long[0]:value.clone();}
-            }
+        if(!root.hasKey(key,Constants.NBT.TAG_INT_ARRAY))return new long[0];
+        int[] encoded=root.getIntArray(key);
+        if((encoded.length&1)!=0)throw new BlueprintParseException("Litematic BlockStates 转换数据长度损坏");
+        long[] values=new long[encoded.length/2];
+        for(int i=0;i<values.length;i++)values[i]=((long)encoded[i*2]<<32)|(encoded[i*2+1]&0xffffffffL);
+        return values;
+        /* 旧的 NBTTagLongArray 反射路径在 1.7.10 中不存在。
             throw new IllegalStateException("NBTTagLongArray 缺少 long[] 字段");
         }catch(Exception ex){throw new BlueprintParseException("无法读取 Litematic BlockStates",ex);}
+        */
     }
 
     private static int coord(int stored,int size){return size<0?stored+size+1:stored;}
@@ -123,7 +124,7 @@ final class LitematicReader {
     private static Vec3i vec(NBTTagCompound root,String key,Vec3i fallback){
         if(root.hasKey(key,Constants.NBT.TAG_COMPOUND)){NBTTagCompound t=root.getCompoundTag(key);return new Vec3i(t.getInteger("x"),t.getInteger("y"),t.getInteger("z"));}
         if(root.hasKey(key,Constants.NBT.TAG_INT_ARRAY)){int[]v=root.getIntArray(key);if(v.length>=3)return new Vec3i(v[0],v[1],v[2]);}
-        if(root.hasKey(key,Constants.NBT.TAG_LIST)){NBTTagList v=root.getTagList(key,Constants.NBT.TAG_INT);if(v.tagCount()>=3)return new Vec3i(v.getIntAt(0),v.getIntAt(1),v.getIntAt(2));}
+        if(root.hasKey(key,Constants.NBT.TAG_LIST)){NBTTagList v=root.getTagList(key,Constants.NBT.TAG_INT);if(v.tagCount()>=3)return new Vec3i(com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(v,0),com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(v,1),com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getIntAt(v,2));}
         return fallback;
     }
 

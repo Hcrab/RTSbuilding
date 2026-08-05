@@ -5,17 +5,17 @@ import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
-import net.minecraft.init.MobEffects;
+import net.minecraft.potion.Potion;
 import net.minecraft.potion.PotionEffect;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraftforge.common.ForgeHooks;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * Client-side auto-pathfinding — moves the local player toward a target block
@@ -60,15 +60,15 @@ public final class RtsClientPathfinding {
 
     /** 对玩家碰撞箱覆盖到的方块应用 1.12 方块碰撞减速效果。 */
     private static Vec3d applyEntityInsideSlow(EntityPlayerSP player, Vec3d velocity) {
-        AxisAlignedBB box = player.getEntityBoundingBox();
+        AxisAlignedBB box = com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(player.boundingBox);
         BlockPos min = new BlockPos(box.minX, box.minY, box.minZ);
         BlockPos max = new BlockPos(box.maxX, box.maxY, box.maxZ);
         Vec3d result = velocity;
         for (BlockPos.MutableBlockPos pos : BlockPos.getAllInBoxMutable(min, max)) {
-            IBlockState state = player.world.getBlockState(pos);
-            if (state.getBlock() == Blocks.SOUL_SAND) {
+            BlockState state = BlockState.fromWorld(player.worldObj, pos);
+            if (state.getBlock() == Blocks.soul_sand) {
                 result = new Vec3d(result.x * 0.4D, result.y, result.z * 0.4D);
-            } else if (state.getBlock() == Blocks.WEB) {
+            } else if (state.getBlock() == Blocks.web) {
                 result = new Vec3d(result.x * 0.25D, result.y * 0.05D, result.z * 0.25D);
             }
         }
@@ -117,7 +117,7 @@ public final class RtsClientPathfinding {
     private static void stopMovement() {
         target = null;
         targetYOffset = 0;
-        EntityPlayerSP player = Minecraft.getMinecraft().player;
+        EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
         if (previousMode != null && player != null) {
             previousMode.onDeactivate(player);
         }
@@ -164,7 +164,7 @@ public final class RtsClientPathfinding {
         RtsMovementModeRegistry.init();
 
         Minecraft mc = Minecraft.getMinecraft();
-        EntityPlayerSP player = mc.player;
+        EntityPlayerSP player = mc.thePlayer;
         if (player == null || !ClientRtsController.get().isEnabled()) {
             cancel();
             return;
@@ -202,7 +202,7 @@ public final class RtsClientPathfinding {
         applyVelocity(player, toTarget, horizontal, horizontalDist, targetPos, playerPos, params);
 
         // ── Stuck / collision ──
-        if (player.collidedHorizontally
+        if (player.isCollidedHorizontally
                 && target.getY() + 1.0D > player.posY + 0.2D) {
             handleStuck(player, params);
         }
@@ -247,21 +247,21 @@ public final class RtsClientPathfinding {
      */
     private static double getBlockSurfaceY(BlockPos pos) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc.world == null) return pos.getY() + 1.0D;
+        if (mc.theWorld == null) return pos.getY() + 1.0D;
 
-        IBlockState state = mc.world.getBlockState(pos);
-        AxisAlignedBB collision = state.getCollisionBoundingBox(mc.world, pos);
+        BlockState state = BlockState.fromWorld(mc.theWorld, pos);
+        AxisAlignedBB collision = state.getCollisionBoundingBox(mc.theWorld, pos);
 
-        if (collision != null && collision != Block.NULL_AABB) {
+        if (collision != null) {
             return pos.getY() + collision.maxY;
         }
 
         // No collision (air, torches, signs, etc.) — check the block below
         BlockPos below = pos.down();
-        IBlockState belowState = mc.world.getBlockState(below);
-        AxisAlignedBB belowCollision = belowState.getCollisionBoundingBox(mc.world, below);
+        BlockState belowState = BlockState.fromWorld(mc.theWorld, below);
+        AxisAlignedBB belowCollision = belowState.getCollisionBoundingBox(mc.theWorld, below);
 
-        if (belowCollision != null && belowCollision != Block.NULL_AABB) {
+        if (belowCollision != null) {
             return below.getY() + belowCollision.maxY;
         }
 
@@ -332,7 +332,7 @@ public final class RtsClientPathfinding {
                     // Close enough — initiate genuine landing:
                     // disable creative flight so gravity pulls the player down
                     // onto the block surface (handles slabs/stairs/carpets natively).
-                    if (player.capabilities.isFlying && !player.isElytraFlying()) {
+                    if (player.capabilities.isFlying) {
                         player.capabilities.isFlying = false;
                         player.sendPlayerAbilities();
                     }
@@ -375,8 +375,8 @@ public final class RtsClientPathfinding {
         if (params.allowSprint()) {
             boolean canSprint = !player.capabilities.isFlying
                     && player.getFoodStats().getFoodLevel() > 6
-                    && !player.isHandActive()
-                    && (player.onGround || player.isInWater() || player.isInLava());
+                    && !player.isUsingItem()
+                    && (player.onGround || player.isInWater() || player.handleLavaMovement());
             player.setSprinting(canSprint);
         } else {
             player.setSprinting(false);
@@ -447,7 +447,7 @@ public final class RtsClientPathfinding {
             case JUMP:
                 if (player.onGround) {
                     double jumpSpeed = 0.42D;
-                    PotionEffect jumpBoost = player.getActivePotionEffect(MobEffects.JUMP_BOOST);
+                    PotionEffect jumpBoost = player.getActivePotionEffect(Potion.jump);
                     if (jumpBoost != null) {
                         jumpSpeed += 0.1D * (jumpBoost.getAmplifier() + 1);
                     }

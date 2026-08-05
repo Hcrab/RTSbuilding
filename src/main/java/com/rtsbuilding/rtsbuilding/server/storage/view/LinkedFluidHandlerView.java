@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.storage.view;
 
 import net.minecraftforge.fluids.FluidStack;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidTankProperties;
+import com.rtsbuilding.rtsbuilding.platform.storage.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IFluidTankProperties;
 
 import java.util.Objects;
 import java.util.function.BooleanSupplier;

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 
 import java.util.ArrayList;
 import java.util.Arrays;

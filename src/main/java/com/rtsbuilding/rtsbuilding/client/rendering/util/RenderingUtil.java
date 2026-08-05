@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import java.util.ArrayList;
 import java.util.Collections;

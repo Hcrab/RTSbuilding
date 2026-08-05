@@ -5,10 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginItem;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.event.RegistryEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.registry.GameRegistry;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,7 +19,6 @@ import java.util.function.Supplier;
  * 物品注册器。实例在类初始化时构造，但只在 1.12.2 的 {@link RegistryEvent.Register} 阶段提交。
  * {@link Handle} 保留业务代码熟悉的 {@code get()} 边界，同时不伪装成新版本 DeferredRegister。
  */
-@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsItems {
     private static final List<Handle<? extends Item>> ALL_ITEMS = new ArrayList<>();
     private static final Set<Handle<? extends Item>> CREATIVE_TAB_ITEMS = new LinkedHashSet<>();
@@ -74,17 +70,12 @@ public final class RtsItems {
     }
 
     private static void configureItem(Item item, String id, boolean creative) {
-        item.setRegistryName(new ResourceLocation(RtsbuildingMod.MODID, id));
-        item.setTranslationKey(RtsbuildingMod.MODID + "." + id);
+        item.setUnlocalizedName(RtsbuildingMod.MODID + "." + id);
+        // 1.7.10 不会从注册名自动推导材质域；缺少这一行时会去 minecraft 域查找，
+        // 最终把所有插件物品渲染成紫黑缺失材质。
+        item.setTextureName(RtsbuildingMod.MODID + ":" + id);
         item.setMaxStackSize(64);
         if (creative) item.setCreativeTab(RtsCreativeTabs.RTSBUILDING_TAB);
-    }
-
-    @SubscribeEvent
-    public static void registerItems(RegistryEvent.Register<Item> event) {
-        Item[] items = new Item[ALL_ITEMS.size()];
-        for (int i = 0; i < ALL_ITEMS.size(); i++) items[i] = ALL_ITEMS.get(i).get();
-        event.getRegistry().registerAll(items);
     }
 
     public static Set<Handle<? extends Item>> getCreativeTabItems() {
@@ -95,9 +86,15 @@ public final class RtsItems {
         return Collections.unmodifiableList(ALL_ITEMS);
     }
 
-    public static void register() {
-        // @EventBusSubscriber 负责 RegistryEvent；保留入口用于主生命周期显式触发类加载。
+    public static synchronized void register() {
+        if (registered) return;
+        for (Handle<? extends Item> handle : ALL_ITEMS) {
+            GameRegistry.registerItem(handle.get(), handle.id());
+        }
+        registered = true;
     }
+
+    private static boolean registered;
 
     public static final class Handle<T> {
         private final String id;

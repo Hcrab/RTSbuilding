@@ -3,12 +3,12 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.google.common.base.Predicate;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
-import net.minecraft.util.ClassInheritanceMultiMap;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.gen.ChunkProviderServer;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,10 +46,13 @@ public final class RtsBoundedItemEntityQuery {
 
         for (int chunkX = minChunkX; chunkX < maxChunkXExclusive; chunkX++) {
             for (int chunkZ = minChunkZ; chunkZ < maxChunkZExclusive; chunkZ++) {
-                Chunk chunk = level.getChunkProvider().getLoadedChunk(chunkX, chunkZ);
-                if (chunk == null) {
+                ChunkProviderServer provider = level.theChunkProviderServer;
+                if (provider == null || !provider.chunkExists(chunkX, chunkZ)) {
                     continue;
                 }
+                // 先用 chunkExists 证明区块已在内存，随后 provideChunk 只做映射读取，
+                // 不会为了远程掉落物查询意外加载或生成新区块。
+                Chunk chunk = provider.provideChunk(chunkX, chunkZ);
                 if (collectFromChunk(chunk, box, safeLimit, filter, matches)) {
                     return new Result(matches, true);
                 }
@@ -61,15 +64,17 @@ public final class RtsBoundedItemEntityQuery {
     /** 达到上限后只再观察一个命中，用它区分“刚好装满”和“确实被截断”。 */
     private static boolean collectFromChunk(Chunk chunk, AxisAlignedBB box, int limit,
             Predicate<? super EntityItem> filter, List<EntityItem> matches) {
-        ClassInheritanceMultiMap<Entity>[] sections = chunk.getEntityLists();
+        List[] sections = chunk.entityLists;
         int minSection = MathHelper.floor((box.minY - World.MAX_ENTITY_RADIUS) / 16.0D);
         int maxSection = MathHelper.floor((box.maxY + World.MAX_ENTITY_RADIUS) / 16.0D);
         minSection = MathHelper.clamp(minSection, 0, sections.length - 1);
         maxSection = MathHelper.clamp(maxSection, 0, sections.length - 1);
 
         for (int sectionIndex = minSection; sectionIndex <= maxSection; sectionIndex++) {
-            for (EntityItem entity : sections[sectionIndex].getByClass(EntityItem.class)) {
-                if (!entity.getEntityBoundingBox().intersects(box)
+            for (Object candidate : sections[sectionIndex]) {
+                if (!(candidate instanceof EntityItem)) continue;
+                EntityItem entity = (EntityItem) candidate;
+                if (!com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(entity.boundingBox).intersects(box)
                         || filter != null && !filter.apply(entity)) {
                     continue;
                 }

@@ -22,16 +22,16 @@ import com.rtsbuilding.rtsbuilding.util.RtsPinyinSearch;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -241,16 +241,16 @@ public final class RtsClientPacketGateway {
 
         String[] tokens = query.split("\\s+");
         List<String> matches = new ArrayList<>();
-        for (Item item : ForgeRegistries.ITEMS) {
+        for (Item item : RtsRegistries.ITEMS) {
             if (item == null) {
                 continue;
             }
-            ResourceLocation id = ForgeRegistries.ITEMS.getKey(item);
+            ResourceLocation id = RtsRegistries.ITEMS.getKey(item);
             if (id == null) {
                 continue;
             }
             ItemStack stack = new ItemStack(item);
-            if (stack.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
                 continue;
             }
             String label = stack.getDisplayName();
@@ -266,7 +266,7 @@ public final class RtsClientPacketGateway {
 
     private static boolean matchesLocalizedSearch(ResourceLocation id, String label, String[] tokens) {
         String rawId = id.toString().toLowerCase(Locale.ROOT);
-        String namespace = id.getNamespace().toLowerCase(Locale.ROOT);
+        String namespace = id.getResourceDomain().toLowerCase(Locale.ROOT);
         String normalizedLabel = label == null ? "" : label.toLowerCase(Locale.ROOT);
         boolean matchedAnyToken = false;
         for (String token : tokens) {
@@ -291,7 +291,7 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendSetQuickSlot(int index, String itemId, ItemStack previewStack) {
-        ItemStack preview = previewStack == null ? ItemStack.EMPTY : copyOne(previewStack);
+        ItemStack preview = previewStack == null ? null : copyOne(previewStack);
         send(new C2SRtsSetQuickSlotPayload((byte) index, itemId, preview));
     }
 
@@ -320,7 +320,7 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendEmptyHandPlace(RayTraceResult hit, Vec3d rayOrigin, Vec3d rayDir) {
-        sendPlace(hit, false, false, "", ItemStack.EMPTY, 0, "", rayOrigin, rayDir, false, true);
+        sendPlace(hit, false, false, "", null, 0, "", rayOrigin, rayDir, false, true);
     }
 
     public static void sendPlace(RayTraceResult hit, boolean forcePlace, boolean skipIfOccupied, String itemId,
@@ -332,9 +332,9 @@ public final class RtsClientPacketGateway {
             ItemStack itemPrototype, int rotateSteps, String statePreset, Vec3d rayOrigin, Vec3d rayDir, boolean quickBuild,
             boolean forceEmptyHand) {
         RtsDeveloperScenarioTracker.getInstance().record("place_request", "count=1");
-        ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
-        if (!prototype.isEmpty()) {
-            prototype.setCount(1);
+        ItemStack prototype = itemPrototype == null ? null : itemPrototype.copy();
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) {
+            prototype.stackSize = 1;
         }
         if (!isBlank(statePreset)) {
             RtsbuildingMod.LOGGER.debug(
@@ -397,9 +397,9 @@ public final class RtsClientPacketGateway {
         }
         RtsDeveloperScenarioTracker.getInstance().record(
                 "place_batch_request", "count=" + positions.size());
-        ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
-        if (!prototype.isEmpty()) {
-            prototype.setCount(1);
+        ItemStack prototype = itemPrototype == null ? null : itemPrototype.copy();
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) {
+            prototype.stackSize = 1;
         }
         int total = positions.size();
         int chunkSize = C2SRtsPlaceBatchPayload.MAX_POSITIONS_PER_PACKET;
@@ -635,7 +635,7 @@ public final class RtsClientPacketGateway {
                 minX, maxX, minY, maxY, minZ, maxZ,
                 (byte) MathHelper.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
-                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                toolPrototype == null ? null : toolPrototype,
                 shapeType,
                 fillType,
                 toolProtectionEnabled));
@@ -666,7 +666,7 @@ public final class RtsClientPacketGateway {
                     sanitized.subList(from, to),
                     (byte) MathHelper.clamp(toolSlot, 0, 8),
                     toolItemId == null ? "" : toolItemId,
-                    toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                    toolPrototype == null ? null : toolPrototype,
                     toolProtectionEnabled));
         }
     }
@@ -680,7 +680,7 @@ public final class RtsClientPacketGateway {
                 true,
                 (byte) MathHelper.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
-                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                toolPrototype == null ? null : toolPrototype,
                 allowPlacedBlockRecovery,
                 toolProtectionEnabled));
     }
@@ -693,7 +693,7 @@ public final class RtsClientPacketGateway {
                 (byte) face,
                 (byte) MathHelper.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
-                toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                toolPrototype == null ? null : toolPrototype,
                 (short) MathHelper.clamp(limit, 1, 256),
                 mode,
                 toolProtectionEnabled));
@@ -714,21 +714,21 @@ public final class RtsClientPacketGateway {
                 false,
                 (byte) MathHelper.clamp(toolSlot, 0, 8),
                 "",
-                ItemStack.EMPTY,
+                null,
                 false,
                 false));
     }
 
     private static ItemStack copyOne(ItemStack stack) {
         ItemStack copy = stack.copy();
-        copy.setCount(1);
+        copy.stackSize = 1;
         return copy;
     }
 
     private static long beginRemoteInteraction(String source, BlockPos target, EnumFacing face, int entityId) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        long distance = minecraft != null && minecraft.player != null && target != null
-                ? Math.round(Math.sqrt(minecraft.player.getDistanceSqToCenter(target)))
+        long distance = minecraft != null && minecraft.thePlayer != null && target != null
+                ? Math.round(Math.sqrt(com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.distanceSqToCenter(minecraft.thePlayer, target)))
                 : -1L;
         return RtsClientTraceTracker.beginRemoteInteraction(
                 source, target, face == null ? "null" : face.getName(), entityId, distance);

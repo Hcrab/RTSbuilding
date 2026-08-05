@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.interaction;
 
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 
 import java.util.Objects;
 

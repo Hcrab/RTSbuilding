@@ -7,8 +7,8 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.LeftDockedTooltipLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraftforge.fml.client.config.GuiUtils;
+import net.minecraft.util.IChatComponent;
+import cpw.mods.fml.client.config.GuiUtils;
 
 import java.util.Collections;
 
@@ -36,7 +36,7 @@ public final class LeftDockedTooltipRenderer {
         graphics.renderTooltip(stack, geometry.anchorX(), geometry.anchorY());
     }
 
-    public void render(LegacyGuiGraphics graphics, ITextComponent text) {
+    public void render(LegacyGuiGraphics graphics, IChatComponent text) {
         if (text == null) {
             return;
         }

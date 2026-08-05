@@ -11,8 +11,8 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.resources.I18n;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.TextComponentString;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.ChatComponentText;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 import org.lwjgl.opengl.GL11;
@@ -54,7 +54,7 @@ public final class RtsModConfigScreen extends GuiScreen {
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         renderPageBackground();
-        drawCenteredString(this.fontRenderer, I18n.format("config.rtsbuilding.title"), this.width / 2, 14,
+        drawCenteredString(this.fontRendererObj, I18n.format("config.rtsbuilding.title"), this.width / 2, 14,
                 StandaloneScreenStyle.TITLE_TEXT.toArgb());
         drawGeneralPage();
         for (GuiTextField field : this.visibleFields) field.drawTextBox();
@@ -77,11 +77,11 @@ public final class RtsModConfigScreen extends GuiScreen {
         rebuildConfigWidgets(true);
     }
 
-    @Override public void handleMouseInput() throws IOException {
+    @Override public void handleMouseInput() {
         super.handleMouseInput();
         int delta = Mouse.getEventDWheel();
         if (delta != 0) {
-            ScaledResolution scaled = new ScaledResolution(this.mc);
+            ScaledResolution scaled = new ScaledResolution(this.mc, this.mc.displayWidth, this.mc.displayHeight);
             double x = Mouse.getEventX() * scaled.getScaledWidth() / (double) this.mc.displayWidth;
             double y = scaled.getScaledHeight() - Mouse.getEventY() * scaled.getScaledHeight() / (double) this.mc.displayHeight - 1;
             mouseScrolled(x, y, delta > 0 ? 1.0D : -1.0D);
@@ -98,12 +98,12 @@ public final class RtsModConfigScreen extends GuiScreen {
         return true;
     }
 
-    @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+    @Override protected void mouseClicked(int mouseX, int mouseY, int mouseButton) {
         for (GuiTextField field : this.visibleFields) field.mouseClicked(mouseX, mouseY, mouseButton);
         super.mouseClicked(mouseX, mouseY, mouseButton);
     }
 
-    @Override protected void keyTyped(char typedChar, int keyCode) throws IOException {
+    @Override protected void keyTyped(char typedChar, int keyCode) {
         for (GuiTextField field : this.visibleFields) {
             if (field.isFocused()) {
                 if (keyCode == Keyboard.KEY_ESCAPE) { field.setFocused(false); return; }
@@ -164,7 +164,7 @@ public final class RtsModConfigScreen extends GuiScreen {
     }
 
     private GuiTextField addIntegerBox(int x, int y, int width, String value, int maxLength) {
-        GuiTextField box = new NoShadowTextField(100 + this.visibleFields.size(), this.fontRenderer,
+        GuiTextField box = new NoShadowTextField(100 + this.visibleFields.size(), this.fontRendererObj,
                 x, y + 10, width, 18);
         box.setMaxStringLength(maxLength);
         box.setText(value);
@@ -183,8 +183,8 @@ public final class RtsModConfigScreen extends GuiScreen {
             Config.setInventoryRtsButtonEnabled(inventoryRtsButtonEnabled);
             Config.setDeveloperModeEnabled(developerMode);
         } catch (RuntimeException ex) {
-            if (this.mc != null && this.mc.player != null)
-                this.mc.player.sendMessage(new TextComponentString("RTSBuilding config save failed: " + ex.getClass().getSimpleName()));
+            if (this.mc != null && this.mc.thePlayer != null)
+                this.mc.thePlayer.addChatMessage(new ChatComponentText("RTSBuilding config save failed: " + ex.getClass().getSimpleName()));
             return;
         }
         ClientRtsController.get().setSurvivalProgressionEnabled(survivalEnabled);
@@ -234,7 +234,7 @@ public final class RtsModConfigScreen extends GuiScreen {
     }
 
     private void enableViewportScissor() {
-        ScaledResolution sr = new ScaledResolution(this.mc); int factor = sr.getScaleFactor();
+        ScaledResolution sr = new ScaledResolution(this.mc, this.mc.displayWidth, this.mc.displayHeight); int factor = sr.getScaleFactor();
         GL11.glEnable(GL11.GL_SCISSOR_TEST);
         GL11.glScissor(contentX() * factor, this.mc.displayHeight - viewportBottom() * factor,
                 contentWidth() * factor, viewportHeight() * factor);
@@ -249,7 +249,7 @@ public final class RtsModConfigScreen extends GuiScreen {
     }
 
     private void drawSection(int x, int y, String key) {
-        this.fontRenderer.drawString(I18n.format(key), x + 2, y + 5, StandaloneScreenStyle.SECTION_TEXT.toArgb(), false);
+        this.fontRendererObj.drawString(I18n.format(key), x + 2, y + 5, StandaloneScreenStyle.SECTION_TEXT.toArgb(), false);
         drawRect(x, y + SECTION_H - 1, x + contentWidth(), y + SECTION_H, StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
     }
 
@@ -257,9 +257,9 @@ public final class RtsModConfigScreen extends GuiScreen {
         int hintW = Math.max(24, width - controlWidth(width) - 34);
         drawRect(x, y, x + width, y + OPTION_ROW_H - 2, StandaloneScreenStyle.INFO_ROW_BACKGROUND.toArgb());
         drawRect(x, y, x + width, y + 1, StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
-        this.fontRenderer.drawString(I18n.format(labelKey), x + 10, y + 7, StandaloneScreenStyle.INFO_VALUE.toArgb(), false);
-        String hint = this.fontRenderer.trimStringToWidth(I18n.format(hintKey), hintW);
-        this.fontRenderer.drawString(hint, x + 10, y + 20, StandaloneScreenStyle.INFO_LABEL.toArgb(), false);
+        this.fontRendererObj.drawString(I18n.format(labelKey), x + 10, y + 7, StandaloneScreenStyle.INFO_VALUE.toArgb(), false);
+        String hint = this.fontRendererObj.trimStringToWidth(I18n.format(hintKey), hintW);
+        this.fontRendererObj.drawString(hint, x + 10, y + 20, StandaloneScreenStyle.INFO_LABEL.toArgb(), false);
     }
 
     private void drawScrollbar() {
@@ -288,7 +288,7 @@ public final class RtsModConfigScreen extends GuiScreen {
         private final net.minecraft.client.gui.FontRenderer font;
         private final int drawX, drawY, drawW, drawH;
         private NoShadowTextField(int id, net.minecraft.client.gui.FontRenderer font, int x, int y, int w, int h) {
-            super(id, font, x, y, w, h); this.font = font; this.drawX = x; this.drawY = y; this.drawW = w; this.drawH = h;
+            super(font, x, y, w, h); this.font = font; this.drawX = x; this.drawY = y; this.drawW = w; this.drawH = h;
         }
         @Override public void drawTextBox() {
             if (!getVisible()) return;

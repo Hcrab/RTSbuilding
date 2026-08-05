@@ -1,15 +1,18 @@
 package com.rtsbuilding.rtsbuilding.server.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
-import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.ISidedInventory;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
-import net.minecraftforge.fluids.capability.IFluidHandler;
-import net.minecraftforge.items.CapabilityItemHandler;
-import net.minecraftforge.items.IItemHandler;
+import net.minecraft.world.WorldServer;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.storage.InventoryItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IFluidHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.NativeFluidHandlerAdapter;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
+import net.minecraftforge.common.util.ForgeDirection;
 
 /**
  * 在链接存储坐标处探测方块容纳物的物品和流体处理器（Capability）。
@@ -30,24 +33,26 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
     public static IItemHandler findHandler(EntityPlayerMP player, BlockPos pos) {
-        if (player == null || pos == null || !player.getServerWorld().isBlockLoaded(pos)) {
+        if (player == null || pos == null) {
             return null;
         }
-        TileEntity tile = player.getServerWorld().getTileEntity(pos);
-        if (tile == null) {
+        WorldServer world = player.getServerForPlayer();
+        if (!world.blockExists(pos.getX(), pos.getY(), pos.getZ())) {
             return null;
         }
-        IItemHandler direct = tile.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, null);
-        if (direct != null) {
-            return direct;
+        TileEntity tile = world.getTileEntity(pos.getX(), pos.getY(), pos.getZ());
+        if (!(tile instanceof IInventory)) {
+            return null;
         }
-        for (EnumFacing direction : EnumFacing.values()) {
-            IItemHandler sided = tile.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, direction);
-            if (sided != null) {
-                return sided;
+
+        IInventory inventory = (IInventory) tile;
+        if (inventory instanceof ISidedInventory) {
+            for (EnumFacing direction : EnumFacing.values()) {
+                InventoryItemHandler sided = new InventoryItemHandler(inventory, direction);
+                if (sided.getSlots() > 0) return sided;
             }
         }
-        return null;
+        return new InventoryItemHandler(inventory);
     }
 
     /**
@@ -59,10 +64,7 @@ public final class RtsLinkedCapabilities {
         if (ae2Network != null) {
             return ae2Network;
         }
-        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, pos);
-        if (refinedStorageNetwork != null) {
-            return refinedStorageNetwork;
-        }
+        // Refined Storage 不存在于 1.7.10/GTNH；该版本以 AE2/GT 网络为优先目标。
         return findHandler(player, pos);
     }
 
@@ -70,23 +72,28 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
     public static IFluidHandler findFluidHandler(EntityPlayerMP player, BlockPos pos) {
-        if (player == null || pos == null || !player.getServerWorld().isBlockLoaded(pos)) {
+        if (player == null || pos == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(player.getServerForPlayer(), pos)) {
             return null;
         }
-        TileEntity tile = player.getServerWorld().getTileEntity(pos);
+        TileEntity tile = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(player.getServerForPlayer(), pos);
         if (tile == null) {
             return null;
         }
-        IFluidHandler direct = tile.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, null);
-        if (direct != null) {
-            return direct;
-        }
+        if (!(tile instanceof net.minecraftforge.fluids.IFluidHandler)) return null;
+        net.minecraftforge.fluids.IFluidHandler nativeHandler =
+                (net.minecraftforge.fluids.IFluidHandler) tile;
+
+        NativeFluidHandlerAdapter unsided =
+                new NativeFluidHandlerAdapter(nativeHandler, ForgeDirection.UNKNOWN);
+        if (unsided.getTankProperties().length > 0) return unsided;
+
+        // GT 机器经常只在允许输入/输出的一面报告槽位；选择一个真实可见面，避免重复计数。
         for (EnumFacing direction : EnumFacing.values()) {
-            IFluidHandler sided = tile.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, direction);
-            if (sided != null) {
-                return sided;
-            }
+            NativeFluidHandlerAdapter sided =
+                    new NativeFluidHandlerAdapter(nativeHandler, direction.toForgeDirection());
+            if (sided.getTankProperties().length > 0) return sided;
         }
-        return null;
+        // 某些实现不报告 FluidTankInfo，却仍允许操作；保留 UNKNOWN 回退而不是误判为非流体机器。
+        return unsided;
     }
 }

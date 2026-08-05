@@ -5,7 +5,7 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.BlueprintFormat;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
@@ -13,8 +13,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
 import net.minecraft.world.World;
 
 import java.nio.file.Path;
@@ -181,12 +181,12 @@ final class BlueprintCaptureSaveJob {
      */
     private Result scanCurrentBlock() {
         this.cursor.setPos(this.x, this.y, this.z);
-        if (this.excludedBlocks.contains(this.cursor) || !this.level.isBlockLoaded(this.cursor)) {
+        if (this.excludedBlocks.contains(this.cursor) || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(this.level, this.cursor)) {
             return null;
         }
 
-        IBlockState state = this.level.getBlockState(this.cursor);
-        if (state.getBlock() == Blocks.AIR || state.getBlock() == Blocks.STRUCTURE_VOID) {
+        BlockState state = BlockState.fromWorld(this.level, this.cursor);
+        if (state.getBlock() == Blocks.air || state.getBlock() == Blocks.air) {
             return null;
         }
 
@@ -205,12 +205,13 @@ final class BlueprintCaptureSaveJob {
     }
 
     private NBTTagCompound captureBlockEntityTag(BlockPos pos) {
-        TileEntity blockEntity = this.level.getTileEntity(pos);
+        TileEntity blockEntity = com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.getTileEntity(this.level, pos);
         if (blockEntity == null) {
             return new NBTTagCompound();
         }
         try {
-            NBTTagCompound tag = blockEntity.writeToNBT(new NBTTagCompound());
+            NBTTagCompound tag = new NBTTagCompound();
+            blockEntity.writeToNBT(tag);
             tag.removeTag("x");
             tag.removeTag("y");
             tag.removeTag("z");
@@ -220,22 +221,25 @@ final class BlueprintCaptureSaveJob {
         }
     }
 
-    private String resolveMaterialItemId(IBlockState state, BlockPos pos) {
+    private String resolveMaterialItemId(BlockState state, BlockPos pos) {
         if (state == null || pos == null) {
             return "";
         }
         try {
-            ItemStack cloneStack = state.getBlock().getItem(this.level, pos, state);
-            if (!cloneStack.isEmpty()) {
-                ResourceLocation id = Item.REGISTRY.getNameForObject(cloneStack.getItem());
-                if (id != null && Item.REGISTRY.containsKey(id)) {
+            Item item = state.getBlock().getItem(this.level, pos.getX(), pos.getY(), pos.getZ());
+            ItemStack cloneStack = item == null ? null : new ItemStack(
+                    item, 1, state.getBlock().getDamageValue(
+                            this.level, pos.getX(), pos.getY(), pos.getZ()));
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(cloneStack)) {
+                ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(cloneStack.getItem());
+                if (id != null && com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.containsKey(id)) {
                     return id.toString();
                 }
             }
         } catch (RuntimeException ignored) {
         }
-        ResourceLocation fallback = Item.REGISTRY.getNameForObject(Item.getItemFromBlock(state.getBlock()));
-        return fallback == null || !Item.REGISTRY.containsKey(fallback) ? "" : fallback.toString();
+        ResourceLocation fallback = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(Item.getItemFromBlock(state.getBlock()));
+        return fallback == null || !com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.containsKey(fallback) ? "" : fallback.toString();
     }
 
     /**

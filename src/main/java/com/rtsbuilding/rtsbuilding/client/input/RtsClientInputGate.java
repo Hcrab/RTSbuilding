@@ -29,10 +29,10 @@ import net.minecraftforge.client.event.GuiScreenEvent;
 import net.minecraftforge.client.event.MouseEvent;
 import net.minecraftforge.client.event.RenderGameOverlayEvent;
 import net.minecraftforge.client.event.RenderHandEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.network.FMLNetworkEvent;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.network.FMLNetworkEvent;
+import cpw.mods.fml.relauncher.Side;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -46,7 +46,6 @@ import static com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayInteractio
 import static com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayLayoutHelper.*;
 import static com.rtsbuilding.rtsbuilding.client.input.overlay.OverlayRenderer.*;
 
-@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Side.CLIENT)
 public final class RtsClientInputGate {
     public static String pendingOverlayCarriedItemId = "";
     public static boolean captureLeftRelease;
@@ -78,48 +77,48 @@ public final class RtsClientInputGate {
     public static final long[] RETURN_QUEUE_EXPIRY = new long[RETURN_SLOTS];
 
     static {
-        Arrays.fill(RETURN_QUEUE, ItemStack.EMPTY);
+        Arrays.fill(RETURN_QUEUE, null);
     }
 
     private RtsClientInputGate() {
     }
 
     @SubscribeEvent
-    public static void onInteractionMouse(MouseEvent event) {
+    public void onInteractionMouse(MouseEvent event) {
         if (Minecraft.getMinecraft().currentScreen == null
                 && ClientRtsController.get().isEnabled()
-                && (event.getButton() == 0 || event.getButton() == 1)) {
+                && (event.button == 0 || event.button == 1)) {
             event.setCanceled(true);
         }
     }
 
     @SubscribeEvent
-    public static void onRenderGuiLayer(RenderGameOverlayEvent.Pre event) {
+    public void onRenderGuiLayer(RenderGameOverlayEvent.Pre event) {
         if (!ClientRtsController.get().isEnabled()) {
             return;
         }
 
-        if (event.getType() == RenderGameOverlayEvent.ElementType.CROSSHAIRS
-                || event.getType() == RenderGameOverlayEvent.ElementType.HOTBAR) {
+        if (event.type == RenderGameOverlayEvent.ElementType.CROSSHAIRS
+                || event.type == RenderGameOverlayEvent.ElementType.HOTBAR) {
             event.setCanceled(true);
         }
     }
 
     @SubscribeEvent
-    public static void onRenderHand(RenderHandEvent event) {
+    public void onRenderHand(RenderHandEvent event) {
         if (ClientRtsController.get().isEnabled()) {
             event.setCanceled(true);
         }
     }
 
     @SubscribeEvent
-    public static void onClientLoggingIn(FMLNetworkEvent.ClientConnectedToServerEvent event) {
+    public void onClientLoggingIn(FMLNetworkEvent.ClientConnectedToServerEvent event) {
         // 登录也主动清一次，覆盖崩服或异常断线时未完整收到退出事件的情况。
         RtsCullingClientState.resetForWorldChange();
     }
 
     @SubscribeEvent
-    public static void onClientLoggingOut(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
+    public void onClientLoggingOut(FMLNetworkEvent.ClientDisconnectionFromServerEvent event) {
         overlayBootstrapRequested = false;
         activeOverlayScreen = null;
         RtsCullingClientState.resetForWorldChange();
@@ -160,7 +159,7 @@ public final class RtsClientInputGate {
             return null;
         }
         ItemStack stack = entries.get(index).stack();
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return null;
         }
         int slotX = layout.gridX() + (index % STORAGE_COLS) * SLOT_PITCH;
@@ -169,14 +168,14 @@ public final class RtsClientInputGate {
     }
 
     @SubscribeEvent
-    public static void onScreenRenderPost(GuiScreenEvent.DrawScreenEvent.Post event) {
-        if (event.getGui() instanceof BuilderScreen) {
+    public void onScreenRenderPost(GuiScreenEvent.DrawScreenEvent.Post event) {
+        if (event.gui instanceof BuilderScreen) {
             return;
         }
-        if (event.getGui() instanceof RtsCraftTerminalScreen) {
+        if (event.gui instanceof RtsCraftTerminalScreen) {
             return;
         }
-        if (!(event.getGui() instanceof GuiContainer)) {
+        if (!(event.gui instanceof GuiContainer)) {
             return;
         }
 
@@ -188,10 +187,10 @@ public final class RtsClientInputGate {
     /** overlay 每帧在确定的 GUI 固定管线基线上绘制，避免继承机器 GUI 的灰暗颜色与光照。 */
     private static void renderContainerOverlay(GuiScreenEvent.DrawScreenEvent.Post event) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        ScaledResolution resolution = new ScaledResolution(minecraft);
+        ScaledResolution resolution = new ScaledResolution(minecraft, minecraft.displayWidth, minecraft.displayHeight);
         LegacyGuiGraphics g = new LegacyGuiGraphics(minecraft, resolution.getScaledWidth(), resolution.getScaledHeight());
-        if (event.getGui() instanceof GuiInventory) {
-            renderInventoryRtsButtons(minecraft.fontRenderer, event.getGui(), event.getMouseX(), event.getMouseY());
+        if (event.gui instanceof GuiInventory) {
+            renderInventoryRtsButtons(minecraft.fontRenderer, event.gui, event.mouseX, event.mouseY);
         }
         if (!RtsClientUiStateStore.isContainerOverlayEnabled()) {
             clearOverlaySearchFocus();
@@ -204,13 +203,13 @@ public final class RtsClientInputGate {
         // 先同步真实可见容量，再触发首次快照，避免默认 90 格响应被 15 格 overlay 截断。
         controller.updateStoragePageSize(overlayStoragePageCapacity(profile));
         if (!controller.canUseStorageOverlay()) {
-            requestOverlayBootstrap(event.getGui(), controller);
+            requestOverlayBootstrap(event.gui, controller);
             return;
         }
-        syncOverlayScreen(event.getGui(), controller);
+        syncOverlayScreen(event.gui, controller);
 
-        double mouseX = toOverlayMouse(event.getMouseX(), profile);
-        double mouseY = toOverlayMouse(event.getMouseY(), profile);
+        double mouseX = toOverlayMouse(event.mouseX, profile);
+        double mouseY = toOverlayMouse(event.mouseY, profile);
         OverlayLayout layout = resolveOverlayLayout(profile);
         syncOverlaySearchDrafts(controller);
         syncOverlayCraftables(controller);
@@ -313,10 +312,10 @@ public final class RtsClientInputGate {
                         ContainerOverlayStyle.RETURN_BORDER_DARK);
 
                 ItemStack preview = RETURN_QUEUE[i];
-                if (!preview.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                     g.renderItem(preview, cx + 1, cy + 1);
                     drawSlotCountOverlay(g, minecraft.fontRenderer, cx, cy, SLOT_SIZE,
-                            RtsClientUiUtil.compactCount(preview.getCount()),
+                            RtsClientUiUtil.compactCount(preview.stackSize),
                             ContainerOverlayStyle.RETURN_COUNT);
                 } else {
                     g.drawString(minecraft.fontRenderer, "+", cx + 6, cy + 5,
@@ -367,7 +366,7 @@ public final class RtsClientInputGate {
             if (hoveredQuick >= 0) {
                 ItemStack preview = controller.getQuickSlotPreview(hoveredQuick);
                 String itemId = controller.getQuickSlotItemId(hoveredQuick);
-                if (!preview.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                     g.renderTooltip(preview, (int) mouseX, (int) mouseY);
                     g.drawString(minecraft.fontRenderer,
                             "x" + (itemId == null ? 0 : resolvePinnedItemCount(itemId)),
@@ -380,7 +379,7 @@ public final class RtsClientInputGate {
             int hoveredReturn = resolveReturnSlotIndex(mouseX, mouseY, layout.returnX(), layout.returnY());
             if (hoveredReturn >= 0) {
                 ItemStack preview = RETURN_QUEUE[hoveredReturn];
-                if (!preview.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                     g.renderTooltip(preview, (int) mouseX, (int) mouseY);
                 }
             }
@@ -397,8 +396,8 @@ public final class RtsClientInputGate {
                     minecraft.fontRenderer,
                     resolution.getScaledWidth(),
                     resolution.getScaledHeight(),
-                    (int) event.getMouseX(),
-                    (int) event.getMouseY());
+                    (int) event.mouseX,
+                    (int) event.mouseY);
         }
         RtsCraftFeedbackPopup.render(
                 g,

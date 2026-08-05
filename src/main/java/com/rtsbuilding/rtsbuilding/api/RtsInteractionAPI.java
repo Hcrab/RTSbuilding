@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.api;
 
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 /**
  * 远程交互 API。
@@ -16,7 +16,7 @@ public interface RtsInteractionAPI {
      *
      * @param player      执行玩家
      * @param entityId    目标实体 ID（-1 = 无实体目标）
-     * @param clickedPos  点击的方块坐标（net.minecraft.util.math.BlockPos）
+     * @param clickedPos  点击的方块坐标（com.rtsbuilding.rtsbuilding.platform.math.BlockPos）
      * @param face        点击的面
      * @param hitX        X 命中坐标
      * @param hitY        Y 命中坐标
@@ -41,7 +41,7 @@ public interface RtsInteractionAPI {
      * 远程破坏已放置的方块。
      *
      * @param player               执行玩家
-     * @param pos                  目标坐标（net.minecraft.util.math.BlockPos）
+     * @param pos                  目标坐标（com.rtsbuilding.rtsbuilding.platform.math.BlockPos）
      * @param face                 破坏的面
      * @param allowAdjacentFallback 是否允许相邻回退
      */
@@ -51,7 +51,7 @@ public interface RtsInteractionAPI {
      * 远程旋转方块。
      *
      * @param player 执行玩家
-     * @param pos    目标坐标（net.minecraft.util.math.BlockPos）
+     * @param pos    目标坐标（com.rtsbuilding.rtsbuilding.platform.math.BlockPos）
      */
     void rotateBlock(EntityPlayerMP player, BlockPos pos);
 }

@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 /**
  * 掉落物漏斗服务接口——自动收集地面掉落物并存入链接存储。

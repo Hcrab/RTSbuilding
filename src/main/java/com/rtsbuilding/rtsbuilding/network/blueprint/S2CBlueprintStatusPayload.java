@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.blueprint;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 /** 服务端返回蓝图上传、解析或任务创建的状态。 */
 public final class S2CBlueprintStatusPayload implements IMessage {

@@ -2,13 +2,13 @@ package com.rtsbuilding.rtsbuilding.client.screen.mode;
 
 import com.rtsbuilding.rtsbuilding.common.placement.PlacedBlockRotationStep;
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.World;
 
 import java.util.ArrayList;
@@ -45,11 +45,11 @@ public final class PlacedBlockRotationHandles {
 
     public boolean select(World world, BlockPos pos, EnumFacing cameraForward) {
         clear();
-        if (world == null || pos == null || !world.isBlockLoaded(pos, false)) {
+        if (world == null || pos == null || !com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, pos, false)) {
             return false;
         }
-        IBlockState state = world.getBlockState(pos);
-        if (state == null || state.getBlock() == Blocks.AIR
+        BlockState state = BlockState.fromWorld(world, pos);
+        if (state == null || state.getBlock() == Blocks.air
                 || availableArcs(state, pos, cameraForward).isEmpty()) {
             return false;
         }
@@ -63,7 +63,7 @@ public final class PlacedBlockRotationHandles {
             return Collections.emptyList();
         }
         return availableArcs(
-                world.getBlockState(this.targetPos),
+                BlockState.fromWorld(world, this.targetPos),
                 this.targetPos,
                 horizontal(cameraForward));
     }
@@ -96,8 +96,8 @@ public final class PlacedBlockRotationHandles {
     public boolean targetStillMatches(World world) {
         return this.targetPos != null
                 && world != null
-                && world.isBlockLoaded(this.targetPos, false)
-                && world.getBlockState(this.targetPos).getBlock() == this.targetBlock;
+                && com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, this.targetPos, false)
+                && BlockState.fromWorld(world, this.targetPos).getBlock() == this.targetBlock;
     }
 
     public void clear() {
@@ -107,7 +107,7 @@ public final class PlacedBlockRotationHandles {
     }
 
     private static List<ArcHandle> availableArcs(
-            IBlockState state,
+            BlockState state,
             BlockPos pos,
             EnumFacing cameraForward) {
         EnumFacing forward = horizontal(cameraForward);

@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.transform;
 
-import net.minecraft.block.properties.IProperty;
-import net.minecraft.block.state.IBlockState;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumFacing.Axis;
-import net.minecraft.util.Rotation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.block.IProperty;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing.Axis;
+import com.rtsbuilding.rtsbuilding.platform.block.Rotation;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
 
 /**
  * 蓝图变换工具 —— 提供蓝图的旋转和变换操作。
@@ -127,12 +127,12 @@ public final class BlueprintTransform {
      * @param zSteps Z 轴旋转步数
      * @return 旋转后的方块状态
      */
-    public static IBlockState rotateState(IBlockState state, int ySteps, int xSteps, int zSteps) {
+    public static BlockState rotateState(BlockState state, int ySteps, int xSteps, int zSteps) {
         if (state == null) {
             return state;
         }
         // 先应用原版的 Y 轴旋转
-        IBlockState out = state.withRotation(rotationForYSteps(ySteps));
+        BlockState out = state.withRotation(rotationForYSteps(ySteps));
         int x = normalizeSteps(xSteps);
         int z = normalizeSteps(zSteps);
         if (x == 0 && z == 0) {
@@ -246,7 +246,7 @@ public final class BlueprintTransform {
      * 防止旋转产生不合法的方块状态属性值。
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static <T extends Comparable<T>> IBlockState setIfAllowed(IBlockState state, IProperty<T> property, T value) {
+    private static <T extends Comparable<T>> BlockState setIfAllowed(BlockState state, IProperty<T> property, T value) {
         return property.getAllowedValues().contains(value)
                 ? state.withProperty(property, value)
                 : state;
@@ -256,7 +256,7 @@ public final class BlueprintTransform {
      * 原始类型版本的 {@link #setIfAllowed}，避开泛型通配符捕获问题。
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private static IBlockState setValueUnsafe(IBlockState state, IProperty property, Comparable value) {
+    private static BlockState setValueUnsafe(BlockState state, IProperty property, Comparable value) {
         return property.getAllowedValues().contains(value)
                 ? state.withProperty(property, value)
                 : state;

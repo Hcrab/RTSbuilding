@@ -1,17 +1,17 @@
 package com.rtsbuilding.rtsbuilding.client.compat;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * 为明确审计过的“客户端自行开 GUI”方块补齐远程右键的客户端半边。
@@ -30,14 +30,15 @@ public final class RtsClientOnlyBlockGuiCompat {
 
     public static void tryOpenAfterAuthoritativeSend(RayTraceResult hit) {
         Minecraft minecraft = Minecraft.getMinecraft();
-        if (minecraft == null || minecraft.world == null || minecraft.player == null
+        if (minecraft == null || minecraft.theWorld == null || minecraft.thePlayer == null
                 || hit == null || hit.getBlockPos() == null) {
             return;
         }
 
         BlockPos pos = hit.getBlockPos();
-        IBlockState state = minecraft.world.getBlockState(pos);
-        ResourceLocation blockId = state.getBlock().getRegistryName();
+        BlockState state = BlockState.fromWorld(minecraft.theWorld, pos);
+        ResourceLocation blockId = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.BLOCKS
+                .getKey(state.getBlock());
         if (!WAYSTONE.equals(blockId)) {
             return;
         }
@@ -52,12 +53,10 @@ public final class RtsClientOnlyBlockGuiCompat {
         GuiScreen before = minecraft.currentScreen;
         try {
             state.getBlock().onBlockActivated(
-                    minecraft.world,
-                    pos,
-                    state,
-                    minecraft.player,
-                    EnumHand.MAIN_HAND,
-                    face,
+                    minecraft.theWorld,
+                    pos.getX(), pos.getY(), pos.getZ(),
+                    minecraft.thePlayer,
+                    face.getIndex(),
                     localX,
                     localY,
                     localZ);

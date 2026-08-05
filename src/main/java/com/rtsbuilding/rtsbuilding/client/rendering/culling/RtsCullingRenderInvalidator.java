@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.culling;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;

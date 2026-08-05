@@ -23,7 +23,7 @@ import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetId;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -140,7 +140,7 @@ public final class DurableBlueprintTaskBridge {
             } else {
                 FrozenSubmission failed = pending.remove(completion.taskId());
                 if (failed != null) {
-                    EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(failed.ownerId());
+                    EntityPlayerMP player = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(failed.ownerId());
                     if (player != null) {
                         BlueprintNetworkHandlers.send(player, S2CBlueprintStatusPayload.ERROR,
                                 "screen.rtsbuilding.blueprints.status.admission_failed", "");
@@ -150,7 +150,7 @@ public final class DurableBlueprintTaskBridge {
         }
         int attempts = 0;
         int inspected = 0;
-        long gameTime = server.getWorld(0).getTotalWorldTime();
+        long gameTime = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(server, 0).getTotalWorldTime();
         List<TaskId> retry = new ArrayList<>();
         var iterator = activationQueue.iterator();
         while (iterator.hasNext() && attempts < MAX_ACTIVATIONS_PER_TICK && inspected++ < 8) {
@@ -175,7 +175,7 @@ public final class DurableBlueprintTaskBridge {
                 FrozenSubmission failed = pending.remove(taskId);
                 UUID ownerId = failed == null && snapshot != null ? snapshot.ownerId()
                         : failed == null ? null : failed.ownerId();
-                EntityPlayerMP player = ownerId == null ? null : server.getPlayerList().getPlayerByUUID(ownerId);
+                EntityPlayerMP player = ownerId == null ? null : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(ownerId);
                 if (player != null) {
                     if (snapshot != null && snapshot.workflowEntryId() >= 0) {
                         RtsWorkflowEngine.getInstance().from(player, snapshot.workflowEntryId())
@@ -191,7 +191,7 @@ public final class DurableBlueprintTaskBridge {
     }
 
     void afterTaskTick(MinecraftServer server) {
-        long gameTime = server.getWorld(0).getTotalWorldTime();
+        long gameTime = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(server, 0).getTotalWorldTime();
         for (var iterator = active.entrySet().iterator(); iterator.hasNext();) {
             Map.Entry<TaskId, ActiveBinding> entry = iterator.next();
             ActiveBinding binding = entry.getValue();
@@ -230,7 +230,7 @@ public final class DurableBlueprintTaskBridge {
         for (Map.Entry<TaskId, ActiveBinding> entry : active.entrySet()) {
             if (!entry.getValue().record().ownerId().equals(ownerId)) continue;
             ActiveBinding binding = entry.getValue();
-            long gameTime = binding.context().player().getServerWorld().getTotalWorldTime();
+            long gameTime = binding.context().player().getServerForPlayer().getTotalWorldTime();
             TaskLifecycleState state = durableState(binding.record().status());
             TaskSnapshot next = nextSnapshot(binding.snapshot(), binding.context(), binding.record(), state, gameTime);
             persistence.coordinator().replace(next);
@@ -268,7 +268,7 @@ public final class DurableBlueprintTaskBridge {
             pending.remove(taskId);
             return true;
         }
-        EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(snapshot.ownerId());
+        EntityPlayerMP player = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(snapshot.ownerId());
         if (player == null) return false;
         int dimension = parseDimension(snapshot.dimensionId());
         if (player.dimension != dimension) return false;
@@ -296,7 +296,7 @@ public final class DurableBlueprintTaskBridge {
                     : materializeFromDurableRoot(player, snapshot);
         } catch (RuntimeException corrupt) {
             RtsbuildingMod.LOGGER.error("恢复 durable 蓝图任务失败: {}", taskId, corrupt);
-            failSnapshot(snapshot, player.getServerWorld().getTotalWorldTime());
+            failSnapshot(snapshot, player.getServerForPlayer().getTotalWorldTime());
             BlueprintNetworkHandlers.send(player, S2CBlueprintStatusPayload.ERROR,
                     "screen.rtsbuilding.blueprints.status.restore_failed", "");
             pending.remove(taskId);
@@ -349,11 +349,11 @@ public final class DurableBlueprintTaskBridge {
             workflowEngine.setWorkflowExtraData(player, token.entryId(), projection);
             TaskRecord record = taskEngine.activateDurableBlueprint(taskId, snapshot, context, dimension);
             TaskSnapshot projected = snapshot.nextRevision(snapshot.state(), snapshot.waitKey(),
-                    player.getServerWorld().getTotalWorldTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
+                    player.getServerForPlayer().getTotalWorldTime(), snapshot.cursorUnits(), snapshot.succeededUnits(),
                     snapshot.failedUnits(), snapshot.payload());
             persistence.coordinator().replace(projected);
             active.put(taskId, new ActiveBinding(record, context, projected,
-                    player.getServerWorld().getTotalWorldTime()));
+                    player.getServerForPlayer().getTotalWorldTime()));
             pending.remove(taskId);
             return true;
         } catch (RuntimeException failure) {
@@ -419,7 +419,7 @@ public final class DurableBlueprintTaskBridge {
     }
 
     private static NBTTagCompound runtimePayload(NBTTagCompound base, BlueprintContext context) {
-        NBTTagCompound payload = base.copy();
+        NBTTagCompound payload = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(base);
         payload.setBoolean(PAYLOAD_PREPARING, context.isPreparing());
         LinkedList<Integer> remaining = context.getRemainingQueue();
         if (remaining == null || remaining.isEmpty()) {
@@ -560,7 +560,7 @@ public final class DurableBlueprintTaskBridge {
             int[] remainingIndices = remaining == null ? new int[0] : remaining.stream()
                     .mapToInt(Integer::intValue).toArray();
             payload.setIntArray(PAYLOAD_REMAINING, remainingIndices);
-            long gameTime = context.player().getServerWorld().getTotalWorldTime();
+            long gameTime = context.player().getServerForPlayer().getTotalWorldTime();
             Integer preferred = context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
             int preferredWorkflowEntryId = preferred == null ? -1 : preferred;
             TaskLifecycleState initialState = TaskLifecycleState.QUEUED;
@@ -591,12 +591,12 @@ public final class DurableBlueprintTaskBridge {
         }
 
         FrozenSubmission {
-            structure = structure.copy();
+            structure = com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(structure);
         }
 
         @Override
         public NBTTagCompound structure() {
-            return structure.copy();
+            return com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(structure);
         }
 
         boolean sameRequest(FrozenSubmission other) {

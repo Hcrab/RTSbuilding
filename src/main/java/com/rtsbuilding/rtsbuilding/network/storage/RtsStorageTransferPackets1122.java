@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.storage;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.storage.handler.RtsBindingHandlers;
 import com.rtsbuilding.rtsbuilding.network.storage.handler.RtsTransferHandlers;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 注册快捷槽、远程 GUI 与物品传输的 1.12 C2S 固定协议。 */
 public final class RtsStorageTransferPackets1122 {

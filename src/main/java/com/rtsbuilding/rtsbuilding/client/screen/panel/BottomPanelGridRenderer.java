@@ -15,7 +15,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelGridLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelGridStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.ChatComponentTranslation;
 
 import java.util.List;
 
@@ -118,7 +118,7 @@ public final class BottomPanelGridRenderer {
                     continue;
                 }
                 if (entry.sourceIndex >= 0 && entry.sourceIndex < sourceEntries.size()
-                        && !sourceEntries.get(entry.sourceIndex).preview().isEmpty()) {
+                        && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(sourceEntries.get(entry.sourceIndex).preview())) {
                     graphics.renderItem(sourceEntries.get(entry.sourceIndex).preview(),
                             slotX + 2, slotY + 2);
                 }
@@ -154,7 +154,7 @@ public final class BottomPanelGridRenderer {
                 drawSelection(graphics, view, slotX, slotY, entry.selected,
                         BottomPanelGridStyle.FLUID);
                 if (entry.sourceIndex >= 0 && entry.sourceIndex < sourceEntries.size()
-                        && !sourceEntries.get(entry.sourceIndex).preview().isEmpty()) {
+                        && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(sourceEntries.get(entry.sourceIndex).preview())) {
                     graphics.renderItem(sourceEntries.get(entry.sourceIndex).preview(),
                             slotX + 2, slotY + 2);
                 }
@@ -239,6 +239,6 @@ public final class BottomPanelGridRenderer {
     }
 
     private static String translated(String key) {
-        return new TextComponentTranslation(key).getFormattedText();
+        return new ChatComponentTranslation(key).getFormattedText();
     }
 }

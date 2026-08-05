@@ -22,7 +22,7 @@ final class RtsProgressionPersistence {
 
     static NBTTagCompound root(EntityPlayerMP player) {
         NBTTagCompound root = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
-        if (root.getKeySet().isEmpty()) {
+        if (root.func_150296_c().isEmpty()) {
             root.setInteger(NBT_VERSION, 1);
             SaveScheduler.INSTANCE.player(player).set(PlayerComponents.PROGRESSION, root);
         }
@@ -57,12 +57,12 @@ final class RtsProgressionPersistence {
         Team vanillaTeam = player.getTeam();
         return vanillaTeam == null
                 ? TeamProgressionContext.NONE
-                : new TeamProgressionContext("scoreboard:" + vanillaTeam.getName(), vanillaTeam.getName());
+                : new TeamProgressionContext("scoreboard:" + vanillaTeam.getRegisteredName(), vanillaTeam.getRegisteredName());
     }
 
     static RtsSharedProgressionData sharedProgressionData(EntityPlayerMP player) {
-        WorldServer overworld = player.getServer().getWorld(0);
-        return RtsSharedProgressionData.get(overworld == null ? player.getServerWorld() : overworld);
+        WorldServer overworld = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getWorld(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player), 0);
+        return RtsSharedProgressionData.get(overworld == null ? player.getServerForPlayer() : overworld);
     }
 
     private static boolean isBlank(String value) {

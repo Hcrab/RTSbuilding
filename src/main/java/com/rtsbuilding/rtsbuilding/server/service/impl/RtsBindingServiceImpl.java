@@ -19,9 +19,9 @@ import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -183,12 +183,12 @@ public final class RtsBindingServiceImpl implements BindingService {
 
         int slot = Math.max(0, Math.min(8, slotId));
         ItemStack inSlot = player.inventory.getStackInSlot(slot);
-        if (inSlot.isEmpty()) return;
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(inSlot)) return;
 
         ItemStack remaining = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, inSlot.copy());
-        if (remaining.getCount() == inSlot.getCount()) return;
+        if (remaining.stackSize == inSlot.stackSize) return;
 
-        player.inventory.setInventorySlotContents(slot, remaining.isEmpty() ? ItemStack.EMPTY : remaining);
+        player.inventory.setInventorySlotContents(slot, com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remaining) ? null : remaining);
         player.inventoryContainer.detectAndSendChanges();
         registry.serviceOp().afterModification(player, session);
         QuestService.runQuestDetect(player, session, false);

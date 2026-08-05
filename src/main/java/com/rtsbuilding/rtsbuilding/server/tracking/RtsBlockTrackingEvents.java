@@ -10,9 +10,9 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.util.BlockSnapshot;
 import net.minecraftforge.event.world.BlockEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.EventPriority;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 /**
  * 方块放置/破坏追踪事件处理器。<br>
@@ -20,7 +20,6 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  * 同时联动 {@link RtsLinkedStorageBlockEventHandler} 处理连锁存储容器的逻辑，<br>
  * 并刷新当前玩家的放置工作流进度（进度条显示和剩余方块数计算）。
  */
-@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsBlockTrackingEvents {
     private RtsBlockTrackingEvents() {
     }
@@ -33,22 +32,23 @@ public final class RtsBlockTrackingEvents {
      * @param event 方块放置事件
      */
     @SubscribeEvent
-    public static void onEntityPlace(BlockEvent.PlaceEvent event) {
+    public void onEntityPlace(BlockEvent.PlaceEvent event) {
         // MultiPlaceEvent 继承 PlaceEvent；交给下面的批量处理器，避免同一批方块重复刷新。
         if (event instanceof BlockEvent.MultiPlaceEvent) {
             return;
         }
-        if (!(event.getPlayer() instanceof EntityPlayerMP)) {
+        if (!(event.player instanceof EntityPlayerMP)) {
             return;
         }
-        if (!(event.getWorld() instanceof WorldServer)) {
+        if (!(event.world instanceof WorldServer)) {
             return;
         }
-        final EntityPlayerMP player = (EntityPlayerMP) event.getPlayer();
-        final WorldServer serverLevel = (WorldServer) event.getWorld();
-        final net.minecraft.util.math.BlockPos placedPos = event.getPos();
+        final EntityPlayerMP player = (EntityPlayerMP) event.player;
+        final WorldServer serverLevel = (WorldServer) event.world;
+        final com.rtsbuilding.rtsbuilding.platform.math.BlockPos placedPos =
+                new com.rtsbuilding.rtsbuilding.platform.math.BlockPos(event.x, event.y, event.z);
         PlacedBlockTrackerData.get(serverLevel).mark(placedPos);
-        serverLevel.getMinecraftServer().addScheduledTask(
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(
                 () -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, placedPos));
         // 手动放置方块后刷新放置工作流进度（更新进度条和重启所需方块数）
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
@@ -65,20 +65,22 @@ public final class RtsBlockTrackingEvents {
      * @param event 多方块放置事件
      */
     @SubscribeEvent
-    public static void onEntityMultiPlace(BlockEvent.MultiPlaceEvent event) {
-        if (!(event.getPlayer() instanceof EntityPlayerMP)) {
+    public void onEntityMultiPlace(BlockEvent.MultiPlaceEvent event) {
+        if (!(event.player instanceof EntityPlayerMP)) {
             return;
         }
-        if (!(event.getWorld() instanceof WorldServer)) {
+        if (!(event.world instanceof WorldServer)) {
             return;
         }
-        final EntityPlayerMP player = (EntityPlayerMP) event.getPlayer();
-        final WorldServer serverLevel = (WorldServer) event.getWorld();
+        final EntityPlayerMP player = (EntityPlayerMP) event.player;
+        final WorldServer serverLevel = (WorldServer) event.world;
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(serverLevel);
         for (BlockSnapshot snapshot : event.getReplacedBlockSnapshots()) {
-            tracker.mark(snapshot.getPos());
-            final net.minecraft.util.math.BlockPos placedPos = snapshot.getPos();
-            serverLevel.getMinecraftServer().addScheduledTask(
+            final com.rtsbuilding.rtsbuilding.platform.math.BlockPos placedPos =
+                    new com.rtsbuilding.rtsbuilding.platform.math.BlockPos(
+                            snapshot.x, snapshot.y, snapshot.z);
+            tracker.mark(placedPos);
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(
                     () -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, placedPos));
         }
         // 多方块放置后刷新放置工作流进度
@@ -96,19 +98,21 @@ public final class RtsBlockTrackingEvents {
      * @param event 方块破坏事件
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    public static void onBreak(BlockEvent.BreakEvent event) {
+    public void onBreak(BlockEvent.BreakEvent event) {
         if (event.isCanceled()) {
             return;
         }
         if (!(event.getPlayer() instanceof EntityPlayerMP)) {
             return;
         }
-        if (!(event.getWorld() instanceof WorldServer)) {
+        if (!(event.world instanceof WorldServer)) {
             return;
         }
-        WorldServer serverLevel = (WorldServer) event.getWorld();
-        PlacedBlockTrackerData.get(serverLevel).clear(event.getPos());
-        RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockBroken(serverLevel, event.getPos());
+        WorldServer serverLevel = (WorldServer) event.world;
+        com.rtsbuilding.rtsbuilding.platform.math.BlockPos brokenPos =
+                new com.rtsbuilding.rtsbuilding.platform.math.BlockPos(event.x, event.y, event.z);
+        PlacedBlockTrackerData.get(serverLevel).clear(brokenPos);
+        RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockBroken(serverLevel, brokenPos);
         // 手动破坏方块后刷新放置工作流进度（更新进度条和重启所需方块数）
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent((EntityPlayerMP) event.getPlayer());
         if (session != null) {

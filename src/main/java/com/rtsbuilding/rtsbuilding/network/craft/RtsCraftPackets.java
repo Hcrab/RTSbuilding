@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.craft;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.craft.handler.RtsCraftNetworkHandlers;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 合成域稳定 discriminator：72-78、82；79-81 已由范围剔除协议占用。 */
 public final class RtsCraftPackets {

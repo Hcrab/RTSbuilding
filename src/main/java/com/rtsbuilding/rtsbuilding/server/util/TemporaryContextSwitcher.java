@@ -2,9 +2,9 @@ package com.rtsbuilding.rtsbuilding.server.util;
 
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.EnumHand;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumActionResult;
+import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 
 import java.util.Objects;
 import java.util.function.Supplier;
@@ -107,12 +107,12 @@ public final class TemporaryContextSwitcher {
      * 临时替换玩家的主手物品，执行 {@code action} 后恢复。
      */
     public static <T> T withTemporaryMainHandItem(EntityPlayerMP player, ItemStack stack, Supplier<T> action) {
-        ItemStack previousMainHand = player.getHeldItemMainhand();
-        player.setHeldItem(EnumHand.MAIN_HAND, stack);
+        ItemStack previousMainHand = player.getHeldItem();
+        com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, EnumHand.MAIN_HAND, stack);
         try {
             return action.get();
         } finally {
-            player.setHeldItem(EnumHand.MAIN_HAND, previousMainHand);
+            com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, EnumHand.MAIN_HAND, previousMainHand);
         }
     }
 

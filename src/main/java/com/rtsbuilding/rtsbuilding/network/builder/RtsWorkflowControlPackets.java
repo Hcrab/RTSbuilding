@@ -2,7 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsWorkflowControlHandlers;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 注册不会携带世界坐标的工作流所有权控制消息。 */
 public final class RtsWorkflowControlPackets {

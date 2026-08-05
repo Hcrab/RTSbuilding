@@ -32,6 +32,6 @@ final class RtsOverlayJeiGlobalGuiHandler implements IGlobalGuiHandler {
             return null;
         }
         ItemStack stack = ingredient.stack();
-        return stack == null || stack.isEmpty() ? null : stack.copy();
+        return stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) ? null : stack.copy();
     }
 }

@@ -3,16 +3,16 @@ package com.rtsbuilding.rtsbuilding.server.pipeline.blueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprintBlock;
 import com.rtsbuilding.rtsbuilding.common.blueprint.transform.BlueprintTransform;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.item.Item;
 import net.minecraft.init.Items;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.block.material.Material;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidRegistry;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -52,26 +52,28 @@ public final class BlockPlacementPlanner {
      */
     public static final class PlacementPlan {
         private final BlockPos target;
-        private final IBlockState state;
+        private final BlockState state;
         private final List<Item> items;
         @Nullable private final Fluid fluidCost;
         @Nullable private final NBTTagCompound blockEntityTag;
 
-        public PlacementPlan(BlockPos target, IBlockState state, List<Item> items,
+        public PlacementPlan(BlockPos target, BlockState state, List<Item> items,
                 @Nullable Fluid fluidCost, @Nullable NBTTagCompound blockEntityTag) {
             this.target = target.toImmutable();
             this.state = state;
             this.items = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(items);
             this.fluidCost = fluidCost;
-            this.blockEntityTag = blockEntityTag == null ? null : blockEntityTag.copy();
+            this.blockEntityTag = blockEntityTag == null ? null
+                    : com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(blockEntityTag);
         }
 
         public BlockPos target() { return target; }
-        public IBlockState state() { return state; }
+        public BlockState state() { return state; }
         public List<Item> items() { return items; }
         @Nullable public Fluid fluidCost() { return fluidCost; }
         @Nullable public NBTTagCompound blockEntityTag() {
-            return blockEntityTag == null ? null : blockEntityTag.copy();
+            return blockEntityTag == null ? null
+                    : com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.copyCompound(blockEntityTag);
         }
 
         @Override
@@ -143,7 +145,7 @@ public final class BlockPlacementPlanner {
 
         BlockPos target = anchor.add(BlueprintTransform.rotateAroundCenter(
                 block.relativePos(), ySteps, xSteps, zSteps, centerOffset));
-        IBlockState state = BlueprintTransform.rotateState(block.state(), ySteps, xSteps, zSteps);
+        BlockState state = BlueprintTransform.rotateState(block.state(), ySteps, xSteps, zSteps);
         List<Item> items = materialItems(block, state);
         Fluid fluid = items.isEmpty() ? fluidCostFor(state) : null;
         return new PlacementPlan(target, state, items, fluid, block.blockEntityTag());
@@ -157,17 +159,17 @@ public final class BlockPlacementPlanner {
      * 返回方块的材料物品列表。
      * 优先使用蓝图记录的材质 ID；若为空则回退到方块的 asItem()。
      */
-    public static List<Item> materialItems(RtsBlueprintBlock block, IBlockState state) {
+    public static List<Item> materialItems(RtsBlueprintBlock block, BlockState state) {
         List<ResourceLocation> ids = RtsBlueprint.materialItemIds(block);
         if (ids.isEmpty() && state != null) {
             Item fallback = Item.getItemFromBlock(state.getBlock());
-            return fallback == Items.AIR ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf() : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(fallback);
+            return fallback == null ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf() : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf(fallback);
         }
         List<Item> out = new ArrayList<>(ids.size());
         for (ResourceLocation id : ids) {
-            if (id == null || !ForgeRegistries.ITEMS.containsKey(id)) continue;
-            Item item = ForgeRegistries.ITEMS.getValue(id);
-            if (item != null && item != Items.AIR) out.add(item);
+            if (id == null || !RtsRegistries.ITEMS.containsKey(id)) continue;
+            Item item = RtsRegistries.ITEMS.getValue(id);
+            if (item != null && item != null) out.add(item);
         }
         return out.isEmpty() ? com.rtsbuilding.rtsbuilding.server.task.Java8Collections.listOf() : com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(out);
     }
@@ -176,10 +178,10 @@ public final class BlockPlacementPlanner {
      * 返回方块的流体成本——如果方块状态中有水/岩浆则返回对应流体。
      */
     @Nullable
-    public static Fluid fluidCostFor(IBlockState state) {
+    public static Fluid fluidCostFor(BlockState state) {
         if (state == null) return null;
-        if (state.getMaterial() == Material.WATER) return FluidRegistry.WATER;
-        if (state.getMaterial() == Material.LAVA) return FluidRegistry.LAVA;
+        if (state.getMaterial() == Material.water) return FluidRegistry.WATER;
+        if (state.getMaterial() == Material.lava) return FluidRegistry.LAVA;
         return null;
     }
 }

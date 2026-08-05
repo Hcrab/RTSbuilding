@@ -10,7 +10,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.IChatComponent;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -66,8 +66,8 @@ final class BlueprintLibraryUiAdapter {
             List<String> previewIds = new ArrayList<>();
             if (detailed) {
                 for (ItemStack stack : entry.previewItems()) {
-                    if (!stack.isEmpty()) {
-                        ResourceLocation id = Item.REGISTRY.getNameForObject(stack.getItem());
+                    if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+                        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(stack.getItem());
                         if (id != null) {
                             previewIds.add(id.toString());
                         }
@@ -81,7 +81,7 @@ final class BlueprintLibraryUiAdapter {
                     entry.error(), previewIds));
         }
         BlueprintEntry selected = BlueprintPanel.librarySelectedEntry();
-        ITextComponent status = BlueprintPanel.statusText();
+        IChatComponent status = BlueprintPanel.statusText();
         return new BlueprintLibraryUiState(rows, BlueprintPanel.libraryQuery(),
                 BlueprintPanel.librarySearchFocused(), BlueprintPanel.libraryScrollRows(),
                 selected == null ? "" : selected.fileName(), BlueprintPanel.isCaptureModeActive(),

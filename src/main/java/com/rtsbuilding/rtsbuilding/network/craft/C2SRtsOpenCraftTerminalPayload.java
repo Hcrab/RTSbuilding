@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.craft;
 
 import io.netty.buffer.ByteBuf;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 
 public final class C2SRtsOpenCraftTerminalPayload implements IMessage {
     public C2SRtsOpenCraftTerminalPayload() {

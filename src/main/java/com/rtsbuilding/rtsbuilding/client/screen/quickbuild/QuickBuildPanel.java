@@ -19,9 +19,9 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -248,8 +248,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     // ======================== 抽象方法实现 ========================
 
     @Override
-    protected ITextComponent getTitle() {
-        return new TextComponentTranslation("screen.rtsbuilding.quick_build.title");
+    protected IChatComponent getTitle() {
+        return new ChatComponentTranslation("screen.rtsbuilding.quick_build.title");
     }
 
     @Override
@@ -383,7 +383,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      * {@code screen.getMinecraft()}。</p>
      */
     boolean hasCreativePlayer() {
-        net.minecraft.client.entity.EntityPlayerSP player = Minecraft.getMinecraft().player;
+        net.minecraft.client.entity.EntityPlayerSP player = Minecraft.getMinecraft().thePlayer;
         return player != null && player.capabilities.isCreativeMode;
     }
 
@@ -574,13 +574,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      */
     private ItemStack resolveShapeBuildItem() {
         ItemStack selected = controller.getSelectedItemPreview();
-        if (!selected.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(selected)) {
             return selected;
         }
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc.player == null) {
-            return ItemStack.EMPTY;
+        if (mc.thePlayer == null) {
+            return null;
         }
-        return mc.player.inventory.getStackInSlot(mc.player.inventory.currentItem);
+        return mc.thePlayer.inventory.getStackInSlot(mc.thePlayer.inventory.currentItem);
     }
 }

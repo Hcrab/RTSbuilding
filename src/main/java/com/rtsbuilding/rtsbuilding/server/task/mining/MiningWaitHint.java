@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.task.mining;
 
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.Objects;
 

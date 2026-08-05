@@ -25,15 +25,15 @@ import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
-import net.minecraft.item.crafting.Ingredient;
-import net.minecraft.util.NonNullList;
+import com.rtsbuilding.rtsbuilding.platform.crafting.Ingredient;
+import com.rtsbuilding.rtsbuilding.platform.crafting.LegacyRecipeCompat;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
-import net.minecraft.world.IInteractionObject;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentText;
+import net.minecraft.network.play.server.S2DPacketOpenWindow;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -52,17 +52,20 @@ public final class RtsCraftingExecutor {
             status(player, "Link at least one storage first.");
             return;
         }
-        player.displayGui(new IInteractionObject() {
-            @Override
-            public Container createContainer(InventoryPlayer inventory, EntityPlayer ignored) {
-                return new RtsCraftTerminalMenu(inventory, player.world, player.getPosition());
-            }
-
-            @Override public String getGuiID() { return "minecraft:crafting_table"; }
-            @Override public String getName() { return "RTS Craft Terminal"; }
-            @Override public boolean hasCustomName() { return true; }
-            @Override public ITextComponent getDisplayName() { return new TextComponentString(getName()); }
-        });
+        // 1.7.10 没有 IInteractionObject/菜单注册表；沿用原版工作台的开窗协议，
+        // 再把服务端容器替换为 RTS 子类。客户端收到 type=1 后先创建 GuiCrafting，
+        // 随后的 RTS 生命周期钩子会在同一 windowId 上换成合成终端界面。
+        if (player.openContainer != player.inventoryContainer) {
+            player.closeScreen();
+        }
+        player.getNextWindowId();
+        player.playerNetServerHandler.sendPacket(new S2DPacketOpenWindow(
+                player.currentWindowId, 1, "RTS Craft Terminal", 9, true));
+        RtsCraftTerminalMenu menu = new RtsCraftTerminalMenu(
+                player.inventory, player.worldObj, com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.blockPosition(player));
+        menu.windowId = player.currentWindowId;
+        player.openContainer = menu;
+        menu.addCraftingToCrafters(player);
         RtsRemoteMenuService.relaxOpenedMenuValidation(player.openContainer);
         ServiceRegistry.getInstance().serviceOp().refreshPage(player, session);
     }
@@ -84,8 +87,8 @@ public final class RtsCraftingExecutor {
         List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
 
         ItemStack preview = RtsCraftingSearch.resolveCraftablePreviewResult(recipe, player);
-        String resultLabel = preview.isEmpty() ? "item" : preview.getDisplayName();
-        ResourceLocation previewId = preview.isEmpty() ? null : ForgeRegistries.ITEMS.getKey(preview.getItem());
+        String resultLabel = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) ? "item" : preview.getDisplayName();
+        ResourceLocation previewId = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview) ? null : RtsRegistries.ITEMS.getKey(preview.getItem());
         int requested = Math.max(1, Math.min(999, craftCount));
         int completed = 0;
         int total = 0;
@@ -122,8 +125,7 @@ public final class RtsCraftingExecutor {
     }
 
     private static IRecipe resolveRecipe(String recipeId) {
-        try { return CraftingManager.getRecipe(new ResourceLocation(recipeId)); }
-        catch (RuntimeException invalid) { return null; }
+        return LegacyRecipeCompat.byId(recipeId);
     }
 
     private static CraftExecutionResult craftSingleRecipeToLinked(EntityPlayerMP player,
@@ -141,55 +143,55 @@ public final class RtsCraftingExecutor {
             if (RtsCraftingUtils.isIngredientEmpty(ingredient)) continue;
             ExtractedIngredient taken = takePlannedIngredientForCraft(
                     extractHandlers, player, ingredient, plan.prototypeAt(i), includePlayer);
-            if (taken == null || taken.stack().isEmpty()) {
+            if (taken == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(taken.stack())) {
                 rollbackCraftIngredients(insertHandlers, player, extracted);
                 return CraftExecutionResult.failure(false);
             }
             extracted[i] = taken;
             input.setInventorySlotContents(i, RtsCraftingUtils.one(taken.stack()));
         }
-        if (!recipe.matches(input, player.world)) {
+        if (!recipe.matches(input, player.worldObj)) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
         }
         ItemStack result = recipe.getCraftingResult(input);
-        if (result == null || result.isEmpty()) {
+        if (result == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(result)) {
             rollbackCraftIngredients(insertHandlers, player, extracted);
             return CraftExecutionResult.failure(false);
         }
 
         List<ItemStack> outputs = new ArrayList<ItemStack>();
         outputs.add(result.copy());
-        NonNullList<ItemStack> remaining = recipe.getRemainingItems(input);
-        if (remaining != null) for (ItemStack stack : remaining) if (stack != null && !stack.isEmpty()) outputs.add(stack.copy());
+        List<ItemStack> remaining = LegacyRecipeCompat.remainingItems(input);
+        if (remaining != null) for (ItemStack stack : remaining) if (stack != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) outputs.add(stack.copy());
 
         List<ItemStack> stored = new ArrayList<ItemStack>();
         for (ItemStack output : outputs) {
             ItemStack remainder = RtsTransferInserter.storeToLinkedOnlyPreferExisting(insertHandlers, output);
-            int storedCount = Math.max(0, output.getCount() - (remainder == null ? 0 : remainder.getCount()));
+            int storedCount = Math.max(0, output.stackSize - (remainder == null ? 0 : remainder.stackSize));
             if (storedCount > 0) {
-                ItemStack storedPart = output.copy(); storedPart.setCount(storedCount); stored.add(storedPart);
+                ItemStack storedPart = output.copy(); storedPart.stackSize = storedCount; stored.add(storedPart);
             }
-            if (remainder != null && !remainder.isEmpty()) {
+            if (remainder != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remainder)) {
                 rollbackStoredCraftOutputs(insertHandlers, stored);
                 rollbackCraftIngredients(insertHandlers, player, extracted);
                 return CraftExecutionResult.failure(true);
             }
         }
-        ResourceLocation id = ForgeRegistries.ITEMS.getKey(result.getItem());
+        ResourceLocation id = RtsRegistries.ITEMS.getKey(result.getItem());
         return new CraftExecutionResult(true, false, id == null ? "" : id.toString(),
-                Math.max(1, result.getCount()), RtsCraftingUtils.collectConsumedCounts(extracted));
+                Math.max(1, result.stackSize), RtsCraftingUtils.collectConsumedCounts(extracted));
     }
 
     private static ExtractedIngredient takePlannedIngredientForCraft(List<IItemHandler> handlers,
             EntityPlayerMP player, Ingredient ingredient, ItemStack prototype, boolean includePlayer) {
-        if (!RtsCraftingUtils.isIngredientEmpty(ingredient) && prototype != null && !prototype.isEmpty()
+        if (!RtsCraftingUtils.isIngredientEmpty(ingredient) && prototype != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)
                 && ingredient.apply(prototype)) {
             ItemStack linked = RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, prototype);
-            if (!linked.isEmpty() && ingredient.apply(linked)) return new ExtractedIngredient(linked, false);
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(linked) && ingredient.apply(linked)) return new ExtractedIngredient(linked, false);
             if (includePlayer) {
                 ItemStack inventory = RtsTransferExtractor.extractOneMatchingPrototypeFromPlayer(player, prototype);
-                if (!inventory.isEmpty() && ingredient.apply(inventory)) return new ExtractedIngredient(inventory, true);
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(inventory) && ingredient.apply(inventory)) return new ExtractedIngredient(inventory, true);
             }
         }
         return takeIngredientForCraft(handlers, player, ingredient, includePlayer);
@@ -197,23 +199,23 @@ public final class RtsCraftingExecutor {
 
     private static ExtractedIngredient takeIngredientForCraft(List<IItemHandler> handlers,
             EntityPlayerMP player, Ingredient ingredient, boolean includePlayer) {
-        ItemStack linked = extractOneMatchingIngredient(handlers, ingredient, ItemStack.EMPTY);
-        if (!linked.isEmpty()) return new ExtractedIngredient(linked, false);
+        ItemStack linked = extractOneMatchingIngredient(handlers, ingredient, null);
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(linked)) return new ExtractedIngredient(linked, false);
         if (!includePlayer) return null;
-        ItemStack inventory = extractOneMatchingIngredientFromPlayer(player, ingredient, ItemStack.EMPTY);
-        return inventory.isEmpty() ? null : new ExtractedIngredient(inventory, true);
+        ItemStack inventory = extractOneMatchingIngredientFromPlayer(player, ingredient, null);
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(inventory) ? null : new ExtractedIngredient(inventory, true);
     }
 
     private static void rollbackCraftIngredients(List<IItemHandler> handlers, EntityPlayerMP player,
             ExtractedIngredient[] extracted) {
         for (int i = extracted.length - 1; i >= 0; i--) {
             ExtractedIngredient ingredient = extracted[i];
-            if (ingredient == null || ingredient.stack().isEmpty()) continue;
+            if (ingredient == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(ingredient.stack())) continue;
             if (ingredient.fromPlayer()) {
                 RtsTransferInserter.moveToPlayerInventoryOnly(player, ingredient.stack());
             } else {
                 ItemStack remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(handlers, ingredient.stack());
-                if (remain != null && !remain.isEmpty()) RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
+                if (remain != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
             }
         }
     }
@@ -221,22 +223,22 @@ public final class RtsCraftingExecutor {
     private static void rollbackStoredCraftOutputs(List<IItemHandler> handlers, List<ItemStack> stored) {
         for (int i = stored.size() - 1; i >= 0; i--) {
             ItemStack prototype = stored.get(i);
-            int amount = prototype.getCount();
+            int amount = prototype.stackSize;
             while (amount > 0) {
                 ItemStack removed = RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, prototype);
-                if (removed.isEmpty()) break;
-                amount -= removed.getCount();
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(removed)) break;
+                amount -= removed.stackSize;
             }
         }
     }
 
     static ItemStack extractOneMatchingIngredient(List<IItemHandler> handlers, Ingredient ingredient, ItemStack preferred) {
-        if (RtsCraftingUtils.isIngredientEmpty(ingredient) || handlers == null) return ItemStack.EMPTY;
-        if (preferred != null && !preferred.isEmpty() && ingredient.apply(preferred)) {
+        if (RtsCraftingUtils.isIngredientEmpty(ingredient) || handlers == null) return null;
+        if (preferred != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred) && ingredient.apply(preferred)) {
             ItemStack exact = extractOneMatchingIngredientFromHandlers(handlers, ingredient, preferred);
-            if (!exact.isEmpty()) return exact;
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(exact)) return exact;
         }
-        return extractOneMatchingIngredientFromHandlers(handlers, ingredient, ItemStack.EMPTY);
+        return extractOneMatchingIngredientFromHandlers(handlers, ingredient, null);
     }
 
     private static ItemStack extractOneMatchingIngredientFromHandlers(List<IItemHandler> handlers,
@@ -245,43 +247,43 @@ public final class RtsCraftingExecutor {
             if (handler == null) continue;
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack stack = handler.getStackInSlot(slot);
-                if (stack.isEmpty() || !ingredient.apply(stack)
-                        || (!preferred.isEmpty() && !RtsCraftingUtils.sameStack(stack, preferred))) continue;
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || !ingredient.apply(stack)
+                        || (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred) && !RtsCraftingUtils.sameStack(stack, preferred))) continue;
                 ItemStack simulated = handler.extractItem(slot, 1, true);
-                if (simulated.isEmpty() || !ingredient.apply(simulated)
-                        || (!preferred.isEmpty() && !RtsCraftingUtils.sameStack(simulated, preferred))) continue;
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(simulated) || !ingredient.apply(simulated)
+                        || (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred) && !RtsCraftingUtils.sameStack(simulated, preferred))) continue;
                 ItemStack extracted = handler.extractItem(slot, 1, false);
-                if (!extracted.isEmpty() && ingredient.apply(extracted)) return extracted;
-                if (!extracted.isEmpty()) RtsTransferInserter.insertToHandlerPreferExisting(handler, extracted);
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted) && ingredient.apply(extracted)) return extracted;
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) RtsTransferInserter.insertToHandlerPreferExisting(handler, extracted);
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     static ItemStack extractOneMatchingIngredientCombined(List<IItemHandler> handlers, EntityPlayerMP player,
             Ingredient ingredient, ItemStack preferred) {
         ItemStack linked = extractOneMatchingIngredient(handlers, ingredient, preferred);
-        return linked.isEmpty() ? extractOneMatchingIngredientFromPlayer(player, ingredient, preferred) : linked;
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(linked) ? extractOneMatchingIngredientFromPlayer(player, ingredient, preferred) : linked;
     }
 
     private static ItemStack extractOneMatchingIngredientFromPlayer(EntityPlayerMP player,
             Ingredient ingredient, ItemStack preferred) {
-        if (player == null || RtsCraftingUtils.isIngredientEmpty(ingredient)) return ItemStack.EMPTY;
+        if (player == null || RtsCraftingUtils.isIngredientEmpty(ingredient)) return null;
         int start = com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder.getPlayerMainInventoryStart(player);
         int end = com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder.getPlayerMainInventoryEndExclusive(player);
         for (int pass = 0; pass < 2; pass++) {
-            boolean exact = pass == 0 && preferred != null && !preferred.isEmpty();
+            boolean exact = pass == 0 && preferred != null && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred);
             if (pass == 0 && !exact) continue;
             for (int slot = start; slot < end; slot++) {
                 ItemStack current = player.inventory.getStackInSlot(slot);
-                if (current.isEmpty() || !ingredient.apply(current)
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current) || !ingredient.apply(current)
                         || (exact && !RtsCraftingUtils.sameStack(current, preferred))) continue;
                 ItemStack extracted = current.splitStack(1);
-                player.inventory.setInventorySlotContents(slot, current.isEmpty() ? ItemStack.EMPTY : current);
+                player.inventory.setInventorySlotContents(slot, com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current) ? null : current);
                 return extracted;
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     public static ItemStack[] snapshotCraftGridBlueprint(ContainerWorkbench menu) {
@@ -291,6 +293,6 @@ public final class RtsCraftingExecutor {
     }
 
     private static void status(EntityPlayerMP player, String message) {
-        player.sendStatusMessage(new TextComponentString(message), true);
+        com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentText(message), true);
     }
 }

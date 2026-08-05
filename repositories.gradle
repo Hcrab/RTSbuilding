@@ -1,0 +1,4 @@
+repositories {
+    // 冷启动可复用本机 Maven 缓存；公开依赖仍由 GTNH 约定仓库解析。
+    mavenLocal()
+}

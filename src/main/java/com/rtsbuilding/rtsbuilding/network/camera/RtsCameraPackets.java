@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.camera;
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.camera.handler.RtsCameraNetworkHandlers;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 注册 RTS 相机会话和移动消息。 */
 public final class RtsCameraPackets {

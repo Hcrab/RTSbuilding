@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.shape.model;
 
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.Objects;
 

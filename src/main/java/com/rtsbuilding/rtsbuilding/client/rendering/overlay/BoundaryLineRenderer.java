@@ -1,12 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import net.minecraft.world.World;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsOwnedBufferUploader;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsGlStateRestorer;
@@ -25,7 +25,9 @@ public final class BoundaryLineRenderer {
     private static final BufferBuilder BUFFER = new BufferBuilder(256 * 1024);
     private static final WorldVertexBufferUploader UPLOADER = new WorldVertexBufferUploader();
     private static final ResourceLocation FORCEFIELD =
-            new ResourceLocation("minecraft", "textures/misc/forcefield.png");
+            // 1.7.10 没有后续版本加入的 misc/forcefield.png；用原版可用且可平铺的
+            // portal 材质作为首版安全回退，避免整面边界变成缺失材质。
+            new ResourceLocation("minecraft", "textures/blocks/portal.png");
 
     private BoundaryLineRenderer() {
     }
@@ -37,9 +39,9 @@ public final class BoundaryLineRenderer {
         double yMax = highest == Integer.MIN_VALUE ? defaultY + 3.0D : highest + 5.0D;
         double yMin = 0.0D;
         float scroll = (float) (System.nanoTime() / 1.0e9D * 0.5D);
-        double cameraX = Minecraft.getMinecraft().getRenderManager().viewerPosX;
-        double cameraY = Minecraft.getMinecraft().getRenderManager().viewerPosY;
-        double cameraZ = Minecraft.getMinecraft().getRenderManager().viewerPosZ;
+        double cameraX = net.minecraft.client.renderer.entity.RenderManager.instance.viewerPosX;
+        double cameraY = net.minecraft.client.renderer.entity.RenderManager.instance.viewerPosY;
+        double cameraZ = net.minecraft.client.renderer.entity.RenderManager.instance.viewerPosZ;
 
         BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
         BUFFER.setTranslation(-cameraX, -cameraY, -cameraZ);
@@ -86,7 +88,8 @@ public final class BoundaryLineRenderer {
 
     private static int heightIfLoaded(World world, int x, int z, int current) {
         BlockPos probe = new BlockPos(x, 64, z);
-        return world.isBlockLoaded(probe, false) ? Math.max(current, world.getHeight(x, z)) : current;
+        return com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(world, probe, false)
+                ? Math.max(current, world.getHeightValue(x, z)) : current;
     }
 
     private static void addWall(double x1, double y1, double z1,

@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.common.blueprint.material;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
@@ -14,20 +14,20 @@ import java.util.List;
 public final class BlueprintMaterialResolver {
     private BlueprintMaterialResolver() {}
 
-    public static List<ResourceLocation> materialItemIds(IBlockState state) {
+    public static List<ResourceLocation> materialItemIds(BlockState state) {
         Item item = materialItem(state);
-        ResourceLocation id = Item.REGISTRY.getNameForObject(item);
-        return item == Items.AIR || id == null
+        ResourceLocation id = com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries.ITEMS.getNameForObject(item);
+        return item == null || id == null
                 ? Collections.<ResourceLocation>emptyList()
                 : Collections.singletonList(id);
     }
 
-    public static Item materialItem(IBlockState state) {
-        if (state == null || state.getBlock() == Blocks.AIR) return Items.AIR;
+    public static Item materialItem(BlockState state) {
+        if (state == null || state.getBlock() == Blocks.air) return null;
         Block block = state.getBlock();
-        if (block == Blocks.FARMLAND || block == Blocks.GRASS_PATH) return Item.getItemFromBlock(Blocks.DIRT);
-        if (block == Blocks.TALLGRASS || block == Blocks.DOUBLE_PLANT) return Item.getItemFromBlock(block);
+        if (block == Blocks.farmland || block == Blocks.grass) return Item.getItemFromBlock(Blocks.dirt);
+        if (block == Blocks.tallgrass || block == Blocks.double_plant) return Item.getItemFromBlock(block);
         Item item = Item.getItemFromBlock(block);
-        return item == null ? Items.AIR : item;
+        return item == null ? null : item;
     }
 }

@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.service;
 
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 /**
  * 相机灵敏度、平滑开关和拖拽反向选项的唯一状态 owner。

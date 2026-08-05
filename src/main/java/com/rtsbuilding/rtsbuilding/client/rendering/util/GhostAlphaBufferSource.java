@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
-import net.minecraft.client.renderer.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
 
 import java.nio.ByteBuffer;
 

@@ -14,8 +14,8 @@ import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.nbt.NBTTagLong;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3i;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3i;
 import net.minecraftforge.common.util.Constants;
 
 import java.io.ByteArrayInputStream;
@@ -46,7 +46,7 @@ final class BuildingGadgetsTemplateReader {
         catch(BlueprintParseException ex){throw ex;}catch(Exception ex){throw new BlueprintParseException("读取 Building Gadgets JSON 失败: "+file,ex);}
     }
     private static NBTTagCompound snbt(String text,String file)throws BlueprintParseException{
-        try{return JsonToNBT.getTagFromJson(text);}catch(Exception ex){throw new BlueprintParseException("读取 Building Gadgets 方块列表失败: "+file,ex);}
+        try{return (NBTTagCompound) JsonToNBT.func_150315_a(text);}catch(Exception ex){throw new BlueprintParseException("读取 Building Gadgets 方块列表失败: "+file,ex);}
     }
 
     private static RtsBlueprint parseMapped(NBTTagCompound tag,String name,String file)throws BlueprintParseException{
@@ -70,7 +70,7 @@ final class BuildingGadgetsTemplateReader {
         if(positions.tagCount()==0||data.tagCount()==0)throw new BlueprintParseException("Building Gadgets 旧模板缺少方块数据: "+file);
         Map<BlockPos,BlueprintNbtCompat.StateResult> byPos=new HashMap<BlockPos,BlueprintNbtCompat.StateResult>();
         for(int i=0;i<positions.tagCount();i++){
-            NBTBase raw=positions.get(i);if(!(raw instanceof NBTTagLong))continue;long encoded=((NBTTagLong)raw).getLong();int id=(int)((encoded>>40)&B3);
+            long encoded=com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.getLongAt(positions,i);int id=(int)((encoded>>40)&B3);
             if(id>=0&&id<data.tagCount()){NBTTagCompound value=data.getCompoundTagAt(id);if(value.hasKey("state",Constants.NBT.TAG_COMPOUND))value=value.getCompoundTag("state");byPos.put(new BlockPos((int)((encoded>>24)&B2),(int)((encoded>>16)&B1),(int)(encoded&B2)),BlueprintNbtCompat.readState(value));}
         }
         if(byPos.isEmpty())return RtsBlueprint.create(name,file,BlueprintFormat.BUILDING_GADGETS_JSON,new Vec3i(0,0,0),Collections.<RtsBlueprintBlock>emptyList());
@@ -87,11 +87,11 @@ final class BuildingGadgetsTemplateReader {
     private static List<BlueprintNbtCompat.StateResult> palette(NBTTagList list){List<BlueprintNbtCompat.StateResult> out=new ArrayList<BlueprintNbtCompat.StateResult>(list.tagCount());for(int i=0;i<list.tagCount();i++)out.add(BlueprintNbtCompat.readState(list.getCompoundTagAt(i)));return out;}
     private static void add(List<RtsBlueprintBlock> out,BlockPos absolute,BlockPos min,BlueprintNbtCompat.StateResult entry){
         BlockPos relative=absolute.add(-min.getX(),-min.getY(),-min.getZ());if(entry.isMissing())out.add(RtsBlueprintBlock.missing(relative,entry.missingBlockId(),new NBTTagCompound()));
-        else if(entry.state().getBlock()!=Blocks.AIR&&entry.state().getBlock()!=Blocks.STRUCTURE_VOID)out.add(new RtsBlueprintBlock(relative,entry.state(),new NBTTagCompound()));
+        else if(entry.state().getBlock()!=Blocks.air&&entry.state().getBlock()!=Blocks.air)out.add(new RtsBlueprintBlock(relative,entry.state(),new NBTTagCompound()));
     }
     private static BlockPos pos(NBTTagCompound tag){return new BlockPos(tag.getInteger("X"),tag.getInteger("Y"),tag.getInteger("Z"));}
     private static Bounds jsonBounds(JsonObject root){JsonObject header=object(root,"header");JsonObject box=header==null?null:object(header,"bounding_box");if(box==null&&header!=null)box=object(header,"bounds");return box==null?null:Bounds.from(new BlockPos(integer(box,"min_x","minX"),integer(box,"min_y","minY"),integer(box,"min_z","minZ")),new BlockPos(integer(box,"max_x","maxX"),integer(box,"max_y","maxY"),integer(box,"max_z","maxZ")));}
-    private static Bounds nbtBounds(NBTTagCompound tag){return tag==null||tag.isEmpty()?null:Bounds.from(new BlockPos(tag.getInteger("minX"),tag.getInteger("minY"),tag.getInteger("minZ")),new BlockPos(tag.getInteger("maxX"),tag.getInteger("maxY"),tag.getInteger("maxZ")));}
+    private static Bounds nbtBounds(NBTTagCompound tag){return tag==null||com.rtsbuilding.rtsbuilding.platform.nbt.NbtCompat.isEmpty(tag)?null:Bounds.from(new BlockPos(tag.getInteger("minX"),tag.getInteger("minY"),tag.getInteger("minZ")),new BlockPos(tag.getInteger("maxX"),tag.getInteger("maxY"),tag.getInteger("maxZ")));}
     private static String name(JsonObject root,String file){String value=string(root,"name");if(!value.trim().isEmpty())return value;JsonObject header=object(root,"header");value=header==null?"":string(header,"name");return value.trim().isEmpty()?clean(file):value;}
     private static JsonObject object(JsonObject root,String key){JsonElement e=root==null?null:root.get(key);return e!=null&&e.isJsonObject()?e.getAsJsonObject():null;}
     private static String string(JsonObject root,String key){try{JsonElement e=root==null?null:root.get(key);return e!=null&&e.isJsonPrimitive()?e.getAsString():"";}catch(Exception ignored){return"";}}

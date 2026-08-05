@@ -1,6 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
-import net.minecraft.util.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 
 import java.util.ArrayDeque;
 import java.util.Deque;

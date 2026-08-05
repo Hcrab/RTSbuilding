@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 public final class C2SRtsQuickDropPayload implements IMessage{
  public static final int MAX_ITEM_ID_CHARS=128; private String itemId;private byte amount;private double dropX,dropY,dropZ;
  public C2SRtsQuickDropPayload(){}

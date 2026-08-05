@@ -2,10 +2,10 @@ package com.rtsbuilding.rtsbuilding.network.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.network.storage.*;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.math.BlockPos;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -51,8 +51,8 @@ public final class RtsStorageBindingPacketHandlers {
 
     private interface Action{void run(EntityPlayerMP player);}
     private static void schedule(MessageContext context,final Action action){
-        final EntityPlayerMP player=context.getServerHandler().player;
-        player.getServerWorld().addScheduledTask(new Runnable(){public void run(){if(active(player))action.run(player);}});
+        final EntityPlayerMP player=context.getServerHandler().playerEntity;
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable(){public void run(){if(active(player))action.run(player);}});
     }
     private static boolean active(EntityPlayerMP player){return camera("isActive",new Class<?>[]{EntityPlayerMP.class},player);}
     private static boolean inRange(EntityPlayerMP player,BlockPos pos){return camera("isWithinActionRange",new Class<?>[]{EntityPlayerMP.class,BlockPos.class},player,pos);}

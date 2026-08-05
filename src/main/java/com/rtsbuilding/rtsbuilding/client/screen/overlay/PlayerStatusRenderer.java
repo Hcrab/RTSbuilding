@@ -9,7 +9,7 @@ import com.rtsbuilding.rtsbuilding.uikit.layout.PlayerStatusLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.PlayerStatusStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.util.math.MathHelper;
+import com.rtsbuilding.rtsbuilding.platform.math.MathHelper;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.TOP_H;
 
@@ -35,9 +35,9 @@ public final class PlayerStatusRenderer {
      */
     public void render(LegacyGuiGraphics g) {
         Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.player == null || !mc.player.isEntityAlive()) return;
+        if (mc == null || mc.thePlayer == null || !mc.thePlayer.isEntityAlive()) return;
 
-        EntityPlayer player = mc.player;
+        EntityPlayer player = mc.thePlayer;
         float health = player.getHealth();
         float maxHealth = player.getMaxHealth();
         int food = player.getFoodStats().getFoodLevel();

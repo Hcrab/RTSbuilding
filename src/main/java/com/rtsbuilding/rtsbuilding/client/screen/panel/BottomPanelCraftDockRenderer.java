@@ -65,7 +65,7 @@ public final class BottomPanelCraftDockRenderer {
                     BottomPanelCraftDockStyle.SLOT_BORDER_DARK);
 
             ItemStack preview = controller.getGuiBindingPreview(slot);
-            if (bound && !pending && !preview.isEmpty()) {
+            if (bound && !pending && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preview)) {
                 graphics.renderItem(preview, slotX + 1, slotY + 1);
                 continue;
             }

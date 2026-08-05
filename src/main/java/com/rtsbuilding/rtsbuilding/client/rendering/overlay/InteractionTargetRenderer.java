@@ -10,19 +10,19 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingRayClipper;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockBed;
 import net.minecraft.block.BlockDoublePlant;
-import net.minecraft.block.state.IBlockState;
+import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
 import net.minecraft.entity.Entity;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.RayTraceResult;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.World;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
@@ -63,11 +63,11 @@ public final class InteractionTargetRenderer {
     }
 
     public static void renderHoveredInteractionTarget(Minecraft minecraft, ClientRtsController controller) {
-        if (minecraft == null || controller == null || minecraft.world == null
-                || minecraft.getRenderViewEntity() == null || isRotateCaptured(controller)
+        if (minecraft == null || controller == null || minecraft.theWorld == null
+                || minecraft.renderViewEntity == null || isRotateCaptured(controller)
                 || isInteractionBlockedByUi(minecraft)) return;
 
-        Entity camera = minecraft.getRenderViewEntity();
+        Entity camera = minecraft.renderViewEntity;
         RtsCursorRay.Snapshot cursorRay = RtsCursorRay.capture(minecraft);
         Vec3d origin = cursorRay.origin();
         Vec3d direction = cursorRay.direction();
@@ -75,7 +75,7 @@ public final class InteractionTargetRenderer {
         RayTraceResult blockHit = RtsCullingRayClipper.clip(origin, direction, MAX_REACH,
                 new RtsCullingRayClipper.BlockClip() {
                     @Override public RayTraceResult clip(Vec3d start, Vec3d finish) {
-                        return minecraft.world.rayTraceBlocks(start, finish, false, false, false);
+                        return RayTraceResult.trace(minecraft.theWorld, start, finish, false, false, false);
                     }
                 }, new RtsCullingRayClipper.CullingQuery() {
                     @Override public boolean shouldCull(BlockPos pos) {
@@ -87,13 +87,13 @@ public final class InteractionTargetRenderer {
                                 rayOrigin, rayDirection, pos, maxDistance);
                     }
                 });
-        EntityHit entityHit = raycastEntity(minecraft.world, camera, origin, end, direction);
+        EntityHit entityHit = raycastEntity(minecraft.theWorld, camera, origin, end, direction);
         double blockDistanceSq = blockHit == null || blockHit.hitVec == null
                 ? Double.MAX_VALUE : origin.squareDistanceTo(blockHit.hitVec);
         double entityDistanceSq = entityHit == null
                 ? Double.MAX_VALUE : origin.squareDistanceTo(entityHit.hit);
 
-        RenderManager manager = minecraft.getRenderManager();
+        RenderManager manager = net.minecraft.client.renderer.entity.RenderManager.instance;
         beginBuffers(-manager.viewerPosX, -manager.viewerPosY, -manager.viewerPosZ);
         try {
             float breath = breathFactor();
@@ -103,7 +103,7 @@ public final class InteractionTargetRenderer {
                 appendEntity(entityHit.entity, Math.sqrt(entityDistanceSq), breath);
             } else if (blockHit != null && blockHit.typeOfHit == RayTraceResult.Type.BLOCK
                     && blockHit.getBlockPos() != null && isWithinBounds(controller, blockHit.getBlockPos())) {
-                appendBlock(minecraft.world, blockHit.getBlockPos(), blockHit.sideHit,
+                appendBlock(minecraft.theWorld, blockHit.getBlockPos(), blockHit.sideHit,
                         Math.sqrt(blockDistanceSq), breath);
             }
             drawOwnedBuffers();
@@ -122,7 +122,7 @@ public final class InteractionTargetRenderer {
     }
 
     private static void appendEntity(Entity entity, double distance, float breath) {
-        AxisAlignedBB box = entity.getEntityBoundingBox().grow(INFLATE);
+        AxisAlignedBB box = com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(entity.boundingBox).grow(INFLATE);
         float r = 0.50F * breath, g = 0.80F * breath, b = 1.00F * breath;
         appendCornerBrackets(DEPTH_BUFFER, box, r, g, b, 1.0F, distance, 1.0D);
         appendCornerBrackets(NO_DEPTH_BUFFER, box, r, g, b, NO_DEPTH_ALPHA, distance, 1.0D);
@@ -214,7 +214,7 @@ public final class InteractionTargetRenderer {
     }
 
     private static AxisAlignedBB computeWorldBounds(World world, BlockPos start) {
-        IBlockState initial = world.getBlockState(start);
+        BlockState initial = BlockState.fromWorld(world, start);
         Block block = initial.getBlock();
         if (!(block instanceof BlockBed) && !(block instanceof BlockDoublePlant)) {
             return selectedBounds(world, start);
@@ -225,52 +225,59 @@ public final class InteractionTargetRenderer {
         AxisAlignedBB merged = null;
         while (!queue.isEmpty()) {
             BlockPos current = queue.remove();
-            IBlockState state = world.getBlockState(current);
+            BlockState state = BlockState.fromWorld(world, current);
             AxisAlignedBB one = selectedBounds(world, current);
             if (one != null) merged = merged == null ? one : merged.union(one);
             EnumFacing direction = connectedDirection(state);
             if (direction != null) {
                 BlockPos next = current.offset(direction);
-                if (visited.add(next) && world.getBlockState(next).getBlock() == block) queue.add(next);
+                if (visited.add(next) && BlockState.fromWorld(world, next).getBlock() == block) queue.add(next);
             }
         }
         return merged;
     }
 
-    private static EnumFacing connectedDirection(IBlockState state) {
+    private static EnumFacing connectedDirection(BlockState state) {
         if (state.getBlock() instanceof BlockDoublePlant) {
-            return state.getValue(BlockDoublePlant.HALF) == BlockDoublePlant.EnumBlockHalf.LOWER
-                    ? EnumFacing.UP : EnumFacing.DOWN;
+            return BlockDoublePlant.func_149887_c(state.getMetadata())
+                    ? EnumFacing.DOWN : EnumFacing.UP;
         }
         if (state.getBlock() instanceof BlockBed) {
-            EnumFacing facing = state.getValue(BlockBed.FACING);
-            return state.getValue(BlockBed.PART) == BlockBed.EnumPartType.HEAD
+            EnumFacing facing;
+            switch (net.minecraft.block.BlockDirectional.getDirection(state.getMetadata())) {
+                case 0: facing = EnumFacing.SOUTH; break;
+                case 1: facing = EnumFacing.WEST; break;
+                case 2: facing = EnumFacing.NORTH; break;
+                default: facing = EnumFacing.EAST; break;
+            }
+            return BlockBed.isBlockHeadOfBed(state.getMetadata())
                     ? facing.getOpposite() : facing;
         }
         return null;
     }
 
     private static AxisAlignedBB selectedBounds(World world, BlockPos pos) {
-        IBlockState state = world.getBlockState(pos);
-        if (state.getMaterial().isReplaceable() && state.getBlock() == net.minecraft.init.Blocks.AIR) return null;
-        AxisAlignedBB local = state.getBoundingBox(world, pos);
-        return local == Block.NULL_AABB ? null : local.offset(pos);
+        BlockState state = BlockState.fromWorld(world, pos);
+        if (state.getMaterial().isReplaceable() && state.getBlock() == net.minecraft.init.Blocks.air) return null;
+        return AxisAlignedBB.fromNative(state.getBlock().getSelectedBoundingBoxFromPool(
+                world, pos.getX(), pos.getY(), pos.getZ()));
     }
 
     private static EntityHit raycastEntity(final World world, final Entity camera,
             Vec3d origin, Vec3d end, Vec3d direction) {
-        AxisAlignedBB search = camera.getEntityBoundingBox().expand(
+        AxisAlignedBB search = com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(camera.boundingBox).expand(
                 direction.x * MAX_REACH, direction.y * MAX_REACH, direction.z * MAX_REACH).grow(1.0D);
-        List<Entity> entities = world.getEntitiesInAABBexcluding(camera, search, new Predicate<Entity>() {
+        List<Entity> entities = com.rtsbuilding.rtsbuilding.platform.entity.EntityCompat.getEntitiesExcluding(
+                world, camera, search, new Predicate<Entity>() {
             @Override public boolean apply(Entity entity) {
                 return entity != null && !entity.isDead && entity.canBeCollidedWith()
-                        && entity != Minecraft.getMinecraft().player;
+                        && entity != Minecraft.getMinecraft().thePlayer;
             }
         });
         EntityHit best = null;
         double bestDistance = MAX_REACH * MAX_REACH;
         for (Entity entity : entities) {
-            AxisAlignedBB bounds = entity.getEntityBoundingBox().grow(entity.getCollisionBorderSize());
+            AxisAlignedBB bounds = com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(entity.boundingBox).grow(entity.getCollisionBorderSize());
             RayTraceResult hit = bounds.calculateIntercept(origin, end);
             if (bounds.contains(origin)) {
                 if (bestDistance >= 0.0D) { best = new EntityHit(entity, origin); bestDistance = 0.0D; }

@@ -6,7 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -71,75 +71,75 @@ public final class RtsTransferExtractor {
 
     public static ItemStack extractOne(IItemHandler handler, Item targetItem) {
         if (handler == null || targetItem == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         if (handler instanceof RtsBdCompat.DirectExtractHandler) {
             return ((RtsBdCompat.DirectExtractHandler) handler).tryExtractItem(targetItem, 1, false);
         }
         for (int slot = 0; slot < handler.getSlots(); slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
-            if (stack.isEmpty() || stack.getItem() != targetItem) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || stack.getItem() != targetItem) {
                 continue;
             }
             ItemStack extracted = handler.extractItem(slot, 1, false);
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 return extracted;
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     public static ItemStack extractMatching(IItemHandler handler, Item targetItem, int limit) {
         if (handler == null || targetItem == null || limit <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
         if (handler instanceof RtsBdCompat.DirectExtractHandler) {
             return ((RtsBdCompat.DirectExtractHandler) handler).tryExtractItem(targetItem, limit, false);
         }
-        return extractMatching(handler, targetItem, ItemStack.EMPTY, limit);
+        return extractMatching(handler, targetItem, null, limit);
     }
 
     public static ItemStack extractMatching(IItemHandler handler, Item targetItem, ItemStack preferred, int limit) {
         if (handler == null || targetItem == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
-        ItemStack out = ItemStack.EMPTY;
+        ItemStack out = null;
         for (int slot = 0; slot < handler.getSlots() && remaining > 0; slot++) {
             ItemStack stack = handler.getStackInSlot(slot);
-            if (stack.isEmpty() || stack.getItem() != targetItem) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || stack.getItem() != targetItem) {
                 continue;
             }
-            ItemStack expected = out.isEmpty() ? preferred : out;
-            if (!expected.isEmpty() && !sameStackIdentity(stack, expected)) {
+            ItemStack expected = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out) ? preferred : out;
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(expected) && !sameStackIdentity(stack, expected)) {
                 continue;
             }
             ItemStack extracted = handler.extractItem(slot, remaining, false);
-            if (extracted.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 continue;
             }
-            if (out.isEmpty()) {
-                if (!preferred.isEmpty() && !sameStackIdentity(extracted, preferred)) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out)) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred) && !sameStackIdentity(extracted, preferred)) {
                     ItemStack remain = refundToOriginSlot(handler, slot, extracted);
-                    if (!remain.isEmpty()) {
-                        return ItemStack.EMPTY;
+                    if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
+                        return null;
                     }
                     continue;
                 }
                 out = extracted;
             } else if (sameStackIdentity(out, extracted)) {
-                out.grow(extracted.getCount());
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(out, extracted.stackSize);
             } else {
                 ItemStack remain = refundToOriginSlot(handler, slot, extracted);
-                if (!remain.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                     return out;
                 }
                 continue;
             }
-            remaining -= extracted.getCount();
+            remaining -= extracted.stackSize;
         }
         return out;
     }
@@ -148,44 +148,44 @@ public final class RtsTransferExtractor {
 
     public static ItemStack extractOneFromLinked(List<IItemHandler> handlers, Item targetItem) {
         if (handlers == null || targetItem == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         for (IItemHandler handler : handlers) {
             ItemStack extracted = extractOne(handler, targetItem);
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 return extracted;
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     public static ItemStack extractOneFromPlayerMainInventory(EntityPlayerMP player, Item targetItem) {
         if (player == null || targetItem == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         int start = RtsTransferUtils.getPlayerMainInventoryStart(player);
         int end = RtsTransferUtils.getPlayerMainInventoryEndExclusive(player);
         for (int slot = start; slot < end; slot++) {
             ItemStack current = player.inventory.getStackInSlot(slot);
-            if (current.isEmpty() || current.getItem() != targetItem) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current) || current.getItem() != targetItem) {
                 continue;
             }
             ItemStack extracted = current.splitStack(1);
-            if (current.isEmpty()) {
-                player.inventory.setInventorySlotContents(slot, ItemStack.EMPTY);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) {
+                player.inventory.setInventorySlotContents(slot, null);
             } else {
                 player.inventory.setInventorySlotContents(slot, current);
             }
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 return extracted;
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     public static ItemStack extractOneFromNetwork(List<IItemHandler> handlers, EntityPlayerMP player, Item targetItem) {
         ItemStack extracted = extractOneFromLinked(handlers, targetItem);
-        if (!extracted.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
             return extracted;
         }
         return extractOneFromPlayerMainInventory(player, targetItem);
@@ -194,29 +194,29 @@ public final class RtsTransferExtractor {
     // ---- multi-item extraction --------------------------------------------------
 
     public static ItemStack extractMatchingFromLinked(List<IItemHandler> handlers, Item targetItem, int limit) {
-        return extractMatchingFromLinked(handlers, targetItem, ItemStack.EMPTY, limit);
+        return extractMatchingFromLinked(handlers, targetItem, null, limit);
     }
 
     public static ItemStack extractMatchingFromLinked(List<IItemHandler> handlers, Item targetItem, ItemStack preferred, int limit) {
         if (handlers == null || targetItem == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         int remaining = Math.max(0, limit);
-        ItemStack out = ItemStack.EMPTY;
+        ItemStack out = null;
         for (IItemHandler handler : handlers) {
             if (remaining <= 0) {
                 break;
             }
-            ItemStack part = extractMatching(handler, targetItem, out.isEmpty() ? preferred : out, remaining);
-            if (part.isEmpty()) {
+            ItemStack part = extractMatching(handler, targetItem, com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out) ? preferred : out, remaining);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(part)) {
                 continue;
             }
-            if (out.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out)) {
                 out = part;
             } else if (sameStackIdentity(out, part)) {
-                out.grow(part.getCount());
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(out, part.stackSize);
             }
-            remaining -= part.getCount();
+            remaining -= part.stackSize;
         }
         return out;
     }
@@ -224,53 +224,53 @@ public final class RtsTransferExtractor {
     // ---- from player inventory ---------------------------------------------------
 
     public static ItemStack extractMatchingFromPlayerMainInventory(EntityPlayerMP player, Item targetItem, int limit) {
-        return extractMatchingFromPlayerMainInventory(player, targetItem, ItemStack.EMPTY, limit);
+        return extractMatchingFromPlayerMainInventory(player, targetItem, null, limit);
     }
 
     public static ItemStack extractMatchingFromPlayerMainInventory(
             EntityPlayerMP player, Item targetItem, ItemStack preferred, int limit) {
         if (player == null || targetItem == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
-        ItemStack out = ItemStack.EMPTY;
+        ItemStack out = null;
         int start = RtsTransferUtils.getPlayerMainInventoryStart(player);
         int end = RtsTransferUtils.getPlayerMainInventoryEndExclusive(player);
         for (int slot = start; slot < end && remaining > 0; slot++) {
             ItemStack current = player.inventory.getStackInSlot(slot);
-            if (current.isEmpty() || current.getItem() != targetItem) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current) || current.getItem() != targetItem) {
                 continue;
             }
-            ItemStack expected = out.isEmpty() ? preferred : out;
-            if (!expected.isEmpty() && !sameStackIdentity(current, expected)) {
+            ItemStack expected = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out) ? preferred : out;
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(expected) && !sameStackIdentity(current, expected)) {
                 continue;
             }
-            int take = Math.min(remaining, current.getCount());
+            int take = Math.min(remaining, current.stackSize);
             ItemStack extracted = current.splitStack(take);
-            if (current.isEmpty()) {
-                player.inventory.setInventorySlotContents(slot, ItemStack.EMPTY);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) {
+                player.inventory.setInventorySlotContents(slot, null);
             } else {
                 player.inventory.setInventorySlotContents(slot, current);
             }
-            if (extracted.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 continue;
             }
-            if (out.isEmpty()) {
-                if (!preferred.isEmpty() && !sameStackIdentity(extracted, preferred)) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out)) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred) && !sameStackIdentity(extracted, preferred)) {
                     refundToPlayerSlot(player, slot, extracted);
                     continue;
                 }
                 out = extracted;
             } else if (sameStackIdentity(out, extracted)) {
-                out.grow(extracted.getCount());
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(out, extracted.stackSize);
             } else {
                 refundToPlayerSlot(player, slot, extracted);
                 continue;
             }
-            remaining -= extracted.getCount();
+            remaining -= extracted.stackSize;
         }
         return out;
     }
@@ -279,32 +279,32 @@ public final class RtsTransferExtractor {
 
     public static ItemStack extractMatchingFromPlayerHotbarForQuickDrop(
             EntityPlayerMP player, Item targetItem, int limit) {
-        return extractMatchingFromPlayerHotbarForQuickDrop(player, targetItem, ItemStack.EMPTY, limit);
+        return extractMatchingFromPlayerHotbarForQuickDrop(player, targetItem, null, limit);
     }
 
     public static ItemStack extractMatchingFromPlayerHotbarForQuickDrop(
             EntityPlayerMP player, Item targetItem, ItemStack preferred, int limit) {
         if (player == null || targetItem == null) {
-            return ItemStack.EMPTY;
+            return null;
         }
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
-        ItemStack out = ItemStack.EMPTY;
+        ItemStack out = null;
         int selected = RtsTransferUtils.clampHotbarSlot(player.inventory.currentItem);
         ItemStack selectedPart = extractMatchingFromPlayerSlot(player, targetItem, preferred, selected, remaining);
         out = mergeExtractedStacks(out, selectedPart);
-        remaining -= selectedPart.getCount();
+        remaining -= selectedPart.stackSize;
 
         for (int slot = 0; slot < RtsTransferUtils.PLAYER_HOTBAR_SLOT_COUNT && remaining > 0; slot++) {
             if (slot == selected) {
                 continue;
             }
             ItemStack part = extractMatchingFromPlayerSlot(
-                    player, targetItem, out.isEmpty() ? preferred : out, slot, remaining);
+                    player, targetItem, com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out) ? preferred : out, slot, remaining);
             out = mergeExtractedStacks(out, part);
-            remaining -= part.getCount();
+            remaining -= part.stackSize;
         }
         return out;
     }
@@ -312,33 +312,33 @@ public final class RtsTransferExtractor {
     public static ItemStack extractMatchingFromPlayerSlot(
             EntityPlayerMP player, Item targetItem, ItemStack preferred, int slot, int limit) {
         if (player == null || targetItem == null || slot < 0 || limit <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
         if (slot >= player.inventory.getSizeInventory()) {
-            return ItemStack.EMPTY;
+            return null;
         }
         ItemStack current = player.inventory.getStackInSlot(slot);
-        if (current.isEmpty() || current.getItem() != targetItem) {
-            return ItemStack.EMPTY;
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current) || current.getItem() != targetItem) {
+            return null;
         }
-        if (!preferred.isEmpty() && !sameStackIdentity(current, preferred)) {
-            return ItemStack.EMPTY;
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(preferred) && !sameStackIdentity(current, preferred)) {
+            return null;
         }
-        int take = Math.min(limit, current.getCount());
+        int take = Math.min(limit, current.stackSize);
         ItemStack extracted = current.splitStack(take);
-        if (current.isEmpty()) {
-            player.inventory.setInventorySlotContents(slot, ItemStack.EMPTY);
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) {
+            player.inventory.setInventorySlotContents(slot, null);
         } else {
             player.inventory.setInventorySlotContents(slot, current);
         }
-        return extracted.isEmpty() ? ItemStack.EMPTY : extracted;
+        return com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted) ? null : extracted;
     }
 
     // ---- combined network extraction -------------------------------------------
 
     public static ItemStack extractMatchingFromNetwork(
             List<IItemHandler> handlers, EntityPlayerMP player, Item targetItem, int limit) {
-        return extractMatchingFromNetwork(handlers, player, targetItem, ItemStack.EMPTY, limit);
+        return extractMatchingFromNetwork(handlers, player, targetItem, null, limit);
     }
 
     public static ItemStack extractMatchingFromNetwork(
@@ -346,23 +346,23 @@ public final class RtsTransferExtractor {
             ItemStack preferred, int limit) {
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
         ItemStack out = extractMatchingFromLinked(handlers, targetItem, preferred, remaining);
-        remaining -= out.getCount();
+        remaining -= out.stackSize;
         if (remaining <= 0) {
             return out;
         }
         ItemStack fromPlayer = extractMatchingFromPlayerMainInventory(
-                player, targetItem, out.isEmpty() ? preferred : out, remaining);
-        if (fromPlayer.isEmpty()) {
+                player, targetItem, com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out) ? preferred : out, remaining);
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(fromPlayer)) {
             return out;
         }
-        if (out.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out)) {
             return fromPlayer;
         }
         if (sameStackIdentity(out, fromPlayer)) {
-            out.grow(fromPlayer.getCount());
+            com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(out, fromPlayer.stackSize);
         }
         return out;
     }
@@ -371,16 +371,16 @@ public final class RtsTransferExtractor {
             List<IItemHandler> handlers, EntityPlayerMP player, Item targetItem, int limit) {
         int remaining = Math.max(0, limit);
         if (remaining <= 0) {
-            return ItemStack.EMPTY;
+            return null;
         }
         ItemStack out = extractMatchingFromLinked(handlers, targetItem, remaining);
-        remaining -= out.getCount();
+        remaining -= out.stackSize;
         if (remaining <= 0) {
             return out;
         }
         ItemStack fromHotbar = extractMatchingFromPlayerHotbarForQuickDrop(player, targetItem, out, remaining);
         out = mergeExtractedStacks(out, fromHotbar);
-        remaining -= fromHotbar.getCount();
+        remaining -= fromHotbar.stackSize;
         if (remaining <= 0) {
             return out;
         }
@@ -394,63 +394,63 @@ public final class RtsTransferExtractor {
     public static ItemStack extractOneMatchingPrototypeCombined(
             List<IItemHandler> handlers, EntityPlayerMP player, ItemStack prototype) {
         ItemStack fromLinked = extractOneMatchingPrototypeFromLinked(handlers, prototype);
-        if (!fromLinked.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(fromLinked)) {
             return fromLinked;
         }
         return extractOneMatchingPrototypeFromPlayer(player, prototype);
     }
 
     public static ItemStack extractOneMatchingPrototypeFromLinked(List<IItemHandler> handlers, ItemStack prototype) {
-        if (handlers == null || prototype == null || prototype.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (handlers == null || prototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) {
+            return null;
         }
         for (IItemHandler handler : handlers) {
             for (int slot = 0; slot < handler.getSlots(); slot++) {
                 ItemStack stack = handler.getStackInSlot(slot);
-                if (stack.isEmpty() || !sameStackIdentity(stack, prototype)) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack) || !sameStackIdentity(stack, prototype)) {
                     continue;
                 }
                 ItemStack simulated = handler.extractItem(slot, 1, true);
-                if (simulated.isEmpty() || !sameStackIdentity(simulated, prototype)) {
+                if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(simulated) || !sameStackIdentity(simulated, prototype)) {
                     continue;
                 }
                 ItemStack extracted = handler.extractItem(slot, 1, false);
-                if (!extracted.isEmpty()) {
+                if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                     if (sameStackIdentity(extracted, prototype)) {
                         return extracted;
                     }
                     ItemStack remain = refundToOriginSlot(handler, slot, extracted);
-                    if (!remain.isEmpty()) {
+                    if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
                         return remain;
                     }
                 }
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     public static ItemStack extractOneMatchingPrototypeFromPlayer(EntityPlayerMP player, ItemStack prototype) {
-        if (player == null || prototype == null || prototype.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (player == null || prototype == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(prototype)) {
+            return null;
         }
         int start = RtsTransferUtils.getPlayerMainInventoryStart(player);
         int end = RtsTransferUtils.getPlayerMainInventoryEndExclusive(player);
         for (int i = start; i < end; i++) {
             ItemStack current = player.inventory.getStackInSlot(i);
-            if (current.isEmpty() || !sameStackIdentity(current, prototype)) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current) || !sameStackIdentity(current, prototype)) {
                 continue;
             }
             ItemStack extracted = current.splitStack(1);
-            if (current.isEmpty()) {
-                player.inventory.setInventorySlotContents(i, ItemStack.EMPTY);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) {
+                player.inventory.setInventorySlotContents(i, null);
             } else {
                 player.inventory.setInventorySlotContents(i, current);
             }
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 return extracted;
             }
         }
-        return ItemStack.EMPTY;
+        return null;
     }
 
     // ---- cache integration (fast path via aggregate storage) -------------------
@@ -465,16 +465,16 @@ public final class RtsTransferExtractor {
      * @return 提取的物品栈，或 {@link ItemStack#EMPTY}
      */
     public static ItemStack extractOneCached(EntityPlayerMP player, List<IItemHandler> fallbackHandlers, Item targetItem) {
-        if (player == null || targetItem == null) return ItemStack.EMPTY;
+        if (player == null || targetItem == null) return null;
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
         if (aggregate != null && !aggregate.isEmpty()) {
             ItemStack extracted = aggregate.extract(targetItem, 1);
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 RtsStorageTickService.INSTANCE.alert(player.getUniqueID());
                 return extracted;
             }
         }
-        return fallbackHandlers == null ? ItemStack.EMPTY : extractOneFromLinked(fallbackHandlers, targetItem);
+        return fallbackHandlers == null ? null : extractOneFromLinked(fallbackHandlers, targetItem);
     }
 
     /**
@@ -484,17 +484,17 @@ public final class RtsTransferExtractor {
     public static ItemStack extractMatchingCached(
             EntityPlayerMP player, List<IItemHandler> fallbackHandlers,
             Item targetItem, ItemStack preferred, int limit) {
-        if (player == null || targetItem == null || limit <= 0) return ItemStack.EMPTY;
+        if (player == null || targetItem == null || limit <= 0) return null;
         RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
         if (aggregate != null && !aggregate.isEmpty()) {
             ItemStack extracted = aggregate.extractMatching(targetItem, preferred, limit);
-            if (!extracted.isEmpty()) {
+            if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
                 RtsStorageTickService.INSTANCE.alert(player.getUniqueID());
                 return extracted;
             }
         }
         return fallbackHandlers == null
-                ? ItemStack.EMPTY
+                ? null
                 : extractMatchingFromLinked(fallbackHandlers, targetItem, preferred, limit);
     }
 
@@ -511,14 +511,14 @@ public final class RtsTransferExtractor {
     // ---- helpers ----------------------------------------------------------------
 
     public static ItemStack mergeExtractedStacks(ItemStack into, ItemStack addition) {
-        if (addition == null || addition.isEmpty()) {
+        if (addition == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(addition)) {
             return into;
         }
-        if (into == null || into.isEmpty()) {
+        if (into == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(into)) {
             return addition;
         }
         if (sameStackIdentity(into, addition)) {
-            into.grow(addition.getCount());
+            com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(into, addition.stackSize);
         }
         return into;
     }
@@ -529,14 +529,14 @@ public final class RtsTransferExtractor {
         for (int i = 0; i < size; i++) {
             ItemStack stack = player.inventory.getStackInSlot(i);
             if (sameStackIdentity(stack, prototype)) {
-                counts[i] = stack.getCount();
+                counts[i] = stack.stackSize;
             }
         }
         return counts;
     }
 
     public static ItemStack drainPlayerInventoryDelta(EntityPlayerMP player, ItemStack prototype, int[] before) {
-        ItemStack out = ItemStack.EMPTY;
+        ItemStack out = null;
         int size = player.inventory.getSizeInventory();
         for (int i = 0; i < size; i++) {
             ItemStack current = player.inventory.getStackInSlot(i);
@@ -544,21 +544,21 @@ public final class RtsTransferExtractor {
                 continue;
             }
             int previous = (before != null && i < before.length) ? before[i] : 0;
-            int gained = Math.max(0, current.getCount() - previous);
+            int gained = Math.max(0, current.stackSize - previous);
             if (gained <= 0) {
                 continue;
             }
-            int take = Math.min(gained, current.getCount());
+            int take = Math.min(gained, current.stackSize);
             ItemStack part = current.splitStack(take);
-            if (current.isEmpty()) {
-                player.inventory.setInventorySlotContents(i, ItemStack.EMPTY);
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) {
+                player.inventory.setInventorySlotContents(i, null);
             } else {
                 player.inventory.setInventorySlotContents(i, current);
             }
-            if (out.isEmpty()) {
+            if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(out)) {
                 out = part;
             } else if (sameStackIdentity(out, part)) {
-                out.grow(part.getCount());
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(out, part.stackSize);
             } else {
                 refundToPlayerSlot(player, i, part);
             }
@@ -568,49 +568,49 @@ public final class RtsTransferExtractor {
 
     /** 先退回发生提取的原槽位；槽位状态变化时再回退到同一处理器的其他槽位。 */
     private static ItemStack refundToOriginSlot(IItemHandler handler, int slot, ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            return null;
         }
         ItemStack remain = handler.insertItem(slot, stack, false);
-        if (remain.isEmpty()) {
-            return ItemStack.EMPTY;
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(remain)) {
+            return null;
         }
         return RtsTransferInserter.insertToHandlerPreferExisting(handler, remain);
     }
 
     /** 玩家槽位发生意外变化时仍保证退款有实体去向，不静默吞掉已提取物。 */
     private static void refundToPlayerSlot(EntityPlayerMP player, int slot, ItemStack stack) {
-        if (stack == null || stack.isEmpty()) {
+        if (stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return;
         }
         ItemStack current = player.inventory.getStackInSlot(slot);
-        if (current.isEmpty()) {
+        if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(current)) {
             player.inventory.setInventorySlotContents(slot, stack);
             return;
         }
         if (sameStackIdentity(current, stack)) {
             int room = Math.max(0, Math.min(current.getMaxStackSize(),
-                    player.inventory.getInventoryStackLimit()) - current.getCount());
-            int moved = Math.min(room, stack.getCount());
+                    player.inventory.getInventoryStackLimit()) - current.stackSize);
+            int moved = Math.min(room, stack.stackSize);
             if (moved > 0) {
-                current.grow(moved);
-                stack.shrink(moved);
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.grow(current, moved);
+                com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.shrink(stack, moved);
                 player.inventory.setInventorySlotContents(slot, current);
             }
         }
-        if (!stack.isEmpty()) {
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             player.inventory.addItemStackToInventory(stack);
         }
-        if (!stack.isEmpty()) {
-            player.dropItem(stack, false);
+        if (!com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
+            player.dropPlayerItemWithRandomChoice(stack, false);
         }
     }
 
     /** Forge 1.12.2 没有组件系统；metadata 与完整 NBT 一起构成堆叠身份。 */
     private static boolean sameStackIdentity(ItemStack first, ItemStack second) {
         return first != null && second != null
-                && !first.isEmpty() && !second.isEmpty()
-                && ItemStack.areItemsEqual(first, second)
+                && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(first) && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(second)
+                && com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.areItemsEqual(first, second)
                 && ItemStack.areItemStackTagsEqual(first, second);
     }
 }

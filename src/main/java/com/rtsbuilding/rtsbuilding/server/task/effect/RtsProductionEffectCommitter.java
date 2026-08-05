@@ -30,7 +30,7 @@ public final class RtsProductionEffectCommitter
 
     @Override
     public RtsEffectCommitResult commit(RtsPlayerEffectTarget target, RtsEffectSet effects) {
-        EntityPlayerMP player = server.getPlayerList().getPlayerByUUID(target.playerId());
+        EntityPlayerMP player = com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(server).getPlayerByUUID(target.playerId());
         if (player == null || player.isDead) {
             // 登出路径会直接完成最终 Session/Workflow 保存；离线网络投影已经失去接收者。
             return RtsEffectCommitResult.all(effects);

@@ -7,13 +7,13 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingManager;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.BufferBuilder;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.renderer.RenderGlobal;
-import net.minecraft.client.renderer.WorldVertexBufferUploader;
+import com.rtsbuilding.rtsbuilding.platform.render.WorldVertexBufferUploader;
 import net.minecraft.client.renderer.entity.RenderManager;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.render.DefaultVertexFormats;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
 import org.lwjgl.opengl.GL11;
 import org.lwjgl.opengl.GL14;
 
@@ -44,7 +44,7 @@ public final class RtsCullingRenderer {
         RtsCullingManager manager = RtsCullingClientState.activeManager();
         if (manager == null || !manager.isManagementMode()) return;
 
-        RenderManager renderManager = Minecraft.getMinecraft().getRenderManager();
+        RenderManager renderManager = net.minecraft.client.renderer.entity.RenderManager.instance;
         beginOwnedBuffers(-renderManager.viewerPosX, -renderManager.viewerPosY, -renderManager.viewerPosZ);
         try {
             for (RtsCullingBox box : manager.boxes()) {
@@ -92,18 +92,18 @@ public final class RtsCullingRenderer {
         double maxX = box.maxX + 0.01D;
         double maxY = box.maxY + 0.01D;
         double maxZ = box.maxZ + 0.01D;
-        RenderGlobal.addChainedFilledBoxVertices(fillBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.addChainedFilledBoxVertices(fillBuffer,
                 minX, minY, minZ, maxX, maxY, maxZ, r, g, b, fillAlpha);
-        RenderGlobal.drawBoundingBox(lineBuffer,
+        com.rtsbuilding.rtsbuilding.client.rendering.util.LegacyRenderGeometry.drawBoundingBox(lineBuffer,
                 minX, minY, minZ, maxX, maxY, maxZ, r, g, b, lineAlpha);
     }
 
     private static void beginOwnedBuffers(double translateX, double translateY, double translateZ) {
-        FILL_BUFFER.begin(GL11.GL_QUAD_STRIP, DefaultVertexFormats.POSITION_COLOR);
+        FILL_BUFFER.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
         FILL_BUFFER.setTranslation(translateX, translateY, translateZ);
         try {
             // RenderGlobal#drawBoundingBox 输出一条带透明断点的连续线带。
-            LINE_BUFFER.begin(GL11.GL_LINE_STRIP, DefaultVertexFormats.POSITION_COLOR);
+            LINE_BUFFER.begin(GL11.GL_LINES, DefaultVertexFormats.POSITION_COLOR);
             LINE_BUFFER.setTranslation(translateX, translateY, translateZ);
         } catch (RuntimeException exception) {
             discard(FILL_BUFFER);

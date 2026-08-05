@@ -2,22 +2,20 @@ package com.rtsbuilding.rtsbuilding.server.service;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.init.SoundEvents;
+import net.minecraft.init.Blocks;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemAxe;
 import net.minecraft.item.ItemHoe;
 import net.minecraft.item.ItemShears;
 import net.minecraft.item.ItemSpade;
 import net.minecraft.item.ItemStack;
-import net.minecraft.network.play.server.SPacketSoundEffect;
+import net.minecraft.network.play.server.S29PacketSoundEffect;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.SoundCategory;
-import net.minecraft.util.SoundEvent;
-import net.minecraft.util.math.AxisAlignedBB;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.world.WorldServer;
-import net.minecraftforge.fml.common.registry.ForgeRegistries;
+import com.rtsbuilding.rtsbuilding.platform.registry.RtsRegistries;
 
 /**
  * 远程交互声音服务——封装 RTS 模式下远程操作的声音播放逻辑。
@@ -30,14 +28,9 @@ import net.minecraftforge.fml.common.registry.ForgeRegistries;
  * <ul>
  *   <li>{@link #playRemoteUseSound(EntityPlayerMP, WorldServer, Entity, BlockPos, ItemStack)} —
  *       根据物品类型选择对应的远程使用声音并播放（如锄头耕地、锹铲平、斧剥皮等）</li>
- *   <li>{@link #sendDirectSound(EntityPlayerMP, SoundEvent, SoundCategory, double, double, double, float, float)} —
+ *   <li>{@link #sendDirectSound(EntityPlayerMP, String, double, double, double, float, float)} —
  *       直接向玩家发送 {@link SPacketSoundEffect}，支持自定义音量、音调和位置</li>
- *   <li>{@link #selectRemoteUseSound(ItemStack)} — 根据物品栈选择对应的 {@link SoundEvent}：
- *       <ul>
- *         <li>{@link ItemHoe} → {@link SoundEvents#ITEM_HOE_TILL}</li>
- *         <li>{@link ItemSpade} → {@link SoundEvents#ITEM_SHOVEL_FLATTEN}</li>
- *         <li>{@link ItemShears} → {@link SoundEvents#ENTITY_SHEEP_SHEAR}</li>
- *       </ul>
+ *   <li>{@link #selectRemoteUseSound(ItemStack)} — 根据物品栈选择 1.7.10 声音键</li>
  *   </li>
  *   <li>{@link #createSoundStack(String)} — 根据物品 ID 构造用于声音播放的 ItemStack</li>
  * </ul>
@@ -52,15 +45,14 @@ public final class SoundService {
 
     public static void playRemoteUseSound(EntityPlayerMP player, WorldServer level, Entity targetEntity, BlockPos pos,
             ItemStack stack) {
-        if (player == null || level == null || stack == null || stack.isEmpty()) {
+        if (player == null || level == null || stack == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(stack)) {
             return;
         }
-        SoundEvent sound = selectRemoteUseSound(stack);
+        String sound = selectRemoteUseSound(stack);
         if (sound == null) {
             return;
         }
-        SoundCategory source = targetEntity == null ? SoundCategory.BLOCKS : SoundCategory.PLAYERS;
-        AxisAlignedBB bounds = targetEntity == null ? null : targetEntity.getEntityBoundingBox();
+        AxisAlignedBB bounds = targetEntity == null ? null : com.rtsbuilding.rtsbuilding.platform.math.AxisAlignedBB.fromNative(targetEntity.boundingBox);
         Vec3d at = targetEntity == null
                 ? new Vec3d(
                         pos == null ? player.posX : pos.getX() + 0.5D,
@@ -69,30 +61,29 @@ public final class SoundService {
                 : new Vec3d((bounds.minX + bounds.maxX) * 0.5D,
                         (bounds.minY + bounds.maxY) * 0.5D,
                         (bounds.minZ + bounds.maxZ) * 0.5D);
-        sendDirectSound(player, sound, source, at.x, at.y, at.z, 1.0F, 1.0F);
+        sendDirectSound(player, sound, at.x, at.y, at.z, 1.0F, 1.0F);
     }
 
-    public static void sendDirectSound(EntityPlayerMP player, SoundEvent sound, SoundCategory source, double x, double y,
+    public static void sendDirectSound(EntityPlayerMP player, String sound, double x, double y,
             double z, float volume, float pitch) {
-        if (player == null || sound == null) {
+        if (player == null || sound == null || sound.trim().isEmpty()) {
             return;
         }
-        player.connection.sendPacket(new SPacketSoundEffect(sound, source, x, y, z, volume, pitch));
+        player.playerNetServerHandler.sendPacket(new S29PacketSoundEffect(sound, x, y, z, volume, pitch));
     }
 
     /**
      * 根据物品栈选择对应的远程使用声音。
      */
-    static SoundEvent selectRemoteUseSound(ItemStack stack) {
+    static String selectRemoteUseSound(ItemStack stack) {
         Item item = stack.getItem();
         if (item instanceof ItemHoe) {
-            return SoundEvents.ITEM_HOE_TILL;
+            return Blocks.grass.stepSound.getStepResourcePath();
         }
-        if (item instanceof ItemSpade) {
-            return SoundEvents.ITEM_SHOVEL_FLATTEN;
-        }
+        // 1.7.10 没有铲平道路动作，不能伪造后续版本声音。
+        if (item instanceof ItemSpade) return null;
         if (item instanceof ItemShears) {
-            return SoundEvents.ENTITY_SHEEP_SHEAR;
+            return "mob.sheep.shear";
         }
         // 1.12.2 尚无原版剥皮斧、蜂蜡和骨粉使用 SoundEvent；不能伪造错误音效。
         if (item instanceof ItemAxe) return null;
@@ -104,10 +95,10 @@ public final class SoundService {
      */
     public static ItemStack createSoundStack(String itemId) {
         ResourceLocation id = parseId(itemId);
-        if (id == null || !ForgeRegistries.ITEMS.containsKey(id)) {
-            return ItemStack.EMPTY;
+        if (id == null || !RtsRegistries.ITEMS.containsKey(id)) {
+            return null;
         }
-        return new ItemStack(ForgeRegistries.ITEMS.getValue(id));
+        return new ItemStack(RtsRegistries.ITEMS.getValue(id));
     }
 
     private static ResourceLocation parseId(String itemId) {

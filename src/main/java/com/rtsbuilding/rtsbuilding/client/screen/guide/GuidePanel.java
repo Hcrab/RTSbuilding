@@ -25,11 +25,11 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.GuideWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.renderer.GlStateManager;
+import com.rtsbuilding.rtsbuilding.platform.render.GlStateManager;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.util.ChatComponentTranslation;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
@@ -189,7 +189,7 @@ public final class GuidePanel extends RtsWindowPanel {
     }
 
     @Override
-    protected ITextComponent getTitle() {
+    protected IChatComponent getTitle() {
         return title();
     }
 
@@ -298,11 +298,11 @@ public final class GuidePanel extends RtsWindowPanel {
                 GuideWindowStyle.HINT_TEXT.toArgb(), false);
     }
 
-    private ITextComponent title() {
+    private IChatComponent title() {
         if (this.context == GuideUiContext.TOP) {
-            return new TextComponentTranslation("screen.rtsbuilding.ai_help.title");
+            return new ChatComponentTranslation("screen.rtsbuilding.ai_help.title");
         }
-        return new TextComponentTranslation(GuideUiCatalog.titleKey(this.context));
+        return new ChatComponentTranslation(GuideUiCatalog.titleKey(this.context));
     }
 
     private void renderAiHelp(LegacyGuiGraphics g, int mouseX, int mouseY) {
@@ -332,8 +332,8 @@ public final class GuidePanel extends RtsWindowPanel {
             screen.openAiChat();
         } else if (UiRect.contains(x, buttonY + 26, w, 22, mouseX, mouseY)) {
             boolean copied = RtsAiHelpClipboard.copy(this.controller);
-            if (screen.getMinecraft().player != null) {
-                screen.getMinecraft().player.sendStatusMessage(new TextComponentTranslation(copied
+            if (screen.getMinecraft().thePlayer != null) {
+                com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(screen.getMinecraft().thePlayer, new ChatComponentTranslation(copied
                         ? "message.rtsbuilding.ai_help.copied"
                         : "message.rtsbuilding.ai_help.copy_failed"), true);
             }
@@ -435,7 +435,7 @@ public final class GuidePanel extends RtsWindowPanel {
 
     private void blit(ResourceLocation texture, int x, int y, int width, int height) {
         this.screen.getMinecraft().getTextureManager().bindTexture(texture);
-        Gui.drawModalRectWithCustomSizedTexture(x, y, 0.0F, 0.0F,
+        com.rtsbuilding.rtsbuilding.platform.client.GuiCompat.drawModalRectWithCustomSizedTexture(x, y, 0.0F, 0.0F,
                 width, height, width, height);
     }
 

@@ -5,13 +5,13 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentTranslation;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.util.ChatComponentTranslation;
 import net.minecraftforge.event.entity.EntityJoinWorldEvent;
 import net.minecraftforge.event.world.BlockEvent;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.EventPriority;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.eventhandler.EventPriority;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -19,7 +19,6 @@ import java.util.Objects;
 import java.util.function.Supplier;
 
 /** 在 1.12 HarvestDropsEvent 的最终掉落列表上接管 RTS 本次同步破坏。 */
-@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsMiningDropCapture {
     private static final ThreadLocal<ArrayDeque<CaptureContext>> ACTIVE =
             new ThreadLocal<ArrayDeque<CaptureContext>>() {
@@ -47,11 +46,11 @@ public final class RtsMiningDropCapture {
         boolean normalAutoStore = RtsMiningValidator.canAutoStoreDrops(player, session);
         boolean forcedRemoteSafety = targetPos != null
                 && RtsRemoteDropSafetyPolicy.shouldForceAutoStore(
-                player.getDistanceSqToCenter(targetPos));
+                com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.distanceSqToCenter(player, targetPos));
         if (!normalAutoStore && !forcedRemoteSafety) return destruction.get();
         if (!normalAutoStore && session.miningDropBuffer.shouldNotifyRemoteSafety(
-                player.getServerWorld().getTotalWorldTime(), 100L)) {
-            player.sendStatusMessage(new TextComponentTranslation(
+                player.getServerForPlayer().getTotalWorldTime(), 100L)) {
+            com.rtsbuilding.rtsbuilding.platform.chat.ChatMessages.sendStatus(player, new ChatComponentTranslation(
                     "message.rtsbuilding.remote_drop.auto_stored"), true);
         }
         ArrayDeque<CaptureContext> stack = ACTIVE.get();
@@ -64,12 +63,12 @@ public final class RtsMiningDropCapture {
     }
 
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    static void onHarvestDrops(BlockEvent.HarvestDropsEvent event) {
+    void onHarvestDrops(BlockEvent.HarvestDropsEvent event) {
         CaptureContext context = ACTIVE.get().peek();
-        if (context == null || event.getHarvester() != context.player
-                || event.getWorld() != context.player.getServerWorld()) return;
+        if (context == null || event.harvester != context.player
+                || event.world != context.player.getServerForPlayer()) return;
         // absorber 只从事件列表删除已入队数量；未接收 remainder 继续由 Forge 生成。
-        RtsDropAbsorber.enqueueCapturedDrops(context.player, context.session, event.getDrops());
+        RtsDropAbsorber.enqueueCapturedDrops(context.player, context.session, event.drops);
     }
 
     /**
@@ -80,15 +79,15 @@ public final class RtsMiningDropCapture {
      * 继续进入世界；全部接收时才取消生成，保持物品守恒。</p>
      */
     @SubscribeEvent(priority = EventPriority.LOWEST)
-    static void onEntityJoinWorld(EntityJoinWorldEvent event) {
+    void onEntityJoinWorld(EntityJoinWorldEvent event) {
         CaptureContext context = ACTIVE.get().peek();
-        if (context == null || event.getWorld() != context.player.getServerWorld()
-                || !(event.getEntity() instanceof EntityItem)) return;
-        EntityItem entity = (EntityItem) event.getEntity();
-        if (entity.isDead || entity.getItem().isEmpty()) return;
+        if (context == null || event.world != context.player.getServerForPlayer()
+                || !(event.entity instanceof EntityItem)) return;
+        EntityItem entity = (EntityItem) event.entity;
+        if (entity.isDead || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(entity.getEntityItem())) return;
 
         ArrayList<ItemStack> candidate = new ArrayList<ItemStack>(1);
-        candidate.add(entity.getItem());
+        candidate.add(entity.getEntityItem());
         boolean accepted = RtsDropAbsorber.enqueueCapturedDrops(
                 context.player, context.session, candidate);
         if (accepted && candidate.isEmpty()) event.setCanceled(true);

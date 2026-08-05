@@ -13,11 +13,9 @@ import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.IThreadListener;
-import net.minecraftforge.fml.common.FMLCommonHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
-import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
+import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
 
@@ -35,8 +33,8 @@ public final class RtsProgressionNetworkHandlers {
     public static final class QuestDetect implements IMessageHandler<C2SRtsQuestDetectPayload, IMessage> {
         @Override public IMessage onMessage(final C2SRtsQuestDetectPayload message, MessageContext context) {
             if (!message.isValid()) return null;
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() { QuestService.detectQuests(player, message.mode()); }
             });
             return null;
@@ -47,13 +45,13 @@ public final class RtsProgressionNetworkHandlers {
             implements IMessageHandler<C2SRtsSetSurvivalProgressionPayload, IMessage> {
         @Override public IMessage onMessage(final C2SRtsSetSurvivalProgressionPayload message,
                                             MessageContext context) {
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
-                    if (!player.canUseCommand(2, "rtsbuilding")) return;
+                    if (!com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.canUseCommand(player, 2, "rtsbuilding")) return;
                     Config.setSurvivalProgressionEnabled(message.enabled());
-                    if (player.getServer() == null) return;
-                    for (EntityPlayerMP onlinePlayer : player.getServer().getPlayerList().getPlayers()) {
+                    if (com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player) == null) return;
+                    for (EntityPlayerMP onlinePlayer : com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getPlayerList(com.rtsbuilding.rtsbuilding.platform.server.ServerCompat.getServer(player)).getPlayers()) {
                         RtsPluginService.syncToPlayer(onlinePlayer);
                         RtsProgressionManager.syncToPlayer(onlinePlayer);
                     }
@@ -65,8 +63,8 @@ public final class RtsProgressionNetworkHandlers {
 
     public static final class SetHome implements IMessageHandler<C2SRtsSetHomePayload, IMessage> {
         @Override public IMessage onMessage(final C2SRtsSetHomePayload message, MessageContext context) {
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() {
                     if (RtsProgressionManager.commitHome(player, message.pos())) {
                         RtsCameraManager.restartNormalFromHomeSelection(player);
@@ -80,8 +78,8 @@ public final class RtsProgressionNetworkHandlers {
     public static final class BeginHomeSelection
             implements IMessageHandler<C2SRtsBeginHomeSelectionPayload, IMessage> {
         @Override public IMessage onMessage(C2SRtsBeginHomeSelectionPayload message, MessageContext context) {
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() { RtsCameraManager.startHomeSelectionFromPanel(player); }
             });
             return null;
@@ -91,8 +89,8 @@ public final class RtsProgressionNetworkHandlers {
     public static final class RequestProgressionState
             implements IMessageHandler<C2SRtsRequestProgressionStatePayload, IMessage> {
         @Override public IMessage onMessage(C2SRtsRequestProgressionStatePayload message, MessageContext context) {
-            final EntityPlayerMP player = context.getServerHandler().player;
-            player.getServerWorld().addScheduledTask(new Runnable() {
+            final EntityPlayerMP player = context.getServerHandler().playerEntity;
+            com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.scheduleServer(player, new Runnable() {
                 @Override public void run() { RtsProgressionManager.syncToPlayer(player); }
             });
             return null;
@@ -124,8 +122,8 @@ public final class RtsProgressionNetworkHandlers {
     }
 
     private static void scheduleClient(MessageContext context, Runnable task) {
-        IThreadListener thread = FMLCommonHandler.instance().getWorldThread(context.netHandler);
-        thread.addScheduledTask(task);
+
+        com.rtsbuilding.rtsbuilding.platform.thread.ThreadCompat.schedule(context, task);
     }
 
     private static void invokeClient(String method, Class<?> payloadType, Object payload) {

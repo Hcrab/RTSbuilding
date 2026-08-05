@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.storage;
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.storage.handler.RtsStoragePageHandlers1122;
-import net.minecraftforge.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.Side;
 
 /** 储存页面请求/快照闭环的固定 discriminator 表。 */
 public final class RtsStoragePagePackets1122 {

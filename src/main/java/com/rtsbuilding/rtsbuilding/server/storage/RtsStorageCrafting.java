@@ -8,7 +8,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.ContainerWorkbench;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.IRecipe;
-import net.minecraftforge.items.IItemHandler;
+import com.rtsbuilding.rtsbuilding.platform.storage.IItemHandler;
 
 import java.util.List;
 
@@ -35,7 +35,7 @@ public final class RtsStorageCrafting {
     }
 
     public static void recordCraftedOutput(EntityPlayerMP player, RtsStorageSession session, ItemStack crafted) {
-        if (player == null || crafted == null || crafted.isEmpty()) {
+        if (player == null || crafted == null || com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(crafted)) {
             return;
         }
         if (session == null) {

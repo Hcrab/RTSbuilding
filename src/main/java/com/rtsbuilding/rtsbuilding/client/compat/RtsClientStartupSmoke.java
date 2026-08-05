@@ -5,14 +5,14 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiMainMenu;
-import net.minecraft.world.GameType;
+import net.minecraft.world.WorldSettings.GameType;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
+import cpw.mods.fml.common.Mod;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -30,7 +30,6 @@ import java.nio.file.StandardOpenOption;
  * 时不会创建目录、注册额外命令或改变任何玩家行为。</p>
  */
 @SideOnly(Side.CLIENT)
-@Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Side.CLIENT)
 public final class RtsClientStartupSmoke {
     private static final String ENABLE_PROPERTY = "rtsbuilding.clientStartupSmoke";
     private static final String REPORT_PROPERTY = "rtsbuilding.clientStartupSmokeReport";
@@ -56,7 +55,7 @@ public final class RtsClientStartupSmoke {
     }
 
     @SubscribeEvent
-    public static void onClientTick(TickEvent.ClientTickEvent event) {
+    public void onClientTick(TickEvent.ClientTickEvent event) {
         if (!ENABLED || finished || event.phase != TickEvent.Phase.END) return;
         Minecraft minecraft = Minecraft.getMinecraft();
         try {
@@ -76,7 +75,7 @@ public final class RtsClientStartupSmoke {
     private static void tickStage(Minecraft minecraft) {
         if (stage == Stage.WAIT_MAIN_MENU) {
             if (!(minecraft.currentScreen instanceof GuiMainMenu)
-                    || minecraft.world != null || minecraft.player != null) {
+                    || minecraft.theWorld != null || minecraft.thePlayer != null) {
                 if (stageTicks > STAGE_TIMEOUT_TICKS) {
                     finish(minecraft, false, "main menu did not become ready");
                 }
@@ -94,8 +93,8 @@ public final class RtsClientStartupSmoke {
         }
 
         if (stage == Stage.WAIT_WORLD) {
-            if (minecraft.world == null || minecraft.player == null
-                    || minecraft.player.connection == null
+            if (minecraft.theWorld == null || minecraft.thePlayer == null
+                    || minecraft.thePlayer.sendQueue == null
                     || minecraft.getIntegratedServer() == null) {
                 failStageTimeout(minecraft, "integrated client world did not become ready");
                 return;

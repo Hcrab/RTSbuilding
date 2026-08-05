@@ -3,7 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.storage;
 import com.rtsbuilding.rtsbuilding.network.RtsPacketBuffer;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.item.ItemStack;
-import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -157,7 +157,7 @@ public final class S2CRtsStoragePagePayload implements IMessage {
     private static StringLongPair rsp(ByteBuf b,int max,String name){int n=rc(b,max,name);List<String>s=new ArrayList<String>(n);List<Long>l=new ArrayList<Long>(n);for(int i=0;i<n;i++){s.add(rs(b));l.add(b.readLong());}return new StringLongPair(c(s),c(l));}
     private static final class StringLongPair{final List<String>strings;final List<Long>longs;StringLongPair(List<String>s,List<Long>l){strings=s;longs=l;}}
     private static String s(String x){return x==null?"":x;}
-    private static ItemStack nz(ItemStack x){return x==null?ItemStack.EMPTY:x;}
+    private static ItemStack nz(ItemStack x){return x==null?null:x;}
     private static <T>List<T> c(List<T>x){return x==null||x.isEmpty()?Collections.<T>emptyList():Collections.unmodifiableList(new ArrayList<T>(x));}
     private static <T>List<T> empty(){return Collections.emptyList();}
 
