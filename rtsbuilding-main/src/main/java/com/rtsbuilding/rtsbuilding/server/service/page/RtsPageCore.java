@@ -9,10 +9,12 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.view.LinkedItemHandlerView;
 import com.rtsbuilding.rtsbuilding.util.RtsCountUtil;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -103,10 +105,26 @@ public final class RtsPageCore {
             List<Entry> exactEntries = new ArrayList<>();
             Map<String, Long> localNamespaceTotals = new HashMap<>();
 
-            // Build exact entries from handlers (with per-container mode info)
+            // Build exact entries from handlers (with per-container mode info).
+            // Prefer the slot snapshot already cached by RtsStorageTickService:
+            // re-calling getStackInSlot() per slot is expensive for AE2/RS network
+            // handlers. Fall back to a live per-slot scan only when no cache exists.
             for (LinkedHandler linked : itemHandlers) {
                 IItemHandler handler = linked.handler();
                 byte handlerMode = linked.allowStore() ? NetworkConstants.MODE_BIDIRECTIONAL : NetworkConstants.MODE_EXTRACT_ONLY;
+                RtsHandlerCache cache = handlerCacheFor(player, linked);
+                if (cache != null) {
+                    for (RtsHandlerCache.CachedSlot slot : cache.getNonEmptySlots()) {
+                        ResourceLocation id = ResourceLocation.tryParse(slot.itemId());
+                        if (id == null) {
+                            continue;
+                        }
+                        mergeCount(localCounts, slot.itemId(), slot.count());
+                        mergeExactEntry(exactEntries, slot.fullStack(), slot.count(), handlerMode);
+                        mergeCount(localNamespaceTotals, id.getNamespace(), slot.count());
+                    }
+                    continue;
+                }
                 for (int i = 0; i < handler.getSlots(); i++) {
                     ItemStack stack = handler.getStackInSlot(i);
                     if (stack.isEmpty()) continue;
@@ -370,6 +388,19 @@ public final class RtsPageCore {
     }
 
     // ---- helpers ---------------------------------------------------------------
+
+    /**
+     * Returns the {@link RtsHandlerCache} backing the given linked handler's raw
+     * item handler, or {@code null} when it is not registered with the tick cache
+     * (page builds are normally preceded by {@code registerStorageCaches}).
+     */
+    private static RtsHandlerCache handlerCacheFor(ServerPlayer player, LinkedHandler linked) {
+        IItemHandler handler = linked.handler();
+        if (handler instanceof LinkedItemHandlerView view) {
+            handler = view.getRawHandler();
+        }
+        return RtsStorageTickService.INSTANCE.getHandlerCache(player.getUUID(), handler);
+    }
 
     public static long getHandlerReportedCount(IItemHandler handler, int slot, ItemStack stack) {
         if (handler instanceof ReportedCountItemHandler rc) {

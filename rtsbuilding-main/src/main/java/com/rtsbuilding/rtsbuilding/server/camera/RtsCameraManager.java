@@ -91,9 +91,11 @@ public final class RtsCameraManager {
      * <p>将锚点对齐到玩家脚下方块中心，并根据半径限制创建相机实体。</p>
      */
     private static void startNormal(ServerPlayer player, boolean startAtPlayerHead, @Nullable String terminalUuid) {
+        long t0 = System.nanoTime();
         cleanupOrphanCameras(player.getServer());
         RtsCameraEntityHelper.discardOwnedCameras(player);
         RtsCameraEntityHelper.discardOwnedDrones(player);
+        long t1 = System.nanoTime();
         ServerLevel level = player.serverLevel();
         Vec3 playerPos = player.position();
         // 将锚点对齐到方块中心，使相机边界与放置边界匹配
@@ -117,10 +119,13 @@ public final class RtsCameraManager {
                 camera.getY() - anchor.y, maxRadius, startAtPlayerHead, terminalUuid,
                 drone.getUUID());
         SESSIONS.put(player.getUUID(), session);
+        long t2 = System.nanoTime();
         RtsServer.get().session().onRtsEnabled(player);
+        long t3 = System.nanoTime();
 
         // 同步历史记录状态（撤销步数），让客户端 UI 能反映当前可撤销次数
         com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager.sendSync(player);
+        long t4 = System.nanoTime();
 
         // 向客户端发送相机状态同步包
         PacketDistributor.sendToPlayer(player, new S2CRtsCameraStatePayload(
@@ -136,6 +141,15 @@ public final class RtsCameraManager {
                 false,
                 session.closeRangeAllowed(),
                 session.terminalUuid()));
+
+        long perfCostMs = (System.nanoTime() - t0) / 1_000_000L;
+        if (perfCostMs >= 30L) {
+            com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.info(
+                    "RTS-PERF: camera.startNormal cleanup/discard={} ms, createEntities={} ms, onRtsEnabled={} ms, historySync={} ms, sendToPlayer={} ms, total={} ms (player={})",
+                    (t1 - t0) / 1_000_000L, (t2 - t1) / 1_000_000L, (t3 - t2) / 1_000_000L,
+                    (t4 - t3) / 1_000_000L, (System.nanoTime() - t4) / 1_000_000L,
+                    perfCostMs, player.getName().getString());
+        }
     }
 
     /**

@@ -173,6 +173,27 @@ public final class RtsHandlerCache {
     }
 
     /**
+     * Returns a snapshot list of all non-empty cached slots.
+     * <p>Page building reuses this snapshot so it never has to call the
+     * underlying handler's {@code getStackInSlot()} again (expensive for
+     * AE2/RS network handlers). The list is a copy — the backing array may
+     * be mutated by later cache updates.
+     */
+    public List<CachedSlot> getNonEmptySlots() {
+        List<CachedSlot> out = null;
+        for (CachedSlot slot : this.front) {
+            if (slot == null || slot.isEmpty()) {
+                continue;
+            }
+            if (out == null) {
+                out = new ArrayList<>(8);
+            }
+            out.add(slot);
+        }
+        return out == null ? List.of() : out;
+    }
+
+    /**
      * Returns the full slot snapshot, or {@link CachedSlot#EMPTY}.
      */
     public CachedSlot getSlot(int slot) {

@@ -55,6 +55,7 @@ public final class RtsPageServiceImpl implements RtsService {
     public void requestPage(ServerPlayer player, int page, String search, String category,
                             RtsStorageSort sort, boolean ascending, int pageSize,
                             boolean pinyinSearchEnabled, List<String> localizedSearchMatches) {
+        long perfStartNanos = System.nanoTime();
         RtsStorageSession session = server.session().getOrCreate(player);
         refreshMissingGuiBindingIcons(player, session);
         session.browser.search = search == null ? "" : search;
@@ -74,13 +75,23 @@ public final class RtsPageServiceImpl implements RtsService {
         List<LinkedHandler> activeHandlers = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         List<LinkedFluidHandler> activeFluidHandlers = RtsLinkedStorageResolver.resolveLinkedFluidHandlers(player, session);
         RtsLinkedHandlerResolutionService.registerStorageCaches(player, activeHandlers);
+        long perfResolveMs = (System.nanoTime() - perfStartNanos) / 1_000_000L;
         var result = RtsStoragePageBuilder.build(
                 player, session, page, session.browser.pageSize,
                 activeHandlers, activeFluidHandlers);
+        long perfBuildMs = (System.nanoTime() - perfStartNanos) / 1_000_000L;
         PacketDistributor.sendToPlayer(player, result.payload());
         session.transfer.storageViewDirty = false;
         session.browser.page = result.safePage();
         server.session().saveToPlayerNbt(player, session);
+        long perfTotalMs = (System.nanoTime() - perfStartNanos) / 1_000_000L;
+
+        if (perfTotalMs >= 30L) {
+            com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.info(
+                    "RTS-PERF: requestPage resolve+register={} ms, build={} ms, saveToPlayerNbt={} ms, total={} ms (player={})",
+                    perfResolveMs, perfBuildMs - perfResolveMs, perfTotalMs - perfBuildMs,
+                    perfTotalMs, player.getName().getString());
+        }
     }
 
     public void markStorageViewDirty(ServerPlayer player, RtsStorageSession session) {

@@ -162,6 +162,14 @@ public class RtsbuildingMod {
                 // Restore workflows from world save so previous blueprint placements etc. can continue
                 RtsWorkflowEngine.getInstance().loadPlayerFromStore(
                         serverPlayer.getServer(), serverPlayer);
+                // 预热存储会话与页面缓存：首次进入 RTS 模式时会话反序列化（getOrCreate）与页面
+                // 全量构建（requestPage）会在服务端造成约 100ms 的一次性卡顿。在登录阶段提前完成，
+                // 把该开销从“首次打开终端”转移到登录（登录本就在加载世界，感知不明显）。
+                // 缓存命中与失效仍由 pageDataVersion 机制保证，不会返回陈旧数据。
+                RtsServer rtsServer = RtsServer.get();
+                var session = rtsServer.session().getOrCreate(serverPlayer);
+                rtsServer.page().requestPage(serverPlayer, session.browser.page, session.browser.search,
+                        session.browser.category, session.browser.sort, session.browser.ascending);
             }
         }
 

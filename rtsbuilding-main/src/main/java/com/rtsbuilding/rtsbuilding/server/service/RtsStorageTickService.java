@@ -105,7 +105,14 @@ public final class RtsStorageTickService {
             if (!cacheMap.containsKey(handler)) {
                 storage.mount(handlers.size() - priority, handler, cache); // reverse priority: first = highest
                 // Immediately populate the cache so page builds don't skip this handler
+                long perfUpdateNanos = System.nanoTime();
                 cache.update(handler);
+                long perfUpdateMs = (System.nanoTime() - perfUpdateNanos) / 1_000_000L;
+                if (perfUpdateMs >= 30L) {
+                    com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.info(
+                            "RTS-PERF: registerPlayer.cache.update took {} ms (slots={}, handler={})",
+                            perfUpdateMs, cache.getCachedSlotCount(), handler.getClass().getSimpleName());
+                }
             }
             newPairs.add(new HandlerCachePair(handler, cache));
         }
@@ -231,6 +238,28 @@ public final class RtsStorageTickService {
      */
     public RtsAggregateStorage getStorage(ServerPlayer player) {
         return this.playerStorage.get(player.getUUID());
+    }
+
+    /**
+     * Returns the slot cache currently registered for the given raw item handler,
+     * or {@code null} if the handler is not registered (e.g. no linked storage).
+     * <p>Used by page building to reuse already-cached slot snapshots instead of
+     * calling {@code getStackInSlot()} per slot again.
+     */
+    public RtsHandlerCache getHandlerCache(UUID playerUuid, IItemHandler handler) {
+        if (playerUuid == null || handler == null) {
+            return null;
+        }
+        List<HandlerCachePair> pairs = this.playerHandlers.get(playerUuid);
+        if (pairs == null) {
+            return null;
+        }
+        for (HandlerCachePair pair : pairs) {
+            if (pair.handler == handler) {
+                return pair.cache;
+            }
+        }
+        return null;
     }
 
     /**

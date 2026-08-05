@@ -43,12 +43,23 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleCameraState(S2CRtsCameraStatePayload payload, net.neoforged.neoforge.network.handling.IPayloadContext ctx) {
         ctx.enqueueWork(() -> {
+            long perfT0 = System.nanoTime();
             CameraModule cm = kernel().module(CameraModule.class);
             if (cm != null) cm.applyServerCameraState(payload);
-            
+            long perfT1 = System.nanoTime();
             kernel().updateRegion(payload.anchorX(), payload.anchorY(), payload.anchorZ(), payload.maxRadius());
-            
             kernel().dispatch(new StateEvent.RtsToggled(payload.enabled()));
+            long perfT2 = System.nanoTime();
+
+            long perfEnableMs = (perfT1 - perfT0) / 1_000_000L;
+            long perfDispatchMs = (perfT2 - perfT1) / 1_000_000L;
+            if (perfEnableMs >= 30L || perfDispatchMs >= 30L) {
+                net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+                net.minecraft.world.entity.player.Player p = mc.player;
+                com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.info(
+                        "RTS-PERF: handleCameraState enableCamera={} ms, dispatch(screen)={} ms (enabled={}, player={})",
+                        perfEnableMs, perfDispatchMs, payload.enabled(), p == null ? "?" : p.getName().getString());
+            }
         });
     }
 

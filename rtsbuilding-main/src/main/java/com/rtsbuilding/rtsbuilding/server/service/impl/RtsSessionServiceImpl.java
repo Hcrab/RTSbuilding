@@ -85,7 +85,10 @@ public final class RtsSessionServiceImpl implements RtsService {
         cleanupSession(player, session, true);
         RtsWorkflowEngine.getInstance().pauseAllActive(player.getUUID(), true);
         saveToPlayerNbt(player, session);
-        cleanupPlayerCaches(player);
+        // 退出 RTS 模式时保留页面缓存与聚合存储缓存（RtsPageCache / RtsStorageTickService），
+        // 使玩家再次进入时缓存命中、跳过全量存储扫描，避免“进入 RTS 模式卡一下”；
+        // 缓存在玩家登出（onPlayerLogout → cleanupPlayerCaches）时统一释放。
+        // 正确性由 pageDataVersion 失效机制保证：存储/链接数据变化时版本号递增，缓存自动失效重建。
     }
 
     public void onPlayerLogout(ServerPlayer player) {

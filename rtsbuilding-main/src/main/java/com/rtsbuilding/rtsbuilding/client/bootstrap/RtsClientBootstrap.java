@@ -14,6 +14,7 @@ import com.rtsbuilding.rtsbuilding.client.infrastructure.module.storage.StorageM
 import com.rtsbuilding.rtsbuilding.client.infrastructure.module.workflow.WorkflowModule;
 import com.rtsbuilding.rtsbuilding.client.input.RtsKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.kernel.RtsClientKernel;
+import com.rtsbuilding.rtsbuilding.client.presentation.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.render.RtsShaders;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import net.minecraft.client.renderer.ShaderInstance;
@@ -143,6 +144,16 @@ public final class RtsClientBootstrap {
 
             kernel.initialize();
             RtsbuildingMod.LOGGER.info("RTS client kernel initialized with all modules");
+
+            // 预热 BuilderScreen：首次进入 RTS 模式时，BuilderScreen 及其大量 UI 依赖类
+            // 的类加载 + JIT 编译会造成明显卡顿（进入游戏后的第一次打开）。这里在启动阶段
+            // 提前完整构造 + init 一次（触发类加载与静态初始化，实例随后被 GC 回收），
+            // 把一次性开销从“首次打开 RTS 终端”转移到游戏启动阶段。构造不涉及 GL/渲染。
+            try {
+                BuilderScreen.warmUp();
+            } catch (Throwable t) {
+                RtsbuildingMod.LOGGER.warn("RTS: BuilderScreen warmup failed (non-fatal): {}", t.toString());
+            }
         });
     }
 }

@@ -72,6 +72,7 @@ public class BuilderScreen extends Screen {
 
     public BuilderScreen() {
         super(Component.literal("RTS Builder"));
+        long t0 = System.nanoTime();
         this.kernel = RtsClientKernel.get();
         this.screenBackgroundPanel = new ScreenBackgroundPanel();
         this.colorPickerPanel = new ColorPickerPanel();
@@ -80,6 +81,7 @@ public class BuilderScreen extends Screen {
         this.downSidebarPanel = new DownSidebarPanel();
         this.leftSidebarPanel = new LeftSidebarPanel();
         this.topBarPanel = new TopBarPanel();
+        long t1 = System.nanoTime();
         panelRegistry.register(topBarPanel, RenderLayer.CONTENT_PANELS);
         panelRegistry.register(leftSidebarPanel, RenderLayer.CONTENT_PANELS);
         panelRegistry.register(rightSidebarPanel, RenderLayer.CONTENT_PANELS);
@@ -89,6 +91,7 @@ public class BuilderScreen extends Screen {
             gearMenuPanel.toggleOpen();
             topBarPanel.setGearMenuOpen(gearMenuPanel.isOpen());
         });
+        long t2 = System.nanoTime();
 
         this.selectionHighlight = new SelectionHighlight();
         this.movementHandler = new BuilderScreenMovementHandler();
@@ -96,6 +99,7 @@ public class BuilderScreen extends Screen {
         this.entityInteractionHandler = new EntityInteractionHandler();
         CameraInputLayer cameraInputLayer = kernel.inputPipeline().findLayer(CameraInputLayer.class);
         this.buildInteractionHandler = new BuildInteractionHandler(kernel, cameraInputLayer);
+        long t3 = System.nanoTime();
         this.cursorStyleManager = new CursorStyleManager((mx, my) -> {
             var fwCursor = floatingWindowLayer.resizeCursorAt(mx, my);
             if (fwCursor != RtsPanel.ResizeCursor.DEFAULT) return fwCursor;
@@ -111,6 +115,7 @@ public class BuilderScreen extends Screen {
         this.cursorWrapHandler = new CursorWrapHandler();
         this.scaleManager = new BuilderScreenScaleManager();
         this.screenCoordinator = new ScreenCoordinator();
+        long t4 = System.nanoTime();
         this.eventRouter = new BuilderScreenEventRouter(new BuilderScreenEventRouter.SuperScreen() {
             @Override public boolean mouseClicked(double x, double y, int b) { return BuilderScreen.super.mouseClicked(x, y, b); }
             @Override public boolean mouseReleased(double x, double y, int b) { return BuilderScreen.super.mouseReleased(x, y, b); }
@@ -124,19 +129,44 @@ public class BuilderScreen extends Screen {
                 floatingWindowLayer, topBarPanel, leftSidebarPanel, gearMenuPanel,
                 movementHandler, bindModeHandler, entityInteractionHandler,
                 buildInteractionHandler);
+        long t5 = System.nanoTime();
+
+        com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.info(
+                "RTS-PERF: BuilderScreen constructor panels={} ms, registry/floating={} ms, handlers={} ms, cursor/scale/coordinator={} ms, eventRouter={} ms, total={} ms",
+                (t1 - t0) / 1_000_000L, (t2 - t1) / 1_000_000L, (t3 - t2) / 1_000_000L,
+                (t4 - t3) / 1_000_000L, (t5 - t4) / 1_000_000L, (t5 - t0) / 1_000_000L);
+    }
+
+    /**
+     * 预热 BuilderScreen 及其全部 UI 依赖：在启动阶段完整执行一次构造 + init，
+     * 触发相关类的类加载与 JIT 编译，避免首次进入 RTS 模式时（进入游戏后的第一次
+     * 打开）的“卡一下”。实例随后被 GC 回收。init 依赖的屏幕尺寸用当前窗口值填充。
+     */
+    public static void warmUp() {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc == null || mc.getWindow() == null) {
+            return;
+        }
+        BuilderScreen screen = new BuilderScreen();
+        screen.width = mc.getWindow().getGuiScaledWidth();
+        screen.height = mc.getWindow().getGuiScaledHeight();
+        screen.init();
     }
 
     @Override
     protected void init() {
+        long t0 = System.nanoTime();
         super.init();
         
         this.screenBackgroundPanel.init(this);
         this.colorPickerPanel.init(this);
         this.floatingWindowLayer.frontToBackWindows().add(this.colorPickerPanel);
+        long t1 = System.nanoTime();
         this.gearMenuPanel.init(this);
         this.floatingWindowLayer.frontToBackWindows().add(this.gearMenuPanel);
-        
+        long t2 = System.nanoTime();
         panelRegistry.initAll(this);
+        long t3 = System.nanoTime();
         
         var eshp = kernel.renderPipeline().entitySelectHighlightPass;
         if (eshp != null) {
@@ -146,6 +176,15 @@ public class BuilderScreen extends Screen {
         var ip = screenCoordinator.getInteractionPanel();
         if (ip != null && ip.isOpen()) {
             ip.init(this);
+        }
+        long t4 = System.nanoTime();
+
+        long perfCostMs = (t4 - t0) / 1_000_000L;
+        if (perfCostMs >= 30L) {
+            com.rtsbuilding.rtsbuilding.RtsbuildingMod.LOGGER.info(
+                    "RTS-PERF: BuilderScreen.init background/color={} ms, gear={} ms, panelRegistry.initAll={} ms, eshp/interaction={} ms, total={} ms",
+                    (t1 - t0) / 1_000_000L, (t2 - t1) / 1_000_000L, (t3 - t2) / 1_000_000L,
+                    (t4 - t3) / 1_000_000L, perfCostMs);
         }
     }
 

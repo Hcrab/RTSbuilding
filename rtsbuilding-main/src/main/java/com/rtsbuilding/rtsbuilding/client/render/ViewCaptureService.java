@@ -59,6 +59,7 @@ public final class ViewCaptureService {
     }
 
     private void createResources(int w, int h) {
+        long perfStartNanos = System.nanoTime();
         
         captureTexId = GL11.glGenTextures();
         GL11.glBindTexture(GL11.GL_TEXTURE_2D, captureTexId);
@@ -85,6 +86,9 @@ public final class ViewCaptureService {
             registeredTexture.setGlTextureId(captureTexId);
         }
 
+        long perfCostMs = (System.nanoTime() - perfStartNanos) / 1_000_000L;
+        RtsbuildingMod.LOGGER.info("RTS-PERF: ViewCapture.createResources took {} ms ({}x{})",
+                perfCostMs, w, h);
         RtsbuildingMod.LOGGER.debug("ViewCapture: created {}x{} FBO+texture (fbo={}, tex={})",
                 w, h, captureFboId, captureTexId);
     }
