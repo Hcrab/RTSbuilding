@@ -7,6 +7,7 @@ import com.wintercogs.beyonddimensions.api.dimensionnet.UnifiedStorage;
 import com.wintercogs.beyonddimensions.api.storage.handler.impl.AbstractUnorderedStackHandler;
 import com.wintercogs.beyonddimensions.api.storage.key.KeyAmount;
 import com.wintercogs.beyonddimensions.api.storage.key.impl.ItemStackKey;
+import com.wintercogs.beyonddimensions.common.block.entity.NetedBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
@@ -50,9 +51,17 @@ public class RtsBeyondDimensionsAddon {
 
         @Override @Nullable
         public IItemHandler createItemHandler(ServerPlayer player, BlockPos pos) {
-            if (player == null || player.getServer() == null) return null;
+            if (player == null || player.getServer() == null || pos == null) return null;
             DimensionsNet net = DimensionsNet.getPrimaryNetFromPlayer(player);
             if (net == null) return null;
+            if (!pos.equals(BlockPos.ZERO)) {
+                // 精确判定：仅玩家主网络的成员方块才返回网络 handler；
+                // 普通方块（箱子等）返回 null → 调用方回退到方块自身能力（避免重复接入同一网络）
+                BlockEntity be = player.serverLevel().getBlockEntity(pos);
+                if (!(be instanceof NetedBlockEntity neted) || neted.getNet() != net) {
+                    return null;
+                }
+            }
             return new BdDirectItemHandler(net.getUnifiedStorage());
         }
 
@@ -63,7 +72,7 @@ public class RtsBeyondDimensionsAddon {
 
         @Override
         public boolean isNetworkNode(ServerPlayer player, BlockPos pos) {
-            return hasPrimaryNetwork(player);
+            return createItemHandler(player, pos) != null;
         }
 
         @Override @Nullable
