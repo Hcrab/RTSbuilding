@@ -77,6 +77,28 @@ class DetachedPlacementTaskContractTest {
                 < placement.indexOf("tickDetachedPlacementSlice"));
     }
 
+    @Test
+    void quickBuildFreezesContextStateAcrossDetachedSlices() throws IOException {
+        String batch = read("server/service/placement/RtsPlacementBatch.java");
+        String quickBuild = read("server/service/placement/RtsPlacementQuickBuild.java");
+        String codec = read("server/task/placement/PlacementTaskCodec.java");
+
+        int submit = batch.indexOf("submitPlacementJob(player, job)");
+        int freezeBeforeSubmit = batch.lastIndexOf("job.freezeStatePlacementPlan(player);", submit);
+        assertTrue(freezeBeforeSubmit >= 0 && freezeBeforeSubmit < submit,
+                "new quick-build definitions must freeze the final state before submission");
+        assertTrue(batch.contains("NBT_FROZEN_PLACEMENT_STATE"));
+        assertTrue(batch.contains("nextDefinition"),
+                "the first legacy recovery slice must carry its compatibility-upgraded definition forward");
+
+        int frozenState = quickBuild.indexOf("BlockState frozenState = job.frozenPlacementState()");
+        int templateContext = quickBuild.indexOf("BlockPos templatePos = job.templatePosition()");
+        assertTrue(frozenState >= 0 && frozenState < templateContext,
+                "detached slices must reuse frozen state before consulting a world placement context");
+        assertTrue(codec.contains("validateDefinition(definition, total)"),
+                "the existing outer payload schema must continue validating the definition without requiring the optional field");
+    }
+
     private static String read(String relative) throws IOException {
         return Files.readString(MAIN.resolve(relative));
     }

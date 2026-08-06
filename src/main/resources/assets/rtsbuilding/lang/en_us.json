@@ -493,6 +493,8 @@
   "rtsbuilding.configuration.ae2NetworkRefreshThrottle.tooltip": "Storage cache refresh cycles between expensive AE2 network snapshots.",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle": "Refined Storage refresh throttle",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle.tooltip": "Storage cache refresh cycles between expensive Refined Storage network snapshots.",
+  "rtsbuilding.configuration.maxLinkedStorages": "Maximum linked storages",
+  "rtsbuilding.configuration.maxLinkedStorages.tooltip": "Maximum storage endpoints retained for one player. Batch linking keeps one representative for each AE2 or Refined Storage network.",
   "rtsbuilding.configuration.enableCrossDimensionStorage": "Cross-dimension linked storage",
   "rtsbuilding.configuration.enableCrossDimensionStorage.tooltip": "Allow the cross-dimension storage plugin to wake and access linked storage in other dimensions.",
   "rtsbuilding.configuration.maxCrossDimensionAwakeChunks": "Cross-dimension awake chunks",

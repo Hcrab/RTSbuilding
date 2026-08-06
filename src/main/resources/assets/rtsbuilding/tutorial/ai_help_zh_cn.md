@@ -439,6 +439,7 @@ UI Core 状态快照可能在 `BuilderScreen` 构造期间生成。此时 Screen
 | `mining.ultimineBlocksPerTick` | `32`（1–128） | 单个挖掘任务在一次调度切片中处理的批量目标上限。 |
 | `storage.ae2NetworkRefreshThrottle` | `10`（1–200） | AE2 昂贵网络快照之间的刷新周期数。 |
 | `storage.refinedStorageNetworkRefreshThrottle` | `10`（1–200） | Refined Storage 昂贵网络快照之间的刷新周期数。 |
+| `storage.maxLinkedStorages` | `200`（1–4096） | 每名玩家保留的链接储存端点上限；批量链接会按 AE2/RS 网络去重，并优先保留终端或网格方块作为代表。 |
 | `storage.pageCacheMaxPlayers` | `256`（1–4096） | 储存页面 LRU 缓存保留的玩家数。 |
 | `storage.defaultStoragePageSize` | `90`（1–4096） | 默认页面条目数；实际不会超过最大页大小。 |
 | `storage.maxStoragePageSize` | `180`（1–8192） | 客户端单次页面请求允许的最大条目数。 |

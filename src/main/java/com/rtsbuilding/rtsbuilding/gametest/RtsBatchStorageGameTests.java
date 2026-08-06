@@ -64,4 +64,29 @@ public final class RtsBatchStorageGameTests {
             RtsServerGameTests.stopPlayers(player);
         }
     }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 120)
+    public static void defaultLimitAllowsMoreThanFiftyStorages(GameTestHelper helper) {
+        for (int x = 2; x < 12; x++) {
+            for (int z = 2; z < 8; z++) {
+                helper.setBlock(new BlockPos(x, 1, z), Blocks.BARREL);
+            }
+        }
+
+        ServerPlayer player = RtsServerGameTests.startRtsPlayer(helper, GameType.CREATIVE);
+        try {
+            ServiceRegistry.getInstance().binding().linkStoragesInSelection(
+                    player,
+                    helper.absolutePos(new BlockPos(1, 0, 1)),
+                    helper.absolutePos(new BlockPos(12, 3, 8)),
+                    RtsLinkedStorageResolver.LINK_MODE_BIDIRECTIONAL);
+
+            RtsStorageSession session = ServiceRegistry.getInstance().session().getOrCreate(player);
+            helper.assertValueEqual(60, session.linkedStorageInfo.size(),
+                    "默认服务端上限必须允许一次链接超过旧版 50 个端点");
+            helper.succeed();
+        } finally {
+            RtsServerGameTests.stopPlayers(player);
+        }
+    }
 }

@@ -493,6 +493,8 @@
   "rtsbuilding.configuration.ae2NetworkRefreshThrottle.tooltip": "两次高开销 AE2 网络快照之间间隔的存储缓存刷新周期数。",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle": "精致存储刷新节流",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle.tooltip": "两次高开销 Refined Storage 网络快照之间间隔的存储缓存刷新周期数。",
+  "rtsbuilding.configuration.maxLinkedStorages": "最大链接储存数",
+  "rtsbuilding.configuration.maxLinkedStorages.tooltip": "每名玩家最多保留的储存端点数。批量链接会让同一个 AE2 或精致存储网络只保留一个代表。",
   "rtsbuilding.configuration.enableCrossDimensionStorage": "跨维度连接存储",
   "rtsbuilding.configuration.enableCrossDimensionStorage.tooltip": "允许跨维度存储插件唤醒并访问其他维度中已连接的存储。",
   "rtsbuilding.configuration.maxCrossDimensionAwakeChunks": "跨维度唤醒区块数",

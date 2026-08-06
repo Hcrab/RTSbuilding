@@ -15,6 +15,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.level.entity.EntityTypeTest;
 import net.minecraft.world.item.ItemStack;
@@ -176,25 +178,38 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         player.serverLevel().getEntities(
                 EntityTypeTest.forClass(ItemEntity.class), box,
                 e -> e != null && e.isAlive() && !e.getItem().isEmpty(), drops, queryLimit);
+        List<ExperienceOrb> experienceOrbs = new ArrayList<>(queryLimit);
+        player.serverLevel().getEntities(
+                EntityTypeTest.forClass(ExperienceOrb.class), box,
+                e -> e != null && e.isAlive() && e.getValue() > 0,
+                experienceOrbs, queryLimit);
+        List<Entity> collectibles = mergeNearestCollectibles(target, queryLimit, drops, experienceOrbs);
 
         int processedEntities = 0;
         int processedItems = 0;
         boolean changed = false;
 
-        for (ItemEntity drop : drops) {
+        for (Entity collectible : collectibles) {
             if (processedEntities >= RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK
-                    || processedEntities >= maxUnits
-                    || processedItems >= RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK) {
+                    || processedEntities >= maxUnits) {
                 break;
             }
             if (System.nanoTime() >= deadlineNanos) break;
             processedEntities++;
+
+            if (collectible instanceof ExperienceOrb experienceOrb) {
+                changed |= collectExperienceOrb(player, experienceOrb);
+                continue;
+            }
+
+            ItemEntity drop = (ItemEntity) collectible;
             ItemStack worldStack = drop.getItem();
             if (worldStack.isEmpty()) continue;
+            if (processedItems >= RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK) continue;
 
             int batchSize = Math.min(worldStack.getCount(),
                     RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK - processedItems);
-            if (batchSize <= 0) break;
+            if (batchSize <= 0) continue;
             // 批量插入：一次传入整个 batch，减少存储调用次数
             ItemStack batch = worldStack.copy();
             batch.setCount(batchSize);
@@ -216,6 +231,33 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             }
         }
         return new WorkResult(processedEntities, changed);
+    }
+
+    private static List<Entity> mergeNearestCollectibles(BlockPos target, int limit,
+            List<ItemEntity> drops, List<ExperienceOrb> experienceOrbs) {
+        List<Entity> collectibles = new ArrayList<>(drops.size() + experienceOrbs.size());
+        collectibles.addAll(drops);
+        collectibles.addAll(experienceOrbs);
+        double x = target.getX() + 0.5D;
+        double y = target.getY() + 0.5D;
+        double z = target.getZ() + 0.5D;
+        collectibles.sort((left, right) -> Double.compare(
+                left.distanceToSqr(x, y, z), right.distanceToSqr(x, y, z)));
+        return collectibles.size() <= limit
+                ? collectibles
+                : new ArrayList<>(collectibles.subList(0, limit));
+    }
+
+    private static boolean collectExperienceOrb(ServerPlayer player, ExperienceOrb experienceOrb) {
+        int previousPickupDelay = player.takeXpDelay;
+        player.takeXpDelay = 0;
+        try {
+            // 复用原版拾取入口以保留经验修补等语义；漏斗自身的任务预算负责限制批量处理量。
+            experienceOrb.playerTouch(player);
+        } finally {
+            player.takeXpDelay = previousPickupDelay;
+        }
+        return !experienceOrb.isAlive();
     }
 
     private record WorkResult(int processedUnits, boolean changed) {

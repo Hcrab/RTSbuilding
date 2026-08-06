@@ -6,7 +6,6 @@ import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingBoxSnapshot;
 import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.network.PacketDistributor;
 
@@ -104,16 +103,6 @@ public final class RtsCullingClientState {
 
     public static boolean shouldCull(BlockPos pos) {
         return activeManager != null && activeManager.shouldCullWorldBlock(pos);
-    }
-
-    public static void revealLikelyPlacement(BlockPos clickedPos, Direction face) {
-        if (activeManager == null) {
-            return;
-        }
-        activeManager.revealWorldBlock(clickedPos);
-        if (clickedPos != null && face != null) {
-            activeManager.revealWorldBlock(clickedPos.relative(face));
-        }
     }
 
     public static double distanceAfterCulledBlock(Vec3 origin, Vec3 direction, BlockPos pos, double maxDistance) {

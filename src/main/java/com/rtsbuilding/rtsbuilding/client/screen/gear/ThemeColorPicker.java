@@ -3,7 +3,6 @@ package com.rtsbuilding.rtsbuilding.client.screen.gear;
 import com.mojang.blaze3d.platform.NativeImage;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
-import com.rtsbuilding.rtsbuilding.client.util.RtsTextureRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
@@ -23,11 +22,6 @@ final class ThemeColorPicker {
     private static final int SOURCE_SIZE = 89;
     private static final ResourceLocation WHEEL = ResourceLocation.tryParse(
             "rtsbuilding:textures/gui/color/colorwheel.png");
-    private static final ResourceLocation INDICATOR = ResourceLocation.tryParse(
-            "rtsbuilding:textures/gui/color/color_palette_indicator.png");
-    private static final int INDICATOR_TEXTURE_W = 144;
-    private static final int INDICATOR_TEXTURE_H = 216;
-    private static final int INDICATOR_SOURCE_SIZE = 72;
     private static final int INDICATOR_DRAW_SIZE = 7;
 
     private NativeImage wheelImage;
@@ -71,16 +65,53 @@ final class ThemeColorPicker {
 
         int indicatorX = (int) Math.round(x + WHEEL_SIZE / 2.0D + indicatorOffsetX);
         int indicatorY = (int) Math.round(y + WHEEL_SIZE / 2.0D + indicatorOffsetY);
-        int indicatorV = wheelDragging ? INDICATOR_SOURCE_SIZE * 2 : 0;
-        RtsTextureRenderer.drawTextureHighPrecision(g, INDICATOR,
-                indicatorX - INDICATOR_DRAW_SIZE / 2,
-                indicatorY - INDICATOR_DRAW_SIZE / 2,
-                INDICATOR_DRAW_SIZE, INDICATOR_DRAW_SIZE,
-                0, indicatorV, INDICATOR_SOURCE_SIZE, INDICATOR_SOURCE_SIZE,
-                INDICATOR_TEXTURE_W, INDICATOR_TEXTURE_H, 0, RtsTextureRenderer.NO_TINT);
+        drawColorIndicator(g, indicatorX, indicatorY, indicatorColor(), wheelDragging);
         int valueY = y + Math.round((1.0F - brightness) * (WHEEL_SIZE - 1));
         g.renderOutline(valueX - 2, valueY - 2, VALUE_W + 4, 5,
                 (valueDragging ? SettingsWindowStyle.VALUE : SettingsWindowStyle.LABEL).toArgb());
+    }
+
+    /** 选色圆点内部直接使用最终保存的 ARGB，避免固定贴图颜色误导玩家。 */
+    private static void drawColorIndicator(
+            GuiGraphics g, int centerX, int centerY, int selectedArgb, boolean dragging) {
+        int outline = contrastingOutline(selectedArgb);
+        int left = centerX - INDICATOR_DRAW_SIZE / 2;
+        int top = centerY - INDICATOR_DRAW_SIZE / 2;
+        int[] outerInsets = {2, 1, 0, 0, 0, 1, 2};
+        for (int row = 0; row < INDICATOR_DRAW_SIZE; row++) {
+            int inset = outerInsets[row];
+            g.fill(left + inset, top + row,
+                    left + INDICATOR_DRAW_SIZE - inset, top + row + 1, outline);
+        }
+
+        int innerLeft = centerX - 2;
+        int innerTop = centerY - 2;
+        int[] innerInsets = {1, 0, 0, 0, 1};
+        for (int row = 0; row < innerInsets.length; row++) {
+            int inset = innerInsets[row];
+            g.fill(innerLeft + inset, innerTop + row,
+                    innerLeft + innerInsets.length - inset, innerTop + row + 1, selectedArgb);
+        }
+
+        if (dragging) {
+            g.renderOutline(left - 1, top - 1,
+                    INDICATOR_DRAW_SIZE + 2, INDICATOR_DRAW_SIZE + 2,
+                    SettingsWindowStyle.VALUE.toArgb());
+        }
+    }
+
+    int indicatorColor() {
+        return color().toArgb();
+    }
+
+    private static int contrastingOutline(int argb) {
+        int red = argb >>> 16 & 0xFF;
+        int green = argb >>> 8 & 0xFF;
+        int blue = argb & 0xFF;
+        int luminance = (red * 299 + green * 587 + blue * 114) / 1000;
+        return luminance >= 144
+                ? UiColor.opaque(16, 16, 16).toArgb()
+                : UiColor.opaque(240, 240, 240).toArgb();
     }
 
     boolean pickWheel(double mouseX, double mouseY, int x, int y) {

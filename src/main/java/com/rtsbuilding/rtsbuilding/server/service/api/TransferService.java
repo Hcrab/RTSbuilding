@@ -54,6 +54,13 @@ public interface TransferService {
     void importMenuSlotToLinked(ServerPlayer player, int menuSlot);
 
     /**
+     * 将合成终端底部玩家背包或快捷栏的一个槽位直接存入 linked storage。
+     *
+     * @return 是否至少存入了一个物品
+     */
+    boolean depositCraftTerminalPlayerSlot(ServerPlayer player, int menuSlot);
+
+    /**
      * 从链接存储中提取指定物品到玩家的手持（鼠标托起）位置。
      *
      * @param player    目标玩家

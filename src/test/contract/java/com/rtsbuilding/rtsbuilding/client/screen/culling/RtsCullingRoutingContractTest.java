@@ -118,12 +118,40 @@ class RtsCullingRoutingContractTest {
     }
 
     @Test
-    void placementPacketsRevealLikelyCulledPlacementPositions() throws IOException {
+    void placementPacketsDoNotRevealLikelyCulledPlacementPositions() throws IOException {
+        String state = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingClientState.java"));
         String source = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/network/RtsClientPacketGateway.java"));
 
-        assertTrue(source.contains("RtsCullingClientState.revealLikelyPlacement(hit.getBlockPos(), hit.getDirection())"),
-                "client placement packets should reveal likely placement positions inside culling boxes");
+        assertFalse(state.contains("revealLikelyPlacement"),
+                "placement should not be able to mutate the persistent revealed-block state automatically");
+        assertFalse(source.contains("RtsCullingClientState"),
+                "placement packets should not reveal positions inside culling boxes automatically");
+    }
+
+    @Test
+    void flywheelBlockEntityVisualCullingUsesStorageAdmissionAndStateChangeSync() throws IOException {
+        String mixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/FlywheelBlockEntityStorageMixin.java"));
+        String compat = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsFlywheelCullingCompat.java"));
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingManager.java"));
+        String config = Files.readString(Path.of("src/main/resources/rtsbuilding.mixins.json"));
+
+        assertTrue(mixin.contains("@Pseudo"));
+        assertTrue(mixin.contains("dev.engine_room.flywheel.impl.visualization.storage.BlockEntityStorage"));
+        assertTrue(mixin.contains("willAccept(Lnet/minecraft/world/level/block/entity/BlockEntity;)Z"));
+        assertTrue(mixin.contains("RtsCullingClientState.shouldCull(blockEntity.getBlockPos())"));
+        assertTrue(mixin.contains("require = 1"));
+        assertTrue(config.contains("FlywheelBlockEntityStorageMixin"));
+        assertTrue(compat.contains("visuals.queueRemove(blockEntity)"));
+        assertTrue(compat.contains("visuals.queueAdd(blockEntity)"));
+        assertTrue(compat.contains("private static final class FlywheelAccess"),
+                "optional Flywheel API links must stay behind a delayed-load boundary");
+        assertTrue(manager.contains("RtsFlywheelCullingCompat.syncBox(box)"));
+        assertTrue(manager.contains("RtsFlywheelCullingCompat.syncBlock(pos)"));
     }
 
     @Test

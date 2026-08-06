@@ -149,6 +149,11 @@ public class Config {
             .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
             .defineInRange("storage.refinedStorageNetworkRefreshThrottle", 10, 1, 200);
 
+    public static final ModConfigSpec.IntValue MAX_LINKED_STORAGES = SERVER_BUILDER
+            .comment("Maximum linked storage endpoints retained for one player. Batch linking deduplicates endpoints from the same AE2 or Refined Storage network.")
+            .translation("rtsbuilding.configuration.maxLinkedStorages")
+            .defineInRange("storage.maxLinkedStorages", 200, 1, 4096);
+
     public static final ModConfigSpec.BooleanValue ENABLE_CROSS_DIMENSION_STORAGE = SERVER_BUILDER
             .comment("Allow the cross-dimension storage plugin to wake and access linked storage in other dimensions.")
             .translation("rtsbuilding.configuration.enableCrossDimensionStorage")
@@ -409,6 +414,10 @@ public class Config {
 
     public static int refinedStorageNetworkRefreshThrottle() {
         return REFINED_STORAGE_NETWORK_REFRESH_THROTTLE.getAsInt();
+    }
+
+    public static int maxLinkedStorages() {
+        return MAX_LINKED_STORAGES.getAsInt();
     }
 
     public static int pageCacheMaxPlayers() {

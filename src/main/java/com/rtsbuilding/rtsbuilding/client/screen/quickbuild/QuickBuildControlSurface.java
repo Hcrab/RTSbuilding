@@ -73,7 +73,19 @@ final class QuickBuildControlSurface {
     }
 
     void refreshShapeButtons(QuickBuildUiState state) {
-        this.shapeSignature = shapeSignature(state);
+        String nextSignature = shapeSignature(state);
+        // 选中形状变化不应重建 WindowButton。按钮内部持有悬停/选中/按下动画状态，
+        // 重建会把动画重新初始化为目标值，导致形状切换直接跳色而没有渐变。
+        if (nextSignature.equals(this.shapeSignature)
+                && this.shapeButtons.length == state.shapes.size()) {
+            for (int i = 0; i < this.shapeButtons.length; i++) {
+                QuickBuildUiShapeOption option = state.shapes.get(i);
+                this.shapeButtons[i].active = option.enabled;
+                this.shapeButtons[i].setSelectedVisual(option.selected);
+            }
+            return;
+        }
+        this.shapeSignature = nextSignature;
         this.shapeButtons = new WindowButton[state.shapes.size()];
         for (int i = 0; i < this.shapeButtons.length; i++) {
             QuickBuildUiShapeOption option = state.shapes.get(i);
@@ -636,7 +648,9 @@ final class QuickBuildControlSurface {
     }
 
     private static String shapeSignature(QuickBuildUiState state) {
-        StringBuilder result = new StringBuilder(state.mode.name());
+        // 模式切换只改变选中项和可用状态；这些状态应在原按钮上平滑过渡，
+        // 不能把模式名放进结构签名而触发整组按钮重建。
+        StringBuilder result = new StringBuilder();
         for (QuickBuildUiShapeOption option : state.shapes) {
             result.append('|').append(option.shape.name())
                     .append(':').append(option.enabled);

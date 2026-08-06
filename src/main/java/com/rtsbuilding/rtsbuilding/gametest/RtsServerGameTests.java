@@ -77,6 +77,7 @@ import net.minecraft.server.network.CommonListenerCookie;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.inventory.ChestMenu;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.decoration.ArmorStand;
 import net.minecraft.world.item.Item;
@@ -1426,6 +1427,32 @@ public final class RtsServerGameTests {
                     "Repeating one blueprint submission must leave exactly one durable fact");
             stopPlayers(player);
         });
+    }
+
+    @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 180)
+    public static void funnelAbsorbsExperienceWithoutLinkedStorage(GameTestHelper helper) {
+        BlockPos targetRel = new BlockPos(4, 1, 4);
+        ServerPlayer player = startRtsPlayer(helper, GameType.CREATIVE);
+        RtsAPI.get().bindings().setMode(player, BuilderMode.FUNNEL);
+        RtsAPI.get().bindings().setFunnelEnabled(player, true);
+        RtsAPI.get().bindings().updateFunnelTarget(player, helper.absolutePos(targetRel));
+        RtsStorageSession session = requireSession(helper, player);
+
+        Vec3 orbPos = Vec3.atCenterOf(helper.absolutePos(targetRel));
+        ExperienceOrb orb = new ExperienceOrb(helper.getLevel(), orbPos.x, orbPos.y, orbPos.z, 7);
+        helper.getLevel().addFreshEntity(orb);
+        int experienceBefore = player.totalExperience;
+
+        var result = ServiceRegistry.getInstance().funnel().tickBudgeted(
+                player, session, 1, Long.MAX_VALUE);
+        helper.assertValueEqual(1, result.processedUnits(),
+                "One experience orb must consume one funnel work unit");
+        helper.assertValueEqual(experienceBefore + 7, player.totalExperience,
+                "Funnel experience must be granted directly to its owning player");
+        helper.assertTrue(!orb.isAlive(),
+                "A granted experience orb must be removed from the world exactly once");
+        stopPlayers(player);
+        helper.succeed();
     }
 
     @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 180)

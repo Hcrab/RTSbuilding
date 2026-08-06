@@ -537,6 +537,7 @@ public final class RtsCullingManager {
             return;
         }
         RtsCullingRenderInvalidator.markBlocksDirty(box.min(), box.max());
+        RtsFlywheelCullingCompat.syncBox(box);
     }
 
     private void markBlockDirty(BlockPos pos) {
@@ -544,6 +545,7 @@ public final class RtsCullingManager {
             return;
         }
         RtsCullingRenderInvalidator.markBlocksDirty(pos, pos);
+        RtsFlywheelCullingCompat.syncBlock(pos);
     }
 
     public enum Phase {

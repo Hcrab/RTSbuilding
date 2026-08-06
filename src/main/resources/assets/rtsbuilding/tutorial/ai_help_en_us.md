@@ -431,6 +431,7 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | `mining.ultimineBlocksPerTick` | `32` (1–128) | Batch targets processed by one mining task slice. |
 | `storage.ae2NetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive AE2 snapshots. |
 | `storage.refinedStorageNetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive RS snapshots. |
+| `storage.maxLinkedStorages` | `200` (1–4096) | Linked storage endpoints retained per player; batch linking deduplicates each AE2/RS network and prefers a terminal or grid representative. |
 | `storage.pageCacheMaxPlayers` | `256` (1–4096) | Player entries retained in the page LRU cache. |
 | `storage.defaultStoragePageSize` | `90` (1–4096) | Default entries per page, capped by max page size. |
 | `storage.maxStoragePageSize` | `180` (1–8192) | Maximum entries accepted in one page request. |

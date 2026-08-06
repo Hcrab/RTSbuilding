@@ -5,8 +5,10 @@
   "client": [
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
+    "CreateValueSettingsScreenMixin",
     "CreateWorldshaperRenderHandlerMixin",
     "EmbeddiumWorldSliceMixin",
+    "FlywheelBlockEntityStorageMixin",
     "SodiumLevelSliceMixin",
     "RenderChunkRegionMixin",
     "SimulatedHoneyGlueClientHandlerMixin",

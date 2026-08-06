@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.bindings;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
@@ -90,7 +91,7 @@ public final class RtsLinkedStorageBindingService {
             if (existingRef != null) {
                 session.linkedStorageInfo.remove(existingRef);
             } else {
-                if (session.linkedStorageInfo.size() >= RtsStorageBindings.MAX_LINKED_STORAGES) {
+                if (session.linkedStorageInfo.size() >= Config.maxLinkedStorages()) {
                     return RtsStorageBindings.UpdateResult.none();
                 }
                 session.linkedStorageInfo.add(ref, normalizedMode, 0, backpackUuid, backpackItemId);
@@ -116,8 +117,7 @@ public final class RtsLinkedStorageBindingService {
             return RtsStorageBindings.UpdateResult.none();
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        if (!RtsClaimProtectionService.canInteractBlock(
-                player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+        if (!canLinkStorageTarget(player, pos)) {
             return RtsStorageBindings.UpdateResult.none();
         }
 
@@ -129,7 +129,7 @@ public final class RtsLinkedStorageBindingService {
         Object itemHandler = RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
         Object fluidHandler = RtsLinkedCapabilities.findFluidHandler(player, pos);
         if (itemHandler == null && fluidHandler == null
-                || session.linkedStorageInfo.size() >= RtsStorageBindings.MAX_LINKED_STORAGES) {
+                || session.linkedStorageInfo.size() >= Config.maxLinkedStorages()) {
             return RtsStorageBindings.UpdateResult.none();
         }
 
@@ -143,6 +143,44 @@ public final class RtsLinkedStorageBindingService {
         session.bdCache.fluidHandlerStale = true;
         RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
         return RtsStorageBindings.UpdateResult.refreshFirst(true);
+    }
+
+    /**
+     * 把同一第三方网络的旧代表迁移到更合适的位置，同时完整保留链接模式和优先级。
+     * 调用者必须已经通过轻量网络探针确认新位置属于同一网络；本方法只在权限仍有效时迁移会话引用。
+     */
+    static RtsStorageBindings.UpdateResult replaceNetworkRepresentative(
+            ServerPlayer player, RtsStorageSession session, LinkedStorageRef oldRef, BlockPos newPos) {
+        if (player == null || session == null || oldRef == null || newPos == null
+                || !session.linkedStorageInfo.contains(oldRef) || !canLinkStorageTarget(player, newPos)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        LinkedStorageRef newRef = new LinkedStorageRef(player.serverLevel().dimension(), newPos.immutable());
+        if (oldRef.equals(newRef)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        int index = session.linkedStorageInfo.indexOf(oldRef);
+        if (index < 0) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        if (session.linkedStorageInfo.contains(newRef)) {
+            session.linkedStorageInfo.remove(oldRef);
+        } else {
+            session.linkedStorageInfo.set(index, newRef);
+            session.linkedStorageInfo.setName(
+                    newRef, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), newRef.pos()));
+        }
+        session.bdCache.handlerStale = true;
+        session.bdCache.fluidHandlerStale = true;
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+        return RtsStorageBindings.UpdateResult.refreshFirst(true);
+    }
+
+    /** 批量发现阶段的轻量权限门禁；真正写入时仍会再次调用，避免扫描与提交之间状态变化。 */
+    static boolean canLinkStorageTarget(ServerPlayer player, BlockPos pos) {
+        return player != null && pos != null
+                && RtsClaimProtectionService.canInteractBlock(
+                        player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY);
     }
 
     /** 返回双箱两半共享的稳定身份；普通方块直接返回自身。 */

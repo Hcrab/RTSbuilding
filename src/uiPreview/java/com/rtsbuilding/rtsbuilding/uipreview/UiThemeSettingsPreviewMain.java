@@ -287,9 +287,7 @@ public final class UiThemeSettingsPreviewMain {
         double radius = hsb[1] * WHEEL_SIZE * 0.48D;
         int indicatorX = (int) Math.round(x + WHEEL_SIZE / 2.0D + Math.cos(angle) * radius);
         int indicatorY = (int) Math.round(y + WHEEL_SIZE / 2.0D + Math.sin(angle) * radius);
-        canvas.imageRegion(assets.image("textures/gui/color/color_palette_indicator.png"),
-                new UiRect(0, 0, 72, 72),
-                new UiRect(indicatorX - 3, indicatorY - 3, 7, 7));
+        drawColorIndicator(canvas, selected, indicatorX, indicatorY);
         int valueY = y + Math.round((1.0F - hsb[2]) * (WHEEL_SIZE - 1));
         canvas.stroke(new UiRect(valueX - 2, valueY - 2, VALUE_W + 4, 5),
                 new Color(SettingsWindowStyle.LABEL.toArgb(), true));
@@ -303,6 +301,34 @@ public final class UiThemeSettingsPreviewMain {
                 Math.max(1, x - EDITOR_PICKER_INSET + THEME_EDITOR_W - EDITOR_TEXT_RIGHT_INSET
                         - (valueX + VALUE_W + EDITOR_HEX_GAP)),
                 3, SettingsWindowStyle.HINT);
+    }
+
+    /** 与游戏内调色盘一致：内部色块就是最终保存的选色，描边仅负责可见性。 */
+    private static void drawColorIndicator(
+            BufferedImageUiCanvas canvas, UiColor selected, int centerX, int centerY) {
+        UiColor outline = contrastingOutline(selected);
+        int left = centerX - 3;
+        int top = centerY - 3;
+        int[] outerInsets = {2, 1, 0, 0, 0, 1, 2};
+        for (int row = 0; row < outerInsets.length; row++) {
+            int inset = outerInsets[row];
+            canvas.fill(left + inset, top + row,
+                    outerInsets.length - inset * 2, 1, outline);
+        }
+
+        int innerLeft = centerX - 2;
+        int innerTop = centerY - 2;
+        int[] innerInsets = {1, 0, 0, 0, 1};
+        for (int row = 0; row < innerInsets.length; row++) {
+            int inset = innerInsets[row];
+            canvas.fill(innerLeft + inset, innerTop + row,
+                    innerInsets.length - inset * 2, 1, selected);
+        }
+    }
+
+    private static UiColor contrastingOutline(UiColor color) {
+        int luminance = (color.red() * 299 + color.green() * 587 + color.blue() * 114) / 1000;
+        return luminance >= 144 ? UiColor.opaque(16, 16, 16) : UiColor.opaque(240, 240, 240);
     }
 
     private void drawActions(BufferedImageUiCanvas canvas, int x, int y, int width,

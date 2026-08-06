@@ -477,6 +477,8 @@
   "rtsbuilding.configuration.ae2NetworkRefreshThrottle.tooltip": "兩次高開銷 AE2 網絡快照之間間隔嘅儲存快取刷新週期數。",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle": "精緻儲存刷新節流",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle.tooltip": "兩次高開銷 Refined Storage 網絡快照之間間隔嘅儲存快取刷新週期數。",
+  "rtsbuilding.configuration.maxLinkedStorages": "最大連結儲存數",
+  "rtsbuilding.configuration.maxLinkedStorages.tooltip": "每名玩家最多保留嘅儲存端點數。批次連結會令同一個 AE2 或精緻儲存網絡只保留一個代表。",
   "rtsbuilding.configuration.enableCrossDimensionStorage": "跨維度連結儲存",
   "rtsbuilding.configuration.enableCrossDimensionStorage.tooltip": "允許跨維度儲存插件喚醒並存取其他維度入面已連結嘅儲存。",
   "rtsbuilding.configuration.maxCrossDimensionAwakeChunks": "跨維度喚醒區塊數",

@@ -5,6 +5,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.compat.RtsVanillaCursorHitBridge;
+import com.rtsbuilding.rtsbuilding.client.compat.create.RtsCreateValueSettingsCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
@@ -160,6 +161,7 @@ final class BuilderScreenLifecycleOwner {
         }
 
     void onClose() {
+            RtsCreateValueSettingsCompat.cancelPendingHold();
             screen.storageBatchSelection.deactivate(screen.getMinecraft(), false);
             screen.floatingWindowLayer.clearTransientInputState();
             screen.topBarPanel.clearTransientInputState();
@@ -196,6 +198,7 @@ final class BuilderScreenLifecycleOwner {
 
     void removed() {
 
+            RtsCreateValueSettingsCompat.cancelPendingHold();
             screen.storageBatchSelection.deactivate(screen.getMinecraft(), false);
             screen.aiChatPanel.close();
             screen.floatingWindowLayer.clearTransientInputState();
@@ -225,6 +228,7 @@ final class BuilderScreenLifecycleOwner {
 
             // 机械动力强力胶等第三方预览只读取原版 hitResult；每 tick 同步一次 RTS 自由光标。
             RtsVanillaCursorHitBridge.publish(screen);
+            RtsCreateValueSettingsCompat.tick(screen);
 
             BlockHitResult storageBatchHit = screen.storageBatchSelection.isActive()
                     ? screen.cursorPicker.pickBlockHit()

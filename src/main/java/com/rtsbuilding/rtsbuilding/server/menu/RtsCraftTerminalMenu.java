@@ -168,6 +168,16 @@ public final class RtsCraftTerminalMenu extends RecipeBookMenu<CraftingInput, Cr
     /** 捕获点击前的真实槽位组件与数量，用它判断消耗并只补回实际缺少的部分。 */
     @Override
     public void clicked(int slotId, int button, net.minecraft.world.inventory.ClickType clickType, Player player) {
+        if (button == 0
+                && clickType == net.minecraft.world.inventory.ClickType.QUICK_MOVE
+                && slotId >= INVENTORY_SLOT_START
+                && slotId < HOTBAR_SLOT_END
+                && player instanceof ServerPlayer serverPlayer) {
+            ServiceRegistry.getInstance().transfer()
+                    .depositCraftTerminalPlayerSlot(serverPlayer, slotId);
+            return;
+        }
+
         ItemStack[] before = null;
         ItemStack craftedOutput = ItemStack.EMPTY;
         if (slotId == RESULT_SLOT && player instanceof ServerPlayer serverPlayer) {
