@@ -1,14 +1,23 @@
 package com.rtsbuilding.rtsbuilding.client.screen.canvas;
 
 import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.platform.GlStateManager;
+import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.BufferBuilder;
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiComponent;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.LightTexture;
 import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.block.model.ItemTransforms;
+import net.minecraft.client.renderer.entity.ItemRenderer;
+import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.texture.TextureAtlas;
+import net.minecraft.client.resources.model.BakedModel;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
@@ -27,6 +36,9 @@ import net.minecraft.world.item.ItemStack;
  */
 public final class RtsGuiContext {
     private static final int PRIVATE_BUFFER_SIZE = 256;
+    /** 旧版 GUI 投影的可用深度很窄，物品只需略高于所属面板。 */
+    private static final float ITEM_MODEL_Z = 8.0F;
+    private static final float ITEM_DECORATION_Z = 16.0F;
 
     private final PoseStack pose;
     private final Screen tooltipHost;
@@ -130,16 +142,71 @@ public final class RtsGuiContext {
     }
 
     public void renderItem(ItemStack stack, int x, int y) {
-        Minecraft.getInstance().getItemRenderer().renderAndDecorateItem(stack, x, y);
+        if (stack == null || stack.isEmpty()) return;
+        Minecraft minecraft = Minecraft.getInstance();
+        ItemRenderer renderer = minecraft.getItemRenderer();
+        BakedModel model = renderer.getModel(stack, null, null, 0);
+
+        minecraft.getTextureManager().getTexture(TextureAtlas.LOCATION_BLOCKS)
+                .setFilter(false, false);
+        RenderSystem.setShaderTexture(0, TextureAtlas.LOCATION_BLOCKS);
+        RenderSystem.enableBlend();
+        RenderSystem.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA,
+                GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+        RenderSystem.setShaderColor(1.0F, 1.0F, 1.0F, 1.0F);
+
+        boolean flatLighting = !model.usesBlockLight();
+        pose.pushPose();
+        try {
+            pose.translate(x + 8.0D, y + 8.0D, ITEM_MODEL_Z);
+            pose.scale(16.0F, -16.0F, 16.0F);
+            if (flatLighting) Lighting.setupForFlatItems();
+            renderer.render(stack, ItemTransforms.TransformType.GUI, false, pose,
+                    privateBuffers, LightTexture.FULL_BRIGHT, OverlayTexture.NO_OVERLAY, model);
+            privateBuffers.endBatch();
+            RenderSystem.enableDepthTest();
+        } finally {
+            if (flatLighting) Lighting.setupFor3DItems();
+            pose.popPose();
+        }
     }
 
     public void renderItemDecorations(Font font, ItemStack stack, int x, int y) {
-        Minecraft.getInstance().getItemRenderer().renderGuiItemDecorations(font, stack, x, y);
+        renderItemDecorations(font, stack, x, y, null);
     }
 
     public void renderItemDecorations(Font font, ItemStack stack, int x, int y, String countText) {
-        Minecraft.getInstance().getItemRenderer()
-                .renderGuiItemDecorations(font, stack, x, y, countText);
+        if (stack == null || stack.isEmpty()) return;
+        pose.pushPose();
+        try {
+            pose.translate(0.0D, 0.0D, ITEM_DECORATION_Z);
+            String count = countText != null ? countText
+                    : stack.getCount() == 1 ? null : String.valueOf(stack.getCount());
+            if (count != null) {
+                font.draw(pose, count, x + 17.0F - font.width(count), y + 9.0F,
+                        RtsMainlineTheme.ITEM_DECORATION_TEXT.toArgb());
+            }
+            if (stack.isBarVisible()) {
+                int barWidth = stack.getBarWidth();
+                int barColor = stack.getBarColor();
+                int opaqueBlack = RtsMainlineTheme.ITEM_DURABILITY_BACKGROUND.toArgb();
+                fill(x + 2, y + 13, x + 15, y + 15, opaqueBlack);
+                fill(x + 2, y + 13, x + 2 + barWidth, y + 14,
+                        opaqueBlack | barColor);
+            }
+            Minecraft minecraft = Minecraft.getInstance();
+            float cooldown = minecraft.player == null ? 0.0F
+                    : minecraft.player.getCooldowns()
+                    .getCooldownPercent(stack.getItem(), minecraft.getFrameTime());
+            if (cooldown > 0.0F) {
+                int top = y + (int) Math.floor(16.0F * (1.0F - cooldown));
+                int height = (int) Math.ceil(16.0F * cooldown);
+                fill(x, top, x + 16, top + height,
+                        RtsMainlineTheme.ITEM_COOLDOWN_OVERLAY.toArgb());
+            }
+        } finally {
+            pose.popPose();
+        }
     }
 
     public void renderTooltip(Font font, ItemStack stack, int x, int y) {

@@ -8,10 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Forge 发布线的版本与玩家提示契约。
+ * Forge 1.19.2 Alpha 移植线的版本与玩家提示契约。
  *
- * <p>1.20.1 与 1.21.1 可以同时维护不同补丁号，因此语言文件不硬编码版本；
- * 入门提醒必须从 Forge ModContainer 读取实际版本，并把版本与官网作为两个参数传入。</p>
+ * <p>移植线使用独立的 0.0.x 序列，因此语言文件不硬编码主线版本；入门提醒必须
+ * 从 Forge ModContainer 读取实际版本，并把版本与官网作为两个参数传入。</p>
  */
 class PilotPatchContractTest {
     @Test
@@ -26,8 +26,11 @@ class PilotPatchContractTest {
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
-        assertTrue(properties.lines().anyMatch("mod_version=1.1.6-patch3"::equals),
-                "Forge 构建必须声明精确发布版本");
+        assertTrue(properties.lines().anyMatch("mod_version=0.0.1"::equals),
+                "Forge 1.19.2 Alpha 必须使用独立的 0.0.x 版本");
+        assertTrue(properties.lines().anyMatch(
+                        "mod_archive_name=rtsbuilding-forge-1.19.2"::equals),
+                "JAR 名必须显式包含加载器和 Minecraft 版本");
         assertTrue(config.contains(".define(\"useBlockGhostPreview\", false)"));
         assertTrue(camera.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(camera.contains("\"item.rtsbuilding.rts_control_core\""));

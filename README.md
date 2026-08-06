@@ -73,10 +73,17 @@ point I already cannot play without it.
 - It has received some light gameplay testing on adventure modpacks like Closing
   Song, but not as much as 1.21.1.
 
+#### Minecraft 1.19.2
+
+- This backport is an Alpha line with an independent `0.0.x` version sequence.
+- It is mechanically based on the 1.1.6 feature baseline, but its version number
+  describes the maturity of this port rather than the mainline release.
+
 ### Branches and source builds
 
 - `main`: Minecraft 1.21.1 / NeoForge.
 - `forge-1.20.1`: Minecraft 1.20.1 / Forge.
+- `forge-1.19.2`: Minecraft 1.19.2 / Forge (Alpha, `0.0.x`).
 
 To build from source, install Java 21 and run:
 
@@ -152,10 +159,17 @@ On Windows:
 - 进行过少量游玩测试，比如玩了一阵子落幕曲，但还没有像 1.21.1 那样充分在
   科技整合包中测试。
 
+#### Minecraft 1.19.2
+
+- 该回移版本属于 Alpha，并使用独立的 `0.0.x` 版本序列。
+- 功能强搬基线来自 1.1.6，但模组版本号表达的是该移植线自身的成熟度，
+  不再照搬主线版本号。
+
 ### 分支与源码构建
 
 - `main`：Minecraft 1.21.1 / NeoForge。
 - `forge-1.20.1`：Minecraft 1.20.1 / Forge。
+- `forge-1.19.2`：Minecraft 1.19.2 / Forge（Alpha，`0.0.x`）。
 
 如果要从源码构建，请安装 Java 21，然后运行：
 

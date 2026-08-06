@@ -21,9 +21,12 @@ import java.util.List;
  */
 public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
                                      RtsFloatingWindowInputRouter inputRouter) {
-    /** 底栏数量覆盖位于 Z=300；浮窗必须从更高层开始，并为内部物品/数量预留完整深度。 */
-    private static final float WINDOW_BASE_Z = 400.0F;
-    private static final float WINDOW_Z_STRIDE = 400.0F;
+    /**
+     * 1.19.2 的普通 GUI 前景深度只有约 1000；新版的 400 间隔会让后排窗口直接越界。
+     * 物品模型与数量覆盖已由 RtsGuiContext 压到面板上方 8/16，因此每窗 24 足够隔离。
+     */
+    private static final float WINDOW_BASE_Z = 24.0F;
+    private static final float WINDOW_Z_STRIDE = 24.0F;
 
     public RtsFloatingWindowLayer(RtsWindowPanel... frontToBackWindows) {
         this(new ArrayList<>(List.of(frontToBackWindows)));
@@ -61,8 +64,13 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
             }
         }
 
+        int visibleLayer = 0;
         for (int i = 0; i < this.frontToBackWindows.size(); i++) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
+            if (!window.isVisibleWindow()) {
+                window.setSkipHoverDetection(false);
+                continue;
+            }
             // 对鼠标在区域内但非最顶层的窗口抑制悬浮效果
             boolean shouldSuppress = topmostHoverIdx >= 0 && i != topmostHoverIdx
                     && window.isVisibleWindow()
@@ -70,9 +78,9 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
             window.setSkipHoverDetection(shouldSuppress);
             g.pose().pushPose();
             try {
-                // renderItem 和数量覆盖会在当前 Pose 上继续增加约 150/300 Z。
+                // 只按可见窗口分配紧凑深度带，隐藏窗口不能消耗旧版有限的 GUI 深度。
                 // 每个浮窗使用独立深度带，后面的窗口背景才能真正遮住前一个窗口和底栏物品。
-                g.pose().translate(0.0F, 0.0F, windowLayerZ(i));
+                g.pose().translate(0.0F, 0.0F, windowLayerZ(visibleLayer));
                 window.render(g, mouseX, mouseY, 0.0F);
                 // 必须在恢复 Pose 前提交，确保缓冲顶点携带本窗口的真实深度。
                 g.flush();
@@ -80,6 +88,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
                 g.pose().popPose();
                 window.setSkipHoverDetection(false);
             }
+            visibleLayer++;
         }
     }
 
@@ -101,8 +110,9 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
                 g.pose().pushPose();
                 try {
                     // 覆盖层位于所属窗口深度带顶部，避免提示再次被窗口内物品遮挡。
+                    int visibleLayer = visibleLayerIndex(i);
                     g.pose().translate(0.0F, 0.0F,
-                            windowLayerZ(i) + WINDOW_Z_STRIDE - 1.0F);
+                            windowLayerZ(visibleLayer) + WINDOW_Z_STRIDE - 1.0F);
                     window.renderOverlays(g, mouseX, mouseY);
                     g.flush();
                 } finally {
@@ -115,6 +125,14 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
 
     private static float windowLayerZ(int index) {
         return WINDOW_BASE_Z + Math.max(0, index) * WINDOW_Z_STRIDE;
+    }
+
+    private int visibleLayerIndex(int inclusiveIndex) {
+        int visible = 0;
+        for (int i = 0; i <= inclusiveIndex && i < this.frontToBackWindows.size(); i++) {
+            if (this.frontToBackWindows.get(i).isVisibleWindow()) visible++;
+        }
+        return Math.max(0, visible - 1);
     }
 
     public RtsWindowPanel.ResizeCursor resizeCursorAt(double mouseX, double mouseY) {

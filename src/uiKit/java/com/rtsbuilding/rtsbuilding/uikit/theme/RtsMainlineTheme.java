@@ -64,6 +64,10 @@ public final class RtsMainlineTheme {
     public static final UiColor TOOLTIP_BACKGROUND = new UiColor(0xF010141A);
     public static final UiColor TOOLTIP_BORDER = new UiColor(0xFF6C839A);
     public static final UiColor SLOT_COUNT_BACKGROUND = new UiColor(0xB0000000);
+    /** 原版物品装饰颜色也由 Kit 命名，避免平台适配器重新拥有散落色值。 */
+    public static final UiColor ITEM_DECORATION_TEXT = new UiColor(0xFFFFFFFF);
+    public static final UiColor ITEM_DURABILITY_BACKGROUND = new UiColor(0xFF000000);
+    public static final UiColor ITEM_COOLDOWN_OVERLAY = new UiColor(0x7FFFFFFF);
 
     /** 选中插值只叠加很薄的绿色，避免改变现有纹理的识别度。 */
     public static final UiColor SELECTION_ANIMATION_OVERLAY = new UiColor(0x4A7CCB93);

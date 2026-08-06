@@ -43,10 +43,11 @@ class UiProductionAdapterContractTest {
     @Test
     void 浮动窗口使用独立深度带遮住底栏物品与数量() throws IOException {
         String layer = floatingLayerSource();
-        assertTrue(layer.contains("WINDOW_BASE_Z = 400.0F"));
-        assertTrue(layer.contains("WINDOW_Z_STRIDE = 400.0F"));
-        assertTrue(layer.contains("windowLayerZ(i)"));
-        assertTrue(layer.contains("windowLayerZ(i) + WINDOW_Z_STRIDE - 1.0F"));
+        assertTrue(layer.contains("WINDOW_BASE_Z = 24.0F"));
+        assertTrue(layer.contains("WINDOW_Z_STRIDE = 24.0F"));
+        assertTrue(layer.contains("windowLayerZ(visibleLayer)"));
+        assertTrue(layer.contains("visibleLayerIndex(i)"));
+        assertTrue(layer.contains("+ WINDOW_Z_STRIDE - 1.0F"));
         assertTrue(layer.contains("g.pose().pushPose()"));
         assertTrue(layer.contains("g.pose().popPose()"));
     }

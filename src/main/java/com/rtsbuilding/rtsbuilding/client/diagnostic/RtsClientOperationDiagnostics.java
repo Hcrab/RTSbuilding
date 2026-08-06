@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceIds;
 import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsOperationTerminalPayload;
 import net.minecraft.client.Minecraft;
+import net.minecraft.SharedConstants;
 import net.minecraftforge.fml.ModList;
 
 import java.util.Locale;
@@ -156,8 +157,8 @@ public final class RtsClientOperationDiagnostics {
                 .orElse("unknown");
         info("ENV", 0L, 0,
                 "mod", version,
-                "minecraft", "1.21.1",
-                "loader", "neoforge",
+                "minecraft", SharedConstants.getCurrentVersion().getName(),
+                "loader", "forge",
                 "locale", Locale.getDefault().toLanguageTag());
     }
 

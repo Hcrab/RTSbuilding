@@ -1610,6 +1610,10 @@ public final class ClientRtsController {
     }
 
     public void openGuiBinding(int index) {
+        if (!this.storageStateManager.hasGuiBinding(index)) {
+            return;
+        }
+        beginRemoteMenuOpenGrace();
         this.storageStateManager.openGuiBinding(index);
     }
 
