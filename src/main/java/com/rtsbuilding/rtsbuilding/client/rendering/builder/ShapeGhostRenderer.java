@@ -71,6 +71,12 @@ public final class ShapeGhostRenderer {
             sawConfirmedRangeWorkArea |= isConfirmedRangeWorkArea(preview);
             renderGhostPreview(minecraft, preview, poseStack, lineBuffer, fillBuffer, null);
         }
+        // Quick Build 的智能填充与便捷拆除由各自客户端会话生成预览，
+        // 不占用通用形状控制器，必须在这里显式合入真实世界渲染入口。
+        ShapeDataRecords.GhostPreview smartFillPreview = screen.getSmartFillGhostPreview();
+        renderGhostPreview(minecraft, smartFillPreview, poseStack, lineBuffer, fillBuffer, null);
+        ShapeDataRecords.GhostPreview conveniencePreview = screen.getConvenienceDestroyGhostPreview();
+        renderGhostPreview(minecraft, conveniencePreview, poseStack, lineBuffer, fillBuffer, null);
         ShapeDataRecords.GhostPreview currentPreview = screen.getShapeGhostPreview();
         sawConfirmedDestructiveWorkArea |= isConfirmedDestructiveWorkArea(currentPreview);
         sawConfirmedRangeWorkArea |= isConfirmedRangeWorkArea(currentPreview);

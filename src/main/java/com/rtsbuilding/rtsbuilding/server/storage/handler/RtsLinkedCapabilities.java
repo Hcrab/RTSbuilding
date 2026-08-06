@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -28,10 +29,18 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
     public static IItemHandler findHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.getLevel().hasChunkAt(pos)) {
+        return player == null ? null : findHandlerInLevel(player.getLevel(), pos);
+    }
+
+    /**
+     * 在明确目标维度中探测物品处理器。跨维存储已由调用方完成会话、权限与唤醒校验；
+     * 此处只负责从已加载区块取得方块实体能力。
+     */
+    public static IItemHandler findHandlerInLevel(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.hasChunkAt(pos)) {
             return null;
         }
-        var blockEntity = player.getLevel().getBlockEntity(pos);
+        var blockEntity = level.getBlockEntity(pos);
         if (blockEntity == null) {
             return null;
         }
@@ -53,25 +62,42 @@ public final class RtsLinkedCapabilities {
      * 再回退到直接/侧面能力扫描。
      */
     public static IItemHandler findLinkedItemHandler(ServerPlayer player, BlockPos pos) {
-        IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, pos);
+        return player == null ? null : findLinkedItemHandler(player, player.getLevel(), pos);
+    }
+
+    /**
+     * 在明确目标维度中探测链接物品处理器，保留 AE2/RS 网络端点优先级。
+     */
+    public static IItemHandler findLinkedItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        if (player == null || level == null || pos == null) {
+            return null;
+        }
+        IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, level, pos);
         if (ae2Network != null) {
             return ae2Network;
         }
-        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, pos);
+        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, level, pos);
         if (refinedStorageNetwork != null) {
             return refinedStorageNetwork;
         }
-        return findHandler(player, pos);
+        return findHandlerInLevel(level, pos);
     }
 
     /**
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
     public static IFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.getLevel().hasChunkAt(pos)) {
+        return player == null ? null : findFluidHandlerInLevel(player.getLevel(), pos);
+    }
+
+    /**
+     * 在明确目标维度中探测流体处理器，不创建区块加载票据。
+     */
+    public static IFluidHandler findFluidHandlerInLevel(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.hasChunkAt(pos)) {
             return null;
         }
-        var blockEntity = player.getLevel().getBlockEntity(pos);
+        var blockEntity = level.getBlockEntity(pos);
         if (blockEntity == null) {
             return null;
         }

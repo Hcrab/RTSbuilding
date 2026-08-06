@@ -65,7 +65,7 @@ public final class RtsClientUiStateStore {
     }
 
     /** 当前数据版本，用于未来兼容性迁移 */
-    static final int CURRENT_STORE_VERSION = 4;
+    static final int CURRENT_STORE_VERSION = 6;
 
     /** 持久化配置文件路径：config/rts_building/rtsbuilding-client-ui.rtsd（二进制编译格式） */
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
@@ -174,6 +174,19 @@ public final class RtsClientUiStateStore {
             }
             state.sound.placementSoundsEnabled = true;
             version = 4;
+        }
+        if (version < 5) {
+            if (state.storage == null) state.storage = new UiState.StorageState();
+            state.storage.craftTerminalRows = 5;
+            state.storage.craftTerminalSearchPinned = true;
+            state.storage.craftTerminalSearchMode = "STANDARD";
+            state.storage.craftTerminalSearch = "";
+            version = 5;
+        }
+        if (version < 6) {
+            state.quickBuild.smartFillMaxBlocks = 512;
+            state.quickBuild.smartFillDiameter = 16;
+            version = 6;
         }
         if (version < CURRENT_STORE_VERSION) {
             state._storeVersion = CURRENT_STORE_VERSION;
@@ -297,6 +310,45 @@ public final class RtsClientUiStateStore {
         CACHE.markDirty();
     }
 
+    public static synchronized int getCraftTerminalRows() {
+        return Math.max(2, Math.min(6, CACHE.get().storage.craftTerminalRows));
+    }
+
+    public static synchronized void setCraftTerminalRows(int rows) {
+        CACHE.get().storage.craftTerminalRows = Math.max(2, Math.min(6, rows));
+        CACHE.markDirty();
+    }
+
+    public static synchronized boolean isCraftTerminalSearchPinned() {
+        return CACHE.get().storage.craftTerminalSearchPinned;
+    }
+
+    public static synchronized void setCraftTerminalSearchPinned(boolean pinned) {
+        CACHE.get().storage.craftTerminalSearchPinned = pinned;
+        CACHE.markDirty();
+    }
+
+    public static synchronized String getCraftTerminalSearchMode() {
+        String mode = CACHE.get().storage.craftTerminalSearchMode;
+        return mode == null || mode.isBlank() ? "STANDARD" : mode;
+    }
+
+    public static synchronized void setCraftTerminalSearchMode(String mode) {
+        CACHE.get().storage.craftTerminalSearchMode = mode == null ? "STANDARD" : mode;
+        CACHE.markDirty();
+    }
+
+    public static synchronized String getCraftTerminalSearch() {
+        String search = CACHE.get().storage.craftTerminalSearch;
+        return search == null ? "" : search;
+    }
+
+    public static synchronized void setCraftTerminalSearch(String search) {
+        String safe = search == null ? "" : search;
+        CACHE.get().storage.craftTerminalSearch = safe.substring(0, Math.min(128, safe.length()));
+        CACHE.markDirty();
+    }
+
     /** RTS 客户端音效总开关。 */
     public static synchronized boolean isRtsSoundsEnabled() {
         return CACHE.get().sound.rtsSoundsEnabled;
@@ -389,6 +441,8 @@ public final class RtsClientUiStateStore {
         public static final class QuickBuildState {
             public boolean quickBuildOpen = true;
             public String quickBuildMode = "BUILD";
+            public int smartFillMaxBlocks = 512;
+            public int smartFillDiameter = 16;
 
             /** BUILD 模式独立状态 */
             public BuildingState building = new BuildingState();
@@ -424,6 +478,14 @@ public final class RtsClientUiStateStore {
         public static final class MiningState {
             public int ultimineLimit = 64;
             public String areaMineShape = "CHAIN";
+            public String catalogPage = "SHAPES";
+            public String convenienceTool = "REPEAT_BOX";
+            public int convenienceSizeX = 3;
+            public int convenienceSizeY = 3;
+            public int convenienceSizeZ = 3;
+            public int convenienceChunkUp = 0;
+            public int convenienceChunkDown = 15;
+            public int convenienceTreeMaxBlocks = 256;
 
             // ===== 范围破坏模式独立状态 =====
             public String destroyFillMode = "FILL";
@@ -470,6 +532,10 @@ public final class RtsClientUiStateStore {
             public boolean storageAutoRefreshEnabled = true;
             public boolean showStorageReadyPopup = false;
             public boolean showWorkflowPanel = true;
+            public int craftTerminalRows = 5;
+            public boolean craftTerminalSearchPinned = true;
+            public String craftTerminalSearchMode = "STANDARD";
+            public String craftTerminalSearch = "";
         }
 
         /** 战斗 / 工具保护状态。 */
@@ -538,6 +604,10 @@ public final class RtsClientUiStateStore {
             // quickBuild — building
             clean.quickBuild.quickBuildOpen = this.quickBuild.quickBuildOpen;
             clean.quickBuild.quickBuildMode = sanitizeEnum(this.quickBuild.quickBuildMode, "BUILD");
+            clean.quickBuild.smartFillMaxBlocks = Math.max(1,
+                    Math.min(1024, this.quickBuild.smartFillMaxBlocks));
+            clean.quickBuild.smartFillDiameter = Math.max(3,
+                    Math.min(32, this.quickBuild.smartFillDiameter));
             clean.quickBuild.building.buildShape = sanitizeEnum(this.quickBuild.building.buildShape, "BLOCK");
             clean.quickBuild.building.buildFillMode = sanitizeEnum(this.quickBuild.building.buildFillMode, "FILL");
             clean.quickBuild.building.buildRotationDegrees = Math.floorMod(this.quickBuild.building.buildRotationDegrees, 360);
@@ -546,6 +616,22 @@ public final class RtsClientUiStateStore {
             // quickBuild — mining
             clean.quickBuild.mining.ultimineLimit = Math.max(1, Math.min(256, this.quickBuild.mining.ultimineLimit));
             clean.quickBuild.mining.areaMineShape = sanitizeEnum(this.quickBuild.mining.areaMineShape, "CHAIN");
+            clean.quickBuild.mining.catalogPage = sanitizeEnum(
+                    this.quickBuild.mining.catalogPage, "SHAPES");
+            clean.quickBuild.mining.convenienceTool = sanitizeEnum(
+                    this.quickBuild.mining.convenienceTool, "REPEAT_BOX");
+            clean.quickBuild.mining.convenienceSizeX = Math.max(1,
+                    Math.min(64, this.quickBuild.mining.convenienceSizeX));
+            clean.quickBuild.mining.convenienceSizeY = Math.max(1,
+                    Math.min(128, this.quickBuild.mining.convenienceSizeY));
+            clean.quickBuild.mining.convenienceSizeZ = Math.max(1,
+                    Math.min(64, this.quickBuild.mining.convenienceSizeZ));
+            clean.quickBuild.mining.convenienceChunkUp = Math.max(0,
+                    Math.min(128, this.quickBuild.mining.convenienceChunkUp));
+            clean.quickBuild.mining.convenienceChunkDown = Math.max(0,
+                    Math.min(128, this.quickBuild.mining.convenienceChunkDown));
+            clean.quickBuild.mining.convenienceTreeMaxBlocks = Math.max(1,
+                    Math.min(8192, this.quickBuild.mining.convenienceTreeMaxBlocks));
             clean.quickBuild.mining.destroyFillMode = sanitizeEnum(this.quickBuild.mining.destroyFillMode, "FILL");
             clean.quickBuild.mining.destroyRotationDegrees = Math.floorMod(this.quickBuild.mining.destroyRotationDegrees, 360);
             clean.quickBuild.mining.destroyLineConnected = this.quickBuild.mining.destroyLineConnected;
@@ -585,6 +671,12 @@ public final class RtsClientUiStateStore {
             clean.storage.storageAutoRefreshEnabled = this.storage.storageAutoRefreshEnabled;
             clean.storage.showStorageReadyPopup = this.storage.showStorageReadyPopup;
             clean.storage.showWorkflowPanel = this.storage.showWorkflowPanel;
+            clean.storage.craftTerminalRows = Math.max(2, Math.min(6, this.storage.craftTerminalRows));
+            clean.storage.craftTerminalSearchPinned = this.storage.craftTerminalSearchPinned;
+            clean.storage.craftTerminalSearchMode = sanitizeCraftTerminalSearchMode(
+                    this.storage.craftTerminalSearchMode);
+            String terminalSearch = this.storage.craftTerminalSearch == null ? "" : this.storage.craftTerminalSearch;
+            clean.storage.craftTerminalSearch = terminalSearch.substring(0, Math.min(128, terminalSearch.length()));
             // combat
             clean.combat.toolProtectionEnabled = this.combat.toolProtectionEnabled;
             clean.combat.damageSoundEnabled = this.combat.damageSoundEnabled;
@@ -651,6 +743,14 @@ public final class RtsClientUiStateStore {
                 return fallback;
             }
             return value.trim().toUpperCase(Locale.ROOT);
+        }
+
+        private static String sanitizeCraftTerminalSearchMode(String value) {
+            String normalized = sanitizeEnum(value, "STANDARD");
+            return switch (normalized) {
+                case "SYNC_TO_JEI", "BIDIRECTIONAL" -> normalized;
+                default -> "STANDARD";
+            };
         }
 
         /**

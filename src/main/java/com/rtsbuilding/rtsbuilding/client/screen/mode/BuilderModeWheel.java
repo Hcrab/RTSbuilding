@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsGuiVectorRenderer;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.uikit.theme.ModeWheelStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import net.minecraft.Util;
 import net.minecraft.client.gui.Font;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
@@ -190,10 +191,10 @@ public final class BuilderModeWheel {
                 background);
 
         TopBarTypes.TopBarButtonId iconId = modeButtonId(mode);
-        TopBarIconRenderer.VisualState textureState = current
-                ? TopBarIconRenderer.VisualState.ACTIVE
-                : hovered ? TopBarIconRenderer.VisualState.HOVER
-                : TopBarIconRenderer.VisualState.INACTIVE;
+        UiTextureState textureState = current
+                ? UiTextureState.ACTIVE
+                : hovered ? UiTextureState.HOVER
+                : UiTextureState.INACTIVE;
         ResourceLocation texture = TopBarIconRenderer.texture(iconId, textureState);
         if (texture != null) {
             int iconSize = Math.max(12, Math.round(ICON_SIZE * scale));

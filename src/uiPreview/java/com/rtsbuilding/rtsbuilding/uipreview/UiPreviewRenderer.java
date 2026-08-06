@@ -30,24 +30,10 @@ public final class UiPreviewRenderer {
         return new UiPreviewResult(canvas, layout);
     }
 
-    /**
-     * 世界不属于通用 2D Canvas；这里仅画明确可识别的无头棋盘，帮助审阅透明度，
-     * 不复制参考截图，也不冒充 Minecraft 世界渲染。
-     */
+    /** 使用固定 Minecraft 实景帮助审阅面板透明度和真实环境中的色彩对比。 */
     private static void drawWorldBoundary(BufferedImageUiCanvas canvas, UiPreviewLayout layout) {
-        canvas.clear(UiMainlinePreviewStyle.color(0xFF17202A));
-        canvas.fill(new UiRect(0, layout.topBar().bottom(), layout.screen().getWidth(),
-                Math.max(0, layout.bottomBar().getY() - layout.topBar().bottom())),
-                UiMainlinePreviewStyle.color(0xFF223746));
-        int cell = 48;
-        for (int y = (int) layout.topBar().bottom(); y < layout.bottomBar().getY(); y += cell) {
-            for (int x = 0; x < layout.screen().getWidth(); x += cell) {
-                if (((x / cell) + (y / cell)) % 2 == 0) {
-                    canvas.fill(new UiRect(x, y, cell, cell),
-                            UiMainlinePreviewStyle.color(0xFF294354));
-                }
-            }
-        }
+        canvas.clear(UiMainlinePreviewStyle.color(0xFF000000));
+        UiPreviewWorldBackground.selected().render(canvas, layout.screen());
     }
 
     private static void drawDebugOverlay(BufferedImageUiCanvas canvas, UiPreviewLayout layout) {

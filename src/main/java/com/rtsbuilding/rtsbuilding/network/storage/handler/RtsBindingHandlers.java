@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.network.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.data.RtsDimensionKeys;
 import net.minecraft.server.level.ServerPlayer;
 import com.rtsbuilding.rtsbuilding.forgecompat.network.IPayloadContext;
 
@@ -47,10 +48,24 @@ public final class RtsBindingHandlers {
         });
     }
 
+    public static void handleBatchLinkStorage(
+            com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBatchLinkStoragePayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                ServiceRegistry.getInstance().binding().linkStorageBatch(
+                        serverPlayer, payload.first(), payload.second(), payload.linkMode());
+            }
+        });
+    }
+
     public static void handleUnlinkStorage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUnlinkStoragePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().binding().unlinkStorage(serverPlayer, payload.pos());
+                ServiceRegistry.getInstance().binding().unlinkStorage(
+                        serverPlayer,
+                        RtsDimensionKeys.create(payload.dimension()),
+                        payload.pos());
             }
         });
     }
@@ -60,6 +75,7 @@ public final class RtsBindingHandlers {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().binding().updateLinkedStorageSettings(
                         serverPlayer,
+                        RtsDimensionKeys.create(payload.dimension()),
                         payload.pos(),
                         payload.linkMode(),
                         payload.priority());

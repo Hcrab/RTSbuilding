@@ -317,7 +317,7 @@ public final class RtsPageCore {
                 RtsLinkedStorageResolver.hasAnyStorage(player, session),
                 RtsLinkedStorageResolver.buildAnyStorageSummary(player, session),
                 linkedPackedPositions,
-                linkedRefs.names(), linkedRefs.modes(), linkedRefs.priorities(),
+                linkedRefs.dimensions(), linkedRefs.names(), linkedRefs.modes(), linkedRefs.priorities(),
                 linkedRefs.iconItemIds(), linkedRefs.worldAvailable(),
                 safePage, totalPages, totalEntries,
                 totalCountsSnapshot,

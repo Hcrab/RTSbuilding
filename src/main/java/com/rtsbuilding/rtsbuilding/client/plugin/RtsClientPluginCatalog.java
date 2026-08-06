@@ -25,6 +25,7 @@ public final class RtsClientPluginCatalog {
             id("blueprint_plugin"),
             id("range_culling_plugin"),
             id("field_deployment_plugin"),
+            id("cross_dimension_storage_plugin"),
             id("range_extension_i"),
             id("range_extension_ii"),
             id("range_extension_iii"),

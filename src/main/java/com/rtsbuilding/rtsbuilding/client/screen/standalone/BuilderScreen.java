@@ -8,6 +8,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.compat.create.RtsCreateValueSettingsCompat;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsClientPathfinding;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
@@ -23,6 +24,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.funnel.FunnelBufferPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.gear.GearMenuPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.gear.ThemeSettingsPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.guide.RtsAiChatPanel;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiContext;
@@ -49,6 +51,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
+import com.rtsbuilding.rtsbuilding.client.screen.storage.StorageBatchSelectionSession;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
@@ -139,6 +142,8 @@ public class BuilderScreen extends Screen {
     private final QuickBuildPanel quickBuildPanel = new QuickBuildPanel();
     /** Windowed view for inspecting and unlinking bound storage blocks. */
     private final LinkedStoragePanel linkedStoragePanel = new LinkedStoragePanel();
+    /** Link Storage 模式下的批量框选会话；服务端仍会在确认时重新扫描真实储存端点。 */
+    private final StorageBatchSelectionSession storageBatchSelection = new StorageBatchSelectionSession();
     /** Windowed blueprint capture/placement controls. */
     private final BlueprintWindowPanel blueprintWindowPanel = new BlueprintWindowPanel();
     /** Windowed craft quantity picker. */
@@ -175,6 +180,8 @@ public class BuilderScreen extends Screen {
     private final RtsAiChatPanel aiChatPanel = new RtsAiChatPanel();
     /** Gear (settings) menu panel with configuration toggles and sliders. */
     private final GearMenuPanel gearMenuPanel = new GearMenuPanel();
+    /** 全局 UI 主题编辑器；作为设置目录的子窗口进入同一浮窗层。 */
+    private final ThemeSettingsPanel themeSettingsPanel = new ThemeSettingsPanel();
     /** Client-only persisted UI preferences for this screen. */
     private final RtsScreenUiStateManager uiStateManager;
     /** Lightweight overlay/popup renderer split out from the main screen. */
@@ -262,6 +269,7 @@ public class BuilderScreen extends Screen {
                 this.blueprintNameWindowPanel,
                 this.craftQuantityWindowPanel,
                 this.gearMenuPanel,
+                this.themeSettingsPanel,
                 this.aiChatPanel,
                 this.guidePanel,
                 this.quickBuildPanel,
@@ -288,6 +296,8 @@ public class BuilderScreen extends Screen {
         this.guidePanel.init(this, this.controller);
         this.aiChatPanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
+        this.themeSettingsPanel.init(this, this.controller);
+        this.gearMenuPanel.bindThemeSettingsPanel(this.themeSettingsPanel);
         this.blueprintWindowPanel.init(this, this.controller);
         this.blueprintNameWindowPanel.init(this, this.controller);
         this.blueprintMaterialWindowPanel.init(this, this.controller);
@@ -517,6 +527,7 @@ public class BuilderScreen extends Screen {
      */
     @Override
     public void onClose() {
+        RtsCreateValueSettingsCompat.cancelPendingHold();
         this.floatingWindowLayer.clearTransientInputState();
         this.topBarPanel.clearTransientInputState();
         this.shapeController.clearShapeBuildSession();
@@ -553,6 +564,7 @@ public class BuilderScreen extends Screen {
     @Override
     public void removed() {
         super.removed();
+        RtsCreateValueSettingsCompat.cancelPendingHold();
         this.aiChatPanel.close();
         this.floatingWindowLayer.clearTransientInputState();
         this.topBarPanel.clearTransientInputState();
@@ -583,6 +595,13 @@ public class BuilderScreen extends Screen {
      */
     @Override
     public void tick() {
+        RtsCreateValueSettingsCompat.tick(this);
+        BlockHitResult storageBatchHit = this.storageBatchSelection.isActive()
+                ? this.cursorPicker.pickBlockHit()
+                : null;
+        this.storageBatchSelection.update(
+                this.controller.getMode(),
+                storageBatchHit == null ? null : storageBatchHit.getBlockPos());
         super.tick();
         // 每 tick 写入脏状态（无脏时零开销）
         this.uiStateManager.flush();
@@ -768,6 +787,13 @@ public class BuilderScreen extends Screen {
         if (this.bottomPanel.handleClick(mouseX, mouseY)) {
             return true;
         }
+        if (handleStorageBatchWorldClick(mouseX, mouseY)) {
+            return true;
+        }
+        if (isWorldArea(mouseX, mouseY) && cancelQuickBuildSmartFillAnchor()) {
+            // 智能填充已锚定时，左键只负责取消，避免误拆洞壁。
+            return true;
+        }
         if (this.pendingGuiBindSlot >= 0 && isWorldArea(mouseX, mouseY)) {
             BlockHitResult hit = this.cursorPicker.pickBlockHit();
             if (hit != null) {
@@ -825,6 +851,9 @@ public class BuilderScreen extends Screen {
      * and pan/pick mouse actions.
      */
     private boolean handleWorldClickActions(double mouseX, double mouseY, int button) {
+        if (RtsCreateValueSettingsCompat.handleWorldClick(this, mouseX, mouseY, button)) {
+            return true;
+        }
         if (handleAdvancedShapeHandleClick(mouseX, mouseY, button)) {
             return true;
         }
@@ -1094,6 +1123,9 @@ public class BuilderScreen extends Screen {
         if (!isWorldArea(mouseX, mouseY)) {
             return true;
         }
+        if (handleStorageBatchWorldClick(mouseX, mouseY)) {
+            return true;
+        }
         if (this.cullingManager.isManagementMode()) {
             return mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0
                     ? handleRangeCullingWorldAction(mouseX, mouseY)
@@ -1117,6 +1149,9 @@ public class BuilderScreen extends Screen {
         }
         boolean forcePlace = hasShiftDown();
         boolean rangeDestroyMode = isQuickBuildRangeDestroyMode();
+        if (isQuickBuildSmartFillMode()) {
+            return handleQuickBuildSmartFillClick();
+        }
         if ((mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0)
                 && !rangeDestroyMode
                 && isAdvancedShapeMode()
@@ -1413,6 +1448,11 @@ public class BuilderScreen extends Screen {
                 && this.shapeController.scrollAdvancedRangeDestroyHandle(scrollY, isAltDown())) {
             return true;
         }
+        if (this.storageBatchSelection.isActive()
+                && isWorldArea(mouseX, mouseY)
+                && this.storageBatchSelection.adjustHeight(this.minecraft, scrollY, isAltDown())) {
+            return true;
+        }
         if (isInsideBottomPanel(mouseX, mouseY)) {
             return this.bottomPanel.handleMouseScrolled(mouseX, mouseY, scrollY);
         }
@@ -1466,6 +1506,7 @@ public class BuilderScreen extends Screen {
         if (handleOverlayKeys(keyCode, scanCode, modifiers)) return true;
         if (handleBlueprintKeys(keyCode, scanCode, modifiers)) return true;
         if (handleHomeSelectionKey(keyCode)) return true;
+        if (handleStorageBatchSelectionKey(keyCode)) return true;
         if (handleSelectionBoxKeys(keyCode, scanCode, modifiers)) return true;
         // 鼠标正悬浮快捷格时，Pin 是明确的 UI 操作。它必须先于世界/相机按键，
         // 否则玩家把 Pin 改绑成 A 等常用键后会被前面的世界输入提前消费。
@@ -2204,9 +2245,79 @@ public class BuilderScreen extends Screen {
     public boolean isQuickBuildRangeDestroyMode() {
         return isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyMode();
     }
+
+    /** Ctrl 进入/退出批量储存框选；Enter 确认，Esc 先清框再退出。 */
+    private boolean handleStorageBatchSelectionKey(int keyCode) {
+        if (isSearchFocused()) {
+            return false;
+        }
+        if (keyCode == GLFW.GLFW_KEY_LEFT_CONTROL
+                || keyCode == GLFW.GLFW_KEY_RIGHT_CONTROL) {
+            if (this.controller.getMode() != BuilderMode.LINK_STORAGE
+                    && !this.storageBatchSelection.isActive()) {
+                return false;
+            }
+            this.storageBatchSelection.toggle(this.minecraft, this.controller.getMode());
+            return true;
+        }
+        if (!this.storageBatchSelection.isActive()) {
+            return false;
+        }
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            return this.storageBatchSelection.cancelOrExit(this.minecraft);
+        }
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            return this.storageBatchSelection.confirm(this.minecraft);
+        }
+        return false;
+    }
+
+    /** 批量框选启用后，世界点击只改变框选状态，不再触发单个储存绑定。 */
+    private boolean handleStorageBatchWorldClick(double mouseX, double mouseY) {
+        if (!this.storageBatchSelection.isActive()
+                || this.controller.getMode() != BuilderMode.LINK_STORAGE
+                || !isWorldArea(mouseX, mouseY)) {
+            return false;
+        }
+        BlockHitResult hit = this.cursorPicker.pickBlockHit();
+        return this.storageBatchSelection.click(
+                this.minecraft, hit == null ? null : hit.getBlockPos());
+    }
+
+    public StorageBatchSelectionSession getStorageBatchSelection() {
+        return this.storageBatchSelection;
+    }
+    public boolean isQuickBuildSmartFillMode() {
+        return isQuickBuildOpen() && this.quickBuildPanel.isSmartFillMode();
+    }
+    public ShapeDataRecords.GhostPreview getSmartFillGhostPreview() {
+        return this.quickBuildPanel.smartFillGhostPreview();
+    }
+    private boolean handleQuickBuildSmartFillClick() {
+        if (!isQuickBuildSmartFillMode()) {
+            return false;
+        }
+        BlockHitResult hit = this.cursorPicker.pickBlockHit();
+        if (hit != null) {
+            this.quickBuildPanel.submitOrAnchorSmartFill(
+                    hit,
+                    this.cursorPicker.currentRayOrigin(),
+                    this.cursorPicker.computeCursorRayDirection());
+        }
+        return true;
+    }
+    private boolean cancelQuickBuildSmartFillAnchor() {
+        return isQuickBuildOpen() && this.quickBuildPanel.cancelSmartFillAnchor();
+    }
     /** Returns true when Quick Build range-destroy is using the connected-chain shape. */
     public boolean isQuickBuildRangeDestroyChainMode() {
         return isQuickBuildOpen() && this.quickBuildPanel.isRangeDestroyChainMode();
+    }
+    public boolean isQuickBuildConvenienceDestroyMode() {
+        return isQuickBuildOpen() && this.quickBuildPanel.isConvenienceDestroyMode();
+    }
+    public ShapeDataRecords.GhostPreview getConvenienceDestroyGhostPreview() {
+        return this.quickBuildPanel.convenienceGhostPreview();
     }
 
     public boolean isQuickBuildCreativeOverwriteEnabled() {
@@ -2231,6 +2342,12 @@ public class BuilderScreen extends Screen {
 
     /** Player-facing shape label for the top status row. */
     public String activeQuickBuildShapeLabel() {
+        if (isQuickBuildSmartFillMode()) {
+            return text("screen.rtsbuilding.quick_build.mode_smart_fill");
+        }
+        if (isQuickBuildConvenienceDestroyMode()) {
+            return this.quickBuildPanel.getConvenienceToolLabel();
+        }
         if (isQuickBuildRangeDestroyChainMode()) {
             return text("screen.rtsbuilding.shape.chain");
         }
@@ -2245,6 +2362,11 @@ public class BuilderScreen extends Screen {
             double mouseX, double mouseY, RtsTraceInputKind inputKind) {
         if (!isQuickBuildRangeDestroyMode() || isQuickBuildRangeDestroyChainMode() || !isWorldArea(mouseX, mouseY)) {
             return false;
+        }
+        if (isQuickBuildConvenienceDestroyMode()) {
+            InteractionTypes.InteractionTarget target = this.cursorPicker.pickInteractionTarget(false);
+            return target == null || target.blockHit() == null
+                    || this.quickBuildPanel.submitConvenienceDestroy(target.blockHit());
         }
         if (isAdvancedShapeMode()
                 && this.shapeController.clickAdvancedRangeDestroyHandle(
@@ -2879,7 +3001,7 @@ public class BuilderScreen extends Screen {
         return filterToBounds(raw);
     }
 
-    private List<BlockPos> filterToBounds(List<BlockPos> blocks) {
+    public List<BlockPos> filterToBounds(List<BlockPos> blocks) {
         if (!this.controller.hasBounds() || blocks == null || blocks.isEmpty()) {
             return blocks;
         }

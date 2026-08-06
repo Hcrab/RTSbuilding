@@ -74,24 +74,14 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleMine);
 
         registrar.playToServer(
-                C2SRtsUltiminePayload.TYPE,
-                C2SRtsUltiminePayload.STREAM_CODEC,
-                RtsMiningHandlers::handleUltimine);
-
-        registrar.playToServer(
-                C2SRtsAreaMinePayload.TYPE,
-                C2SRtsAreaMinePayload.STREAM_CODEC,
-                RtsMiningHandlers::handleAreaMine);
-
-        registrar.playToServer(
-                C2SRtsAreaDestroyPayload.TYPE,
-                C2SRtsAreaDestroyPayload.STREAM_CODEC,
-                RtsMiningHandlers::handleAreaDestroy);
-
-        registrar.playToServer(
                 C2SRtsMineTracePayload.TYPE,
                 C2SRtsMineTracePayload.STREAM_CODEC,
                 RtsMiningHandlers::handleMineTrace);
+
+        registrar.playToServer(
+                C2SRtsUltiminePayload.TYPE,
+                C2SRtsUltiminePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleUltimine);
 
         registrar.playToServer(
                 C2SRtsUltimineTracePayload.TYPE,
@@ -99,14 +89,34 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleUltimineTrace);
 
         registrar.playToServer(
+                C2SRtsAreaMinePayload.TYPE,
+                C2SRtsAreaMinePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaMine);
+
+        registrar.playToServer(
                 C2SRtsAreaMineTracePayload.TYPE,
                 C2SRtsAreaMineTracePayload.STREAM_CODEC,
                 RtsMiningHandlers::handleAreaMineTrace);
 
         registrar.playToServer(
+                C2SRtsAreaDestroyPayload.TYPE,
+                C2SRtsAreaDestroyPayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaDestroy);
+
+        registrar.playToServer(
                 C2SRtsAreaDestroyTracePayload.TYPE,
                 C2SRtsAreaDestroyTracePayload.STREAM_CODEC,
                 RtsMiningHandlers::handleAreaDestroyTrace);
+
+        registrar.playToServer(
+                C2SRtsConvenienceDestroyPayload.TYPE,
+                C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
+                RtsMiningHandlers::handleConvenienceDestroy);
+
+        registrar.playToServer(
+                C2SRtsConfirmSmartFillPayload.TYPE,
+                C2SRtsConfirmSmartFillPayload.STREAM_CODEC,
+                RtsPlaceHandlers::handleConfirmSmartFill);
 
         registrar.playToServer(
                 C2SRtsPauseWorkflowPayload.TYPE,

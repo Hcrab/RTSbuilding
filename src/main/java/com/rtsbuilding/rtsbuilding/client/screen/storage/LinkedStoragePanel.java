@@ -22,6 +22,7 @@ import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
+import java.util.Objects;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.TOP_H;
 
@@ -40,6 +41,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
     private int scroll;
     private WindowTextBox priorityInput;
     private BlockPos editingPriorityPos;
+    private String editingPriorityDimension;
     private int editingPriorityFallback;
 
     @Override
@@ -49,6 +51,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         super.init(screen, controller);
         this.priorityInput = null;
         this.editingPriorityPos = null;
+        this.editingPriorityDimension = null;
     }
 
     public void openNear(int anchorX, int anchorY) {
@@ -114,7 +117,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
                 continue;
             }
             boolean priorityEditing =
-                    isEditingPriority(platformEntry.pos());
+                    isEditingPriority(platformEntry.dimensionId(), platformEntry.pos());
             StorageWindowLayout.RowGeometry rowGeometry =
                     geometry.rows.get(rowIndex);
             LinkedStoragePanelRenderer.renderRow(
@@ -331,13 +334,15 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         if (entry == null || entry.pos() == null) {
             return;
         }
-        if (!entry.pos().equals(this.editingPriorityPos)) {
+        if (!entry.pos().equals(this.editingPriorityPos)
+                || !Objects.equals(entry.dimensionId(), this.editingPriorityDimension)) {
             commitPriorityEdit();
         }
         if (this.priorityInput == null) {
             this.priorityInput = createPriorityInput();
         }
         this.editingPriorityPos = entry.pos();
+        this.editingPriorityDimension = entry.dimensionId();
         this.editingPriorityFallback = entry.priority();
         placePriorityInput(bounds);
         this.priorityInput.setValue(
@@ -362,15 +367,17 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             return;
         }
         BlockPos position = this.editingPriorityPos;
+        String dimensionId = this.editingPriorityDimension;
         int priority = parsePriorityDraft(
                 this.priorityInput.getValue(),
                 this.editingPriorityFallback);
-        LinkedStorageEntry entry = findEntry(position);
+        LinkedStorageEntry entry = findEntry(dimensionId, position);
         boolean extractOnly = entry != null
                 && entry.mode()
                 == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
         if (entry == null) {
             this.controller.updateLinkedStorageSettings(
+                    dimensionId,
                     position,
                     extractOnly,
                     priority);
@@ -388,28 +395,31 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
 
     private void cancelPriorityEdit() {
         this.editingPriorityPos = null;
+        this.editingPriorityDimension = null;
         this.editingPriorityFallback = 0;
         if (this.priorityInput != null) {
             this.priorityInput.setFocused(false);
         }
     }
 
-    private LinkedStorageEntry findEntry(BlockPos position) {
+    private LinkedStorageEntry findEntry(String dimensionId, BlockPos position) {
         if (position == null) {
             return null;
         }
         for (LinkedStorageEntry entry
                 : this.controller.getLinkedStorageEntries()) {
-            if (entry != null && position.equals(entry.pos())) {
+            if (entry != null && position.equals(entry.pos())
+                    && Objects.equals(dimensionId, entry.dimensionId())) {
                 return entry;
             }
         }
         return null;
     }
 
-    private boolean isEditingPriority(BlockPos position) {
+    private boolean isEditingPriority(String dimensionId, BlockPos position) {
         return position != null
                 && position.equals(this.editingPriorityPos)
+                && Objects.equals(dimensionId, this.editingPriorityDimension)
                 && this.priorityInput != null
                 && this.priorityInput.isFocused();
     }

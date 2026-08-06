@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.panel;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
@@ -14,7 +15,6 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
-import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 
 import java.util.List;
 

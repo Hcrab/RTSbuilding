@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.uikit.layout;
 
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTab;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.PanelUiCatalog;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.PanelUiContribution;
+import com.rtsbuilding.rtsbuilding.uicore.registry.UiRegistration;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -84,24 +87,17 @@ public final class BottomPanelHeaderLayout {
                 Math.min(Math.max(0, panelHeight - 1), HEADER_HEIGHT - 1));
         List<TabArea> tabs = new ArrayList<TabArea>();
         int tabX = panelX + TAB_START_X_INSET;
-        if (creativeAccess) {
+        for (UiRegistration<PanelUiContribution> registration
+                : PanelUiCatalog.registrations()) {
+            PanelUiContribution contribution = registration.getValue();
+            if (!contribution.isVisible(creativeAccess, blueprintAccess)) {
+                continue;
+            }
+            BottomBarUiTab tab = contribution.getTab();
             tabs.add(new TabArea(
-                    BottomBarUiTab.CREATIVE,
-                    new Area(tabX, panelY + TAB_Y_INSET,
-                            tabWidth(BottomBarUiTab.CREATIVE), TAB_HEIGHT)));
-            tabX += tabWidth(BottomBarUiTab.CREATIVE) + TAB_GAP;
-        }
-        tabs.add(new TabArea(
-                BottomBarUiTab.STORAGE,
-                new Area(tabX, panelY + TAB_Y_INSET,
-                        tabWidth(BottomBarUiTab.STORAGE), TAB_HEIGHT)));
-        tabX += tabWidth(BottomBarUiTab.STORAGE) + TAB_GAP;
-        if (blueprintAccess) {
-            tabs.add(new TabArea(
-                    BottomBarUiTab.BLUEPRINTS,
-                    new Area(tabX, panelY + TAB_Y_INSET,
-                            tabWidth(BottomBarUiTab.BLUEPRINTS), TAB_HEIGHT)));
-            tabX += tabWidth(BottomBarUiTab.BLUEPRINTS) + TAB_GAP;
+                    tab,
+                    new Area(tabX, panelY + TAB_Y_INSET, tabWidth(tab), TAB_HEIGHT)));
+            tabX += tabWidth(tab) + TAB_GAP;
         }
 
         int statusX = tabs.get(tabs.size() - 1).area.right() + STATUS_GAP;

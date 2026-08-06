@@ -135,6 +135,17 @@ public final class PlacementTaskState {
                 creativeOperation, nextHistoryRecords, true);
     }
 
+    /** 使用兼容恢复时升级过的不可变 definition 推进任务，其余进度字段保持原有语义。 */
+    public PlacementTaskState advance(
+            CompoundTag nextDefinition, int nextCursor, int nextSucceeded, int nextFailed,
+            List<BlockPos> nextPlacedPositions, List<CompoundTag> nextHistoryRecords) {
+        // nextDefinition 来自兼容迁移调用方，尚未由当前快照拥有；必须先冻结副本，
+        // 否则外部继续修改同一 Tag 会绕过任务 revision 并改变已排队的 BlockState。
+        return new PlacementTaskState(nextDefinition.copy(), workflowEntryId, totalUnits,
+                nextCursor, nextSucceeded, nextFailed, nextPlacedPositions, resumePolicy,
+                creativeOperation, nextHistoryRecords, true);
+    }
+
     /** 兼容不产生新历史快照的纯状态测试与旧调用点。 */
     public PlacementTaskState advance(
             int nextCursor, int nextSucceeded, int nextFailed, List<BlockPos> nextPlacedPositions) {

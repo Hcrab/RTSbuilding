@@ -42,6 +42,23 @@ class PlacementTaskStateTest {
     }
 
     @Test
+    void migratedDefinitionIsOwnedByTheNextSnapshotOnly() {
+        PlacementTaskState before = new PlacementTaskState(definition(), 7, 4, 1, 0, 0, List.of());
+        CompoundTag migrated = before.definition();
+        migrated.putString("frozenPlacementState", "minecraft:oak_stairs[facing=north]");
+
+        PlacementTaskState after = before.advance(migrated, 2, 1, 0,
+                List.of(new BlockPos(4, 5, 6)), List.of());
+        migrated.putString("frozenPlacementState", "mutated-outside");
+
+        assertFalse(before.definition().contains("frozenPlacementState"));
+        assertEquals("minecraft:oak_stairs[facing=north]",
+                after.definition().getString("frozenPlacementState"));
+        assertEquals(1, before.cursorUnits());
+        assertEquals(2, after.cursorUnits());
+    }
+
+    @Test
     void resumePolicyChangesWithoutChangingAuthoritativeProgress() {
         PlacementTaskState before = new PlacementTaskState(definition(), 7, 4, 1, 0, 0, List.of());
         PlacementTaskState after = before.withResumePolicy(PlacementResumePolicy.SKIP_CONFLICTS);

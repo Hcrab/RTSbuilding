@@ -22,7 +22,9 @@ class NetworkCompatThrottleContractTest {
         assertTrue(ae2.contains("Config.ae2NetworkRefreshThrottle()"));
         assertTrue(rs.contains("RefreshableSnapshotHandler"));
         assertTrue(rs.contains("Config.refinedStorageNetworkRefreshThrottle()"));
-        assertTrue(linked.contains("RtsRefinedStorageCompat.createNetworkItemHandler(player, pos)"));
+        assertTrue(linked.contains(
+                "RtsRefinedStorageCompat.createNetworkItemHandler(player, level, pos)"),
+                "跨维度链接必须把已解析的精确 ServerLevel 交给 RS，不能退回玩家当前维度");
     }
 
     private static String read(String relative) throws Exception {

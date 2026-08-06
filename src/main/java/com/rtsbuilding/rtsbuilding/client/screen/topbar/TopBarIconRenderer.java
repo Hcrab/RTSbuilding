@@ -5,6 +5,12 @@ import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiContribution;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
+import com.rtsbuilding.rtsbuilding.client.theme.LegacyStateTextureResolver;
+import com.rtsbuilding.rtsbuilding.client.theme.LegacyTextureSet;
+import com.rtsbuilding.rtsbuilding.client.theme.PaletteTextureCatalog;
+import com.rtsbuilding.rtsbuilding.client.theme.ThemedStateTextureResolver;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiIndexedTextureSpec;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.resources.ResourceLocation;
 
@@ -23,15 +29,8 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 public final class TopBarIconRenderer {
     private static final double MIN_VISIBLE_WEIGHT = 0.001D;
 
-    public enum VisualState {
-        INACTIVE,
-        HOVER,
-        ACTIVE,
-        PRESSED
-    }
-
-    private static final List<VisualState> VISUAL_STATES =
-            Collections.unmodifiableList(Arrays.asList(VisualState.values()));
+    private static final List<UiTextureState> VISUAL_STATES =
+            Collections.unmodifiableList(Arrays.asList(UiTextureState.values()));
 
     /**
      * 将当前业务视觉状态提交给有界动画集，再按权重叠加正式状态纹理。
@@ -43,14 +42,14 @@ public final class TopBarIconRenderer {
             RtsGuiContext graphics,
             TopBarTypes.TopBarButtonId id,
             int x, int y, int size,
-            VisualState target,
-            UiStateBlendAnimationSet<TopBarTypes.TopBarButtonId, VisualState> transitions,
+            UiTextureState target,
+            UiStateBlendAnimationSet<TopBarTypes.TopBarButtonId, UiTextureState> transitions,
             boolean animationsEnabled) {
         transitions.update(id, target, animationsEnabled);
         RenderSystem.enableBlend();
         RenderSystem.defaultBlendFunc();
         try {
-            for (VisualState state : VISUAL_STATES) {
+            for (UiTextureState state : VISUAL_STATES) {
                 double weight = transitions.weight(id, state);
                 if (weight <= MIN_VISIBLE_WEIGHT) {
                     continue;
@@ -69,7 +68,7 @@ public final class TopBarIconRenderer {
         }
     }
 
-    public static List<VisualState> visualStates() {
+    public static List<UiTextureState> visualStates() {
         return VISUAL_STATES;
     }
 
@@ -85,49 +84,20 @@ public final class TopBarIconRenderer {
                 + id.name().toLowerCase(java.util.Locale.ROOT);
     }
 
-    public static ResourceLocation texture(TopBarTypes.TopBarButtonId id, VisualState state) {
-        return switch (id) {
-            case INTERACT -> state(state, TOPBAR_INTERACT_INACTIVE, TOPBAR_INTERACT_HOVER,
-                    TOPBAR_INTERACT_ACTIVE, TOPBAR_INTERACT_PRESSED);
-            case LINK -> state(state, TOPBAR_LINK_INACTIVE, TOPBAR_LINK_HOVER,
-                    TOPBAR_LINK_ACTIVE, TOPBAR_LINK_PRESSED);
-            case FUNNEL -> state(state, TOPBAR_FUNNEL_INACTIVE, TOPBAR_FUNNEL_HOVER,
-                    TOPBAR_FUNNEL_ACTIVE, TOPBAR_FUNNEL_PRESSED);
-            case ROTATE -> state(state, TOPBAR_ROTATE_INACTIVE, TOPBAR_ROTATE_HOVER,
-                    TOPBAR_ROTATE_ACTIVE, TOPBAR_ROTATE_PRESSED);
-            case QUICK_BUILD -> state(state, TOPBAR_QUICK_BUILD_INACTIVE, TOPBAR_QUICK_BUILD_HOVER,
-                    TOPBAR_QUICK_BUILD_ACTIVE, TOPBAR_QUICK_BUILD_PRESSED);
-            case QUEST_DETECT -> state(state, TOPBAR_QUEST_DETECT_INACTIVE, TOPBAR_QUEST_DETECT_HOVER,
-                    TOPBAR_QUEST_DETECT_ACTIVE, TOPBAR_QUEST_DETECT_PRESSED);
-            case CHUNK_VIEW -> state(state, TOPBAR_CHUNK_VIEW_INACTIVE, TOPBAR_CHUNK_VIEW_HOVER,
-                    TOPBAR_CHUNK_VIEW_ACTIVE, TOPBAR_CHUNK_VIEW_PRESSED);
-            case RANGE_CULLING -> state(state, TOPBAR_RANGE_CULLING_INACTIVE, TOPBAR_RANGE_CULLING_HOVER,
-                    TOPBAR_RANGE_CULLING_ACTIVE, TOPBAR_RANGE_CULLING_PRESSED);
-            case GUIDE -> state(state, TOPBAR_GUIDE_INACTIVE, TOPBAR_GUIDE_HOVER,
-                    TOPBAR_GUIDE_ACTIVE, TOPBAR_GUIDE_PRESSED);
-            case DEVELOPER -> state(state, TOPBAR_DEVELOPER_INACTIVE, TOPBAR_DEVELOPER_HOVER,
-                    TOPBAR_DEVELOPER_ACTIVE, TOPBAR_DEVELOPER_PRESSED);
-            case GEAR -> state(state, TOPBAR_GEAR_INACTIVE, TOPBAR_GEAR_HOVER,
-                    TOPBAR_GEAR_ACTIVE, TOPBAR_GEAR_PRESSED);
-            default -> null;
-        };
+    public static ResourceLocation texture(TopBarTypes.TopBarButtonId id, UiTextureState state) {
+        LegacyTextureSet legacy = LegacyStateTextureResolver.topBarSet(id);
+        ResourceLocation palette = PaletteTextureCatalog.topBar(id);
+        if (legacy == null || palette == null) return null;
+        UiIndexedTextureSpec spec = id == TopBarTypes.TopBarButtonId.QUEST_DETECT
+                ? UiIndexedTextureSpec.PR133_QUEST
+                : UiIndexedTextureSpec.PR133_THREE_TONE;
+        return ThemedStateTextureResolver.resolve(legacy, palette, state, spec);
     }
 
-    public static VisualState visualState(boolean active, boolean hovered, boolean pressed) {
-        if (pressed) return VisualState.PRESSED;
-        if (active) return VisualState.ACTIVE;
-        return hovered ? VisualState.HOVER : VisualState.INACTIVE;
-    }
-
-    private static ResourceLocation state(VisualState state, ResourceLocation inactive,
-                                          ResourceLocation hover, ResourceLocation active,
-                                          ResourceLocation pressed) {
-        return switch (state) {
-            case INACTIVE -> inactive;
-            case HOVER -> hover;
-            case ACTIVE -> active;
-            case PRESSED -> pressed;
-        };
+    public static UiTextureState visualState(boolean active, boolean hovered, boolean pressed) {
+        if (pressed) return UiTextureState.PRESSED;
+        if (active) return UiTextureState.ACTIVE;
+        return hovered ? UiTextureState.HOVER : UiTextureState.INACTIVE;
     }
 
     private TopBarIconRenderer() {

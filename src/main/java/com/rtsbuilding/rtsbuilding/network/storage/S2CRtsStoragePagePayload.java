@@ -18,6 +18,7 @@ public record S2CRtsStoragePagePayload(
         boolean linked,
         String linkedName,
         List<Long> linkedPositions,
+        List<String> linkedDimensions,
         List<String> linkedNames,
         List<Byte> linkedModes,
         List<Integer> linkedPriorities,
@@ -71,13 +72,15 @@ public record S2CRtsStoragePagePayload(
                 }
                 int linkedDetailSize = Math.min(
                         payload.linkedPositions().size(),
-                        Math.min(payload.linkedNames().size(),
-                                Math.min(payload.linkedModes().size(),
-                                        Math.min(payload.linkedPriorities().size(),
-                                                Math.min(payload.linkedIconItemIds().size(),
-                                                        payload.linkedWorldAvailable().size())))));
+                        Math.min(payload.linkedDimensions().size(),
+                                Math.min(payload.linkedNames().size(),
+                                        Math.min(payload.linkedModes().size(),
+                                                Math.min(payload.linkedPriorities().size(),
+                                                        Math.min(payload.linkedIconItemIds().size(),
+                                                                payload.linkedWorldAvailable().size()))))));
                 buf.writeVarInt(linkedDetailSize);
                 for (int i = 0; i < linkedDetailSize; i++) {
+                    buf.writeUtf(payload.linkedDimensions().get(i) == null ? "" : payload.linkedDimensions().get(i), 128);
                     buf.writeUtf(payload.linkedNames().get(i) == null ? "" : payload.linkedNames().get(i), 128);
                     buf.writeByte(payload.linkedModes().get(i) == null ? 0 : payload.linkedModes().get(i));
                     buf.writeVarInt(payload.linkedPriorities().get(i) == null ? 0 : payload.linkedPriorities().get(i));
@@ -176,12 +179,14 @@ public record S2CRtsStoragePagePayload(
                     linkedPositions.add(buf.readLong());
                 }
                 int linkedDetailSize = buf.readVarInt();
+                List<String> linkedDimensions = new ArrayList<>(linkedDetailSize);
                 List<String> linkedNames = new ArrayList<>(linkedDetailSize);
                 List<Byte> linkedModes = new ArrayList<>(linkedDetailSize);
                 List<Integer> linkedPriorities = new ArrayList<>(linkedDetailSize);
                 List<String> linkedIconItemIds = new ArrayList<>(linkedDetailSize);
                 List<Boolean> linkedWorldAvailable = new ArrayList<>(linkedDetailSize);
                 for (int i = 0; i < linkedDetailSize; i++) {
+                    linkedDimensions.add(buf.readUtf(128));
                     linkedNames.add(buf.readUtf(128));
                     linkedModes.add(buf.readByte());
                     linkedPriorities.add(buf.readVarInt());
@@ -269,6 +274,7 @@ public record S2CRtsStoragePagePayload(
                         linked,
                         linkedName,
                         linkedPositions,
+                        linkedDimensions,
                         linkedNames,
                         linkedModes,
                         linkedPriorities,

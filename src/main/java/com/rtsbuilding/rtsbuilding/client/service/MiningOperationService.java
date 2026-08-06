@@ -10,6 +10,10 @@ import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
 import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
 import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -18,6 +22,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.BlockHitResult;
 
 import java.util.List;
 
@@ -199,6 +205,33 @@ public final class MiningOperationService {
                 mode,
                 toolProtectionEnabled,
                 trace.traceId(), trace.inputKind());
+    }
+
+    /** 提交声明式便捷破坏请求；预览坐标不会进入协议，服务端会重新规划。 */
+    public void confirmConvenienceDestroy(
+            RtsConvenienceDestroyMode mode,
+            BlockHitResult hit,
+            RtsConvenienceDestroySettings settings,
+            int toolSlot,
+            String selectedItemId,
+            ItemStack selectedItemPreview,
+            boolean toolProtectionEnabled) {
+        if (mode == null || hit == null) {
+            return;
+        }
+        BlockPos anchor = hit.getBlockPos().immutable();
+        this.activeMinePos = anchor;
+        this.activeMineFace = hit.getDirection().get3DDataValue();
+        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.mineRenderPos = anchor;
+        this.mineRenderStage = 0;
+        RtsClientPacketGateway.sendConvenienceDestroy(
+                System.nanoTime(), mode, anchor, hit.getDirection(), settings,
+                this.activeMineToolSlot,
+                selectedMiningToolItemId(selectedItemId, selectedItemPreview),
+                selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
+                toolProtectionEnabled);
+        clearAreaMineSession();
     }
 
     /** Mining progress is maintained server-side; the client does not need to send packets every tick. */

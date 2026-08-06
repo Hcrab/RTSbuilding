@@ -9,9 +9,12 @@ class DestroyWorkAreaPhaseTrackerTest {
     void firstBlockCompletionIrreversiblyEntersErosionForOnePreview() {
         DestroyWorkAreaPhaseTracker tracker = new DestroyWorkAreaPhaseTracker();
 
-        assertEquals(DestroyWorkAreaPhaseTracker.Phase.FIRST_BLOCK, tracker.update(17, false));
-        assertEquals(DestroyWorkAreaPhaseTracker.Phase.ERODING, tracker.update(17, true));
-        assertEquals(DestroyWorkAreaPhaseTracker.Phase.ERODING, tracker.update(17, false));
+        assertEquals(DestroyWorkAreaPhaseTracker.Phase.FIRST_BLOCK,
+                tracker.update(17, false));
+        assertEquals(DestroyWorkAreaPhaseTracker.Phase.ERODING,
+                tracker.update(17, true));
+        assertEquals(DestroyWorkAreaPhaseTracker.Phase.ERODING,
+                tracker.update(17, false));
     }
 
     @Test
@@ -19,6 +22,7 @@ class DestroyWorkAreaPhaseTrackerTest {
         DestroyWorkAreaPhaseTracker tracker = new DestroyWorkAreaPhaseTracker();
         tracker.update(17, true);
 
-        assertEquals(DestroyWorkAreaPhaseTracker.Phase.FIRST_BLOCK, tracker.update(18, false));
+        assertEquals(DestroyWorkAreaPhaseTracker.Phase.FIRST_BLOCK,
+                tracker.update(18, false));
     }
 }

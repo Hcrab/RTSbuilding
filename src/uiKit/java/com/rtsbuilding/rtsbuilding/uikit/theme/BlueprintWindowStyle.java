@@ -8,30 +8,30 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 这样捕获阶段和放置阶段不会再分别维护颜色常量。</p>
  */
 public final class BlueprintWindowStyle {
-    public static final UiColor SECTION_BACKGROUND = new UiColor(0x33111821);
-    public static final UiColor SECTION_BORDER_LIGHT = new UiColor(0x55344555);
-    public static final UiColor SECTION_BORDER_DARK = new UiColor(0x550D1117);
-    public static final UiColor SECTION_TITLE_TEXT = new UiColor(0xFFD8E3EE);
+    public static final UiColor SECTION_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.CONTROL_IDLE, 0X33111821);
+    public static final UiColor SECTION_BORDER_LIGHT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.BORDER_STRONG, 0X55344555);
+    public static final UiColor SECTION_BORDER_DARK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.BORDER_SOFT, 0X550D1117);
+    public static final UiColor SECTION_TITLE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.TEXT_PRIMARY, 0XFFD8E3EE);
 
-    public static final UiColor PRIMARY_TEXT = new UiColor(0xFFEAF2FF);
-    public static final UiColor MUTED_TEXT = new UiColor(0xFF9FB3C8);
-    public static final UiColor DISABLED_TEXT = new UiColor(0xFF4F5B68);
-    public static final UiColor READY_TEXT = new UiColor(0xFF8EEA9B);
-    public static final UiColor WARNING_TEXT = new UiColor(0xFFFFC06C);
-    public static final UiColor PLACEMENT_WARNING_TEXT = new UiColor(0xFFFFE66D);
-    public static final UiColor INFO_TEXT = new UiColor(0xFFB7CDE2);
+    public static final UiColor PRIMARY_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.TEXT_PRIMARY, 0XFFEAF2FF);
+    public static final UiColor MUTED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.TEXT_MUTED, 0XFF9FB3C8);
+    public static final UiColor DISABLED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.TEXT_MUTED, 0XFF4F5B68);
+    public static final UiColor READY_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.SUCCESS, 0XFF8EEA9B);
+    public static final UiColor WARNING_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.WARNING, 0XFFFFC06C);
+    public static final UiColor PLACEMENT_WARNING_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.WARNING, 0XFFFFE66D);
+    public static final UiColor INFO_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.TEXT_PRIMARY, 0XFFB7CDE2);
 
-    public static final UiColor STATUS_BACKGROUND = new UiColor(0x66111821);
-    public static final UiColor STATUS_BORDER_LIGHT = new UiColor(0x44344555);
-    public static final UiColor DISABLED_FIELD_OVERLAY = new UiColor(0x55101620);
+    public static final UiColor STATUS_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.CONTROL_IDLE, 0X66111821);
+    public static final UiColor STATUS_BORDER_LIGHT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.BORDER_STRONG, 0X44344555);
+    public static final UiColor DISABLED_FIELD_OVERLAY = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.CONTROL_DISABLED, 0X55101620);
 
-    public static final UiColor PRIMARY_ACTION_BACKGROUND = new UiColor(0xCC244E35);
-    public static final UiColor PRIMARY_ACTION_BORDER = new UiColor(0xFF7FCEA0);
+    public static final UiColor PRIMARY_ACTION_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.CONTROL_SELECTED, 0XCC244E35);
+    public static final UiColor PRIMARY_ACTION_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.BORDER_STRONG, 0XFF7FCEA0);
 
-    public static final UiColor FIELD_BACKGROUND = new UiColor(0xAA18212B);
-    public static final UiColor FIELD_DISABLED_BACKGROUND = new UiColor(0xAA101620);
-    public static final UiColor FIELD_BORDER_LIGHT = new UiColor(0xFF596D84);
-    public static final UiColor FIELD_BORDER_DARK = new UiColor(0xFF0D1117);
+    public static final UiColor FIELD_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.CONTROL_IDLE, 0XAA18212B);
+    public static final UiColor FIELD_DISABLED_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.CONTROL_DISABLED, 0XAA101620);
+    public static final UiColor FIELD_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.BORDER_STRONG, 0XFF596D84);
+    public static final UiColor FIELD_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BLUEPRINT, UiThemeToken.BORDER_SOFT, 0XFF0D1117);
 
     private BlueprintWindowStyle() {
     }

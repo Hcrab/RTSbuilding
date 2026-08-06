@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.gear;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
@@ -12,18 +13,26 @@ import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiSection;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiState;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiRow;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiMotionSpec;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiValueAnimation;
 import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsWindowLayout;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.RtsGuiContext;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.util.Mth;
 
 import java.util.HashSet;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -49,6 +58,26 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private boolean animationExpanded = false;
     private final Set<String> expandedHintKeys = new HashSet<>();
     private SettingsId draggingCoreSensitivity = null;
+    private ThemeSettingsPanel themeSettingsPanel;
+    private final EnumMap<SettingsId, UiControlAnimationState> toggleAnimations =
+            controlAnimations(SettingsId.class);
+    private final EnumMap<SettingsId, UiControlAnimationState> actionAnimations =
+            controlAnimations(SettingsId.class);
+    private final EnumMap<SettingsId, UiControlAnimationState> minusAnimations =
+            controlAnimations(SettingsId.class);
+    private final EnumMap<SettingsId, UiControlAnimationState> plusAnimations =
+            controlAnimations(SettingsId.class);
+    private final EnumMap<SettingsId, UiControlAnimationState> hintAnimations =
+            controlAnimations(SettingsId.class);
+    private final EnumMap<SettingsSectionId, UiControlAnimationState> sectionAnimations =
+            controlAnimations(SettingsSectionId.class);
+    private final EnumMap<SettingsId, UiValueAnimation> sensitivityAnimations =
+            valueAnimations(SettingsId.class);
+
+    /** 由 BuilderScreen 在创建浮窗层前绑定，设置目录本身不负责拥有子窗口。 */
+    public void bindThemeSettingsPanel(ThemeSettingsPanel panel) {
+        this.themeSettingsPanel = panel;
+    }
 
     EnumSet<SettingsSectionId> coreExpandedSections() {
         EnumSet<SettingsSectionId> out = EnumSet.noneOf(SettingsSectionId.class);
@@ -198,7 +227,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
             int drawY = node.y - state.scroll;
             if (node.isSection()) {
                 drawCoreSectionHeader(g, canvas, mouseX, mouseY, node.x, node.width, drawY,
-                        node.section.id.titleKey, node.section.expanded);
+                        node.section.id, node.section.id.titleKey, node.section.expanded);
             } else {
                 drawCoreRow(g, canvas, mouseX, mouseY, node.row, node.x, drawY, node.width);
             }
@@ -212,7 +241,42 @@ public final class GearMenuPanel extends RtsWindowPanel {
             case STEP_VALUE -> drawCoreStepRow(g, canvas, mouseX, mouseY, row, y, x, w);
             case SIMPLE_TOGGLE -> drawCoreSimpleToggleRow(g, canvas, mouseX, mouseY, row, x, w, y);
             case HINT_TOGGLE -> drawCoreHintToggleRow(g, canvas, mouseX, mouseY, row, x, w, y);
+            case ACTION -> drawCoreActionRow(g, canvas, mouseX, mouseY, row, x, w, y);
         }
+    }
+
+    private void drawCoreActionRow(RtsGuiContext g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
+                                   SettingsUiRow row, int x, int w, int rowY) {
+        g.drawString(screen.font(), trimToWidth(text(row.id.labelKey),
+                        w - SettingsWindowLayout.ACTION_LABEL_RIGHT_RESERVE),
+                x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 4,
+                SettingsWindowStyle.LABEL.toArgb(), false);
+        String current = Component.translatable(row.valueLabel).getString();
+        g.drawString(screen.font(), trimToWidth(current,
+                        w - SettingsWindowLayout.ACTION_LABEL_RIGHT_RESERVE),
+                x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 17,
+                SettingsWindowStyle.HINT.toArgb(), false);
+        int buttonX = x + w - SettingsWindowLayout.ACTION_BUTTON_RIGHT_INSET;
+        drawCoreActionButton(g, canvas, mouseX, mouseY, row.id, buttonX,
+                rowY + SettingsWindowLayout.ACTION_BUTTON_TOP,
+                SettingsWindowLayout.ACTION_BUTTON_W, SettingsWindowLayout.ACTION_BUTTON_H,
+                text("screen.rtsbuilding.theme.open"));
+    }
+
+    private void drawCoreActionButton(RtsGuiContext g, MinecraftUiCanvas canvas,
+                                      int mouseX, int mouseY, SettingsId id,
+                                      int x, int y, int w, int h,
+                                      String label) {
+        boolean hover = UiRect.contains(x, y, w, h, mouseX, mouseY);
+        UiControlAnimationState.Snapshot animation = updateControl(
+                this.actionAnimations, id, true, hover, false);
+        UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, w, h),
+                UiColor.interpolate(SettingsWindowStyle.STEP_BACKGROUND,
+                        SettingsWindowStyle.STEP_HOVER_BACKGROUND, animation.hover()),
+                SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
+                x + w / 2, y + SettingsWindowLayout.ACTION_BUTTON_TEXT_TOP,
+                SettingsWindowStyle.VALUE.toArgb());
     }
 
     private void drawCoreSensitivityRow(RtsGuiContext g, SettingsUiRow row, int rowY, int x, int w) {
@@ -230,8 +294,11 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 SettingsWindowStyle.TRACK_BACKGROUND.toArgb());
         g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3,
                 SettingsWindowStyle.TRACK_FILL.toArgb());
-        int knobX = trackX + (int) Math.round((row.valueIndex
-                / (double) Math.max(1, row.valueCount - 1)) * trackW);
+        double targetFraction = row.valueIndex
+                / (double) Math.max(1, row.valueCount - 1);
+        double displayFraction = this.sensitivityAnimations.get(row.id).update(
+                targetFraction, Config.isUiAnimationsEnabled(), UiMotionSpec.SLIDER_MS);
+        int knobX = trackX + (int) Math.round(displayFraction * trackW);
         g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8,
                 (row.enabled ? SettingsWindowStyle.KNOB : SettingsWindowStyle.KNOB_DISABLED).toArgb());
     }
@@ -254,13 +321,15 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 18,
                     SettingsWindowStyle.HINT.toArgb(), false);
         }
-        drawCoreStepButton(g, canvas, mouseX, mouseY, minusX, buttonY, "-");
+        drawCoreStepButton(g, canvas, mouseX, mouseY,
+                row.id, false, minusX, buttonY, "-");
         UiCompactFrameRenderer.frame(canvas, new UiRect(valueX, buttonY, 56, 22),
                 SettingsWindowStyle.VALUE_BACKGROUND, SettingsWindowStyle.VALUE_BORDER,
                 SettingsWindowStyle.VALUE_DARK_BORDER);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), row.valueLabel,
                 valueX + 28, buttonY + 7, SettingsWindowStyle.VALUE.toArgb());
-        drawCoreStepButton(g, canvas, mouseX, mouseY, plusX, buttonY, "+");
+        drawCoreStepButton(g, canvas, mouseX, mouseY,
+                row.id, true, plusX, buttonY, "+");
     }
 
     private void drawCoreSimpleToggleRow(RtsGuiContext g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
@@ -269,9 +338,10 @@ public final class GearMenuPanel extends RtsWindowPanel {
                         w - SettingsWindowLayout.SIMPLE_LABEL_RIGHT_RESERVE),
                 x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 9, (row.enabled ? SettingsWindowStyle.LABEL
                         : SettingsWindowStyle.DISABLED_TEXT).toArgb(), false);
-        drawCoreToggleButton(g, canvas, mouseX, mouseY,
-                x + w - SettingsWindowLayout.TOGGLE_RIGHT_INSET, rowY + 4, 76, 22, row.active,
-                text(row.active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
+        drawCoreToggleButton(g, canvas, mouseX, mouseY, row.id,
+                x + w - SettingsWindowLayout.TOGGLE_RIGHT_INSET, rowY + 1,
+                SettingsWindowLayout.TOGGLE_WIDTH,
+                SettingsWindowLayout.TOGGLE_HEIGHT, row.enabled, row.active);
     }
 
     private void drawCoreHintToggleRow(RtsGuiContext g, MinecraftUiCanvas canvas, int mouseX, int mouseY,
@@ -282,7 +352,8 @@ public final class GearMenuPanel extends RtsWindowPanel {
                         w - SettingsWindowLayout.HINT_LABEL_RIGHT_RESERVE),
                 x + SettingsWindowLayout.ROW_TEXT_INSET, rowY + 2, (row.enabled ? SettingsWindowStyle.LABEL
                         : SettingsWindowStyle.DISABLED_TEXT).toArgb(), false);
-        if (row.hintExpandable) drawCoreHintExpandButton(g, canvas, mouseX, mouseY, x, rowY, row.hintExpanded);
+        if (row.hintExpandable) drawCoreHintExpandButton(
+                g, canvas, mouseX, mouseY, row.id, x, rowY, row.hintExpanded);
         if (row.hintExpanded) {
             List<FormattedCharSequence> lines = wrappedHintLines(x, w, row.id.hintKey);
             for (int i = 0; i < lines.size(); i++) {
@@ -297,9 +368,10 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     (row.enabled ? SettingsWindowStyle.HINT
                             : SettingsWindowStyle.DISABLED_REASON).toArgb(), false);
         }
-        drawCoreToggleButton(g, canvas, mouseX, mouseY,
-                x + w - SettingsWindowLayout.TOGGLE_RIGHT_INSET, rowY + 4, 76, 22, row.active,
-                text(row.active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
+        drawCoreToggleButton(g, canvas, mouseX, mouseY, row.id,
+                x + w - SettingsWindowLayout.TOGGLE_RIGHT_INSET, rowY + 2,
+                SettingsWindowLayout.TOGGLE_WIDTH,
+                SettingsWindowLayout.TOGGLE_HEIGHT, row.enabled, row.active);
     }
 
     private SettingsUiState coreSnapshot() {
@@ -328,6 +400,17 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 continue;
             }
             SettingsUiRow row = node.row;
+            if (row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.ACTION
+                    && UiRect.contains(node.x + node.width - SettingsWindowLayout.ACTION_BUTTON_RIGHT_INSET,
+                    node.y + SettingsWindowLayout.ACTION_BUTTON_TOP,
+                    SettingsWindowLayout.ACTION_BUTTON_W, SettingsWindowLayout.ACTION_BUTTON_H,
+                    mouseX, contentMouseY)) {
+                if (row.id == SettingsId.UI_THEME && this.themeSettingsPanel != null) {
+                    close();
+                    this.themeSettingsPanel.open();
+                }
+                return;
+            }
             if (row.id.kind == com.rtsbuilding.rtsbuilding.uicore.settings.SettingsRowKind.SENSITIVITY
                     && UiRect.contains(
                     node.x + SettingsWindowLayout.SENSITIVITY_TRACK_INSET,
@@ -381,17 +464,19 @@ public final class GearMenuPanel extends RtsWindowPanel {
     /** Core 正式目录统一走共享紧凑框体，设置页不再保留私有旧绘制分支。 */
     private void drawCoreSectionHeader(RtsGuiContext g, MinecraftUiCanvas canvas,
                                        int mouseX, int mouseY, int x, int w, int y,
-                                       String titleKey, boolean expanded) {
+                                       SettingsSectionId id, String titleKey, boolean expanded) {
         boolean hover = UiRect.contains(
                 x + SettingsWindowLayout.SECTION_HORIZONTAL_INSET, y,
                 w - SettingsWindowLayout.SECTION_HORIZONTAL_INSET * 2,
                 SettingsWindowLayout.SECTION_HEADER_H, mouseX, mouseY);
+        UiControlAnimationState.Snapshot animation = updateControl(
+                this.sectionAnimations, id, true, hover, expanded);
         UiCompactFrameRenderer.frame(canvas,
                 new UiRect(x + SettingsWindowLayout.SECTION_HORIZONTAL_INSET, y,
                         w - SettingsWindowLayout.SECTION_HORIZONTAL_INSET * 2,
                         SettingsWindowLayout.SECTION_HEADER_H),
-                hover ? SettingsWindowStyle.SECTION_HOVER_BACKGROUND
-                        : SettingsWindowStyle.SECTION_BACKGROUND,
+                UiColor.interpolate(SettingsWindowStyle.SECTION_BACKGROUND,
+                        SettingsWindowStyle.SECTION_HOVER_BACKGROUND, animation.hover()),
                 SettingsWindowStyle.SECTION_BORDER, SettingsWindowStyle.SECTION_DARK_BORDER);
         g.drawString(screen.font(), expanded ? "v" : ">",
                 x + SettingsWindowLayout.ROW_TEXT_INSET,
@@ -406,11 +491,15 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     private void drawCoreStepButton(RtsGuiContext g, MinecraftUiCanvas canvas,
-                                    int mouseX, int mouseY, int x, int y, String label) {
+                                    int mouseX, int mouseY, SettingsId id, boolean plus,
+                                    int x, int y, String label) {
         boolean hover = UiRect.contains(x, y, 22, 22, mouseX, mouseY);
+        UiControlAnimationState.Snapshot animation = updateControl(
+                plus ? this.plusAnimations : this.minusAnimations,
+                id, true, hover, false);
         UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, 22, 22),
-                hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND
-                        : SettingsWindowStyle.STEP_BACKGROUND,
+                UiColor.interpolate(SettingsWindowStyle.STEP_BACKGROUND,
+                        SettingsWindowStyle.STEP_HOVER_BACKGROUND, animation.hover()),
                 SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
                 x + SettingsWindowLayout.STEP_BUTTON_TEXT_X,
@@ -419,41 +508,32 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     private void drawCoreToggleButton(RtsGuiContext g, MinecraftUiCanvas canvas,
-                                      int mouseX, int mouseY, int x, int y, int w, int h,
-                                      boolean active, String label) {
+                                      int mouseX, int mouseY, SettingsId id,
+                                      int x, int y, int w, int h,
+                                      boolean enabled, boolean active) {
         boolean hover = UiRect.contains(x, y, w, h, mouseX, mouseY);
-        UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, w, h),
-                active
-                        ? (hover ? SettingsWindowStyle.TOGGLE_ON_HOVER : SettingsWindowStyle.TOGGLE_ON)
-                        : (hover ? SettingsWindowStyle.TOGGLE_OFF_HOVER : SettingsWindowStyle.TOGGLE_OFF),
-                active ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.TOGGLE_OFF_BORDER,
-                SettingsWindowStyle.TOGGLE_DARK_BORDER);
-        int switchX = active
-                ? x + w - SettingsWindowLayout.TOGGLE_KNOB_RIGHT_INSET
-                : x + SettingsWindowLayout.TOGGLE_KNOB_LEFT_INSET;
-        g.fill(switchX, y + SettingsWindowLayout.TOGGLE_KNOB_TOP,
-                switchX + SettingsWindowLayout.TOGGLE_KNOB_WIDTH,
-                y + h - SettingsWindowLayout.TOGGLE_KNOB_BOTTOM_INSET,
-                (active ? SettingsWindowStyle.TOGGLE_ON_KNOB
-                        : SettingsWindowStyle.TOGGLE_OFF_KNOB).toArgb());
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
-                x + w / 2, y + SettingsWindowLayout.TOGGLE_TEXT_TOP,
-                SettingsWindowStyle.VALUE.toArgb());
+        UiControlAnimationState.Snapshot animation = updateControl(
+                this.toggleAnimations, id, enabled, enabled && hover, active);
+        SettingsSwitchTextureRenderer.render(
+                g, x, y, animation.selection(), animation.hover());
     }
 
     private void drawCoreHintExpandButton(RtsGuiContext g, MinecraftUiCanvas canvas,
-                                          int mouseX, int mouseY, int x, int rowY,
+                                          int mouseX, int mouseY, SettingsId id,
+                                          int x, int rowY,
                                           boolean expanded) {
         int buttonX = hintExpandButtonX(x);
         int buttonY = rowY + 12;
         boolean hover = UiRect.contains(buttonX, buttonY,
                 SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE,
                 SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE, mouseX, mouseY);
+        UiControlAnimationState.Snapshot animation = updateControl(
+                this.hintAnimations, id, true, hover, expanded);
         UiCompactFrameRenderer.frame(canvas, new UiRect(buttonX, buttonY,
                         SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE,
                         SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE),
-                hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND
-                        : SettingsWindowStyle.STEP_BACKGROUND,
+                UiColor.interpolate(SettingsWindowStyle.STEP_BACKGROUND,
+                        SettingsWindowStyle.STEP_HOVER_BACKGROUND, animation.hover()),
                 SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), expanded ? "v" : ">",
                 buttonX + SettingsWindowLayout.HINT_EXPAND_BUTTON_SIZE / 2,
@@ -492,6 +572,37 @@ public final class GearMenuPanel extends RtsWindowPanel {
 
     private String trimToWidth(String text, int maxWidth) {
         return RtsClientUiUtil.trimToWidth(screen.font(), text, maxWidth);
+    }
+
+    private static <K extends Enum<K>> EnumMap<K, UiControlAnimationState> controlAnimations(
+            Class<K> type) {
+        EnumMap<K, UiControlAnimationState> animations = new EnumMap<>(type);
+        for (K id : type.getEnumConstants()) {
+            animations.put(id, new UiControlAnimationState(SystemUiClock.INSTANCE));
+        }
+        return animations;
+    }
+
+    private static <K extends Enum<K>> EnumMap<K, UiValueAnimation> valueAnimations(
+            Class<K> type) {
+        EnumMap<K, UiValueAnimation> animations = new EnumMap<>(type);
+        for (K id : type.getEnumConstants()) {
+            animations.put(id, new UiValueAnimation(SystemUiClock.INSTANCE));
+        }
+        return animations;
+    }
+
+    private static <K> UiControlAnimationState.Snapshot updateControl(
+            Map<K, UiControlAnimationState> animations,
+            K id, boolean enabled, boolean hovered, boolean selected) {
+        UiControlAnimationState animation = animations.get(id);
+        if (animation == null) {
+            throw new IllegalArgumentException("unknown settings control: " + id);
+        }
+        return animation.update(new UiControlState(
+                        true, enabled, hovered, false, false,
+                        selected, false, false, enabled ? "" : "disabled"),
+                Config.isUiAnimationsEnabled());
     }
 
     private int maxScroll() {

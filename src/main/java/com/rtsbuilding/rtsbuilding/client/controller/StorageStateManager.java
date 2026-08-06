@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import net.minecraft.core.BlockPos;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.Direction;
 import com.rtsbuilding.rtsbuilding.platform.RtsBuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -505,6 +506,14 @@ public final class StorageStateManager {
         requestStoragePage(0);
     }
 
+    /** 合成终端显式选择排序字段；相同值保持 no-op，避免重复分页请求。 */
+    public void setStorageSort(RtsStorageSort sort) {
+        RtsStorageSort normalized = Objects.requireNonNull(sort, "sort");
+        if (this.storageSort == normalized) return;
+        this.storageSort = normalized;
+        requestStoragePage(0);
+    }
+
     public void toggleSortDirection() {
         this.storageSortAscending = !this.storageSortAscending;
         requestStoragePage(0);
@@ -589,8 +598,17 @@ public final class StorageStateManager {
         RtsClientPacketGateway.sendUnlinkStorage(pos);
     }
 
+    public void unlinkLinkedStorage(String dimensionId, BlockPos pos) {
+        RtsClientPacketGateway.sendUnlinkStorage(dimensionId, pos);
+    }
+
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
         RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
+    }
+
+    public void updateLinkedStorageSettings(
+            String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
+        RtsClientPacketGateway.sendUpdateLinkedStorage(dimensionId, pos, extractOnly, priority);
     }
 
     public void storeHotbarSlotToLinked(int slot) {
@@ -715,8 +733,11 @@ public final class StorageStateManager {
                 continue;
             }
             BlockPos pos = BlockPos.of(packed.longValue());
-            this.linkedStoragePositions.add(pos);
-            this.linkedStorageEntries.add(decodeLinkedStorageEntry(payload, i, pos));
+            LinkedStorageEntry entry = decodeLinkedStorageEntry(payload, i, pos);
+            this.linkedStorageEntries.add(entry);
+            if (isCurrentClientDimension(entry.dimensionId())) {
+                this.linkedStoragePositions.add(pos);
+            }
         }
         this.storagePage = payload.page();
         this.storageTotalPages = Math.max(1, payload.totalPages());
@@ -1210,6 +1231,9 @@ public final class StorageStateManager {
     }
 
     private LinkedStorageEntry decodeLinkedStorageEntry(S2CRtsStoragePagePayload payload, int index, BlockPos pos) {
+        String dimensionId = index >= 0 && index < payload.linkedDimensions().size()
+                ? payload.linkedDimensions().get(index)
+                : "";
         String label = index >= 0 && index < payload.linkedNames().size()
                 ? payload.linkedNames().get(index)
                 : this.linkedStorageName;
@@ -1232,7 +1256,14 @@ public final class StorageStateManager {
         if (iconKey != null && RtsBuiltInRegistries.ITEM.containsKey(iconKey)) {
             preview = new ItemStack(RtsBuiltInRegistries.ITEM.get(iconKey));
         }
-        return new LinkedStorageEntry(pos, label, mode, priority, preview, worldAvailable);
+        return new LinkedStorageEntry(pos, dimensionId, label, mode, priority, preview, worldAvailable);
+    }
+
+    /** 世界标记只可绘制在玩家当前客户端维度，跨维条目仍保留在详情列表中。 */
+    private static boolean isCurrentClientDimension(String dimensionId) {
+        Minecraft minecraft = Minecraft.getInstance();
+        return minecraft.level != null
+                && minecraft.level.dimension().location().toString().equals(dimensionId);
     }
 
     private long getStorageFluidAmount(String fluidId) {

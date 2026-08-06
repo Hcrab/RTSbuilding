@@ -7,9 +7,9 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 留回生产屏幕包，同时不把开发者状态误装成普通玩家状态。</p>
  */
 public final class DeveloperScreenStyle {
-    public static final UiColor BACKGROUND = new UiColor(0xF0101820);
+    public static final UiColor BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.CONTROL_IDLE, 0XF0101820);
     public static final UiColor TITLE = RtsMainlineTheme.BUTTON_TEXT;
-    public static final UiColor ACTIVE_STATUS = new UiColor(0xFFFFD27F);
+    public static final UiColor ACTIVE_STATUS = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.CONTROL_SELECTED, 0XFFFFD27F);
 
     private DeveloperScreenStyle() {
     }

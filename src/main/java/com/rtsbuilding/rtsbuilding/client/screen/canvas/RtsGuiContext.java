@@ -87,6 +87,17 @@ public final class RtsGuiContext {
         fill(x, y1, x + 1, y2 + 1, color);
     }
 
+    /** 绘制一像素矩形轮廓，语义与新版 GuiGraphics.renderOutline 一致。 */
+    public void renderOutline(int x, int y, int width, int height, int color) {
+        if (width <= 0 || height <= 0) return;
+        hLine(x, x + width - 1, y, color);
+        hLine(x, x + width - 1, y + height - 1, color);
+        if (height > 2) {
+            vLine(x, y + 1, y + height - 2, color);
+            vLine(x + width - 1, y + 1, y + height - 2, color);
+        }
+    }
+
     public int drawString(Font font, String text, int x, int y, int color) {
         return drawString(font, text, x, y, color, true);
     }

@@ -83,6 +83,7 @@
   "item.rtsbuilding.blueprint_plugin": "藍圖插件",
   "item.rtsbuilding.range_culling_plugin": "範圍隱藏插件",
   "item.rtsbuilding.field_deployment_plugin": "外場部署插件",
+  "item.rtsbuilding.cross_dimension_storage_plugin": "跨維度儲存插件",
   "item.rtsbuilding.range_extension_i": "範圍擴展 I",
   "item.rtsbuilding.range_extension_ii": "範圍擴展 II",
   "item.rtsbuilding.range_extension_iii": "範圍擴展 III",
@@ -100,6 +101,7 @@
   "tooltip.rtsbuilding.plugin.blueprint_plugin": "解鎖藍圖存儲、管理與建造。",
   "tooltip.rtsbuilding.plugin.range_culling_plugin": "暫時隱藏方塊，消除視野遮擋。",
   "tooltip.rtsbuilding.plugin.field_deployment_plugin": "允許在 RTS 家園周圍 3×3 區塊外開啓 RTS。",
+  "tooltip.rtsbuilding.plugin.cross_dimension_storage_plugin": "喚醒並存取其他維度入面已連結嘅儲存。",
   "tooltip.rtsbuilding.plugin.range_extension_i": "操作半徑 +16。",
   "tooltip.rtsbuilding.plugin.range_extension_ii": "操作半徑 +32。",
   "tooltip.rtsbuilding.plugin.range_extension_iii": "操作半徑 +48。",
@@ -474,6 +476,12 @@
   "rtsbuilding.configuration.ae2NetworkRefreshThrottle.tooltip": "兩次高開銷 AE2 網絡快照之間間隔嘅儲存快取刷新週期數。",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle": "精緻儲存刷新節流",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle.tooltip": "兩次高開銷 Refined Storage 網絡快照之間間隔嘅儲存快取刷新週期數。",
+  "rtsbuilding.configuration.maxLinkedStorages": "連結儲存上限",
+  "rtsbuilding.configuration.maxLinkedStorages.tooltip": "每名玩家最多保留嘅連結儲存端點數量。",
+  "rtsbuilding.configuration.enableCrossDimensionStorage": "跨維度連結儲存",
+  "rtsbuilding.configuration.enableCrossDimensionStorage.tooltip": "允許跨維度儲存插件喚醒並存取其他維度入面已連結嘅儲存。",
+  "rtsbuilding.configuration.maxCrossDimensionAwakeChunks": "跨維度喚醒區塊數",
+  "rtsbuilding.configuration.maxCrossDimensionAwakeChunks.tooltip": "每名玩家最多保留嘅短期跨維度儲存區塊票據數量。",
   "rtsbuilding.configuration.pageCacheMaxPlayers": "頁面快取玩家數",
   "rtsbuilding.configuration.pageCacheMaxPlayers.tooltip": "儲存頁面 LRU 快取最多保留嘅玩家數量。",
   "rtsbuilding.configuration.defaultStoragePageSize": "預設儲存頁面大小",
@@ -972,14 +980,23 @@
   "message.rtsbuilding.plugin_required": "請先安裝%s以使用此功能。",
   "message.rtsbuilding.camera_locked": "RTS 相機尚未解鎖。安裝「%s」插件即可解鎖，或在模組設定中關閉「生存平衡」。",
   "screen.rtsbuilding.tooltip.shape_block": "單",
+  "screen.rtsbuilding.tooltip.shape_block.detail": "放置或者破壞一個方塊。",
   "screen.rtsbuilding.tooltip.shape_line": "線",
+  "screen.rtsbuilding.tooltip.shape_line.detail": "由起點延伸一條直線。",
   "screen.rtsbuilding.tooltip.shape_square": "面",
+  "screen.rtsbuilding.tooltip.shape_square.detail": "生成一個平面矩形。",
   "screen.rtsbuilding.tooltip.shape_wall": "牆",
+  "screen.rtsbuilding.tooltip.shape_wall.detail": "生成一面垂直矩形牆。",
   "screen.rtsbuilding.tooltip.shape_circle": "圓",
+  "screen.rtsbuilding.tooltip.shape_circle.detail": "圍住目標生成一個平面圓形。",
   "screen.rtsbuilding.tooltip.shape_cylinder": "圓柱",
+  "screen.rtsbuilding.tooltip.shape_cylinder.detail": "生成一個垂直圓柱。",
   "screen.rtsbuilding.tooltip.shape_ball": "球",
+  "screen.rtsbuilding.tooltip.shape_ball.detail": "圍住目標生成一個球體。",
   "screen.rtsbuilding.tooltip.shape_box": "體",
+  "screen.rtsbuilding.tooltip.shape_box.detail": "生成一個尺寸可調嘅長方體。",
   "screen.rtsbuilding.tooltip.shape_chain": "連鎖",
+  "screen.rtsbuilding.tooltip.shape_chain.detail": "沿相連嘅同類方塊繼續破壞。",
   "message.rtsbuilding.drop_buffer.full": "自動存入快取已滿，挖掘暫時停止。",
   "message.rtsbuilding.drop_buffer.fallback": "疑似儲存已滿，無法自動入庫。",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerTick": "RTS 每 Tick 全域工作量",
@@ -1009,4 +1026,152 @@
   "screen.rtsbuilding.rotation_gizmo.horizontal_cw": "水平軸 · 順時針",
   "screen.rtsbuilding.rotation_gizmo.vertical_ccw": "垂直軸 · 逆時針",
   "screen.rtsbuilding.rotation_gizmo.vertical_cw": "垂直軸 · 順時針"
+  ,"message.rtsbuilding.convenience_destroy.empty": "搵唔到可以破壞嘅方塊。"
+  ,"message.rtsbuilding.convenience_destroy.invalid": "目前目標唔可以用所選便捷工具。"
+  ,"message.rtsbuilding.convenience_destroy.over_limit": "完整目標超過上限（%s），今次冇破壞任何方塊。"
+  ,"message.rtsbuilding.convenience_destroy.unloaded": "目標接觸未載入區塊，成次操作已取消。"
+  ,"message.rtsbuilding.smart_fill.invalid": "智能填坑目標已失效。"
+  ,"message.rtsbuilding.smart_fill.no_target": "這裡沒有偵測到可安全填充的有界洞口。"
+  ,"message.rtsbuilding.smart_fill.queued": "已提交 %s 個方塊的智能填坑任務。"
+  ,"message.rtsbuilding.smart_fill.queued_partial": "已提交 %s 個方塊的部分填坑任務。"
+  ,"message.rtsbuilding.smart_fill.select_material": "請先選擇一種可放置方塊。"
+  ,"message.rtsbuilding.smart_fill.too_large": "這個洞穴超過智能填坑的安全上限。"
+  ,"message.rtsbuilding.smart_fill.unloaded": "智能填坑在未載入區塊邊界停止。"
+  ,"message.rtsbuilding.storage_batch.entered": "批次連結儲存：請選擇第一個角點；按 Ctrl 離開。"
+  ,"message.rtsbuilding.storage_batch.exited": "已離開批次連結儲存。"
+  ,"message.rtsbuilding.storage_batch.first_selected": "已選擇第一個角點，請選擇對角。"
+  ,"message.rtsbuilding.storage_batch.no_target": "游標下沒有可選方塊。"
+  ,"message.rtsbuilding.storage_batch.ready": "選區已準備好；滾輪調整高度，Enter 或再次點擊確認。"
+  ,"message.rtsbuilding.storage_batch.selection_cleared": "已清除目前選區，請重新選擇第一個角點。"
+  ,"message.rtsbuilding.storage_batch.submitted": "已送出批次連結；可繼續框選，或按 Ctrl 離開。"
+  ,"message.rtsbuilding.storage_batch.too_large": "選區過大（最大 64 × 64 × 64）。"
+  ,"screen.rtsbuilding.quick_build.catalog_shapes": "形狀"
+  ,"screen.rtsbuilding.quick_build.catalog_tools": "工具"
+  ,"screen.rtsbuilding.quick_build.convenience.hint": "指向目標再確認；參數會保留，可以直接對下一處重複執行。"
+  ,"screen.rtsbuilding.quick_build.convenience.over_limit": "完整目標超過所選上限，今次唔會破壞任何方塊。"
+  ,"screen.rtsbuilding.quick_build.convenience.tree_invalid": "請指向原木、天然樹葉或者巨型蘑菇。"
+  ,"screen.rtsbuilding.quick_build.convenience.unloaded": "目標接觸未載入區塊，成次操作已取消。"
+  ,"screen.rtsbuilding.quick_build.mode_smart_fill": "填坑"
+  ,"screen.rtsbuilding.quick_build.parameter.chunk_down": "向下 Y"
+  ,"screen.rtsbuilding.quick_build.parameter.chunk_up": "向上 Y"
+  ,"screen.rtsbuilding.quick_build.parameter.size_x": "X 尺寸"
+  ,"screen.rtsbuilding.quick_build.parameter.size_y": "Y 尺寸"
+  ,"screen.rtsbuilding.quick_build.parameter.size_z": "Z 尺寸"
+  ,"screen.rtsbuilding.quick_build.parameter.tree_max_blocks": "最大方塊數"
+  ,"screen.rtsbuilding.quick_build.smart_fill.detail": "偵測並填滿一個有邊界嘅洞。"
+  ,"screen.rtsbuilding.quick_build.smart_fill.diameter": "偵測直徑"
+  ,"screen.rtsbuilding.quick_build.smart_fill.diameter_status": "偵測直徑：%s"
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_aim": "瞄準有邊界的洞口。"
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_confirm": "再次點擊填充；左鍵/Esc 取消。"
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_partial": "已觸及上限；點擊鎖定。"
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_ready": "點擊鎖定預覽。"
+  ,"screen.rtsbuilding.quick_build.smart_fill.max_blocks": "最大方塊數"
+  ,"screen.rtsbuilding.quick_build.tool.chunk_quarry": "Chunk"
+  ,"screen.rtsbuilding.quick_build.tool.chunk_quarry.detail": "破壞瞄準區塊，可以調整向上同向下嘅高度。"
+  ,"screen.rtsbuilding.quick_build.tool.repeat_box": "Repeat"
+  ,"screen.rtsbuilding.quick_build.tool.repeat_box.detail": "以瞄準方塊為基準，破壞可調 X/Y/Z 尺寸嘅長方體。"
+  ,"screen.rtsbuilding.quick_build.tool.tree_fell": "Tree"
+  ,"screen.rtsbuilding.quick_build.tool.tree_fell.detail": "斬伐相連嘅原木、天然樹葉或者巨型蘑菇。"
+  ,"key.rtsbuilding.placement_state_wheel": "開啟方塊狀態輪盤"
+  ,"screen.rtsbuilding.craft_terminal.short_title": "合成終端"
+  ,"screen.rtsbuilding.craft_terminal.search": "搜尋"
+  ,"screen.rtsbuilding.craft_terminal.search_mode.standard": "只搜尋已連接存儲"
+  ,"screen.rtsbuilding.craft_terminal.search_mode.sync_to_jei": "將終端搜尋同步到 JEI"
+  ,"screen.rtsbuilding.craft_terminal.search_mode.bidirectional": "終端與 JEI 搜尋雙向同步"
+  ,"screen.rtsbuilding.craft_terminal.search_pin": "再次開啟終端時保留今次搜尋"
+  ,"screen.rtsbuilding.craft_terminal.clear_to_storage": "將合成格材料退回已連接存儲"
+  ,"screen.rtsbuilding.craft_terminal.clear_to_inventory": "將合成格材料退回玩家背包"
+  ,"screen.rtsbuilding.craft_terminal.deposit_all": "存入背包及快捷列"
+  ,"screen.rtsbuilding.craft_terminal.deposit_hotbar": "存入快捷列"
+  ,"screen.rtsbuilding.craft_terminal.sort_field.name": "首字母"
+  ,"screen.rtsbuilding.craft_terminal.sort_field.quantity": "數量"
+  ,"screen.rtsbuilding.craft_terminal.sort_direction.ascending": "正序"
+  ,"screen.rtsbuilding.craft_terminal.sort_direction.descending": "倒序"
+  ,"screen.rtsbuilding.craft_terminal.utility_button": "左/右鍵：清格至存儲/背包 · Shift+左/右鍵：存入背包/快捷列"
+  ,"screen.rtsbuilding.craft_terminal.rows": "切換存儲顯示行數"
+  ,"screen.rtsbuilding.settings.ui_theme": "全域 UI 配色"
+  ,"screen.rtsbuilding.settings.ui_theme.hint": "選擇配色與材質渲染模式。"
+  ,"screen.rtsbuilding.theme.title": "UI 主題"
+  ,"screen.rtsbuilding.theme.open": "調整"
+  ,"screen.rtsbuilding.theme.legacy": "Legacy / 資源包"
+  ,"screen.rtsbuilding.theme.calibrated": "校準 RTS 深色"
+  ,"screen.rtsbuilding.theme.nord": "Nord Command"
+  ,"screen.rtsbuilding.theme.carbon": "Carbon Operations"
+  ,"screen.rtsbuilding.theme.material": "Material Field"
+  ,"screen.rtsbuilding.theme.mode.legacy": "資源包材質"
+  ,"screen.rtsbuilding.theme.mode.palette": "遊戲內配色"
+  ,"screen.rtsbuilding.theme.preview": "即時風格預覽"
+  ,"screen.rtsbuilding.theme.sample.idle": "靜止"
+  ,"screen.rtsbuilding.theme.sample.hover": "懸停"
+  ,"screen.rtsbuilding.theme.sample.active": "選取"
+  ,"screen.rtsbuilding.theme.sample.primary": "合成終端與面板正文"
+  ,"screen.rtsbuilding.theme.sample.secondary": "次級說明與儲存狀態"
+  ,"screen.rtsbuilding.theme.reload": "重新載入"
+  ,"screen.rtsbuilding.theme.import": "匯入"
+  ,"screen.rtsbuilding.theme.folder": "資料夾"
+  ,"screen.rtsbuilding.theme.export": "匯出"
+  ,"screen.rtsbuilding.theme.apply": "套用"
+  ,"screen.rtsbuilding.theme.status.ready": "選擇主題即可預覽。"
+  ,"screen.rtsbuilding.theme.status.draft": "目前僅預覽；按下套用後才會儲存。"
+  ,"screen.rtsbuilding.theme.status.reloaded": "主題資料夾已重新載入。"
+  ,"screen.rtsbuilding.theme.status.reload_error": "部分主題檔案被拒絕，請查看日誌。"
+  ,"screen.rtsbuilding.theme.status.exported": "主題 JSON 已匯出至主題資料夾。"
+  ,"screen.rtsbuilding.theme.status.export_error": "主題匯出失敗，請查看日誌。"
+  ,"screen.rtsbuilding.theme.status.applied": "主題已套用並儲存。"
+  ,"screen.rtsbuilding.theme.status.apply_error": "主題未能儲存，請查看日誌。"
+  ,"screen.rtsbuilding.theme.status.contrast_error": "此顏色會令重要文字難以辨認。"
+  ,"screen.rtsbuilding.theme.status.imported": "主題已匯入；按下套用後啟用。"
+  ,"screen.rtsbuilding.theme.status.import_cancelled": "已取消匯入主題。"
+  ,"screen.rtsbuilding.theme.status.import_error": "主題匯入失敗，請查看日誌。"
+  ,"screen.rtsbuilding.theme.editor": "配色編輯器"
+  ,"screen.rtsbuilding.theme.editor.legacy": "Legacy 由目前資源包完整提供，不能在此重新着色。"
+  ,"screen.rtsbuilding.theme.editor.drag_hint": "拖動色輪和明度條。"
+  ,"screen.rtsbuilding.theme.token.canvas": "背景畫布"
+  ,"screen.rtsbuilding.theme.token.top_bar": "頂部列"
+  ,"screen.rtsbuilding.theme.token.bottom_bar": "底部列"
+  ,"screen.rtsbuilding.theme.token.surface": "面板表面"
+  ,"screen.rtsbuilding.theme.token.surface_raised": "浮起面板"
+  ,"screen.rtsbuilding.theme.token.surface_sunken": "凹陷區域"
+  ,"screen.rtsbuilding.theme.token.border_strong": "主邊框"
+  ,"screen.rtsbuilding.theme.token.border_soft": "次邊框"
+  ,"screen.rtsbuilding.theme.token.divider": "分隔線"
+  ,"screen.rtsbuilding.theme.token.focus_ring": "焦點框"
+  ,"screen.rtsbuilding.theme.token.text_primary": "主要文字"
+  ,"screen.rtsbuilding.theme.token.text_secondary": "次要文字"
+  ,"screen.rtsbuilding.theme.token.text_muted": "弱化文字"
+  ,"screen.rtsbuilding.theme.token.text_on_accent": "強調色上文字"
+  ,"screen.rtsbuilding.theme.token.control_idle": "靜止控制項"
+  ,"screen.rtsbuilding.theme.token.control_hover": "懸停控制項"
+  ,"screen.rtsbuilding.theme.token.control_pressed": "按下控制項"
+  ,"screen.rtsbuilding.theme.token.control_selected": "選取控制項"
+  ,"screen.rtsbuilding.theme.token.control_disabled": "停用控制項"
+  ,"screen.rtsbuilding.theme.token.switch_thumb": "開關滑塊"
+  ,"screen.rtsbuilding.theme.token.icon_primary": "主要圖示"
+  ,"screen.rtsbuilding.theme.token.icon_muted": "弱化圖示"
+  ,"screen.rtsbuilding.theme.token.icon_on_accent": "強調色上圖示"
+  ,"screen.rtsbuilding.theme.token.accent_primary": "主強調色"
+  ,"screen.rtsbuilding.theme.token.accent_secondary": "次強調色"
+  ,"screen.rtsbuilding.theme.token.success": "成功狀態"
+  ,"screen.rtsbuilding.theme.token.warning": "警告狀態"
+  ,"screen.rtsbuilding.theme.token.error": "錯誤狀態"
+  ,"screen.rtsbuilding.theme.token.destructive": "危險操作"
+  ,"screen.rtsbuilding.theme.token.slot_idle": "靜止物品格"
+  ,"screen.rtsbuilding.theme.token.slot_hover": "懸停物品格"
+  ,"screen.rtsbuilding.theme.token.slot_selected": "選取物品格"
+  ,"screen.rtsbuilding.theme.token.slot_missing": "缺少物品格"
+  ,"screen.rtsbuilding.theme.token.scrollbar_track": "捲動條軌道"
+  ,"screen.rtsbuilding.theme.token.scrollbar_thumb": "捲動條滑塊"
+  ,"screen.rtsbuilding.theme.token.scrollbar_thumb_hover": "懸停捲動條"
+  ,"screen.rtsbuilding.theme.token.world_selection": "世界選區"
+  ,"screen.rtsbuilding.theme.token.world_selection_fill": "選區填色"
+  ,"screen.rtsbuilding.theme.token.world_link_endpoint": "儲存連接"
+  ,"screen.rtsbuilding.theme.token.world_invalid": "無效目標"
+  ,"screen.rtsbuilding.theme.token.world_ghost_valid": "有效幽靈預覽"
+  ,"screen.rtsbuilding.theme.token.world_ghost_invalid": "無效幽靈預覽"
+  ,"screen.rtsbuilding.theme.token.world_axis_x": "世界 X 軸"
+  ,"screen.rtsbuilding.theme.token.world_axis_y": "世界 Y 軸"
+  ,"screen.rtsbuilding.theme.token.world_axis_z": "世界 Z 軸"
+  ,"screen.rtsbuilding.theme.token.world_handle_active": "使用中世界控點"
+  ,"message.rtsbuilding.storage_batch.result": "已連結 %s 個儲存端點（總計 %s / 上限 %s）。"
+  ,"message.rtsbuilding.storage_batch.result_none": "冇新增可以連結嘅儲存端點（總計 %s / 上限 %s）。"
 }

@@ -4,7 +4,6 @@ package com.rtsbuilding.rtsbuilding.compat.jei;
 import java.util.List;
 import java.util.Optional;
 
-import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 
@@ -23,7 +22,7 @@ public final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler
 
     @Override
     public List<Rect2i> getGuiExtraAreas(RtsCraftTerminalScreen screen) {
-        return List.of(screen.getLinkedPanelArea());
+        return List.of(screen.getToolbarArea());
     }
 
     @Override
@@ -31,7 +30,7 @@ public final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler
             RtsCraftTerminalScreen screen,
             double mouseX,
             double mouseY) {
-        StorageEntry entry = screen.getLinkedEntryAt(mouseX, mouseY);
+        StorageEntry entry = screen.getStorageEntryAt(mouseX, mouseY);
         if (entry == null) {
             return Optional.empty();
         }
@@ -40,7 +39,7 @@ public final class RtsCraftTerminalJeiGuiHandler implements IGuiContainerHandler
             return Optional.empty();
         }
 
-        Rect2i area = screen.getLinkedSlotAreaAt(mouseX, mouseY);
+        Rect2i area = screen.getStorageSlotAreaAt(mouseX, mouseY);
         if (area == null) {
             return Optional.empty();
         }

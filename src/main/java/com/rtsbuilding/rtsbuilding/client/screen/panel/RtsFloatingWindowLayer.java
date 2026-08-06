@@ -25,8 +25,8 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
      * 1.19.2 的普通 GUI 前景深度只有约 1000；新版的 400 间隔会让后排窗口直接越界。
      * 物品模型与数量覆盖已由 RtsGuiContext 压到面板上方 8/16，因此每窗 24 足够隔离。
      */
-    private static final float WINDOW_BASE_Z = 24.0F;
-    private static final float WINDOW_Z_STRIDE = 24.0F;
+    private static final float WINDOW_BASE_Z = 400.0F;
+    private static final float WINDOW_Z_STRIDE = 400.0F;
 
     public RtsFloatingWindowLayer(RtsWindowPanel... frontToBackWindows) {
         this(new ArrayList<>(List.of(frontToBackWindows)));

@@ -38,11 +38,17 @@ public final class RtsRefinedStorageCompat {
     }
 
     public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
-        if (!isAvailable() || player == null || pos == null) {
+        return player == null ? null : createNetworkItemHandler(player, player.getLevel(), pos);
+    }
+
+    /**
+     * 在指定维度解析 Refined Storage 网络端点。调用方负责链接权限与区块唤醒。
+     */
+    public static IItemHandler createNetworkItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        if (!isAvailable() || player == null || level == null || pos == null) {
             return null;
         }
-        ServerLevel level = player.getLevel();
-        if (level == null || !level.hasChunkAt(pos)) {
+        if (!level.hasChunkAt(pos)) {
             return null;
         }
         Object network = REFLECTION.findNetwork(level, pos);
@@ -50,6 +56,17 @@ public final class RtsRefinedStorageCompat {
             return null;
         }
         return new RsNetworkItemHandler(network, REFLECTION);
+    }
+
+    /**
+     * 返回端点所属 RS 网络的瞬态身份，仅供一次已加载区块扫描按引用去重。
+     * 调用方不得持久化或发送这个第三方运行时对象。
+     */
+    public static Object batchNetworkIdentity(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || REFLECTION == null || !level.hasChunkAt(pos)) {
+            return null;
+        }
+        return REFLECTION.findNetwork(level, pos);
     }
 
     private static final class RsNetworkItemHandler implements IItemHandler,

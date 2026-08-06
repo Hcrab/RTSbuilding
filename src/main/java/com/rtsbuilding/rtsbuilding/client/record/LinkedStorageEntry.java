@@ -12,6 +12,6 @@ import net.minecraft.world.item.ItemStack;
  * still valid storage or whether unlink is allowed; those rules stay on the
  * server.
  */
-public record LinkedStorageEntry(BlockPos pos, String label, byte mode, int priority, ItemStack preview,
+public record LinkedStorageEntry(BlockPos pos, String dimensionId, String label, byte mode, int priority, ItemStack preview,
                                   boolean worldAvailable) {
 }

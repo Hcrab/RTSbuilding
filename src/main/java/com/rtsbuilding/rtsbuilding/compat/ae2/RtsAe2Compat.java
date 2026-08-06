@@ -48,11 +48,17 @@ public final class RtsAe2Compat {
     }
 
     public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
-        if (player == null || pos == null || REFLECTION == null) {
+        return player == null ? null : createNetworkItemHandler(player, player.getLevel(), pos);
+    }
+
+    /**
+     * 在指定维度解析 AE2 网络端点。调用方必须先保证目标区块已加载并且链接仍可访问。
+     */
+    public static IItemHandler createNetworkItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        if (player == null || level == null || pos == null || REFLECTION == null) {
             return null;
         }
-        ServerLevel level = player.getLevel();
-        if (level == null || !level.hasChunkAt(pos)) {
+        if (!level.hasChunkAt(pos)) {
             return null;
         }
 
@@ -61,6 +67,17 @@ public final class RtsAe2Compat {
             return null;
         }
         return new Ae2NetworkItemHandler(player, storageService, REFLECTION);
+    }
+
+    /**
+     * 返回端点所属 AE2 网络的瞬态身份，仅供一次已加载区块扫描按引用去重。
+     * 调用方不得持久化或发送这个第三方运行时对象。
+     */
+    public static Object batchNetworkIdentity(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || REFLECTION == null || !level.hasChunkAt(pos)) {
+            return null;
+        }
+        return REFLECTION.findStorageService(level, pos);
     }
 
     public static long getReportedCount(IItemHandler handler, int slot, ItemStack fallbackStack) {

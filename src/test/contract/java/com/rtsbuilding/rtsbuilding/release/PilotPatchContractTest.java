@@ -8,9 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Forge 1.19.2 Alpha 移植线的版本与玩家提示契约。
+ * Forge 1.19.2 正式 1.1.7 移植线的版本与玩家提示契约。
  *
- * <p>移植线使用独立的 0.0.x 序列，因此语言文件不硬编码主线版本；入门提醒必须
+ * <p>1.1.7 三版本同步后语言文件仍不硬编码版本；入门提醒必须
  * 从 Forge ModContainer 读取实际版本，并把版本与官网作为两个参数传入。</p>
  */
 class PilotPatchContractTest {
@@ -26,8 +26,8 @@ class PilotPatchContractTest {
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
-        assertTrue(properties.lines().anyMatch("mod_version=0.0.1"::equals),
-                "Forge 1.19.2 Alpha 必须使用独立的 0.0.x 版本");
+        assertTrue(properties.lines().anyMatch("mod_version=1.1.7"::equals),
+                "Forge 1.19.2 正式移植必须报告 1.1.7 版本");
         assertTrue(properties.lines().anyMatch(
                         "mod_archive_name=rtsbuilding-forge-1.19.2"::equals),
                 "JAR 名必须显式包含加载器和 Minecraft 版本");

@@ -36,7 +36,10 @@ class UnifiedLongTaskRuntimeContractTest {
         String source = read("server/service/impl/RtsFunnelServiceImpl.java");
         String adapter = read("platform/RtsEntityQueries.java");
         assertTrue(source.contains("EntityTypeTest.forClass(ItemEntity.class)"));
-        assertTrue(source.contains("e -> e != null && e.isAlive() && !e.getItem().isEmpty(), queryLimit"));
+        assertTrue(source.contains("EntityTypeTest.forClass(ExperienceOrb.class)"));
+        assertTrue(source.contains("List<Entity> collectibles"));
+        assertTrue(source.contains("instanceof ExperienceOrb"));
+        assertTrue(source.contains("experienceOrb.playerTouch(player)"));
         assertTrue(adapter.contains("found.size() < limit && predicate.test(entity)"));
         assertTrue(adapter.contains("level.getEntities().get(type, bounds"));
         assertFalse(adapter.contains("level.getEntities(type, bounds, predicate)"));

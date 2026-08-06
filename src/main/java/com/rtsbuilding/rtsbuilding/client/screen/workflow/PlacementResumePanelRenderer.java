@@ -24,15 +24,15 @@ final class PlacementResumePanelRenderer {
             Font font,
             WorkflowResumeWindowLayout.PlacementGeometry geometry,
             S2CRtsResumePlacementScanPayload data,
-            int mouseX,
-            int mouseY) {
+            double primaryHover,
+            double secondaryHover) {
         boolean enough = data.missingItems() <= 0;
-        WorkflowResumeChromeRenderer.renderPlacement(
+        WorkflowResumeChromeRenderer.renderPlacementAnimated(
                 new MinecraftUiCanvas(graphics, font),
                 geometry,
                 enough,
-                mouseX,
-                mouseY);
+                primaryHover,
+                secondaryHover);
         renderItem(graphics, font, geometry, data);
         renderStats(graphics, font, geometry, data, enough);
         renderActions(
@@ -40,8 +40,8 @@ final class PlacementResumePanelRenderer {
                 font,
                 geometry,
                 enough,
-                mouseX,
-                mouseY);
+                primaryHover,
+                secondaryHover);
     }
 
     private static void renderItem(
@@ -143,8 +143,8 @@ final class PlacementResumePanelRenderer {
             Font font,
             WorkflowResumeWindowLayout.PlacementGeometry geometry,
             boolean enough,
-            int mouseX,
-            int mouseY) {
+            double primaryHover,
+            double secondaryHover) {
         if (geometry.hasConflicts) {
             drawAction(
                     graphics,
@@ -155,8 +155,7 @@ final class PlacementResumePanelRenderer {
                             : "screen.rtsbuilding.workflow.insufficient_items",
                     WorkflowResumeStyle.ActionKind.SKIP,
                     enough,
-                    mouseX,
-                    mouseY);
+                    primaryHover);
             drawAction(
                     graphics,
                     font,
@@ -166,8 +165,7 @@ final class PlacementResumePanelRenderer {
                             : "screen.rtsbuilding.workflow.insufficient_items",
                     WorkflowResumeStyle.ActionKind.OVERWRITE,
                     enough,
-                    mouseX,
-                    mouseY);
+                    secondaryHover);
             return;
         }
         drawAction(
@@ -179,8 +177,7 @@ final class PlacementResumePanelRenderer {
                         : "screen.rtsbuilding.workflow.insufficient_items",
                 WorkflowResumeStyle.ActionKind.RESUME,
                 enough,
-                mouseX,
-                mouseY);
+                primaryHover);
     }
 
     private static void drawAction(
@@ -190,8 +187,7 @@ final class PlacementResumePanelRenderer {
             String key,
             WorkflowResumeStyle.ActionKind kind,
             boolean enabled,
-            int mouseX,
-            int mouseY) {
+            double hoverStrength) {
         WorkflowResumeRenderSupport.drawActionText(
                 graphics,
                 font,
@@ -200,7 +196,7 @@ final class PlacementResumePanelRenderer {
                 WorkflowResumeStyle.action(
                         kind,
                         enabled,
-                        action.contains(mouseX, mouseY)).text.toArgb());
+                        hoverStrength).text.toArgb());
     }
 
     private static void drawStat(

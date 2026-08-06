@@ -96,9 +96,9 @@ class QuickBuildClosedStateContractTest {
         assertTrue(renderer.contains("state.dimensions")
                         && adapter.contains("panel.uiScreen().currentShapeSizeText()"),
                 "the production status renderer should render the live width/height/depth readout");
-        assertTrue(layout.contains("public static final int BOTTOM_INFO_H = 72")
+        assertTrue(layout.contains("public static final int BOTTOM_INFO_H = 58")
                         && source.contains("QuickBuildWindowLayout.windowHeight("),
-                "the bottom hint area should leave room for the extra dimension row");
+                "the formal 1.1.7 layout must keep the compact status area that already contains dimensions");
     }
 
     @Test

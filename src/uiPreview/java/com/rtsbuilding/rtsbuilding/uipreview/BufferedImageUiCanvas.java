@@ -16,6 +16,8 @@ import java.awt.Shape;
 import java.awt.geom.AffineTransform;
 import java.awt.image.BufferedImage;
 import java.util.Stack;
+import java.nio.file.Paths;
+import java.io.File;
 
 /**
  * 仅用于离屏预览 source set 的 BufferedImage 画布。
@@ -33,6 +35,8 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
     private final Stack<Shape> clipStack = new Stack<Shape>();
     private final Stack<AffineTransform> transformStack = new Stack<AffineTransform>();
     private int maximumNineSliceQuads;
+    private UiPreviewFontMode fontMode = UiPreviewFontMode.configured();
+    private MinecraftPreviewFont minecraftFont;
 
     public BufferedImageUiCanvas(int width, int height) {
         this(width, height, 1.0D);
@@ -75,24 +79,71 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
     }
 
     public void configureFont(String language) {
-        String family = language != null && language.startsWith("zh")
-                ? "Microsoft YaHei UI" : Font.DIALOG_INPUT;
-        graphics.setFont(new Font(family, Font.PLAIN, 10));
+        configureFont(language, UiPreviewFontMode.configured());
+    }
+
+    void configureFont(String language, UiPreviewFontMode mode) {
+        this.fontMode = mode == null ? UiPreviewFontMode.MODERN_UI : mode;
+        boolean chinese = language != null && language.startsWith("zh");
+        String family = this.fontMode == UiPreviewFontMode.MODERN_UI
+                ? (chinese ? "Microsoft YaHei UI" : "Segoe UI")
+                : Font.DIALOG_INPUT;
+        graphics.setFont(new Font(family, Font.PLAIN,
+                this.fontMode == UiPreviewFontMode.MODERN_UI ? 9 : 10));
+        graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
+                this.fontMode == UiPreviewFontMode.MODERN_UI
+                        ? RenderingHints.VALUE_TEXT_ANTIALIAS_ON
+                        : RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
+        graphics.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
+                this.fontMode == UiPreviewFontMode.MODERN_UI
+                        ? RenderingHints.VALUE_FRACTIONALMETRICS_ON
+                        : RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
+        if (this.fontMode == UiPreviewFontMode.MINECRAFT && this.minecraftFont == null) {
+            String archive = System.getProperty("rts.ui.preview.unifontZip", "");
+            String clientJar = System.getProperty("rts.ui.preview.minecraftClientJar", "");
+            this.minecraftFont = new MinecraftPreviewFont(
+                    archive.isEmpty() ? null : Paths.get(archive),
+                    clientJar.isEmpty() ? null : new File(clientJar));
+        }
+    }
+
+    public int lineHeight() {
+        return this.fontMode == UiPreviewFontMode.MINECRAFT && this.minecraftFont != null
+                ? this.minecraftFont.lineHeight() : 9;
     }
 
     public int textWidth(String text) {
-        return graphics.getFontMetrics().stringWidth(text == null ? "" : text);
+        String safe = text == null ? "" : text;
+        if (this.fontMode != UiPreviewFontMode.MINECRAFT || this.minecraftFont == null) {
+            return (int) Math.ceil(graphics.getFontMetrics().getStringBounds(
+                    safe, graphics).getWidth());
+        }
+        int width = 0;
+        for (int offset = 0; offset < safe.length();) {
+            int codePoint = safe.codePointAt(offset);
+            width += this.minecraftFont.hasGlyph(codePoint)
+                    ? this.minecraftFont.advance(codePoint)
+                    : graphics.getFontMetrics().stringWidth(
+                            new String(Character.toChars(codePoint)));
+            offset += Character.charCount(codePoint);
+        }
+        return width;
     }
 
     public String trimToWidth(String text, int maximumWidth) {
         if (text == null || maximumWidth <= 0) return "";
-        FontMetrics metrics = graphics.getFontMetrics();
-        if (metrics.stringWidth(text) <= maximumWidth) return text;
+        if (textWidth(text) <= maximumWidth) return text;
         String suffix = "...";
-        int suffixWidth = metrics.stringWidth(suffix);
-        int end = text.length();
-        while (end > 0 && metrics.stringWidth(text.substring(0, end)) + suffixWidth > maximumWidth) {
-            end--;
+        int suffixWidth = textWidth(suffix);
+        int end = 0;
+        int width = 0;
+        while (end < text.length()) {
+            int codePoint = text.codePointAt(end);
+            int next = end + Character.charCount(codePoint);
+            int glyphWidth = textWidth(text.substring(end, next));
+            if (width + glyphWidth + suffixWidth > maximumWidth) break;
+            width += glyphWidth;
+            end = next;
         }
         return text.substring(0, end) + suffix;
     }
@@ -143,7 +194,12 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
 
     public void text(String text, double x, double baselineY, Color color) {
         graphics.setColor(color);
-        graphics.drawString(text, round(x), round(baselineY));
+        if (this.fontMode == UiPreviewFontMode.MINECRAFT && this.minecraftFont != null) {
+            drawMinecraftText(text == null ? "" : text, x,
+                    baselineY - graphics.getFontMetrics().getAscent(), color);
+        } else {
+            graphics.drawString(text, round(x), round(baselineY));
+        }
         stats.addPrimitives(1);
     }
 
@@ -200,6 +256,20 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
                 round(target.right()), round(target.bottom()),
                 round(source.getX()), round(source.getY()), round(source.right()), round(source.bottom()), null);
         stats.addPrimitives(1);
+    }
+
+    public void imageRegion(
+            BufferedImage texture, UiRect source, UiRect target, double opacity) {
+        if (texture == null || opacity <= 0.0D) return;
+        Composite previous = graphics.getComposite();
+        graphics.setComposite(AlphaComposite.getInstance(
+                AlphaComposite.SRC_OVER,
+                (float) Math.max(0.0D, Math.min(1.0D, opacity))));
+        try {
+            imageRegion(texture, source, target);
+        } finally {
+            graphics.setComposite(previous);
+        }
     }
 
     public void withFontSize(float size, Runnable draw) {
@@ -268,5 +338,22 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
 
     private static int round(double value) {
         return (int) Math.round(value);
+    }
+
+    private void drawMinecraftText(String text, double x, double topY, Color color) {
+        double cursor = x;
+        for (int offset = 0; offset < text.length();) {
+            int codePoint = text.codePointAt(offset);
+            String glyphText = new String(Character.toChars(codePoint));
+            if (this.minecraftFont.hasGlyph(codePoint)) {
+                this.minecraftFont.draw(graphics, codePoint, cursor, topY, color);
+                cursor += this.minecraftFont.advance(codePoint);
+            } else {
+                graphics.drawString(glyphText, round(cursor),
+                        round(topY + graphics.getFontMetrics().getAscent()));
+                cursor += graphics.getFontMetrics().stringWidth(glyphText);
+            }
+            offset += Character.charCount(codePoint);
+        }
     }
 }

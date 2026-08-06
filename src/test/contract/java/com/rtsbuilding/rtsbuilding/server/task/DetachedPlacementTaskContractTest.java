@@ -77,6 +77,28 @@ class DetachedPlacementTaskContractTest {
                 < placement.indexOf("tickDetachedPlacementSlice"));
     }
 
+    @Test
+    void quickBuildFreezesContextStateAcrossDetachedSlices() throws IOException {
+        String batch = read("server/service/placement/RtsPlacementBatch.java");
+        String quickBuild = read("server/service/placement/RtsPlacementQuickBuild.java");
+        String codec = read("server/task/placement/PlacementTaskCodec.java");
+
+        int submit = batch.indexOf("submitPlacementJob(player, job)");
+        int freezeBeforeSubmit = batch.lastIndexOf("job.freezeStatePlacementPlan(player);", submit);
+        assertTrue(freezeBeforeSubmit >= 0 && freezeBeforeSubmit < submit,
+                "新 Quick Build definition 必须在提交前冻结最终状态。");
+        assertTrue(batch.contains("NBT_FROZEN_PLACEMENT_STATE"));
+        assertTrue(batch.contains("nextDefinition"),
+                "旧 definition 的首次恢复必须将升级后的状态带入下一份快照。");
+
+        int frozenState = quickBuild.indexOf("BlockState frozenState = job.frozenPlacementState()");
+        int templateContext = quickBuild.indexOf("BlockPos templatePos = job.templatePosition()");
+        assertTrue(frozenState >= 0 && frozenState < templateContext,
+                "detached slice 必须在读取可变世界放置上下文前复用冻结状态。");
+        assertTrue(codec.contains("validateDefinition(definition, total)"),
+                "已有任务编解码必须继续接受缺少可选冻结字段的旧 definition。");
+    }
+
     private static String read(String relative) throws IOException {
         return Files.readString(MAIN.resolve(relative));
     }
