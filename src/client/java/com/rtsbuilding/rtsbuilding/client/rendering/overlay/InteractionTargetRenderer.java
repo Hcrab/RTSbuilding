@@ -250,9 +250,13 @@ public final class InteractionTargetRenderer {
             }
         }
 
-        // Blocked during shape-build confirmation phase
+        // 只有当前可见的 Quick Build 范围选择才能遮挡世界高亮。关闭面板或切回交互模式后，
+        // 残留的 READY_CONFIRM 会话不能继续制造一块看不见的全屏遮挡层。
         var shapeSession = builderScreen.getShapeController().getShapeBuildSession();
-        if (shapeSession != null && shapeSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM) {
+        if (InteractionTargetOcclusionPolicy.shapeSelectionBlocks(
+                builderScreen.isQuickBuildOpen(),
+                builderScreen.isQuickBuildRangeDestroyMode(),
+                shapeSession == null ? null : shapeSession.phase())) {
             return true;
         }
 
