@@ -6,9 +6,6 @@ import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Locale;
 
 /**
@@ -109,7 +106,10 @@ enum UiPreviewWorldBackground {
     private BufferedImage image() {
         if (image != null) return image;
         String path = "/backgrounds/" + fileName;
-        try (InputStream stream = openPreviewResource(path)) {
+        try (InputStream stream = UiPreviewWorldBackground.class.getResourceAsStream(path)) {
+            if (stream == null) {
+                throw new IOException("missing classpath resource " + path);
+            }
             BufferedImage loaded = ImageIO.read(stream);
             if (loaded == null) throw new IOException("unsupported image format " + path);
             image = loaded;
@@ -119,19 +119,4 @@ enum UiPreviewWorldBackground {
         }
     }
 
-    /**
-     * Forge 1.20.1 的旧预览任务尚未声明独立 resources 源集；优先读 classpath，
-     * 缺失时只回退到当前开发工作树，不复制资源，也不改变正式模组资源边界。
-     */
-    private static InputStream openPreviewResource(String classpathPath) throws IOException {
-        InputStream stream = UiPreviewWorldBackground.class.getResourceAsStream(classpathPath);
-        if (stream != null) return stream;
-        Path workspacePath = Paths.get("src", "uiPreview", "resources",
-                classpathPath.substring(1));
-        if (!Files.isRegularFile(workspacePath)) {
-            throw new IOException("missing preview resource " + classpathPath
-                    + " (also checked " + workspacePath + ")");
-        }
-        return Files.newInputStream(workspacePath);
-    }
 }

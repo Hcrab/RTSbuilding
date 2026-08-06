@@ -118,6 +118,36 @@ class RtsCullingRoutingContractTest {
     }
 
     @Test
+    void flywheelVisualCullingUsesIncrementalSyncAndStorageAdmission() throws IOException {
+        String mixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/FlywheelBlockEntityStorageMixin.java"));
+        String compat = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsFlywheelCullingCompat.java"));
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingManager.java"));
+        String config = Files.readString(Path.of("src/main/resources/rtsbuilding.mixins.json"));
+
+        assertTrue(mixin.contains("@Pseudo"));
+        assertTrue(mixin.contains("dev.engine_room.flywheel.impl.visualization.storage.BlockEntityStorage"));
+        assertTrue(mixin.contains("willAccept(Lnet/minecraft/world/level/block/entity/BlockEntity;)Z"));
+        assertTrue(mixin.contains("RtsCullingClientState.shouldCull(blockEntity.getBlockPos())"));
+        assertTrue(mixin.contains("require = 1"));
+        assertTrue(config.contains("FlywheelBlockEntityStorageMixin"));
+        assertTrue(compat.contains("getChunkNow"),
+                "Flywheel 同步只能查看受影响且已经加载的区块");
+        assertTrue(compat.contains("visuals.queueRemove(blockEntity)"));
+        assertTrue(compat.contains("visuals.queueAdd(blockEntity)"));
+        assertTrue(compat.contains("private static final class FlywheelAccess"),
+                "可选 Flywheel API 链接必须留在延迟加载边界后方");
+        assertTrue(manager.contains("RtsFlywheelCullingCompat.syncBox(box)"));
+        assertTrue(manager.contains("RtsFlywheelCullingCompat.syncBlock(pos)"));
+        assertTrue(manager.contains("markBoxDirty(cancelledPreview)"),
+                "取消完整草稿后必须恢复此前隐藏的 Flywheel Visual");
+        assertTrue(manager.contains("previousBoxes.forEach(this::markBoxDirty)"),
+                "服务端快照替换后必须增量恢复不再隐藏的旧区域");
+    }
+
+    @Test
     void selectedCullingBoxRendersWorldAxisHandles() throws IOException {
         String renderer = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/culling/RtsCullingRenderer.java"));

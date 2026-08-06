@@ -64,14 +64,14 @@ public final class RtsCullingClientState {
 
     /** 打开 RTS 界面时请求当前存档、当前维度自己的剔除记录。 */
     public static void requestCurrentWorldState() {
-        PERSISTENT_MANAGER.clearWorldState();
+        PERSISTENT_MANAGER.replaceWorldState(List.of(), List.of());
         PacketDistributor.sendToServer(new C2SRtsRequestCullingStatePayload());
     }
 
     /** 应用服务端按玩家与维度返回的剔除记录。 */
     public static void applyCurrentWorldState(S2CRtsCullingStatePayload payload) {
         if (payload == null) {
-            PERSISTENT_MANAGER.clearWorldState();
+            PERSISTENT_MANAGER.replaceWorldState(List.of(), List.of());
             return;
         }
         Minecraft minecraft = Minecraft.getInstance();

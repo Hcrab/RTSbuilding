@@ -29,7 +29,8 @@ import net.minecraftforge.network.simple.SimpleChannel;
  * requires.
  */
 public final class RtsForgePayloadRegistrar {
-    private static final String PROTOCOL_VERSION = "1";
+    // Create Value Settings 的负载加入行为 netId；拒绝旧 1.1.7 客户端按旧字段顺序解码。
+    private static final String PROTOCOL_VERSION = "2";
 
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(RtsbuildingMod.MODID, "main"),

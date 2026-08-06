@@ -85,6 +85,20 @@ class RtsCullingManagerTest {
     }
 
     @Test
+    void cancellingCompleteDraftRestoresItsWorldBlocks() {
+        RtsCullingManager manager = new RtsCullingManager();
+        manager.setManagementMode(true);
+        BlockPos hidden = new BlockPos(11, 64, 11);
+
+        clickBlock(manager, new BlockPos(10, 64, 10));
+        clickBlock(manager, new BlockPos(12, 64, 12));
+        assertTrue(manager.shouldCullWorldBlock(hidden));
+
+        assertTrue(manager.cancelDraftIfActive());
+        assertFalse(manager.shouldCullWorldBlock(hidden));
+    }
+
+    @Test
     void revealedBlockInsideBoxStaysVisibleForNewPlayerPlacement() {
         RtsCullingManager manager = new RtsCullingManager();
         manager.setManagementMode(true);

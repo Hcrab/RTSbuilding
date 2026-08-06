@@ -15,6 +15,16 @@ public final class RtsCreateValueSettingsPolicy {
         return primaryActionMouse && worldArea && eligibleBehaviour;
     }
 
+    /**
+     * 将 Create 全局输入反射结果收敛为 RTS 是否继续扫描行为的纯决策。
+     *
+     * <p>潜行、冒险模式等许可由 Create 的 {@code canInteract} 独占决定；Clipboard 仍由
+     * Create 原生路径处理，避免 RTS 抢走它的右键。反射不能确认事实时由运行时门面让行。</p>
+     */
+    static boolean allowsCreateGlobalInput(boolean createCanInteract, boolean holdingCreateClipboard) {
+        return createCanInteract && !holdingCreateClipboard;
+    }
+
     public static boolean shouldApplyOnServer(
             boolean activeRtsSession,
             boolean exactDimension,

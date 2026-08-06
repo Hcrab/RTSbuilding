@@ -8,6 +8,7 @@
     "BlockRenderDispatcherMixin",
     "CreateValueSettingsScreenMixin",
     "EmbeddiumWorldSliceMixin",
+    "FlywheelBlockEntityStorageMixin",
     "GameRendererMixin",
     "RenderChunkRegionMixin",
     "LocalPlayerMixin"

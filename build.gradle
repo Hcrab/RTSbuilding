@@ -263,6 +263,7 @@ repositories {
     // Put repositories for dependencies here
     // ForgeGradle automatically adds the Forge maven and Maven Central for you
     maven { url = 'https://maven.blamejared.com' }
+    maven { url = 'https://maven.createmod.net' }
     maven { url = 'https://www.cursemaven.com' }
     flatDir {
         dirs devRuntimeModsDir
@@ -285,6 +286,7 @@ dependencies {
 
     compileOnly fg.deobf("mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}")
     compileOnly fg.deobf("mezz.jei:jei-${jei_minecraft_version}-forge-api:${jei_version}")
+    compileOnly "dev.engine-room.flywheel:flywheel-forge-api-${minecraft_version}:${flywheel_version}"
     // Jade 只提供编译期 API；玩家未安装 Jade 时兼容入口和伪 Mixin 都不会参与运行。
     compileOnly fg.deobf("curse.maven:jade-${jade_curseforge_project_id}:${jade_curseforge_file_id}")
     if (providers.gradleProperty('rts_create_gametest_jar').isPresent()) {

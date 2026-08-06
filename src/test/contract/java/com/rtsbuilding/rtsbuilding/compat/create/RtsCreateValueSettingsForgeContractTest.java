@@ -38,7 +38,14 @@ class RtsCreateValueSettingsForgeContractTest {
         assertFalse(runtime.contains("BuiltInRegistries"));
         assertTrue(runtime.contains("ValueSettingsBehaviour\""));
         assertTrue(runtime.contains("getAllBehaviours"));
-        assertTrue(runtime.contains("onShortInteract\", Player.class, InteractionHand.class, Direction.class"));
+        assertTrue(runtime.contains("ValueSettingsInputHandler"));
+        assertTrue(runtime.contains("AllBlocks"));
+        assertTrue(runtime.contains("allowsCreateGlobalInput"));
+        assertTrue(runtime.contains("bypassesInput"));
+        assertTrue(runtime.contains("mayInteract"));
+        assertTrue(runtime.contains("netId"));
+        assertTrue(runtime.contains("onShortInteract\", Player.class, InteractionHand.class"));
+        assertTrue(runtime.contains("Direction.class, BlockHitResult.class"));
         assertTrue(runtime.contains("createBoard\", Player.class, BlockHitResult.class"));
         assertTrue(runtime.contains("setValueSettings\", Player.class, valueSettingsClass, boolean.class"));
     }
@@ -53,6 +60,8 @@ class RtsCreateValueSettingsForgeContractTest {
         assertTrue(client.contains("expected.getDirection() == actual.getDirection()"));
         assertTrue(client.contains("candidate.blockEntity() != pending.blockEntity()"));
         assertTrue(client.contains("candidate.behaviour() != pending.behaviour()"));
+        assertTrue(client.contains("candidate.netId() != pending.behaviourNetId()"));
+        assertTrue(client.contains("Consumer.class, int.class"));
         assertTrue(client.indexOf("if (!sameTarget(pending.hit(), currentHit))")
                 < client.indexOf("if (!isMouseButtonDown(minecraft, pending.mouseButton()))"));
         assertTrue(client.contains("session.screen() != screen"));
@@ -68,8 +77,15 @@ class RtsCreateValueSettingsForgeContractTest {
         String packets = source("network/create/RtsCreateValueSettingsPackets.java");
 
         assertTrue(registrar.contains("RtsCreateValueSettingsPackets.register(registrar)"));
+        assertTrue(registrar.contains("PROTOCOL_VERSION = \"2\""));
         assertTrue(packets.contains("C2SRtsCreateValueSettingsPayload.TYPE"));
         assertTrue(packets.contains("RtsCreateValueSettingsNetworkHandler::handle"));
+
+        String payload = source("network/create/C2SRtsCreateValueSettingsPayload.java");
+        String server = source("compat/create/RtsCreateValueSettingsServerCompat.java");
+        assertTrue(payload.contains("int behaviourNetId"));
+        assertTrue(payload.contains("writeVarInt(payload.behaviourNetId())"));
+        assertTrue(server.contains("candidate.netId() == payload.behaviourNetId()"));
     }
 
     private static String source(String relative) throws Exception {

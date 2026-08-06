@@ -74,6 +74,7 @@ public final class RtsCreateValueSettingsCompat {
                 hit,
                 candidate.blockEntity(),
                 candidate.behaviour(),
+                candidate.netId(),
                 0);
         return true;
     }
@@ -104,7 +105,8 @@ public final class RtsCreateValueSettingsCompat {
                         minecraft.level, currentHit, minecraft.player);
         if (candidate == null
                 || candidate.blockEntity() != pending.blockEntity()
-                || candidate.behaviour() != pending.behaviour()) {
+                || candidate.behaviour() != pending.behaviour()
+                || candidate.netId() != pending.behaviourNetId()) {
             pendingHold = null;
             return;
         }
@@ -180,14 +182,15 @@ public final class RtsCreateValueSettingsCompat {
             Consumer<Object> onHover = value ->
                     RtsCreateValueSettingsRuntime.notifyHovered(candidate, value);
             Object nativeScreen = valueSettingsScreenConstructor.newInstance(
-                    hit.getBlockPos(), board, settings, onHover);
+                    hit.getBlockPos(), board, settings, onHover, candidate.netId());
             if (nativeScreen instanceof Screen screen) {
                 nativeScreenSession = new NativeScreenSession(
                         screen,
                         minecraft.level.dimension().location(),
                         hit.getBlockPos(),
                         hit.getDirection(),
-                        hit.getLocation());
+                        hit.getLocation(),
+                        candidate.netId());
                 minecraft.setScreen(screen);
             }
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
@@ -203,7 +206,7 @@ public final class RtsCreateValueSettingsCompat {
         try {
             valueSettingsScreenClass = Class.forName(VALUE_SETTINGS_SCREEN_CLASS);
             valueSettingsScreenConstructor = valueSettingsScreenClass.getConstructor(
-                    BlockPos.class, board.getClass(), settings.getClass(), Consumer.class);
+                    BlockPos.class, board.getClass(), settings.getClass(), Consumer.class, int.class);
             return true;
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
             valueSettingsScreenConstructor = null;
@@ -214,7 +217,7 @@ public final class RtsCreateValueSettingsCompat {
     private static void sendShortInteraction(PendingHold pending) {
         BlockHitResult hit = pending.hit();
         PacketDistributor.sendToServer(new C2SRtsCreateValueSettingsPayload(
-                pending.dimension(), hit.getBlockPos(), 0, 0, true,
+                pending.dimension(), hit.getBlockPos(), pending.behaviourNetId(), 0, 0, true,
                 hit.getDirection(),
                 hit.getLocation().x, hit.getLocation().y, hit.getLocation().z,
                 false));
@@ -223,7 +226,7 @@ public final class RtsCreateValueSettingsCompat {
     private static void sendValueSettings(
             NativeScreenSession session, int row, int value, boolean ctrlDown) {
         PacketDistributor.sendToServer(new C2SRtsCreateValueSettingsPayload(
-                session.dimension(), session.pos(), row, value, false,
+                session.dimension(), session.pos(), session.behaviourNetId(), row, value, false,
                 session.face(),
                 session.hitLocation().x,
                 session.hitLocation().y,
@@ -274,10 +277,11 @@ public final class RtsCreateValueSettingsCompat {
             BlockHitResult hit,
             Object blockEntity,
             Object behaviour,
+            int behaviourNetId,
             int heldTicks) {
         private PendingHold withHeldTicks(int ticks) {
             return new PendingHold(
-                    mouseButton, dimension, hit, blockEntity, behaviour, ticks);
+                    mouseButton, dimension, hit, blockEntity, behaviour, behaviourNetId, ticks);
         }
     }
 
@@ -286,7 +290,8 @@ public final class RtsCreateValueSettingsCompat {
             ResourceLocation dimension,
             BlockPos pos,
             Direction face,
-            Vec3 hitLocation) {
+            Vec3 hitLocation,
+            int behaviourNetId) {
     }
 
     private record SelectedValue(int row, int value) {

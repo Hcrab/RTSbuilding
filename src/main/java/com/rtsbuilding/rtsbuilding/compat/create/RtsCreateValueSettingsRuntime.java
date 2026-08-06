@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.compat.create;
 import net.minecraft.core.Direction;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
@@ -35,6 +36,9 @@ public final class RtsCreateValueSettingsRuntime {
             "com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBoard";
     private static final String SIDED_VALUE_BOX_TRANSFORM_CLASS =
             "com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform$Sided";
+    private static final String VALUE_SETTINGS_INPUT_HANDLER_CLASS =
+            "com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsInputHandler";
+    private static final String ALL_BLOCKS_CLASS = "com.simibubi.create.AllBlocks";
     private static final String ALL_ITEM_TAGS_CLASS = "com.simibubi.create.AllTags$AllItemTags";
 
     private static boolean lookupAttempted;
@@ -49,6 +53,9 @@ public final class RtsCreateValueSettingsRuntime {
     private static Method onlyVisibleWithWrench;
     private static Method getSlotPositioning;
     private static Method testHit;
+    private static Method bypassesInput;
+    private static Method mayInteract;
+    private static Method netId;
     private static Method createBoard;
     private static Method getValueSettings;
     private static Method newSettingHovered;
@@ -61,6 +68,9 @@ public final class RtsCreateValueSettingsRuntime {
     private static Constructor<?> valueSettingsConstructor;
     private static Object wrenchTag;
     private static Method wrenchMatches;
+    private static Method canInteract;
+    private static Field clipboard;
+    private static Method clipboardAsItem;
 
     private RtsCreateValueSettingsRuntime() {
     }
@@ -72,11 +82,13 @@ public final class RtsCreateValueSettingsRuntime {
      * 玩家实体近距判断；服务端调用方会使用 RTS 会话自己的产品范围。</p>
      */
     public static Candidate findEligible(Level level, BlockHitResult hit, Player player) {
-        if (!ensureAvailable() || level == null || hit == null || player == null
-                || player.isSpectator() || player.isShiftKeyDown()) {
+        if (!ensureAvailable() || level == null || hit == null || player == null) {
             return null;
         }
         try {
+            if (!passesCreateGlobalInputGate(player)) {
+                return null;
+            }
             BlockEntity blockEntity = level.getBlockEntity(hit.getBlockPos());
             if (!smartBlockEntityClass.isInstance(blockEntity)) {
                 return null;
@@ -88,7 +100,9 @@ public final class RtsCreateValueSettingsRuntime {
             for (Object behaviour : collection) {
                 if (!valueSettingsBehaviourClass.isInstance(behaviour)
                         || !isTrue(isActive, behaviour)
-                        || !isTrue(acceptsValueSettings, behaviour)) {
+                        || !isTrue(acceptsValueSettings, behaviour)
+                        || !isTrue(mayInteract, behaviour, player)
+                        || isTrue(bypassesInput, behaviour, player.getMainHandItem())) {
                     continue;
                 }
                 if (isTrue(onlyVisibleWithWrench, behaviour)
@@ -99,7 +113,10 @@ public final class RtsCreateValueSettingsRuntime {
                         || !isTrue(testHit, behaviour, hit.getLocation())) {
                     continue;
                 }
-                return new Candidate(blockEntity, behaviour);
+                Object id = netId.invoke(behaviour);
+                if (id instanceof Number number) {
+                    return new Candidate(blockEntity, behaviour, number.intValue());
+                }
             }
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
             // Create 缺失或小版本签名不符时必须安静回落到既有 RTS 输入。
@@ -173,14 +190,15 @@ public final class RtsCreateValueSettingsRuntime {
         }
     }
 
-    /** 执行 Create 0.5.x 的三参数原生短按语义。 */
-    public static void applyShortInteraction(Candidate candidate, Player player, Direction face) {
-        if (candidate == null || player == null || face == null || !ensureAvailable()) {
+    /** 执行 Create 1.20.1 的原生短按语义，不把短按伪装成数值设置。 */
+    public static void applyShortInteraction(
+            Candidate candidate, Player player, Direction face, BlockHitResult hit) {
+        if (candidate == null || player == null || face == null || hit == null || !ensureAvailable()) {
             return;
         }
         try {
             onShortInteract.invoke(
-                    candidate.behaviour(), player, InteractionHand.MAIN_HAND, face);
+                    candidate.behaviour(), player, InteractionHand.MAIN_HAND, face, hit);
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
             // 目标在释放前失效时安静忽略。
         }
@@ -204,6 +222,21 @@ public final class RtsCreateValueSettingsRuntime {
         return Boolean.TRUE.equals(method.invoke(target, arguments));
     }
 
+    /**
+     * 复用 Create 在扫描数值行为前使用的全局输入许可。
+     *
+     * <p>不要在 RTS 内复制潜行、旁观或冒险模式的判断；Create 的 {@code canInteract} 是
+     * 唯一事实来源。任何反射失败均让出输入，防止错误截获 Create 原生右键。</p>
+     */
+    private static boolean passesCreateGlobalInputGate(Player player)
+            throws ReflectiveOperationException {
+        boolean createCanInteract = isTrue(canInteract, null, player);
+        Object clipboardItem = clipboardAsItem.invoke(clipboard.get(null));
+        return clipboardItem instanceof Item item
+                && RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(
+                        createCanInteract, player.getMainHandItem().is(item));
+    }
+
     private static boolean ensureAvailable() {
         if (lookupAttempted) {
             return available;
@@ -215,6 +248,8 @@ public final class RtsCreateValueSettingsRuntime {
             Class<?> valueSettingsClass = Class.forName(VALUE_SETTINGS_CLASS);
             valueSettingsBoardClass = Class.forName(VALUE_SETTINGS_BOARD_CLASS);
             sidedValueBoxTransformClass = Class.forName(SIDED_VALUE_BOX_TRANSFORM_CLASS);
+            Class<?> valueSettingsInputHandlerClass = Class.forName(VALUE_SETTINGS_INPUT_HANDLER_CLASS);
+            Class<?> allBlocksClass = Class.forName(ALL_BLOCKS_CLASS);
             Class<?> allItemTagsClass = Class.forName(ALL_ITEM_TAGS_CLASS);
 
             getAllBehaviours = smartBlockEntityClass.getMethod("getAllBehaviours");
@@ -223,6 +258,9 @@ public final class RtsCreateValueSettingsRuntime {
             onlyVisibleWithWrench = valueSettingsBehaviourClass.getMethod("onlyVisibleWithWrench");
             getSlotPositioning = valueSettingsBehaviourClass.getMethod("getSlotPositioning");
             testHit = valueSettingsBehaviourClass.getMethod("testHit", Vec3.class);
+            bypassesInput = valueSettingsBehaviourClass.getMethod("bypassesInput", ItemStack.class);
+            mayInteract = valueSettingsBehaviourClass.getMethod("mayInteract", Player.class);
+            netId = valueSettingsBehaviourClass.getMethod("netId");
             createBoard = valueSettingsBehaviourClass.getMethod(
                     "createBoard", Player.class, BlockHitResult.class);
             getValueSettings = valueSettingsBehaviourClass.getMethod("getValueSettings");
@@ -231,7 +269,8 @@ public final class RtsCreateValueSettingsRuntime {
             setValueSettings = valueSettingsBehaviourClass.getMethod(
                     "setValueSettings", Player.class, valueSettingsClass, boolean.class);
             onShortInteract = valueSettingsBehaviourClass.getMethod(
-                    "onShortInteract", Player.class, InteractionHand.class, Direction.class);
+                    "onShortInteract", Player.class, InteractionHand.class,
+                    Direction.class, BlockHitResult.class);
             sidedIsSideActive = sidedValueBoxTransformClass.getDeclaredMethod(
                     "isSideActive", BlockState.class, Direction.class);
             sidedIsSideActive.setAccessible(true);
@@ -243,6 +282,9 @@ public final class RtsCreateValueSettingsRuntime {
             Field wrenchField = allItemTagsClass.getField("WRENCH");
             wrenchTag = wrenchField.get(null);
             wrenchMatches = wrenchTag.getClass().getMethod("matches", ItemStack.class);
+            canInteract = valueSettingsInputHandlerClass.getMethod("canInteract", Player.class);
+            clipboard = allBlocksClass.getField("CLIPBOARD");
+            clipboardAsItem = clipboard.getType().getMethod("asItem");
             available = true;
         } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
             available = false;
@@ -251,6 +293,6 @@ public final class RtsCreateValueSettingsRuntime {
     }
 
     /** 一次点击/包处理期间解析出的实际 Create 行为，不跨 tick 或区块持久化。 */
-    public record Candidate(BlockEntity blockEntity, Object behaviour) {
+    public record Candidate(BlockEntity blockEntity, Object behaviour, int netId) {
     }
 }

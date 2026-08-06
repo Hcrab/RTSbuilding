@@ -14,7 +14,8 @@ sourceSets {
     }
     uiPreview {
         java.srcDir 'src/uiPreview/java'
-        resources.setSrcDirs([])
+        // 世界截图只服务于离屏审图，不进入 main 模组资源或发布 JAR。
+        resources.setSrcDirs(['src/uiPreview/resources'])
         compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
         runtimeClasspath += output + compileClasspath
     }

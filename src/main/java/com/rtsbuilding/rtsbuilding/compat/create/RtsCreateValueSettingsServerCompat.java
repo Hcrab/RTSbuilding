@@ -47,7 +47,7 @@ public final class RtsCreateValueSettingsServerCompat {
                 hitLocation, payload.face(), payload.pos(), false);
         RtsCreateValueSettingsRuntime.Candidate candidate =
                 RtsCreateValueSettingsRuntime.findEligible(level, hit, player);
-        boolean eligibleBehaviour = candidate != null;
+        boolean eligibleBehaviour = candidate != null && candidate.netId() == payload.behaviourNetId();
         if (!eligibleBehaviour) {
             return;
         }
@@ -55,9 +55,9 @@ public final class RtsCreateValueSettingsServerCompat {
         if (payload.shortInteraction()) {
             if (RtsCreateValueSettingsPolicy.shouldApplyOnServer(
                     activeRtsSession, exactDimension, targetChunkLoaded,
-                    withinRtsActionRange, mayInteract, true, true)) {
+                    withinRtsActionRange, mayInteract, eligibleBehaviour, true)) {
                 RtsCreateValueSettingsRuntime.applyShortInteraction(
-                        candidate, player, payload.face());
+                        candidate, player, payload.face(), hit);
             }
             return;
         }
