@@ -127,13 +127,6 @@ public final class MergedSkeletonRenderer {
                 alphaMultiplier);
     }
 
-    /** 渲染已确认的范围破坏工作区；确认后立即使用合并骨架，不再等待服务端 processed 进度。 */
-    static void renderConfirmedRangeDestroy(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,
-            VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress) {
-        renderMergedDestroySkeleton(preview, poseStack, lineBuffer, fillBuffer, progress, 0.30F, 0.030F,
-                1.0F);
-    }
-
     // ===== Merged skeleton rendering =====
 
     private static void renderMergedDestroySkeleton(ShapeDataRecords.GhostPreview preview, PoseStack poseStack,

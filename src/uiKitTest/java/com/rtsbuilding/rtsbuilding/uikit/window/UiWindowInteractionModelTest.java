@@ -51,6 +51,18 @@ class UiWindowInteractionModelTest {
         assertFalse(model.isInteracting());
     }
 
+    @Test
+    void explicitMaximumSizeDoesNotShrinkTheMovementViewport() {
+        UiWindowInteractionModel model = new UiWindowInteractionModel(
+                SCREEN, new UiRect(300, 20, 100, 80),
+                60, 50, 120, 100);
+        model.beginDrag(310, 30);
+        model.dragTo(470, 30);
+
+        assertEquals(400, model.getBounds().getX());
+        assertEquals(100, model.getBounds().getWidth());
+    }
+
     private static UiWindowInteractionModel model() {
         return new UiWindowInteractionModel(SCREEN, new UiRect(10, 20, 100, 80), 60, 50);
     }

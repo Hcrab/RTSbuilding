@@ -47,4 +47,19 @@ class RtsSelectionBoxAnimatorTest {
         assertEquals(first.asAabb().maxX, animator.renderAabb(second).maxX, 1.0E-6D,
                 "动画完成后必须保留上一个端点，下一次变化才不会瞬移");
     }
+
+    @Test
+    void rawAabbClientsShareTheSameRetargetingCurve() {
+        AtomicLong clock = new AtomicLong(0L);
+        RtsSelectionBoxAnimator animator = new RtsSelectionBoxAnimator(100L, clock::get);
+        AABB first = new AABB(0, 0, 0, 1, 1, 1);
+        AABB second = new AABB(0, 0, 0, 9, 5, 3);
+
+        animator.renderAabb(41, first);
+        clock.set(10L);
+        assertEquals(first.maxX, animator.renderAabb(41, second).maxX, 1.0E-6D);
+        clock.set(60L);
+        AABB halfway = animator.renderAabb(41, second);
+        assertTrue(halfway.maxX > first.maxX && halfway.maxX < second.maxX);
+    }
 }

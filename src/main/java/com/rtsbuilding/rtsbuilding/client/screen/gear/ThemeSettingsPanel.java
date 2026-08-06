@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeDefinition;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRenderMode;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
+import com.rtsbuilding.rtsbuilding.uikit.layout.ThemeSettingsLayout;
 import net.minecraft.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -29,10 +30,8 @@ import static com.rtsbuilding.rtsbuilding.uikit.layout.ThemeSettingsLayout.*;
  * 继续分别由 {@link UiThemeStorage} 与主题渲染层负责，避免设置窗口成为新的全能类。</p>
  */
 public final class ThemeSettingsPanel extends RtsWindowPanel {
-    private static final int LIST_W = 150;
     private static final int ROW_H = 34;
     private static final int BUTTON_H = 22;
-    private static final int EDITOR_W = 180;
 
     private String draftId;
     private int themeScroll;
@@ -70,10 +69,11 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
-        int x = contentX() + OUTER_INSET;
-        int y = contentY() + OUTER_INSET;
-        int h = contentHeight() - OUTER_INSET * 2;
-        UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, LIST_W, h),
+        var layout = themeGeometry();
+        int x = integer(layout.list.getX());
+        int y = integer(layout.list.getY());
+        int h = integer(layout.list.getHeight());
+        UiCompactFrameRenderer.frame(canvas, layout.list,
                 SettingsWindowStyle.VALUE_BACKGROUND, SettingsWindowStyle.VALUE_BORDER,
                 SettingsWindowStyle.VALUE_DARK_BORDER);
 
@@ -86,20 +86,21 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
              index < themes.size() && index < this.themeScroll + visibleThemeRows; index++) {
             UiThemeDefinition theme = themes.get(index);
             drawThemeRow(g, canvas, index - this.themeScroll, theme, x + LIST_INSET, rowY,
-                    LIST_W - DOUBLE_LIST_INSET, mouseX, mouseY);
+                    integer(layout.list.getWidth()) - DOUBLE_LIST_INSET, mouseX, mouseY);
             rowY += ROW_H;
         }
 
         UiThemeDefinition draft = draftTheme();
-        int previewX = x + LIST_W + COLUMN_GAP;
-        int previewW = contentWidth() - LIST_W - EDITOR_W - COLUMN_WIDTH_RESERVE;
         ThemePreviewRenderer.render(g, canvas, screen.font(), draft,
-                previewX, y, previewW, h - BODY_FOOTER_RESERVE);
-        int editorX = previewX + previewW + COLUMN_GAP;
-        this.editor.render(g, canvas, editorX, y, EDITOR_W,
-                h - BODY_FOOTER_RESERVE, mouseX, mouseY);
-        drawActions(g, canvas, x, y + h - FOOTER_TOP_RESERVE,
-                contentWidth() - OUTER_INSET * 2,
+                integer(layout.preview.getX()), integer(layout.preview.getY()),
+                integer(layout.preview.getWidth()), integer(layout.preview.getHeight()));
+        this.editor.render(g, canvas,
+                integer(layout.editor.getX()), integer(layout.editor.getY()),
+                integer(layout.editor.getWidth()), integer(layout.editor.getHeight()),
+                mouseX, mouseY);
+        drawActions(g, canvas,
+                integer(layout.actions.getX()), integer(layout.actions.getY()),
+                integer(layout.actions.getWidth()),
                 mouseX, mouseY, draft);
     }
 
@@ -134,9 +135,9 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
 
     private void drawActions(GuiGraphics g, MinecraftUiCanvas canvas, int x, int y, int w,
                              int mouseX, int mouseY, UiThemeDefinition draft) {
-        drawButton(g, canvas, x, y, 78, BUTTON_H, mouseX, mouseY,
+        drawButton(g, canvas, x, y, ACTION_IMPORT_W, BUTTON_H, mouseX, mouseY,
                 "screen.rtsbuilding.theme.import");
-        drawButton(g, canvas, x + ACTION_SECOND_X, y, 78, BUTTON_H, mouseX, mouseY,
+        drawButton(g, canvas, x + ACTION_SECOND_X, y, ACTION_FOLDER_W, BUTTON_H, mouseX, mouseY,
                 "screen.rtsbuilding.theme.folder");
         drawButton(g, canvas, x + w - ACTION_EXPORT_RIGHT, y, 74, BUTTON_H, mouseX, mouseY,
                 "screen.rtsbuilding.theme.export", draft.renderMode() == UiThemeRenderMode.PALETTE);
@@ -144,8 +145,12 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
                 "gui.cancel");
         drawButton(g, canvas, x + w - ACTION_APPLY_RIGHT, y, 86, BUTTON_H, mouseX, mouseY,
                 "screen.rtsbuilding.theme.apply");
-        g.drawString(screen.font(), text(statusKey), x, y + ACTION_STATUS_Y,
-                SettingsWindowStyle.HINT.toArgb(), false);
+        var statusLines = screen.font().split(Component.literal(text(statusKey)), THEME_LIST_W - 4);
+        for (int line = 0; line < Math.min(ACTION_STATUS_MAX_LINES, statusLines.size()); line++) {
+            g.drawString(screen.font(), statusLines.get(line), x,
+                    y + ACTION_STATUS_Y + line * screen.font().lineHeight,
+                    SettingsWindowStyle.HINT.toArgb(), false);
+        }
     }
 
     private void drawButton(GuiGraphics g, MinecraftUiCanvas canvas, int x, int y, int w, int h,
@@ -174,23 +179,24 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
                 background,
                 SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), text(key),
-                x + w / 2, y + ACTION_TEXT_Y,
+                x + w / 2, ThemeSettingsLayout.actionTextTop(y, h, screen.font().lineHeight),
                 textColor.toArgb());
     }
 
     @Override
     protected void handleContentClick(double mouseX, double mouseY, int button) {
         if (button != 0) return;
-        int x = contentX() + OUTER_INSET;
-        int y = contentY() + OUTER_INSET;
-        int h = contentHeight() - OUTER_INSET * 2;
+        var layout = themeGeometry();
+        int x = integer(layout.list.getX());
+        int y = integer(layout.list.getY());
+        int h = integer(layout.list.getHeight());
         List<UiThemeDefinition> themes = UiThemeRuntime.registry().snapshot();
         int visibleThemeRows = visibleThemeRows(h);
         int rowY = y + LIST_INSET;
         for (int index = this.themeScroll;
              index < themes.size() && index < this.themeScroll + visibleThemeRows; index++) {
             UiThemeDefinition theme = themes.get(index);
-            if (UiRect.contains(x + LIST_INSET, rowY, LIST_W - DOUBLE_LIST_INSET,
+            if (UiRect.contains(x + LIST_INSET, rowY, THEME_LIST_W - DOUBLE_LIST_INSET,
                     ROW_H - THEME_ROW_BOTTOM, mouseX, mouseY)) {
                 this.draftId = theme.id();
                 this.editor.setSource(theme);
@@ -199,16 +205,15 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
             }
             rowY += ROW_H;
         }
-        int previewX = x + LIST_W + COLUMN_GAP;
-        int previewW = contentWidth() - LIST_W - EDITOR_W - COLUMN_WIDTH_RESERVE;
-        int editorX = previewX + previewW + COLUMN_GAP;
-        if (this.editor.mouseClicked(mouseX, mouseY, editorX, y, EDITOR_W,
-                h - BODY_FOOTER_RESERVE)) return;
-        int actionY = y + h - FOOTER_TOP_RESERVE;
-        int totalW = contentWidth() - ACTION_WIDTH_RESERVE;
-        if (UiRect.contains(x, actionY, 78, BUTTON_H, mouseX, mouseY)) {
+        if (this.editor.mouseClicked(mouseX, mouseY,
+                integer(layout.editor.getX()), integer(layout.editor.getY()),
+                integer(layout.editor.getWidth()), integer(layout.editor.getHeight()))) return;
+        int actionY = integer(layout.actions.getY());
+        int totalW = integer(layout.actions.getWidth());
+        if (UiRect.contains(x, actionY, ACTION_IMPORT_W, BUTTON_H, mouseX, mouseY)) {
             importTheme();
-        } else if (UiRect.contains(x + ACTION_SECOND_X, actionY, 78, BUTTON_H, mouseX, mouseY)) {
+        } else if (UiRect.contains(x + ACTION_SECOND_X, actionY,
+                ACTION_FOLDER_W, BUTTON_H, mouseX, mouseY)) {
             Util.getPlatform().openUri(UiThemeStorage.defaultStorage().directory().toUri());
         } else if (UiRect.contains(x + totalW - ACTION_EXPORT_RIGHT, actionY,
                 74, BUTTON_H, mouseX, mouseY)
@@ -286,14 +291,10 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
         if (button == 0 && this.editor.editable()) {
-            int x = contentX() + OUTER_INSET;
-            int y = contentY() + OUTER_INSET;
-            int h = contentHeight() - OUTER_INSET * 2;
-            int previewX = x + LIST_W + COLUMN_GAP;
-            int previewW = contentWidth() - LIST_W - EDITOR_W - COLUMN_WIDTH_RESERVE;
+            var layout = themeGeometry();
             if (this.editor.mouseDragged(mouseX, mouseY,
-                    previewX + previewW + COLUMN_GAP, y, EDITOR_W,
-                    h - BODY_FOOTER_RESERVE)) return true;
+                    integer(layout.editor.getX()), integer(layout.editor.getY()),
+                    integer(layout.editor.getWidth()), integer(layout.editor.getHeight()))) return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
@@ -306,21 +307,20 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleContentScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
-        int x = contentX() + OUTER_INSET;
-        int y = contentY() + OUTER_INSET;
-        int h = contentHeight() - OUTER_INSET * 2;
-        int previewX = x + LIST_W + COLUMN_GAP;
-        int previewW = contentWidth() - LIST_W - EDITOR_W - COLUMN_WIDTH_RESERVE;
-        if (UiRect.contains(x, y, LIST_W, h - BODY_FOOTER_RESERVE,
+        var layout = themeGeometry();
+        if (UiRect.contains(layout.list.getX(), layout.list.getY(), layout.list.getWidth(),
+                layout.preview.getHeight(),
                 mouseX, mouseY)) {
             int maximum = Math.max(0, UiThemeRuntime.registry().snapshot().size()
-                    - visibleThemeRows(h));
+                    - visibleThemeRows(integer(layout.list.getHeight())));
             this.themeScroll = Math.max(0, Math.min(maximum,
                     this.themeScroll + (scrollY > 0 ? -1 : 1)));
             return true;
         }
-        this.editor.mouseScrolled(scrollY, previewX + previewW + COLUMN_GAP,
-                y, EDITOR_W, h - BODY_FOOTER_RESERVE, mouseX, mouseY);
+        this.editor.mouseScrolled(scrollY,
+                integer(layout.editor.getX()), integer(layout.editor.getY()),
+                integer(layout.editor.getWidth()), integer(layout.editor.getHeight()),
+                mouseX, mouseY);
         return true;
     }
 
@@ -342,6 +342,15 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
     private static int visibleThemeRows(int contentHeight) {
         return Math.max(1,
                 (contentHeight - LIST_INSET - LIST_FOOTER_RESERVE) / ROW_H);
+    }
+
+    private ThemeSettingsLayout.Geometry themeGeometry() {
+        return ThemeSettingsLayout.geometry(
+                contentX(), contentY(), contentWidth(), contentHeight());
+    }
+
+    private static int integer(double value) {
+        return (int) Math.round(value);
     }
 
     @Override protected Component getTitle() { return Component.translatable("screen.rtsbuilding.theme.title"); }

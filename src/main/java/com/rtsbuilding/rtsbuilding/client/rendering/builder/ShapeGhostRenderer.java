@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
+import com.rtsbuilding.rtsbuilding.uicore.ultimine.DestroyWorkAreaPhaseTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
@@ -39,6 +40,8 @@ public final class ShapeGhostRenderer {
     private static int destroyCompletePreviewKey;
     private static long destroyCompleteFadeStartMs;
     private static boolean destroyVisualComplete;
+    private static final DestroyWorkAreaPhaseTracker RANGE_PHASES =
+            new DestroyWorkAreaPhaseTracker();
 
     private ShapeGhostRenderer() {
     }
@@ -63,12 +66,15 @@ public final class ShapeGhostRenderer {
         }
 
         boolean sawConfirmedDestructiveWorkArea = false;
+        boolean sawConfirmedRangeWorkArea = false;
         for (ShapeDataRecords.GhostPreview preview : screen.getConfirmedRangeDestroyPreviews()) {
             sawConfirmedDestructiveWorkArea |= isConfirmedDestructiveWorkArea(preview);
+            sawConfirmedRangeWorkArea |= isConfirmedRangeWorkArea(preview);
             renderGhostPreview(minecraft, preview, poseStack, lineBuffer, fillBuffer, null);
         }
         ShapeDataRecords.GhostPreview currentPreview = screen.getShapeGhostPreview();
         sawConfirmedDestructiveWorkArea |= isConfirmedDestructiveWorkArea(currentPreview);
+        sawConfirmedRangeWorkArea |= isConfirmedRangeWorkArea(currentPreview);
         renderGhostPreview(
                 minecraft,
                 currentPreview,
@@ -78,6 +84,9 @@ public final class ShapeGhostRenderer {
                 screen.getShapeController().shapeSelectionRenderAabb());
         if (!sawConfirmedDestructiveWorkArea) {
             MergedSkeletonRenderer.clearCache();
+        }
+        if (!sawConfirmedRangeWorkArea) {
+            RANGE_PHASES.clear();
         }
     }
 
@@ -223,22 +232,19 @@ public final class ShapeGhostRenderer {
                     1.0F, 0.30F, 0.030F, visual.alpha());
             return;
         }
-        if (hasStartedDestroyBatch(controller, preview)) {
+        DestroyWorkAreaPhaseTracker.Phase phase = RANGE_PHASES.update(
+                previewKey(preview), hasCompletedFirstRangeBlock(controller, preview));
+        if (phase == DestroyWorkAreaPhaseTracker.Phase.FIRST_BLOCK) {
+            // 第一块仍在挖掘时保留逐方块选择信息，只让整体颜色随裂纹阶段过渡。
+            DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer,
+                    miningStageProgress(controller, preview), visual.alpha());
+            return;
+        }
+        if (phase == DestroyWorkAreaPhaseTracker.Phase.ERODING) {
             MergedSkeletonRenderer.renderMergedSkeletonFast(preview, poseStack, lineBuffer, fillBuffer,
                     visual.progress(), 0.30F, 0.030F, visual.alpha());
             return;
         }
-        if (MergedSkeletonRenderer.hasCachedSkeleton(preview)) {
-            if (MergedSkeletonRenderer.renderCachedSkeleton(preview, poseStack, lineBuffer, fillBuffer,
-                    visual.progress(), 0.30F, 0.030F, visual.alpha())) {
-                return;
-            }
-        }
-        if (MergedSkeletonRenderer.hasSkeletonCacheForPreview(preview)) {
-            return;
-        }
-        DestructiveGhostRenderer.render(preview, poseStack, lineBuffer, fillBuffer,
-                visual.progress(), visual.alpha());
     }
 
     // ===== Smoothed destroy progress =====
@@ -345,16 +351,23 @@ public final class ShapeGhostRenderer {
         return preview != null && preview.destructive() && preview.confirmedWorkArea();
     }
 
-    static boolean hasStartedDestroyBatch(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {
+    private static boolean isConfirmedRangeWorkArea(ShapeDataRecords.GhostPreview preview) {
+        return isConfirmedDestructiveWorkArea(preview) && !preview.chainDestroyPreview();
+    }
+
+    private static boolean hasCompletedFirstRangeBlock(
+            ClientRtsController controller,
+            ShapeDataRecords.GhostPreview preview) {
         if (controller == null || preview == null) return false;
-        BlockPos progressPos = controller.getMineProgressPos();
         RtsWorkflowStatus workflow = controller.findActiveDestroyWorkflow();
-        int processed = workflow != null ? workflow.completedBlocks() : 0;
-        int total = workflow != null ? workflow.totalBlocks() : 0;
-        return progressPos != null
-                && previewContains(preview, progressPos)
-                && processed > 0
-                && total > 0;
+        if (workflow != null && workflow.totalBlocks() > 0) {
+            return workflow.completedBlocks() > 0;
+        }
+        BlockPos completed = controller.getMineProgressCompletedPos();
+        long completedAt = controller.getMineProgressCompletedAtMs();
+        return completedAt > 0L
+                && System.currentTimeMillis() - completedAt <= 1000L
+                && previewContains(preview, completed);
     }
 
     private static boolean hasActiveDestroyProgress(ClientRtsController controller, ShapeDataRecords.GhostPreview preview) {

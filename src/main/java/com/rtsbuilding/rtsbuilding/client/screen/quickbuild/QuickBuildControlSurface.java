@@ -357,6 +357,10 @@ final class QuickBuildControlSurface {
         return this.convenienceToolButtons[index];
     }
 
+    int convenienceToolButtonCount() {
+        return this.convenienceToolButtons.length;
+    }
+
     WindowSlider convenienceSlider(QuickBuildUiConvenienceParameter parameter) {
         return this.convenienceSliders.get(parameter);
     }
@@ -420,10 +424,10 @@ final class QuickBuildControlSurface {
             this.catalogButtons[i].setWidth(layout.catalogW);
         }
         for (int i = 0; i < this.convenienceToolButtons.length; i++) {
-            this.convenienceToolButtons[i].setX(layout.contentX);
+            this.convenienceToolButtons[i].setX(layout.convenienceToolX(i));
             this.convenienceToolButtons[i].setY(layout.convenienceToolY(i));
         }
-        this.smartFillToolButton.setX(layout.contentX);
+        this.smartFillToolButton.setX(layout.convenienceToolX(0));
         this.smartFillToolButton.setY(layout.convenienceToolY(0));
         int sliderWidth = QuickBuildWindowLayout.chainSliderWidth(windowWidth);
         int index = 0;

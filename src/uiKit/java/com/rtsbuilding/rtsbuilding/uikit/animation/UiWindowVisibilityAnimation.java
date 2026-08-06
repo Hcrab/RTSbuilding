@@ -51,15 +51,9 @@ public final class UiWindowVisibilityAnimation {
         return this.opacity.value();
     }
 
-    /**
-     * 返回父窗口可以安全应用到整棵 Minecraft 子控件树的贴图透明度。
-     *
-     * <p>{@code GuiGraphics#setColor} 只会可靠影响部分贴图绘制，纯色矩形与文字不会统一继承；
-     * 因此淡出时保持整窗不透明，只让所有子内容共用父级位移，并在尾帧一起移除。
-     * 淡入仍保留原有透明度，避免改变已经确认良好的浮现效果。</p>
-     */
+    /** 返回父窗口及全部子内容共同使用的透明度，进入和退出都不得拆成两套进度。 */
     public double subtreeTintOpacity() {
-        return this.dismissing ? 1.0D : this.opacity.value();
+        return this.opacity.value();
     }
 
     /**

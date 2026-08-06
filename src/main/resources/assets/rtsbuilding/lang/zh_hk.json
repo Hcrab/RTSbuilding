@@ -545,9 +545,12 @@
   "screen.rtsbuilding.quick_build.chain_limit_label": "上限",
   "screen.rtsbuilding.quick_build.catalog_shapes": "形狀",
   "screen.rtsbuilding.quick_build.catalog_tools": "工具",
-  "screen.rtsbuilding.quick_build.tool.repeat_box": "重複 XYZ",
-  "screen.rtsbuilding.quick_build.tool.chunk_quarry": "區塊挖掘",
-  "screen.rtsbuilding.quick_build.tool.tree_fell": "自動斬樹",
+  "screen.rtsbuilding.quick_build.tool.repeat_box": "Repeat",
+  "screen.rtsbuilding.quick_build.tool.repeat_box.detail": "以瞄準方塊為基準，破壞可調 X/Y/Z 尺寸嘅長方體。",
+  "screen.rtsbuilding.quick_build.tool.chunk_quarry": "Chunk",
+  "screen.rtsbuilding.quick_build.tool.chunk_quarry.detail": "破壞瞄準區塊，可以調整向上同向下嘅高度。",
+  "screen.rtsbuilding.quick_build.tool.tree_fell": "Tree",
+  "screen.rtsbuilding.quick_build.tool.tree_fell.detail": "斬伐相連嘅原木、天然樹葉或者巨型蘑菇。",
   "screen.rtsbuilding.quick_build.parameter.size_x": "X 尺寸",
   "screen.rtsbuilding.quick_build.parameter.size_y": "Y 尺寸",
   "screen.rtsbuilding.quick_build.parameter.size_z": "Z 尺寸",
@@ -998,14 +1001,23 @@
   "message.rtsbuilding.plugin_required": "請先安裝%s以使用此功能。",
   "message.rtsbuilding.camera_locked": "RTS 相機尚未解鎖。安裝「%s」插件即可解鎖，或在模組設定中關閉「生存平衡」。",
   "screen.rtsbuilding.tooltip.shape_block": "單",
+  "screen.rtsbuilding.tooltip.shape_block.detail": "放置或者破壞一個方塊。",
   "screen.rtsbuilding.tooltip.shape_line": "線",
+  "screen.rtsbuilding.tooltip.shape_line.detail": "由起點延伸一條直線。",
   "screen.rtsbuilding.tooltip.shape_square": "面",
+  "screen.rtsbuilding.tooltip.shape_square.detail": "生成一個平面矩形。",
   "screen.rtsbuilding.tooltip.shape_wall": "牆",
+  "screen.rtsbuilding.tooltip.shape_wall.detail": "生成一面垂直矩形牆。",
   "screen.rtsbuilding.tooltip.shape_circle": "圓",
+  "screen.rtsbuilding.tooltip.shape_circle.detail": "圍住目標生成一個平面圓形。",
   "screen.rtsbuilding.tooltip.shape_cylinder": "圓柱",
+  "screen.rtsbuilding.tooltip.shape_cylinder.detail": "生成一個垂直圓柱。",
   "screen.rtsbuilding.tooltip.shape_ball": "球",
+  "screen.rtsbuilding.tooltip.shape_ball.detail": "圍住目標生成一個球體。",
   "screen.rtsbuilding.tooltip.shape_box": "體",
+  "screen.rtsbuilding.tooltip.shape_box.detail": "生成一個尺寸可調嘅長方體。",
   "screen.rtsbuilding.tooltip.shape_chain": "連鎖",
+  "screen.rtsbuilding.tooltip.shape_chain.detail": "沿相連嘅同類方塊繼續破壞。",
   "message.rtsbuilding.drop_buffer.full": "自動存入快取已滿，挖掘暫時停止。",
   "message.rtsbuilding.drop_buffer.fallback": "疑似儲存已滿，無法自動入庫。",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerTick": "RTS 每 Tick 全域工作量",
@@ -1052,6 +1064,7 @@
   ,"screen.rtsbuilding.craft_terminal.utility_button": "左/右鍵：清格至存儲/背包 · Shift+左/右鍵：存入背包/快捷列"
   ,"screen.rtsbuilding.craft_terminal.rows": "切換存儲顯示行數"
   ,"screen.rtsbuilding.quick_build.mode_smart_fill": "填坑"
+  ,"screen.rtsbuilding.quick_build.smart_fill.detail": "偵測並填滿一個有邊界嘅洞。"
   ,"screen.rtsbuilding.quick_build.smart_fill.max_blocks": "最大方塊數"
   ,"screen.rtsbuilding.quick_build.smart_fill.diameter": "偵測直徑"
   ,"screen.rtsbuilding.quick_build.smart_fill.diameter_status": "偵測直徑：%s"
@@ -1072,9 +1085,9 @@
   ,"screen.rtsbuilding.theme.open": "調整"
   ,"screen.rtsbuilding.theme.legacy": "Legacy / 資源包"
   ,"screen.rtsbuilding.theme.calibrated": "校準 RTS 深色"
-  ,"screen.rtsbuilding.theme.nord": "Nord 指揮台"
-  ,"screen.rtsbuilding.theme.carbon": "Carbon 作戰台"
-  ,"screen.rtsbuilding.theme.material": "Material 野戰"
+  ,"screen.rtsbuilding.theme.nord": "Nord Command"
+  ,"screen.rtsbuilding.theme.carbon": "Carbon Operations"
+  ,"screen.rtsbuilding.theme.material": "Material Field"
   ,"screen.rtsbuilding.theme.mode.legacy": "資源包材質"
   ,"screen.rtsbuilding.theme.mode.palette": "遊戲內配色"
   ,"screen.rtsbuilding.theme.preview": "即時風格預覽"

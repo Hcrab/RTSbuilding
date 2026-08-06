@@ -38,12 +38,10 @@ public final class QuickBuildWindowLayout {
     public static final int RIGHT_COL_X = 70;
     public static final int CONTROL_W = 68;
     public static final int CONTROL_H = 16;
-    public static final int CONVENIENCE_TOOL_W = 58;
-    public static final int CONVENIENCE_TOOL_H = 20;
-    public static final int CONVENIENCE_TOOL_PITCH = 24;
+    public static final int CONVENIENCE_TOOL_W = SHAPE_SLOT;
+    public static final int CONVENIENCE_TOOL_H = SHAPE_SLOT;
     public static final int CONVENIENCE_TOOL_ICON_X = 1;
-    public static final int CONVENIENCE_TOOL_ICON_SIZE = 19;
-    public static final int CONVENIENCE_TOOL_LABEL_X = 22;
+    public static final int CONVENIENCE_TOOL_ICON_SIZE = SHAPE_SLOT - 2;
     public static final int CONVENIENCE_PARAMETER_LABEL_GAP = 10;
     public static final int CONVENIENCE_PARAMETER_PITCH = 40;
     public static final int CONTROL_ICON_INSET = 2;
@@ -67,6 +65,8 @@ public final class QuickBuildWindowLayout {
     public static final int STATUS_TEXT_MAX_LINES = 3;
     public static final int DEFAULT_TOP_GAP = 32;
     public static final int WINDOW_RIGHT_GAP = 3;
+    public static final int TOOLTIP_POINTER_GAP = 8;
+    public static final int TOOLTIP_SCREEN_MARGIN = 4;
 
     private QuickBuildWindowLayout() {}
 
@@ -167,7 +167,11 @@ public final class QuickBuildWindowLayout {
         }
 
         public int convenienceToolY(int index) {
-            return convenienceContentY + index * CONVENIENCE_TOOL_PITCH;
+            return convenienceContentY + (index / 2) * SHAPE_ROW_PITCH;
+        }
+
+        public int convenienceToolX(int index) {
+            return contentX + (index % 2) * (CONVENIENCE_TOOL_W + SHAPE_GAP);
         }
 
         public int convenienceParameterLabelY(int index) {
@@ -215,5 +219,28 @@ public final class QuickBuildWindowLayout {
             }
             return null;
         }
+    }
+
+    /** Tooltip 使用 RTS 虚拟视口坐标定位，不能交给外层 Minecraft GUI 视口再次换算。 */
+    public static UiRect tooltipBounds(int screenWidth, int screenHeight,
+                                       int pointerX, int pointerY,
+                                       int tooltipWidth, int tooltipHeight) {
+        int width = Math.max(1, tooltipWidth);
+        int height = Math.max(1, tooltipHeight);
+        int x = pointerX + TOOLTIP_POINTER_GAP;
+        int y = pointerY + TOOLTIP_POINTER_GAP;
+        if (x + width > screenWidth - TOOLTIP_SCREEN_MARGIN) {
+            x = pointerX - TOOLTIP_POINTER_GAP - width;
+        }
+        if (y + height > screenHeight - TOOLTIP_SCREEN_MARGIN) {
+            y = pointerY - TOOLTIP_POINTER_GAP - height;
+        }
+        x = Math.max(TOOLTIP_SCREEN_MARGIN,
+                Math.min(x, Math.max(TOOLTIP_SCREEN_MARGIN,
+                        screenWidth - TOOLTIP_SCREEN_MARGIN - width)));
+        y = Math.max(TOOLTIP_SCREEN_MARGIN,
+                Math.min(y, Math.max(TOOLTIP_SCREEN_MARGIN,
+                        screenHeight - TOOLTIP_SCREEN_MARGIN - height)));
+        return new UiRect(x, y, width, height);
     }
 }

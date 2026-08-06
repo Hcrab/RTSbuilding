@@ -25,6 +25,7 @@ public final class StorageBatchSelectionSession {
     private BlockPos first;
     private BlockPos second;
     private BlockPos hover;
+    private int visualRevision;
 
     public boolean isActive() {
         return active;
@@ -151,10 +152,11 @@ public final class StorageBatchSelectionSession {
         RtsBatchStorageSelectionBounds.Bounds bounds =
                 RtsBatchStorageSelectionBounds.normalize(start, end);
         if (bounds == null) return null;
-        return new SelectionBox(bounds.min(), bounds.max(), phase == Phase.COMPLETE);
+        return new SelectionBox(bounds.min(), bounds.max(), phase == Phase.COMPLETE, visualRevision);
     }
 
     private void resetSelection() {
+        visualRevision++;
         phase = Phase.SELECT_FIRST;
         first = null;
         second = null;
@@ -166,6 +168,6 @@ public final class StorageBatchSelectionSession {
         }
     }
 
-    public record SelectionBox(BlockPos min, BlockPos max, boolean complete) {
+    public record SelectionBox(BlockPos min, BlockPos max, boolean complete, int visualRevision) {
     }
 }

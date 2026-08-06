@@ -44,9 +44,9 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  */
 public final class GuidePanel extends RtsWindowPanel {
     private static final int AI_HELP_DEFAULT_W = 440;
-    private static final int AI_HELP_DEFAULT_H = 132;
+    private static final int AI_HELP_DEFAULT_H = 144;
     private static final int AI_HELP_MIN_W = 300;
-    private static final int AI_HELP_MIN_H = 120;
+    private static final int AI_HELP_MIN_H = 132;
     private static final int AI_HELP_SCREEN_HORIZONTAL_MARGIN = 28;
     private static final int AI_HELP_SCREEN_VERTICAL_MARGIN = 90;
     private static final int AI_HELP_BUTTON_TEXT_INSET = 10;
@@ -317,15 +317,17 @@ public final class GuidePanel extends RtsWindowPanel {
         int x = contentX() + 10;
         int y = contentY() + 9;
         int w = Math.max(80, contentWidth() - 20);
-        String description = RtsClientUiUtil.trimToWidth(
-                screen.font(),
-                Component.translatable("screen.rtsbuilding.ai_help.description").getString(),
-                w);
-        g.drawString(screen.font(), description, x, y,
-                GuideWindowStyle.BODY_TEXT.toArgb(), false);
+        var descriptionLines = screen.font().split(
+                Component.translatable("screen.rtsbuilding.ai_help.description"), w);
+        int descriptionLineCount = Math.min(2, descriptionLines.size());
+        for (int line = 0; line < descriptionLineCount; line++) {
+            g.drawString(screen.font(), descriptionLines.get(line), x,
+                    y + line * screen.font().lineHeight,
+                    GuideWindowStyle.BODY_TEXT.toArgb(), false);
+        }
 
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
-        int buttonY = contentY() + 29;
+        int buttonY = aiHelpButtonY();
         drawAiHelpButton(g, canvas, "ai_chat", x, buttonY, w, 22, mouseX, mouseY,
                 Component.translatable("screen.rtsbuilding.ai_help.chat"));
         drawAiHelpButton(g, canvas, "copy_diagnostics", x, buttonY + 26, w, 22, mouseX, mouseY,
@@ -337,7 +339,7 @@ public final class GuidePanel extends RtsWindowPanel {
     private void handleAiHelpClick(double mouseX, double mouseY) {
         int x = contentX() + 10;
         int w = Math.max(80, contentWidth() - 20);
-        int buttonY = contentY() + 29;
+        int buttonY = aiHelpButtonY();
         if (UiRect.contains(x, buttonY, w, 22, mouseX, mouseY)) {
             close();
             screen.openAiChat();
@@ -351,6 +353,10 @@ public final class GuidePanel extends RtsWindowPanel {
         } else if (UiRect.contains(x, buttonY + 52, w, 22, mouseX, mouseY)) {
             Util.getPlatform().openUri(RtsCommunityLinks.WEBSITE);
         }
+    }
+
+    private int aiHelpButtonY() {
+        return contentY() + 41;
     }
 
     private void drawAiHelpButton(

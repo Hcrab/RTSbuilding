@@ -74,7 +74,7 @@ final class UiWindowVisibilityAnimationTest {
     }
 
     @Test
-    void 退场时父窗口保持整棵子控件树一致可见直到尾帧() {
+    void dismissalSharesOpacityAcrossTheWholeSubtree() {
         FixedUiClock clock = new FixedUiClock(0L);
         UiWindowVisibilityAnimation animation =
                 new UiWindowVisibilityAnimation(clock, true);
@@ -84,7 +84,7 @@ final class UiWindowVisibilityAnimationTest {
 
         assertTrue(animation.opacity() < 1.0D,
                 "内部进度仍应继续驱动父级漂移");
-        assertEquals(1.0D, animation.subtreeTintOpacity(), 0.0001D,
-                "退场不得用只影响部分绘制类型的透明度制造悬空子控件");
+        assertEquals(animation.opacity(), animation.subtreeTintOpacity(), 0.0001D,
+                "父窗口、文字与按钮必须沿同一退场曲线渐隐");
     }
 }

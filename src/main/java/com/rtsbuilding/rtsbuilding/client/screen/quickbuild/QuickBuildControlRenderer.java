@@ -104,17 +104,51 @@ final class QuickBuildControlRenderer {
             QuickBuildUiState state,
             int mouseX,
             int mouseY) {
+        if (state.mode == QuickBuildUiMode.SMART_FILL) {
+            WindowButton button = controls.smartFillToolButton();
+            if (isHovered(button, mouseX, mouseY)) {
+                QuickBuildHoverTooltipRenderer.render(
+                        graphics, screen,
+                        Component.translatable("screen.rtsbuilding.quick_build.mode_smart_fill"),
+                        Component.translatable("screen.rtsbuilding.quick_build.smart_fill.detail"),
+                        mouseX, mouseY);
+            }
+            return;
+        }
+        if (state.convenienceMode()) {
+            for (int i = 0; i < controls.convenienceToolButtonCount(); i++) {
+                WindowButton button = controls.convenienceToolButton(i);
+                if (!isHovered(button, mouseX, mouseY)) continue;
+                QuickBuildUiConvenienceTool tool = QuickBuildUiConvenienceTool.values()[i];
+                String key = "screen.rtsbuilding.quick_build.tool."
+                        + tool.name().toLowerCase(java.util.Locale.ROOT);
+                QuickBuildHoverTooltipRenderer.render(
+                        graphics, screen,
+                        Component.translatable(key),
+                        Component.translatable(key + ".detail"),
+                        mouseX, mouseY);
+                return;
+            }
+            return;
+        }
         for (int i = 0; i < controls.shapeButtonCount() && i < state.shapes.size(); i++) {
             WindowButton button = controls.shapeButton(i);
-            if (mouseX >= button.getX() && mouseX < button.getX() + button.getWidth()
-                    && mouseY >= button.getY() && mouseY < button.getY() + button.getHeight()) {
-                graphics.renderTooltip(screen.font(),
-                        Component.translatable(QuickBuildIconCatalog.tooltipKey(
-                                state.shapes.get(i).shape)),
+            if (isHovered(button, mouseX, mouseY)) {
+                String key = QuickBuildIconCatalog.tooltipKey(state.shapes.get(i).shape);
+                QuickBuildHoverTooltipRenderer.render(
+                        graphics, screen,
+                        Component.translatable(key),
+                        Component.translatable(key + ".detail"),
                         mouseX, mouseY);
                 return;
             }
         }
+    }
+
+    private static boolean isHovered(WindowButton button, int mouseX, int mouseY) {
+        return button != null
+                && mouseX >= button.getX() && mouseX < button.getX() + button.getWidth()
+                && mouseY >= button.getY() && mouseY < button.getY() + button.getHeight();
     }
 
     private void renderModeToggles(
@@ -235,10 +269,9 @@ final class QuickBuildControlRenderer {
             float partialTick) {
         controls.smartFillToolButton().render(
                 graphics, mouseX, mouseY, partialTick);
-        renderToolIdentity(graphics, screen,
+        renderToolIdentity(graphics,
                 QuickBuildIconCatalog.smartFillTexture(UiTextureState.ACTIVE),
-                Component.translatable("screen.rtsbuilding.quick_build.mode_smart_fill"),
-                layout.contentX, layout.convenienceToolY(0));
+                layout.convenienceToolX(0), layout.convenienceToolY(0));
         int sliderWidth = controls.smartFillMaxBlocksSlider().getWidth();
         graphics.drawString(
                 screen.font(),
@@ -324,11 +357,9 @@ final class QuickBuildControlRenderer {
             UiTextureState iconState = state.convenienceTool == tool
                     ? UiTextureState.ACTIVE
                     : button.isHoveredOrFocused() ? UiTextureState.HOVER : UiTextureState.INACTIVE;
-            renderToolIdentity(graphics, screen,
+            renderToolIdentity(graphics,
                     QuickBuildIconCatalog.convenienceTexture(tool, iconState),
-                    Component.translatable("screen.rtsbuilding.quick_build.tool."
-                            + tool.name().toLowerCase(java.util.Locale.ROOT)),
-                    layout.contentX, layout.convenienceToolY(i));
+                    layout.convenienceToolX(i), layout.convenienceToolY(i));
         }
 
         List<QuickBuildUiConvenienceParameter> parameters =
@@ -351,10 +382,10 @@ final class QuickBuildControlRenderer {
         }
     }
 
-    /** PR #133 的像素按钮按紧凑母版尺寸显示，文字只承担本地化名称。 */
-    private static void renderToolIdentity(GuiGraphics graphics, BuilderScreen screen,
+    /** Tools 与 Shapes 共用大图标按钮，名称和完整说明只在悬停层显示。 */
+    private static void renderToolIdentity(GuiGraphics graphics,
                                            net.minecraft.resources.ResourceLocation texture,
-                                           Component label, int x, int y) {
+                                           int x, int y) {
         int iconSize = QuickBuildWindowLayout.CONVENIENCE_TOOL_ICON_SIZE;
         int iconX = x + QuickBuildWindowLayout.CONVENIENCE_TOOL_ICON_X;
         int iconY = y + (QuickBuildWindowLayout.CONVENIENCE_TOOL_H - iconSize) / 2;
@@ -367,14 +398,6 @@ final class QuickBuildControlRenderer {
                 QuickBuildIconCatalog.PR133_ICON_SIZE,
                 QuickBuildIconCatalog.PR133_ICON_SIZE,
                 0, RtsTextureRenderer.NO_TINT);
-        String clipped = com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil.trimToWidth(
-                screen.font(), label.getString(),
-                QuickBuildWindowLayout.CONVENIENCE_TOOL_W
-                        - QuickBuildWindowLayout.CONVENIENCE_TOOL_LABEL_X);
-        graphics.drawString(screen.font(), clipped,
-                x + QuickBuildWindowLayout.CONVENIENCE_TOOL_LABEL_X,
-                y + (QuickBuildWindowLayout.CONVENIENCE_TOOL_H - screen.font().lineHeight) / 2,
-                QuickBuildStyle.MODE_TEXT.toArgb(), false);
     }
 
     private void renderControlIndicator(

@@ -39,10 +39,17 @@ public final class RtsSelectionBoxAnimator {
         if (box == null) {
             return null;
         }
+        return renderAabb(box.id(), box.asAabb());
+    }
+
+    /** 让不使用 RtsCullingBox 的世界框选功能复用同一段 90ms ease-out 补间。 */
+    public AABB renderAabb(int stableSelectionId, AABB target) {
+        if (target == null) {
+            return null;
+        }
         long now = this.clock.getAsLong();
-        AABB target = box.asAabb();
-        if (box.id() != animatedBoxId || animatedStartAabb == null || animatedEndAabb == null) {
-            animatedBoxId = box.id();
+        if (stableSelectionId != animatedBoxId || animatedStartAabb == null || animatedEndAabb == null) {
+            animatedBoxId = stableSelectionId;
             animatedStartAabb = target;
             animatedEndAabb = target;
             animatedStartMillis = now;

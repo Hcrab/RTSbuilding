@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiRow;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiState;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
@@ -1230,12 +1231,11 @@ final class UiMainlineWindowRenderer {
                 language.text("screen.rtsbuilding.quick_build.catalog_tools"),
                 state.catalogPage == QuickBuildUiCatalogPage.CONVENIENCE_TOOLS);
         if (state.mode == QuickBuildUiMode.SMART_FILL) {
-            drawQuickChoice(canvas,
-                    new UiRect(g.contentX, g.convenienceToolY(0),
+            canvas.image(assets.quickBuildSmartFill(
+                            com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState.ACTIVE),
+                    new UiRect(g.convenienceToolX(0), g.convenienceToolY(0),
                             QuickBuildWindowLayout.CONVENIENCE_TOOL_W,
-                            QuickBuildWindowLayout.CONVENIENCE_TOOL_H),
-                    language.text("screen.rtsbuilding.quick_build.mode_smart_fill"),
-                    true);
+                            QuickBuildWindowLayout.CONVENIENCE_TOOL_H));
             int sliderW = QuickBuildWindowLayout.chainSliderWidth(
                     QuickBuildWindowLayout.WINDOW_W);
             drawSmartFillSlider(canvas, language, g, sliderW, 0,
@@ -1246,6 +1246,17 @@ final class UiMainlineWindowRenderer {
                     "screen.rtsbuilding.quick_build.smart_fill.diameter",
                     state.smartFillMinDiameter, state.smartFillMaxDiameter,
                     state.smartFillDiameter);
+        } else if (state.convenienceMode()) {
+            for (int i = 0; i < QuickBuildUiConvenienceTool.values().length; i++) {
+                QuickBuildUiConvenienceTool tool = QuickBuildUiConvenienceTool.values()[i];
+                canvas.image(assets.quickBuildConvenienceTool(tool,
+                                state.convenienceTool == tool
+                                        ? com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState.ACTIVE
+                                        : com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState.INACTIVE),
+                        new UiRect(g.convenienceToolX(i), g.convenienceToolY(i),
+                                QuickBuildWindowLayout.CONVENIENCE_TOOL_W,
+                                QuickBuildWindowLayout.CONVENIENCE_TOOL_H));
+            }
         } else {
             for (int i = 0; i < state.shapes.size(); i++) {
                 QuickBuildUiShapeOption option = state.shapes.get(i);

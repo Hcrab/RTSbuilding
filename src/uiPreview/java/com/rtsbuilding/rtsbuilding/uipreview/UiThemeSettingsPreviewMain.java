@@ -18,7 +18,9 @@ import java.awt.Color;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 import static com.rtsbuilding.rtsbuilding.uikit.layout.ThemeSettingsLayout.*;
 
@@ -35,16 +37,15 @@ public final class UiThemeSettingsPreviewMain {
     private static final int LOGICAL_W = (int) (OUTPUT_W / SCALE);
     private static final int LOGICAL_H = (int) (OUTPUT_H / SCALE);
     private static final int TITLE_H = 20;
-    private static final int LIST_W = 150;
     private static final int ROW_H = 34;
-    private static final int EDITOR_W = 180;
     private static final int BUTTON_H = 22;
     private static final int WHEEL_SIZE = 95;
     private static final int VALUE_W = 10;
     private static final int VALUE_GAP = 8;
 
-    private final UiMainlineAssets assets = new UiMainlineAssets();
-    private final UiLanguageBundle language = assets.language("zh_cn");
+    private final UiMainlineAssets assets;
+    private final String languageId;
+    private final UiLanguageBundle language;
 
     public static void main(String[] args) throws IOException {
         UiPreviewMain.requireHeadless();
@@ -53,19 +54,33 @@ public final class UiThemeSettingsPreviewMain {
             throw new IOException("Cannot create theme settings preview directory: " + output);
         }
         UiThemeRuntime.manager().activate(UiThemeBuiltins.CALIBRATED_ID);
-        try (BufferedImageUiCanvas canvas = new BufferedImageUiCanvas(OUTPUT_W, OUTPUT_H, SCALE)) {
-            UiThemeSettingsPreviewMain renderer = new UiThemeSettingsPreviewMain();
-            renderer.render(canvas);
-            ImageIO.write(canvas.image(), "png", new File(output,
-                    "01_theme_settings_calibrated_dark_1920x1080.png"));
+        try {
+            int sequence = 1;
+            for (String languageId : configuredLanguages()) {
+                for (UiPreviewFontMode mode : UiPreviewFontMode.values()) {
+                    String fileName = String.format(Locale.ROOT,
+                            "%02d_theme_settings_%s_%s_1920x1080.png",
+                            sequence++, languageId, mode.fileId());
+                    renderProfile(output, languageId, mode, fileName);
+                }
+            }
         } finally {
             UiThemeRuntime.manager().fallBackToLegacy();
         }
         System.out.println("Rendered UI theme settings preview to " + output.getAbsolutePath());
     }
 
-    private void render(BufferedImageUiCanvas canvas) {
-        canvas.configureFont("zh_cn");
+    private static void renderProfile(File output, String languageId, UiPreviewFontMode mode,
+                                      String fileName) throws IOException {
+        try (BufferedImageUiCanvas canvas = new BufferedImageUiCanvas(OUTPUT_W, OUTPUT_H, SCALE)) {
+            UiThemeSettingsPreviewMain renderer = new UiThemeSettingsPreviewMain(languageId);
+            renderer.render(canvas, mode);
+            ImageIO.write(canvas.image(), "png", new File(output, fileName));
+        }
+    }
+
+    private void render(BufferedImageUiCanvas canvas, UiPreviewFontMode mode) {
+        canvas.configureFont(this.languageId, mode);
         drawBackground(canvas);
         int windowW = ThemeSettingsLayout.preferredWindowWidth(LOGICAL_W);
         int windowH = ThemeSettingsLayout.preferredWindowHeight(LOGICAL_H);
@@ -105,23 +120,28 @@ public final class UiThemeSettingsPreviewMain {
         int contentY = windowY + TITLE_H;
         int contentW = windowW - 2;
         int contentH = windowH - TITLE_H - 1;
-        int x = contentX + OUTER_INSET;
-        int y = contentY + OUTER_INSET;
-        int h = contentH - OUTER_INSET * 2;
+        ThemeSettingsLayout.Geometry layout = ThemeSettingsLayout.geometry(
+                contentX, contentY, contentW, contentH);
+        int x = integer(layout.list.getX());
+        int y = integer(layout.list.getY());
+        int h = integer(layout.list.getHeight());
 
-        frame(canvas, x, y, LIST_W, h, SettingsWindowStyle.VALUE_BACKGROUND,
+        frame(canvas, x, y, integer(layout.list.getWidth()), h,
+                SettingsWindowStyle.VALUE_BACKGROUND,
                 SettingsWindowStyle.VALUE_BORDER, SettingsWindowStyle.VALUE_DARK_BORDER);
         drawThemeList(canvas, x, y, h);
 
-        int previewX = x + LIST_W + COLUMN_GAP;
-        int previewW = contentW - LIST_W - EDITOR_W - COLUMN_WIDTH_RESERVE;
         UiThemeDefinition draft = UiThemeRuntime.manager().active();
-        drawThemePreview(canvas, draft, previewX, y, previewW, h - BODY_FOOTER_RESERVE);
+        drawThemePreview(canvas, draft,
+                integer(layout.preview.getX()), integer(layout.preview.getY()),
+                integer(layout.preview.getWidth()), integer(layout.preview.getHeight()));
 
-        int editorX = previewX + previewW + COLUMN_GAP;
-        drawEditor(canvas, draft, editorX, y, EDITOR_W, h - BODY_FOOTER_RESERVE);
-        drawActions(canvas, x, y + h - FOOTER_TOP_RESERVE,
-                contentW - OUTER_INSET * 2, draft);
+        drawEditor(canvas, draft,
+                integer(layout.editor.getX()), integer(layout.editor.getY()),
+                integer(layout.editor.getWidth()), integer(layout.editor.getHeight()));
+        drawActions(canvas,
+                integer(layout.actions.getX()), integer(layout.actions.getY()),
+                integer(layout.actions.getWidth()), draft);
     }
 
     private void drawThemeList(BufferedImageUiCanvas canvas, int x, int y, int h) {
@@ -131,7 +151,7 @@ public final class UiThemeSettingsPreviewMain {
         for (int i = 0; i < themes.size() && i < visibleRows; i++) {
             UiThemeDefinition theme = themes.get(i);
             boolean selected = theme.id().equals(UiThemeBuiltins.CALIBRATED_ID);
-            frame(canvas, x + LIST_INSET, rowY, LIST_W - DOUBLE_LIST_INSET, ROW_H - 3,
+            frame(canvas, x + LIST_INSET, rowY, THEME_LIST_W - DOUBLE_LIST_INSET, ROW_H - 3,
                     selected ? SettingsWindowStyle.TOGGLE_ON : SettingsWindowStyle.STEP_BACKGROUND,
                     selected ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.STEP_BORDER,
                     SettingsWindowStyle.STEP_DARK_BORDER);
@@ -264,7 +284,7 @@ public final class UiThemeSettingsPreviewMain {
                             Math.round(blue * value)));
         }
         double angle = hsb[0] * Math.PI * 2.0D;
-        double radius = hsb[1] * WHEEL_SIZE * 0.46D;
+        double radius = hsb[1] * WHEEL_SIZE * 0.48D;
         int indicatorX = (int) Math.round(x + WHEEL_SIZE / 2.0D + Math.cos(angle) * radius);
         int indicatorY = (int) Math.round(y + WHEEL_SIZE / 2.0D + Math.sin(angle) * radius);
         canvas.imageRegion(assets.image("textures/gui/color/color_palette_indicator.png"),
@@ -276,25 +296,31 @@ public final class UiThemeSettingsPreviewMain {
         canvas.text(String.format(java.util.Locale.ROOT, "#%08X", selected.toArgb()),
                 valueX + VALUE_W + EDITOR_HEX_GAP, y + EDITOR_HEX_Y,
                 SettingsWindowStyle.VALUE);
-        canvas.text(language.text("screen.rtsbuilding.theme.editor.drag_hint"),
-                valueX + VALUE_W + EDITOR_HEX_GAP, y + EDITOR_HINT_Y,
-                SettingsWindowStyle.HINT);
+        drawWrappedText(canvas,
+                language.text("screen.rtsbuilding.theme.editor.drag_hint"),
+                valueX + VALUE_W + EDITOR_HEX_GAP,
+                y + EDITOR_HINT_Y,
+                Math.max(1, x - EDITOR_PICKER_INSET + THEME_EDITOR_W - EDITOR_TEXT_RIGHT_INSET
+                        - (valueX + VALUE_W + EDITOR_HEX_GAP)),
+                3, SettingsWindowStyle.HINT);
     }
 
     private void drawActions(BufferedImageUiCanvas canvas, int x, int y, int width,
                              UiThemeDefinition draft) {
-        button(canvas, x, y, 78, language.text("screen.rtsbuilding.theme.import"), true);
-        button(canvas, x + ACTION_SECOND_X, y, 78,
+        button(canvas, x, y, ACTION_IMPORT_W,
+                language.text("screen.rtsbuilding.theme.import"), true);
+        button(canvas, x + ACTION_SECOND_X, y, ACTION_FOLDER_W,
                 language.text("screen.rtsbuilding.theme.folder"), true);
         button(canvas, x + width - ACTION_EXPORT_RIGHT, y, 74,
                 language.text("screen.rtsbuilding.theme.export"),
                 draft.renderMode() == UiThemeRenderMode.PALETTE);
         button(canvas, x + width - ACTION_CANCEL_RIGHT, y, 74,
-                "取消", true);
+                language.text("gui.cancel"), true);
         button(canvas, x + width - ACTION_APPLY_RIGHT, y, 86,
                 language.text("screen.rtsbuilding.theme.apply"), true);
-        canvas.text(language.text("screen.rtsbuilding.theme.status.draft"),
-                x, y + ACTION_STATUS_Y, SettingsWindowStyle.HINT);
+        drawWrappedText(canvas, language.text("screen.rtsbuilding.theme.status.draft"),
+                x, y + ACTION_STATUS_Y, THEME_LIST_W - 4,
+                ACTION_STATUS_MAX_LINES, SettingsWindowStyle.HINT);
     }
 
     private void button(BufferedImageUiCanvas canvas, int x, int y, int width,
@@ -302,7 +328,8 @@ public final class UiThemeSettingsPreviewMain {
         frame(canvas, x, y, width, BUTTON_H,
                 enabled ? SettingsWindowStyle.STEP_BACKGROUND : SettingsWindowStyle.VALUE_BACKGROUND,
                 SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
-        centered(canvas, label, x, y + ACTION_TEXT_Y, width,
+        centered(canvas, label, x,
+                ThemeSettingsLayout.actionTextTop(y, BUTTON_H, canvas.lineHeight()), width,
                 enabled ? SettingsWindowStyle.VALUE : SettingsWindowStyle.DISABLED_TEXT);
     }
 
@@ -316,6 +343,60 @@ public final class UiThemeSettingsPreviewMain {
         canvas.text(text, x + (width - canvas.textWidth(text)) / 2.0D, topY, color);
     }
 
-    private UiThemeSettingsPreviewMain() {
+    private static void drawWrappedText(BufferedImageUiCanvas canvas, String text,
+                                        int x, int y, int maximumWidth, int maximumLines,
+                                        UiColor color) {
+        String remaining = text == null ? "" : text.trim();
+        for (int line = 0; line < maximumLines && !remaining.isEmpty(); line++) {
+            int end = remaining.length();
+            while (end > 0 && canvas.textWidth(remaining.substring(0, end)) > maximumWidth) {
+                end--;
+            }
+            if (end <= 0) end = Character.charCount(remaining.codePointAt(0));
+            if (end < remaining.length()) {
+                int wordBreak = remaining.lastIndexOf(' ', end - 1);
+                if (wordBreak > 0) end = wordBreak;
+                int next = end;
+                while (next < remaining.length() && Character.isWhitespace(remaining.charAt(next))) next++;
+                if (next < remaining.length() && isClosingPunctuation(remaining.codePointAt(next))) {
+                    int punctuationEnd = next + Character.charCount(remaining.codePointAt(next));
+                    if (canvas.textWidth(remaining.substring(0, punctuationEnd).trim()) <= maximumWidth) {
+                        end = punctuationEnd;
+                    }
+                }
+            }
+            canvas.text(remaining.substring(0, end), x, y + line * 9, color);
+            remaining = remaining.substring(end).trim();
+        }
+    }
+
+    private static boolean isClosingPunctuation(int codePoint) {
+        return codePoint == '，' || codePoint == '。' || codePoint == '；'
+                || codePoint == '：' || codePoint == '！' || codePoint == '？'
+                || codePoint == '、' || codePoint == ',' || codePoint == '.'
+                || codePoint == ';' || codePoint == ':' || codePoint == '!'
+                || codePoint == '?';
+    }
+
+    private static int integer(double value) {
+        return (int) Math.round(value);
+    }
+
+    private static List<String> configuredLanguages() {
+        String configured = System.getProperty("rts.ui.preview.language", "both");
+        List<String> languages = new ArrayList<String>();
+        if ("both".equalsIgnoreCase(configured)) {
+            languages.add("zh_cn");
+            languages.add("en_us");
+        } else {
+            languages.add("en_us".equalsIgnoreCase(configured) ? "en_us" : "zh_cn");
+        }
+        return languages;
+    }
+
+    private UiThemeSettingsPreviewMain(String languageId) {
+        this.assets = new UiMainlineAssets();
+        this.languageId = languageId;
+        this.language = this.assets.language(languageId);
     }
 }

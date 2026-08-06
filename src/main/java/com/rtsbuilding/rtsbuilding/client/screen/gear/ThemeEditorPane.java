@@ -135,11 +135,18 @@ final class ThemeEditorPane {
                 pickerX + ThemeColorPicker.WHEEL_SIZE + ThemeColorPicker.VALUE_GAP
                         + ThemeColorPicker.VALUE_W + EDITOR_HEX_GAP,
                 pickerY + EDITOR_HEX_Y, SettingsWindowStyle.VALUE.toArgb(), false);
-        g.drawString(net.minecraft.client.Minecraft.getInstance().font,
-                Component.translatable("screen.rtsbuilding.theme.editor.drag_hint"),
-                pickerX + ThemeColorPicker.WHEEL_SIZE + ThemeColorPicker.VALUE_GAP
-                        + ThemeColorPicker.VALUE_W + EDITOR_HEX_GAP,
-                pickerY + EDITOR_HINT_Y, SettingsWindowStyle.HINT.toArgb(), false);
+        int detailX = pickerX + ThemeColorPicker.WHEEL_SIZE + ThemeColorPicker.VALUE_GAP
+                + ThemeColorPicker.VALUE_W + EDITOR_HEX_GAP;
+        int detailW = Math.max(1, x + w - EDITOR_TEXT_RIGHT_INSET - detailX);
+        var hintLines = net.minecraft.client.Minecraft.getInstance().font.split(
+                Component.translatable("screen.rtsbuilding.theme.editor.drag_hint"), detailW);
+        for (int line = 0; line < Math.min(3, hintLines.size()); line++) {
+            g.drawString(net.minecraft.client.Minecraft.getInstance().font, hintLines.get(line),
+                    detailX,
+                    pickerY + EDITOR_HINT_Y
+                            + line * net.minecraft.client.Minecraft.getInstance().font.lineHeight,
+                    SettingsWindowStyle.HINT.toArgb(), false);
+        }
     }
 
     boolean mouseClicked(double mouseX, double mouseY, int x, int y, int w, int h) {

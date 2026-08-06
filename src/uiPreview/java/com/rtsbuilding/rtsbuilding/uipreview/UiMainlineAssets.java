@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.uipreview;
 
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShape;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiIndexedTextureSpec;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiPaletteTextureBaker;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
@@ -59,11 +60,26 @@ public final class UiMainlineAssets {
         try {
             UiLanguageBundle loaded = UiLanguageBundle.load(file);
             if (loaded.size() < 900) throw new IOException("language file looks truncated");
+            loaded = loaded.withFallback(loadMinecraftLanguage(language));
             languages.put(language, loaded);
             return loaded;
         } catch (IOException error) {
             throw new IllegalStateException("Cannot load mainline language: " + file, error);
         }
+    }
+
+    /** 读取真正的原版语言资源，让 gui.cancel 等文案与游戏一致。 */
+    private static UiLanguageBundle loadMinecraftLanguage(String language) throws IOException {
+        if ("en_us".equals(language)) {
+            String clientJar = System.getProperty("rts.ui.preview.minecraftClientJar", "");
+            if (!clientJar.isEmpty()) {
+                return UiLanguageBundle.loadZipEntry(new File(clientJar),
+                        "assets/minecraft/lang/en_us.json");
+            }
+        }
+        String languageFile = System.getProperty(
+                "rts.ui.preview.minecraftLanguage." + language, "");
+        return languageFile.isEmpty() ? null : UiLanguageBundle.load(new File(languageFile));
     }
 
     public BufferedImage topBar(String name, String state) {
@@ -96,26 +112,7 @@ public final class UiMainlineAssets {
         if (shape == null || state == null) {
             throw new IllegalArgumentException("shape and state must not be null");
         }
-        UiThemeDefinition theme = UiThemeRuntime.manager().active();
-        String key = shape.contributorIconKey;
-        if (theme.renderMode() == UiThemeRenderMode.LEGACY_DIRECT) {
-            return image("textures/gui/quickbuild_pr133/" + key + "_"
-                    + textureStateName(state) + ".png");
-        }
-        String cacheKey = "generated/theme/" + theme.id() + "/quickbuild/" + key
-                + "_" + textureStateName(state);
-        BufferedImage cached = images.get(cacheKey);
-        if (cached != null) return cached;
-        BufferedImage source = image("textures/gui/new_2nd_icons/" + key + ".png");
-        int width = source.getWidth();
-        int height = source.getHeight();
-        int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
-        int[] bakedArgb = UiPaletteTextureBaker.bake(sourceArgb,
-                UiIndexedTextureSpec.PR133_THREE_TONE, theme, state);
-        BufferedImage baked = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        baked.setRGB(0, 0, width, height, bakedArgb, 0, width);
-        images.put(cacheKey, baked);
-        return baked;
+        return quickBuildIcon(shape.contributorIconKey, state);
     }
 
     private static UiTextureState textureState(String state) {
@@ -181,6 +178,56 @@ public final class UiMainlineAssets {
                 UiIndexedTextureSpec.LEGACY_DEFAULT_BUTTON,
                 theme,
                 state);
+        BufferedImage baked = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        baked.setRGB(0, 0, width, height, bakedArgb, 0, width);
+        images.put(cacheKey, baked);
+        return baked;
+    }
+
+    /** 与生产 QuickBuildIconCatalog 使用相同键值解析便捷工具图标。 */
+    public BufferedImage quickBuildConvenienceTool(QuickBuildUiConvenienceTool tool,
+                                                    UiTextureState state) {
+        String key;
+        switch (tool) {
+            case REPEAT_BOX:
+                key = "cube";
+                break;
+            case CHUNK_QUARRY:
+                key = "smart_break/stair";
+                break;
+            case TREE_FELL:
+                key = "smart_break/tree";
+                break;
+            default:
+                throw new IllegalArgumentException("Unsupported convenience tool: " + tool);
+        }
+        return quickBuildIcon(key, state);
+    }
+
+    /** 与生产 Smart Fill 按钮共用同一套四状态图标。 */
+    public BufferedImage quickBuildSmartFill(UiTextureState state) {
+        return quickBuildIcon("fill_water/cave", state);
+    }
+
+    private BufferedImage quickBuildIcon(String key, UiTextureState state) {
+        if (key == null || state == null) {
+            throw new IllegalArgumentException("key and state must not be null");
+        }
+        UiThemeDefinition theme = UiThemeRuntime.manager().active();
+        if (theme.renderMode() == UiThemeRenderMode.LEGACY_DIRECT) {
+            return image("textures/gui/quickbuild_pr133/" + key + "_"
+                    + textureStateName(state) + ".png");
+        }
+        String cacheKey = "generated/theme/" + theme.id() + "/quickbuild/" + key
+                + "_" + textureStateName(state);
+        BufferedImage cached = images.get(cacheKey);
+        if (cached != null) return cached;
+        BufferedImage source = image("textures/gui/new_2nd_icons/" + key + ".png");
+        int width = source.getWidth();
+        int height = source.getHeight();
+        int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
+        int[] bakedArgb = UiPaletteTextureBaker.bake(sourceArgb,
+                UiIndexedTextureSpec.PR133_THREE_TONE, theme, state);
         BufferedImage baked = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         baked.setRGB(0, 0, width, height, bakedArgb, 0, width);
         images.put(cacheKey, baked);

@@ -5,8 +5,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 
 /** 读取主线扁平语言 JSON 的小型 Java 8 适配器，不维护预览专用翻译副本。 */
 public final class UiLanguageBundle {
@@ -17,17 +20,26 @@ public final class UiLanguageBundle {
     }
 
     public static UiLanguageBundle load(File file) throws IOException {
-        StringBuilder json = new StringBuilder();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new FileInputStream(file), "UTF-8"));
+        return load(new FileInputStream(file));
+    }
+
+    public static UiLanguageBundle loadZipEntry(File archive, String entryName) throws IOException {
+        ZipFile zip = new ZipFile(archive);
         try {
-            char[] buffer = new char[4096];
-            int read;
-            while ((read = reader.read(buffer)) >= 0) json.append(buffer, 0, read);
+            ZipEntry entry = zip.getEntry(entryName);
+            if (entry == null) throw new IOException("Missing language entry: " + entryName);
+            return load(zip.getInputStream(entry));
         } finally {
-            reader.close();
+            zip.close();
         }
-        return new UiLanguageBundle(parseFlatObject(json.toString()));
+    }
+
+    /** 模组语言优先，缺失的原版键从后备语言包读取。 */
+    public UiLanguageBundle withFallback(UiLanguageBundle fallback) {
+        LinkedHashMap<String, String> merged = new LinkedHashMap<String, String>();
+        if (fallback != null) merged.putAll(fallback.values);
+        merged.putAll(this.values);
+        return new UiLanguageBundle(merged);
     }
 
     public String text(String key) {
@@ -45,6 +57,19 @@ public final class UiLanguageBundle {
 
     public int size() {
         return values.size();
+    }
+
+    private static UiLanguageBundle load(InputStream input) throws IOException {
+        StringBuilder json = new StringBuilder();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(input, "UTF-8"));
+        try {
+            char[] buffer = new char[4096];
+            int read;
+            while ((read = reader.read(buffer)) >= 0) json.append(buffer, 0, read);
+        } finally {
+            reader.close();
+        }
+        return new UiLanguageBundle(parseFlatObject(json.toString()));
     }
 
     private static Map<String, String> parseFlatObject(String json) throws IOException {

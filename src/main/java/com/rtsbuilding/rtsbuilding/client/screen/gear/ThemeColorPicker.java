@@ -35,6 +35,8 @@ final class ThemeColorPicker {
     private float saturation;
     private float brightness;
     private int alpha = 255;
+    private double indicatorOffsetX;
+    private double indicatorOffsetY;
 
     void setColor(UiColor color) {
         float[] hsb = java.awt.Color.RGBtoHSB(color.red(), color.green(), color.blue(), null);
@@ -42,6 +44,10 @@ final class ThemeColorPicker {
         this.saturation = hsb[1];
         this.brightness = hsb[2];
         this.alpha = color.alpha();
+        double angle = this.hue * Math.PI * 2.0D;
+        double radius = this.saturation * maximumRadius();
+        this.indicatorOffsetX = Math.cos(angle) * radius;
+        this.indicatorOffsetY = Math.sin(angle) * radius;
     }
 
     UiColor color() {
@@ -63,10 +69,8 @@ final class ThemeColorPicker {
             g.fill(valueX, y + row, valueX + VALUE_W, y + row + 1, argb);
         }
 
-        double angle = hue * Math.PI * 2.0D;
-        double radius = saturation * (WHEEL_SIZE * 0.46D);
-        int indicatorX = (int) Math.round(x + WHEEL_SIZE / 2.0D + Math.cos(angle) * radius);
-        int indicatorY = (int) Math.round(y + WHEEL_SIZE / 2.0D + Math.sin(angle) * radius);
+        int indicatorX = (int) Math.round(x + WHEEL_SIZE / 2.0D + indicatorOffsetX);
+        int indicatorY = (int) Math.round(y + WHEEL_SIZE / 2.0D + indicatorOffsetY);
         int indicatorV = wheelDragging ? INDICATOR_SOURCE_SIZE * 2 : 0;
         RtsTextureRenderer.drawTextureHighPrecision(g, INDICATOR,
                 indicatorX - INDICATOR_DRAW_SIZE / 2,
@@ -84,12 +88,14 @@ final class ThemeColorPicker {
         double centerY = y + WHEEL_SIZE / 2.0D;
         double dx = mouseX - centerX;
         double dy = mouseY - centerY;
-        double maxRadius = WHEEL_SIZE * 0.48D;
+        double maxRadius = maximumRadius();
         double distance = Math.sqrt(dx * dx + dy * dy);
         if (distance > maxRadius && distance > 0.0D) {
             dx *= maxRadius / distance;
             dy *= maxRadius / distance;
         }
+        this.indicatorOffsetX = dx;
+        this.indicatorOffsetY = dy;
         this.hue = (float) (Math.atan2(dy, dx) / (Math.PI * 2.0D));
         if (this.hue < 0.0F) this.hue += 1.0F;
         this.saturation = (float) Math.max(0.0D, Math.min(1.0D,
@@ -101,6 +107,10 @@ final class ThemeColorPicker {
             this.saturation = hsb[1];
         }
         return true;
+    }
+
+    private static double maximumRadius() {
+        return WHEEL_SIZE * 0.48D;
     }
 
     boolean pickValue(double mouseY, int y) {

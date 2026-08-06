@@ -426,6 +426,15 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return QUICK_BUILD_PANEL_MIN_H;
     }
 
+    /**
+     * Quick Build 本身不可缩放，因此持久化边界只保留玩家摆放的位置，尺寸始终以当前母版为准。
+     * 这也会自动迁移旧版本保存的 178×358 外框，避免新母版内容缩小后仍套着旧外壳。
+     */
+    @Override
+    public void setBounds(int x, int y, int width, int height) {
+        super.setBounds(x, y, QUICK_BUILD_PANEL_W, QUICK_BUILD_PANEL_H);
+    }
+
     @Override
     protected int getTitleBarHeight() {
         return QuickBuildWindowLayout.TITLE_H;

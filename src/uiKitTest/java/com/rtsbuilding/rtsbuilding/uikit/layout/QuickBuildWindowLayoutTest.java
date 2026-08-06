@@ -53,7 +53,7 @@ class QuickBuildWindowLayoutTest {
     }
 
     @Test
-    void 模式命中使用半开边界且按钮间隙不误触() {
+    void modeHitTestingUsesHalfOpenBoundsAndIgnoresTheGap() {
         QuickBuildWindowLayout.Geometry g =
                 QuickBuildWindowLayout.geometry(100, 50, false);
 
@@ -66,5 +66,32 @@ class QuickBuildWindowLayoutTest {
         assertNull(g.modeAt(237, 75));
         assertNull(g.modeAt(200, 84));
         assertEquals(g.buildMode, g.modeArea(QuickBuildUiMode.SMART_FILL));
+    }
+
+    @Test
+    void convenienceToolsUseTheSameTwoColumnGridAsShapes() {
+        QuickBuildWindowLayout.Geometry g =
+                QuickBuildWindowLayout.geometry(100, 50, true);
+
+        assertEquals(g.shapeX(0), g.convenienceToolX(0));
+        assertEquals(g.shapeX(1), g.convenienceToolX(1));
+        assertEquals(g.shapeX(2), g.convenienceToolX(2));
+        assertEquals(g.shapeY(0), g.convenienceToolY(0));
+        assertEquals(g.shapeY(1), g.convenienceToolY(1));
+        assertEquals(g.shapeY(2), g.convenienceToolY(2));
+    }
+
+    @Test
+    void tooltipStaysNearPointerInVirtualViewport() {
+        assertEquals(new UiRect(108, 88, 80, 30),
+                QuickBuildWindowLayout.tooltipBounds(240, 160, 100, 80, 80, 30));
+    }
+
+    @Test
+    void tooltipFlipsAndClampsAtVirtualViewportEdges() {
+        assertEquals(new UiRect(132, 102, 80, 30),
+                QuickBuildWindowLayout.tooltipBounds(240, 160, 220, 140, 80, 30));
+        assertEquals(new UiRect(4, 4, 300, 200),
+                QuickBuildWindowLayout.tooltipBounds(240, 160, 2, 2, 300, 200));
     }
 }

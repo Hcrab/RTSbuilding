@@ -5,9 +5,11 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.StorageBatchSelectionSession;
+import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.AABB;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +19,7 @@ public final class StorageBatchSelectionRenderer {
     private static BlockPos cachedMin;
     private static BlockPos cachedMax;
     private static List<BlockPos> cachedEndpoints = List.of();
+    private static final RtsSelectionBoxAnimator BOX_ANIMATOR = new RtsSelectionBoxAnimator();
 
     private StorageBatchSelectionRenderer() {
     }
@@ -35,12 +38,21 @@ public final class StorageBatchSelectionRenderer {
             return;
         }
 
-        double minX = box.min().getX() - 0.01D;
-        double minY = box.min().getY() - 0.01D;
-        double minZ = box.min().getZ() - 0.01D;
-        double maxX = box.max().getX() + 1.01D;
-        double maxY = box.max().getY() + 1.01D;
-        double maxZ = box.max().getZ() + 1.01D;
+        AABB animated = BOX_ANIMATOR.renderAabb(
+                box.visualRevision(),
+                new AABB(
+                        box.min().getX() - 0.01D,
+                        box.min().getY() - 0.01D,
+                        box.min().getZ() - 0.01D,
+                        box.max().getX() + 1.01D,
+                        box.max().getY() + 1.01D,
+                        box.max().getZ() + 1.01D));
+        double minX = animated.minX;
+        double minY = animated.minY;
+        double minZ = animated.minZ;
+        double maxX = animated.maxX;
+        double maxY = animated.maxY;
+        double maxZ = animated.maxZ;
         Vec3 camera = minecraft.gameRenderer.getMainCamera().getPosition();
         double distance = camera.distanceTo(new Vec3(
                 (minX + maxX) * 0.5D,
@@ -63,7 +75,7 @@ public final class StorageBatchSelectionRenderer {
             CornerBracketRenderer.renderFilledFaces(
                     noDepth, poseStack, minX, minY, minZ, maxX, maxY, maxZ,
                     0.30F, 0.50F, 1.0F, 0.06F);
-            clearCache();
+            clearEndpointCache();
             return;
         }
 
@@ -116,6 +128,11 @@ public final class StorageBatchSelectionRenderer {
     }
 
     private static void clearCache() {
+        clearEndpointCache();
+        BOX_ANIMATOR.clear();
+    }
+
+    private static void clearEndpointCache() {
         cachedMin = null;
         cachedMax = null;
         cachedEndpoints = List.of();

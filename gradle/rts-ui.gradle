@@ -143,6 +143,37 @@ tasks.register('uiKitTest', Test) {
 def uiPreviewOutput = layout.buildDirectory.dir('reports/ui-preview')
 def uiSnapshotBaselines = layout.projectDirectory.dir('src/uiPreviewSnapshots')
 def uiPreviewWorldTime = providers.gradleProperty('uiPreviewWorldTime').getOrElse('noon')
+def uiPreviewFontMode = providers.gradleProperty('uiPreviewFontMode').getOrElse('modern_ui')
+def uiPreviewLanguage = providers.gradleProperty('uiPreviewLanguage').getOrElse('both')
+def minecraft121AssetIndex = file("${gradle.gradleUserHomeDir}/caches/neoformruntime/assets/indexes/17.json")
+def minecraft121Unifont = null
+def minecraft121ChineseLanguage = null
+def minecraft121ClientJar = file("${gradle.gradleUserHomeDir}/caches/neoformruntime/artifacts/minecraft_1.21.1_client.jar")
+if (minecraft121AssetIndex.isFile()) {
+    def assetIndex = new groovy.json.JsonSlurper().parse(minecraft121AssetIndex)
+    def hash = assetIndex.objects['minecraft/font/unifont.zip']?.hash
+    if (hash != null) {
+        minecraft121Unifont = file("${gradle.gradleUserHomeDir}/caches/neoformruntime/assets/objects/${hash.substring(0, 2)}/${hash}")
+    }
+    def chineseHash = assetIndex.objects['minecraft/lang/zh_cn.json']?.hash
+    if (chineseHash != null) {
+        minecraft121ChineseLanguage = file("${gradle.gradleUserHomeDir}/caches/neoformruntime/assets/objects/${chineseHash.substring(0, 2)}/${chineseHash}")
+    }
+}
+
+tasks.withType(JavaExec).configureEach {
+    systemProperty 'rts.ui.preview.fontMode', uiPreviewFontMode
+    systemProperty 'rts.ui.preview.language', uiPreviewLanguage
+    if (minecraft121Unifont != null && minecraft121Unifont.isFile()) {
+        systemProperty 'rts.ui.preview.unifontZip', minecraft121Unifont.absolutePath
+    }
+    if (minecraft121ClientJar.isFile()) {
+        systemProperty 'rts.ui.preview.minecraftClientJar', minecraft121ClientJar.absolutePath
+    }
+    if (minecraft121ChineseLanguage != null && minecraft121ChineseLanguage.isFile()) {
+        systemProperty 'rts.ui.preview.minecraftLanguage.zh_cn', minecraft121ChineseLanguage.absolutePath
+    }
+}
 
 tasks.register('runUiPreview', JavaExec) {
     group = 'ui preview'
@@ -223,6 +254,11 @@ tasks.register('renderUiThemeSettingsPreview', JavaExec) {
     systemProperty 'java.awt.headless', 'true'
     args layout.buildDirectory.dir('reports/ui-theme-settings').get().asFile.absolutePath
     outputs.dir layout.buildDirectory.dir('reports/ui-theme-settings')
+    doFirst {
+        delete fileTree(layout.buildDirectory.dir('reports/ui-theme-settings')) {
+            include '*theme_settings_*.png'
+        }
+    }
 }
 
 tasks.register('compareUiReference', JavaExec) {
