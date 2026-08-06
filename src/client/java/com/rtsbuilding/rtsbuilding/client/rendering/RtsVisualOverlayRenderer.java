@@ -11,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.*;
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.PlacedBlockRotationHandleRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.storage.StorageBatchSelectionRenderer;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
@@ -158,6 +159,9 @@ public final class RtsVisualOverlayRenderer {
             BoundaryLineRenderer.renderBarrierBoundary(poseStack, barrierBuffer, minX, minZ, maxX, maxZ, ay, minecraft.level);
             StorageRenderer.renderLinkedStorages(minecraft, controller, poseStack, bracketBuffer);
             InteractionTargetRenderer.renderHoveredInteractionTarget(minecraft, controller, poseStack, bracketBuffer, targetNoDepthBuffer);
+            StorageBatchSelectionRenderer.render(
+                    minecraft, poseStack, bracketBuffer, targetNoDepthBuffer,
+                    minecraft.getTimer().getGameTimeDeltaPartialTick(true));
             PlayerMoveTargetRenderer.render(minecraft, poseStack, bracketBuffer, targetNoDepthBuffer);
             ShapeGhostRenderer.renderShapeGhostPreview(minecraft, poseStack, lineBuffer, fillBuffer);
             PlacedBlockRotationHandleRenderer.render(

@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BindingService;
+import com.rtsbuilding.rtsbuilding.server.service.bindings.RtsBatchStorageBindingService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
@@ -61,12 +62,26 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
-    public void unlinkStorage(ServerPlayer player, BlockPos pos) {
-        if (player == null || pos == null) return;
+    public void linkStoragesInSelection(
+            ServerPlayer player, BlockPos first, BlockPos second, byte linkMode) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.LINK_STORAGE)) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
-        if (removeLinkedRef(session, player.serverLevel().dimension(), pos)) {
+        applyUpdate(player, session, RtsBatchStorageBindingService.linkLoadedStorages(
+                player, session, first, second, linkMode));
+    }
+
+    @Override
+    public void unlinkStorage(ServerPlayer player, BlockPos pos) {
+        unlinkStorage(player, player == null ? null : player.serverLevel().dimension(), pos);
+    }
+
+    @Override
+    public void unlinkStorage(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos) {
+        if (player == null || dimension == null || pos == null) return;
+        RtsStorageSession session = registry.session().getOrCreate(player);
+        if (removeLinkedRef(session, dimension, pos)) {
             RtsEndpointLeaseCache.INSTANCE.invalidate(
-                    player.getUUID(), player.serverLevel().dimension(), pos);
+                    player.getUUID(), dimension, pos);
             registry.serviceOp().afterModification(player, session);
         }
     }
@@ -81,10 +96,18 @@ public final class RtsBindingServiceImpl implements BindingService {
 
     @Override
     public void updateLinkedStorageSettings(ServerPlayer player, BlockPos pos, byte linkMode, int priority) {
-        if (player == null || pos == null) return;
+        updateLinkedStorageSettings(
+                player, player == null ? null : player.serverLevel().dimension(), pos, linkMode, priority);
+    }
+
+    @Override
+    public void updateLinkedStorageSettings(ServerPlayer player, ResourceKey<Level> dimension,
+            BlockPos pos, byte linkMode, int priority) {
+        if (player == null || dimension == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         applyUpdate(player, session,
-                RtsStorageBindings.updateLinkedStorageSettings(player, session, pos, linkMode, priority));
+                RtsStorageBindings.updateLinkedStorageSettings(
+                        player, session, dimension, pos, linkMode, priority));
     }
 
     @Override

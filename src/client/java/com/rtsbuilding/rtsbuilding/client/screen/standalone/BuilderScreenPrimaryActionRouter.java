@@ -76,6 +76,9 @@ final class BuilderScreenPrimaryActionRouter {
         if (!host.isWorldArea(mouseX, mouseY)) {
             return true;
         }
+        if (host.handleStorageBatchWorldClick(mouseX, mouseY)) {
+            return true;
+        }
         if (this.cullingManager.isManagementMode()) {
             return mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0
                     ? host.handleRangeCullingWorldAction(mouseX, mouseY)
@@ -100,6 +103,9 @@ final class BuilderScreenPrimaryActionRouter {
         }
         boolean forcePlace = Screen.hasShiftDown();
         boolean rangeDestroyMode = host.isRangeDestroyMode();
+        if (host.isSmartFillMode()) {
+            return host.handleSmartFillWorldAction();
+        }
         if ((mouseButton == GLFW.GLFW_MOUSE_BUTTON_LEFT || mouseButton < 0)
                 && !rangeDestroyMode
                 && host.isAdvancedShapeMode()

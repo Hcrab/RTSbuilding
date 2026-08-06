@@ -279,6 +279,39 @@ public final class BuildPlacementService {
         RtsClientPacketGateway.sendPlaceFluid(hit, forcePlace, this.selectedFluidId, rayOrigin, rayDir);
     }
 
+    /**
+     * 提交智能填坑意图。本地预览只用于引导玩家；服务端会从点击面重新规划目标，因此此处不传递客户端扫描结果。
+     */
+    public void confirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        if (hit == null || rayOrigin == null || rayDirection == null) {
+            return;
+        }
+        String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
+        ItemStack prototype = this.selectedItemPreview == null ? ItemStack.EMPTY : this.selectedItemPreview.copy();
+        if (itemId.isBlank()) {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.player != null) {
+                ItemStack held = minecraft.player.getInventory().getItem(
+                        Mth.clamp(minecraft.player.getInventory().selected, 0, 8));
+                if (!held.isEmpty() && held.getItem() instanceof BlockItem) {
+                    ResourceLocation id = BuiltInRegistries.ITEM.getKey(held.getItem());
+                    itemId = id == null ? "" : id.toString();
+                    prototype = held.copy();
+                }
+            }
+        }
+        RtsClientPacketGateway.sendConfirmSmartFill(
+                hit, maxBlocks, detectionDiameter, itemId, prototype,
+                itemId.isBlank() ? 0 : this.placeRotateSteps,
+                itemId.isBlank() ? "" : this.placementStatePreset,
+                rayOrigin, rayDirection);
+    }
+
     // =========================================================================
     //  Fluid storage
     // =========================================================================

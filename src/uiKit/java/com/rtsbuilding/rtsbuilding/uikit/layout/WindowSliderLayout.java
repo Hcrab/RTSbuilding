@@ -13,17 +13,24 @@ public final class WindowSliderLayout {
     }
 
     public static Geometry geometry(UiRect bounds, int minimum, int maximum, int value) {
+        return geometry(bounds, minimum, maximum, (double) value, value);
+    }
+
+    /** 使用独立显示值定位旋钮，同时保留已经立即生效的整数逻辑值。 */
+    public static Geometry geometry(UiRect bounds, int minimum, int maximum,
+                                    double displayValue, int logicalValue) {
         if (bounds == null) {
             throw new IllegalArgumentException("bounds");
         }
         int safeMaximum = Math.max(minimum, maximum);
-        int safeValue = clamp(value, minimum, safeMaximum);
+        int safeValue = clamp(logicalValue, minimum, safeMaximum);
+        double safeDisplayValue = Math.max(minimum, Math.min(safeMaximum, displayValue));
         int x = (int) bounds.getX();
         int y = (int) bounds.getY();
         int width = (int) bounds.getWidth();
         int height = (int) bounds.getHeight();
         int centerY = y + height / 2;
-        int knobX = knobPosition(x, width, minimum, safeMaximum, safeValue);
+        int knobX = knobPosition(x, width, minimum, safeMaximum, safeDisplayValue);
         return new Geometry(
                 bounds,
                 new UiRect(x, centerY - TRACK_H / 2, width, TRACK_H),
@@ -48,7 +55,7 @@ public final class WindowSliderLayout {
                 minimum, safeMaximum);
     }
 
-    private static int knobPosition(int x, int width, int minimum, int maximum, int value) {
+    private static int knobPosition(int x, int width, int minimum, int maximum, double value) {
         if (maximum <= minimum) {
             return x;
         }

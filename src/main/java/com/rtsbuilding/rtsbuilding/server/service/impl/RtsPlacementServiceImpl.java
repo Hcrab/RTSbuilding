@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
+import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
@@ -10,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.PlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -54,7 +56,20 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
 
-        if (player != null && session != null && !forceEmptyHand) {
+        if (forceEmptyHand) {
+            if (player == null || clickedPos == null || face == null) {
+                return;
+            }
+            // 空手右键是即时交互，不是可持久化放置任务；无工作流 ID 时不能错误地塞入 TaskEngine。
+            RtsPlacementExecutor.placeSelectedInternal(
+                    player, session, clickedPos, face, hitX, hitY, hitZ, rotateSteps, statePreset,
+                    forcePlace, skipIfOccupied, itemId, itemPrototype,
+                    rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ,
+                    quickBuild, true, true, true);
+            return;
+        }
+
+        if (player != null && session != null) {
             PipelineRegistry.execute(quickBuild ? RtsWorkflowType.QUICK_BUILD : RtsWorkflowType.PLACE_SINGLE,
                     PlaceContext.builder(player)
                             .clickedPositions(clickedPos == null ? List.of() : List.of(clickedPos))
@@ -109,7 +124,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     }
 
     @Override
-    public void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
+    public boolean enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
                                   double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
                                   boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting, String itemId,
                                   ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
@@ -127,7 +142,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 }
             }
 
-            PipelineRegistry.execute(RtsWorkflowType.PLACE_BATCH,
+            PipelineResult result = PipelineRegistry.execute(RtsWorkflowType.PLACE_BATCH,
                     PlaceContext.builder(player)
                             .clickedPositions(sanitized)
                             .face(face)
@@ -152,11 +167,11 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                             .sendRemoteHint(true)
                             .totalBlocks(sanitized.size())
                             .build());
-            return;
+            return result instanceof PipelineResult.Success;
         }
 
         // 回退：无会话或空位置 — 入队但不经过工作流
-        RtsPlacementBatch.enqueuePlaceBatch(
+        return RtsPlacementBatch.enqueuePlaceBatch(
                 player,
                 session,
                 clickedPositions,
@@ -181,7 +196,6 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 false,
                 false,
                 -1);
-
     }
 
     @Override

@@ -34,8 +34,20 @@ final class BuilderScreenPrimaryActionHost {
         return screen.handleRangeCullingWorldAction(mouseX, mouseY);
     }
 
+    boolean handleStorageBatchWorldClick(double mouseX, double mouseY) {
+        return screen.handleStorageBatchWorldClick(mouseX, mouseY);
+    }
+
     boolean isRangeDestroyMode() {
         return screen.isQuickBuildRangeDestroyMode();
+    }
+
+    boolean isSmartFillMode() {
+        return screen.isQuickBuildSmartFillMode();
+    }
+
+    boolean handleSmartFillWorldAction() {
+        return screen.handleQuickBuildSmartFillClick();
     }
 
     boolean isAdvancedShapeMode() {

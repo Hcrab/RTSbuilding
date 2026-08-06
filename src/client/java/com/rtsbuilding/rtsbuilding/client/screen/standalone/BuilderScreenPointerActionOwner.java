@@ -200,6 +200,14 @@ final class BuilderScreenPointerActionOwner {
             if (screen.bottomPanel.handleClick(mouseX, mouseY)) {
                 return true;
             }
+            if (screen.handleStorageBatchWorldClick(mouseX, mouseY)) {
+                return true;
+            }
+            if (screen.isWorldArea(mouseX, mouseY)
+                    && screen.cancelQuickBuildSmartFillAnchor()) {
+                // 第二个锚点提交前，左键只取消当前锚点，避免误拆正在选择的洞壁。
+                return true;
+            }
             if (screen.pendingGuiBindSlot >= 0 && screen.isWorldArea(mouseX, mouseY)) {
                 BlockHitResult hit = screen.cursorPicker.pickBlockHit();
                 if (hit != null) {
@@ -250,6 +258,17 @@ final class BuilderScreenPointerActionOwner {
                 }
             }
             return false;
+        }
+
+    boolean handleStorageBatchWorldClick(double mouseX, double mouseY) {
+            if (!screen.storageBatchSelection.isActive()
+                    || screen.controller.getMode() != BuilderMode.LINK_STORAGE
+                    || !screen.isWorldArea(mouseX, mouseY)) {
+                return false;
+            }
+            BlockHitResult hit = screen.cursorPicker.pickBlockHit();
+            return screen.storageBatchSelection.click(
+                    screen.getMinecraft(), hit == null ? null : hit.getBlockPos());
         }
 
     boolean handleWorldClickActions(double mouseX, double mouseY, int button) {

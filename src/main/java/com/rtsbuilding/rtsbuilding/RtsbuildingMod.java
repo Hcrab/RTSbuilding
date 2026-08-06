@@ -26,6 +26,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.storage.wake.RtsCrossDimensionStorageWakeService;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
@@ -149,6 +150,7 @@ public final class RtsbuildingMod {
                 TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
                 RtsTaskEngine.INSTANCE.reconcilePlayerDetach(player);
             }
+            RtsCrossDimensionStorageWakeService.INSTANCE.clear(server);
         } catch (RuntimeException failure) {
             LOGGER.error("停服时 durable task 冻结失败；未确认的 dirty 不会被伪装成已落盘", failure);
             throw failure;
@@ -189,6 +191,7 @@ public final class RtsbuildingMod {
                     player.getUUID(), failure);
         }
         RtsCameraManager.stopIfActive(player);
+        RtsCrossDimensionStorageWakeService.INSTANCE.releasePlayer(player.getServer(), player.getUUID());
         RtsDamageFeedbackManager.forget(player);
         ServiceRegistry.getInstance().session().onPlayerLogout(player);
         RtsProgressionManager.onPlayerLogout(player);
@@ -214,6 +217,7 @@ public final class RtsbuildingMod {
 
     private static void onChunkLoad(ServerLevel level, LevelChunk chunk) {
         RtsTaskEngine.INSTANCE.resumeLoadedChunk(level, chunk.getPos());
+        RtsCrossDimensionStorageWakeService.INSTANCE.onChunkLoaded(level, chunk.getPos());
     }
 
     private static void onServerTick(MinecraftServer server) {

@@ -92,6 +92,20 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
+        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
+        if (sourceId == null) {
+            return null;
+        }
+        // 快速建造任务在提交时冻结最终状态；恢复中的 slice 绝不能因世界变化而重新推导朝向。
+        BlockState frozenState = job.frozenPlacementState();
+        if (frozenState != null) {
+            if (frozenState.getBlock() != blockItem.getBlock()) {
+                return null;
+            }
+            return new StatePlacementPlan(
+                    item, templateStack, frozenState, true, sourceId.toString());
+        }
+
         BlockPos templatePos = job.templatePosition();
         if (templatePos == null || job.face() == null || !player.serverLevel().hasChunkAt(templatePos)) {
             return null;
@@ -108,10 +122,6 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
-        if (sourceId == null) {
-            return null;
-        }
         return new StatePlacementPlan(
                 item,
                 templateStack,

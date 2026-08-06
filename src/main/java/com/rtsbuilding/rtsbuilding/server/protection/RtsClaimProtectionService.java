@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.protection;
 
 import com.rtsbuilding.rtsbuilding.compat.openpac.RtsOpenPacCompat;
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -20,22 +21,37 @@ public final class RtsClaimProtectionService {
     }
 
     public static boolean canBreakBlock(ServerPlayer player, BlockPos pos, Direction face) {
-        return player != null && pos != null && RtsOpenPacCompat.canBreakBlock(player, pos, face);
+        return player != null && pos != null && RtsOpenPacCompat.canBreakBlock(
+                player, physicalBlockPos(player, pos), physicalDirection(player, pos, face));
     }
 
     public static boolean canPlaceBlock(ServerPlayer player, BlockPos pos) {
-        return player != null && pos != null && RtsOpenPacCompat.canPlaceBlock(player, pos);
+        return player != null && pos != null
+                && RtsOpenPacCompat.canPlaceBlock(player, physicalBlockPos(player, pos));
     }
 
     public static boolean canInteractBlock(ServerPlayer player, BlockPos pos, Direction face,
             InteractionHand hand, ItemStack heldItem) {
         return player != null && pos != null
-                && RtsOpenPacCompat.canInteractBlock(player, pos, face, hand, heldItem);
+                && RtsOpenPacCompat.canInteractBlock(player, physicalBlockPos(player, pos),
+                        physicalDirection(player, pos, face), hand, heldItem);
     }
 
     public static boolean canInteractEntity(ServerPlayer player, Entity target, InteractionHand hand,
             ItemStack heldItem, boolean attack) {
         return player != null && target != null
                 && RtsOpenPacCompat.canInteractEntity(player, target, hand, heldItem, attack);
+    }
+
+    private static BlockPos physicalBlockPos(ServerPlayer player, BlockPos logicalPos) {
+        return player == null || logicalPos == null
+                ? null
+                : RtsSableSpatialCompat.physicalBlockPos(player.serverLevel(), logicalPos);
+    }
+
+    private static Direction physicalDirection(ServerPlayer player, BlockPos logicalPos, Direction logicalDirection) {
+        return player == null || logicalPos == null
+                ? logicalDirection
+                : RtsSableSpatialCompat.physicalDirection(player.serverLevel(), logicalPos, logicalDirection);
     }
 }

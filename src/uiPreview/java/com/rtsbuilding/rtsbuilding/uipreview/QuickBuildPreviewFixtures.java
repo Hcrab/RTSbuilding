@@ -18,7 +18,8 @@ final class QuickBuildPreviewFixtures {
                 || variant == UiPreviewScenario.Variant.QUICK_BUILD_BUILD
                 || variant == UiPreviewScenario.Variant.QUICK_BUILD_DESTROY_CHAIN
                 || variant == UiPreviewScenario.Variant.QUICK_BUILD_LOCKED
-                || variant == UiPreviewScenario.Variant.QUICK_BUILD_PROGRESS;
+                || variant == UiPreviewScenario.Variant.QUICK_BUILD_PROGRESS
+                || variant == UiPreviewScenario.Variant.QUICK_BUILD_SMART_FILL;
     }
 
     static QuickBuildUiState forScenario(UiPreviewScenario scenario, UiLanguageBundle language) {
@@ -27,8 +28,11 @@ final class QuickBuildPreviewFixtures {
         boolean locked = variant == UiPreviewScenario.Variant.QUICK_BUILD_LOCKED;
         boolean chain = variant == UiPreviewScenario.Variant.QUICK_BUILD_DESTROY_CHAIN;
         boolean progress = variant == UiPreviewScenario.Variant.QUICK_BUILD_PROGRESS;
-        QuickBuildUiMode mode = build || locked ? QuickBuildUiMode.BUILD : QuickBuildUiMode.DESTROY;
+        boolean smartFill = variant == UiPreviewScenario.Variant.QUICK_BUILD_SMART_FILL;
+        QuickBuildUiMode mode = smartFill ? QuickBuildUiMode.SMART_FILL
+                : build || locked ? QuickBuildUiMode.BUILD : QuickBuildUiMode.DESTROY;
         QuickBuildUiShape active = chain ? QuickBuildUiShape.CHAIN
+                : smartFill ? QuickBuildUiShape.BLOCK
                 : build || locked ? QuickBuildUiShape.LINE : QuickBuildUiShape.BOX;
         List<QuickBuildUiShapeOption> shapes = new ArrayList<QuickBuildUiShapeOption>();
         if (mode == QuickBuildUiMode.BUILD) {
@@ -36,13 +40,13 @@ final class QuickBuildPreviewFixtures {
                 if (shape == QuickBuildUiShape.CHAIN) continue;
                 shapes.add(new QuickBuildUiShapeOption(shape, shape == active, true, ""));
             }
-        } else {
+        } else if (mode == QuickBuildUiMode.DESTROY) {
             for (QuickBuildUiShape shape : QuickBuildUiShape.values()) {
                 shapes.add(new QuickBuildUiShapeOption(shape, shape == active, true, ""));
             }
         }
         List<QuickBuildUiControl> controls = new ArrayList<QuickBuildUiControl>();
-        if (!chain) {
+        if (!chain && !smartFill) {
             controls.add(control(QuickBuildUiControl.Id.FILL,
                     language.text("screen.rtsbuilding.fill.fill"), true));
             controls.add(control(QuickBuildUiControl.Id.HOLLOW,
@@ -64,12 +68,14 @@ final class QuickBuildPreviewFixtures {
                 mode == QuickBuildUiMode.DESTROY ? active : QuickBuildUiShape.CHAIN,
                 shapes, controls, 96, 1, 512,
                 progress ? 72 : -1, progress ? 160 : 0, progress ? 88 : 0,
-                progress ? "72 / 160" : "", build ? "384" : "0",
-                "rtsbuilding:area_destroy_plugin", build ? 128 : 0,
-                build ? "screen.rtsbuilding.quick_build.build_hint"
+                progress ? "72 / 160" : "", smartFill ? "128" : build ? "384" : "0",
+                smartFill ? "minecraft:stone" : "rtsbuilding:area_destroy_plugin",
+                smartFill ? 0 : build ? 128 : 0,
+                smartFill ? "screen.rtsbuilding.quick_build.smart_fill.hint_confirm"
+                        : build ? "screen.rtsbuilding.quick_build.build_hint"
                         : chain ? "screen.rtsbuilding.quick_build.chain_hint"
                         : "screen.rtsbuilding.quick_build.destroy_advanced_box_hint",
-                build ? "B" : "V", build ? "24*4*4" : "18*7*12");
+                build ? "B" : "V", smartFill ? "16" : build ? "24*4*4" : "18*7*12");
     }
 
     private static QuickBuildUiControl control(QuickBuildUiControl.Id id,

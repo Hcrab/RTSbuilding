@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.bindings;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
@@ -10,10 +11,12 @@ import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
@@ -88,7 +91,7 @@ public final class RtsLinkedStorageBindingService {
             if (existingRef != null) {
                 session.linkedStorageInfo.remove(existingRef);
             } else {
-                if (session.linkedStorageInfo.size() >= RtsStorageBindings.MAX_LINKED_STORAGES) {
+                if (session.linkedStorageInfo.size() >= Config.maxLinkedStorages()) {
                     return RtsStorageBindings.UpdateResult.none();
                 }
                 session.linkedStorageInfo.add(ref, normalizedMode, 0, backpackUuid, backpackItemId);
@@ -106,17 +109,132 @@ public final class RtsLinkedStorageBindingService {
     }
 
     /**
+     * 批量扫描中的幂等链接入口。单点链接保留“再点一次解除”的玩家习惯，
+     * 批量操作则只添加尚未链接的端点，绝不能反向解除已有链接。
+     */
+    static RtsStorageBindings.UpdateResult ensureStorageLinked(
+            ServerPlayer player, RtsStorageSession session, BlockPos pos, byte linkMode) {
+        if (player == null || session == null || pos == null) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        if (!canLinkStorageTarget(player, pos)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        if (session.linkedStorageInfo.contains(ref)
+                || findDoubleChestLinkedRef(player, session, pos) != null) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        Object itemHandler = RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
+        Object fluidHandler = RtsLinkedCapabilities.findFluidHandler(player, pos);
+        if ((itemHandler == null && fluidHandler == null)
+                || session.linkedStorageInfo.size() >= Config.maxLinkedStorages()) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        ServerLevel level = player.serverLevel();
+        UUID backpackUuid = readBackpackUuid(level, pos);
+        String backpackItemId = readBackpackItemId(level, pos);
+        session.linkedStorageInfo.add(
+                ref, RtsLinkedStorageResolver.sanitizeLinkMode(linkMode),
+                0, backpackUuid, backpackItemId);
+        session.linkedStorageInfo.setName(
+                ref, RtsLinkedStorageResolver.resolveDisplayName(level, ref.pos()));
+        session.bdCache.handlerStale = true;
+        session.bdCache.fluidHandlerStale = true;
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+        return RtsStorageBindings.UpdateResult.refreshFirst(true);
+    }
+
+    /**
+     * 同一网络已有链接时，可把代表端点迁移到更适合玩家操作的终端方块。
+     * 调用者已经验证二者属于同一网络；这里仍复核新端点可交互，防止扫描期间状态变化。
+     */
+    static RtsStorageBindings.UpdateResult replaceNetworkRepresentative(
+            ServerPlayer player, RtsStorageSession session,
+            LinkedStorageRef oldRef, BlockPos newPos) {
+        if (player == null || session == null || oldRef == null || newPos == null
+                || !session.linkedStorageInfo.contains(oldRef)
+                || !canLinkStorageTarget(player, newPos)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        LinkedStorageRef newRef = new LinkedStorageRef(
+                player.serverLevel().dimension(), newPos.immutable());
+        if (oldRef.equals(newRef)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        int index = session.linkedStorageInfo.indexOf(oldRef);
+        if (index < 0) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        if (session.linkedStorageInfo.contains(newRef)) {
+            session.linkedStorageInfo.remove(oldRef);
+        } else {
+            session.linkedStorageInfo.set(index, newRef);
+            session.linkedStorageInfo.setName(
+                    newRef, RtsLinkedStorageResolver.resolveDisplayName(
+                            player.serverLevel(), newRef.pos()));
+        }
+        session.bdCache.handlerStale = true;
+        session.bdCache.fluidHandlerStale = true;
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+        return RtsStorageBindings.UpdateResult.refreshFirst(true);
+    }
+
+    /** 批量发现阶段的轻量权限门禁；写入前仍会再次检查。 */
+    static boolean canLinkStorageTarget(ServerPlayer player, BlockPos pos) {
+        return player != null && pos != null
+                && RtsClaimProtectionService.canInteractBlock(
+                        player, pos, Direction.UP,
+                        InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+    }
+
+    /** 双箱两半共享同一稳定身份，普通方块直接返回自身。 */
+    static BlockPos canonicalStoragePosition(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.hasChunkAt(pos)) {
+            return pos == null ? BlockPos.ZERO : pos.immutable();
+        }
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ChestBlock)
+                || state.getValue(ChestBlock.TYPE) == ChestType.SINGLE) {
+            return pos.immutable();
+        }
+        BlockPos connected = pos.relative(ChestBlock.getConnectedDirection(state));
+        return comparePositions(pos, connected) <= 0
+                ? pos.immutable() : connected.immutable();
+    }
+
+    private static int comparePositions(BlockPos first, BlockPos second) {
+        int x = Integer.compare(first.getX(), second.getX());
+        if (x != 0) return x;
+        int y = Integer.compare(first.getY(), second.getY());
+        return y != 0 ? y : Integer.compare(first.getZ(), second.getZ());
+    }
+
+    /**
      * 更新已有链接存储行的设置。这有意不作为链接/创建操作：
      * 详情面板可以编辑模式和 AE 式优先级，但服务器仍然要求
      * 引用已经属于玩家的会话。
      */
     public static RtsStorageBindings.UpdateResult updateSettings(ServerPlayer player, RtsStorageSession session,
             BlockPos pos, byte linkMode, int priority) {
-        if (player == null || session == null || pos == null) {
+        return updateSettings(
+                player,
+                session,
+                player == null ? null : player.serverLevel().dimension(),
+                pos,
+                linkMode,
+                priority);
+    }
+
+    /** 仅修改玩家会话中已存在的完整端点身份，不把异维远程使用退化成近距离交互。 */
+    public static RtsStorageBindings.UpdateResult updateSettings(ServerPlayer player, RtsStorageSession session,
+            ResourceKey<Level> dimension, BlockPos pos, byte linkMode, int priority) {
+        if (player == null || session == null || dimension == null || pos == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.immutable());
         if (!session.linkedStorageInfo.contains(ref)) {
             return RtsStorageBindings.UpdateResult.none();
         }
@@ -129,7 +247,11 @@ public final class RtsLinkedStorageBindingService {
         }
         session.linkedStorageInfo.setMode(ref, normalizedMode);
         session.linkedStorageInfo.setPriority(ref, normalizedPriority);
-        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+        ServerLevel targetLevel = player.server.getLevel(dimension);
+        if (targetLevel != null && targetLevel.hasChunkAt(pos)) {
+            session.linkedStorageInfo.setName(
+                    ref, RtsLinkedStorageResolver.resolveDisplayName(targetLevel, ref.pos()));
+        }
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 

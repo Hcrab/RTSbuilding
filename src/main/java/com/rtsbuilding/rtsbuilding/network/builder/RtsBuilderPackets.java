@@ -43,6 +43,11 @@ public final class RtsBuilderPackets {
                 RtsPlaceHandlers::handlePlaceBatch);
 
         registrar.playToServer(
+                C2SRtsConfirmSmartFillPayload.TYPE,
+                C2SRtsConfirmSmartFillPayload.STREAM_CODEC,
+                RtsPlaceHandlers::handleConfirmSmartFill);
+
+        registrar.playToServer(
                 C2SRtsPlaceFluidPayload.TYPE,
                 C2SRtsPlaceFluidPayload.STREAM_CODEC,
                 RtsPlaceHandlers::handlePlaceFluid);
@@ -86,6 +91,11 @@ public final class RtsBuilderPackets {
                 C2SRtsAreaDestroyPayload.TYPE,
                 C2SRtsAreaDestroyPayload.STREAM_CODEC,
                 RtsMiningHandlers::handleAreaDestroy);
+
+        registrar.playToServer(
+                C2SRtsConvenienceDestroyPayload.TYPE,
+                C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
+                RtsMiningHandlers::handleConvenienceDestroy);
 
         registrar.playToClient(
                 S2CRtsMineProgressPayload.TYPE,

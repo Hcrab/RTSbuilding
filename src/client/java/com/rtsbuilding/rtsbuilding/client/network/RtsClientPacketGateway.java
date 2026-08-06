@@ -3,6 +3,8 @@ package com.rtsbuilding.rtsbuilding.client.network;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsCameraMovePayload;
 import com.rtsbuilding.rtsbuilding.network.camera.C2SRtsToggleCameraPayload;
@@ -104,6 +106,18 @@ public final class RtsClientPacketGateway {
                 allowStore ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
     }
 
+    /** 只发送两个角点；服务端会重新扫描已加载端点并独立复核权限。 */
+    public static void sendBatchLinkStorage(
+            BlockPos first, BlockPos second, boolean allowStore) {
+        if (first == null || second == null) {
+            return;
+        }
+        ClientPlayNetworking.send(new C2SRtsBatchLinkStoragePayload(
+                first, second,
+                allowStore ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL
+                        : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
+    }
+
     public static void sendRequestStoragePage(int page, String search, String category, RtsStorageSort sort, boolean ascending, int pageSize) {
         boolean pinyinSearchEnabled = isChineseLanguageSelected();
         ClientPlayNetworking.send(new C2SRtsRequestStoragePagePayload(
@@ -126,14 +140,33 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendUnlinkStorage(BlockPos pos) {
-        if (pos != null) {
-            ClientPlayNetworking.send(new C2SRtsUnlinkStoragePayload(pos));
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null) {
+            sendUnlinkStorage(minecraft.level.dimension().location().toString(), pos);
+        }
+    }
+
+    public static void sendUnlinkStorage(String dimensionId, BlockPos pos) {
+        ResourceLocation dimension = ResourceLocation.tryParse(dimensionId);
+        if (dimension != null && pos != null) {
+            ClientPlayNetworking.send(new C2SRtsUnlinkStoragePayload(dimension, pos));
         }
     }
 
     public static void sendUpdateLinkedStorage(BlockPos pos, boolean extractOnly, int priority) {
-        if (pos != null) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null) {
+            sendUpdateLinkedStorage(
+                    minecraft.level.dimension().location().toString(), pos, extractOnly, priority);
+        }
+    }
+
+    public static void sendUpdateLinkedStorage(
+            String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
+        ResourceLocation dimension = ResourceLocation.tryParse(dimensionId);
+        if (dimension != null && pos != null) {
             ClientPlayNetworking.send(new C2SRtsUpdateLinkedStoragePayload(
+                    dimension,
                     pos,
                     extractOnly ? C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL,
                     Mth.clamp(priority, -9999, 9999)));
@@ -573,6 +606,72 @@ public final class RtsClientPacketGateway {
                 (byte) Mth.clamp(toolSlot, 0, 8),
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
+                toolProtectionEnabled));
+    }
+
+    /** 只发送智能填坑意图；客户端预览坐标不进入协议。 */
+    public static void sendConfirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            String itemId,
+            ItemStack itemPrototype,
+            int rotateSteps,
+            String statePreset,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        if (hit == null || rayOrigin == null || rayDirection == null) {
+            return;
+        }
+        ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
+        if (!prototype.isEmpty()) {
+            prototype.setCount(1);
+        }
+        ClientPlayNetworking.send(new C2SRtsConfirmSmartFillPayload(
+                hit.getBlockPos(),
+                (byte) hit.getDirection().get3DDataValue(),
+                maxBlocks,
+                detectionDiameter,
+                hit.getLocation().x - hit.getBlockPos().getX(),
+                hit.getLocation().y - hit.getBlockPos().getY(),
+                hit.getLocation().z - hit.getBlockPos().getZ(),
+                (byte) rotateSteps,
+                statePreset == null ? "" : statePreset,
+                itemId == null ? "" : itemId,
+                prototype,
+                rayOrigin.x,
+                rayOrigin.y,
+                rayOrigin.z,
+                rayDirection.x,
+                rayDirection.y,
+                rayDirection.z));
+    }
+
+    /** 便捷挣掘只提交锚点、工具和受限设置，服务端重新规划所有破坏目标。 */
+    public static void sendConvenienceDestroy(
+            RtsConvenienceDestroyMode mode,
+            BlockHitResult hit,
+            RtsConvenienceDestroySettings settings,
+            int toolSlot,
+            String toolItemId,
+            ItemStack toolPrototype,
+            boolean toolProtectionEnabled) {
+        if (mode == null || hit == null) {
+            return;
+        }
+        ItemStack prototype = toolPrototype == null ? ItemStack.EMPTY : toolPrototype.copy();
+        if (!prototype.isEmpty()) {
+            prototype.setCount(1);
+        }
+        ClientPlayNetworking.send(new C2SRtsConvenienceDestroyPayload(
+                System.nanoTime(),
+                mode,
+                hit.getBlockPos().immutable(),
+                (byte) hit.getDirection().get3DDataValue(),
+                settings == null ? RtsConvenienceDestroySettings.DEFAULT : settings,
+                (byte) Mth.clamp(toolSlot, 0, 8),
+                toolItemId == null ? "" : toolItemId,
+                prototype,
                 toolProtectionEnabled));
     }
 

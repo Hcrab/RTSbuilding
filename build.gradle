@@ -14,6 +14,14 @@ group = mod_group_id
 
 repositories {
     mavenCentral()
+    exclusiveContent {
+        forRepository {
+            maven { url = 'https://maven.ryanhcode.dev/releases' }
+        }
+        filter {
+            includeGroup 'dev.ryanhcode.sable-companion'
+        }
+    }
     maven { url = 'https://maven.fabricmc.net/' }
     maven { url = 'https://maven.parchmentmc.org/' }
     maven { url = 'https://maven.blamejared.com' }
@@ -101,6 +109,11 @@ dependencies {
     }
     modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+
+    // Companion 自带无 Sable 时的恒等实现；嵌入它可让本模组安全引用其稳定 API，
+    // 而 Sable 本体仍完全可选。
+    modImplementation "dev.ryanhcode.sable-companion:sable-companion-fabric-${minecraft_version}:${sable_companion_version}"
+    include "dev.ryanhcode.sable-companion:sable-companion-fabric-${minecraft_version}:${sable_companion_version}"
 
     // 本地兼容矩阵统一放在 run/mods；只进入开发运行与 GameTest，不参与发布 JAR。
     modRuntimeOnly localRuntimeMods

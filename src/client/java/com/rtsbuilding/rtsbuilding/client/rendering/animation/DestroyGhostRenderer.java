@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
@@ -57,18 +58,21 @@ public final class DestroyGhostRenderer {
                 continue;
             }
             float scale = computeShrinkScale(elapsed);
-            if (ghost.state.getRenderShape() == RenderShape.MODEL) {
-                GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                        ghost.state, ghost.pos, MODEL_ALPHA, scale);
-            } else {
-                renderFilledBox(poseStack, fillBuffer, ghost.pos, scale);
-            }
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, ghost.pos, poseStack, () -> {
+                if (ghost.state.getRenderShape() == RenderShape.MODEL) {
+                    GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
+                            ghost.state, ghost.pos, MODEL_ALPHA, scale);
+                } else {
+                    renderFilledBox(poseStack, fillBuffer, ghost.pos, scale);
+                }
+            });
         }
         blockBuffer.endBatch();
     }
 
     static void renderWireframes(PoseStack poseStack, VertexConsumer lineBuffer) {
-        if (GHOSTS.isEmpty()) {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level == null || GHOSTS.isEmpty()) {
             return;
         }
         long now = System.currentTimeMillis();
@@ -85,8 +89,9 @@ public final class DestroyGhostRenderer {
                 continue;
             }
             float scale = computeShrinkScale(elapsed);
-            renderLineBox(poseStack, lineBuffer, ghost.pos, scale,
-                    0.38F, 1.00F, 0.42F, Math.max(0.0F, scale * 0.95F));
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, ghost.pos, poseStack,
+                    () -> renderLineBox(poseStack, lineBuffer, ghost.pos, scale,
+                            0.38F, 1.00F, 0.42F, Math.max(0.0F, scale * 0.95F)));
         }
     }
 

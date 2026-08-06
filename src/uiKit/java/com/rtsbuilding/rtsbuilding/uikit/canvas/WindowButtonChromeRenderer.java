@@ -18,6 +18,11 @@ public final class WindowButtonChromeRenderer {
     }
 
     public static int renderSolid(UiCanvas2D canvas, UiRect bounds, boolean hovered) {
+        return renderSolid(canvas, bounds, hovered ? 1.0D : 0.0D);
+    }
+
+    /** 手绘按钮使用连续 hover 强度；命中仍由平台层即时判断。 */
+    public static int renderSolid(UiCanvas2D canvas, UiRect bounds, double hoverStrength) {
         if (canvas == null || bounds == null) {
             throw new IllegalArgumentException("canvas and bounds must not be null");
         }
@@ -25,7 +30,10 @@ public final class WindowButtonChromeRenderer {
         double y = bounds.getY();
         double width = bounds.getWidth();
         double height = bounds.getHeight();
-        canvas.fill(bounds, WindowButtonStyle.background(hovered));
+        canvas.fill(bounds, com.rtsbuilding.rtsbuilding.uikit.theme.UiColor.interpolate(
+                WindowButtonStyle.BACKGROUND,
+                WindowButtonStyle.HOVER_BACKGROUND,
+                hoverStrength));
         canvas.fill(x, y, width + 1.0D, 1.0D, WindowButtonStyle.BORDER_LIGHT);
         canvas.fill(x, y + height, width + 1.0D, 1.0D, WindowButtonStyle.BORDER_DARK);
         canvas.fill(x, y, 1.0D, height + 1.0D, WindowButtonStyle.BORDER_LIGHT);

@@ -32,6 +32,20 @@ public final class GhostBlockModelRenderer {
 
     public static boolean renderAt(Minecraft minecraft, PoseStack poseStack, MultiBufferSource bufferSource,
             BlockState state, BlockPos pos, float alpha, float scale) {
+        return renderAt(minecraft, poseStack, bufferSource, state, pos, alpha, scale, false);
+    }
+
+    /**
+     * 在已建立的方块局部渲染帧中绘制模型，但仍使用逻辑坐标查询颜色与随机种子。
+     * Render local vertices while preserving the logical position for model data lookups.
+     */
+    public static boolean renderAtLocal(Minecraft minecraft, PoseStack poseStack, MultiBufferSource bufferSource,
+            BlockState state, BlockPos logicalPos, float alpha, float scale) {
+        return renderAt(minecraft, poseStack, bufferSource, state, logicalPos, alpha, scale, true);
+    }
+
+    private static boolean renderAt(Minecraft minecraft, PoseStack poseStack, MultiBufferSource bufferSource,
+            BlockState state, BlockPos pos, float alpha, float scale, boolean localFrame) {
         if (minecraft == null || minecraft.level == null || poseStack == null || bufferSource == null
                 || state == null || pos == null || state.isAir() || state.getRenderShape() != RenderShape.MODEL) {
             return false;
@@ -42,7 +56,9 @@ public final class GhostBlockModelRenderer {
 
         poseStack.pushPose();
         try {
-            poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
+            if (!localFrame) {
+                poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
+            }
             if (scale != 1.0F) {
                 poseStack.translate(0.5D, 0.5D, 0.5D);
                 poseStack.scale(scale, scale, scale);

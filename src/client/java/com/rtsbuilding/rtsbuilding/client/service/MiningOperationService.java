@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.service;
 
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.plugin.RtsClientPluginCatalog;
 import com.rtsbuilding.rtsbuilding.client.record.AreaMineBounds;
@@ -7,6 +8,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -17,6 +21,8 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 public final class MiningOperationService {
 
@@ -71,6 +77,7 @@ public final class MiningOperationService {
     private BlockPos areaMinePointA;
     /** Anchor point B: second click position, together with A defines the base rectangle */
     private BlockPos areaMinePointB;
+    private UUID areaMineFrameId;
     /** Height offset: extends up/down from point A Y (scroll wheel, positive=up, negative=down) */
     private int areaMineHeightOffset;
 
@@ -254,16 +261,32 @@ public final class MiningOperationService {
     // ---------- Selection management ----------
 
     public void setAreaMinePointA(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
-        this.areaMinePointA = pos == null ? null : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        this.areaMinePointA = pos == null
+                ? null
+                : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        Minecraft minecraft = Minecraft.getInstance();
+        this.areaMineFrameId = this.areaMinePointA == null || minecraft.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(minecraft.level, this.areaMinePointA);
         this.areaMinePointB = null;
         this.areaMineHeightOffset = 0;
-        this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_SECOND;
+        this.areaMinePhase = this.areaMinePointA == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_SECOND;
         this.mineRenderPos = this.areaMinePointA;
         this.mineRenderStage = 0;
     }
 
     public void setAreaMinePointB(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
-        this.areaMinePointB = pos == null ? null : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        Minecraft minecraft = Minecraft.getInstance();
+        UUID nextFrameId = pos == null || minecraft.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(minecraft.level, pos);
+        if (this.areaMinePointA != null && !Objects.equals(this.areaMineFrameId, nextFrameId)) {
+            setAreaMinePointA(pos, anchorX, anchorZ, maxRadius, hasBounds);
+            return;
+        }
+        this.areaMinePointB = pos == null
+                ? null
+                : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
         this.areaMineHeightOffset = 0;
         this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_HEIGHT;
         this.mineRenderPos = this.areaMinePointB;
@@ -273,6 +296,11 @@ public final class MiningOperationService {
     private BlockPos clampToBounds(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
         if (pos == null || !hasBounds) {
             return pos;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null && RtsSableSpatialCompat.frameId(minecraft.level, pos) != null) {
+            return RtsSableClientSpatialCompat.isWithinBounds(
+                    minecraft.level, pos, anchorX, anchorZ, maxRadius) ? pos : null;
         }
         int minBlockX = Mth.floor(anchorX - maxRadius);
         int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
@@ -288,6 +316,7 @@ public final class MiningOperationService {
         this.areaMinePhase = AREA_MINE_PHASE_NONE;
         this.areaMinePointA = null;
         this.areaMinePointB = null;
+        this.areaMineFrameId = null;
         this.areaMineHeightOffset = 0;
         this.mineRenderStage = -1;
     }
@@ -334,6 +363,37 @@ public final class MiningOperationService {
         this.mineRenderStage = 0;
         RtsClientPacketGateway.sendAreaDestroy(
                 targets,
+                this.activeMineToolSlot,
+                selectedMiningToolItemId(selectedItemId, selectedItemPreview),
+                selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
+                toolProtectionEnabled);
+        clearAreaMineSession();
+    }
+
+    /**
+     * 提交声明式便捷破坏请求。客户端仅传递锚点与上限设置，服务端会重新读取世界并规划目标，不信任预览方块集合。
+     */
+    public void confirmConvenienceDestroy(
+            RtsConvenienceDestroyMode mode,
+            net.minecraft.world.phys.BlockHitResult hit,
+            RtsConvenienceDestroySettings settings,
+            int toolSlot,
+            String selectedItemId,
+            ItemStack selectedItemPreview,
+            boolean toolProtectionEnabled) {
+        if (mode == null || hit == null) {
+            return;
+        }
+        BlockPos anchor = hit.getBlockPos().immutable();
+        this.activeMinePos = anchor;
+        this.activeMineFace = hit.getDirection().get3DDataValue();
+        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.mineRenderPos = anchor;
+        this.mineRenderStage = 0;
+        RtsClientPacketGateway.sendConvenienceDestroy(
+                mode,
+                hit,
+                settings,
                 this.activeMineToolSlot,
                 selectedMiningToolItemId(selectedItemId, selectedItemPreview),
                 selectedMiningToolPrototype(selectedItemId, selectedItemPreview),

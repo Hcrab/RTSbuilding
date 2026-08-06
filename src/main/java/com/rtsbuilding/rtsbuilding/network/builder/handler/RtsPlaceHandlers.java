@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsSmartFillService;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
@@ -117,6 +118,16 @@ public final class RtsPlaceHandlers {
                         payload.rayDirX(),
                         payload.rayDirY(),
                         payload.rayDirZ());
+            }
+        });
+    }
+
+    /** 智能填坑只接受玩家点击与定标参数，服务端重新规划目标，不信任客户端扫描坐标。 */
+    public static void handleConfirmSmartFill(
+            C2SRtsConfirmSmartFillPayload payload, RtsPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsSmartFillService.confirm(serverPlayer, payload);
             }
         });
     }

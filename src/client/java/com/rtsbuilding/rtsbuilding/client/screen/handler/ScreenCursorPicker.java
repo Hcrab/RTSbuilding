@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.handler;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingRayClipper;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
@@ -48,8 +49,12 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         Vec3 to = camPos.add(dir.scale(BLOCK_RAY_DISTANCE));
         BlockHitResult blockHit = clipBlockHit(mc, camPos, dir, includeFluidSource, true);
         EntityHitResult entityHit = pickEntityHit(camPos, to, dir);
-        double blockDist = blockHit != null ? camPos.distanceToSqr(blockHit.getLocation()) : Double.MAX_VALUE;
-        double entityDist = entityHit != null ? camPos.distanceToSqr(entityHit.getLocation()) : Double.MAX_VALUE;
+        double blockDist = blockHit != null
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(mc.level, camPos, blockHit.getLocation())
+                : Double.MAX_VALUE;
+        double entityDist = entityHit != null
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(mc.level, camPos, entityHit.getLocation())
+                : Double.MAX_VALUE;
         if (entityHit != null && entityDist <= blockDist) {
             Entity entity = entityHit.getEntity();
             return new InteractionTypes.InteractionTarget(
@@ -274,15 +279,22 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
                 && (this.shapeController.getShapeBuildSession() == null || this.shapeController.getShapeBuildSession().shape() == BuildShape.BLOCK)) {
             return null;
         }
-        Direction face = resolveAirShapeFace(dir);
+        BlockPos framePosition = shapeFramePosition();
+        Minecraft mc = this.screen.getMinecraft();
+        RtsSableClientSpatialCompat.Ray localRay = mc == null || mc.level == null || framePosition == null
+                ? new RtsSableClientSpatialCompat.Ray(camPos, dir)
+                : RtsSableClientSpatialCompat.toRenderLocalRay(mc.level, framePosition, camPos, dir);
+        Vec3 localOrigin = localRay.origin();
+        Vec3 localDirection = localRay.direction();
+        Direction face = resolveAirShapeFace(localDirection);
         Vec3 planeAnchor = resolveAirShapePlaneAnchor(face);
-        if (face == null || planeAnchor == null) {
+        if (face == null || planeAnchor == null || localOrigin == null || localDirection == null) {
             return null;
         }
         double dirComponent = switch (face.getAxis()) {
-            case X -> dir.x;
-            case Y -> dir.y;
-            case Z -> dir.z;
+            case X -> localDirection.x;
+            case Y -> localDirection.y;
+            case Z -> localDirection.z;
         };
         if (Math.abs(dirComponent) < 1.0E-5D) {
             return null;
@@ -293,15 +305,15 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             case Z -> planeAnchor.z;
         };
         double originCoord = switch (face.getAxis()) {
-            case X -> camPos.x;
-            case Y -> camPos.y;
-            case Z -> camPos.z;
+            case X -> localOrigin.x;
+            case Y -> localOrigin.y;
+            case Z -> localOrigin.z;
         };
         double t = (planeCoord - originCoord) / dirComponent;
         if (t <= 0.0D || t > 128.0D) {
             return null;
         }
-        Vec3 hitVec = camPos.add(dir.scale(t));
+        Vec3 hitVec = localOrigin.add(localDirection.scale(t));
         BlockPos hitPos = BlockPos.containing(hitVec);
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
@@ -377,5 +389,15 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             }
         }
         return Vec3.atCenterOf(mc.player.blockPosition());
+    }
+
+    private BlockPos shapeFramePosition() {
+        if (this.shapeController == null || this.shapeController.getShapeBuildSession() == null) {
+            return null;
+        }
+        if (this.shapeController.getShapeBuildSession().pointA() != null) {
+            return this.shapeController.getShapeBuildSession().pointA();
+        }
+        return this.shapeController.getShapeBuildSession().pointB();
     }
 }

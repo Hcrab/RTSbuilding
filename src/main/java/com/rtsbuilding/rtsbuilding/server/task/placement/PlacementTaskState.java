@@ -135,6 +135,15 @@ public final class PlacementTaskState {
                 creativeOperation, nextHistoryRecords, true);
     }
 
+    /** 使用兼容恢复后升级过的不可变 definition 推进任务，其他进度字段保持同一语义。 */
+    public PlacementTaskState advance(
+            CompoundTag nextDefinition, int nextCursor, int nextSucceeded, int nextFailed,
+            List<BlockPos> nextPlacedPositions, List<CompoundTag> nextHistoryRecords) {
+        return new PlacementTaskState(nextDefinition, workflowEntryId, totalUnits,
+                nextCursor, nextSucceeded, nextFailed, nextPlacedPositions, resumePolicy,
+                creativeOperation, nextHistoryRecords, true);
+    }
+
     /** 兼容不产生新历史快照的纯状态测试与旧调用点。 */
     public PlacementTaskState advance(
             int nextCursor, int nextSucceeded, int nextFailed, List<BlockPos> nextPlacedPositions) {

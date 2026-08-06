@@ -187,6 +187,16 @@ final class ClientRtsInteractionOwner {
             controller.buildPlacementService.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
         }
 
+    void confirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        controller.buildPlacementService.confirmSmartFill(
+                hit, maxBlocks, detectionDiameter, rayOrigin, rayDirection);
+    }
+
     void storeFluidFromStorageItem(String itemId) {
             controller.buildPlacementService.storeFluidFromStorageItem(itemId);
         }
@@ -301,7 +311,19 @@ final class ClientRtsInteractionOwner {
                     controller.buildPlacementService.getSelectedItemId(),
                     controller.buildPlacementService.getSelectedItemPreview(),
                     controller.isToolProtectionEnabled());
-        }
+    }
+
+    void confirmConvenienceDestroy(
+            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode mode,
+            BlockHitResult hit,
+            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings settings,
+            int toolSlot) {
+        controller.miningOperationService.confirmConvenienceDestroy(
+                mode, hit, settings, toolSlot,
+                controller.buildPlacementService.getSelectedItemId(),
+                controller.buildPlacementService.getSelectedItemPreview(),
+                controller.isToolProtectionEnabled());
+    }
 
     void abortMining(int toolSlot) {
             controller.miningOperationService.abortMining(toolSlot);

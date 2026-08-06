@@ -247,7 +247,9 @@ public static ClientRtsController get() {
     public void storeHotbarSlotToLinked(int slot) { this.commandOwner.storeHotbarSlotToLinked(slot); }
     public void fillInventoryFromLinked() { this.commandOwner.fillInventoryFromLinked(); }
     public void unlinkLinkedStorage(BlockPos pos) { this.commandOwner.unlinkLinkedStorage(pos); }
+    public void unlinkLinkedStorage(String dimensionId, BlockPos pos) { this.commandOwner.unlinkLinkedStorage(dimensionId, pos); }
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(pos, extractOnly, priority); }
+    public void updateLinkedStorageSettings(String dimensionId, BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(dimensionId, pos, extractOnly, priority); }
     boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) { return this.commandOwner.shouldUseRtsCraftTerminalScreen(craftingScreen); }
     public void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) { this.commandOwner.quickDropSelectedItem(itemId, amount, dropPos); }
     public void applyStoragePage(S2CRtsStoragePagePayload payload) { this.commandOwner.applyStoragePage(payload); }
@@ -289,6 +291,7 @@ public static ClientRtsController get() {
     public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
     public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied, boolean overwriteExisting) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, overwriteExisting); }
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) { this.interactionOwner.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir); }
+    public void confirmSmartFill(BlockHitResult hit, int maxBlocks, int detectionDiameter, Vec3 rayOrigin, Vec3 rayDirection) { this.interactionOwner.confirmSmartFill(hit, maxBlocks, detectionDiameter, rayOrigin, rayDirection); }
     public void storeFluidFromStorageItem(String itemId) { this.interactionOwner.storeFluidFromStorageItem(itemId); }
     public void storeFluidFromPinnedItem(String itemId) { this.interactionOwner.storeFluidFromPinnedItem(itemId); }
     public void storeFluidFromToolSlot(int toolSlot) { this.interactionOwner.storeFluidFromToolSlot(toolSlot); }
@@ -318,6 +321,13 @@ public static AreaMineBounds computeAreaMineBounds(BlockPos pointA, BlockPos poi
     public void clearAreaMineSession() { this.interactionOwner.clearAreaMineSession(); }
     public void confirmAreaMine(int toolSlot, ShapeFillMode fillMode) { this.interactionOwner.confirmAreaMine(toolSlot, fillMode); }
     public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) { this.interactionOwner.confirmShapeAreaDestroy(targets, toolSlot); }
+    public void confirmConvenienceDestroy(
+            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode mode,
+            BlockHitResult hit,
+            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings settings,
+            int toolSlot) {
+        this.interactionOwner.confirmConvenienceDestroy(mode, hit, settings, toolSlot);
+    }
     public void abortMining(int toolSlot) { this.interactionOwner.abortMining(toolSlot); }
     public int getMineProgressStage() { return this.interactionOwner.getMineProgressStage(); }
     public BlockPos getMineProgressPos() { return this.interactionOwner.getMineProgressPos(); }

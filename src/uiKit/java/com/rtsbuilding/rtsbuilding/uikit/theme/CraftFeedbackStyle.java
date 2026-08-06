@@ -7,12 +7,12 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * Popup 的展示期限或内容。</p>
  */
 public final class CraftFeedbackStyle {
-    public static final UiColor PANEL = new UiColor(0xFF18222C);
-    public static final UiColor BORDER_LIGHT = new UiColor(0xFF6C839A);
-    public static final UiColor BORDER_DARK = new UiColor(0xFF0D1117);
-    public static final UiColor TEXT = new UiColor(0xFFF2F7FF);
-    public static final UiColor SECONDARY_TEXT = new UiColor(0xFFC9D8E6);
-    public static final UiColor ROW = new UiColor(0xFF22303C);
+    public static final UiColor PANEL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XFF18222C);
+    public static final UiColor BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.BORDER_STRONG, 0XFF6C839A);
+    public static final UiColor BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.BORDER_SOFT, 0XFF0D1117);
+    public static final UiColor TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_PRIMARY, 0XFFF2F7FF);
+    public static final UiColor SECONDARY_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_MUTED, 0XFFC9D8E6);
+    public static final UiColor ROW = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XFF22303C);
 
     public static final int MIN_ALPHA = 84;
     public static final int MAX_ALPHA = 255;

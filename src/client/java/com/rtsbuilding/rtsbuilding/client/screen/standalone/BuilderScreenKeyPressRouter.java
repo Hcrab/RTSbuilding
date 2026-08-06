@@ -41,6 +41,9 @@ final class BuilderScreenKeyPressRouter {
         if (host.handleHomeSelectionKey(keyCode)) {
             return true;
         }
+        if (host.handleStorageBatchSelectionKey(keyCode)) {
+            return true;
+        }
         if (host.handleSelectionBoxKeys(keyCode, scanCode, modifiers)) {
             return true;
         }

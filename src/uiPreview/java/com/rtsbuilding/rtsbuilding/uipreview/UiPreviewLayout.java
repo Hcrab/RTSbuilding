@@ -76,7 +76,8 @@ public final class UiPreviewLayout {
                 || scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_BUILD
                 || scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_DESTROY_CHAIN
                 || scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_LOCKED
-                || scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_PROGRESS) {
+                || scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_PROGRESS
+                || scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_SMART_FILL) {
             boolean destroy = scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_STATES
                     || scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_DESTROY_CHAIN
                     || scenario.variant() == UiPreviewScenario.Variant.QUICK_BUILD_PROGRESS

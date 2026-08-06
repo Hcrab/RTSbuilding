@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.overlay;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
@@ -187,17 +188,36 @@ public final class InteractionTargetRenderer {
         EntityHitResult entityHit = RaycastHelper.raycastEntityFromCursor(minecraft, camPos, rayEnd, viewDir, MAX_REACH);
 
         // ── Pick the nearest hit ──
-        double blockDistSq = blockHit != null ? camPos.distanceToSqr(blockHit.getLocation()) : Double.MAX_VALUE;
-        double entityDistSq = entityHit != null ? camPos.distanceToSqr(entityHit.getLocation()) : Double.MAX_VALUE;
+        double blockDistSq = blockHit != null
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(minecraft.level, camPos, blockHit.getLocation())
+                : Double.MAX_VALUE;
+        double entityDistSq = entityHit != null
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(minecraft.level, camPos, entityHit.getLocation())
+                : Double.MAX_VALUE;
 
         if (entityHit != null && entityDistSq <= blockDistSq) {
             // Entity is closer (or equal) – render entity highlight
             Entity entity = entityHit.getEntity();
             // Skip entity outside RTS build boundary
             if (InteractionTargetSelection.shouldRenderEntityInsteadOfBlock(
-                    entityDistSq, blockDistSq, isWithinBounds(controller, entity.blockPosition()))) {
-                double distance = camPos.distanceTo(entity.getBoundingBox().getCenter());
-                renderEntityCornerHighlight(poseStack, lineBuffer, noDepthBuffer, entity, distance, breathFactor);
+                    entityDistSq, blockDistSq,
+                    isWithinBounds(minecraft.level, controller, entity.blockPosition()))) {
+                double distance = Math.sqrt(RtsSableClientSpatialCompat.renderDistanceSquared(
+                        minecraft.level, camPos, entity.getBoundingBox().getCenter()));
+                poseStack.pushPose();
+                try {
+                    BlockPos framePos = entity.blockPosition();
+                    boolean localFrame = RtsSableClientSpatialCompat.applyBlockRenderFrame(
+                            minecraft.level, framePos, poseStack);
+                    AABB bounds = entity.getBoundingBox().inflate(INFLATE);
+                    if (localFrame) {
+                        bounds = bounds.move(-framePos.getX(), -framePos.getY(), -framePos.getZ());
+                    }
+                    renderEntityCornerHighlight(
+                            poseStack, lineBuffer, noDepthBuffer, bounds, distance, breathFactor);
+                } finally {
+                    poseStack.popPose();
+                }
                 return;
             }
         }
@@ -209,11 +229,25 @@ public final class InteractionTargetRenderer {
         // Block is the nearest target – render block highlight
         BlockPos pos = blockHit.getBlockPos();
         // Skip block outside RTS build boundary
-        if (!isWithinBounds(controller, pos)) {
+        if (!isWithinBounds(minecraft.level, controller, pos)) {
             return;
         }
-        double distance = camPos.distanceTo(Vec3.atCenterOf(pos));
-        renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, noDepthBuffer, pos, blockHit.getDirection(), distance, breathFactor);
+        double distance = Math.sqrt(RtsSableClientSpatialCompat.renderDistanceSquared(
+                minecraft.level, camPos, Vec3.atCenterOf(pos)));
+        AABB bounds = computeWorldBounds(minecraft.level, pos);
+        if (bounds == null) {
+            return;
+        }
+        poseStack.pushPose();
+        try {
+            if (RtsSableClientSpatialCompat.applyBlockRenderFrame(minecraft.level, pos, poseStack)) {
+                bounds = bounds.move(-pos.getX(), -pos.getY(), -pos.getZ());
+            }
+            renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, noDepthBuffer,
+                    bounds, blockHit.getDirection(), distance, breathFactor);
+        } finally {
+            poseStack.popPose();
+        }
     }
 
     // ══════════════════════════════════════════════
@@ -285,8 +319,7 @@ public final class InteractionTargetRenderer {
      * @param breathFactor current breathing animation multiplier
      */
     private static void renderEntityCornerHighlight(PoseStack poseStack, VertexConsumer lineBuffer,
-            VertexConsumer noDepthBuffer, Entity entity, double distance, float breathFactor) {
-        AABB bounds = entity.getBoundingBox().inflate(INFLATE);
+            VertexConsumer noDepthBuffer, AABB bounds, double distance, float breathFactor) {
         float r = ENTITY_COLOR_R * breathFactor;
         float g = ENTITY_COLOR_G * breathFactor;
         float b = ENTITY_COLOR_B * breathFactor;
@@ -317,13 +350,8 @@ public final class InteractionTargetRenderer {
      */
     private static void renderBlockCornerHighlight(Minecraft minecraft, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer noDepthBuffer,
-            BlockPos pos, Direction hitFace, double distance, float breathFactor) {
+            AABB bounds, Direction hitFace, double distance, float breathFactor) {
         if (minecraft.level == null) {
-            return;
-        }
-
-        AABB bounds = computeWorldBounds(minecraft.level, pos);
-        if (bounds == null) {
             return;
         }
 
@@ -459,9 +487,10 @@ public final class InteractionTargetRenderer {
      * @param pos        the block position to test
      * @return {@code true} if the position is within the build boundary, or if no boundary is set
      */
-    private static boolean isWithinBounds(ClientRtsController controller, BlockPos pos) {
+    private static boolean isWithinBounds(Level level, ClientRtsController controller, BlockPos pos) {
         if (!controller.hasBounds()) return true;
-        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        return RtsSableClientSpatialCompat.isWithinBounds(
+                level, pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 
     /**

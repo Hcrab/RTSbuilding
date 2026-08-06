@@ -17,7 +17,7 @@ import net.fabricmc.loader.api.FabricLoader;
 
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
-    private static final String STABLE_VERSION = "1.1.6";
+    private static final String STABLE_VERSION = "1.1.7";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean shownThisConnection;
@@ -118,7 +118,7 @@ public final class RtsClientOnboardingReminder {
     /**
      * 从实际加载的 ModContainer 读取当前版本系列。
      *
-     * <p>入门提醒面向普通玩家，只展示 {@code 1.1.6} 这一公开版本系列；
+     * <p>入门提醒面向普通玩家，只展示 {@code 1.1.7} 这一公开版本系列；
      * Patch/Pilot 构建自身仍保留完整限定符的 JAR 元数据，便于日志诊断。
      */
     private static String currentDisplayVersion() {

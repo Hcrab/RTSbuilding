@@ -24,6 +24,9 @@ import java.util.List;
  * 记录合成产出并自动从关联存储中补满材料。
  */
 public final class RtsCraftTerminalMenu extends CraftingMenu {
+    /** CraftingMenu 的 0 号槽是结果、1~9 是九宫格，之后是 27 格背包与 9 格快捷栏。 */
+    public static final int INVENTORY_SLOT_START = 10;
+    public static final int HOTBAR_SLOT_END = 46;
 
     /**
      * 构造合成终端菜单。
@@ -62,6 +65,17 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
      */
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (button == 0
+                && clickType == ClickType.QUICK_MOVE
+                && slotId >= INVENTORY_SLOT_START
+                && slotId < HOTBAR_SLOT_END
+                && player instanceof ServerPlayer serverPlayer) {
+            // Shift+左键玩家槽只尝试进入 linked storage；余量必须留在原槽，不能误送进九宫格。
+            ServiceRegistry.getInstance().transfer()
+                    .depositCraftTerminalPlayerSlot(serverPlayer, slotId);
+            return;
+        }
+
         ItemStack[] blueprint = null;
         CraftingRecipe recipe = null;
         if (slotId == 0 && player instanceof ServerPlayer) {

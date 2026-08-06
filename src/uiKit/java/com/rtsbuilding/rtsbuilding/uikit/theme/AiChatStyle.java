@@ -8,14 +8,14 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 重新变成散落 ARGB 常量的主题孤岛。</p>
  */
 public final class AiChatStyle {
-    public static final UiColor LIMIT_TEXT = new UiColor(0xFF91A4B8);
-    public static final UiColor TRANSCRIPT_BACKGROUND = new UiColor(0xB8141B23);
-    public static final UiColor WELCOME_TEXT = new UiColor(0xFFB9C9D8);
-    public static final UiColor PLAYER_TEXT = new UiColor(0xFFE7C46A);
-    public static final UiColor AI_TEXT = new UiColor(0xFFE6EDF8);
-    public static final UiColor ERROR_TEXT = new UiColor(0xFFFF8D8D);
-    public static final UiColor WARNING_TEXT = new UiColor(0xFFFFC46A);
-    public static final UiColor SUCCESS_TEXT = new UiColor(0xFF8ED6A7);
+    public static final UiColor LIMIT_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.TEXT_MUTED, 0XFF91A4B8);
+    public static final UiColor TRANSCRIPT_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.CONTROL_IDLE, 0XB8141B23);
+    public static final UiColor WELCOME_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.TEXT_PRIMARY, 0XFFB9C9D8);
+    public static final UiColor PLAYER_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.TEXT_PRIMARY, 0XFFE7C46A);
+    public static final UiColor AI_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.TEXT_PRIMARY, 0XFFE6EDF8);
+    public static final UiColor ERROR_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.ERROR, 0XFFFF8D8D);
+    public static final UiColor WARNING_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.WARNING, 0XFFFFC46A);
+    public static final UiColor SUCCESS_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.SUCCESS, 0XFF8ED6A7);
 
     private AiChatStyle() {
     }

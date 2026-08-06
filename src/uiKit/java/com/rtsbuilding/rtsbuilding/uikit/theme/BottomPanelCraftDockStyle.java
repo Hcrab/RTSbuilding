@@ -7,36 +7,50 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 共同读取这些状态，不再各自复制 ARGB；本类不决定布局、文本或点击动作。</p>
  */
 public final class BottomPanelCraftDockStyle {
-    public static final UiColor CRAFT_IDLE = new UiColor(0xAA24303A);
-    public static final UiColor CRAFT_HOVER = new UiColor(0xCC385465);
-    public static final UiColor CRAFT_BORDER_LIGHT = new UiColor(0xFF6E8799);
-    public static final UiColor CRAFT_BORDER_DARK = new UiColor(0xFF111821);
+    public static final UiColor CRAFT_IDLE = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA24303A);
+    public static final UiColor CRAFT_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0XCC385465);
+    public static final UiColor CRAFT_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_STRONG, 0XFF6E8799);
+    public static final UiColor CRAFT_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_SOFT, 0XFF111821);
 
-    public static final UiColor SLOT_EMPTY = new UiColor(0xAA202731);
-    public static final UiColor SLOT_BOUND = new UiColor(0xAA23384A);
-    public static final UiColor SLOT_PENDING = new UiColor(0xCC2D6B47);
-    public static final UiColor SLOT_EMPTY_HOVER = new UiColor(0xBB29323D);
-    public static final UiColor SLOT_BOUND_HOVER = new UiColor(0xBB2C4760);
-    public static final UiColor SLOT_PENDING_HOVER = new UiColor(0xDD377F53);
-    public static final UiColor SLOT_BORDER_LIGHT = new UiColor(0xFF698097);
-    public static final UiColor SLOT_BORDER_DARK = new UiColor(0xFF0F151C);
-    public static final UiColor BIND_CURSOR_BORDER_LIGHT = new UiColor(0xFF78B28C);
-    public static final UiColor TEXT = new UiColor(0xFFFFFFFF);
+    public static final UiColor SLOT_EMPTY = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.SLOT_IDLE, 0XAA202731);
+    public static final UiColor SLOT_BOUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.SLOT_SELECTED, 0XAA23384A);
+    public static final UiColor SLOT_PENDING = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.WARNING, 0XCC2D6B47);
+    public static final UiColor SLOT_EMPTY_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.SLOT_HOVER, 0XBB29323D);
+    public static final UiColor SLOT_BOUND_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.SLOT_HOVER, 0XBB2C4760);
+    public static final UiColor SLOT_PENDING_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.SLOT_HOVER, 0XDD377F53);
+    public static final UiColor SLOT_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_STRONG, 0XFF698097);
+    public static final UiColor SLOT_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_SOFT, 0XFF0F151C);
+    public static final UiColor BIND_CURSOR_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_STRONG, 0XFF78B28C);
+    public static final UiColor TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFFFFFFF);
 
     private BottomPanelCraftDockStyle() {
     }
 
     public static UiColor craftBackground(boolean hovered) {
-        return hovered ? CRAFT_HOVER : CRAFT_IDLE;
+        return craftBackground(hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor craftBackground(double hoverStrength) {
+        return UiColor.interpolate(CRAFT_IDLE, CRAFT_HOVER, hoverStrength);
     }
 
     public static UiColor slotBackground(boolean pending, boolean bound, boolean hovered) {
+        return slotBackground(pending, bound, hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor slotBackground(
+            boolean pending,
+            boolean bound,
+            double hoverStrength) {
         if (pending) {
-            return hovered ? SLOT_PENDING_HOVER : SLOT_PENDING;
+            return UiColor.interpolate(
+                    SLOT_PENDING, SLOT_PENDING_HOVER, hoverStrength);
         }
         if (bound) {
-            return hovered ? SLOT_BOUND_HOVER : SLOT_BOUND;
+            return UiColor.interpolate(
+                    SLOT_BOUND, SLOT_BOUND_HOVER, hoverStrength);
         }
-        return hovered ? SLOT_EMPTY_HOVER : SLOT_EMPTY;
+        return UiColor.interpolate(
+                SLOT_EMPTY, SLOT_EMPTY_HOVER, hoverStrength);
     }
 }

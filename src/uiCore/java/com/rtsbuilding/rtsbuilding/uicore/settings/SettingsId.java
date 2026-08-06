@@ -25,6 +25,8 @@ public enum SettingsId {
 
     UI_SCALE(SettingsSectionId.DISPLAY, SettingsRowKind.STEP_VALUE,
             "screen.rtsbuilding.settings.ui_scale", ""),
+    UI_THEME(SettingsSectionId.DISPLAY, SettingsRowKind.ACTION,
+            "screen.rtsbuilding.settings.ui_theme", "screen.rtsbuilding.settings.ui_theme.hint"),
     PLAYER_STATUS_OVERLAY(SettingsSectionId.DISPLAY, SettingsRowKind.HINT_TOGGLE,
             "screen.rtsbuilding.settings.player_status_overlay", "screen.rtsbuilding.settings.player_status_overlay.hint"),
     CONTAINER_OVERLAY(SettingsSectionId.DISPLAY, SettingsRowKind.HINT_TOGGLE,

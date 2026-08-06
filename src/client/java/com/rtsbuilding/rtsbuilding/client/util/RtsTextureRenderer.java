@@ -13,6 +13,8 @@ import org.lwjgl.opengl.GL11;
  * supports centre rotation, colour tinting, and does not pollute global GL texture filter state.
  */
 public final class RtsTextureRenderer {
+    /** 无乘色的统一哨兵，供主题纹理路径与旧渲染器共用。 */
+    public static final int NO_TINT = 0xFFFFFFFF;
 
     private RtsTextureRenderer() {
     }

@@ -14,7 +14,7 @@ sourceSets {
     }
     uiPreview {
         java.srcDir 'src/uiPreview/java'
-        resources.setSrcDirs([])
+        resources.setSrcDirs(['src/uiPreview/resources'])
         compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
         runtimeClasspath += output + compileClasspath
     }

@@ -131,8 +131,43 @@ final class BuilderScreenWindowActionOwner {
             return screen.isQuickBuildOpen() && screen.quickBuildPanel.isRangeDestroyMode();
         }
 
+    boolean isQuickBuildSmartFillMode() {
+            return screen.isQuickBuildOpen() && screen.quickBuildPanel.isSmartFillMode();
+        }
+
+    ShapeDataRecords.GhostPreview getSmartFillGhostPreview() {
+            return screen.quickBuildPanel.smartFillGhostPreview();
+        }
+
+    boolean handleQuickBuildSmartFillClick() {
+            if (!isQuickBuildSmartFillMode()) {
+                return false;
+            }
+            BlockHitResult hit = screen.cursorPicker.pickBlockHit();
+            if (hit != null) {
+                screen.quickBuildPanel.submitOrAnchorSmartFill(
+                        hit,
+                        screen.cursorPicker.currentRayOrigin(),
+                        screen.cursorPicker.computeCursorRayDirection());
+            }
+            return true;
+        }
+
+    boolean cancelQuickBuildSmartFillAnchor() {
+            return screen.isQuickBuildOpen()
+                    && screen.quickBuildPanel.cancelSmartFillAnchor();
+        }
+
     boolean isQuickBuildRangeDestroyChainMode() {
             return screen.isQuickBuildOpen() && screen.quickBuildPanel.isRangeDestroyChainMode();
+        }
+
+    boolean isQuickBuildConvenienceDestroyMode() {
+            return screen.isQuickBuildOpen() && screen.quickBuildPanel.isConvenienceDestroyMode();
+        }
+
+    ShapeDataRecords.GhostPreview getConvenienceDestroyGhostPreview() {
+            return screen.quickBuildPanel.convenienceGhostPreview();
         }
 
     boolean isQuickBuildCreativeOverwriteEnabled() {
@@ -156,6 +191,12 @@ final class BuilderScreenWindowActionOwner {
         }
 
     String activeQuickBuildShapeLabel() {
+            if (screen.isQuickBuildSmartFillMode()) {
+                return screen.text("screen.rtsbuilding.quick_build.mode_smart_fill");
+            }
+            if (screen.isQuickBuildConvenienceDestroyMode()) {
+                return screen.quickBuildPanel.getConvenienceToolLabel();
+            }
             if (screen.isQuickBuildRangeDestroyChainMode()) {
                 return screen.text("screen.rtsbuilding.shape.chain");
             }
@@ -165,6 +206,12 @@ final class BuilderScreenWindowActionOwner {
     boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
             if (!screen.isQuickBuildRangeDestroyMode() || screen.isQuickBuildRangeDestroyChainMode() || !screen.isWorldArea(mouseX, mouseY)) {
                 return false;
+            }
+            if (screen.isQuickBuildConvenienceDestroyMode()) {
+                InteractionTypes.InteractionTarget target =
+                        screen.cursorPicker.pickInteractionTarget(false);
+                return target == null || target.blockHit() == null
+                        || screen.quickBuildPanel.submitConvenienceDestroy(target.blockHit());
             }
             if (screen.isAdvancedShapeMode()
                     && screen.shapeController.clickAdvancedRangeDestroyHandle(

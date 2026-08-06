@@ -191,8 +191,18 @@ final class ClientRtsCommandOwner {
             RtsClientPacketGateway.sendUnlinkStorage(pos);
         }
 
+    void unlinkLinkedStorage(String dimensionId, BlockPos pos) {
+            RtsClientPacketGateway.sendUnlinkStorage(dimensionId, pos);
+        }
+
     void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
             RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
+        }
+
+    void updateLinkedStorageSettings(
+            String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
+            RtsClientPacketGateway.sendUpdateLinkedStorage(
+                    dimensionId, pos, extractOnly, priority);
         }
 
     boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {

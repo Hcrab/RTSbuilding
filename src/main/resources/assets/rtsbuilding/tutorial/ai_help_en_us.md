@@ -192,10 +192,6 @@ Open RTS Settings and enable Jade Follow Mouse or Hide Jade in RTS.
 
 # Technical Information Appendix
 
-## Fabric Alpha safety notice
-
-The Minecraft 1.21.1 Fabric build is currently an Alpha testing line, not a stable release. Make a complete world backup before opening an existing save. If input, rendering, task recovery, or third-party compatibility behaves incorrectly, stop further actions, keep `latest.log`, and return to the stable build. RTS mouse actions may own the left, right, and middle buttons only inside BuilderScreen; vanilla attack, use, and pick must recover immediately after leaving RTS, disconnecting, or joining again.
-
 This appendix is for maintainers, modpack authors, and AI-assisted troubleshooting. New players do not need it; player-facing guides remain the source for step-by-step instructions.
 
 It documents stable responsibility chains, validation order, and setting semantics rather than line numbers. Review it against production code before every release.
@@ -245,14 +241,19 @@ New player workflows take precedence over old unpinned workflows. When the workf
 
 ### Structured diagnostic logs
 
-The server writes one-line `[RTS-DIAG]` records at shared Pipeline and Workflow boundaries instead of logging every block or tick:
+Destruction operations use the fixed correlation chain `trace → seq → op → workflow → task`. A nonzero `trace` is created when the client presses the mouse or keyboard action. The same press/hold/release, START, STOP, and server terminal reuse it; `seq` orders boundary events. The server then adds an `op`, visible `workflow`, and durable `task`. Searching one hexadecimal trace reconstructs the operation across client and server logs.
 
-- `BEGIN`: the request arrived, with operation ID, player, mode, task type, and target count.
-- `RESULT`: accepted, skipped, or rejected, with workflow ID, failed stage, and stable reason code.
-- `FILTER`: one aggregate record when a target batch is filtered by harvest tier, tool, or session range.
-- `TERMINAL`: completed, partially failed, cancelled, or timed out, with completed and failed counts.
+Normal logs use three stable prefixes without logging every block or tick:
 
-Use `op` to correlate `BEGIN` and `RESULT`, then use `workflow` to find the asynchronous `TERMINAL`. Common reasons include `FEATURE_LOCKED`, `HARVEST_TIER_TOO_LOW`, `TOOL_CANNOT_HARVEST`, `OUTSIDE_SESSION_RANGE`, and `CLAIM_DENIED`. Ordinary successful single-block actions are normally DEBUG-only; key batch actions and rejections remain visible in normal logs.
+- `[RTS-TRACE] side=C|S`: `INPUT_PRESS`, `INPUT_RELEASE`, `PACKET_SEND`, `NET_RECEIVE`, and the client receiving a terminal result.
+- `[RTS-DIAG]`: Pipeline `BEGIN/RESULT`, reason-aggregated `FILTER`, `WORKFLOW_CREATED`, `TASK_SUBMITTED/FIRST_SLICE/WAIT/RESUME/PROGRESS`, exact stop origin, and `TERMINAL`.
+- `[RTS-SERVER-HEALTH]`: serious tick gaps plus concurrent RTS slice, queue, and persistence aggregates. This shows overlap; it does not attribute a stall to one mod.
+
+Batch targets are aggregated after filtering rather than logged per block. `FILTER` distinguishes pre-queue outcomes such as insufficient harvest tier, unsuitable tools, claim denial, unbreakable or duplicate targets, and target limits. `TERMINAL` waits for the final Task snapshot and is emitted once with whether the task ever executed, submit-to-first-slice wait, final completed/failed counts, and overlap with a recent tick gap. `PERSIST_LOAD_*`, `PERSIST_SAVE_*`, and `PERSIST_STOP_RESULT` explain recovery and save ACKs without recording absolute paths, complete NBT, blueprints, or inventories.
+
+Bounded structured files live at `logs/rtsbuilding/diagnostics-client.jsonl` and `logs/rtsbuilding/diagnostics-server.jsonl`. They rotate at about 8 MiB to `.2/.3`, and disconnect/server stop performs a best-effort flush. A full queue or write failure drops diagnostics and reports counters; it never blocks the frame/server tick or changes gameplay.
+
+`diagnostics.level` defaults to `BASIC`, which records bounded lifecycle events and percentage progress checkpoints. `VERBOSE` also permits one task-progress sample per second; `OFF` disables these diagnostics. Common rejection reasons include `FEATURE_LOCKED`, `HARVEST_TIER_TOO_LOW`, `TOOL_CANNOT_HARVEST`, `OUTSIDE_SESSION_RANGE`, and `CLAIM_DENIED`. Supply both client and server logs for the reproduction window. CPU attribution still requires Spark, JFR, or another profiler.
 
 ## Stable responsibility chains
 
@@ -413,6 +414,7 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | `showInventoryRtsButton` | `true` | Shows the RTS entry button at the top of the vanilla inventory. |
 | `requireKeyboardBatchConfirm` | `true` | Requires keyboard final confirmation. |
 | `developerMode` | `false` | Shows developer scenario entry and enables local developer diagnostics. |
+| `diagnostics.level` | `BASIC` | Client operation-trace level; `OFF` disables it and `VERBOSE` adds detail. Structured output is written to `logs/rtsbuilding/diagnostics-client.jsonl`. |
 
 ### Server runtime limits
 
@@ -429,6 +431,7 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | `mining.ultimineBlocksPerTick` | `32` (1–128) | Batch targets processed by one mining task slice. |
 | `storage.ae2NetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive AE2 snapshots. |
 | `storage.refinedStorageNetworkRefreshThrottle` | `10` (1–200) | Refresh cycles between expensive RS snapshots. |
+| `storage.maxLinkedStorages` | `200` (1–4096) | Linked storage endpoints retained per player; batch linking deduplicates each AE2/RS network and prefers a terminal or grid representative. |
 | `storage.pageCacheMaxPlayers` | `256` (1–4096) | Player entries retained in the page LRU cache. |
 | `storage.defaultStoragePageSize` | `90` (1–4096) | Default entries per page, capped by max page size. |
 | `storage.maxStoragePageSize` | `180` (1–8192) | Maximum entries accepted in one page request. |
@@ -441,12 +444,15 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | `mining.dropScanRadius` | `1.25` (0.25–8.0) | Radius for absorbing drops around remotely mined blocks. |
 | `placement.remoteBlockActionSoundsPerTick` | `16` (0–16) | Remote block-action sounds sent per player per tick; excess is dropped. |
 | `fluid.internalFluidCapacityBuckets` | `100` (1–4096) | Fallback internal fluid capacity in buckets. |
+| `diagnostics.level` | `BASIC` | Server diagnostics; `BASIC` records threshold progress, tick health, and persistence results, `VERBOSE` also permits one task-progress sample per second, and `OFF` disables it. |
 
 ## Symptom-to-checkpoint table
 
 | Symptom | Likely checkpoint | Player verification |
 |---|---|---|
 | Click/key does nothing | UI ownership, text focus, wrong mode, pending A/B state, no packet | Close windows, cancel tool with `Esc`, reselect mode, report exact input. |
+| Held destruction has no progress, or stops long after release | `TASK_FIRST_SLICE`, `TASK_WAIT`, STOP origin, server terminal, or tick gap for the same `trace` | Supply both client and server logs; search one hexadecimal `trace` and compare first-slice wait, stop origin, and `TERMINAL`. |
+| The whole server stalls at once | `[RTS-SERVER-HEALTH]` tick gap and queued/running task counts, or another mod occupying the main thread | Supply the server log from the same minute, then capture Spark/JFR; structured timing alone cannot attribute CPU cost. |
 | Progress is stuck after rejoin, has no highlight, and X does nothing | Durable Task resume, Workflow projection expiry, or missing client idle sync | Preserve the save and provide logs before/after rejoin; clicking X requests authoritative reconciliation. |
 | Preview appears, confirm does nothing | Confirm key, packet, session/dimension, plugin, range, claim, task admission | Press configured confirm key; check toast/actionbar and whether `latest.log` contains a request/workflow. |
 | Right click needs two attempts | First click became drag, UI/mode consumed it, release did not form interaction | Short-click away from panels and report mode/highlight before and after first release. |

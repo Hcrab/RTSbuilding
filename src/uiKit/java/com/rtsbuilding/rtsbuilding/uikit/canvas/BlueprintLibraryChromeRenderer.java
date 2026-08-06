@@ -22,30 +22,46 @@ public final class BlueprintLibraryChromeRenderer {
             boolean searchFocused,
             double mouseX,
             double mouseY) {
+        renderTopBar(canvas, geometry, top, searchFocused,
+                top.folderBounds(geometry.y).contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                top.importBounds(geometry.y).contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                top.syncBounds(geometry.y).contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                top.captureBounds(geometry.y).contains(mouseX, mouseY) ? 1.0D : 0.0D);
+    }
+
+    public static void renderTopBar(
+            UiCanvas2D canvas,
+            BlueprintLibraryLayout.Geometry geometry,
+            BlueprintLibraryLayout.TopBar top,
+            boolean searchFocused,
+            double folderHover,
+            double importHover,
+            double syncHover,
+            double captureHover) {
         require(canvas, geometry, top);
         frame(
                 canvas,
                 top.folderBounds(geometry.y),
                 BlueprintLibraryStyle.button(
-                        top.folderBounds(geometry.y).contains(mouseX, mouseY),
+                        folderHover,
                         false));
         frame(
                 canvas,
                 top.importBounds(geometry.y),
                 BlueprintLibraryStyle.button(
-                        top.importBounds(geometry.y).contains(mouseX, mouseY),
+                        importHover,
                         false));
         frame(
                 canvas,
                 top.syncBounds(geometry.y),
                 BlueprintLibraryStyle.button(
-                        top.syncBounds(geometry.y).contains(mouseX, mouseY),
+                        syncHover,
                         false));
         frame(
                 canvas,
                 top.captureBounds(geometry.y),
                 BlueprintLibraryStyle.button(
-                        top.captureBounds(geometry.y).contains(mouseX, mouseY),
+                        captureHover,
                         false));
         frame(
                 canvas,
@@ -86,19 +102,35 @@ public final class BlueprintLibraryChromeRenderer {
             boolean showActions,
             double mouseX,
             double mouseY) {
+        renderRow(canvas, geometry, entry, selected, showActions,
+                geometry.hitBounds.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.save.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.rename.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.delete.contains(mouseX, mouseY) ? 1.0D : 0.0D);
+    }
+
+    public static void renderRow(
+            UiCanvas2D canvas,
+            BlueprintLibraryLayout.RowGeometry geometry,
+            BlueprintLibraryUiEntry entry,
+            boolean selected,
+            boolean showActions,
+            double rowHover,
+            double saveHover,
+            double renameHover,
+            double deleteHover) {
         if (canvas == null || geometry == null || entry == null) {
             throw new IllegalArgumentException(
                     "canvas, geometry and entry must not be null");
         }
         boolean ready = entry.buildPercent >= 100;
-        boolean hovered = geometry.hitBounds.contains(mouseX, mouseY);
         canvas.fill(
                 geometry.card,
                 BlueprintLibraryStyle.rowBackground(
                         entry.valid(),
                         ready,
                         selected,
-                        hovered));
+                        rowHover));
         canvas.fill(
                 geometry.progress,
                 BlueprintLibraryStyle.PROGRESS_TRACK);
@@ -118,20 +150,20 @@ public final class BlueprintLibraryChromeRenderer {
                     canvas,
                     geometry.save,
                     BlueprintLibraryStyle.button(
-                            geometry.save.contains(mouseX, mouseY),
+                            saveHover,
                             false));
             frame(
                     canvas,
                     geometry.rename,
                     BlueprintLibraryStyle.button(
-                            geometry.rename.contains(mouseX, mouseY),
+                            renameHover,
                             false));
         }
         frame(
                 canvas,
                 geometry.delete,
                 BlueprintLibraryStyle.button(
-                        geometry.delete.contains(mouseX, mouseY),
+                        deleteHover,
                         false));
     }
 

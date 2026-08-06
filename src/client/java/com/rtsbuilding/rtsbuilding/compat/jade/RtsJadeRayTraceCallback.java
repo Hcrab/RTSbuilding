@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.compat.jade;
 
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
@@ -54,10 +55,10 @@ public final class RtsJadeRayTraceCallback implements JadeRayTraceCallback {
                 MAX_REACH);
 
         double blockDistance = blockHit != null && blockHit.getType() == HitResult.Type.BLOCK
-                ? cameraPosition.distanceToSqr(blockHit.getLocation())
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(level, cameraPosition, blockHit.getLocation())
                 : Double.MAX_VALUE;
         double entityDistance = entityHit != null
-                ? cameraPosition.distanceToSqr(entityHit.getLocation())
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(level, cameraPosition, entityHit.getLocation())
                 : Double.MAX_VALUE;
 
         if (entityHit != null && entityDistance <= blockDistance) {

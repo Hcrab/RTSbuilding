@@ -56,6 +56,9 @@ public final class RtsItems {
     public static final RtsRegistryEntry<Item, Item> RANGE_CULLING_PLUGIN = pluginItem("range_culling_plugin", true);
     /** 现场部署插件 —— 快速部署已保存的蓝图 */
     public static final RtsRegistryEntry<Item, Item> FIELD_DEPLOYMENT_PLUGIN = pluginItem("field_deployment_plugin", true);
+    /** 跨维度储存插件 —— 允许远程唤醒并访问已链接的异维度储存。 */
+    public static final RtsRegistryEntry<Item, Item> CROSS_DIMENSION_STORAGE_PLUGIN =
+            pluginItem("cross_dimension_storage_plugin", true);
     /** 范围扩展 I —— 扩大基础操作半径 */
     public static final RtsRegistryEntry<Item, Item> RANGE_EXTENSION_I = pluginItem("range_extension_i", true);
     /** 范围扩展 II —— 进一步扩大操作半径 */

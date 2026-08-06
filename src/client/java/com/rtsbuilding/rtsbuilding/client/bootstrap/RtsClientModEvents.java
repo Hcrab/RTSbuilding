@@ -4,7 +4,9 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsMovementModeRegistry;
+import com.rtsbuilding.rtsbuilding.client.theme.UiThemeStorage;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.minecraft.client.Minecraft;
 
@@ -17,6 +19,11 @@ public final class RtsClientModEvents {
         // event so other mods can register custom movement modes.
         RtsMovementModeRegistry.init();
         RtsMovementModeRegistry.fireRegistrationEvent();
+
+        for (String error : UiThemeStorage.defaultStorage().loadAll(UiThemeRuntime.registry())) {
+            RtsbuildingMod.LOGGER.warn("用户 UI 主题未加载：{}", error);
+        }
+        UiThemeStorage.defaultStorage().restoreActiveTheme();
 
         EntityRendererRegistry.register(
                 RtsEntities.RTS_CAMERA_ENTITY.get(), RtsCameraEntityRenderer::new);

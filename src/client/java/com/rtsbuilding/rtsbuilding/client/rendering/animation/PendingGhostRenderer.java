@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.animation;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
@@ -91,7 +92,11 @@ public final class PendingGhostRenderer {
             double maxX = pos.getX() + 1.0D - inset;
             double maxY = pos.getY() + 1.0D - inset;
             double maxZ = pos.getZ() + 1.0D - inset;
-            LevelRenderer.renderLineBox(poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ, lineR, lineG, lineB, lineA);
+            Minecraft minecraft = Minecraft.getInstance();
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
+                    () -> LevelRenderer.renderLineBox(
+                            poseStack, lineBuffer, minX, minY, minZ, maxX, maxY, maxZ,
+                            lineR, lineG, lineB, lineA));
         }
     }
 
@@ -125,8 +130,9 @@ public final class PendingGhostRenderer {
                 BlockState state = group.getKey();
                 for (BlockPos pos : group.getValue()) {
                     float scale = computeGrowScale(now - GHOSTS.get(pos.asLong()).addedAtMs);
-                    GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                            state, pos, GHOST_ALPHA, scale);
+                    RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
+                            () -> GhostBlockModelRenderer.renderAt(
+                                    minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA, scale));
                 }
             }
             blockBuffer.endBatch();
@@ -147,11 +153,13 @@ public final class PendingGhostRenderer {
             PendingGhostEntry ghost = GHOSTS.get(pos.asLong());
             float scale = (ghost != null) ? computeGrowScale(now - ghost.addedAtMs) : BASE_SCALE;
             double inset = 0.5D - scale * 0.44D;
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
-                    pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
-                    pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
-                    fillR, fillG, fillB, fillA);
+            Minecraft minecraft = Minecraft.getInstance();
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, pos, poseStack,
+                    () -> LevelRenderer.addChainedFilledBoxVertices(
+                            poseStack, fillBuffer,
+                            pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
+                            pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
+                            fillR, fillG, fillB, fillA));
         }
     }
 

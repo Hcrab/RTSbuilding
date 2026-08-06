@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
@@ -111,6 +112,26 @@ public final class ShapeGhostRenderer {
         if (!preview.chainDestroyPreview() && preview.blocks().isEmpty() && preview.emptyBlocks().isEmpty()) {
             return;
         }
+
+        if (!preview.destructive() && !preview.chainDestroyPreview()) {
+            renderGhostPreviewInFrame(minecraft, preview, poseStack, lineBuffer, fillBuffer, selectionAabb);
+            return;
+        }
+
+        BlockPos framePosition = firstPreviewPosition(preview);
+        poseStack.pushPose();
+        try {
+            if (minecraft.level != null && framePosition != null) {
+                RtsSableClientSpatialCompat.applyRenderPose(minecraft.level, framePosition, poseStack);
+            }
+            renderGhostPreviewInFrame(minecraft, preview, poseStack, lineBuffer, fillBuffer, selectionAabb);
+        } finally {
+            poseStack.popPose();
+        }
+    }
+
+    private static void renderGhostPreviewInFrame(Minecraft minecraft, ShapeDataRecords.GhostPreview preview,
+            PoseStack poseStack, VertexConsumer lineBuffer, VertexConsumer fillBuffer, AABB selectionAabb) {
 
         // ── Confirmed destructive work area ──
         if (preview.destructive() && preview.confirmedWorkArea()) {
@@ -388,6 +409,16 @@ public final class ShapeGhostRenderer {
         return result;
     }
 
+    private static BlockPos firstPreviewPosition(ShapeDataRecords.GhostPreview preview) {
+        if (preview == null) {
+            return null;
+        }
+        if (!preview.blocks().isEmpty()) {
+            return preview.blocks().getFirst();
+        }
+        return preview.emptyBlocks().isEmpty() ? null : preview.emptyBlocks().getFirst();
+    }
+
     /**
      * Clips block positions in a GhostPreview to the RTS boundary range.
      * <p>
@@ -402,8 +433,11 @@ public final class ShapeGhostRenderer {
         double az = controller.getAnchorZ();
         double r = controller.getMaxRadius();
 
-        List<BlockPos> filteredBlocks = RenderingUtil.filterBlocksWithinBounds(preview.blocks(), ax, az, r);
-        List<BlockPos> filteredEmptyBlocks = RenderingUtil.filterBlocksWithinBounds(preview.emptyBlocks(), ax, az, r);
+        Minecraft minecraft = Minecraft.getInstance();
+        List<BlockPos> filteredBlocks = RtsSableClientSpatialCompat.filterWithinBounds(
+                minecraft.level, preview.blocks(), ax, az, r);
+        List<BlockPos> filteredEmptyBlocks = RtsSableClientSpatialCompat.filterWithinBounds(
+                minecraft.level, preview.emptyBlocks(), ax, az, r);
 
         // If both lists are the original objects, no blocks were filtered out
         if (filteredBlocks == preview.blocks() && filteredEmptyBlocks == preview.emptyBlocks()) {
