@@ -78,9 +78,11 @@ final class QuickBuildControlRenderer {
             WindowButton button = controls.shapeButton(i);
             if (mouseX >= button.getX() && mouseX < button.getX() + button.getWidth()
                     && mouseY >= button.getY() && mouseY < button.getY() + button.getHeight()) {
-                graphics.renderTooltip(screen.font(),
-                        Component.translatable(QuickBuildIconCatalog.tooltipKey(
-                                state.shapes.get(i).shape)),
+                String key = QuickBuildIconCatalog.tooltipKey(state.shapes.get(i).shape);
+                QuickBuildHoverTooltipRenderer.render(
+                        graphics, screen,
+                        Component.translatable(key),
+                        Component.translatable(key + ".detail"),
                         mouseX, mouseY);
                 return;
             }

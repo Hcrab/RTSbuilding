@@ -55,6 +55,8 @@ public final class QuickBuildWindowLayout {
     public static final int STATUS_TEXT_MAX_LINES = 3;
     public static final int DEFAULT_TOP_GAP = 40;
     public static final int WINDOW_RIGHT_GAP = 4;
+    public static final int TOOLTIP_POINTER_GAP = 10;
+    public static final int TOOLTIP_SCREEN_MARGIN = 5;
 
     private QuickBuildWindowLayout() {}
 
@@ -87,6 +89,29 @@ public final class QuickBuildWindowLayout {
                 windowX + RIGHT_COL_X,
                 windowY + (destroy ? DESTROY_BASE_H : BUILD_BASE_H),
                 windowHeight(destroy));
+    }
+
+    /** Tooltip 使用 RTS 虚拟视口坐标定位，不能交给外层 Minecraft GUI 视口再次换算。 */
+    public static UiRect tooltipBounds(int screenWidth, int screenHeight,
+                                       int pointerX, int pointerY,
+                                       int tooltipWidth, int tooltipHeight) {
+        int width = Math.max(1, tooltipWidth);
+        int height = Math.max(1, tooltipHeight);
+        int x = pointerX + TOOLTIP_POINTER_GAP;
+        int y = pointerY + TOOLTIP_POINTER_GAP;
+        if (x + width > screenWidth - TOOLTIP_SCREEN_MARGIN) {
+            x = pointerX - TOOLTIP_POINTER_GAP - width;
+        }
+        if (y + height > screenHeight - TOOLTIP_SCREEN_MARGIN) {
+            y = pointerY - TOOLTIP_POINTER_GAP - height;
+        }
+        x = Math.max(TOOLTIP_SCREEN_MARGIN,
+                Math.min(x, Math.max(TOOLTIP_SCREEN_MARGIN,
+                        screenWidth - TOOLTIP_SCREEN_MARGIN - width)));
+        y = Math.max(TOOLTIP_SCREEN_MARGIN,
+                Math.min(y, Math.max(TOOLTIP_SCREEN_MARGIN,
+                        screenHeight - TOOLTIP_SCREEN_MARGIN - height)));
+        return new UiRect(x, y, width, height);
     }
 
     public static final class Geometry {

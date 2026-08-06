@@ -48,7 +48,7 @@ class QuickBuildWindowLayoutTest {
     }
 
     @Test
-    void 模式命中使用半开边界且按钮间隙不误触() {
+    void modeHitTestingUsesHalfOpenBoundsAndIgnoresTheGap() {
         QuickBuildWindowLayout.Geometry g =
                 QuickBuildWindowLayout.geometry(100, 50, false);
 
@@ -59,5 +59,19 @@ class QuickBuildWindowLayoutTest {
         assertEquals(QuickBuildUiMode.DESTROY, g.modeAt(191, 75));
         assertNull(g.modeAt(270, 80));
         assertNull(g.modeAt(200, 93));
+    }
+
+    @Test
+    void tooltipStaysNearPointerInVirtualViewport() {
+        assertEquals(new UiRect(110, 90, 80, 30),
+                QuickBuildWindowLayout.tooltipBounds(240, 160, 100, 80, 80, 30));
+    }
+
+    @Test
+    void tooltipFlipsAndClampsAtVirtualViewportEdges() {
+        assertEquals(new UiRect(130, 100, 80, 30),
+                QuickBuildWindowLayout.tooltipBounds(240, 160, 220, 140, 80, 30));
+        assertEquals(new UiRect(5, 5, 300, 200),
+                QuickBuildWindowLayout.tooltipBounds(240, 160, 2, 2, 300, 200));
     }
 }
