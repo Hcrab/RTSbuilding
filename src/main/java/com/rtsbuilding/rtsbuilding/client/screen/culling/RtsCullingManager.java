@@ -438,11 +438,13 @@ public final class RtsCullingManager {
         this.hoveredId = -1;
         this.handleInteraction.clear();
         this.boxAnimator.clear();
-        cancelDraft();
+        clearDraftState();
     }
 
     /** 用当前存档、当前维度从服务端恢复的快照替换内存状态。 */
     public void replaceWorldState(List<RtsCullingBox> restoredBoxes, List<BlockPos> restoredRevealedBlocks) {
+        List<RtsCullingBox> previousBoxes = List.copyOf(this.boxes);
+        RtsCullingBox previousPreview = activePreviewBox();
         clearWorldState();
         if (restoredBoxes != null) {
             for (RtsCullingBox box : restoredBoxes) {
@@ -459,6 +461,9 @@ public final class RtsCullingManager {
                     .map(BlockPos::immutable)
                     .forEach(this.revealedBlocks::add);
         }
+        // 新状态就绪后再同步旧区域：仍被新盒覆盖的 Visual 保持移除，其余 Visual 会恢复。
+        previousBoxes.forEach(this::markBoxDirty);
+        markBoxDirty(previousPreview);
         refreshWorldCullRendering();
     }
 
@@ -521,6 +526,14 @@ public final class RtsCullingManager {
     }
 
     private void cancelDraft() {
+        RtsCullingBox cancelledPreview = activePreviewBox();
+        clearDraftState();
+        // 草稿状态已经清空后再刷新，Flywheel 才会把此前隐藏的 Visual 恢复，而不是再次移除。
+        markBoxDirty(cancelledPreview);
+    }
+
+    /** 世界切换只清坐标状态；普通取消则由 {@link #cancelDraft()} 恢复旧预览范围。 */
+    private void clearDraftState() {
         this.firstCorner = null;
         this.secondCorner = null;
         this.previewHeight = DEFAULT_HEIGHT;

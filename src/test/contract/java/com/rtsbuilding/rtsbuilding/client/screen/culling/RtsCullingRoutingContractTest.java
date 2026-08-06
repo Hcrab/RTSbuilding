@@ -155,6 +155,26 @@ class RtsCullingRoutingContractTest {
     }
 
     @Test
+    void replacingOrCancellingCullingStateRestoresFlywheelVisualsFromTheOldRegion() throws IOException {
+        String state = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingClientState.java"));
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingManager.java"));
+        String replaceBody = methodBody(manager, "public void replaceWorldState");
+        String cancelBody = methodBody(manager, "private void cancelDraft");
+
+        assertTrue(state.contains("PERSISTENT_MANAGER.replaceWorldState(List.of(), List.of())"),
+                "requesting an empty snapshot must restore visuals hidden by the previous state");
+        assertTrue(replaceBody.contains("List.copyOf(this.boxes)"));
+        assertTrue(replaceBody.contains("RtsCullingBox previousPreview = activePreviewBox()"));
+        assertTrue(replaceBody.indexOf("clearWorldState()") < replaceBody.indexOf("previousBoxes.forEach(this::markBoxDirty)"),
+                "old regions must be synchronized only after the old culling state has been removed");
+        assertTrue(cancelBody.contains("RtsCullingBox cancelledPreview = activePreviewBox()"));
+        assertTrue(cancelBody.indexOf("this.phase = Phase.IDLE") < cancelBody.indexOf("markBoxDirty(cancelledPreview)"),
+                "a cancelled preview must be synchronized after it stops participating in culling");
+    }
+
+    @Test
     void selectedCullingBoxRendersWorldAxisHandles() throws IOException {
         String renderer = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/rendering/culling/RtsCullingRenderer.java"));
