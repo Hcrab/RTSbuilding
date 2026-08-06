@@ -13,6 +13,7 @@ public final class BottomPanelBrowseStyle {
     public static final UiColor CLEAR_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_STRONG, 0XFF637283);
     public static final UiColor CLEAR_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.BORDER_SOFT, 0XFF101318);
     public static final UiColor PAGE_BUTTON_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA2A2A2A);
+    public static final UiColor BUTTON_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0XCC3B4755);
     public static final UiColor TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFFFFFFF);
     public static final UiColor MUTED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_MUTED, 0XFF99A6B5);
     public static final UiColor PLACEHOLDER_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_MUTED, 0XFF73859A);
@@ -26,6 +27,20 @@ public final class BottomPanelBrowseStyle {
 
     public static UiColor clearBackground(boolean focused) {
         return focused ? CLEAR_FOCUSED_BACKGROUND : CLEAR_IDLE_BACKGROUND;
+    }
+
+    public static UiColor clearBackground(boolean focused, double hoverStrength) {
+        return UiColor.interpolate(
+                clearBackground(focused),
+                BUTTON_HOVER_BACKGROUND,
+                hoverStrength);
+    }
+
+    public static UiColor pageBackground(double hoverStrength) {
+        return UiColor.interpolate(
+                PAGE_BUTTON_BACKGROUND,
+                BUTTON_HOVER_BACKGROUND,
+                hoverStrength);
     }
 
     public static UiColor clearText(boolean hasValue) {

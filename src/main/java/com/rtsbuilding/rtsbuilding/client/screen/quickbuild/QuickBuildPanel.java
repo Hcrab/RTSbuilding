@@ -41,8 +41,9 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 public final class QuickBuildPanel extends RtsWindowPanel {
     // ======================== 面板尺寸 ========================
     private static final int QUICK_BUILD_PANEL_W = QuickBuildWindowLayout.WINDOW_W;
-    private static final int QUICK_BUILD_PANEL_H = QuickBuildWindowLayout.BUILD_BASE_H;
-    private static final int QUICK_BUILD_PANEL_MIN_H = QuickBuildWindowLayout.BUILD_BASE_H;
+    private static final int QUICK_BUILD_PANEL_H =
+            QuickBuildWindowLayout.windowHeight(QuickBuildUiMode.BUILD);
+    private static final int QUICK_BUILD_PANEL_MIN_H = QUICK_BUILD_PANEL_H;
 
     // ======================== 实例 ========================
     private QuickBuildControlSurface controlSurface;
@@ -325,16 +326,6 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     // ======================== 渲染 ========================
 
-    /**
-     * 动态调整窗口高度，底部信息区高度由 Kit 布局统一提供。
-     */
-    @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.windowHeight = QuickBuildWindowLayout.windowHeight(
-                QuickBuildUiAdapter.snapshot(this).mode);
-        super.render(g, mouseX, mouseY, partialTick);
-    }
-
     @Override
     public void renderOverlays(GuiGraphics g, int mouseX, int mouseY) {
         if (!this.open || !canShowWindow()) return;
@@ -399,10 +390,13 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (this.controlSurface.mouseReleased(mouseX, mouseY, button)) {
-            return true;
-        }
-        return super.mouseReleased(mouseX, mouseY, button);
+        boolean contentHandled = this.controlSurface.mouseReleased(mouseX, mouseY, button);
+        /*
+         * 子按钮即使消费了松开事件，父窗口也必须清除 dragging/resizing。
+         * 否则一次标题栏拖动若恰好在按钮上松开，后续点击任意内容都会继续移动旧窗口。
+         */
+        boolean windowHandled = super.mouseReleased(mouseX, mouseY, button);
+        return contentHandled || windowHandled;
     }
 
     // ======================== 抽象方法实现 ========================
@@ -430,6 +424,11 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     @Override
     protected int getMinWindowHeight() {
         return QUICK_BUILD_PANEL_MIN_H;
+    }
+
+    @Override
+    protected int getTitleBarHeight() {
+        return QuickBuildWindowLayout.TITLE_H;
     }
 
     @Override

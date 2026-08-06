@@ -14,7 +14,8 @@ sourceSets {
     }
     uiPreview {
         java.srcDir 'src/uiPreview/java'
-        resources.setSrcDirs([])
+        // 世界截图只服务于离屏审图，不进入 main 模组资源或发布 JAR。
+        resources.setSrcDirs(['src/uiPreview/resources'])
         compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
         runtimeClasspath += output + compileClasspath
     }
@@ -141,6 +142,7 @@ tasks.register('uiKitTest', Test) {
 
 def uiPreviewOutput = layout.buildDirectory.dir('reports/ui-preview')
 def uiSnapshotBaselines = layout.projectDirectory.dir('src/uiPreviewSnapshots')
+def uiPreviewWorldTime = providers.gradleProperty('uiPreviewWorldTime').getOrElse('noon')
 
 tasks.register('runUiPreview', JavaExec) {
     group = 'ui preview'
@@ -149,6 +151,7 @@ tasks.register('runUiPreview', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewMain'
     systemProperty 'java.awt.headless', 'true'
+    systemProperty 'rts.ui.preview.worldTime', uiPreviewWorldTime
     args uiPreviewOutput.get().asFile.absolutePath
     outputs.dir uiPreviewOutput
 }
@@ -163,6 +166,14 @@ tasks.register('runCraftTerminalPreview', JavaExec) {
     args layout.buildDirectory.dir('reports/craft-terminal-preview').get().asFile.absolutePath
     args layout.projectDirectory.file(
             'src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal.png').asFile.absolutePath
+    args layout.projectDirectory.file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal_sort_name.png').asFile.absolutePath
+    args layout.projectDirectory.file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal_sort_quantity.png').asFile.absolutePath
+    args layout.projectDirectory.file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal_sort_ascending.png').asFile.absolutePath
+    args layout.projectDirectory.file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal_sort_descending.png').asFile.absolutePath
     outputs.dir layout.buildDirectory.dir('reports/craft-terminal-preview')
 }
 
@@ -173,6 +184,7 @@ tasks.register('renderUiSnapshots', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewMain'
     systemProperty 'java.awt.headless', 'true'
+    systemProperty 'rts.ui.preview.worldTime', uiPreviewWorldTime
     args uiPreviewOutput.get().asFile.absolutePath
     outputs.dir uiPreviewOutput
 }
@@ -184,6 +196,7 @@ tasks.register('renderUiThemeGallery', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiThemeGalleryMain'
     systemProperty 'java.awt.headless', 'true'
+    systemProperty 'rts.ui.preview.worldTime', uiPreviewWorldTime
     args layout.buildDirectory.dir('reports/ui-theme-gallery').get().asFile.absolutePath
     outputs.dir layout.buildDirectory.dir('reports/ui-theme-gallery')
 }
@@ -195,6 +208,7 @@ tasks.register('renderUiLightThemeStudies', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiThemeGalleryMain'
     systemProperty 'java.awt.headless', 'true'
+    systemProperty 'rts.ui.preview.worldTime', uiPreviewWorldTime
     args layout.buildDirectory.dir('reports/ui-light-theme-studies').get().asFile.absolutePath
     args 'light-studies'
     outputs.dir layout.buildDirectory.dir('reports/ui-light-theme-studies')
@@ -236,6 +250,7 @@ tasks.register('verifyUiSnapshots', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewVerifier'
     systemProperty 'java.awt.headless', 'true'
+    systemProperty 'rts.ui.preview.worldTime', uiPreviewWorldTime
     args uiPreviewOutput.get().asFile.absolutePath
     args uiSnapshotBaselines.asFile.absolutePath
     outputs.dir uiPreviewOutput
@@ -248,6 +263,7 @@ tasks.register('updateUiSnapshots', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiSnapshotUpdater'
     systemProperty 'java.awt.headless', 'true'
+    systemProperty 'rts.ui.preview.worldTime', uiPreviewWorldTime
     systemProperty 'rts.ui.snapshots.approved',
             providers.gradleProperty('approveUiSnapshots').getOrElse('false')
     args uiSnapshotBaselines.asFile.absolutePath
@@ -500,10 +516,27 @@ tasks.register('verifyUiIconResources') {
         file("src/main/resources/assets/rtsbuilding/textures/gui/quickbuild_pr133/${key}_${state}.png")
     } }
     def pr133PaletteSources = pr133Keys.collect { key ->
-        file("src/main/resources/assets/rtsbuilding/textures/gui/palette/quickbuild/${key}.png")
+        file("src/main/resources/assets/rtsbuilding/textures/gui/new_2nd_icons/${key}.png")
     }
     def paletteTopbarSources = topbarIds.collect { id ->
-        file("src/main/resources/assets/rtsbuilding/textures/gui/palette/topbar/${id}.png")
+        file("src/main/resources/assets/rtsbuilding/textures/gui/topbar/${id}_hover.png")
+    }
+    def defaultButtonTemplate = file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/general/default_button.png')
+    def modeButtonTemplate = file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/general/mode_button.png')
+    def terminalTexture = file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal.png')
+    def terminalButtonTemplate = file(
+            'src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal_button.png')
+    def terminalSortButtonBase = file(
+            'src/uiPreview/resources/v2-sort/terminal_sort_button_base.png')
+    def v2SortSource = file('src/uiPreview/resources/v2-sort/sort.png')
+    def v2SortOrderSource = file('src/uiPreview/resources/v2-sort/sort_order.png')
+    def terminalSortButtons = [
+            'name', 'quantity', 'ascending', 'descending'
+    ].collect { semantic ->
+        file("src/main/resources/assets/rtsbuilding/textures/gui/ui/terminal_sort_${semantic}.png")
     }
     def colorPickerTextures = [
             file('src/main/resources/assets/rtsbuilding/textures/gui/color/colorwheel.png'),
@@ -511,7 +544,10 @@ tasks.register('verifyUiIconResources') {
     ]
     def assetLicenses = file('ASSET-LICENSES.md')
     inputs.files(topbarTextures + guideTextures + pr133LegacyStates
-            + pr133PaletteSources + paletteTopbarSources + colorPickerTextures + [assetLicenses])
+            + pr133PaletteSources + paletteTopbarSources + colorPickerTextures
+            + [defaultButtonTemplate, modeButtonTemplate,
+               terminalTexture, terminalButtonTemplate, terminalSortButtonBase,
+               v2SortSource, v2SortOrderSource, assetLicenses] + terminalSortButtons)
     doLast {
         (topbarTextures + guideTextures).each { texture ->
             if (!texture.isFile() || texture.length() == 0L) {
@@ -557,7 +593,8 @@ tasks.register('verifyUiIconResources') {
         (pr133PaletteSources + paletteTopbarSources).each { texture ->
             def image = javax.imageio.ImageIO.read(texture)
             def unknown = new LinkedHashSet<Integer>()
-            def allowed = texture.name == 'quest_detect.png' ? questPaletteColors : allowedPaletteColors
+            def allowed = texture.name.startsWith('quest_detect')
+                    ? questPaletteColors : allowedPaletteColors
             for (int y = 0; y < image.height; y++) {
                 for (int x = 0; x < image.width; x++) {
                     int argb = image.getRGB(x, y)
@@ -567,8 +604,153 @@ tasks.register('verifyUiIconResources') {
             if (!unknown.isEmpty()) {
                 throw new GradleException("Unknown Palette index colors in ${texture}: ${unknown}")
             }
-            if (texture.name ==~ /.*_(inactive|hover|active|pressed)\.png/) {
-                throw new GradleException("Palette directory contains duplicated state file: ${texture}")
+        }
+        def defaultButton = javax.imageio.ImageIO.read(defaultButtonTemplate)
+        if (defaultButton == null || defaultButton.width != 4 || defaultButton.height != 16) {
+            throw new GradleException(
+                    "Legacy default-button template must remain 4x16: ${defaultButtonTemplate}")
+        }
+        def expectedButtonColors = [
+                0xFF536679, 0xFF222A34, 0xFF202732, 0xFF0D1015,
+                0xFFA6CCF2, 0xFF445468, 0xFF404E64, 0xFF1A202A,
+                0xFF3E723C, 0xFF163117, 0xFF112E16, 0xFF061309,
+                0xFF7CE478, 0xFF2C622E, 0xFF225C2C, 0xFF0C2612
+        ].collect { it as int } as Set
+        def actualButtonColors = new LinkedHashSet<Integer>()
+        for (int y = 0; y < defaultButton.height; y++) {
+            for (int x = 0; x < defaultButton.width; x++) {
+                actualButtonColors.add(defaultButton.getRGB(x, y))
+            }
+        }
+        if (actualButtonColors != expectedButtonColors) {
+            throw new GradleException(
+                    "Legacy default-button palette topology changed: ${actualButtonColors}")
+        }
+        def modeButton = javax.imageio.ImageIO.read(modeButtonTemplate)
+        if (modeButton == null || modeButton.width != 512 || modeButton.height != 1536) {
+            throw new GradleException(
+                    "Legacy mode-button template must remain 512x1536: ${modeButtonTemplate}")
+        }
+        def expectedModeButtonColors = [
+                0xFF54616E, 0xFF0D1117, 0xFF788C9F, 0xFF363F47,
+                0xFF7E91A5, 0xFFB4D2EE, 0xFFB3FF9C, 0xFF536679,
+                0xFFE0FFDA, 0xFF72BA70, 0xFFDAFFDC
+        ].collect { it as int } as Set
+        def actualModeButtonColors = new LinkedHashSet<Integer>()
+        for (int y = 0; y < modeButton.height; y++) {
+            for (int x = 0; x < modeButton.width; x++) {
+                int argb = modeButton.getRGB(x, y)
+                if ((argb >>> 24) != 0) actualModeButtonColors.add(argb)
+            }
+        }
+        if (actualModeButtonColors != expectedModeButtonColors) {
+            throw new GradleException(
+                    "Legacy mode-button palette topology changed: ${actualModeButtonColors}")
+        }
+        def terminal = javax.imageio.ImageIO.read(terminalTexture)
+        def terminalButton = javax.imageio.ImageIO.read(terminalButtonTemplate)
+        if (terminal == null || terminalButton == null
+                || terminalButton.width != 15 || terminalButton.height != 13) {
+            throw new GradleException(
+                    "Contributor terminal button must remain an exact 15x13 crop: ${terminalButtonTemplate}")
+        }
+        def expectedTerminalButtonColors = [
+                0xFF536679, 0xFF324153, 0xFF1A202A
+        ].collect { it as int } as Set
+        def actualTerminalButtonColors = new LinkedHashSet<Integer>()
+        for (int y = 0; y < terminalButton.height; y++) {
+            for (int x = 0; x < terminalButton.width; x++) {
+                int actual = terminalButton.getRGB(x, y)
+                int contributor = terminal.getRGB(197 + x, 2 + y)
+                if (actual != contributor) {
+                    throw new GradleException(
+                            "Terminal button drifted from PR #133 source at ${x},${y}")
+                }
+                actualTerminalButtonColors.add(actual)
+            }
+        }
+        if (actualTerminalButtonColors != expectedTerminalButtonColors) {
+            throw new GradleException(
+                    "Contributor terminal-button palette changed: ${actualTerminalButtonColors}")
+        }
+        def terminalSortBase = javax.imageio.ImageIO.read(terminalSortButtonBase)
+        if (terminalSortBase == null
+                || terminalSortBase.width != 24
+                || terminalSortBase.height != 24) {
+            throw new GradleException(
+                    "Terminal sort base must remain a prebuilt 24x24 development texture: ${terminalSortButtonBase}")
+        }
+        def actualSortBaseColors = new LinkedHashSet<Integer>()
+        for (int y = 0; y < terminalSortBase.height; y++) {
+            int sourceY = y == 0 ? 0 : y == 23 ? 12
+                    : 1 + (int) Math.floor(((y - 1) * 11) / 22.0D)
+            for (int x = 0; x < terminalSortBase.width; x++) {
+                int sourceX = x == 0 ? 0 : x == 23 ? 14
+                        : 1 + (int) Math.floor(((x - 1) * 13) / 22.0D)
+                int actual = terminalSortBase.getRGB(x, y)
+                int expected = terminalButton.getRGB(sourceX, sourceY)
+                if (actual != expected) {
+                    throw new GradleException(
+                            "Prebuilt 24x24 terminal sort base drifted at ${x},${y}")
+                }
+                actualSortBaseColors.add(actual)
+            }
+        }
+        if (actualSortBaseColors != expectedTerminalButtonColors) {
+            throw new GradleException(
+                    "Prebuilt terminal sort-base palette changed: ${actualSortBaseColors}")
+        }
+        def v2Sort = javax.imageio.ImageIO.read(v2SortSource)
+        def v2SortOrder = javax.imageio.ImageIO.read(v2SortOrderSource)
+        if (v2Sort == null || v2Sort.width != 32 || v2Sort.height != 48
+                || v2SortOrder == null || v2SortOrder.width != 32 || v2SortOrder.height != 32) {
+            throw new GradleException('v2 sorting source sheets changed size')
+        }
+        def sortButtonDefinitions = [
+                [file: terminalSortButtons[0], source: v2Sort, sourceY: 0],
+                [file: terminalSortButtons[1], source: v2Sort, sourceY: 16],
+                [file: terminalSortButtons[2], source: v2SortOrder, sourceY: 0],
+                [file: terminalSortButtons[3], source: v2SortOrder, sourceY: 16]
+        ]
+        def expectedSortButtonColors = (expectedTerminalButtonColors + [
+                0xFFC3C2D0 as int, 0xFF7F7E8E as int
+        ]) as Set
+        sortButtonDefinitions.each { definition ->
+            def image = javax.imageio.ImageIO.read(definition.file)
+            if (image == null || image.width != 24 || image.height != 24
+                    || !image.colorModel.hasAlpha()) {
+                throw new GradleException(
+                        "Terminal sort semantic must be a complete 24x24 RGBA texture: ${definition.file}")
+            }
+            def actualColors = new LinkedHashSet<Integer>()
+            for (int y = 0; y < 24; y++) {
+                for (int x = 0; x < 24; x++) {
+                    int expected = terminalSortBase.getRGB(x, y)
+                    if (x >= 4 && x < 20 && y >= 4 && y < 20) {
+                        int icon = definition.source.getRGB(
+                                x - 4, definition.sourceY + y - 4)
+                        if ((icon >>> 24) != 0) expected = icon
+                    }
+                    int actual = image.getRGB(x, y)
+                    if (actual != expected) {
+                        throw new GradleException(
+                                "Terminal sort semantic drifted from PR #133 + v2 sources at ${x},${y}: ${definition.file}")
+                    }
+                    actualColors.add(actual)
+                }
+            }
+            if (actualColors != expectedSortButtonColors) {
+                throw new GradleException(
+                        "Terminal sort semantic palette changed: ${definition.file} ${actualColors}")
+            }
+        }
+        [
+                file('src/main/java/com/rtsbuilding/rtsbuilding/client/theme/PaletteTextureCatalog.java'),
+                file('src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineAssets.java')
+        ].each { sourceFile ->
+            if (sourceFile.getText('UTF-8').contains('textures/gui/palette/')) {
+                throw new GradleException(
+                        "Palette must read original art, not a parallel texture: ${sourceFile}")
             }
         }
         String licenseText = assetLicenses.getText('UTF-8')
@@ -577,6 +759,10 @@ tasks.register('verifyUiIconResources') {
         }
         if (!licenseText.contains('colorwheel.png') || !licenseText.contains('怡然')) {
             throw new GradleException('v2 color-picker attribution is incomplete')
+        }
+        if (!licenseText.contains('terminal_sort_name.png')
+                || !licenseText.contains('NeoForge-RTSBuildin-v2.0')) {
+            throw new GradleException('v2 terminal sorting attribution is incomplete')
         }
         println "Verified ${topbarTextures.size()} top-bar states, ${guideTextures.size()} guide textures, " +
                 "${pr133LegacyStates.size()} PR #133 Legacy states and " +

@@ -41,6 +41,7 @@
   "key.rtsbuilding.quick_funnel": "快速漏斗",
   "key.rtsbuilding.quick_drop": "投擲",
   "key.rtsbuilding.rotate_shape": "旋轉建造形狀",
+  "key.rtsbuilding.placement_state_wheel": "開啟方塊狀態輪盤",
   "key.rtsbuilding.open_craft_terminal": "開啟合成終端",
   "key.rtsbuilding.pin_quick_slot": "綁定快捷槽",
   "key.rtsbuilding.blueprint_cancel": "取消藍圖預覽",
@@ -1044,9 +1045,10 @@
   ,"screen.rtsbuilding.craft_terminal.clear_to_inventory": "將合成格材料退回玩家背包"
   ,"screen.rtsbuilding.craft_terminal.deposit_all": "存入背包及快捷列"
   ,"screen.rtsbuilding.craft_terminal.deposit_hotbar": "存入快捷列"
-  ,"screen.rtsbuilding.craft_terminal.sort": "切換存儲排序"
-  ,"screen.rtsbuilding.craft_terminal.sort_direction": "反轉存儲排序"
-  ,"screen.rtsbuilding.craft_terminal.sort_button": "左鍵：切換排序 · 右鍵：反轉排序"
+  ,"screen.rtsbuilding.craft_terminal.sort_field.name": "首字母"
+  ,"screen.rtsbuilding.craft_terminal.sort_field.quantity": "數量"
+  ,"screen.rtsbuilding.craft_terminal.sort_direction.ascending": "正序"
+  ,"screen.rtsbuilding.craft_terminal.sort_direction.descending": "倒序"
   ,"screen.rtsbuilding.craft_terminal.utility_button": "左/右鍵：清格至存儲/背包 · Shift+左/右鍵：存入背包/快捷列"
   ,"screen.rtsbuilding.craft_terminal.rows": "切換存儲顯示行數"
   ,"screen.rtsbuilding.quick_build.mode_smart_fill": "填坑"
@@ -1120,6 +1122,7 @@
   ,"screen.rtsbuilding.theme.token.control_pressed": "按下控制項"
   ,"screen.rtsbuilding.theme.token.control_selected": "選取控制項"
   ,"screen.rtsbuilding.theme.token.control_disabled": "停用控制項"
+  ,"screen.rtsbuilding.theme.token.switch_thumb": "開關滑塊"
   ,"screen.rtsbuilding.theme.token.icon_primary": "主要圖示"
   ,"screen.rtsbuilding.theme.token.icon_muted": "弱化圖示"
   ,"screen.rtsbuilding.theme.token.icon_on_accent": "強調色上圖示"
@@ -1146,4 +1149,12 @@
   ,"screen.rtsbuilding.theme.token.world_axis_y": "世界 Y 軸"
   ,"screen.rtsbuilding.theme.token.world_axis_z": "世界 Z 軸"
   ,"screen.rtsbuilding.theme.token.world_handle_active": "使用中世界控點"
+  ,"message.rtsbuilding.storage_batch.entered": "批次連結儲存：請選擇第一個角點；按 Ctrl 離開。"
+  ,"message.rtsbuilding.storage_batch.first_selected": "已選擇第一個角點，請選擇對角。"
+  ,"message.rtsbuilding.storage_batch.ready": "選區已準備好；滾輪調整高度，Enter 或再次點擊確認。"
+  ,"message.rtsbuilding.storage_batch.submitted": "已送出批次連結；可繼續框選，或按 Ctrl 離開。"
+  ,"message.rtsbuilding.storage_batch.no_target": "游標下沒有可選方塊。"
+  ,"message.rtsbuilding.storage_batch.too_large": "選區過大（最大 64 × 64 × 64）。"
+  ,"message.rtsbuilding.storage_batch.selection_cleared": "已清除目前選區，請重新選擇第一個角點。"
+  ,"message.rtsbuilding.storage_batch.exited": "已離開批次連結儲存。"
 }

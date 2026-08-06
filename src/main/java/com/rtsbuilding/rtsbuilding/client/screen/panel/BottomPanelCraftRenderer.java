@@ -1,11 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCraftLayout;
@@ -25,6 +29,9 @@ import java.util.List;
  * 不读取控制器，也不发送合成请求；这些生命周期和副作用继续由 {@link BottomPanel} 编排。</p>
  */
 public final class BottomPanelCraftRenderer {
+    private static final UiControlAnimationRegistry<String> ANIMATIONS =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 64);
+
     private BottomPanelCraftRenderer() {
     }
 
@@ -66,14 +73,20 @@ public final class BottomPanelCraftRenderer {
         }
 
         boolean searchDirty = state.craftSearchDirty();
+        double applyHover = hover(
+                "apply", layout.apply.contains(mouseX, mouseY), searchDirty);
+        double toggleHover = hover(
+                "toggle", layout.toggle.contains(mouseX, mouseY),
+                state.craftShowUnavailable);
         drawButton(graphics, canvas, font, layout.apply, "OK",
-                BottomPanelCraftStyle.applyBackground(searchDirty),
+                BottomPanelCraftStyle.applyBackground(searchDirty, applyHover),
                 BottomPanelCraftStyle.BUTTON_BORDER_LIGHT,
                 searchDirty ? argb(BottomPanelCraftStyle.BUTTON_TEXT)
                         : argb(BottomPanelCraftStyle.BUTTON_TEXT_IDLE));
         drawButton(graphics, canvas, font, layout.toggle,
                 state.craftShowUnavailable ? "ALL" : "MAKE",
-                BottomPanelCraftStyle.toggleBackground(state.craftShowUnavailable),
+                BottomPanelCraftStyle.toggleBackground(
+                        state.craftShowUnavailable, toggleHover),
                 BottomPanelCraftStyle.TOGGLE_BORDER_LIGHT,
                 argb(BottomPanelCraftStyle.BUTTON_TEXT));
 
@@ -116,11 +129,14 @@ public final class BottomPanelCraftRenderer {
                             slotY + RtsMainlineLayout.CRAFT_PANEL_SLOT - 1,
                             argb(BottomPanelCraftStyle.SLOT_UNAVAILABLE_OVERLAY));
                 }
-                if (index == hoveredIndex) {
+                double slotHover = hover(
+                        "slot." + (row * RtsMainlineLayout.CRAFT_PANEL_COLS + column),
+                        index == hoveredIndex, false);
+                if (slotHover > 0.0D) {
                     graphics.fill(slotX + 1, slotY + 1,
                             slotX + RtsMainlineLayout.CRAFT_PANEL_SLOT - 1,
                             slotY + RtsMainlineLayout.CRAFT_PANEL_SLOT - 1,
-                            argb(BottomPanelCraftStyle.SLOT_HOVER_OVERLAY));
+                            argb(BottomPanelCraftStyle.slotHoverOverlay(slotHover)));
                 }
             }
         }
@@ -142,5 +158,13 @@ public final class BottomPanelCraftRenderer {
 
     private static int argb(com.rtsbuilding.rtsbuilding.uikit.theme.UiColor color) {
         return color.toArgb();
+    }
+
+    private static double hover(String id, boolean hovered, boolean selected) {
+        UiControlState state = new UiControlState(
+                true, selected, false, false, "")
+                .withInteraction(hovered, false, false);
+        return ANIMATIONS.update(
+                id, state, Config.isUiAnimationsEnabled()).hover();
     }
 }

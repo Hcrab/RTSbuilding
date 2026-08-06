@@ -85,7 +85,7 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
         for (int index = this.themeScroll;
              index < themes.size() && index < this.themeScroll + visibleThemeRows; index++) {
             UiThemeDefinition theme = themes.get(index);
-            drawThemeRow(g, canvas, theme, x + LIST_INSET, rowY,
+            drawThemeRow(g, canvas, index - this.themeScroll, theme, x + LIST_INSET, rowY,
                     LIST_W - DOUBLE_LIST_INSET, mouseX, mouseY);
             rowY += ROW_H;
         }
@@ -103,14 +103,25 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
                 mouseX, mouseY, draft);
     }
 
-    private void drawThemeRow(GuiGraphics g, MinecraftUiCanvas canvas, UiThemeDefinition theme,
+    private void drawThemeRow(GuiGraphics g, MinecraftUiCanvas canvas, int visibleRow,
+                              UiThemeDefinition theme,
                               int x, int y, int w, int mouseX, int mouseY) {
         boolean selected = theme.id().equals(draftId);
         boolean hover = UiRect.contains(x, y, w, ROW_H - 3, mouseX, mouseY);
-        UiColor background = selected ? SettingsWindowStyle.TOGGLE_ON
-                : hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND : SettingsWindowStyle.STEP_BACKGROUND;
+        com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState.Snapshot animation =
+                animateContentControl("theme_row_" + visibleRow, true, hover, selected);
+        UiColor background = UiColor.interpolate(
+                SettingsWindowStyle.STEP_BACKGROUND,
+                SettingsWindowStyle.STEP_HOVER_BACKGROUND,
+                animation.hover());
+        background = UiColor.interpolate(
+                background, SettingsWindowStyle.TOGGLE_ON, animation.selection());
+        UiColor border = UiColor.interpolate(
+                SettingsWindowStyle.STEP_BORDER,
+                SettingsWindowStyle.TOGGLE_ON_BORDER,
+                animation.selection());
         UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, w, ROW_H - 3), background,
-                selected ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.STEP_BORDER,
+                border,
                 SettingsWindowStyle.STEP_DARK_BORDER);
         g.drawString(screen.font(), displayName(theme), x + THEME_NAME_X, y + THEME_NAME_Y,
                 SettingsWindowStyle.VALUE.toArgb(), false);
@@ -145,13 +156,26 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
     private void drawButton(GuiGraphics g, MinecraftUiCanvas canvas, int x, int y, int w, int h,
                             int mouseX, int mouseY, String key, boolean enabled) {
         boolean hover = enabled && UiRect.contains(x, y, w, h, mouseX, mouseY);
+        com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState.Snapshot animation =
+                animateContentControl("theme_action_" + key, enabled, hover, false);
+        UiColor enabledBackground = UiColor.interpolate(
+                SettingsWindowStyle.STEP_BACKGROUND,
+                SettingsWindowStyle.STEP_HOVER_BACKGROUND,
+                animation.hover());
+        UiColor background = UiColor.interpolate(
+                enabledBackground,
+                SettingsWindowStyle.VALUE_BACKGROUND,
+                animation.disabled());
+        UiColor textColor = UiColor.interpolate(
+                SettingsWindowStyle.VALUE,
+                SettingsWindowStyle.DISABLED_TEXT,
+                animation.disabled());
         UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, w, h),
-                enabled ? (hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND
-                        : SettingsWindowStyle.STEP_BACKGROUND) : SettingsWindowStyle.VALUE_BACKGROUND,
+                background,
                 SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), text(key),
                 x + w / 2, y + ACTION_TEXT_Y,
-                (enabled ? SettingsWindowStyle.VALUE : SettingsWindowStyle.DISABLED_TEXT).toArgb());
+                textColor.toArgb());
     }
 
     @Override

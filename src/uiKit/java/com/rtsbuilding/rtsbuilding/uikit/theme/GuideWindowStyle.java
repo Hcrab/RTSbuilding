@@ -4,8 +4,10 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
 public final class GuideWindowStyle {
     public static final UiColor TOPIC_SELECTED_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.CONTROL_SELECTED, 0XCC355A71);
     public static final UiColor TOPIC_IDLE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.CONTROL_IDLE, 0X88303A45);
+    public static final UiColor TOPIC_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.CONTROL_HOVER, 0XAA35495A);
     public static final UiColor TOPIC_SELECTED_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.ACCENT_PRIMARY, 0XFF8FB4D0);
     public static final UiColor TOPIC_IDLE_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.BORDER_STRONG, 0XFF4A5665);
+    public static final UiColor TOPIC_HOVER_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.FOCUS_RING, 0XFF6F879E);
     public static final UiColor TOPIC_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.BORDER_SOFT, 0XFF0D1218);
     public static final UiColor TOPIC_SELECTED_CONTENT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.CONTROL_SELECTED, 0XFFF4FBFF);
     public static final UiColor TOPIC_IDLE_CONTENT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.GUIDE_AND_TOOLS, UiThemeToken.TEXT_PRIMARY, 0XFFB9C7D5);
@@ -22,11 +24,29 @@ public final class GuideWindowStyle {
         return selected ? TOPIC_SELECTED_BACKGROUND : TOPIC_IDLE_BACKGROUND;
     }
 
+    public static UiColor topicBackground(double selection, double hover) {
+        UiColor base = UiColor.interpolate(
+                TOPIC_IDLE_BACKGROUND, TOPIC_HOVER_BACKGROUND, hover);
+        return UiColor.interpolate(base, TOPIC_SELECTED_BACKGROUND, selection);
+    }
+
     public static UiColor topicBorderLight(boolean selected) {
         return selected ? TOPIC_SELECTED_BORDER_LIGHT : TOPIC_IDLE_BORDER_LIGHT;
     }
 
+    public static UiColor topicBorderLight(double selection, double hover) {
+        UiColor base = UiColor.interpolate(
+                TOPIC_IDLE_BORDER_LIGHT, TOPIC_HOVER_BORDER_LIGHT, hover);
+        return UiColor.interpolate(base, TOPIC_SELECTED_BORDER_LIGHT, selection);
+    }
+
     public static UiColor topicContent(boolean selected) {
         return selected ? TOPIC_SELECTED_CONTENT : TOPIC_IDLE_CONTENT;
+    }
+
+    public static UiColor topicContent(double selection, double hover) {
+        UiColor base = UiColor.interpolate(
+                TOPIC_IDLE_CONTENT, TOPIC_SELECTED_CONTENT, hover * 0.45D);
+        return UiColor.interpolate(base, TOPIC_SELECTED_CONTENT, selection);
     }
 }

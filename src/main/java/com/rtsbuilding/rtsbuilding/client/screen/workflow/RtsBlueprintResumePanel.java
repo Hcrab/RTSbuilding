@@ -128,15 +128,18 @@ public final class RtsBlueprintResumePanel extends RtsWindowPanel {
         scrollOffset = WorkflowResumeWindowLayout.clampBlueprintScroll(
                 scrollOffset,
                 scanData.itemIds().size());
+        WorkflowResumeWindowLayout.BlueprintGeometry geometry = geometry();
+        double actionHover = animateContentControl(
+                "blueprint_resume", canResume,
+                geometry.action.contains(mouseX, mouseY), false).hover();
         BlueprintResumePanelRenderer.render(
                 graphics,
                 this.screen.font(),
-                geometry(),
+                geometry,
                 scanData,
                 scrollOffset,
                 canResume,
-                mouseX,
-                mouseY);
+                actionHover);
     }
 
     @Override

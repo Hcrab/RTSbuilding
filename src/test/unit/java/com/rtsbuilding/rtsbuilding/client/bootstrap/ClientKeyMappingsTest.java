@@ -20,4 +20,12 @@ class ClientKeyMappingsTest {
         assertEquals(KeyModifier.CONTROL, ClientKeyMappings.MOVE_PLAYER.getKeyModifier());
         assertEquals(KeyConflictContext.GUI, ClientKeyMappings.MOVE_PLAYER.getKeyConflictContext());
     }
+
+    @Test
+    void blockStateWheelUsesMWithoutTakingRFromShapeRotation() {
+        assertEquals(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_M),
+                ClientKeyMappings.PLACEMENT_STATE_WHEEL.getKey());
+        assertEquals(InputConstants.Type.KEYSYM.getOrCreate(GLFW.GLFW_KEY_R),
+                ClientKeyMappings.ROTATE_SHAPE.getKey());
+    }
 }

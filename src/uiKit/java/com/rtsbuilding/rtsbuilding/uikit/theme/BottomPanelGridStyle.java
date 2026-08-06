@@ -25,6 +25,18 @@ public final class BottomPanelGridStyle {
     private BottomPanelGridStyle() {
     }
 
+    public static UiColor selectionOverlay(Visual style, double selectionStrength) {
+        return UiColor.interpolate(
+                style.selectedOverlay.withAlpha(0),
+                style.selectedOverlay,
+                selectionStrength);
+    }
+
+    public static UiColor hoverOverlay(double selectionStrength, double hoverStrength) {
+        UiColor target = UiColor.interpolate(HOVER, SELECTED_HOVER, selectionStrength);
+        return UiColor.interpolate(target.withAlpha(0), target, hoverStrength);
+    }
+
     public static final class Visual {
         public final UiColor background;
         public final UiColor borderLight;

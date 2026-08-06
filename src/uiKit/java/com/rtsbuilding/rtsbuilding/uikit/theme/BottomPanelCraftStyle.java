@@ -18,6 +18,7 @@ public final class BottomPanelCraftStyle {
     public static final UiColor SEARCH_UNEDITABLE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_MUTED, 0XFFAAB8C8);
 
     public static final UiColor BUTTON_IDLE = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA24303A);
+    public static final UiColor BUTTON_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0XCC3A4B5B);
     public static final UiColor APPLY_DIRTY = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_SELECTED, 0XAA4C6E39);
     public static final UiColor TOGGLE_MAKE = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_SELECTED, 0XAA2C5A41);
     public static final UiColor TOGGLE_ALL = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.WARNING, 0XAA5A3D2A);
@@ -43,8 +44,29 @@ public final class BottomPanelCraftStyle {
         return dirty ? APPLY_DIRTY : BUTTON_IDLE;
     }
 
+    public static UiColor applyBackground(boolean dirty, double hoverStrength) {
+        return UiColor.interpolate(
+                applyBackground(dirty), BUTTON_HOVER, hoverStrength);
+    }
+
     public static UiColor toggleBackground(boolean showUnavailable) {
         return showUnavailable ? TOGGLE_ALL : TOGGLE_MAKE;
+    }
+
+    public static UiColor toggleBackground(
+            boolean showUnavailable,
+            double hoverStrength) {
+        return UiColor.interpolate(
+                toggleBackground(showUnavailable),
+                BUTTON_HOVER,
+                hoverStrength);
+    }
+
+    public static UiColor slotHoverOverlay(double hoverStrength) {
+        return UiColor.interpolate(
+                new UiColor(0x00000000),
+                SLOT_HOVER_OVERLAY,
+                hoverStrength);
     }
 
     public static UiColor slotBackground(boolean present, boolean available) {

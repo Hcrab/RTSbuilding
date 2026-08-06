@@ -202,6 +202,20 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
         stats.addPrimitives(1);
     }
 
+    public void imageRegion(
+            BufferedImage texture, UiRect source, UiRect target, double opacity) {
+        if (texture == null || opacity <= 0.0D) return;
+        Composite previous = graphics.getComposite();
+        graphics.setComposite(AlphaComposite.getInstance(
+                AlphaComposite.SRC_OVER,
+                (float) Math.max(0.0D, Math.min(1.0D, opacity))));
+        try {
+            imageRegion(texture, source, target);
+        } finally {
+            graphics.setComposite(previous);
+        }
+    }
+
     public void withFontSize(float size, Runnable draw) {
         Font old = graphics.getFont();
         graphics.setFont(old.deriveFont(size));

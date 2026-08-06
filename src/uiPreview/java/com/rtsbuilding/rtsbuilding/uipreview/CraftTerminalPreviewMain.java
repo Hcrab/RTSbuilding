@@ -1,8 +1,15 @@
 package com.rtsbuilding.rtsbuilding.uipreview;
 
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.craftterminal.CraftTerminalSortField;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftTerminalLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftTerminalStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiIndexedTextureSpec;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiPaletteTextureBaker;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeBuiltins;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeDefinition;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRenderMode;
 
 import javax.imageio.ImageIO;
 import java.awt.Color;
@@ -31,27 +38,39 @@ public final class CraftTerminalPreviewMain {
 
     public static void main(String[] args) throws IOException {
         UiPreviewMain.requireHeadless();
-        if (args.length < 2) {
-            throw new IllegalArgumentException("usage: output-directory terminal-concept-png");
+        if (args.length < 6) {
+            throw new IllegalArgumentException(
+                    "usage: output-directory terminal-concept-png "
+                            + "sort-name-png sort-quantity-png sort-ascending-png sort-descending-png");
         }
         File output = new File(args[0]);
         if (!output.isDirectory() && !output.mkdirs()) {
             throw new IOException("Cannot create craft terminal preview directory: " + output);
         }
         BufferedImage source = requireImage(new File(args[1]));
+        BufferedImage[] sortButtons = {
+                requireImage(new File(args[2])),
+                requireImage(new File(args[3])),
+                requireImage(new File(args[4])),
+                requireImage(new File(args[5]))
+        };
         BufferedImage reference = cropReference(source);
-        BufferedImage empty = render(source, false);
-        BufferedImage populated = render(source, true);
+        BufferedImage empty = render(source, sortButtons, false, UiThemeBuiltins.legacy());
+        BufferedImage populated = render(source, sortButtons, true, UiThemeBuiltins.legacy());
+        BufferedImage palette = render(source, sortButtons, true, UiThemeBuiltins.calibratedDark());
 
         ImageIO.write(reference, "png", new File(output, "craft-terminal-reference.png"));
         ImageIO.write(empty, "png", new File(output, "craft-terminal-empty.png"));
         ImageIO.write(populated, "png", new File(output, "craft-terminal-populated.png"));
+        ImageIO.write(palette, "png", new File(output, "craft-terminal-palette.png"));
         ImageIO.write(sideBySide(reference, empty), "png",
                 new File(output, "craft-terminal-side-by-side.png"));
         ImageIO.write(overallReview(reference, empty, populated), "png",
                 new File(output, "craft-terminal-overall-review.png"));
         ImageIO.write(scrollbarSideBySide(empty, populated), "png",
                 new File(output, "craft-terminal-scrollbar-side-by-side.png"));
+        ImageIO.write(sortControlsSideBySide(empty, palette), "png",
+                new File(output, "craft-terminal-sort-controls.png"));
         ImageIO.write(crop(source, 197, 20,
                         CraftTerminalLayout.SCROLLBAR_HANDLE_WIDTH,
                         CraftTerminalLayout.SCROLLBAR_HANDLE_HEIGHT),
@@ -66,11 +85,22 @@ public final class CraftTerminalPreviewMain {
         System.out.println("Rendered craft terminal concept comparison to " + output);
     }
 
-    private static BufferedImage render(BufferedImage source, boolean populated) {
+    private static BufferedImage render(
+            BufferedImage source,
+            BufferedImage[] sortButtons,
+            boolean populated,
+            UiThemeDefinition theme) {
         BufferedImageUiCanvas canvas = new BufferedImageUiCanvas(WIDTH, HEIGHT);
         canvas.clear(new Color(0, 0, 0, 255));
         CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(6);
         renderContributorSkin(canvas, source, layout, populated ? 0.24D : 0.0D);
+        renderSortControls(
+                canvas,
+                sortButtons,
+                layout,
+                theme,
+                populated ? CraftTerminalSortField.NAME : CraftTerminalSortField.QUANTITY,
+                !populated);
         if (populated) {
             drawFixtureItems(canvas, layout);
             canvas.text("合成终端", 7, 4, CraftTerminalStyle.TEXT);
@@ -78,6 +108,56 @@ public final class CraftTerminalPreviewMain {
         }
         canvas.close();
         return canvas.image();
+    }
+
+    /**
+     * 离屏预览与正式客户端共用排序布局、四张完整按钮图和 Palette baker。
+     * 这里同样只选择一张 24×24 成品纹理并 1:1 绘制，不拼字符、不叠图标。
+     */
+    private static void renderSortControls(
+            BufferedImageUiCanvas canvas,
+            BufferedImage[] buttonSources,
+            CraftTerminalLayout.Geometry layout,
+            UiThemeDefinition theme,
+            CraftTerminalSortField field,
+            boolean ascending) {
+        BufferedImage fieldSource = field == CraftTerminalSortField.NAME
+                ? buttonSources[0] : buttonSources[1];
+        BufferedImage directionSource = ascending ? buttonSources[2] : buttonSources[3];
+        drawSortButton(canvas, themedButton(fieldSource, theme), layout.sortControls.field);
+        drawSortButton(canvas, themedButton(directionSource, theme), layout.sortControls.direction);
+    }
+
+    private static BufferedImage themedButton(
+            BufferedImage source,
+            UiThemeDefinition theme) {
+        return theme.renderMode() == UiThemeRenderMode.LEGACY_DIRECT
+                ? source
+                : bakeButton(source, theme, UiTextureState.INACTIVE);
+    }
+
+    private static void drawSortButton(
+            BufferedImageUiCanvas canvas,
+            BufferedImage button,
+            UiRect bounds) {
+        canvas.image(button, bounds);
+    }
+
+    private static BufferedImage bakeButton(
+            BufferedImage source,
+            UiThemeDefinition theme,
+            UiTextureState state) {
+        int width = source.getWidth();
+        int height = source.getHeight();
+        int[] pixels = source.getRGB(0, 0, width, height, null, 0, width);
+        int[] baked = UiPaletteTextureBaker.bake(
+                pixels,
+                UiIndexedTextureSpec.V2_TERMINAL_SORT_BUTTON,
+                theme,
+                state);
+        BufferedImage result = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        result.setRGB(0, 0, width, height, baked, 0, width);
+        return result;
     }
 
     /** 与正式客户端消费同一组 1:1 纹理切片，预览不再维护另一套手绘 chrome。 */
@@ -199,6 +279,33 @@ public final class CraftTerminalPreviewMain {
         drawCrop(graphics, empty, cropX, cropY, cropWidth, cropHeight,
                 gap, gap, panelWidth, panelHeight);
         drawCrop(graphics, populated, cropX, cropY, cropWidth, cropHeight,
+                gap * 2 + panelWidth, gap, panelWidth, panelHeight);
+        graphics.dispose();
+        return result;
+    }
+
+    /** 放大 Legacy 与 Palette 的两个排序按钮，便于审查字符和原始倒角。 */
+    private static BufferedImage sortControlsSideBySide(
+            BufferedImage legacy,
+            BufferedImage palette) {
+        int cropX = 194;
+        int cropY = 16;
+        int cropWidth = 30;
+        int cropHeight = 58;
+        int gap = 16;
+        int scale = 6;
+        int panelWidth = cropWidth * scale;
+        int panelHeight = cropHeight * scale;
+        BufferedImage result = new BufferedImage(panelWidth * 2 + gap * 3,
+                panelHeight + gap * 2, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = result.createGraphics();
+        graphics.setColor(new Color(10, 14, 19));
+        graphics.fillRect(0, 0, result.getWidth(), result.getHeight());
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
+        drawCrop(graphics, legacy, cropX, cropY, cropWidth, cropHeight,
+                gap, gap, panelWidth, panelHeight);
+        drawCrop(graphics, palette, cropX, cropY, cropWidth, cropHeight,
                 gap * 2 + panelWidth, gap, panelWidth, panelHeight);
         graphics.dispose();
         return result;

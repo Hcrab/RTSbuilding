@@ -11,66 +11,68 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
  * 模式按钮也不会在绘制和输入侧各自重算边界。</p>
  */
 public final class QuickBuildWindowLayout {
-    public static final int WINDOW_W = 178;
-    public static final int BUILD_BASE_H = 260;
-    public static final int DESTROY_BASE_H = 286;
-    public static final int BOTTOM_INFO_H = 72;
-    public static final int TITLE_H = 20;
-    public static final int MODE_H = 18;
-    public static final int MODE_GAP = 4;
-    public static final int MODE_TOP = 5;
-    public static final int SECTION_TOP = 31;
+    public static final int WINDOW_W = 144;
+    public static final int BUILD_BASE_H = 208;
+    public static final int DESTROY_BASE_H = 230;
+    public static final int BOTTOM_INFO_H = 58;
+    public static final int TITLE_H = 16;
+    public static final int MODE_H = 14;
+    public static final int MODE_GAP = 3;
+    public static final int MODE_TOP = 4;
+    public static final int SECTION_TOP = 25;
     public static final int CATALOG_TOP = SECTION_TOP;
-    public static final int CATALOG_H = 18;
-    public static final int CATALOG_GAP = 4;
-    public static final int CATALOG_TOOLS_GAP = 8;
-    public static final int CONTROL_LIST_TOP = SECTION_TOP + 15;
-    public static final int CHAIN_LABEL_TOP = SECTION_TOP + 17;
-    public static final int CHAIN_SLIDER_GAP = 14;
-    public static final int CHAIN_SLIDER_H = 18;
-    public static final int CHAIN_VALUE_GAP = 6;
-    public static final int CHAIN_VALUE_Y_OFFSET = 2;
-    public static final int CHAIN_SLIDER_MIN_W = 50;
-    public static final int CHAIN_SLIDER_RIGHT_RESERVE = 40;
-    public static final int SHAPE_SLOT = 32;
-    public static final int SHAPE_GAP = 8;
-    public static final int SHAPE_ROW_PITCH = 38;
-    public static final int RIGHT_COL_X = 88;
-    public static final int CONTROL_W = 84;
-    public static final int CONTROL_H = 20;
-    public static final int CONVENIENCE_TOOL_W = 72;
-    public static final int CONVENIENCE_TOOL_H = 22;
-    public static final int CONVENIENCE_TOOL_PITCH = 30;
-    public static final int CONVENIENCE_TOOL_ICON_X = 2;
-    public static final int CONVENIENCE_TOOL_LABEL_X = 23;
-    public static final int CONVENIENCE_PARAMETER_LABEL_GAP = 13;
-    public static final int CONVENIENCE_PARAMETER_PITCH = 50;
+    public static final int CATALOG_H = 14;
+    public static final int CATALOG_GAP = 3;
+    public static final int CATALOG_TOOLS_GAP = 6;
+    public static final int CONTROL_LIST_TOP = SECTION_TOP + 12;
+    public static final int CHAIN_LABEL_TOP = SECTION_TOP + 14;
+    public static final int CHAIN_SLIDER_GAP = 11;
+    public static final int CHAIN_SLIDER_H = 14;
+    public static final int CHAIN_VALUE_GAP = 5;
+    public static final int CHAIN_VALUE_Y_OFFSET = 1;
+    public static final int CHAIN_SLIDER_MIN_W = 40;
+    public static final int CHAIN_SLIDER_RIGHT_RESERVE = 32;
+    public static final int SHAPE_SLOT = 26;
+    public static final int SHAPE_GAP = 6;
+    public static final int SHAPE_ROW_PITCH = 30;
+    public static final int RIGHT_COL_X = 70;
+    public static final int CONTROL_W = 68;
+    public static final int CONTROL_H = 16;
+    public static final int CONVENIENCE_TOOL_W = 58;
+    public static final int CONVENIENCE_TOOL_H = 20;
+    public static final int CONVENIENCE_TOOL_PITCH = 24;
+    public static final int CONVENIENCE_TOOL_ICON_X = 1;
+    public static final int CONVENIENCE_TOOL_ICON_SIZE = 19;
+    public static final int CONVENIENCE_TOOL_LABEL_X = 22;
+    public static final int CONVENIENCE_PARAMETER_LABEL_GAP = 10;
+    public static final int CONVENIENCE_PARAMETER_PITCH = 40;
     public static final int CONTROL_ICON_INSET = 2;
-    public static final int CONTROL_ICON_SIZE = 16;
+    public static final int CONTROL_ICON_SIZE = 12;
     public static final int SHAPE_SELECTED_INSET = 2;
     public static final int MODE_LABEL_MIN_INSET = 2;
-    public static final int DIVIDER_INSET = 6;
-    public static final int PROGRESS_INSET = 8;
-    public static final int PROGRESS_TOP = 4;
-    public static final int PROGRESS_H = 4;
-    public static final int CONTENT_INSET = 8;
-    public static final int SECTION_LABEL_INSET = 10;
-    public static final int INFO_LINE_GAP = 4;
-    public static final int INFO_FOLLOWUP_GAP = 3;
-    public static final int ITEM_GAP = 4;
+    public static final int DIVIDER_INSET = 5;
+    public static final int PROGRESS_INSET = 6;
+    public static final int PROGRESS_TOP = 3;
+    public static final int PROGRESS_H = 3;
+    public static final int CONTENT_INSET = 6;
+    public static final int SECTION_LABEL_INSET = 8;
+    public static final int INFO_LINE_GAP = 3;
+    public static final int INFO_FOLLOWUP_GAP = 2;
+    public static final int ITEM_GAP = 3;
     public static final int ITEM_SIZE = 16;
-    public static final int STATUS_TEXT_TOP = 12;
-    public static final int STATUS_ITEM_Y_OFFSET = -4;
-    public static final int STATUS_MISSING_TEXT_GAP = 8;
-    public static final int STATUS_MISSING_ICON_GAP = 4;
+    public static final int STATUS_TEXT_TOP = 10;
+    public static final int STATUS_ITEM_Y_OFFSET = -3;
+    public static final int STATUS_MISSING_TEXT_GAP = 6;
+    public static final int STATUS_MISSING_ICON_GAP = 3;
     public static final int STATUS_TEXT_MAX_LINES = 3;
-    public static final int DEFAULT_TOP_GAP = 40;
-    public static final int WINDOW_RIGHT_GAP = 4;
+    public static final int DEFAULT_TOP_GAP = 32;
+    public static final int WINDOW_RIGHT_GAP = 3;
 
     private QuickBuildWindowLayout() {}
 
+
     public static int windowHeight(boolean destroy) {
-        return (destroy ? DESTROY_BASE_H : BUILD_BASE_H) + BOTTOM_INFO_H;
+        return DESTROY_BASE_H + BOTTOM_INFO_H;
     }
 
     public static int windowHeight(QuickBuildUiMode mode) {
@@ -107,7 +109,7 @@ public final class QuickBuildWindowLayout {
                 bodyY + MODE_TOP, modeW,
                 bodyY + SECTION_TOP,
                 windowX + RIGHT_COL_X,
-                windowY + (destroy ? DESTROY_BASE_H : BUILD_BASE_H),
+                windowY + DESTROY_BASE_H,
                 windowHeight(destroy), destroy);
     }
 

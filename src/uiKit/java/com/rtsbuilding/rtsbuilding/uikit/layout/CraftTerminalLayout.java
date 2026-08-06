@@ -15,7 +15,9 @@ public final class CraftTerminalLayout {
     /** PR #133 原始终端主体的真实像素尺寸；不得再用近似尺寸重画。 */
     public static final int WIDTH = 195;
     public static final int IMAGE_HEIGHT = 304;
-    public static final int VISIBLE_WIDTH = 212;
+    /** 主面板加右侧 24×24 排序按钮轨道的完整可见宽度。 */
+    public static final int VISIBLE_WIDTH = CraftTerminalSortControlsLayout.BUTTON_X
+            + CraftTerminalSortControlsLayout.BUTTON_WIDTH;
     public static final int MIN_ROWS = 2;
     public static final int MAX_ROWS = 6;
     public static final int COLUMNS = 9;
@@ -47,14 +49,14 @@ public final class CraftTerminalLayout {
         UiRect scrollbar = new UiRect(175, visualTop + 19, 12,
                 rows * SLOT_SIZE);
 
-        UiRect sort = new UiRect(197, visualTop + 20, 10, 15);
+        CraftTerminalSortControlsLayout.Geometry sortControls =
+                CraftTerminalSortControlsLayout.resolve(visualTop);
         UiRect utility = new UiRect(197, 190, 8, 12);
         return new Geometry(rows, visualTop, header, search, storageGrid, scrollbar,
                 new UiRect(169, visualTop + 2, 11, 13),
                 new UiRect(181, visualTop + 2, 11, 13),
                 new UiRect(197, visualTop + 2, 15, 13),
-                sort,
-                sort,
+                sortControls,
                 new UiRect(0, 129, WIDTH, 84),
                 new UiRect(3, 132, 188, 78),
                 new UiRect(24, 143, 60, 60),
@@ -78,8 +80,7 @@ public final class CraftTerminalLayout {
         public final UiRect searchMode;
         public final UiRect searchPin;
         public final UiRect cycleRows;
-        public final UiRect sort;
-        public final UiRect sortDirection;
+        public final CraftTerminalSortControlsLayout.Geometry sortControls;
         public final UiRect craftingPanel;
         public final UiRect craftingContent;
         public final UiRect craftingGridFrame;
@@ -101,8 +102,7 @@ public final class CraftTerminalLayout {
                 UiRect searchMode,
                 UiRect searchPin,
                 UiRect cycleRows,
-                UiRect sort,
-                UiRect sortDirection,
+                CraftTerminalSortControlsLayout.Geometry sortControls,
                 UiRect craftingPanel,
                 UiRect craftingContent,
                 UiRect craftingGridFrame,
@@ -123,8 +123,7 @@ public final class CraftTerminalLayout {
             this.searchMode = searchMode;
             this.searchPin = searchPin;
             this.cycleRows = cycleRows;
-            this.sort = sort;
-            this.sortDirection = sortDirection;
+            this.sortControls = sortControls;
             this.craftingPanel = craftingPanel;
             this.craftingContent = craftingContent;
             this.craftingGridFrame = craftingGridFrame;
@@ -156,7 +155,6 @@ public final class CraftTerminalLayout {
                             0, 18 + visualTop),
                     slice(0, 129, WIDTH, 175, 0, 129),
                     slice(197, 2, 15, 13, 197, visualTop + 2),
-                    slice(197, 20, 10, 15, 197, visualTop + 20),
                     slice(197, 190, 8, 12, 197, 190)
             };
         }
@@ -228,14 +226,48 @@ public final class CraftTerminalLayout {
             if (searchMode.contains(x, y)) return CraftTerminalUiAction.SEARCH_MODE;
             if (searchPin.contains(x, y)) return CraftTerminalUiAction.SEARCH_PIN;
             if (cycleRows.contains(x, y)) return CraftTerminalUiAction.CYCLE_ROWS;
-            if (sort.contains(x, y)) return CraftTerminalUiAction.SORT;
-            if (sortDirection.contains(x, y)) return CraftTerminalUiAction.SORT_DIRECTION;
+            CraftTerminalUiAction sortAction = this.sortControls.actionAt(x, y);
+            if (sortAction != null) return sortAction;
             if (clearToStorage.contains(x, y)) return CraftTerminalUiAction.CLEAR_TO_STORAGE;
             if (clearToInventory.contains(x, y)) return CraftTerminalUiAction.CLEAR_TO_INVENTORY;
             if (depositAll.contains(x, y)) return CraftTerminalUiAction.DEPOSIT_ALL;
             if (depositHotbar.contains(x, y)) return CraftTerminalUiAction.DEPOSIT_HOTBAR;
             if (scrollbar.contains(x, y)) return CraftTerminalUiAction.SCROLLBAR;
             return null;
+        }
+
+        /** 返回动作的正式命中矩形，供平滑视觉反馈与输入共用同一几何。 */
+        public UiRect actionBounds(CraftTerminalUiAction action) {
+            if (action == null) {
+                throw new IllegalArgumentException("action must not be null");
+            }
+            switch (action) {
+                case SEARCH:
+                    return search;
+                case SEARCH_CLEAR:
+                    return searchClear;
+                case SEARCH_MODE:
+                    return searchMode;
+                case SEARCH_PIN:
+                    return searchPin;
+                case CYCLE_ROWS:
+                    return cycleRows;
+                case SORT:
+                case SORT_DIRECTION:
+                    return sortControls.bounds(action);
+                case CLEAR_TO_STORAGE:
+                    return clearToStorage;
+                case CLEAR_TO_INVENTORY:
+                    return clearToInventory;
+                case DEPOSIT_ALL:
+                    return depositAll;
+                case DEPOSIT_HOTBAR:
+                    return depositHotbar;
+                case SCROLLBAR:
+                    return scrollbar;
+                default:
+                    throw new IllegalArgumentException("unsupported action: " + action);
+            }
         }
     }
 

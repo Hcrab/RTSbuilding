@@ -1,9 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintLibraryUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintLibraryChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintLibraryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintLibraryStyle;
 import net.minecraft.client.gui.Font;
@@ -20,6 +24,9 @@ import static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintLibra
  * 分别由专用 renderer 处理，选择、滚动、捕获、文件 IO 与网络仍归原生产 owner。</p>
  */
 final class BlueprintLibraryPanelRenderer {
+    private static final UiControlAnimationRegistry<String> CONTROL_ANIMATIONS =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 128);
+
     private BlueprintLibraryPanelRenderer() {
     }
 
@@ -87,8 +94,11 @@ final class BlueprintLibraryPanelRenderer {
                 geometry,
                 top,
                 state.searchFocused,
-                mouseX,
-                mouseY);
+                hover("top.folder", top.folderBounds(geometry.y).contains(mouseX, mouseY), false),
+                hover("top.import", top.importBounds(geometry.y).contains(mouseX, mouseY), false),
+                hover("top.sync", top.syncBounds(geometry.y).contains(mouseX, mouseY), false),
+                hover("top.capture", top.captureBounds(geometry.y).contains(mouseX, mouseY),
+                        state.captureLocked));
         drawTopText(graphics, font, geometry, top, state);
         BlueprintLibraryChromeRenderer.renderBodyFrames(
                 canvas,
@@ -157,6 +167,14 @@ final class BlueprintLibraryPanelRenderer {
                         "screen.rtsbuilding.blueprints.rename")),
                 font.width(text(
                         "screen.rtsbuilding.blueprints.delete")));
+    }
+
+    static double hover(String stableId, boolean hovered, boolean selected) {
+        UiControlState state = new UiControlState(
+                true, selected, false, false, "")
+                .withInteraction(hovered, false, false);
+        return CONTROL_ANIMATIONS.update(
+                stableId, state, Config.isUiAnimationsEnabled()).hover();
     }
 
     private static void drawTopText(

@@ -4,6 +4,7 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
 public final class FunnelBufferStyle {
     public static final UiColor TOGGLE_VISIBLE = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.CONTROL_SELECTED, 0XAA2C4E3D);
     public static final UiColor TOGGLE_HIDDEN = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.CONTROL_IDLE, 0XAA2A2D36);
+    public static final UiColor TOGGLE_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.CONTROL_HOVER, 0XBB3A4A58);
     public static final UiColor PANEL_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.CONTROL_IDLE, 0XAA17191F);
     public static final UiColor ROW_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.CONTROL_IDLE, 0X88303845);
     public static final UiColor SLOT_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.SLOT_IDLE, 0XAA1E222A);
@@ -18,5 +19,12 @@ public final class FunnelBufferStyle {
 
     public static UiColor toggle(boolean panelVisible) {
         return panelVisible ? TOGGLE_VISIBLE : TOGGLE_HIDDEN;
+    }
+
+    /** 漏斗按钮的显隐和悬停都只做视觉插值，不延迟面板开关。 */
+    public static UiColor toggle(double visibleProgress, double hoverProgress) {
+        UiColor state = UiColor.interpolate(
+                TOGGLE_HIDDEN, TOGGLE_VISIBLE, visibleProgress);
+        return UiColor.interpolate(state, TOGGLE_HOVER, hoverProgress);
     }
 }

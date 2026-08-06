@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;
 import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiState;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiMotionSpec;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
@@ -66,7 +67,7 @@ public final class TopBarPanel {
             new UiStateBlendAnimationSet<>(SystemUiClock.INSTANCE,
                     Arrays.asList(TopBarTypes.TopBarButtonId.values()),
                     TopBarIconRenderer.visualStates(),
-                    90L, UiEasing.EASE_IN_OUT_QUAD);
+                    UiMotionSpec.STATE_BLEND_MS, UiEasing.EASE_IN_OUT_QUAD);
     private final PointerCapture<TopBarTypes.TopBarButtonId> pointerCapture = new PointerCapture<>();
 
     // ======================== Lifecycle ========================

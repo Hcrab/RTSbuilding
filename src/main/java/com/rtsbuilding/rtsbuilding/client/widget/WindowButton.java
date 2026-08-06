@@ -2,14 +2,13 @@ package com.rtsbuilding.rtsbuilding.client.widget;
 
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.theme.DefaultButtonTextureRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
 import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WindowButtonLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
@@ -24,7 +23,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Custom window button.
- * Supports texture rendering and vector scaling.
+ * Supports both smooth scaled textures and native-size pixel textures.
  */
 public class WindowButton extends AbstractButton {
 
@@ -53,6 +52,10 @@ public class WindowButton extends AbstractButton {
     private UiControlRole visualRole = UiControlRole.COMMAND;
     private boolean selectedVisual;
     private boolean pressedVisual;
+    /** 像素图模式不拉伸纹理，只在点击热区内按原生尺寸居中绘制。 */
+    private boolean nativePixelTexture;
+    /** 像素艺术即使需要适配既有按钮尺寸，也必须使用最近邻过滤。 */
+    private boolean pixelArtTexture;
 
     /**
      * When set, all WindowButton instances suppress hover/focus effects.
@@ -127,6 +130,7 @@ public class WindowButton extends AbstractButton {
         this.hoverTextureHeight = sourceHeight;
         this.fullTextureWidth = sourceWidth;
         this.fullTextureHeight = sourceHeight;
+        this.pixelArtTexture = true;
     }
 
     /**
@@ -150,15 +154,16 @@ public class WindowButton extends AbstractButton {
         Minecraft minecraft = Minecraft.getInstance();
         boolean effectiveHovered = !globalSkipHover
                 && this.isHoveredOrFocused();
-        UiControlVisualStyle visual = resolveVisual(effectiveHovered);
+        UiControlAnimationState.Snapshot animation = updateAnimation(effectiveHovered);
+        UiControlVisualStyle visual = UiControlVisualStyle.animated(
+                this.visualRole, animation);
 
-        ResourceLocation resolvedTexture = resolveTexture(effectiveHovered);
-        if (resolvedTexture != null && textureWidth > 0 && textureHeight > 0) {
-            // Render with texture (vector scaling)
-            renderWithTexture(guiGraphics, resolvedTexture);
+        if (textureWidth > 0 && textureHeight > 0
+                && renderAnimatedTexture(guiGraphics, animation)) {
+            // 纹理按钮和纯色按钮消费同一组平滑交互通道。
         } else {
             // Render with solid colour
-            renderWithSolidColor(guiGraphics, visual);
+            renderWithLegacyTemplate(guiGraphics, animation, visual);
         }
 
         // Calculate text position (centred)
@@ -178,7 +183,8 @@ public class WindowButton extends AbstractButton {
     /**
      * Renders the button with a texture (supports vector scaling and hover effects).
      */
-    private void renderWithTexture(GuiGraphics guiGraphics, ResourceLocation resolvedTexture) {
+    private void renderWithTexture(GuiGraphics guiGraphics, ResourceLocation resolvedTexture,
+                                   int currentV, int currentHeight, double alpha) {
         // Ensure the texture is loaded
         var textureManager = Minecraft.getInstance().getTextureManager();
         var texture = textureManager.getTexture(resolvedTexture);
@@ -207,11 +213,6 @@ public class WindowButton extends AbstractButton {
             }
         }
 
-        // Select texture region based on hover state (covered windows forced to non-hover texture)
-        boolean effectiveHovered = isHovered && !globalSkipHover;
-        int currentV = effectiveHovered ? hoverTextureV : textureV;
-        int currentHeight = effectiveHovered ? hoverTextureHeight : textureHeight;
-
         // Enable blend mode for transparency
         RenderSystem.enableBlend();
         RenderSystem.blendFuncSeparate(
@@ -223,68 +224,72 @@ public class WindowButton extends AbstractButton {
 
         // Bind texture (bind before setting parameters)
         RenderSystem.setShaderTexture(0, resolvedTexture);
+        guiGraphics.setColor(1.0F, 1.0F, 1.0F,
+                (float) Math.max(0.0D, Math.min(1.0D, alpha)));
 
-        // Set high-quality texture filter parameters
-        // Minification filter: trilinear (mipmap + linear interpolation)
+        // 像素图必须使用最近邻；连续色纹理仍保留原有的平滑缩放。
+        int minFilter = this.pixelArtTexture
+                ? org.lwjgl.opengl.GL11.GL_NEAREST
+                : org.lwjgl.opengl.GL11.GL_LINEAR_MIPMAP_LINEAR;
+        int magFilter = this.pixelArtTexture
+                ? org.lwjgl.opengl.GL11.GL_NEAREST
+                : org.lwjgl.opengl.GL11.GL_LINEAR;
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
             org.lwjgl.opengl.GL11.GL_TEXTURE_MIN_FILTER,
-            org.lwjgl.opengl.GL11.GL_LINEAR_MIPMAP_LINEAR
+            minFilter
         );
-        // Magnification filter: linear interpolation
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
             org.lwjgl.opengl.GL11.GL_TEXTURE_MAG_FILTER,
-            org.lwjgl.opengl.GL11.GL_LINEAR
+            magFilter
         );
-        // Try setting anisotropic filtering for better angled scaling quality
-        // Note: anisotropic filtering is an OpenGL extension, check support
-        try {
-            // Use ARB_texture_filter_anisotropic extension constants
-            int GL_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
-            int GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
+        if (!this.pixelArtTexture) {
+            // 连续色纹理缩放时保留原有各向异性过滤；像素图不启用该路径。
+            try {
+                int GL_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FE;
+                int GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT = 0x84FF;
 
-            int maxAniso = org.lwjgl.opengl.GL11.glGetInteger(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT);
-            if (maxAniso > 0) {
-                float anisoLevel = Math.min(16.0f, maxAniso);
-                org.lwjgl.opengl.GL11.glTexParameterf(
-                    org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
-                    GL_TEXTURE_MAX_ANISOTROPY_EXT,
-                    anisoLevel
-                );
+                int maxAniso = org.lwjgl.opengl.GL11.glGetInteger(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT);
+                if (maxAniso > 0) {
+                    float anisoLevel = Math.min(16.0f, maxAniso);
+                    org.lwjgl.opengl.GL11.glTexParameterf(
+                        org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
+                        GL_TEXTURE_MAX_ANISOTROPY_EXT,
+                        anisoLevel
+                    );
+                }
+            } catch (Exception ignored) {
+                // 驱动不支持该扩展时继续使用普通线性过滤。
             }
-        } catch (Exception e) {
-            // Ignore unsupported anisotropic filtering
         }
 
-        // Use PoseStack transform for scaling (avoids clipping issues)
-        guiGraphics.pose().pushPose();
-
-        // Calculate scale ratio (using button size and texture size to render)
-        float scaleX = (float) this.width / textureWidth;
-        float scaleY = (float) this.height / textureHeight;
-
-        // Apply scale transform
-        guiGraphics.pose().translate(this.getX(), this.getY(), 0);
-        guiGraphics.pose().scale(scaleX, scaleY, 1.0f);
-
-        // Draw texture at original size (blit automatically uses currently bound texture)
-        guiGraphics.blit(
-            resolvedTexture,
-            0,  // Relative to transformed position
-            0,  // Relative to transformed position
-            textureU,
-            currentV,      // Use the corresponding V coordinate
-            textureWidth,  // Width to render
-            currentHeight, // Height to render
-            fullTextureWidth,   // Total width of the full texture
-            fullTextureHeight   // Total height of the full texture
-        );
-
-        // Restore transform state
-        guiGraphics.pose().popPose();
+        if (this.nativePixelTexture) {
+            int drawX = WindowButtonLayout.nativeTextureX(
+                    this.getX(), this.width, textureWidth);
+            int drawY = WindowButtonLayout.nativeTextureY(
+                    this.getY(), this.height, currentHeight);
+            guiGraphics.blit(
+                    resolvedTexture, drawX, drawY,
+                    textureU, currentV,
+                    textureWidth, currentHeight,
+                    fullTextureWidth, fullTextureHeight);
+        } else {
+            guiGraphics.pose().pushPose();
+            float scaleX = (float) this.width / textureWidth;
+            float scaleY = (float) this.height / textureHeight;
+            guiGraphics.pose().translate(this.getX(), this.getY(), 0);
+            guiGraphics.pose().scale(scaleX, scaleY, 1.0f);
+            guiGraphics.blit(
+                    resolvedTexture, 0, 0,
+                    textureU, currentV,
+                    textureWidth, currentHeight,
+                    fullTextureWidth, fullTextureHeight);
+            guiGraphics.pose().popPose();
+        }
 
         // Restore default settings
+        guiGraphics.setColor(1.0F, 1.0F, 1.0F, 1.0F);
         RenderSystem.disableBlend();
         RenderSystem.texParameter(
             org.lwjgl.opengl.GL11.GL_TEXTURE_2D,
@@ -298,30 +303,77 @@ public class WindowButton extends AbstractButton {
         );
     }
 
-    private ResourceLocation resolveTexture(boolean hovered) {
-        if (stateTextureProvider == null) return textureLocation;
-        UiTextureState state = this.pressedVisual
-                ? UiTextureState.PRESSED
-                : this.selectedVisual
-                        ? UiTextureState.ACTIVE
-                        : hovered ? UiTextureState.HOVER : UiTextureState.INACTIVE;
-        return stateTextureProvider.resolve(state);
+    /**
+     * 纹理态使用与纯色按钮相同的动画快照做交叉淡化。各权重严格相加为 1，
+     * 快速滑过或在悬停中切换选中态时不会闪回空白帧。
+     */
+    private boolean renderAnimatedTexture(
+            GuiGraphics guiGraphics, UiControlAnimationState.Snapshot animation) {
+        if (this.stateTextureProvider == null) {
+            if (this.textureLocation == null) {
+                return false;
+            }
+            double hover = animation.hover();
+            if (this.hoverTextureV == this.textureV
+                    && this.hoverTextureHeight == this.textureHeight) {
+                renderWithTexture(guiGraphics, this.textureLocation,
+                        this.textureV, this.textureHeight, 1.0D);
+            } else {
+                if (hover < 0.999D) {
+                    renderWithTexture(guiGraphics, this.textureLocation,
+                            this.textureV, this.textureHeight, 1.0D - hover);
+                }
+                if (hover > 0.001D) {
+                    renderWithTexture(guiGraphics, this.textureLocation,
+                            this.hoverTextureV, this.hoverTextureHeight, hover);
+                }
+            }
+            return true;
+        }
+
+        double pressed = animation.press();
+        double selected = (1.0D - pressed) * animation.selection();
+        double hovered = (1.0D - pressed)
+                * (1.0D - animation.selection()) * animation.hover();
+        double inactive = Math.max(0.0D, 1.0D - pressed - selected - hovered);
+        boolean rendered = false;
+        rendered |= renderStateTexture(guiGraphics, UiTextureState.INACTIVE, inactive);
+        rendered |= renderStateTexture(guiGraphics, UiTextureState.HOVER, hovered);
+        rendered |= renderStateTexture(guiGraphics, UiTextureState.ACTIVE, selected);
+        rendered |= renderStateTexture(guiGraphics, UiTextureState.PRESSED, pressed);
+        return rendered;
+    }
+
+    private boolean renderStateTexture(
+            GuiGraphics guiGraphics, UiTextureState state, double weight) {
+        if (weight <= 0.001D) {
+            return false;
+        }
+        ResourceLocation texture = this.stateTextureProvider.resolve(state);
+        if (texture == null) {
+            return false;
+        }
+        renderWithTexture(guiGraphics, texture,
+                this.textureV, this.textureHeight, weight);
+        return true;
     }
 
     /**
      * Renders the button with solid colours (RTS dark style).
      */
-    private void renderWithSolidColor(
+    private void renderWithLegacyTemplate(
             GuiGraphics guiGraphics,
+            UiControlAnimationState.Snapshot animation,
             UiControlVisualStyle visual) {
-        // 被更高层浮窗覆盖时，上层统一抑制 hover/focus 视觉。
-        WindowButtonChromeRenderer.renderSolid(
-                new MinecraftUiCanvas(guiGraphics, Minecraft.getInstance().font),
+        // Palette 与 Legacy 都从 default_button 原素材取像素；这里只切片和交叉淡化。
+        DefaultButtonTextureRenderer.renderAnimated(
+                guiGraphics,
                 new UiRect(this.getX(), this.getY(), this.width, this.height),
-                visual);
+                animation,
+                visual.getOverlay());
     }
 
-    private UiControlVisualStyle resolveVisual(boolean hovered) {
+    private UiControlAnimationState.Snapshot updateAnimation(boolean hovered) {
         UiControlState state = this.active
                 ? new UiControlState(
                         true,
@@ -343,10 +395,8 @@ public class WindowButton extends AbstractButton {
                         false,
                         false,
                         "disabled");
-        UiControlAnimationState.Snapshot animation =
-                this.visualAnimation.update(
-                        state, Config.isUiAnimationsEnabled());
-        return UiControlVisualStyle.animated(this.visualRole, animation);
+        return this.visualAnimation.update(
+                state, Config.isUiAnimationsEnabled());
     }
 
     /**
@@ -364,6 +414,16 @@ public class WindowButton extends AbstractButton {
      */
     public void setSelectedVisual(boolean selected) {
         this.selectedVisual = selected;
+    }
+
+    /**
+     * 让纹理保留原生像素尺寸并在按钮热区内居中；只应对像素艺术资源启用。
+     */
+    public void setNativePixelTexture(boolean nativePixelTexture) {
+        this.nativePixelTexture = nativePixelTexture;
+        if (nativePixelTexture) {
+            this.pixelArtTexture = true;
+        }
     }
 
     @Override

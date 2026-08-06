@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.record.RecentEntry;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
@@ -7,7 +8,11 @@ import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.util.RtsCreativeItemCatalog;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiEntry;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelGridLayout;
@@ -26,6 +31,9 @@ import java.util.List;
  * 选择动作和网络副作用仍由 {@link BottomPanel} 拥有。</p>
  */
 public final class BottomPanelGridRenderer {
+    private static final UiControlAnimationRegistry<String> ANIMATIONS =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 256);
+
     private BottomPanelGridRenderer() {
     }
 
@@ -46,7 +54,9 @@ public final class BottomPanelGridRenderer {
                 if (entry == null) {
                     continue;
                 }
-                drawSelection(graphics, view, slotX, slotY, entry.selected,
+                drawInteraction(graphics, view, slotX, slotY,
+                        animate("storage." + row + "." + column,
+                                index == hovered, entry.selected),
                         BottomPanelGridStyle.STORAGE);
                 if (entry.sourceIndex >= 0 && entry.sourceIndex < sourceEntries.size()) {
                     graphics.renderItem(sourceEntries.get(entry.sourceIndex).stack(),
@@ -55,7 +65,6 @@ public final class BottomPanelGridRenderer {
                 drawCount(graphics, font, view, slotX, slotY,
                         RtsClientUiUtil.compactCount(entry.amount),
                         BottomPanelGridStyle.STORAGE.countText);
-                drawHover(graphics, view, slotX, slotY, index == hovered, entry.selected);
             }
         }
         if (entries.isEmpty()) {
@@ -83,13 +92,14 @@ public final class BottomPanelGridRenderer {
                 if (entry == null) {
                     continue;
                 }
-                drawSelection(graphics, view, slotX, slotY, entry.selected,
+                drawInteraction(graphics, view, slotX, slotY,
+                        animate("creative." + row + "." + column,
+                                index == hovered, entry.selected),
                         BottomPanelGridStyle.CREATIVE);
                 if (entry.sourceIndex >= 0 && entry.sourceIndex < sourceEntries.size()) {
                     graphics.renderItem(sourceEntries.get(entry.sourceIndex).stack(),
                             slotX + 2, slotY + 2);
                 }
-                drawHover(graphics, view, slotX, slotY, index == hovered, entry.selected);
             }
         }
         if (entries.isEmpty()) {
@@ -128,7 +138,10 @@ public final class BottomPanelGridRenderer {
                                 : RtsClientUiUtil.compactCount(entry.amount),
                         fluid ? BottomPanelGridStyle.RECENT_FLUID_COUNT
                                 : BottomPanelGridStyle.RECENT.countText);
-                drawHover(graphics, view, slotX, slotY, index == hovered, false);
+                drawInteraction(graphics, view, slotX, slotY,
+                        animate("recent." + row + "." + column,
+                                index == hovered, false),
+                        BottomPanelGridStyle.RECENT);
             }
         }
         return hovered;
@@ -151,7 +164,9 @@ public final class BottomPanelGridRenderer {
                 if (entry == null) {
                     continue;
                 }
-                drawSelection(graphics, view, slotX, slotY, entry.selected,
+                drawInteraction(graphics, view, slotX, slotY,
+                        animate("fluid." + row + "." + column,
+                                index == hovered, entry.selected),
                         BottomPanelGridStyle.FLUID);
                 if (entry.sourceIndex >= 0 && entry.sourceIndex < sourceEntries.size()
                         && !sourceEntries.get(entry.sourceIndex).preview().isEmpty()) {
@@ -161,7 +176,6 @@ public final class BottomPanelGridRenderer {
                 drawCount(graphics, font, view, slotX, slotY,
                         RtsClientUiUtil.compactFluidAmount(entry.amount),
                         BottomPanelGridStyle.FLUID.countText);
-                drawHover(graphics, view, slotX, slotY, index == hovered, entry.selected);
             }
         }
         return hovered;
@@ -195,24 +209,32 @@ public final class BottomPanelGridRenderer {
                 style.background, style.borderLight, style.borderDark);
     }
 
-    private static void drawSelection(GuiGraphics graphics,
-                                      BottomPanelGridLayout.GridView view,
-                                      int slotX, int slotY, boolean selected,
-                                      BottomPanelGridStyle.Visual style) {
-        if (selected) {
-            fillInside(graphics, view, slotX, slotY, argb(style.selectedOverlay));
+    private static void drawInteraction(
+            GuiGraphics graphics,
+            BottomPanelGridLayout.GridView view,
+            int slotX,
+            int slotY,
+            UiControlAnimationState.Snapshot animation,
+            BottomPanelGridStyle.Visual style) {
+        UiColor selection = BottomPanelGridStyle.selectionOverlay(
+                style, animation.selection());
+        if (selection.alpha() > 0) {
+            fillInside(graphics, view, slotX, slotY, argb(selection));
+        }
+        UiColor hover = BottomPanelGridStyle.hoverOverlay(
+                animation.selection(), animation.hover());
+        if (hover.alpha() > 0) {
+            fillInside(graphics, view, slotX, slotY, argb(hover));
         }
     }
 
-    private static void drawHover(GuiGraphics graphics,
-                                  BottomPanelGridLayout.GridView view,
-                                  int slotX, int slotY,
-                                  boolean hovered, boolean selected) {
-        if (hovered) {
-            fillInside(graphics, view, slotX, slotY,
-                    argb(selected ? BottomPanelGridStyle.SELECTED_HOVER
-                            : BottomPanelGridStyle.HOVER));
-        }
+    private static UiControlAnimationState.Snapshot animate(
+            String stableId, boolean hovered, boolean selected) {
+        UiControlState state = new UiControlState(
+                true, selected, false, false, "")
+                .withInteraction(hovered, false, false);
+        return ANIMATIONS.update(
+                stableId, state, Config.isUiAnimationsEnabled());
     }
 
     private static void fillInside(GuiGraphics graphics,

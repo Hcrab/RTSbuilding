@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 final class GuideWindowStyleTest {
     @Test
@@ -15,5 +16,16 @@ final class GuideWindowStyleTest {
         assertEquals(0xFFB9C7D5, GuideWindowStyle.topicContent(false).toArgb());
         assertEquals(RtsMainlineTheme.GUIDE_HINT, GuideWindowStyle.TITLE_TEXT);
         assertEquals(RtsMainlineTheme.GUIDE_HINT, GuideWindowStyle.HINT_TEXT);
+    }
+
+    @Test
+    void topicHoverAndSelectionExposeRealIntermediateColors() {
+        UiColor middle = GuideWindowStyle.topicBackground(0.5D, 0.0D);
+        assertNotEquals(GuideWindowStyle.TOPIC_IDLE_BACKGROUND, middle);
+        assertNotEquals(GuideWindowStyle.TOPIC_SELECTED_BACKGROUND, middle);
+
+        UiColor hover = GuideWindowStyle.topicBorderLight(0.0D, 0.5D);
+        assertNotEquals(GuideWindowStyle.TOPIC_IDLE_BORDER_LIGHT, hover);
+        assertNotEquals(GuideWindowStyle.TOPIC_HOVER_BORDER_LIGHT, hover);
     }
 }

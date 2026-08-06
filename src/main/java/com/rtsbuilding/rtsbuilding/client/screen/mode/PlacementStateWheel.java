@@ -58,6 +58,8 @@ public final class PlacementStateWheel {
     private long lastRenderAtMs;
     private float closingStartedAtProgress;
     private float[] hoverProgress = new float[0];
+    /** 翻页箭头与状态选项共用相同的短悬停节奏，避免圆形按钮瞬间跳色。 */
+    private final float[] pageHoverProgress = new float[2];
 
     public boolean isOpen() {
         return this.open;
@@ -107,6 +109,8 @@ public final class PlacementStateWheel {
         this.transitionStartedAtMs = Util.getMillis();
         this.lastRenderAtMs = this.transitionStartedAtMs;
         this.hoverProgress = new float[placementPageSize()];
+        this.pageHoverProgress[0] = 0.0F;
+        this.pageHoverProgress[1] = 0.0F;
         return true;
     }
 
@@ -132,6 +136,8 @@ public final class PlacementStateWheel {
         this.placementChoices.clear();
         this.placementPage = 0;
         this.hoverProgress = new float[0];
+        this.pageHoverProgress[0] = 0.0F;
+        this.pageHoverProgress[1] = 0.0F;
         this.closingStartedAtProgress = 0.0F;
     }
 
@@ -242,21 +248,24 @@ public final class PlacementStateWheel {
 
         int pageCount = placementPageCount();
         if (pageCount > 1) {
+            boolean previousHovered = insideCircle(mouseX, mouseY,
+                    this.centerX - PAGE_BUTTON_OFFSET, this.centerY,
+                    PAGE_BUTTON_RADIUS + 3);
+            boolean nextHovered = insideCircle(mouseX, mouseY,
+                    this.centerX + PAGE_BUTTON_OFFSET, this.centerY,
+                    PAGE_BUTTON_RADIUS + 3);
+            updatePageHoverAnimations(previousHovered, nextHovered, deltaSeconds);
             drawPageButton(
                     graphics, font,
                     this.centerX - PAGE_BUTTON_OFFSET, this.centerY,
                     "<",
-                    insideCircle(mouseX, mouseY,
-                            this.centerX - PAGE_BUTTON_OFFSET, this.centerY,
-                            PAGE_BUTTON_RADIUS + 3),
+                    this.pageHoverProgress[0],
                     alpha);
             drawPageButton(
                     graphics, font,
                     this.centerX + PAGE_BUTTON_OFFSET, this.centerY,
                     ">",
-                    insideCircle(mouseX, mouseY,
-                            this.centerX + PAGE_BUTTON_OFFSET, this.centerY,
-                            PAGE_BUTTON_RADIUS + 3),
+                    this.pageHoverProgress[1],
                     alpha);
         }
 
@@ -312,6 +321,17 @@ public final class PlacementStateWheel {
             float target = i == hoveredIndex && !this.closing ? 1.0F : 0.0F;
             this.hoverProgress[i] = Mth.lerp(amount, this.hoverProgress[i], target);
         }
+    }
+
+    private void updatePageHoverAnimations(
+            boolean previousHovered,
+            boolean nextHovered,
+            float deltaSeconds) {
+        float amount = Mth.clamp(deltaSeconds * HOVER_SPEED_PER_SECOND, 0.0F, 1.0F);
+        this.pageHoverProgress[0] = Mth.lerp(amount, this.pageHoverProgress[0],
+                previousHovered && !this.closing ? 1.0F : 0.0F);
+        this.pageHoverProgress[1] = Mth.lerp(amount, this.pageHoverProgress[1],
+                nextHovered && !this.closing ? 1.0F : 0.0F);
     }
 
     private int placementPageCount() {
@@ -383,12 +403,12 @@ public final class PlacementStateWheel {
             int centerX,
             int centerY,
             String text,
-            boolean hovered,
+            float hoverProgress,
             float alpha) {
         int border = ModeWheelStyle.multiplyAlpha(
-                ModeWheelStyle.pageBorder(hovered), alpha).toArgb();
+                ModeWheelStyle.pageBorder(hoverProgress), alpha).toArgb();
         int background = ModeWheelStyle.multiplyAlpha(
-                ModeWheelStyle.pageBackground(hovered), alpha).toArgb();
+                ModeWheelStyle.pageBackground(hoverProgress), alpha).toArgb();
         RtsGuiVectorRenderer.fillDisc(
                 graphics, centerX, centerY, PAGE_BUTTON_RADIUS + 1.25F,
                 border);

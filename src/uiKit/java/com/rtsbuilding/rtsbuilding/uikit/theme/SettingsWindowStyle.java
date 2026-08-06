@@ -30,7 +30,7 @@ public final class SettingsWindowStyle {
     public static final UiColor TOGGLE_ON_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.BORDER_STRONG, 0XFF8EF19A);
     public static final UiColor TOGGLE_DARK_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.BORDER_SOFT, 0XFF10151B);
     public static final UiColor TOGGLE_OFF_KNOB = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.ICON_MUTED, 0XFF788696);
-    public static final UiColor TOGGLE_ON_KNOB = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.ICON_ON_ACCENT, 0XFF72F07A);
+    public static final UiColor TOGGLE_ON_KNOB = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SWITCH_THUMB, 0XFF72F07A);
     public static final UiColor SCROLL_TRACK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SCROLLBAR_TRACK, 0X88313A46);
     public static final UiColor SCROLL_THUMB = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SCROLLBAR_THUMB, 0XCC8AA0B8);
 

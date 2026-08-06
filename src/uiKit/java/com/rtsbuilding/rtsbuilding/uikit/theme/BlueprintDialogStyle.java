@@ -40,4 +40,11 @@ public final class BlueprintDialogStyle {
         }
         return WARNING;
     }
+
+    public static UiColor buttonBackground(double hoverStrength) {
+        return UiColor.interpolate(
+                BUTTON_BACKGROUND,
+                BUTTON_HOVER_BACKGROUND,
+                hoverStrength);
+    }
 }

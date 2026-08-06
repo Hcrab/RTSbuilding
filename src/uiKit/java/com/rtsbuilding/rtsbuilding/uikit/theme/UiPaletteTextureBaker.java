@@ -47,6 +47,16 @@ public final class UiPaletteTextureBaker {
                         : state == UiTextureState.INACTIVE
                                 ? theme.color(UiThemeToken.ICON_MUTED)
                                 : theme.color(UiThemeToken.ICON_PRIMARY);
+            case GLYPH_SHADOW:
+                UiColor glyph = state == UiTextureState.ACTIVE
+                        ? theme.color(UiThemeToken.ICON_ON_ACCENT)
+                        : state == UiTextureState.INACTIVE
+                                ? theme.color(UiThemeToken.ICON_MUTED)
+                                : theme.color(UiThemeToken.ICON_PRIMARY);
+                UiColor shade = state == UiTextureState.ACTIVE
+                        ? theme.color(UiThemeToken.ACCENT_SECONDARY)
+                        : theme.color(UiThemeToken.SURFACE_SUNKEN);
+                return UiColor.interpolate(glyph, shade, 0.55D);
             case SUCCESS:
                 return theme.color(UiThemeToken.SUCCESS);
             case SUCCESS_DARK:
@@ -55,6 +65,35 @@ public final class UiPaletteTextureBaker {
                 return theme.color(UiThemeToken.ERROR);
             case ERROR_DARK:
                 return theme.color(UiThemeToken.DESTRUCTIVE);
+            case BUTTON_HIGHLIGHT:
+                return buttonHighlight(theme, state);
+            case BUTTON_CORNER:
+                return UiColor.interpolate(
+                        theme.color(backgroundToken(state)),
+                        theme.color(UiThemeToken.SURFACE_SUNKEN),
+                        0.55D);
+            case BUTTON_SHADOW:
+                return theme.color(UiThemeToken.SURFACE_SUNKEN);
+            case INDICATOR_OUTSIDE:
+                return state == UiTextureState.ACTIVE
+                        ? theme.color(UiThemeToken.CONTROL_IDLE)
+                        : theme.color(UiThemeToken.SURFACE_SUNKEN);
+            case INDICATOR_HIGHLIGHT:
+                return state == UiTextureState.ACTIVE
+                        ? theme.color(UiThemeToken.ICON_ON_ACCENT)
+                        : state == UiTextureState.HOVER
+                                ? theme.color(UiThemeToken.TEXT_PRIMARY)
+                                : theme.color(UiThemeToken.ICON_PRIMARY);
+            case INDICATOR_FILL:
+                return state == UiTextureState.ACTIVE
+                        ? theme.color(UiThemeToken.SWITCH_THUMB)
+                        : state == UiTextureState.HOVER
+                                ? theme.color(UiThemeToken.ICON_PRIMARY)
+                                : theme.color(UiThemeToken.ICON_MUTED);
+            case INDICATOR_SHADOW:
+                return state == UiTextureState.ACTIVE
+                        ? theme.color(UiThemeToken.ACCENT_SECONDARY)
+                        : theme.color(UiThemeToken.BORDER_SOFT);
             default:
                 throw new IllegalStateException("unsupported indexed role: " + role);
         }
@@ -67,6 +106,21 @@ public final class UiPaletteTextureBaker {
             case PRESSED: return UiThemeToken.CONTROL_PRESSED;
             case INACTIVE:
             default: return UiThemeToken.CONTROL_IDLE;
+        }
+    }
+
+    private static UiColor buttonHighlight(
+            UiThemeDefinition theme, UiTextureState state) {
+        switch (state) {
+            case HOVER:
+                return theme.color(UiThemeToken.FOCUS_RING);
+            case ACTIVE:
+                return theme.color(UiThemeToken.ACCENT_PRIMARY);
+            case PRESSED:
+                return theme.color(UiThemeToken.ACCENT_SECONDARY);
+            case INACTIVE:
+            default:
+                return theme.color(UiThemeToken.BORDER_STRONG);
         }
     }
 

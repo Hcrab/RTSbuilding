@@ -81,14 +81,21 @@ final class BlueprintLibraryRowRenderer {
                         || rowGeometry.hitBounds.contains(
                                 mouseX,
                                 mouseY);
+                String slotId = "row." + row + "." + column;
                 BlueprintLibraryChromeRenderer.renderRow(
                         canvas,
                         rowGeometry,
                         entry,
                         selected,
                         showActions,
-                        mouseX,
-                        mouseY);
+                        BlueprintLibraryPanelRenderer.hover(
+                                slotId, rowGeometry.hitBounds.contains(mouseX, mouseY), selected),
+                        BlueprintLibraryPanelRenderer.hover(
+                                slotId + ".save", rowGeometry.save.contains(mouseX, mouseY), false),
+                        BlueprintLibraryPanelRenderer.hover(
+                                slotId + ".rename", rowGeometry.rename.contains(mouseX, mouseY), false),
+                        BlueprintLibraryPanelRenderer.hover(
+                                slotId + ".delete", rowGeometry.delete.contains(mouseX, mouseY), false));
                 drawText(
                         graphics,
                         font,

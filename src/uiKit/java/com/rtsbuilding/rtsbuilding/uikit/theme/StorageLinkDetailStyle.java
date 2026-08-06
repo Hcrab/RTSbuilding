@@ -15,11 +15,19 @@ public final class StorageLinkDetailStyle {
     public static final UiColor TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.STORAGE, UiThemeToken.TEXT_PRIMARY, 0XFFF4FAFF);
 
     public static UiColor background(boolean hovered) {
-        return hovered ? HOVER_BACKGROUND : IDLE_BACKGROUND;
+        return background(hovered ? 1.0D : 0.0D);
     }
 
     public static UiColor border(boolean hovered) {
-        return hovered ? HOVER_BORDER : IDLE_BORDER;
+        return border(hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor background(double hoverStrength) {
+        return UiColor.interpolate(IDLE_BACKGROUND, HOVER_BACKGROUND, hoverStrength);
+    }
+
+    public static UiColor border(double hoverStrength) {
+        return UiColor.interpolate(IDLE_BORDER, HOVER_BORDER, hoverStrength);
     }
 
     private StorageLinkDetailStyle() {

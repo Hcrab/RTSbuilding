@@ -41,6 +41,7 @@
   "key.rtsbuilding.quick_funnel": "快速漏斗",
   "key.rtsbuilding.quick_drop": "投掷",
   "key.rtsbuilding.rotate_shape": "旋转建造形状",
+  "key.rtsbuilding.placement_state_wheel": "打开方块状态轮盘",
   "key.rtsbuilding.open_craft_terminal": "打开合成终端",
   "key.rtsbuilding.pin_quick_slot": "绑定快捷槽",
   "key.rtsbuilding.blueprint_cancel": "取消蓝图预览",
@@ -1044,9 +1045,10 @@
   ,"screen.rtsbuilding.craft_terminal.clear_to_inventory": "将合成格材料退回玩家背包"
   ,"screen.rtsbuilding.craft_terminal.deposit_all": "存入背包和快捷栏"
   ,"screen.rtsbuilding.craft_terminal.deposit_hotbar": "存入快捷栏"
-  ,"screen.rtsbuilding.craft_terminal.sort": "切换储存排序"
-  ,"screen.rtsbuilding.craft_terminal.sort_direction": "反转储存排序"
-  ,"screen.rtsbuilding.craft_terminal.sort_button": "左键：切换排序 · 右键：反转排序"
+  ,"screen.rtsbuilding.craft_terminal.sort_field.name": "首字母"
+  ,"screen.rtsbuilding.craft_terminal.sort_field.quantity": "数量"
+  ,"screen.rtsbuilding.craft_terminal.sort_direction.ascending": "正序"
+  ,"screen.rtsbuilding.craft_terminal.sort_direction.descending": "倒序"
   ,"screen.rtsbuilding.craft_terminal.utility_button": "左/右键：清格到储存/背包 · Shift+左/右键：存入背包/快捷栏"
   ,"screen.rtsbuilding.craft_terminal.rows": "切换储存显示行数"
   ,"screen.rtsbuilding.quick_build.mode_smart_fill": "填坑"
@@ -1120,6 +1122,7 @@
   ,"screen.rtsbuilding.theme.token.control_pressed": "按下控件"
   ,"screen.rtsbuilding.theme.token.control_selected": "选中控件"
   ,"screen.rtsbuilding.theme.token.control_disabled": "禁用控件"
+  ,"screen.rtsbuilding.theme.token.switch_thumb": "开关滑块"
   ,"screen.rtsbuilding.theme.token.icon_primary": "主要图标"
   ,"screen.rtsbuilding.theme.token.icon_muted": "弱化图标"
   ,"screen.rtsbuilding.theme.token.icon_on_accent": "强调色上图标"
@@ -1146,4 +1149,12 @@
   ,"screen.rtsbuilding.theme.token.world_axis_y": "世界 Y 轴"
   ,"screen.rtsbuilding.theme.token.world_axis_z": "世界 Z 轴"
   ,"screen.rtsbuilding.theme.token.world_handle_active": "活动世界手柄"
+  ,"message.rtsbuilding.storage_batch.entered": "批量链接储存：请选择第一个角点；按 Ctrl 退出。"
+  ,"message.rtsbuilding.storage_batch.first_selected": "已选择第一个角点，请选择对角。"
+  ,"message.rtsbuilding.storage_batch.ready": "选区已就绪；滚轮调整高度，Enter 或再次点击确认。"
+  ,"message.rtsbuilding.storage_batch.submitted": "已提交批量链接；可继续框选，或按 Ctrl 退出。"
+  ,"message.rtsbuilding.storage_batch.no_target": "光标下没有可选方块。"
+  ,"message.rtsbuilding.storage_batch.too_large": "选区过大（最大 64 × 64 × 64）。"
+  ,"message.rtsbuilding.storage_batch.selection_cleared": "已清空当前选区，请重新选择第一个角点。"
+  ,"message.rtsbuilding.storage_batch.exited": "已退出批量链接储存。"
 }

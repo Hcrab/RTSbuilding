@@ -16,6 +16,9 @@ import com.rtsbuilding.rtsbuilding.uicore.routing.UiEventTarget;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiFloatAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiMotionSpec;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiWindowVisibilityAnimation;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
@@ -84,6 +87,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     private boolean userBoundsPreference;
     private final UiFloatAnimation hoverBorderAnimation =
             new UiFloatAnimation(SystemUiClock.INSTANCE, 0.0D);
+    private final UiWindowVisibilityAnimation visibilityAnimation = new UiWindowVisibilityAnimation(SystemUiClock.INSTANCE, true);
+    /** 子窗口手绘按钮共用的有界视觉状态；关闭窗口时清空，业务状态不在此保存。 */
+    private final RtsPanelControlAnimations contentControlAnimations = new RtsPanelControlAnimations();
     private boolean hoverBorderTarget;
 
     /**
@@ -169,21 +175,42 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        if (!this.open || !canShowWindow()) {
+        boolean interactivelyVisible = this.open && canShowWindow();
+        if (!this.visibilityAnimation.shouldRender(interactivelyVisible)) {
             this.mouseHovering = false;
+            return;
+        }
+        if (this.visibilityAnimation.finishDismissalIfNeeded(
+                Config.isUiAnimationsEnabled())) {
+            this.mouseHovering = false;
+            this.contentControlAnimations.clear();
             return;
         }
         initializePosition();
         clampWindowToScreen();
-        this.mouseHovering = !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
+        this.mouseHovering = interactivelyVisible
+                && !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
         updateHoverBorderAnimation(this.mouseHovering);
+
+        double reveal = this.visibilityAnimation.opacity();
+        float revealAlpha = (float) Math.max(0.0D, Math.min(
+                1.0D, this.visibilityAnimation.subtreeTintOpacity()));
+        double revealOffsetY = this.visibilityAnimation.offsetY();
+        boolean visibilityTransitioning = reveal < 0.999D;
 
         // When the window is covered, globally suppress hover effects on all child buttons
         // Must be set before renderWindowFrame because the close button renders there
-        if (this.skipHoverDetection) {
+        boolean suppressChildHover = this.skipHoverDetection
+                || this.visibilityAnimation.isDismissing()
+                || visibilityTransitioning;
+        if (suppressChildHover) {
             WindowButton.setGlobalSkipHover(true);
         }
         try {
+            g.flush();
+            g.pose().pushPose();
+            g.pose().translate(0.0D, revealOffsetY, 0.0D);
+            g.setColor(1.0F, 1.0F, 1.0F, revealAlpha);
             renderWindowFrame(g, mouseX, mouseY);
             // Flush the window frame first (no scissor) so the border is not clipped
             // by the content scissor that follows.
@@ -192,7 +219,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             g.flush();
 
             if (shouldClipContent()) {
-                enableContentScissor(g);
+                RtsWindowContentScissor.enable(
+                        g, this.screen, contentX(), contentY(),
+                        contentWidth(), contentHeight(), revealOffsetY);
             }
             renderContent(g, mouseX, mouseY, partialTick);
             // Flush content while scissor is still active, so item icons (renderItem) and
@@ -200,12 +229,14 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             // preventing visual bleed-through to adjacent panels.
             g.flush();
         } finally {
-            if (this.skipHoverDetection) {
+            g.setColor(1.0F, 1.0F, 1.0F, 1.0F);
+            if (suppressChildHover) {
                 WindowButton.setGlobalSkipHover(false);
             }
             if (shouldClipContent()) {
                 g.disableScissor();
             }
+            g.pose().popPose();
         }
     }
 
@@ -225,15 +256,33 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         boolean wasOpen = this.open;
         if (open && !wasOpen) {
             initializePosition();
+            this.visibilityAnimation.reveal(Config.isUiAnimationsEnabled());
         }
         this.open = open;
         if (!open && wasOpen) {
+            this.visibilityAnimation.dismiss(Config.isUiAnimationsEnabled());
+            if (!this.visibilityAnimation.isDismissing()) {
+                this.contentControlAnimations.clear();
+            }
             onClose();
         }
     }
 
     public void toggleOpen() {
         setOpen(!this.open);
+    }
+
+    /** 为子类手绘控件提供有界动画；命中和业务状态仍由子类立即处理。 */
+    protected final UiControlAnimationState.Snapshot animateContentControl(
+            String stableId,
+            boolean enabled,
+            boolean hovered,
+            boolean selected) {
+        return this.contentControlAnimations.update(
+                stableId, enabled, hovered, selected,
+                this.skipHoverDetection || this.visibilityAnimation.isDismissing()
+                        || this.visibilityAnimation.opacity() < 0.999D,
+                Config.isUiAnimationsEnabled());
     }
 
     public int getWindowX() {
@@ -711,19 +760,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         }
         this.hoverBorderTarget = hovering;
         this.hoverBorderAnimation.animateTo(hovering ? 1.0D : 0.0D,
-                90L, UiEasing.EASE_OUT_CUBIC);
-    }
-
-    private void enableContentScissor(GuiGraphics g) {
-        int x1 = contentX();
-        int y1 = contentY();
-        int x2 = x1 + contentWidth();
-        int y2 = y1 + contentHeight();
-        if (this.screen != null) {
-            this.screen.enableRtsScissor(g, x1, y1, x2, y2);
-        } else {
-            g.enableScissor(x1, y1, x2, y2);
-        }
+                UiMotionSpec.HOVER_MS, UiEasing.EASE_OUT_CUBIC);
     }
 
     private boolean isInsideTitleBar(double mouseX, double mouseY) {
@@ -863,90 +900,14 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         this.windowY = Mth.clamp(this.windowY, SCREEN_MARGIN, maxY);
     }
 
-    /**
-     * Snaps this panel to any nearby open panel's opposite edges if within threshold,
-     * with actual overlapping range (not just infinite extension lines).
-     *
-     * <p>This is a transient drag-time alignment — no permanent relationship is created.
-     * Each drag operation is independent; panels do not follow each other after
-     * the drag ends. This matches real-world window snapping behavior.
-     *
-     * <p>Rules:
-     * <ul>
-     *   <li>Horizontal snap (left↔right, right↔left) requires vertical overlap</li>
-     *   <li>Vertical snap (top↔bottom, bottom↔top) requires horizontal overlap</li>
-     *   <li>This panel's LEFT edge snaps to another panel's RIGHT edge</li>
-     *   <li>This panel's RIGHT edge snaps to another panel's LEFT edge</li>
-     *   <li>This panel's TOP edge snaps to another panel's BOTTOM edge</li>
-     *   <li>This panel's BOTTOM edge snaps to another panel's TOP edge</li>
-     * </ul>
-     */
     private void snapToNearbyPanel() {
         if (this.screen == null) return;
-        RtsFloatingWindowLayer layer = this.screen.getFloatingWindowLayer();
-        List<RtsWindowPanel> panels = layer.frontToBackWindows();
-
-        int preSnapX = this.windowX;
-        int preSnapY = this.windowY;
-
-        for (RtsWindowPanel other : panels) {
-            if (other == this || !other.isOpen()) continue;
-
-            // Hysteresis: once snapped, use a wider threshold to break free.
-            // This prevents small slow mouse movements from constantly re-snapping.
-            int threshold = SNAP_THRESHOLD;
-
-            boolean verticalOverlap = overlapY(this, other) > 0;
-            boolean horizontalOverlap = overlapX(this, other) > 0;
-
-            int oL = other.windowX;
-            int oR = other.windowX + other.windowWidth;
-            int oT = other.windowY;
-            int oB = other.windowY + other.windowHeight;
-
-            // Horizontal: snap opposite edges
-            if (verticalOverlap) {
-                int mL = this.windowX;
-                int mR = this.windowX + this.windowWidth;
-                if (Math.abs(mL - oR) < threshold) {
-                    this.windowX = oR + 1;
-                } else if (Math.abs(mR - oL) < threshold) {
-                    this.windowX = oL - this.windowWidth - 1;
-                }
-            }
-
-            // Vertical: snap opposite edges
-            if (horizontalOverlap) {
-                int mT = this.windowY;
-                int mB = this.windowY + this.windowHeight;
-                if (Math.abs(mT - oB) < threshold) {
-                    this.windowY = oB + 1;
-                } else if (Math.abs(mB - oT) < threshold) {
-                    this.windowY = oT - this.windowHeight - 1;
-                }
-            }
-        }
-        // Update snap engagement: if any snap alignment occurred, enable hysteresis
-        // so the next frame uses a wider threshold before releasing.
-        this.snapEngaged = this.windowX != preSnapX || this.windowY != preSnapY;
-    }
-
-    /** Returns the overlapping pixel count in the Y axis between two panels, or 0 if none. */
-    private static int overlapY(RtsWindowPanel a, RtsWindowPanel b) {
-        int aTop = a.windowY;
-        int aBot = a.windowY + a.windowHeight;
-        int bTop = b.windowY;
-        int bBot = b.windowY + b.windowHeight;
-        return Math.max(0, Math.min(aBot, bBot) - Math.max(aTop, bTop));
-    }
-
-    /** Returns the overlapping pixel count in the X axis between two panels, or 0 if none. */
-    private static int overlapX(RtsWindowPanel a, RtsWindowPanel b) {
-        int aL = a.windowX;
-        int aR = a.windowX + a.windowWidth;
-        int bL = b.windowX;
-        int bR = b.windowX + b.windowWidth;
-        return Math.max(0, Math.min(aR, bR) - Math.max(aL, bL));
+        RtsWindowSnapper.Result result = RtsWindowSnapper.snap(
+                this, this.screen.getFloatingWindowLayer().frontToBackWindows(),
+                SNAP_THRESHOLD);
+        this.windowX = result.x;
+        this.windowY = result.y;
+        this.snapEngaged = result.snapped;
     }
 
     private int closeButtonX() {

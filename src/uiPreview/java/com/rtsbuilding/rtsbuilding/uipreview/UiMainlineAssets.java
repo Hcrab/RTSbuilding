@@ -74,7 +74,7 @@ public final class UiMainlineAssets {
         String cacheKey = "generated/theme/" + theme.id() + "/topbar/" + name + "_" + state;
         BufferedImage cached = images.get(cacheKey);
         if (cached != null) return cached;
-        BufferedImage source = image("textures/gui/palette/topbar/" + name + ".png");
+        BufferedImage source = image("textures/gui/topbar/" + name + "_hover.png");
         int width = source.getWidth();
         int height = source.getHeight();
         int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
@@ -106,7 +106,7 @@ public final class UiMainlineAssets {
                 + "_" + textureStateName(state);
         BufferedImage cached = images.get(cacheKey);
         if (cached != null) return cached;
-        BufferedImage source = image("textures/gui/palette/quickbuild/" + key + ".png");
+        BufferedImage source = image("textures/gui/new_2nd_icons/" + key + ".png");
         int width = source.getWidth();
         int height = source.getHeight();
         int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
@@ -161,5 +161,77 @@ public final class UiMainlineAssets {
 
     public BufferedImage closeButton() {
         return image("textures/gui/general/close_button.png");
+    }
+
+    /** 通用按钮的两条主题轨道始终读取同一张 Legacy 原始母版。 */
+    public BufferedImage defaultButton(UiTextureState state) {
+        if (state == null) throw new IllegalArgumentException("state must not be null");
+        UiThemeDefinition theme = UiThemeRuntime.manager().active();
+        BufferedImage source = image("textures/gui/general/default_button.png");
+        if (theme.renderMode() == UiThemeRenderMode.LEGACY_DIRECT) return source;
+        String cacheKey = "generated/theme/" + theme.id()
+                + "/general/default_button_" + textureStateName(state);
+        BufferedImage cached = images.get(cacheKey);
+        if (cached != null) return cached;
+        int width = source.getWidth();
+        int height = source.getHeight();
+        int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
+        int[] bakedArgb = UiPaletteTextureBaker.bake(
+                sourceArgb,
+                UiIndexedTextureSpec.LEGACY_DEFAULT_BUTTON,
+                theme,
+                state);
+        BufferedImage baked = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        baked.setRGB(0, 0, width, height, bakedArgb, 0, width);
+        images.put(cacheKey, baked);
+        return baked;
+    }
+
+    /** Quick Build 小开关始终读取 Legacy mode_button 图集；Palette 只替换原像素颜色。 */
+    public BufferedImage quickBuildIndicator(UiTextureState state) {
+        if (state == null) throw new IllegalArgumentException("state must not be null");
+        UiThemeDefinition theme = UiThemeRuntime.manager().active();
+        BufferedImage source = image("textures/gui/general/mode_button.png");
+        if (theme.renderMode() == UiThemeRenderMode.LEGACY_DIRECT) return source;
+        String cacheKey = "generated/theme/" + theme.id()
+                + "/general/mode_button_" + textureStateName(state);
+        BufferedImage cached = images.get(cacheKey);
+        if (cached != null) return cached;
+        int width = source.getWidth();
+        int height = source.getHeight();
+        int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
+        int[] bakedArgb = UiPaletteTextureBaker.bake(
+                sourceArgb,
+                UiIndexedTextureSpec.LEGACY_MODE_BUTTON,
+                theme,
+                state);
+        BufferedImage baked = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        baked.setRGB(0, 0, width, height, bakedArgb, 0, width);
+        images.put(cacheKey, baked);
+        return baked;
+    }
+
+    /** 设置开关始终使用 Legacy 四态图集；Palette 主题只烘焙替换其索引色。 */
+    public BufferedImage settingsSwitch(UiTextureState state) {
+        if (state == null) throw new IllegalArgumentException("state must not be null");
+        UiThemeDefinition theme = UiThemeRuntime.manager().active();
+        BufferedImage source = image("textures/gui/general/switch_button.png");
+        if (theme.renderMode() == UiThemeRenderMode.LEGACY_DIRECT) return source;
+        String cacheKey = "generated/theme/" + theme.id()
+                + "/general/switch_button_" + textureStateName(state);
+        BufferedImage cached = images.get(cacheKey);
+        if (cached != null) return cached;
+        int width = source.getWidth();
+        int height = source.getHeight();
+        int[] sourceArgb = source.getRGB(0, 0, width, height, null, 0, width);
+        int[] bakedArgb = UiPaletteTextureBaker.bake(
+                sourceArgb,
+                UiIndexedTextureSpec.LEGACY_SETTINGS_SWITCH,
+                theme,
+                state);
+        BufferedImage baked = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        baked.setRGB(0, 0, width, height, bakedArgb, 0, width);
+        images.put(cacheKey, baked);
+        return baked;
     }
 }

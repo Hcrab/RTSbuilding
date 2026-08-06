@@ -179,6 +179,9 @@ final class BuilderScreenKeyboardSessionOwner {
             screen.shapeController.clearShapeBuildSession();
             screen.controller.setMode(mode);
             screen.controller.setFunnelEnabled(funnelEnabled);
+            if (mode != BuilderMode.LINK_STORAGE) {
+                screen.storageBatchSelection.deactivate(screen.getMinecraft(), false);
+            }
             screen.funnelHotkeyHeld = false;
             screen.funnelHotkeyTemporaryMode = false;
             screen.funnelMouseHoldButton = -1;

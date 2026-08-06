@@ -36,6 +36,10 @@ public interface BindingService {
      */
     void linkStorage(ServerPlayer player, BlockPos pos, byte linkMode);
 
+    /** 服务端扫描闭区间选区内的已加载储存端点，并以幂等方式批量链接。 */
+    void linkStoragesInSelection(
+            ServerPlayer player, BlockPos first, BlockPos second, byte linkMode);
+
     /**
      * 从玩家的 RTS 会话中解绑指定的存储方块。
      * 解绑后，该存储容器将不再可通过远程储存浏览器访问。

@@ -230,6 +230,7 @@ public static ClientRtsController get() {
     public void setStorageSearch(String search) { this.commandOwner.setStorageSearch(search); }
     public void setStorageCategory(String category) { this.commandOwner.setStorageCategory(category); }
     public void cycleSort() { this.commandOwner.cycleSort(); }
+    public void setStorageSort(RtsStorageSort sort) { this.commandOwner.setStorageSort(sort); }
     public void toggleSortDirection() { this.commandOwner.toggleSortDirection(); }
     public void prevPage() { this.commandOwner.prevPage(); }
     public void nextPage() { this.commandOwner.nextPage(); }

@@ -53,6 +53,8 @@ final class QuickBuildControlSurface {
     private boolean syncingChainLimit;
     private boolean syncingConvenience;
     private boolean syncingSmartFill;
+    /** 手绘模式行没有 Minecraft Widget，因此在此单独保留鼠标按下所有权。 */
+    private QuickBuildUiMode pressedMode;
 
     QuickBuildControlSurface(Consumer<QuickBuildUiAction> dispatch) {
         if (dispatch == null) {
@@ -196,11 +198,13 @@ final class QuickBuildControlSurface {
         prepare(state, layout, windowWidth);
         QuickBuildUiMode mode = layout.modeAt(mouseX, mouseY);
         if (mode != null) {
+            boolean enabled = mode != QuickBuildUiMode.DESTROY || state.destroyEnabled;
+            this.pressedMode = enabled ? mode : null;
             if (mode == QuickBuildUiMode.BUILD
                     && state.mode == QuickBuildUiMode.SMART_FILL) {
                 return true;
             }
-            if (mode != QuickBuildUiMode.DESTROY || state.destroyEnabled) {
+            if (enabled) {
                 this.dispatch.accept(QuickBuildUiAction.mode(mode));
             }
             return true;
@@ -266,7 +270,11 @@ final class QuickBuildControlSurface {
     boolean mouseReleased(double mouseX, double mouseY, int button) {
         // WindowButton 会在 mouseClicked 时锁定按下视觉；即使切换目录或工具，
         // 松开事件也必须广播给全部按钮，否则点过的按钮会永久显示为 pressed。
-        boolean handled = release(this.catalogButtons, mouseX, mouseY, button);
+        boolean handled = button == GLFW.GLFW_MOUSE_BUTTON_LEFT && this.pressedMode != null;
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+            this.pressedMode = null;
+        }
+        handled |= release(this.catalogButtons, mouseX, mouseY, button);
         handled |= release(this.convenienceToolButtons, mouseX, mouseY, button);
         handled |= this.smartFillToolButton != null
                 && this.smartFillToolButton.mouseReleased(mouseX, mouseY, button);
@@ -285,6 +293,10 @@ final class QuickBuildControlSurface {
             handled |= slider.mouseReleased(mouseX, mouseY, button);
         }
         return handled;
+    }
+
+    QuickBuildUiMode pressedMode() {
+        return this.pressedMode;
     }
 
     private static boolean release(
@@ -623,7 +635,6 @@ final class QuickBuildControlSurface {
         StringBuilder result = new StringBuilder(state.mode.name());
         for (QuickBuildUiShapeOption option : state.shapes) {
             result.append('|').append(option.shape.name())
-                    .append(':').append(option.selected)
                     .append(':').append(option.enabled);
         }
         return result.toString();

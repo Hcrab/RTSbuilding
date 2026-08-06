@@ -93,15 +93,19 @@ final class LinkedStoragePanelRenderer {
             LinkedStorageEntry platformEntry,
             StorageUiEntry coreEntry,
             boolean priorityEditing,
-            int mouseX,
-            int mouseY) {
+            double rowHover,
+            double priorityHover,
+            double extractHover,
+            double unlinkHover) {
         StorageWindowChromeRenderer.renderRow(
                 canvas,
                 geometry,
                 coreEntry,
                 priorityEditing,
-                mouseX,
-                mouseY);
+                rowHover,
+                priorityHover,
+                extractHover,
+                unlinkHover);
 
         ItemStack preview = platformEntry.preview();
         if (preview != null && !preview.isEmpty()) {
@@ -161,7 +165,7 @@ final class LinkedStoragePanelRenderer {
         StorageWindowStyle.FrameVisual extractVisual =
                 StorageWindowStyle.extract(
                         coreEntry.extractOnly,
-                        geometry.extract.contains(mouseX, mouseY));
+                        extractHover);
         String extractKey = coreEntry.extractOnly
                 ? "screen.rtsbuilding.storage_links.mode_yes"
                 : "screen.rtsbuilding.storage_links.mode_no";

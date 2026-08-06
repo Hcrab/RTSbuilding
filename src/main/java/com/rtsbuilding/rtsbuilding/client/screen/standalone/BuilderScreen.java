@@ -45,6 +45,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
+import com.rtsbuilding.rtsbuilding.client.screen.storage.StorageBatchSelectionSession;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
@@ -269,6 +270,10 @@ public void clearShapeBuildSession() {
         this.shapeController.clearShapeBuildSession();
     }
 
+public StorageBatchSelectionSession getStorageBatchSelection() {
+        return this.storageBatchSelection;
+    }
+
 public void rotateShapeByStep(int step) {
         this.shapeController.rotateShapeByStep(step);
     }
@@ -444,6 +449,7 @@ boolean forwardUnhandledKeyPressed(int keyCode, int scanCode, int modifiers) {
     boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleWorldInteractionKeys(keyCode, scanCode, modifiers); }
     boolean handlePlacedBlockRotationKey(int keyCode) { return this.keyboardActionOwner.handlePlacedBlockRotationKey(keyCode); }
     boolean handleSelectionBoxKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleSelectionBoxKeys(keyCode, scanCode, modifiers); }
+    boolean handleStorageBatchSelectionKey(int keyCode) { return this.keyboardActionOwner.handleStorageBatchSelectionKey(keyCode); }
     boolean handleBatchConfirmKey(int keyCode, int scanCode) { return this.keyboardActionOwner.handleBatchConfirmKey(keyCode, scanCode); }
     boolean handleSearchFocusKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleSearchFocusKeys(keyCode, scanCode, modifiers); }
     boolean handleToolSlotKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleToolSlotKeys(keyCode, scanCode, modifiers); }
@@ -453,6 +459,13 @@ boolean forwardUnhandledKeyPressed(int keyCode, int scanCode, int modifiers) {
     void handleRtsFlightToggle() { this.keyboardSessionOwner.handleRtsFlightToggle(); }
     boolean handleModeKeyPressed(int keyCode, int scanCode) { return this.keyboardSessionOwner.handleModeKeyPressed(keyCode, scanCode); }
     boolean switchToModeFromKey(BuilderMode mode, boolean funnelEnabled) { return this.keyboardSessionOwner.switchToModeFromKey(mode, funnelEnabled); }
+    boolean handleStorageBatchWorldClick(double mouseX, double mouseY) { return this.pointerActionOwner.handleStorageBatchWorldClick(mouseX, mouseY); }
+    boolean handleStorageBatchSelectionScroll(double mouseX, double mouseY, double scrollY) {
+        return this.storageBatchSelection.isActive()
+                && this.isWorldArea(mouseX, mouseY)
+                && this.storageBatchSelection.adjustHeight(
+                        this.minecraft, scrollY, this.isAltDownForInput());
+    }
     @Override
     public boolean charTyped(char codePoint, int modifiers) { return this.keyboardSessionOwner.charTyped(codePoint, modifiers); }
     @Override

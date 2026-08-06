@@ -120,6 +120,26 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
                     isEditingPriority(platformEntry.dimensionId(), platformEntry.pos());
             StorageWindowLayout.RowGeometry rowGeometry =
                     geometry.rows.get(rowIndex);
+            double rowHover = animateContentControl(
+                    "storage.row." + rowIndex,
+                    true,
+                    rowGeometry.row.contains(mouseX, mouseY),
+                    false).hover();
+            double priorityHover = animateContentControl(
+                    "storage.priority." + rowIndex,
+                    !priorityEditing,
+                    !priorityEditing && rowGeometry.priority.contains(mouseX, mouseY),
+                    priorityEditing).hover();
+            double extractHover = animateContentControl(
+                    "storage.extract." + rowIndex,
+                    true,
+                    rowGeometry.extract.contains(mouseX, mouseY),
+                    coreEntry.extractOnly).hover();
+            double unlinkHover = animateContentControl(
+                    "storage.unlink." + rowIndex,
+                    true,
+                    rowGeometry.unlink.contains(mouseX, mouseY),
+                    false).hover();
             LinkedStoragePanelRenderer.renderRow(
                     graphics,
                     this.screen.font(),
@@ -128,8 +148,10 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
                     platformEntry,
                     coreEntry,
                     priorityEditing,
-                    mouseX,
-                    mouseY);
+                    rowHover,
+                    priorityHover,
+                    extractHover,
+                    unlinkHover);
             if (priorityEditing) {
                 placePriorityInput(rowGeometry);
                 this.priorityInput.renderWidget(

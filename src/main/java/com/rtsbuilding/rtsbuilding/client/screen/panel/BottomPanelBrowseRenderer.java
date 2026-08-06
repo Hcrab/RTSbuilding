@@ -1,7 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelBrowseLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelBrowseStyle;
@@ -16,6 +20,9 @@ import net.minecraft.client.gui.GuiGraphics;
  * 不修改搜索值、不翻页，也不持有焦点。</p>
  */
 public final class BottomPanelBrowseRenderer {
+    private static final UiControlAnimationRegistry<String> ANIMATIONS =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 3);
+
     private BottomPanelBrowseRenderer() {
     }
 
@@ -26,11 +33,16 @@ public final class BottomPanelBrowseRenderer {
             boolean searchFocused,
             boolean hasSearchValue,
             int page,
-            int pageCount) {
+            int pageCount,
+            int mouseX,
+            int mouseY) {
+        double clearHover = hover("clear", layout.clearSearch.contains(mouseX, mouseY));
+        double previousHover = hover("previous", layout.previousPage.contains(mouseX, mouseY));
+        double nextHover = hover("next", layout.nextPage.contains(mouseX, mouseY));
         drawFrame(
                 new MinecraftUiCanvas(graphics, font),
                 layout.clearSearch,
-                BottomPanelBrowseStyle.clearBackground(searchFocused),
+                BottomPanelBrowseStyle.clearBackground(searchFocused, clearHover),
                 BottomPanelBrowseStyle.CLEAR_BORDER_LIGHT,
                 BottomPanelBrowseStyle.CLEAR_BORDER_DARK);
         drawCenteredNoShadow(
@@ -38,9 +50,9 @@ public final class BottomPanelBrowseRenderer {
                 BottomPanelBrowseStyle.clearText(hasSearchValue).toArgb());
 
         fill(graphics, layout.previousPage,
-                BottomPanelBrowseStyle.PAGE_BUTTON_BACKGROUND.toArgb());
+                BottomPanelBrowseStyle.pageBackground(previousHover).toArgb());
         fill(graphics, layout.nextPage,
-                BottomPanelBrowseStyle.PAGE_BUTTON_BACKGROUND.toArgb());
+                BottomPanelBrowseStyle.pageBackground(nextHover).toArgb());
         drawCenteredNoShadow(
                 graphics, font, "<", layout.previousPage,
                 BottomPanelBrowseStyle.TEXT.toArgb());
@@ -54,6 +66,13 @@ public final class BottomPanelBrowseRenderer {
                 layout.previousPage.y + BottomPanelBrowseLayout.PAGE_TEXT_TOP,
                 BottomPanelBrowseStyle.TEXT.toArgb(),
                 false);
+    }
+
+    private static double hover(String id, boolean hovered) {
+        return ANIMATIONS.update(
+                id,
+                UiControlState.enabled().withInteraction(hovered, false, false),
+                Config.isUiAnimationsEnabled()).hover();
     }
 
     private static void drawFrame(

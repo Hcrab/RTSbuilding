@@ -25,7 +25,7 @@ final class BlueprintNameDialog {
 
     /** 直接消费 Core 快照，避免生产窗与离屏窗各自拼装一套字段。 */
     static void renderCoreContent(GuiGraphics g, Font font, int x, int y, int w, int h,
-            int mouseX, int mouseY, BlueprintUiState state) {
+            BlueprintUiState state, double confirmHover, double cancelHover) {
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         int textY = y + BlueprintWindowLayout.NAME_SUMMARY_TOP;
         if (state.captureNameMode) {
@@ -66,15 +66,11 @@ final class BlueprintNameDialog {
         drawCoreButton(g, font, canvas, layout.confirmX, layout.buttonY,
                 BlueprintWindowLayout.NAME_CONFIRM_W, BlueprintWindowLayout.NAME_BUTTON_H,
                 text("screen.rtsbuilding.blueprints.name_dialog_confirm"),
-                UiRect.contains(layout.confirmX, layout.buttonY,
-                        BlueprintWindowLayout.NAME_CONFIRM_W,
-                        BlueprintWindowLayout.NAME_BUTTON_H, mouseX, mouseY));
+                confirmHover);
         drawCoreButton(g, font, canvas, layout.cancelX, layout.buttonY,
                 BlueprintWindowLayout.NAME_CANCEL_W, BlueprintWindowLayout.NAME_BUTTON_H,
                 text("screen.rtsbuilding.blueprints.name_dialog_cancel"),
-                UiRect.contains(layout.cancelX, layout.buttonY,
-                        BlueprintWindowLayout.NAME_CANCEL_W,
-                        BlueprintWindowLayout.NAME_BUTTON_H, mouseX, mouseY));
+                cancelHover);
     }
 
     static ClickResult clickContent(double mouseX, double mouseY, int x, int y, int w, int h) {
@@ -100,10 +96,9 @@ final class BlueprintNameDialog {
 
     /** 当前窗口化命名流程使用共享九宫格。 */
     private static void drawCoreButton(GuiGraphics g, Font font, MinecraftUiCanvas canvas,
-            int x, int y, int w, int h, String label, boolean hovered) {
+            int x, int y, int w, int h, String label, double hoverStrength) {
         UiChromeRenderer.frame(canvas, new UiRect(x, y, w, h), 1.0D,
-                hovered ? BlueprintDialogStyle.BUTTON_HOVER_BACKGROUND
-                        : BlueprintDialogStyle.BUTTON_BACKGROUND,
+                BlueprintDialogStyle.buttonBackground(hoverStrength),
                 BlueprintDialogStyle.BUTTON_BORDER, BlueprintDialogStyle.BUTTON_DARK_BORDER);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, font,
                 trim(font, label, w - BlueprintWindowLayout.NAME_BUTTON_TEXT_INSET),

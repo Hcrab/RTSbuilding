@@ -30,15 +30,7 @@ public final class CraftTerminalRenderer {
             int top,
             CraftTerminalLayout.Geometry layout,
             CraftTerminalScrollState scrollState,
-            int totalEntries,
-            boolean searchFocused,
-            boolean searchHasText,
-            CraftTerminalSearchMode searchMode,
-            boolean searchPinned,
-            int sortMode,
-            boolean ascending,
-            int mouseX,
-            int mouseY) {
+            int totalEntries) {
         renderContributorSkin(
                 graphics,
                 left,
@@ -65,6 +57,24 @@ public final class CraftTerminalRenderer {
                     RtsClientUiUtil.compactCount(entry.count()),
                     CraftTerminalStyle.COUNT_TEXT.toArgb());
         }
+    }
+
+    /** 在贡献者原始像素皮肤上叠加轻量平滑反馈，不重绘也不拉伸按钮素材。 */
+    public static void renderActionHover(
+            GuiGraphics graphics,
+            int left,
+            int top,
+            UiRect bounds,
+            double hoverStrength) {
+        if (bounds == null || hoverStrength <= 0.0D) {
+            return;
+        }
+        graphics.fill(
+                left + (int) bounds.getX(),
+                top + (int) bounds.getY(),
+                left + (int) bounds.getX() + (int) bounds.getWidth(),
+                top + (int) bounds.getY() + (int) bounds.getHeight(),
+                CraftTerminalStyle.buttonHoverOverlay(hoverStrength).toArgb());
     }
 
     /** 按贡献者原图像素 1:1 贴合终端主体，禁止运行时拉伸。 */

@@ -37,6 +37,11 @@ public final class RtsStoragePackets {
                 RtsBindingHandlers::handleLinkStorage);
 
         registrar.playToServer(
+                C2SRtsBatchLinkStoragePayload.TYPE,
+                C2SRtsBatchLinkStoragePayload.STREAM_CODEC,
+                RtsBindingHandlers::handleBatchLinkStorage);
+
+        registrar.playToServer(
                 C2SRtsUnlinkStoragePayload.TYPE,
                 C2SRtsUnlinkStoragePayload.STREAM_CODEC,
                 RtsBindingHandlers::handleUnlinkStorage);

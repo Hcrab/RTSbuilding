@@ -49,8 +49,26 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
         if (!state.nameWindowOpen) {
             return;
         }
+        BlueprintWindowLayout.NameDialogGeometry layout = BlueprintWindowLayout.nameDialog(
+                contentX(), contentY(), contentWidth(), contentHeight());
+        double confirmHover = animateContentControl(
+                "blueprint_name.confirm",
+                true,
+                com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect.contains(
+                        layout.confirmX, layout.buttonY,
+                        BlueprintWindowLayout.NAME_CONFIRM_W,
+                        BlueprintWindowLayout.NAME_BUTTON_H, mouseX, mouseY),
+                false).hover();
+        double cancelHover = animateContentControl(
+                "blueprint_name.cancel",
+                true,
+                com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect.contains(
+                        layout.cancelX, layout.buttonY,
+                        BlueprintWindowLayout.NAME_CANCEL_W,
+                        BlueprintWindowLayout.NAME_BUTTON_H, mouseX, mouseY),
+                false).hover();
         BlueprintNameDialog.renderCoreContent(g, screen.font(), contentX(), contentY(),
-                contentWidth(), contentHeight(), mouseX, mouseY, state);
+                contentWidth(), contentHeight(), state, confirmHover, cancelHover);
     }
 
     @Override

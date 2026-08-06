@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.uikit.theme;
 
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
+
 /**
  * 快速建造窗口的共享语义色板。
  *
@@ -11,13 +13,16 @@ public final class QuickBuildStyle {
     public static final UiColor MODE_IDLE_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_IDLE, 0XFF141C26);
     public static final UiColor MODE_HOVER_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_HOVER, 0XFF223040);
     public static final UiColor MODE_ACTIVE_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_SELECTED, 0XFF29583E);
+    public static final UiColor MODE_PRESSED_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_PRESSED, 0XFF17344A);
     public static final UiColor MODE_DISABLED_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.CONTROL_DISABLED, 0XFF111720);
     public static final UiColor MODE_IDLE_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XFF647B92);
     public static final UiColor MODE_HOVER_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.FOCUS_RING, 0XFF7B91A6);
     public static final UiColor MODE_ACTIVE_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ACCENT_PRIMARY, 0XFF5FE36C);
+    public static final UiColor MODE_PRESSED_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ACCENT_SECONDARY, 0XFFFF8EAD);
     public static final UiColor MODE_DISABLED_BORDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XFF3A4652);
     public static final UiColor MODE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XFFD8E3EE);
     public static final UiColor MODE_ACTIVE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_PRIMARY, 0XFFD8FFE0);
+    public static final UiColor MODE_PRESSED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_ON_ACCENT, 0XFFFFFFFF);
     public static final UiColor MODE_DISABLED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.TEXT_MUTED, 0XFF7B8794);
     public static final UiColor MODE_ANIMATION_OVERLAY =
             RtsMainlineTheme.SELECTION_ANIMATION_OVERLAY;
@@ -44,7 +49,7 @@ public final class QuickBuildStyle {
     public static final UiColor INDICATOR_IDLE_EDGE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.BORDER_STRONG, 0XFF647B92);
     public static final UiColor INDICATOR_SELECTED_EDGE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ACCENT_PRIMARY, 0XFF7CCB93);
     public static final UiColor INDICATOR_IDLE_GLYPH = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ICON_MUTED, 0XFF9FB0C2);
-    public static final UiColor INDICATOR_SELECTED_GLYPH = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.ICON_ON_ACCENT, 0XFFF4FBF5);
+    public static final UiColor INDICATOR_SELECTED_GLYPH = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.QUICK_BUILD, UiThemeToken.SWITCH_THUMB, 0XFF72F07A);
 
     private QuickBuildStyle() {
     }
@@ -68,6 +73,37 @@ public final class QuickBuildStyle {
                 MODE_TEXT);
     }
 
+    /**
+     * 把通用控件的悬停、选中和禁用通道混合成快速建造模式按钮的最终颜色。
+     * 业务模式会立即切换，只有背景、边框和文字颜色追随短动效。
+     */
+    public static ModeVisual animatedMode(UiControlAnimationState.Snapshot animation) {
+        if (animation == null) {
+            throw new IllegalArgumentException("animation");
+        }
+        UiColor background = UiColor.interpolate(
+                MODE_IDLE_BACKGROUND, MODE_HOVER_BACKGROUND, animation.hover());
+        UiColor border = UiColor.interpolate(
+                MODE_IDLE_BORDER, MODE_HOVER_BORDER, animation.hover());
+        UiColor text = MODE_TEXT;
+        background = UiColor.interpolate(
+                background, MODE_ACTIVE_BACKGROUND, animation.selection());
+        border = UiColor.interpolate(
+                border, MODE_ACTIVE_BORDER, animation.selection());
+        text = UiColor.interpolate(text, MODE_ACTIVE_TEXT, animation.selection());
+        background = UiColor.interpolate(
+                background, MODE_PRESSED_BACKGROUND, animation.press());
+        border = UiColor.interpolate(
+                border, MODE_PRESSED_BORDER, animation.press());
+        text = UiColor.interpolate(text, MODE_PRESSED_TEXT, animation.press());
+        background = UiColor.interpolate(
+                background, MODE_DISABLED_BACKGROUND, animation.disabled());
+        border = UiColor.interpolate(
+                border, MODE_DISABLED_BORDER, animation.disabled());
+        text = UiColor.interpolate(text, MODE_DISABLED_TEXT, animation.disabled());
+        return new ModeVisual(background, border, text);
+    }
+
     /** Palette 轨道的小型工具状态标记；Legacy 仍由原三帧纹理完整接管。 */
     public static ControlIndicatorVisual controlIndicator(boolean selected, boolean hovered) {
         return new ControlIndicatorVisual(
@@ -76,6 +112,27 @@ public final class QuickBuildStyle {
                 selected ? INDICATOR_SELECTED_BACKGROUND
                         : hovered ? INDICATOR_HOVER_BACKGROUND : INDICATOR_IDLE_BACKGROUND,
                 selected ? INDICATOR_SELECTED_GLYPH : INDICATOR_IDLE_GLYPH);
+    }
+
+    /**
+     * 右栏状态块的连续视觉快照。状态值立即切换，颜色只追随统一短动画；
+     * 因而快速点击不会改变行按钮几何，也不会出现瞬间跳色。
+     */
+    public static ControlIndicatorVisual animatedControlIndicator(
+            UiControlAnimationState.Snapshot animation) {
+        if (animation == null) {
+            throw new IllegalArgumentException("animation");
+        }
+        UiColor lightEdge = UiColor.interpolate(
+                INDICATOR_IDLE_EDGE, INDICATOR_SELECTED_EDGE, animation.selection());
+        UiColor background = UiColor.interpolate(
+                INDICATOR_IDLE_BACKGROUND, INDICATOR_HOVER_BACKGROUND, animation.hover());
+        background = UiColor.interpolate(
+                background, INDICATOR_SELECTED_BACKGROUND, animation.selection());
+        UiColor glyph = UiColor.interpolate(
+                INDICATOR_IDLE_GLYPH, INDICATOR_SELECTED_GLYPH, animation.selection());
+        return new ControlIndicatorVisual(
+                INDICATOR_DARK_EDGE, lightEdge, background, glyph);
     }
 
     /** 单个模式按钮已解析的视觉；不携带业务模式枚举，方便其它版本复用。 */

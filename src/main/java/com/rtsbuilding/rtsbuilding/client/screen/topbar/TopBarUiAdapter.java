@@ -96,6 +96,9 @@ final class TopBarUiAdapter {
         controller.setMode(mode);
         controller.setFunnelEnabled(false);
         screen.clearShapeBuildSession();
+        if (mode != BuilderMode.LINK_STORAGE) {
+            screen.getStorageBatchSelection().deactivate(screen.getMinecraft(), false);
+        }
     }
 
     private static TopBarUiButton button(TopBarUiButtonId id, boolean visible, boolean active) {

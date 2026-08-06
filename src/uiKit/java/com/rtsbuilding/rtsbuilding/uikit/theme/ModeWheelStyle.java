@@ -42,11 +42,21 @@ public final class ModeWheelStyle {
     }
 
     public static UiColor pageBorder(boolean hovered) {
-        return hovered ? OPTION_BORDER_HOVER : OPTION_BORDER_IDLE;
+        return pageBorder(hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor pageBorder(double hoverProgress) {
+        return UiColor.interpolate(
+                OPTION_BORDER_IDLE, OPTION_BORDER_HOVER, hoverProgress);
     }
 
     public static UiColor pageBackground(boolean hovered) {
-        return hovered ? OPTION_BACKGROUND_HOVER : OPTION_BACKGROUND_IDLE;
+        return pageBackground(hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor pageBackground(double hoverProgress) {
+        return UiColor.interpolate(
+                OPTION_BACKGROUND_IDLE, OPTION_BACKGROUND_HOVER, hoverProgress);
     }
 
     /** 按原颜色的透明通道缩放，并把异常进度钳制到可绘制范围。 */

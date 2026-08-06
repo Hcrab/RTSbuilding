@@ -67,6 +67,8 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         boolean hovered = isInsideWindow(mouseX, mouseY);
+        double hover = animateContentControl(
+                "open_linked_storage", true, hovered, false).hover();
         int x = contentX();
         int y = contentY();
         int w = contentWidth();
@@ -74,8 +76,8 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
                 new MinecraftUiCanvas(g, screen.font(), screen),
                 new UiRect(x, y, w, contentHeight()),
                 1.0D,
-                StorageLinkDetailStyle.background(hovered),
-                StorageLinkDetailStyle.border(hovered),
+                StorageLinkDetailStyle.background(hover),
+                StorageLinkDetailStyle.border(hover),
                 StorageLinkDetailStyle.BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
                 screen.trimToWidth(this.actionLabel, Math.max(8, contentWidth() - 8)),

@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -29,5 +30,12 @@ class ModeWheelStyleTest {
                 ModeWheelStyle.multiplyAlpha(new UiColor(0x80FFFFFF), 2.0D).toArgb());
         assertThrows(IllegalArgumentException.class,
                 () -> ModeWheelStyle.multiplyAlpha(null, 1.0D));
+    }
+
+    @Test
+    void pageButtonsUseContinuousHoverColors() {
+        UiColor middle = ModeWheelStyle.pageBackground(0.5D);
+        assertNotEquals(ModeWheelStyle.OPTION_BACKGROUND_IDLE, middle);
+        assertNotEquals(ModeWheelStyle.OPTION_BACKGROUND_HOVER, middle);
     }
 }

@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BindingService;
+import com.rtsbuilding.rtsbuilding.server.service.bindings.RtsBatchStorageBindingService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
@@ -58,6 +59,15 @@ public final class RtsBindingServiceImpl implements BindingService {
         if (!RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         applyUpdate(player, session, RtsStorageBindings.linkStorage(player, session, pos, linkMode));
+    }
+
+    @Override
+    public void linkStoragesInSelection(
+            ServerPlayer player, BlockPos first, BlockPos second, byte linkMode) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.LINK_STORAGE)) return;
+        RtsStorageSession session = registry.session().getOrCreate(player);
+        applyUpdate(player, session, RtsBatchStorageBindingService.linkLoadedStorages(
+                player, session, first, second, linkMode));
     }
 
     @Override

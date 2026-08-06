@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.funnel;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
@@ -9,6 +10,10 @@ import com.rtsbuilding.rtsbuilding.uicore.funnel.FunnelUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.funnel.FunnelUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.funnel.FunnelUiState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.FunnelBufferChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.FunnelBufferLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.FunnelBufferStyle;
@@ -21,6 +26,10 @@ public final class FunnelBufferPanel {
     private ClientRtsController controller;
     private boolean funnelBufferVisible = true;
     private int hoveredEntry = -1;
+    private final UiControlAnimationState toggleAnimation =
+            new UiControlAnimationState(SystemUiClock.INSTANCE);
+    private final UiControlAnimationRegistry<Integer> rowAnimations =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 256);
 
     public void init(BuilderScreen screen, ClientRtsController controller) {
         this.screen = screen;
@@ -40,7 +49,18 @@ public final class FunnelBufferPanel {
         }
 
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
-        FunnelBufferChromeRenderer.renderToggle(canvas, geometry.toggle, state.panelVisible);
+        FunnelBufferLayout.Hit hover = geometry.hitAt(
+                mouseX, mouseY, state.visibleEntries.size(), state.panelVisible);
+        UiControlAnimationState.Snapshot toggleVisual = this.toggleAnimation.update(
+                new UiControlState(
+                        true, true,
+                        hover.target == FunnelBufferLayout.Target.TOGGLE,
+                        false, false, state.panelVisible,
+                        false, false, ""),
+                Config.isUiAnimationsEnabled());
+        FunnelBufferChromeRenderer.renderToggle(
+                canvas, geometry.toggle,
+                toggleVisual.selection(), toggleVisual.hover());
         int toggleX = (int) geometry.toggle.getX();
         int toggleY = (int) geometry.toggle.getY();
         g.drawCenteredString(screen.font(), "BUFFER",
@@ -56,8 +76,6 @@ public final class FunnelBufferPanel {
         g.drawString(screen.font(), "Funnel Buffer", panelX + 6, panelY + 4,
                 FunnelBufferStyle.TITLE_TEXT.toArgb());
 
-        FunnelBufferLayout.Hit hover =
-                geometry.hitAt(mouseX, mouseY, state.visibleEntries.size(), true);
         for (int i = 0; i < state.visibleEntries.size(); i++) {
             FunnelUiEntry row = state.visibleEntries.get(i);
             int entryIndex = row.sourceIndex;
@@ -65,7 +83,14 @@ public final class FunnelBufferPanel {
             UiRect slotBounds = geometry.slot(i);
             boolean hovered = hover.target == FunnelBufferLayout.Target.ROW
                     && hover.visibleRowIndex == i;
-            FunnelBufferChromeRenderer.renderRow(canvas, rowBounds, slotBounds, hovered);
+            double hoverProgress = this.rowAnimations.update(
+                    entryIndex,
+                    new UiControlState(
+                            true, true, hovered, false, false,
+                            false, false, false, ""),
+                    Config.isUiAnimationsEnabled()).hover();
+            FunnelBufferChromeRenderer.renderRow(
+                    canvas, rowBounds, slotBounds, hoverProgress);
             int rowX = (int) rowBounds.getX();
             int rowY = (int) rowBounds.getY();
             int rowW = (int) rowBounds.getWidth();

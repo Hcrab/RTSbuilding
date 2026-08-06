@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.controller.PluginStateManager;
 import com.rtsbuilding.rtsbuilding.client.plugin.RtsClientPluginCatalog;
@@ -7,6 +8,10 @@ import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.PluginManagementLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.PluginManagementStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
@@ -38,6 +43,8 @@ public final class RtsPluginManagementScreen extends Screen {
     private ItemStack hoveredInstalledStack = ItemStack.EMPTY;
     private int installedScroll;
     private int refreshFeedbackTicks;
+    private final UiControlAnimationRegistry<String> controlAnimations =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 96);
 
     private int installX;
     private int installY;
@@ -257,11 +264,14 @@ public final class RtsPluginManagementScreen extends Screen {
                 this.hoveredInstalledPluginId = plugin.pluginId();
                 this.hoveredInstalledStack = plugin.stack();
             }
+            String visibleRowId = "installed." + (i - this.installedScroll);
+            double rowHover = animate(
+                    visibleRowId, hover, false);
             canvas.fill(x + PluginManagementLayout.ROW_HORIZONTAL_INSET, rowY,
                     w - PluginManagementLayout.ROW_HORIZONTAL_INSET * 2,
                     PluginManagementLayout.INSTALLED_ROW_H
                             - PluginManagementLayout.ROW_BOTTOM_INSET,
-                    hover ? PluginManagementStyle.ROW_HOVER : PluginManagementStyle.ROW_BACKGROUND);
+                    PluginManagementStyle.rowBackground(rowHover));
             ItemStack stack = plugin.stack();
             if (!stack.isEmpty()) {
                 g.renderItem(stack,
@@ -282,9 +292,17 @@ public final class RtsPluginManagementScreen extends Screen {
                     PluginManagementStyle.SECONDARY_TEXT.toArgb(), false);
             if (plugin.personal()) {
                 int uninstallX = x + w - PluginManagementLayout.UNINSTALL_RIGHT_INSET;
+                boolean uninstallHovered = inside(
+                        mouseX, mouseY,
+                        uninstallX,
+                        rowY + PluginManagementLayout.UNINSTALL_TOP,
+                        PluginManagementLayout.UNINSTALL_W,
+                        PluginManagementLayout.UNINSTALL_H);
+                double uninstallHover = animate(
+                        visibleRowId + ".uninstall", uninstallHovered, false);
                 canvas.fill(uninstallX, rowY + PluginManagementLayout.UNINSTALL_TOP,
                         PluginManagementLayout.UNINSTALL_W, PluginManagementLayout.UNINSTALL_H,
-                        PluginManagementStyle.DANGER_BACKGROUND);
+                        PluginManagementStyle.dangerBackground(uninstallHover));
                 RtsClientUiUtil.drawCenteredStringNoShadow(
                         g, this.font,
                         Component.translatable("screen.rtsbuilding.plugins.uninstall"),
@@ -305,21 +323,20 @@ public final class RtsPluginManagementScreen extends Screen {
         this.installW = w;
         this.installH = PluginManagementLayout.INSTALL_H;
         boolean hover = inside(mouseX, mouseY, x, y, w, this.installH);
+        double installHover = animate("install", hover, false);
         drawFrame(canvas, x, y, w, this.installH,
-                hover ? PluginManagementStyle.INSTALL_HOVER : PluginManagementStyle.INSTALL_BACKGROUND,
-                hover ? PluginManagementStyle.INSTALL_HOVER_BORDER : PluginManagementStyle.INSTALL_BORDER);
+                PluginManagementStyle.installBackground(installHover),
+                PluginManagementStyle.installBorder(installHover));
         this.refreshW = PluginManagementLayout.REFRESH_W;
         this.refreshH = PluginManagementLayout.REFRESH_H;
         this.refreshX = x + w - this.refreshW - PluginManagementLayout.REFRESH_RIGHT_INSET;
         this.refreshY = y + PluginManagementLayout.REFRESH_TOP;
         boolean refreshHover = inside(mouseX, mouseY, this.refreshX, this.refreshY, this.refreshW, this.refreshH);
-        UiColor refreshFill = this.refreshFeedbackTicks > 0
-                ? PluginManagementStyle.REFRESH_SUCCESS
-                : refreshHover ? PluginManagementStyle.REFRESH_HOVER
-                : PluginManagementStyle.REFRESH_BACKGROUND;
+        double refreshHoverStrength = animate("refresh", refreshHover, false);
+        UiColor refreshFill = PluginManagementStyle.refreshBackground(
+                this.refreshFeedbackTicks > 0, refreshHoverStrength);
         drawFrame(canvas, this.refreshX, this.refreshY, this.refreshW, this.refreshH, refreshFill,
-                refreshHover ? PluginManagementStyle.REFRESH_HOVER_BORDER
-                        : PluginManagementStyle.REFRESH_BORDER);
+                PluginManagementStyle.refreshBorder(refreshHoverStrength));
         RtsClientUiUtil.drawCenteredStringNoShadow(
                 g, this.font, Component.translatable("screen.rtsbuilding.plugins.refresh"),
                 this.refreshX + this.refreshW / 2,
@@ -358,10 +375,12 @@ public final class RtsPluginManagementScreen extends Screen {
             if (hover) {
                 this.hoveredInventorySlot = inventorySlot;
             }
-            UiColor fill = selected ? PluginManagementStyle.SLOT_SELECTED
-                    : plugin ? PluginManagementStyle.SLOT_PLUGIN : PluginManagementStyle.SLOT_BACKGROUND;
+            UiControlAnimationState.Snapshot slotAnimation = animateState(
+                    "inventory." + i, hover, selected);
+            UiColor fill = PluginManagementStyle.slotBackground(
+                    plugin, slotAnimation.selection());
             drawFrame(canvas, sx, sy, slot.width, slot.height, fill,
-                    hover ? PluginManagementStyle.SLOT_HOVER_BORDER : PluginManagementStyle.SLOT_BORDER);
+                    PluginManagementStyle.slotBorder(slotAnimation.hover()));
             if (!stack.isEmpty()) {
                 g.renderItem(stack,
                         sx + PluginManagementLayout.SLOT_CONTENT_INSET,
@@ -378,6 +397,19 @@ public final class RtsPluginManagementScreen extends Screen {
             return this.hoveredInstalledPluginId;
         }
         return "";
+    }
+
+    private double animate(String stableId, boolean hovered, boolean selected) {
+        return animateState(stableId, hovered, selected).hover();
+    }
+
+    private UiControlAnimationState.Snapshot animateState(
+            String stableId, boolean hovered, boolean selected) {
+        UiControlState state = new UiControlState(
+                true, selected, false, false, "")
+                .withInteraction(hovered, false, false);
+        return this.controlAnimations.update(
+                stableId, state, Config.isUiAnimationsEnabled());
     }
 
     private int installedUninstallX() {

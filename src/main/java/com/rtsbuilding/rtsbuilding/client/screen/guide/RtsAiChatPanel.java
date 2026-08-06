@@ -1,15 +1,17 @@
 package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
-import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.theme.DefaultButtonTextureRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
 import com.rtsbuilding.rtsbuilding.uikit.theme.AiChatStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -72,7 +74,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         int footerY = contentY() + contentHeight() - PAD - INPUT_H;
         int refreshW = 70;
 
-        drawButton(g, x + w - refreshW, y, refreshW, BUTTON_H, mouseX, mouseY,
+        drawButton(g, "refresh", x + w - refreshW, y, refreshW, BUTTON_H, mouseX, mouseY,
                 Component.translatable("screen.rtsbuilding.ai_chat.refresh"), false);
         String limit = Component.translatable("screen.rtsbuilding.ai_chat.turns",
                 this.session.exchangeCount(), RtsAiConversation.MAX_EXCHANGES).getString();
@@ -115,7 +117,7 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         this.input.setWidth(inputW);
         this.input.setEditable(!this.session.waiting());
         this.input.render(g, mouseX, mouseY, partialTick);
-        drawButton(g, x + inputW + 6, footerY, sendW, INPUT_H, mouseX, mouseY,
+        drawButton(g, "send", x + inputW + 6, footerY, sendW, INPUT_H, mouseX, mouseY,
                 Component.translatable(this.session.waiting()
                         ? "screen.rtsbuilding.ai_chat.waiting"
                         : "screen.rtsbuilding.ai_chat.send"), this.session.waiting());
@@ -291,19 +293,25 @@ public final class RtsAiChatPanel extends RtsWindowPanel {
         }
     }
 
-    private void drawButton(GuiGraphics g, int x, int y, int w, int h,
+    private void drawButton(GuiGraphics g, String stableId, int x, int y, int w, int h,
                             int mouseX, int mouseY, Component label, boolean disabled) {
         boolean hovered = !disabled && inside(mouseX, mouseY, x, y, w, h);
-        WindowButtonChromeRenderer.renderSolid(
-                new MinecraftUiCanvas(g, screen.font(), screen),
+        UiControlAnimationState.Snapshot animation = animateContentControl(
+                "ai_chat_" + stableId, !disabled, hovered, false);
+        UiControlVisualStyle visual = UiControlVisualStyle.animated(
+                "send".equals(stableId) ? UiControlRole.PRIMARY_ACTION : UiControlRole.COMMAND,
+                animation);
+        DefaultButtonTextureRenderer.renderAnimated(
+                g,
                 new UiRect(x, y, w, h),
-                hovered);
+                animation,
+                visual.getOverlay());
         String text = RtsClientUiUtil.trimToWidth(
                 screen.font(), label.getString(), w - TEXT_HORIZONTAL_INSET);
         g.drawString(screen.font(), text,
                 x + Math.max(4, (w - screen.font().width(text)) / 2),
                 y + (h - screen.font().lineHeight) / 2,
-                WindowButtonStyle.text(!disabled).toArgb(), false);
+                visual.getText().toArgb(), false);
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {

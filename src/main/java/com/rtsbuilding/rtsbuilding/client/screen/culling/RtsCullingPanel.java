@@ -53,9 +53,12 @@ public final class RtsCullingPanel extends RtsWindowPanel {
         drawLine(g, text("screen.rtsbuilding.culling.selected", state.selectedId),
                 x, CullingWindowLayout.selectedRowY(contentY()), CullingWindowStyle.PRIMARY_TEXT,
                 CullingWindowLayout.selectedTextWidth(w));
+        boolean hovered = isDeleteButtonHovered(mouseX, mouseY);
+        double hover = animateContentControl(
+                "delete_selected", manager.selectedId() >= 0, hovered, false).hover();
         drawWideButton(g, deleteX, CullingWindowLayout.deleteButtonRowY(contentY()),
                 text("screen.rtsbuilding.culling.delete_button"),
-                isDeleteButtonHovered(mouseX, mouseY));
+                hover);
         drawLine(g, text("screen.rtsbuilding.culling.dimensions",
                         state.width, state.height, state.depth),
                 x, CullingWindowLayout.dimensionRowY(contentY()),
@@ -64,13 +67,13 @@ public final class RtsCullingPanel extends RtsWindowPanel {
                 x, CullingWindowLayout.hintRowY(contentY()), CullingWindowStyle.MUTED_TEXT, w);
     }
 
-    private void drawWideButton(GuiGraphics g, int x, int y, String label, boolean hovered) {
+    private void drawWideButton(GuiGraphics g, int x, int y, String label, double hoverStrength) {
         CullingWindowChromeRenderer.renderDeleteButton(
                 new MinecraftUiCanvas(g, screen.font(), screen),
                 new UiRect(x, CullingWindowLayout.buttonTop(y),
                         CullingWindowLayout.DELETE_BUTTON_WIDTH,
                         CullingWindowLayout.buttonHeight()),
-                hovered);
+                hoverStrength);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
                 screen.trimToWidth(label, CullingWindowLayout.deleteButtonTextWidth()),
                 x + CullingWindowLayout.DELETE_BUTTON_WIDTH / 2,

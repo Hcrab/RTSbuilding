@@ -106,6 +106,10 @@ final class ClientRtsCommandOwner {
             controller.storageStateManager.cycleSort();
         }
 
+    void setStorageSort(RtsStorageSort sort) {
+            controller.storageStateManager.setStorageSort(sort);
+        }
+
     void toggleSortDirection() {
             controller.storageStateManager.toggleSortDirection();
         }

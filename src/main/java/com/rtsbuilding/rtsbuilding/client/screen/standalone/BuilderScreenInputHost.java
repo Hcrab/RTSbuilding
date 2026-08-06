@@ -111,6 +111,15 @@ final class BuilderScreenInputHost {
         return screen.handleSelectionBoxKeys(keyCode, scanCode, modifiers);
     }
 
+    boolean handleStorageBatchSelectionKey(int keyCode) {
+        return screen.handleStorageBatchSelectionKey(keyCode);
+    }
+
+    boolean handleStorageBatchSelectionScroll(
+            double mouseX, double mouseY, double scrollY) {
+        return screen.handleStorageBatchSelectionScroll(mouseX, mouseY, scrollY);
+    }
+
     boolean handleToolSlotKeys(int keyCode, int scanCode, int modifiers) {
         return screen.handleToolSlotKeys(keyCode, scanCode, modifiers);
     }

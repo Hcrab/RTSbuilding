@@ -243,11 +243,10 @@ class UiProductionAdapterContractTest {
         assertFalse(previewCanvas.contains("UiNineSliceLayout"));
         assertTrue(topBar.contains("UiStateBlendAnimationSet<"));
         assertTrue(topBar.contains("SystemUiClock.INSTANCE"));
-        for (String production : new String[]{
-                quickBuild + quickBuildRenderer, bottomPanel}) {
-            assertTrue(production.contains("UiSelectionAnimationSet<"));
-            assertTrue(production.contains("SystemUiClock.INSTANCE"));
-        }
+        assertTrue((quickBuild + quickBuildRenderer).contains("UiControlAnimationState"));
+        assertTrue((quickBuild + quickBuildRenderer).contains("SystemUiClock.INSTANCE"));
+        assertTrue(bottomPanel.contains("UiSelectionAnimationSet<"));
+        assertTrue(bottomPanel.contains("SystemUiClock.INSTANCE"));
     }
 
     @Test
@@ -459,7 +458,7 @@ class UiProductionAdapterContractTest {
         assertTrue(read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelInputRouter.java")
                 .contains("sortLayout.controlAt(mouseX, mouseY)"));
-        assertTrue(renderer.contains("BottomPanelSortStyle.BUTTON_BACKGROUND"));
+        assertTrue(renderer.contains("BottomPanelSortStyle.buttonBackground("));
         assertTrue(renderer.contains("graphics.drawString("));
         assertTrue(preview.contains("BottomPanelSortLayout.resolve("));
         assertTrue(preview.contains("BottomPanelSortStyle.BUTTON_BACKGROUND"));
@@ -564,7 +563,7 @@ class UiProductionAdapterContractTest {
         assertTrue(controlSurface.contains("layout.controlY(i)"));
         assertTrue(controlSurface.contains("QuickBuildWindowLayout.CHAIN_SLIDER_H"));
         assertTrue(controlSurface.contains("if (!this.syncingChainLimit)"));
-        assertTrue(controlRenderer.contains("QuickBuildStyle.mode("));
+        assertTrue(controlRenderer.contains("QuickBuildStyle.animatedMode("));
         assertTrue(controlRenderer.contains("QuickBuildChromeRenderer.renderMode("));
         assertTrue(controlRenderer.contains("QuickBuildWindowLayout.CONTROL_ICON_INSET"));
         assertTrue(controlRenderer.contains("QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET"));
@@ -671,7 +670,7 @@ class UiProductionAdapterContractTest {
         assertTrue(blueprint.contains("WorkflowResumeWindowLayout.blueprint("));
         assertTrue(blueprint.contains("WorkflowResumeWindowLayout.scrollBlueprint("));
         assertTrue(blueprint.contains("geometry().hitAction("));
-        assertTrue(placementRenderer.contains("WorkflowResumeChromeRenderer.renderPlacement("));
+        assertTrue(placementRenderer.contains("WorkflowResumeChromeRenderer.renderPlacementAnimated("));
         assertTrue(placementRenderer.contains("WorkflowResumeStyle.action("));
         assertTrue(blueprintRenderer.contains("WorkflowResumeChromeRenderer.renderBlueprint("));
         assertTrue(blueprintRenderer.contains("WorkflowResumeStyle.action("));
@@ -780,7 +779,7 @@ class UiProductionAdapterContractTest {
         assertTrue(window.contains("BlueprintWindowStyle.captureState("));
         assertTrue(window.contains("BlueprintWindowChromeRenderer.renderSection("));
         assertTrue(window.contains("BlueprintWindowChromeRenderer.renderStatus("));
-        assertTrue(window.contains("BlueprintWindowChromeRenderer.renderPrimaryAction("));
+        assertTrue(window.contains("setVisualRole(UiControlRole.PRIMARY_ACTION)"));
         assertFalse(stateOwner.contains("renderPlacementHud("));
         assertFalse(stateOwner.contains("mouseClickedPlacementHud("));
         assertFalse(stateOwner.contains("renderCaptureOverlay("));
@@ -801,22 +800,26 @@ class UiProductionAdapterContractTest {
     void windowButtonsShareExactProductionChromeAndThemeWithHeadlessReplay() throws IOException {
         String button = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/widget/WindowButton.java");
-        String chrome = read(
-                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/canvas/WindowButtonChromeRenderer.java");
-        String style = read(
-                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/WindowButtonStyle.java");
+        String productionTexture = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/theme/DefaultButtonTextureRenderer.java");
+        String textureCatalog = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/theme/DefaultButtonTextureCatalog.java");
+        String textureLayout = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/DefaultButtonTextureLayout.java");
         String preview = read(
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineWindowRenderer.java");
+        String previewButton = read(
+                "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/DefaultButtonPreviewRenderer.java");
 
-        assertTrue(button.contains("WindowButtonChromeRenderer.renderSolid("));
+        assertTrue(button.contains("DefaultButtonTextureRenderer.renderAnimated("));
         assertTrue(button.contains("UiControlVisualStyle.animated("));
         assertTrue(button.contains("UiControlAnimationState"));
         assertTrue(button.contains("WindowButtonStyle.MISSING_TEXTURE"));
-        assertTrue(chrome.contains("width + 1.0D"));
-        assertTrue(chrome.contains("height + 1.0D"));
-        assertTrue(style.contains("HOVER_BACKGROUND"));
-        assertTrue(style.contains("TEXT_DISABLED"));
-        assertTrue(preview.contains("WindowButtonChromeRenderer.renderSolid("));
+        assertTrue(productionTexture.contains("DefaultButtonTextureLayout.slices("));
+        assertTrue(textureCatalog.contains("general/default_button.png"));
+        assertTrue(textureLayout.contains("SHEET_WIDTH = 4"));
+        assertTrue(preview.contains("DefaultButtonPreviewRenderer.render("));
+        assertTrue(previewButton.contains("DefaultButtonTextureLayout.slices("));
         assertTrue(preview.contains("UiControlVisualStyle.resolve("));
         assertFalse(button.contains("RtsClientUiUtil.drawPanelFrame("));
         assertFalse(button.contains("0xFFFF0000"));
@@ -868,7 +871,7 @@ class UiProductionAdapterContractTest {
         assertTrue(panel.contains("GuideWindowChromeRenderer.renderScrollbar("));
         assertTrue(panel.contains("GuideWindowStyle.topicContent("));
         assertTrue(layout.contains("topicScrollRoute.contains(mouseX, mouseY)"));
-        assertTrue(chrome.contains("GuideWindowStyle.topicBackground(selected)"));
+        assertTrue(chrome.contains("GuideWindowStyle.topicBackground(selection, hover)"));
         assertTrue(preview.contains("GuideWindowLayout.geometry("));
         assertTrue(preview.contains("GuideWindowChromeRenderer.renderTopic("));
         assertTrue(preview.contains("GuideWindowChromeRenderer.renderScrollbar("));
@@ -935,7 +938,7 @@ class UiProductionAdapterContractTest {
         assertFalse(materialState.contains("public final int color"));
         assertTrue(materialDialog.contains("BlueprintDialogStyle.materialTone(line.tone)"));
         assertTrue(preview.contains("BlueprintDialogStyle.materialTone(line.tone)"));
-        assertTrue(quickBuildRenderer.contains("QuickBuildStyle.ICON_TINT.toArgb()"));
+        assertTrue(quickBuildRenderer.contains("RtsTextureRenderer.NO_TINT"));
         assertTrue(util.contains("RtsMainlineTheme.SLOT_COUNT_BACKGROUND.toArgb()"));
         assertFalse(panelUi.contains("0x"));
         assertFalse(inspector.contains("0x"));

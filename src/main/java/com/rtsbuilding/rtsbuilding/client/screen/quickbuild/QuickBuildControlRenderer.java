@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsTextureRenderer;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiControl;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
@@ -14,8 +15,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShape;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiShapeOption;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
-import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
-import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.QuickBuildChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.QuickBuildStyle;
@@ -26,7 +26,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 
 /**
@@ -37,9 +37,25 @@ import java.util.List;
  * 不提交 action，也不执行任何形状或世界副作用。</p>
  */
 final class QuickBuildControlRenderer {
-    private final UiSelectionAnimationSet<QuickBuildUiMode> modeAnimations =
-            new UiSelectionAnimationSet<>(SystemUiClock.INSTANCE,
-                    Arrays.asList(QuickBuildUiMode.values()), 100L, UiEasing.EASE_OUT_CUBIC);
+    private final EnumMap<QuickBuildUiMode, UiControlAnimationState> modeAnimations =
+            new EnumMap<>(QuickBuildUiMode.class);
+    /**
+     * 右栏开关的状态块与行按钮是两个独立视觉层，因此必须各自持有动画状态。
+     * 这里仅插值颜色或 Legacy 帧权重，不参与按钮尺寸、坐标或玩法状态计算。
+     */
+    private final EnumMap<QuickBuildUiControl.Id, UiControlAnimationState> controlAnimations =
+            new EnumMap<>(QuickBuildUiControl.Id.class);
+
+    QuickBuildControlRenderer() {
+        for (QuickBuildUiMode mode : QuickBuildUiMode.values()) {
+            this.modeAnimations.put(mode,
+                    new UiControlAnimationState(SystemUiClock.INSTANCE));
+        }
+        for (QuickBuildUiControl.Id id : QuickBuildUiControl.Id.values()) {
+            this.controlAnimations.put(id,
+                    new UiControlAnimationState(SystemUiClock.INSTANCE));
+        }
+    }
 
     void render(
             QuickBuildControlSurface controls,
@@ -51,7 +67,7 @@ final class QuickBuildControlRenderer {
             int mouseX,
             int mouseY,
             float partialTick) {
-        renderModeToggles(graphics, canvas, screen, state, layout, mouseX, mouseY);
+        renderModeToggles(controls, graphics, canvas, screen, state, layout, mouseX, mouseY);
 
         for (int i = 0; i < 2; i++) {
             controls.catalogButton(i).render(graphics, mouseX, mouseY, partialTick);
@@ -102,6 +118,7 @@ final class QuickBuildControlRenderer {
     }
 
     private void renderModeToggles(
+            QuickBuildControlSurface controls,
             GuiGraphics graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
@@ -109,17 +126,18 @@ final class QuickBuildControlRenderer {
             QuickBuildWindowLayout.Geometry layout,
             int mouseX,
             int mouseY) {
-        renderModeToggle(graphics, canvas, screen, state,
+        renderModeToggle(controls, graphics, canvas, screen, state,
                 layout.buildMode, QuickBuildUiMode.BUILD,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_build"),
                 mouseX, mouseY);
-        renderModeToggle(graphics, canvas, screen, state,
+        renderModeToggle(controls, graphics, canvas, screen, state,
                 layout.destroyMode, QuickBuildUiMode.DESTROY,
                 Component.translatable("screen.rtsbuilding.quick_build.mode_destroy"),
                 mouseX, mouseY);
     }
 
     private void renderModeToggle(
+            QuickBuildControlSurface controls,
             GuiGraphics graphics,
             MinecraftUiCanvas canvas,
             BuilderScreen screen,
@@ -134,11 +152,15 @@ final class QuickBuildControlRenderer {
                 ? state.mode != QuickBuildUiMode.DESTROY
                 : state.mode == mode) && enabled;
         boolean hovered = area.contains(mouseX, mouseY);
-        double strength = this.modeAnimations.value(
-                mode, active, Config.isUiAnimationsEnabled());
-        QuickBuildStyle.ModeVisual visual =
-                QuickBuildStyle.mode(enabled, active, hovered);
-        QuickBuildChromeRenderer.renderMode(canvas, area, visual, strength);
+        boolean pressed = hovered && controls.pressedMode() == mode;
+        UiControlState controlState = new UiControlState(
+                true, enabled, enabled && hovered, false, enabled && pressed,
+                active, false, false, enabled ? "" : "disabled");
+        UiControlAnimationState.Snapshot animation =
+                this.modeAnimations.get(mode).update(
+                        controlState, Config.isUiAnimationsEnabled());
+        QuickBuildStyle.ModeVisual visual = QuickBuildStyle.animatedMode(animation);
+        QuickBuildChromeRenderer.renderMode(canvas, area, visual, 0.0D);
         int x = (int) area.getX();
         int y = (int) area.getY();
         int width = (int) area.getWidth();
@@ -251,7 +273,7 @@ final class QuickBuildControlRenderer {
                 false);
     }
 
-    private static void renderControls(
+    private void renderControls(
             QuickBuildControlSurface controls,
             GuiGraphics graphics,
             MinecraftUiCanvas canvas,
@@ -266,7 +288,8 @@ final class QuickBuildControlRenderer {
             QuickBuildUiControl control = regular.get(i);
             button.active = control.enabled;
             button.render(graphics, mouseX, mouseY, partialTick);
-            renderControlIndicator(graphics, canvas, layout.rightX, layout.controlY(i),
+            renderControlIndicator(graphics, canvas, control.id,
+                    layout.rightX, layout.controlY(i), control.enabled,
                     control.selected, button.isHoveredOrFocused());
         }
         WindowButton connectButton = controls.connectToggle();
@@ -279,8 +302,9 @@ final class QuickBuildControlRenderer {
         connectButton.active = enabled;
         connectButton.render(graphics, mouseX, mouseY, partialTick);
         renderControlIndicator(
-                graphics, canvas, layout.rightX, layout.controlY(controls.controlButtonCount()),
-                selected, connectButton.isHoveredOrFocused());
+                graphics, canvas, QuickBuildUiControl.Id.CONNECT,
+                layout.rightX, layout.controlY(controls.controlButtonCount()),
+                enabled, selected, connectButton.isHoveredOrFocused());
     }
 
     private static void renderConvenienceTools(
@@ -327,52 +351,75 @@ final class QuickBuildControlRenderer {
         }
     }
 
-    /** PR #133 的 24px 像素按钮作为工具身份块，文字只承担本地化名称。 */
+    /** PR #133 的像素按钮按紧凑母版尺寸显示，文字只承担本地化名称。 */
     private static void renderToolIdentity(GuiGraphics graphics, BuilderScreen screen,
                                            net.minecraft.resources.ResourceLocation texture,
                                            Component label, int x, int y) {
-        int iconSize = 18;
+        int iconSize = QuickBuildWindowLayout.CONVENIENCE_TOOL_ICON_SIZE;
         int iconX = x + QuickBuildWindowLayout.CONVENIENCE_TOOL_ICON_X;
         int iconY = y + (QuickBuildWindowLayout.CONVENIENCE_TOOL_H - iconSize) / 2;
         RtsTextureRenderer.drawTextureHighPrecision(
-                graphics, texture, iconX, iconY, iconSize, iconSize,
-                0, 0, QuickBuildIconCatalog.PR133_ICON_SIZE,
+                graphics, texture,
+                iconX, iconY, iconSize, iconSize,
+                0, 0,
                 QuickBuildIconCatalog.PR133_ICON_SIZE,
                 QuickBuildIconCatalog.PR133_ICON_SIZE,
-                QuickBuildIconCatalog.PR133_ICON_SIZE, 0, RtsTextureRenderer.NO_TINT);
+                QuickBuildIconCatalog.PR133_ICON_SIZE,
+                QuickBuildIconCatalog.PR133_ICON_SIZE,
+                0, RtsTextureRenderer.NO_TINT);
         String clipped = com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil.trimToWidth(
-                screen.font(), label.getString(), QuickBuildWindowLayout.CONVENIENCE_TOOL_W - 24);
+                screen.font(), label.getString(),
+                QuickBuildWindowLayout.CONVENIENCE_TOOL_W
+                        - QuickBuildWindowLayout.CONVENIENCE_TOOL_LABEL_X);
         graphics.drawString(screen.font(), clipped,
                 x + QuickBuildWindowLayout.CONVENIENCE_TOOL_LABEL_X,
                 y + (QuickBuildWindowLayout.CONVENIENCE_TOOL_H - screen.font().lineHeight) / 2,
                 QuickBuildStyle.MODE_TEXT.toArgb(), false);
     }
 
-    private static void renderControlIndicator(
+    private void renderControlIndicator(
             GuiGraphics graphics,
             MinecraftUiCanvas canvas,
+            QuickBuildUiControl.Id id,
             int rowX,
             int rowY,
+            boolean enabled,
             boolean selected,
             boolean hovered) {
         int iconX = rowX + QuickBuildWindowLayout.CONTROL_ICON_INSET;
         int iconY = rowY + QuickBuildWindowLayout.CONTROL_ICON_INSET;
-        if (UiThemeRuntime.manager().active().renderMode() != UiThemeRenderMode.LEGACY_DIRECT) {
-            QuickBuildChromeRenderer.renderControlIndicator(
-                    canvas,
-                    new UiRect(iconX, iconY,
-                            QuickBuildWindowLayout.CONTROL_ICON_SIZE,
-                            QuickBuildWindowLayout.CONTROL_ICON_SIZE),
-                    QuickBuildStyle.controlIndicator(selected, hovered));
+        UiControlAnimationState.Snapshot animation = this.controlAnimations.get(id).update(
+                new UiControlState(
+                        true, enabled, enabled && hovered, false, false,
+                        selected, false, false, enabled ? "" : "disabled"),
+                Config.isUiAnimationsEnabled());
+        double selectedWeight = animation.selection();
+        double hoverWeight = (1.0D - selectedWeight) * animation.hover();
+        double idleWeight = Math.max(0.0D, 1.0D - selectedWeight - hoverWeight);
+        renderIndicatorFrame(graphics, iconX, iconY,
+                UiTextureState.INACTIVE, 0, idleWeight);
+        renderIndicatorFrame(graphics, iconX, iconY,
+                UiTextureState.HOVER, QuickBuildIconCatalog.MODE_STATE_H, hoverWeight);
+        renderIndicatorFrame(graphics, iconX, iconY,
+                UiTextureState.ACTIVE, QuickBuildIconCatalog.MODE_STATE_H * 2, selectedWeight);
+    }
+
+    /** Legacy 三帧贴图只做交叉淡化；源纹理尺寸与屏幕命中矩形始终保持不变。 */
+    private static void renderIndicatorFrame(
+            GuiGraphics graphics,
+            int iconX,
+            int iconY,
+            UiTextureState state,
+            int vOffset,
+            double weight) {
+        if (weight <= 0.001D) {
             return;
         }
-        int vOffset = selected
-                ? QuickBuildIconCatalog.MODE_STATE_H * 2
-                : (hovered ? QuickBuildIconCatalog.MODE_STATE_H : 0);
+        int alpha = (int) Math.round(Math.max(0.0D, Math.min(1.0D, weight)) * 255.0D);
+        int tint = alpha << 24 | RtsTextureRenderer.NO_TINT >>> Byte.SIZE;
         RtsTextureRenderer.drawTextureHighPrecision(
-                graphics, QuickBuildIconCatalog.LEGACY_SELECTION_DOT,
-                iconX,
-                iconY,
+                graphics, QuickBuildIconCatalog.controlIndicatorTexture(state),
+                iconX, iconY,
                 QuickBuildWindowLayout.CONTROL_ICON_SIZE,
                 QuickBuildWindowLayout.CONTROL_ICON_SIZE,
                 0, vOffset,
@@ -380,7 +427,7 @@ final class QuickBuildControlRenderer {
                 QuickBuildIconCatalog.MODE_STATE_H,
                 QuickBuildIconCatalog.MODE_SHEET_W,
                 QuickBuildIconCatalog.MODE_SHEET_H,
-                0, QuickBuildStyle.ICON_TINT.toArgb());
+                0, tint);
     }
 
     private static List<QuickBuildUiControl> controlsWithoutConnect(

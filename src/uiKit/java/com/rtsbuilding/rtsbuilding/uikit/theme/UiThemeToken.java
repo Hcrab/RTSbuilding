@@ -33,6 +33,7 @@ public enum UiThemeToken {
     CONTROL_PRESSED("control_pressed"),
     CONTROL_SELECTED("control_selected"),
     CONTROL_DISABLED("control_disabled"),
+    SWITCH_THUMB("switch_thumb"),
 
     ICON_PRIMARY("icon_primary"),
     ICON_MUTED("icon_muted"),

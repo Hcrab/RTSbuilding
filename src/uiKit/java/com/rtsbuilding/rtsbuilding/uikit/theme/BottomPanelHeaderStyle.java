@@ -36,10 +36,15 @@ public final class BottomPanelHeaderStyle {
     }
 
     public static UiColor tabBackground(boolean active, boolean hovered) {
+        return tabBackground(active, hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor tabBackground(boolean active, double hoverStrength) {
         if (active) {
             return TAB_ACTIVE_BACKGROUND;
         }
-        return hovered ? TAB_HOVER_BACKGROUND : TAB_IDLE_BACKGROUND;
+        return UiColor.interpolate(
+                TAB_IDLE_BACKGROUND, TAB_HOVER_BACKGROUND, hoverStrength);
     }
 
     public static UiColor tabBorder(boolean active) {
@@ -51,20 +56,31 @@ public final class BottomPanelHeaderStyle {
     }
 
     public static UiColor actionBackground(boolean hovered) {
-        return hovered ? ACTION_HOVER_BACKGROUND : ACTION_IDLE_BACKGROUND;
+        return actionBackground(hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor actionBackground(double hoverStrength) {
+        return UiColor.interpolate(
+                ACTION_IDLE_BACKGROUND, ACTION_HOVER_BACKGROUND, hoverStrength);
     }
 
     public static UiColor refreshBackground(
             boolean scanning, boolean dirty, boolean hovered) {
+        return refreshBackground(scanning, dirty, hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor refreshBackground(
+            boolean scanning, boolean dirty, double hoverStrength) {
         if (scanning) {
             return REFRESH_SCANNING_BACKGROUND;
         }
         if (dirty) {
-            return hovered
-                    ? REFRESH_DIRTY_HOVER_BACKGROUND
-                    : REFRESH_DIRTY_BACKGROUND;
+            return UiColor.interpolate(
+                    REFRESH_DIRTY_BACKGROUND,
+                    REFRESH_DIRTY_HOVER_BACKGROUND,
+                    hoverStrength);
         }
-        return actionBackground(hovered);
+        return actionBackground(hoverStrength);
     }
 
     public static UiColor refreshBorder(boolean dirty) {
@@ -72,6 +88,11 @@ public final class BottomPanelHeaderStyle {
     }
 
     public static UiColor pluginBackground(boolean hovered) {
-        return hovered ? PLUGIN_HOVER_BACKGROUND : PLUGIN_IDLE_BACKGROUND;
+        return pluginBackground(hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor pluginBackground(double hoverStrength) {
+        return UiColor.interpolate(
+                PLUGIN_IDLE_BACKGROUND, PLUGIN_HOVER_BACKGROUND, hoverStrength);
     }
 }

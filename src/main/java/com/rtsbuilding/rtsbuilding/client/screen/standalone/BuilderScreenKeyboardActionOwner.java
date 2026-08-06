@@ -213,7 +213,7 @@ final class BuilderScreenKeyboardActionOwner {
                 return true;
             }
             if (!screen.isSearchFocused()
-                    && ClientKeyMappings.ROTATE_SHAPE.matches(keyCode, scanCode)
+                    && ClientKeyMappings.PLACEMENT_STATE_WHEEL.matches(keyCode, scanCode)
                     && !screen.hasControlDown()
                     && screen.controller.getBuildShape() == BuildShape.BLOCK
                     && screen.openPlacementStateWheel(screen.currentMouseX(), screen.currentMouseY())) {
@@ -286,6 +286,32 @@ final class BuilderScreenKeyboardActionOwner {
             }
             if (screen.shapeController.nudgeCurrentShapeSelection(delta.dx(), delta.dy(), delta.dz())) {
                 return true;
+            }
+            return false;
+        }
+
+    boolean handleStorageBatchSelectionKey(int keyCode) {
+            if (screen.isSearchFocused()) {
+                return false;
+            }
+            if (keyCode == GLFW.GLFW_KEY_LEFT_CONTROL
+                    || keyCode == GLFW.GLFW_KEY_RIGHT_CONTROL) {
+                if (screen.controller.getMode() != BuilderMode.LINK_STORAGE
+                        && !screen.storageBatchSelection.isActive()) {
+                    return false;
+                }
+                screen.storageBatchSelection.toggle(
+                        screen.getMinecraft(), screen.controller.getMode());
+                return true;
+            }
+            if (!screen.storageBatchSelection.isActive()) {
+                return false;
+            }
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                return screen.storageBatchSelection.cancelOrExit(screen.getMinecraft());
+            }
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+                return screen.storageBatchSelection.confirm(screen.getMinecraft());
             }
             return false;
         }

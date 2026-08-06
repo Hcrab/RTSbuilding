@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BlueprintWindowStyle;
@@ -417,22 +418,8 @@ public final class BlueprintWindowPanel extends RtsWindowPanel {
 
     private void renderPrimaryButtonAt(GuiGraphics g, WindowButton button, int x, int y, int width, boolean active,
             int mouseX, int mouseY, float partialTick) {
-        button.setX(x);
-        button.setY(y);
-        button.setWidth(width);
-        button.active = active;
-        if (!active) {
-            button.render(g, mouseX, mouseY, partialTick);
-            return;
-        }
-        BlueprintWindowChromeRenderer.renderPrimaryAction(
-                chromeCanvas(g), new UiRect(x, y, width, BUTTON_H));
-        String label = RtsClientUiUtil.trimToWidth(this.screen.font(), button.getMessage().getString(),
-                Math.max(8, width - BlueprintWindowLayout.PRIMARY_BUTTON_TEXT_INSET));
-        int textX = x + (width - this.screen.font().width(label)) / 2;
-        int textY = y + (BUTTON_H - this.screen.font().lineHeight) / 2;
-        g.drawString(this.screen.font(), label, textX, textY,
-                BlueprintWindowStyle.PRIMARY_TEXT.toArgb(), false);
+        button.setVisualRole(UiControlRole.PRIMARY_ACTION);
+        renderButtonAt(g, button, x, y, width, active, mouseX, mouseY, partialTick);
     }
 
     private MinecraftUiCanvas chromeCanvas(GuiGraphics graphics) {

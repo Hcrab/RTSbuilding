@@ -46,6 +46,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionNudge;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeGeometryUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
+import com.rtsbuilding.rtsbuilding.client.screen.storage.StorageBatchSelectionSession;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
@@ -100,6 +101,7 @@ abstract class BuilderScreenComponentState extends Screen {
     final FunnelBufferPanel funnelBufferPanel = new FunnelBufferPanel();
     final QuickBuildPanel quickBuildPanel = new QuickBuildPanel();
     final LinkedStoragePanel linkedStoragePanel = new LinkedStoragePanel();
+    final StorageBatchSelectionSession storageBatchSelection = new StorageBatchSelectionSession();
     final BlueprintWindowPanel blueprintWindowPanel = new BlueprintWindowPanel();
     final RtsCraftQuantityWindowPanel craftQuantityWindowPanel = new RtsCraftQuantityWindowPanel();
     final BlueprintNameWindowPanel blueprintNameWindowPanel = new BlueprintNameWindowPanel();

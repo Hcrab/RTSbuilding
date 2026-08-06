@@ -203,6 +203,9 @@ final class BuilderScreenPointerActionOwner {
             if (screen.bottomPanel.handleClick(mouseX, mouseY)) {
                 return true;
             }
+            if (screen.handleStorageBatchWorldClick(mouseX, mouseY)) {
+                return true;
+            }
             if (screen.isWorldArea(mouseX, mouseY)
                     && screen.cancelQuickBuildSmartFillAnchor()) {
                 // 锚定后的左键专用于取消，必须早于后续挖掘路由，避免误拆目标洞壁。
@@ -258,6 +261,17 @@ final class BuilderScreenPointerActionOwner {
                 }
             }
             return false;
+        }
+
+    boolean handleStorageBatchWorldClick(double mouseX, double mouseY) {
+            if (!screen.storageBatchSelection.isActive()
+                    || screen.controller.getMode() != BuilderMode.LINK_STORAGE
+                    || !screen.isWorldArea(mouseX, mouseY)) {
+                return false;
+            }
+            BlockHitResult hit = screen.cursorPicker.pickBlockHit();
+            return screen.storageBatchSelection.click(
+                    screen.getMinecraft(), hit == null ? null : hit.getBlockPos());
         }
 
     boolean handleWorldClickActions(double mouseX, double mouseY, int button) {

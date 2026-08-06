@@ -36,6 +36,21 @@ public final class WorkflowChromeRenderer {
             WorkflowUiRow row,
             double mouseX,
             double mouseY) {
+        renderRow(canvas, geometry, row,
+                geometry.row.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.protect.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.action.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.delete.contains(mouseX, mouseY) ? 1.0D : 0.0D);
+    }
+
+    public static void renderRow(
+            UiCanvas2D canvas,
+            WorkflowWindowLayout.RowGeometry geometry,
+            WorkflowUiRow row,
+            double rowHover,
+            double protectHover,
+            double actionHover,
+            double deleteHover) {
         if (canvas == null || geometry == null || row == null) {
             throw new IllegalArgumentException(
                     "canvas, geometry and row must not be null");
@@ -43,7 +58,7 @@ public final class WorkflowChromeRenderer {
         WorkflowStyle.RowVisual rowVisual = WorkflowStyle.row(
                 row.suspended,
                 row.protectedWorkflow,
-                geometry.row.contains(mouseX, mouseY));
+                rowHover);
         frame(
                 canvas,
                 geometry.row,
@@ -73,19 +88,18 @@ public final class WorkflowChromeRenderer {
                 geometry.protect,
                 WorkflowStyle.protect(
                         row.protectedWorkflow,
-                        geometry.protect.contains(mouseX, mouseY)));
+                        protectHover));
         button(
                 canvas,
                 geometry.action,
                 WorkflowStyle.action(
                         row.suspended,
                         row.paused,
-                        geometry.action.contains(mouseX, mouseY)));
+                        actionHover));
         button(
                 canvas,
                 geometry.delete,
-                WorkflowStyle.delete(
-                        geometry.delete.contains(mouseX, mouseY)));
+                WorkflowStyle.delete(deleteHover));
     }
 
     public static int progressFillWidth(

@@ -98,9 +98,9 @@ class QuickBuildClosedStateContractTest {
         assertTrue(renderer.contains("state.dimensions")
                         && adapter.contains("panel.uiScreen().currentShapeSizeText()"),
                 "the production status renderer should render the live width/height/depth readout");
-        assertTrue(layout.contains("public static final int BOTTOM_INFO_H = 72")
+        assertTrue(layout.contains("public static final int BOTTOM_INFO_H = 58")
                         && source.contains("QuickBuildWindowLayout.windowHeight("),
-                "the bottom hint area should leave room for the extra dimension row");
+                "the compact bottom hint area should still leave room for the dimension row");
     }
 
     @Test
@@ -128,6 +128,33 @@ class QuickBuildClosedStateContractTest {
         assertTrue(releaseBody.contains("release(this.controlButtons"));
         assertTrue(releaseBody.contains("this.connectToggle.mouseReleased"),
                 "every quick-build button family must clear WindowButton.pressedVisual on mouse release");
+    }
+
+    @Test
+    void quickBuildReleaseAlwaysClearsParentWindowDragState() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java"));
+        String releaseBody = methodBody(source, "public boolean mouseReleased");
+
+        assertTrue(releaseBody.contains("this.controlSurface.mouseReleased"));
+        assertTrue(releaseBody.contains("super.mouseReleased"),
+                "child controls must not prevent the parent title-bar drag state from being released");
+        assertTrue(releaseBody.indexOf("super.mouseReleased")
+                        < releaseBody.indexOf("return contentHandled || windowHandled"),
+                "parent release must execute unconditionally before returning");
+    }
+
+    @Test
+    void shapeSelectionKeepsButtonInstancesAliveForCrossFade() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildControlSurface.java"));
+        String signature = methodBody(source, "private static String shapeSignature");
+        String position = methodBody(source, "private void position");
+
+        assertFalse(signature.contains("option.selected"),
+                "selection must not rebuild shape buttons or their animation state is lost");
+        assertTrue(position.contains("setSelectedVisual"),
+                "the existing shape button must receive the new selection target in-place");
     }
 
     private static String methodBody(String source, String signatureStart) {

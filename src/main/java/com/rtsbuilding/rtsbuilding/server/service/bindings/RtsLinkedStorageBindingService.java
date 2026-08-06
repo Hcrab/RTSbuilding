@@ -108,6 +108,65 @@ public final class RtsLinkedStorageBindingService {
     }
 
     /**
+     * 仅在目标尚未链接时添加它；与单点点击的切换语义不同，批量操作绝不能把已有链接反向移除。
+     */
+    static RtsStorageBindings.UpdateResult ensureStorageLinked(
+            ServerPlayer player, RtsStorageSession session, BlockPos pos, byte linkMode) {
+        if (player == null || session == null || pos == null) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, pos, Direction.UP, InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+
+        LinkedStorageRef ref = new LinkedStorageRef(player.serverLevel().dimension(), pos.immutable());
+        if (session.linkedStorageInfo.contains(ref)
+                || findDoubleChestLinkedRef(player, session, pos) != null) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        Object itemHandler = RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
+        Object fluidHandler = RtsLinkedCapabilities.findFluidHandler(player, pos);
+        if (itemHandler == null && fluidHandler == null
+                || session.linkedStorageInfo.size() >= RtsStorageBindings.MAX_LINKED_STORAGES) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+
+        UUID backpackUuid = readBackpackUuid(player.serverLevel(), pos);
+        String backpackItemId = readBackpackItemId(player.serverLevel(), pos);
+        byte normalizedMode = RtsLinkedStorageResolver.sanitizeLinkMode(linkMode);
+        session.linkedStorageInfo.add(ref, normalizedMode, 0, backpackUuid, backpackItemId);
+        session.linkedStorageInfo.setName(
+                ref, RtsLinkedStorageResolver.resolveDisplayName(player.serverLevel(), ref.pos()));
+        session.bdCache.handlerStale = true;
+        session.bdCache.fluidHandlerStale = true;
+        RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
+        return RtsStorageBindings.UpdateResult.refreshFirst(true);
+    }
+
+    /** 返回双箱两半共享的稳定身份；普通方块直接返回自身。 */
+    static BlockPos canonicalStoragePosition(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.hasChunkAt(pos)) {
+            return pos == null ? BlockPos.ZERO : pos.immutable();
+        }
+        BlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof ChestBlock)
+                || state.getValue(ChestBlock.TYPE) == ChestType.SINGLE) {
+            return pos.immutable();
+        }
+        BlockPos connected = pos.relative(ChestBlock.getConnectedDirection(state));
+        return comparePositions(pos, connected) <= 0 ? pos.immutable() : connected.immutable();
+    }
+
+    private static int comparePositions(BlockPos first, BlockPos second) {
+        int x = Integer.compare(first.getX(), second.getX());
+        if (x != 0) return x;
+        int y = Integer.compare(first.getY(), second.getY());
+        return y != 0 ? y : Integer.compare(first.getZ(), second.getZ());
+    }
+
+    /**
      * 更新已有链接存储行的设置。这有意不作为链接/创建操作：
      * 详情面板可以编辑模式和 AE 式优先级，但服务器仍然要求
      * 引用已经属于玩家的会话。

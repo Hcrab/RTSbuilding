@@ -26,19 +26,23 @@ final class WorkflowPanelRenderer {
             MinecraftUiCanvas canvas,
             WorkflowWindowLayout.RowGeometry geometry,
             WorkflowUiRow row,
-            int mouseX,
-            int mouseY) {
+            double rowHover,
+            double protectHover,
+            double actionHover,
+            double deleteHover) {
         WorkflowChromeRenderer.renderRow(
                 canvas,
                 geometry,
                 row,
-                mouseX,
-                mouseY);
+                rowHover,
+                protectHover,
+                actionHover,
+                deleteHover);
 
         WorkflowStyle.RowVisual rowVisual = WorkflowStyle.row(
                 row.suspended,
                 row.protectedWorkflow,
-                geometry.row.contains(mouseX, mouseY));
+                rowHover);
         graphics.drawString(
                 font,
                 RtsClientUiUtil.trimToWidth(
@@ -71,7 +75,7 @@ final class WorkflowPanelRenderer {
                 row.protectedWorkflow ? "◆" : "◇",
                 WorkflowStyle.protect(
                         row.protectedWorkflow,
-                        geometry.protect.contains(mouseX, mouseY))
+                        protectHover)
                         .text.toArgb());
         drawCenteredGlyph(
                 graphics,
@@ -81,15 +85,14 @@ final class WorkflowPanelRenderer {
                 WorkflowStyle.action(
                         row.suspended,
                         row.paused,
-                        geometry.action.contains(mouseX, mouseY))
+                        actionHover)
                         .text.toArgb());
         drawCenteredGlyph(
                 graphics,
                 font,
                 geometry.delete,
                 "✖",
-                WorkflowStyle.delete(
-                        geometry.delete.contains(mouseX, mouseY))
+                WorkflowStyle.delete(deleteHover)
                         .text.toArgb());
     }
 

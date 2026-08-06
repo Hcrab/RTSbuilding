@@ -1,11 +1,15 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiToolSlot;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelToolLayout;
@@ -26,6 +30,8 @@ import net.minecraft.world.item.ItemStack;
 public final class BottomPanelToolRenderer {
     private static final int CONTENT_INSET = 1;
     private static final int EMPTY_HAND_MARK_SIZE = 10;
+    private static final UiControlAnimationRegistry<String> ANIMATIONS =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 64);
 
     private BottomPanelToolRenderer() {
     }
@@ -70,10 +76,14 @@ public final class BottomPanelToolRenderer {
                             font, stack, cellX + CONTENT_INSET, rowY + CONTENT_INSET);
                 }
             }
-            if (hoveredHotbarCell == cell) {
+            double cellHover = hover(
+                    "hotbar." + cell,
+                    hoveredHotbarCell == cell,
+                    slot != null && slot.selected);
+            if (cellHover > 0.0D) {
                 fillInside(
                         graphics, cellX, rowY, slotSize,
-                        BottomPanelToolStyle.HOVER_OVERLAY);
+                        BottomPanelToolStyle.hoverOverlay(cellHover));
             }
         }
 
@@ -122,10 +132,14 @@ public final class BottomPanelToolRenderer {
                             BottomPanelToolStyle.PIN_INDEX_TEXT);
                 }
             }
-            if (hoveredPinCell == cell) {
+            double pinHover = hover(
+                    "pin." + cell,
+                    hoveredPinCell == cell,
+                    pin != null && pin.selected);
+            if (pinHover > 0.0D) {
                 fillInside(
                         graphics, cellX, rowY, slotSize,
-                        BottomPanelToolStyle.HOVER_OVERLAY);
+                        BottomPanelToolStyle.hoverOverlay(pinHover));
             }
         }
 
@@ -139,6 +153,14 @@ public final class BottomPanelToolRenderer {
                 ? layout.pinIndexForCell(hoveredPinCell) : -1;
         return new HoverResult(
                 hotbarHovered, emptyHandHovered, pinHovered, pagerHovered);
+    }
+
+    private static double hover(String id, boolean hovered, boolean selected) {
+        UiControlState state = new UiControlState(
+                true, selected, false, false, "")
+                .withInteraction(hovered, false, false);
+        return ANIMATIONS.update(
+                id, state, Config.isUiAnimationsEnabled()).hover();
     }
 
     private static BottomBarUiToolSlot findSlot(

@@ -24,6 +24,10 @@ public final class CraftTerminalStyle {
     public static final UiColor BUTTON = theme(UiThemeToken.CONTROL_IDLE, 0xFF2B3746);
     public static final UiColor BUTTON_HOVER = theme(UiThemeToken.CONTROL_HOVER, 0xFF40556B);
     public static final UiColor BUTTON_ACTIVE = theme(UiThemeToken.CONTROL_SELECTED, 0xFF2E6A50);
+    public static final UiColor BUTTON_HOVER_OVERLAY = UiColor.themeComponentWithLegacyAlpha(
+            UiThemeCoverageCatalog.ComponentFamily.CRAFT_TERMINAL,
+            UiThemeToken.CONTROL_HOVER,
+            0x663F5268);
     public static final UiColor SCROLL_TRACK = theme(UiThemeToken.SCROLLBAR_TRACK, 0xFF1A202A);
     public static final UiColor SCROLL_THUMB = theme(UiThemeToken.SCROLLBAR_THUMB, 0xFF536679);
     public static final UiColor ICON = theme(UiThemeToken.ICON_PRIMARY, 0xFFDCE9F7);
@@ -50,6 +54,11 @@ public final class CraftTerminalStyle {
 
     public static UiColor slotBackground(boolean hovered) {
         return hovered ? SLOT_HOVER_BACKGROUND : SLOT_BACKGROUND;
+    }
+
+    public static UiColor buttonHoverOverlay(double hoverStrength) {
+        return UiColor.interpolate(
+                TRANSPARENT, BUTTON_HOVER_OVERLAY, hoverStrength);
     }
 
     private CraftTerminalStyle() {

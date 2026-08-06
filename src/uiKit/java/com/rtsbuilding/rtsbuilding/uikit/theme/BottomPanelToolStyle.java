@@ -44,6 +44,11 @@ public final class BottomPanelToolStyle {
         return filled ? PIN_FILLED_BACKGROUND : PIN_EMPTY_BACKGROUND;
     }
 
+    public static UiColor hoverOverlay(double hoverStrength) {
+        return UiColor.interpolate(
+                new UiColor(0x00000000), HOVER_OVERLAY, hoverStrength);
+    }
+
     public static UiColor pinCount(long amount) {
         return amount > 0L ? PIN_COUNT_AVAILABLE : PIN_COUNT_EMPTY;
     }

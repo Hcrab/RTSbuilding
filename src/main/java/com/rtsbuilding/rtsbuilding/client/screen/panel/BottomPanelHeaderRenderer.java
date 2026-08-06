@@ -4,8 +4,10 @@ import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTab;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelHeaderLayout;
@@ -30,6 +32,7 @@ public final class BottomPanelHeaderRenderer {
             BottomPanelHeaderLayout layout,
             BottomBarUiState state,
             UiSelectionAnimationSet<BottomBarUiTab> animations,
+            UiControlAnimationRegistry<String> controlAnimations,
             boolean animationsEnabled,
             String creativeLabel,
             String storageLabel,
@@ -53,10 +56,15 @@ public final class BottomPanelHeaderRenderer {
         for (BottomPanelHeaderLayout.TabArea tabArea : layout.tabs) {
             boolean active = state.activeTab == tabArea.tab;
             boolean hovered = tabArea.area.contains(mouseX, mouseY);
+            double hoverStrength = controlAnimations.update(
+                    "tab." + tabArea.tab.name(),
+                    new UiControlState(true, active, false, false, "")
+                            .withInteraction(hovered, false, false),
+                    animationsEnabled).hover();
             drawFrame(
                     canvas,
                     tabArea.area,
-                    BottomPanelHeaderStyle.tabBackground(active, hovered),
+                    BottomPanelHeaderStyle.tabBackground(active, hoverStrength),
                     BottomPanelHeaderStyle.tabBorder(active),
                     BottomPanelHeaderStyle.PANEL_BORDER_DARK);
             double strength = animations.value(
@@ -96,11 +104,16 @@ public final class BottomPanelHeaderRenderer {
                 && state.refreshHighlighted;
         UiColor refreshBorder =
                 BottomPanelHeaderStyle.refreshBorder(refreshDirty);
+        double refreshHover = controlAnimations.update(
+                "refresh",
+                UiControlState.enabled().withInteraction(
+                        refreshHovered, false, false),
+                animationsEnabled).hover();
         drawFrame(
                 canvas,
                 layout.refresh,
                 BottomPanelHeaderStyle.refreshBackground(
-                        state.storageScanning, refreshDirty, refreshHovered),
+                        state.storageScanning, refreshDirty, refreshHover),
                 refreshBorder,
                 refreshDirty
                         ? refreshBorder
@@ -111,11 +124,16 @@ public final class BottomPanelHeaderRenderer {
                         ? BottomPanelHeaderStyle.TAB_ACTIVE_TEXT
                         : BottomPanelHeaderStyle.ACTION_TEXT);
 
+        double guideHover = controlAnimations.update(
+                "guide",
+                UiControlState.enabled().withInteraction(
+                        layout.guide.contains(mouseX, mouseY), false, false),
+                animationsEnabled).hover();
         drawFrame(
                 canvas,
                 layout.guide,
                 BottomPanelHeaderStyle.actionBackground(
-                        layout.guide.contains(mouseX, mouseY)),
+                        guideHover),
                 BottomPanelHeaderStyle.ACTION_BORDER,
                 BottomPanelHeaderStyle.PANEL_BORDER_DARK);
         drawCenteredNoShadow(
@@ -123,11 +141,16 @@ public final class BottomPanelHeaderRenderer {
                 BottomPanelHeaderStyle.ACTION_TEXT);
 
         if (layout.pluginVisible) {
+            double pluginHover = controlAnimations.update(
+                    "plugin",
+                    UiControlState.enabled().withInteraction(
+                            layout.plugin.contains(mouseX, mouseY), false, false),
+                    animationsEnabled).hover();
             drawFrame(
                     canvas,
                     layout.plugin,
                     BottomPanelHeaderStyle.pluginBackground(
-                            layout.plugin.contains(mouseX, mouseY)),
+                            pluginHover),
                     BottomPanelHeaderStyle.ACTION_BORDER,
                     BottomPanelHeaderStyle.PANEL_BORDER_DARK);
             drawCenteredNoShadow(

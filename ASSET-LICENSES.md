@@ -19,7 +19,13 @@ platforms, and archival mirrors as described in `LICENSE-ASSETS`.
 The interface artwork added or revised in
 [PR #133](https://github.com/Hcrab/RTSbuilding/pull/133), including the
 `new_2nd_icons`, revised top-bar states, and `ui/terminal.png`, was created and
-contributed by Re_Construction (`ReConstruction-127`).
+contributed by Re_Construction (`ReConstruction-127`). The adjacent
+`ui/terminal_button.png` is an exact 15×13 crop of that contributed terminal
+sheet. The 24×24 backgrounds used by `ui/terminal_sort_name.png`,
+`terminal_sort_quantity.png`, `terminal_sort_ascending.png`, and
+`terminal_sort_descending.png` are offline derivatives of that button; production
+rendering selects one complete PNG and draws it at 1:1 without runtime enlargement
+or icon/background composition.
 
 Copyright (C) 2026 Re_Construction. These files are distributed as part of
 official RTS Building packages under the normal mod-distribution permissions
@@ -29,6 +35,12 @@ The `textures/gui/color/colorwheel.png` and `color_palette_indicator.png`
 artwork was first developed on the repository's `NeoForge-RTSBuildin-v2.0`
 branch by 怡然 and is reused by the current Palette editor with attribution
 preserved.
+
+The pixel symbols embedded in the four terminal sorting PNGs above are exact
+16×16 crops from `sort.png` and `sort_order.png` on the repository's
+`NeoForge-RTSBuildin-v2.0` branch. Their original sheets are retained under
+`src/uiPreview/resources/v2-sort/` for development-time provenance and automated
+pixel verification; the runtime JAR uses only the four complete semantic PNGs.
 
 The `guide_*` and `developer_*` top-bar states and the monochrome files under
 `textures/gui/guide/` were mechanically frozen in July 2026 from the existing

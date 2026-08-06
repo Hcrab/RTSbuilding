@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool
 import com.rtsbuilding.rtsbuilding.client.theme.LegacyTextureSet;
 import com.rtsbuilding.rtsbuilding.client.theme.PaletteTextureCatalog;
 import com.rtsbuilding.rtsbuilding.client.theme.ThemedStateTextureResolver;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiIndexedTextureSpec;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import net.minecraft.resources.ResourceLocation;
@@ -28,6 +29,9 @@ final class QuickBuildIconCatalog {
     static final int MODE_SHEET_W = 512;
     static final int MODE_STATE_H = 512;
     static final int MODE_SHEET_H = MODE_STATE_H * 3;
+    private static final LegacyTextureSet MODE_BUTTON_STATES = new LegacyTextureSet(
+            LEGACY_SELECTION_DOT, LEGACY_SELECTION_DOT,
+            LEGACY_SELECTION_DOT, LEGACY_SELECTION_DOT);
 
     private QuickBuildIconCatalog() {}
 
@@ -48,6 +52,15 @@ final class QuickBuildIconCatalog {
 
     static ResourceLocation smartFillTexture(UiTextureState state) {
         return entry("fill_water/cave").resolve(state);
+    }
+
+    /** Legacy 与 Palette 共用 mode_button 原始像素，Palette 只按精确索引换色。 */
+    static ResourceLocation controlIndicatorTexture(UiTextureState state) {
+        return ThemedStateTextureResolver.resolve(
+                MODE_BUTTON_STATES,
+                LEGACY_SELECTION_DOT,
+                state,
+                UiIndexedTextureSpec.LEGACY_MODE_BUTTON);
     }
 
     private static String shapeKey(QuickBuildUiShape shape) {

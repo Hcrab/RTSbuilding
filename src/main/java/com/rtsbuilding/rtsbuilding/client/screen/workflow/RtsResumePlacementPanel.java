@@ -105,13 +105,22 @@ public final class RtsResumePlacementPanel extends RtsWindowPanel {
         if (scanData == null) {
             return;
         }
+        WorkflowResumeWindowLayout.PlacementGeometry geometry = geometry();
+        boolean enabled = scanData.missingItems() <= 0;
+        double primaryHover = animateContentControl(
+                "resume_primary", enabled,
+                geometry.primaryAction.contains(mouseX, mouseY), false).hover();
+        double secondaryHover = animateContentControl(
+                "resume_secondary", enabled,
+                geometry.secondaryAction != null
+                        && geometry.secondaryAction.contains(mouseX, mouseY), false).hover();
         PlacementResumePanelRenderer.render(
                 graphics,
                 this.screen.font(),
-                geometry(),
+                geometry,
                 scanData,
-                mouseX,
-                mouseY);
+                primaryHover,
+                secondaryHover);
     }
 
     @Override

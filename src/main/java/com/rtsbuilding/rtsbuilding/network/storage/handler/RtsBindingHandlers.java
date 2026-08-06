@@ -50,6 +50,17 @@ public final class RtsBindingHandlers {
         });
     }
 
+    public static void handleBatchLinkStorage(
+            com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBatchLinkStoragePayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                ServiceRegistry.getInstance().binding().linkStoragesInSelection(
+                        serverPlayer, payload.first(), payload.second(), payload.linkMode());
+            }
+        });
+    }
+
     public static void handleUnlinkStorage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUnlinkStoragePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {

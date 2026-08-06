@@ -1,11 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.mojang.blaze3d.platform.InputConstants;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalScrollState;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalSearchMode;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalSortAdapter;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalSortControlsRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.compat.jei.RtsJeiSearchBridge;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsClearCraftingGridPayload;
@@ -13,10 +16,15 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.uicore.craftterminal.CraftTerminalUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.craftterminal.CraftTerminalSortField;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftTerminalLayout;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftTerminalStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -59,6 +67,11 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
     private boolean draggingScrollbar;
     private double scrollbarDragOffset = CraftTerminalLayout.SCROLLBAR_HANDLE_HEIGHT / 2.0D;
     private String lastSearchSentToJei = "";
+    private final UiControlAnimationRegistry<CraftTerminalUiAction> actionAnimations =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE,
+                    CraftTerminalUiAction.values().length);
+    private final CraftTerminalSortControlsRenderer sortControls =
+            new CraftTerminalSortControlsRenderer();
 
     public RtsCraftTerminalScreen(RtsCraftTerminalMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -77,6 +90,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
         ClientRtsController controller = ClientRtsController.get();
         this.previousPageSize = controller.getStoragePageSize();
         controller.updateStoragePageSize(CraftTerminalScrollState.PAGE_SIZE);
+        controller.setStorageSort(CraftTerminalSortAdapter.normalize(
+                controller.getStorageSort()));
         this.scrollState.reset(controller);
 
         this.searchMode = CraftTerminalSearchMode.parse(
@@ -112,6 +127,8 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
             RtsClientUiStateStore.setCraftTerminalSearch("");
         }
         RtsClientUiStateStore.cache().flushIfDirty();
+        this.sortControls.clear();
+        this.actionAnimations.clear();
         super.removed();
     }
 
@@ -134,12 +151,43 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
         CraftTerminalRenderer.render(
                 graphics, this.font, this.leftPos, this.topPos,
                 this.layout, this.scrollState,
-                controller.getStorageTotalEntries(),
-                this.searchBox != null && this.searchBox.isFocused(),
-                this.searchBox != null && !this.searchBox.getValue().isEmpty(),
-                this.searchMode, RtsClientUiStateStore.isCraftTerminalSearchPinned(),
-                controller.getStorageSort().ordinal(),
-                controller.isStorageSortAscending(), mouseX, mouseY);
+                controller.getStorageTotalEntries());
+        this.sortControls.render(
+                graphics,
+                this.leftPos,
+                this.topPos,
+                this.layout.sortControls,
+                CraftTerminalSortAdapter.fromStorage(controller.getStorageSort()),
+                controller.isStorageSortAscending(),
+                mouseX,
+                mouseY);
+        renderActionAnimations(graphics, mouseX, mouseY);
+    }
+
+    private void renderActionAnimations(
+            GuiGraphics graphics,
+            int mouseX,
+            int mouseY) {
+        CraftTerminalUiAction hovered = actionAt(mouseX, mouseY);
+        for (CraftTerminalUiAction action : CraftTerminalUiAction.values()) {
+            if (action == CraftTerminalUiAction.SEARCH
+                    || action == CraftTerminalUiAction.SCROLLBAR
+                    || action == CraftTerminalUiAction.SORT
+                    || action == CraftTerminalUiAction.SORT_DIRECTION) {
+                continue;
+            }
+            double strength = this.actionAnimations.update(
+                    action,
+                    UiControlState.enabled().withInteraction(
+                            action == hovered, false, false),
+                    Config.isUiAnimationsEnabled()).hover();
+            CraftTerminalRenderer.renderActionHover(
+                    graphics,
+                    this.leftPos,
+                    this.topPos,
+                    this.layout.actionBounds(action),
+                    strength);
+        }
     }
 
     @Override
@@ -207,6 +255,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         this.draggingScrollbar = false;
         this.scrollbarDragOffset = CraftTerminalLayout.SCROLLBAR_HANDLE_HEIGHT / 2.0D;
+        this.sortControls.release();
         return super.mouseReleased(mouseX, mouseY, button);
     }
 
@@ -256,6 +305,13 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
                 || action == CraftTerminalUiAction.SCROLLBAR) {
             return false;
         }
+        if (action == CraftTerminalUiAction.SORT
+                || action == CraftTerminalUiAction.SORT_DIRECTION) {
+            if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
+                return true;
+            }
+            this.sortControls.press(action);
+        }
         switch (action) {
             case SEARCH_MODE:
                 this.searchMode = this.searchMode.next();
@@ -274,11 +330,11 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
                 return true;
             case SORT:
                 ClientRtsController sortController = ClientRtsController.get();
-                if (button == GLFW.GLFW_MOUSE_BUTTON_RIGHT) {
-                    sortController.toggleSortDirection();
-                } else {
-                    sortController.cycleSort();
-                }
+                CraftTerminalSortField currentField =
+                        CraftTerminalSortAdapter.fromStorage(
+                                sortController.getStorageSort());
+                sortController.setStorageSort(CraftTerminalSortAdapter.toStorage(
+                        currentField.next()));
                 this.scrollState.expectFreshPage(sortController, 0);
                 return true;
             case SORT_DIRECTION:
@@ -510,10 +566,15 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCra
                     key = "screen.rtsbuilding.craft_terminal.deposit_hotbar";
                     break;
                 case SORT:
-                    key = "screen.rtsbuilding.craft_terminal.sort_button";
+                    RtsStorageSort sort = CraftTerminalSortAdapter.normalize(
+                            ClientRtsController.get().getStorageSort());
+                    key = "screen.rtsbuilding.craft_terminal.sort_field."
+                            + (sort == RtsStorageSort.NAME ? "name" : "quantity");
                     break;
                 case SORT_DIRECTION:
-                    key = "screen.rtsbuilding.craft_terminal.sort_direction";
+                    key = "screen.rtsbuilding.craft_terminal.sort_direction."
+                            + (ClientRtsController.get().isStorageSortAscending()
+                            ? "ascending" : "descending");
                     break;
                 default:
                     break;

@@ -20,9 +20,14 @@ public final class CullingWindowStyle {
     }
 
     public static DeleteVisual deleteButton(boolean hovered) {
+        return deleteButton(hovered ? 1.0D : 0.0D);
+    }
+
+    /** 危险按钮连续插值；删除命中与确认逻辑不受该视觉强度影响。 */
+    public static DeleteVisual deleteButton(double hoverStrength) {
         return new DeleteVisual(
-                hovered ? DELETE_HOVER_BACKGROUND : DELETE_BACKGROUND,
-                hovered ? DELETE_HOVER_BORDER : DELETE_BORDER,
+                UiColor.interpolate(DELETE_BACKGROUND, DELETE_HOVER_BACKGROUND, hoverStrength),
+                UiColor.interpolate(DELETE_BORDER, DELETE_HOVER_BORDER, hoverStrength),
                 DELETE_DARK_BORDER);
     }
 

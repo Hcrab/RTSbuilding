@@ -38,6 +38,8 @@ final class CraftTerminalLayoutTest {
         CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(6);
         assertEquals(CraftTerminalUiAction.CYCLE_ROWS, layout.actionAt(200, 5));
         assertEquals(CraftTerminalUiAction.SORT, layout.actionAt(200, 22));
+        assertNull(layout.actionAt(200, 45));
+        assertEquals(CraftTerminalUiAction.SORT_DIRECTION, layout.actionAt(200, 48));
         assertEquals(CraftTerminalUiAction.CLEAR_TO_STORAGE, layout.actionAt(200, 194));
         assertNull(layout.actionAt(200, 176));
         assertNull(layout.actionAt(200, 240));
@@ -57,6 +59,9 @@ final class CraftTerminalLayoutTest {
     void 贡献者纹理切片保持原像素尺寸() {
         CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(4);
         assertEquals(195, CraftTerminalLayout.WIDTH);
+        assertEquals(221, CraftTerminalLayout.VISIBLE_WIDTH);
+        assertEquals(CraftTerminalLayout.VISIBLE_WIDTH,
+                layout.sortControls.direction.right());
         assertEquals(304, CraftTerminalLayout.IMAGE_HEIGHT);
         for (CraftTerminalLayout.TextureSlice slice : layout.skinSlices()) {
             assertEquals(slice.source.getWidth(), slice.target.getWidth());

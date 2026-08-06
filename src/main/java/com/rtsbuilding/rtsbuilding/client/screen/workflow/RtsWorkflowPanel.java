@@ -157,14 +157,29 @@ public final class RtsWorkflowPanel extends RtsWindowPanel {
                 this.screen.font(),
                 this.screen);
         for (int index = 0; index < state.rows.size(); index++) {
+            WorkflowWindowLayout.RowGeometry rowGeometry = geometry.rows.get(index);
+            double rowHover = animateContentControl(
+                    "workflow_row_" + index, true,
+                    rowGeometry.row.contains(mouseX, mouseY), false).hover();
+            double protectHover = animateContentControl(
+                    "workflow_protect_" + index, true,
+                    rowGeometry.protect.contains(mouseX, mouseY), false).hover();
+            double actionHover = animateContentControl(
+                    "workflow_action_" + index, true,
+                    rowGeometry.action.contains(mouseX, mouseY), false).hover();
+            double deleteHover = animateContentControl(
+                    "workflow_delete_" + index, true,
+                    rowGeometry.delete.contains(mouseX, mouseY), false).hover();
             WorkflowPanelRenderer.renderRow(
                     graphics,
                     this.screen.font(),
                     canvas,
-                    geometry.rows.get(index),
+                    rowGeometry,
                     state.rows.get(index),
-                    mouseX,
-                    mouseY);
+                    rowHover,
+                    protectHover,
+                    actionHover,
+                    deleteHover);
         }
     }
 

@@ -16,11 +16,12 @@ import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
 import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.UiControlChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.CraftQuantityStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -39,7 +40,6 @@ import java.util.List;
  * semantics or linked-storage validation.
  */
 public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
-    private static final UiControlState ENABLED_CONTROL = UiControlState.enabled();
     private ItemStack preview = ItemStack.EMPTY;
     private CraftQuantityState state = new CraftQuantityState(false, "", "",
             Collections.<CraftQuantityOption>emptyList(), 0, 0, 1, 1, true);
@@ -143,12 +143,12 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
         g.drawString(screen.font(), screen.font().plainSubstrByWidth(detail, layout.w),
                 layout.x, layout.detailY, detailColor.toArgb(), false);
 
-        drawSmallButton(g, canvas, layout.minusTenX, layout.inputY,
+        drawSmallButton(g, canvas, "minus_10", layout.minusTenX, layout.inputY,
                 CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
-                "-10", UiControlRole.HOLD_REPEAT);
-        drawSmallButton(g, canvas, layout.minusOneX, layout.inputY,
+                "-10", UiControlRole.HOLD_REPEAT, mouseX, mouseY);
+        drawSmallButton(g, canvas, "minus_1", layout.minusOneX, layout.inputY,
                 CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
-                "-1", UiControlRole.HOLD_REPEAT);
+                "-1", UiControlRole.HOLD_REPEAT, mouseX, mouseY);
         UiChromeRenderer.frame(canvas, rect(layout.inputX, layout.inputY,
                         CraftQuantityWindowLayout.INPUT_W, CraftQuantityWindowLayout.INPUT_H), 1.0D,
                 RtsMainlineTheme.INPUT_BACKGROUND, RtsMainlineTheme.INPUT_BORDER_LIGHT,
@@ -156,21 +156,21 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), Integer.toString(this.state.quantity),
                 layout.inputX + CraftQuantityWindowLayout.INPUT_W / 2, layout.inputY + 3,
                 RtsMainlineTheme.BUTTON_TEXT.toArgb());
-        drawSmallButton(g, canvas, layout.plusOneX, layout.inputY,
+        drawSmallButton(g, canvas, "plus_1", layout.plusOneX, layout.inputY,
                 CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
-                "+1", UiControlRole.HOLD_REPEAT);
-        drawSmallButton(g, canvas, layout.plusTenX, layout.inputY,
+                "+1", UiControlRole.HOLD_REPEAT, mouseX, mouseY);
+        drawSmallButton(g, canvas, "plus_10", layout.plusTenX, layout.inputY,
                 CraftQuantityWindowLayout.STEP_W, CraftQuantityWindowLayout.STEP_H,
-                "+10", UiControlRole.HOLD_REPEAT);
+                "+10", UiControlRole.HOLD_REPEAT, mouseX, mouseY);
 
         g.drawString(screen.font(), screen.font().plainSubstrByWidth("Enter confirm, Esc cancel", layout.w),
                 layout.x, layout.helpY, CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
-        drawSmallButton(g, canvas, layout.cancelX, layout.actionY,
+        drawSmallButton(g, canvas, "cancel", layout.cancelX, layout.actionY,
                 CraftQuantityWindowLayout.ACTION_W, CraftQuantityWindowLayout.ACTION_H,
-                "Cancel", UiControlRole.DESTRUCTIVE_CONFIRM);
-        drawSmallButton(g, canvas, layout.confirmX, layout.actionY,
+                "Cancel", UiControlRole.DESTRUCTIVE_CONFIRM, mouseX, mouseY);
+        drawSmallButton(g, canvas, "confirm", layout.confirmX, layout.actionY,
                 CraftQuantityWindowLayout.ACTION_W, CraftQuantityWindowLayout.ACTION_H,
-                "Craft", UiControlRole.PRIMARY_ACTION);
+                "Craft", UiControlRole.PRIMARY_ACTION, mouseX, mouseY);
     }
 
     @Override
@@ -358,12 +358,16 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
     }
 
     private void drawSmallButton(GuiGraphics g, MinecraftUiCanvas canvas,
-                                 int x, int y, int w, int h, String label,
-                                 UiControlRole role) {
-        UiControlChromeRenderer.compactFrame(canvas, rect(x, y, w, h), role, ENABLED_CONTROL);
+                                 String stableId, int x, int y, int w, int h, String label,
+                                 UiControlRole role, int mouseX, int mouseY) {
+        boolean hovered = UiRect.contains(x, y, w, h, mouseX, mouseY);
+        UiControlVisualStyle visual = UiControlVisualStyle.animated(
+                role, animateContentControl(stableId, true, hovered, false));
+        UiCompactFrameRenderer.frame(canvas, rect(x, y, w, h),
+                visual.getBackground(), visual.getBorderLight(), visual.getBorderDark());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
                 x + (w / 2), y + Math.max(2, (h - screen.font().lineHeight) / 2),
-                RtsMainlineTheme.BUTTON_TEXT.toArgb());
+                visual.getText().toArgb());
     }
 
     private static UiRect rect(int x, int y, int w, int h) {

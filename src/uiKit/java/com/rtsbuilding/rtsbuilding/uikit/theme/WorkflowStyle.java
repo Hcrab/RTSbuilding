@@ -63,6 +63,13 @@ public final class WorkflowStyle {
             boolean suspended,
             boolean protectedWorkflow,
             boolean hovered) {
+        return row(suspended, protectedWorkflow, hovered ? 1.0D : 0.0D);
+    }
+
+    public static RowVisual row(
+            boolean suspended,
+            boolean protectedWorkflow,
+            double hoverStrength) {
         UiColor dark = suspended
                 ? SUSPENDED_DARK_BORDER
                 : ACTIVE_DARK_BORDER;
@@ -77,9 +84,8 @@ public final class WorkflowStyle {
                 : ACTIVE_PROGRESS_TEXT;
         if (protectedWorkflow) {
             return new RowVisual(
-                    hovered
-                            ? PROTECTED_HOVER_BACKGROUND
-                            : PROTECTED_BACKGROUND,
+                    UiColor.interpolate(PROTECTED_BACKGROUND,
+                            PROTECTED_HOVER_BACKGROUND, hoverStrength),
                     PROTECTED_BORDER,
                     dark,
                     PROTECTED_TEXT,
@@ -91,12 +97,10 @@ public final class WorkflowStyle {
         }
         return new RowVisual(
                 suspended
-                        ? (hovered
-                                ? SUSPENDED_HOVER_BACKGROUND
-                                : SUSPENDED_BACKGROUND)
-                        : (hovered
-                                ? ACTIVE_HOVER_BACKGROUND
-                                : ACTIVE_BACKGROUND),
+                        ? UiColor.interpolate(SUSPENDED_BACKGROUND,
+                                SUSPENDED_HOVER_BACKGROUND, hoverStrength)
+                        : UiColor.interpolate(ACTIVE_BACKGROUND,
+                                ACTIVE_HOVER_BACKGROUND, hoverStrength),
                 suspended ? SUSPENDED_BORDER : ACTIVE_BORDER,
                 dark,
                 suspended ? SUSPENDED_TEXT : ACTIVE_TEXT,
@@ -114,14 +118,18 @@ public final class WorkflowStyle {
     public static ButtonVisual protect(
             boolean protectedWorkflow,
             boolean hovered) {
+        return protect(protectedWorkflow, hovered ? 1.0D : 0.0D);
+    }
+
+    public static ButtonVisual protect(
+            boolean protectedWorkflow,
+            double hoverStrength) {
         return new ButtonVisual(
                 protectedWorkflow
-                        ? (hovered
-                                ? PROTECT_ACTIVE_HOVER_BACKGROUND
-                                : PROTECT_ACTIVE_BACKGROUND)
-                        : (hovered
-                                ? PROTECT_IDLE_HOVER_BACKGROUND
-                                : PROTECT_IDLE_BACKGROUND),
+                        ? UiColor.interpolate(PROTECT_ACTIVE_BACKGROUND,
+                                PROTECT_ACTIVE_HOVER_BACKGROUND, hoverStrength)
+                        : UiColor.interpolate(PROTECT_IDLE_BACKGROUND,
+                                PROTECT_IDLE_HOVER_BACKGROUND, hoverStrength),
                 protectedWorkflow ? PROTECTED_BORDER : ACTIVE_BORDER,
                 ACTIVE_DARK_BORDER,
                 protectedWorkflow ? BUTTON_TEXT : PROTECT_IDLE_TEXT);
@@ -131,15 +139,20 @@ public final class WorkflowStyle {
             boolean suspended,
             boolean paused,
             boolean hovered) {
+        return action(suspended, paused, hovered ? 1.0D : 0.0D);
+    }
+
+    public static ButtonVisual action(
+            boolean suspended,
+            boolean paused,
+            double hoverStrength) {
         boolean resume = suspended || paused;
         return new ButtonVisual(
                 resume
-                        ? (hovered
-                                ? RESUME_HOVER_BACKGROUND
-                                : RESUME_BACKGROUND)
-                        : (hovered
-                                ? PAUSE_HOVER_BACKGROUND
-                                : PAUSE_BACKGROUND),
+                        ? UiColor.interpolate(RESUME_BACKGROUND,
+                                RESUME_HOVER_BACKGROUND, hoverStrength)
+                        : UiColor.interpolate(PAUSE_BACKGROUND,
+                                PAUSE_HOVER_BACKGROUND, hoverStrength),
                 resume ? RESUME_BORDER : PAUSE_BORDER,
                 suspended
                         ? SUSPENDED_RESUME_DARK_BORDER
@@ -148,10 +161,13 @@ public final class WorkflowStyle {
     }
 
     public static ButtonVisual delete(boolean hovered) {
+        return delete(hovered ? 1.0D : 0.0D);
+    }
+
+    public static ButtonVisual delete(double hoverStrength) {
         return new ButtonVisual(
-                hovered
-                        ? DELETE_HOVER_BACKGROUND
-                        : DELETE_BACKGROUND,
+                UiColor.interpolate(DELETE_BACKGROUND,
+                        DELETE_HOVER_BACKGROUND, hoverStrength),
                 DELETE_BORDER,
                 DELETE_DARK_BORDER,
                 BUTTON_TEXT);

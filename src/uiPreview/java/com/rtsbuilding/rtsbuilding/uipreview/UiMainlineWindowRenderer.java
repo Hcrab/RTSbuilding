@@ -32,6 +32,7 @@ import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
 import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsSwitchLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.CullingWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
@@ -50,7 +51,6 @@ import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WorkflowResumeChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.StorageWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.BlueprintWindowChromeRenderer;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.FunnelBufferChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.GuideWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
@@ -62,6 +62,7 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRenderMode;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.WorkflowStyle;
@@ -975,7 +976,9 @@ final class UiMainlineWindowRenderer {
                 canvas.text(canvas.trimToWidth(language.text(row.id.labelKey), width - 126),
                         x + 16, y + 18, row.enabled
                                 ? SettingsWindowStyle.LABEL : SettingsWindowStyle.DISABLED_TEXT);
-                drawCoreToggleButton(canvas, x + width - 92, y + 4, row.active, language);
+                drawCoreToggleButton(canvas,
+                        x + width - SettingsWindowLayout.TOGGLE_RIGHT_INSET,
+                        y + 1, row.active, language);
                 break;
             case HINT_TOGGLE:
                 drawCoreHintToggle(canvas, row, x, y, width, language);
@@ -1059,19 +1062,16 @@ final class UiMainlineWindowRenderer {
             canvas.text(lines.get(i), hintX, y + 22 + i * SettingsWindowLayout.HINT_LINE_H,
                     row.enabled ? SettingsWindowStyle.HINT : SettingsWindowStyle.DISABLED_REASON);
         }
-        drawCoreToggleButton(canvas, x + width - 92, y + 4, row.active, language);
+        drawCoreToggleButton(canvas,
+                x + width - SettingsWindowLayout.TOGGLE_RIGHT_INSET,
+                y + 2, row.active, language);
     }
 
     private void drawCoreToggleButton(BufferedImageUiCanvas canvas, int x, int y,
                                       boolean active, UiLanguageBundle language) {
-        recordCompactFrame(canvas, new UiRect(x, y, 76, 22),
-                active ? SettingsWindowStyle.TOGGLE_ON : SettingsWindowStyle.TOGGLE_OFF,
-                active ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.TOGGLE_OFF_BORDER,
-                SettingsWindowStyle.TOGGLE_DARK_BORDER);
-        canvas.fill(new UiRect(active ? x + 50 : x + 6, y + 4, 18, 14),
-                active ? SettingsWindowStyle.TOGGLE_ON_KNOB : SettingsWindowStyle.TOGGLE_OFF_KNOB);
-        canvas.centeredText(language.text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"),
-                x + 38, y + 15, UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
+        drawSettingsToggleChrome(canvas,
+                new UiRect(x, y, SettingsWindowLayout.TOGGLE_WIDTH,
+                        SettingsWindowLayout.TOGGLE_HEIGHT), active);
     }
 
     private static List<String> wrap(BufferedImageUiCanvas canvas, String text, int maxWidth) {
@@ -1145,15 +1145,17 @@ final class UiMainlineWindowRenderer {
                 UiMainlinePreviewStyle.TEXT);
         canvas.text(canvas.trimToWidth(hint, w - 108), x + 8, y + 23,
                 UiMainlinePreviewStyle.MUTED);
-        drawReferenceToggleButton(canvas, x + w - 84, y + 2, active, language);
+        drawReferenceToggleButton(canvas,
+                x + w - SettingsWindowLayout.TOGGLE_WIDTH - 4,
+                y + 2, active, language);
         return y + 34;
     }
 
     private void drawReferenceToggleButton(BufferedImageUiCanvas canvas, int x, int y,
                                            boolean active, UiLanguageBundle language) {
-        drawSettingsToggleChrome(canvas, new UiRect(x, y, 80, 22), active);
-        canvas.centeredText(language.text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"),
-                x + 40, y + 15, UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
+        drawSettingsToggleChrome(canvas,
+                new UiRect(x, y, SettingsWindowLayout.TOGGLE_WIDTH,
+                        SettingsWindowLayout.TOGGLE_HEIGHT), active);
     }
 
     private int section(BufferedImageUiCanvas canvas, int x, int y, int w,
@@ -1177,10 +1179,10 @@ final class UiMainlineWindowRenderer {
             canvas.text(canvas.trimToWidth(hint, w - 108), x + 4, y + 25,
                     UiMainlinePreviewStyle.MUTED);
         }
-        int buttonX = x + w - 80;
-        drawSettingsToggleChrome(canvas, new UiRect(buttonX, y + 4, 76, 22), active);
-        canvas.centeredText(language.text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"),
-                buttonX + 38, y + 19, UiMainlinePreviewStyle.color(SettingsWindowStyle.VALUE));
+        int buttonX = x + w - SettingsWindowLayout.TOGGLE_WIDTH - 4;
+        drawSettingsToggleChrome(canvas,
+                new UiRect(buttonX, y + 2, SettingsWindowLayout.TOGGLE_WIDTH,
+                        SettingsWindowLayout.TOGGLE_HEIGHT), active);
         return y + (hint.isEmpty() ? 28 : 34);
     }
 
@@ -1189,13 +1191,21 @@ final class UiMainlineWindowRenderer {
      */
     private void drawSettingsToggleChrome(BufferedImageUiCanvas canvas, UiRect bounds,
                                           boolean active) {
-        recordCompactFrame(canvas, bounds,
-                active ? SettingsWindowStyle.TOGGLE_ON : SettingsWindowStyle.TOGGLE_OFF,
-                active ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.TOGGLE_OFF_BORDER,
-                SettingsWindowStyle.TOGGLE_DARK_BORDER);
-        canvas.fill(new UiRect(active ? bounds.right() - 26 : bounds.getX() + 6,
-                        bounds.getY() + 4, 18, 14),
-                active ? SettingsWindowStyle.TOGGLE_ON_KNOB : SettingsWindowStyle.TOGGLE_OFF_KNOB);
+        SettingsSwitchLayout.Geometry geometry = SettingsSwitchLayout.geometry(
+                bounds.getX(), bounds.getY(), active ? 1.0D : 0.0D);
+        UiTextureState state = active ? UiTextureState.ACTIVE : UiTextureState.INACTIVE;
+        java.awt.image.BufferedImage texture = assets.settingsSwitch(state);
+        if (active) {
+            canvas.imageRegion(texture, new UiRect(48, 515, 161, 95),
+                    new UiRect(geometry.track.getX(), geometry.track.getY(),
+                            SettingsSwitchLayout.KNOB_TRAVEL, geometry.track.getHeight()));
+            canvas.imageRegion(texture, new UiRect(209, 503, 103, 116), geometry.knob);
+        } else {
+            canvas.imageRegion(texture, new UiRect(48, 54, 103, 116), geometry.knob);
+            canvas.imageRegion(texture, new UiRect(151, 64, 161, 96),
+                    new UiRect(geometry.knob.right(), geometry.track.getY(),
+                            SettingsSwitchLayout.KNOB_TRAVEL, geometry.track.getHeight()));
+        }
     }
 
     private void drawQuickBuild(BufferedImageUiCanvas canvas, UiRect bounds,
@@ -1241,11 +1251,15 @@ final class UiMainlineWindowRenderer {
                 QuickBuildUiShapeOption option = state.shapes.get(i);
                 int slotX = g.shapeX(i);
                 int slotY = g.shapeY(i);
+                // 与生产 WindowButton 一致：24px 贡献者素材以最近邻铺满 32px 按钮面，
+                // 不能按原图尺寸居中，否则离屏画廊会凭空扩大按钮之间的视觉间距。
                 canvas.image(
                         assets.quickBuildShape(option.shape, option.selected
                                 ? com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState.ACTIVE
                                 : com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState.INACTIVE),
-                        new UiRect(slotX, slotY, 32, 32));
+                        new UiRect(slotX, slotY,
+                                QuickBuildWindowLayout.SHAPE_SLOT,
+                                QuickBuildWindowLayout.SHAPE_SLOT));
             }
         }
         if (state.mode != QuickBuildUiMode.SMART_FILL && state.chainMode()) {
@@ -1338,7 +1352,10 @@ final class UiMainlineWindowRenderer {
             boolean selected) {
         UiControlVisualStyle visual = controlVisual(
                 UiControlRole.CHOICE, selected, true);
-        WindowButtonChromeRenderer.renderSolid(canvas, area, visual);
+        DefaultButtonPreviewRenderer.render(
+                canvas, assets, area,
+                selected ? UiTextureState.ACTIVE : UiTextureState.INACTIVE,
+                1.0D);
         canvas.centeredText(
                 canvas.trimToWidth(label, (int) area.getWidth() - 4),
                 area.getX() + area.getWidth() / 2.0D,
@@ -1363,20 +1380,22 @@ final class UiMainlineWindowRenderer {
                                   String label, boolean selected, boolean enabled) {
         UiControlVisualStyle visual = controlVisual(
                 UiControlRole.TOGGLE, selected, enabled);
-        WindowButtonChromeRenderer.renderSolid(
-                canvas,
+        DefaultButtonPreviewRenderer.render(
+                canvas, assets,
                 new UiRect(x, y, w, QuickBuildWindowLayout.CONTROL_H),
-                visual);
-        UiRect indicator = new UiRect(x + 2, y + 2, 16, 16);
-        if (UiThemeRuntime.manager().active().renderMode() == UiThemeRenderMode.LEGACY_DIRECT) {
-            canvas.imageRegion(
-                    assets.image("textures/gui/general/mode_button.png"),
-                    new UiRect(0, selected ? 1024 : 0, 512, 512),
-                    indicator);
-        } else {
-            QuickBuildChromeRenderer.renderControlIndicator(
-                    canvas, indicator, QuickBuildStyle.controlIndicator(selected, false));
+                selected ? UiTextureState.ACTIVE : UiTextureState.INACTIVE,
+                1.0D);
+        if (visual.getOverlay().alpha() > 0) {
+            canvas.fill(new UiRect(x, y, w, QuickBuildWindowLayout.CONTROL_H),
+                    visual.getOverlay());
         }
+        UiRect indicator = new UiRect(x + 2, y + 2, 16, 16);
+        UiTextureState indicatorState = selected
+                ? UiTextureState.ACTIVE : UiTextureState.INACTIVE;
+        canvas.imageRegion(
+                assets.quickBuildIndicator(indicatorState),
+                new UiRect(0, selected ? 1024 : 0, 512, 512),
+                indicator);
         canvas.centeredText(canvas.trimToWidth(label, w - 22), x + w / 2.0D,
                 y + 14, UiMainlinePreviewStyle.color(visual.getText()));
     }
@@ -1551,10 +1570,15 @@ final class UiMainlineWindowRenderer {
             BlueprintWindowChromeRenderer.renderPrimaryAction(
                     canvas, new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H));
         } else {
-            WindowButtonChromeRenderer.renderSolid(
-                    canvas,
+            DefaultButtonPreviewRenderer.render(
+                    canvas, assets,
                     new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H),
-                    visual);
+                    UiTextureState.INACTIVE,
+                    1.0D);
+            if (visual.getOverlay().alpha() > 0) {
+                canvas.fill(new UiRect(x, y, w, BlueprintWindowLayout.BUTTON_H),
+                        visual.getOverlay());
+            }
         }
         canvas.centeredText(canvas.trimToWidth(label, Math.max(8, w - 10)), x + w / 2.0D,
                 y + 14, UiMainlinePreviewStyle.color(primary && enabled

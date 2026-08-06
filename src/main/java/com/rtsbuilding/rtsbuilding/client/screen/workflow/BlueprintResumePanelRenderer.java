@@ -26,14 +26,12 @@ final class BlueprintResumePanelRenderer {
             S2CRtsBlueprintResumeScanPayload data,
             int scrollOffset,
             boolean canResume,
-            int mouseX,
-            int mouseY) {
+            double actionHover) {
         WorkflowResumeChromeRenderer.renderBlueprint(
                 new MinecraftUiCanvas(graphics, font),
                 geometry,
                 canResume,
-                mouseX,
-                mouseY);
+                actionHover);
         renderHeader(graphics, font, geometry, data);
         renderRows(
                 graphics,
@@ -51,7 +49,7 @@ final class BlueprintResumePanelRenderer {
                 WorkflowResumeStyle.action(
                         WorkflowResumeStyle.ActionKind.RESUME,
                         canResume,
-                        geometry.action.contains(mouseX, mouseY))
+                        actionHover)
                         .text.toArgb());
     }
 

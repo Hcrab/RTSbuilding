@@ -27,16 +27,30 @@ public final class BottomPanelCraftDockStyle {
     }
 
     public static UiColor craftBackground(boolean hovered) {
-        return hovered ? CRAFT_HOVER : CRAFT_IDLE;
+        return craftBackground(hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor craftBackground(double hoverStrength) {
+        return UiColor.interpolate(CRAFT_IDLE, CRAFT_HOVER, hoverStrength);
     }
 
     public static UiColor slotBackground(boolean pending, boolean bound, boolean hovered) {
+        return slotBackground(pending, bound, hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor slotBackground(
+            boolean pending,
+            boolean bound,
+            double hoverStrength) {
         if (pending) {
-            return hovered ? SLOT_PENDING_HOVER : SLOT_PENDING;
+            return UiColor.interpolate(
+                    SLOT_PENDING, SLOT_PENDING_HOVER, hoverStrength);
         }
         if (bound) {
-            return hovered ? SLOT_BOUND_HOVER : SLOT_BOUND;
+            return UiColor.interpolate(
+                    SLOT_BOUND, SLOT_BOUND_HOVER, hoverStrength);
         }
-        return hovered ? SLOT_EMPTY_HOVER : SLOT_EMPTY;
+        return UiColor.interpolate(
+                SLOT_EMPTY, SLOT_EMPTY_HOVER, hoverStrength);
     }
 }

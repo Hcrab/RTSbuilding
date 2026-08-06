@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.guide;
 import com.rtsbuilding.rtsbuilding.RtsCommunityLinks;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.theme.DefaultButtonTextureRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants;
@@ -19,7 +20,6 @@ import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiState;
 import com.rtsbuilding.rtsbuilding.uicore.guide.GuideUiTopic;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.GuideWindowChromeRenderer;
-import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowButtonChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.GuideWindowLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.GuideWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
@@ -82,7 +82,14 @@ public final class GuidePanel extends RtsWindowPanel {
             int tabX = (int) row.getX();
             int ty = (int) row.getY();
             boolean active = i == this.page;
-            GuideWindowChromeRenderer.renderTopic(canvas, row, active);
+            boolean hovered = row.contains(mouseX, mouseY);
+            var topicAnimation = animateContentControl(
+                    "guide_topic_" + i, true, hovered, active);
+            GuideWindowChromeRenderer.renderTopic(
+                    canvas, row,
+                    topicAnimation.selection(), topicAnimation.hover());
+            var topicContent = GuideWindowStyle.topicContent(
+                    topicAnimation.selection(), topicAnimation.hover());
             if (this.context == GuideUiContext.BOTTOM) {
                 String label = RtsClientUiUtil.trimToWidth(screen.font(),
                         Component.translatable(topics[i].titleKey).getString(),
@@ -90,12 +97,12 @@ public final class GuidePanel extends RtsWindowPanel {
                 g.drawString(screen.font(), label,
                         tabX + GuideWindowLayout.TOPIC_LABEL_INSET_X,
                         ty + GuideWindowLayout.TOPIC_LABEL_TEXT_Y,
-                        GuideWindowStyle.topicContent(active).toArgb(), false);
+                        topicContent.toArgb(), false);
             } else {
                 drawTopicIcon(g, topics[i].icon,
                         tabX + GuideWindowLayout.TOPIC_ICON_CENTER_X,
                         ty + GuideWindowLayout.TOPIC_ICON_CENTER_Y,
-                        GuideWindowStyle.topicContent(active));
+                        topicContent);
             }
         }
         GuideWindowChromeRenderer.renderScrollbar(canvas, geometry.topicScrollbar,
@@ -319,11 +326,11 @@ public final class GuidePanel extends RtsWindowPanel {
 
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
         int buttonY = contentY() + 29;
-        drawAiHelpButton(canvas, x, buttonY, w, 22, mouseX, mouseY,
+        drawAiHelpButton(g, canvas, "ai_chat", x, buttonY, w, 22, mouseX, mouseY,
                 Component.translatable("screen.rtsbuilding.ai_help.chat"));
-        drawAiHelpButton(canvas, x, buttonY + 26, w, 22, mouseX, mouseY,
+        drawAiHelpButton(g, canvas, "copy_diagnostics", x, buttonY + 26, w, 22, mouseX, mouseY,
                 Component.translatable("screen.rtsbuilding.ai_help.copy"));
-        drawAiHelpButton(canvas, x, buttonY + 52, w, 22, mouseX, mouseY,
+        drawAiHelpButton(g, canvas, "open_website", x, buttonY + 52, w, 22, mouseX, mouseY,
                 Component.translatable("screen.rtsbuilding.ai_help.website"));
     }
 
@@ -347,7 +354,9 @@ public final class GuidePanel extends RtsWindowPanel {
     }
 
     private void drawAiHelpButton(
+            GuiGraphics graphics,
             MinecraftUiCanvas canvas,
+            String stableId,
             int x,
             int y,
             int w,
@@ -356,7 +365,10 @@ public final class GuidePanel extends RtsWindowPanel {
             int mouseY,
             Component label) {
         boolean hovered = UiRect.contains(x, y, w, h, mouseX, mouseY);
-        WindowButtonChromeRenderer.renderSolid(canvas, new UiRect(x, y, w, h), hovered);
+        double hover = animateContentControl(
+                "guide_" + stableId, true, hovered, false).hover();
+        DefaultButtonTextureRenderer.renderHoverBlend(
+                graphics, new UiRect(x, y, w, h), hover, null);
         String text = RtsClientUiUtil.trimToWidth(
                 screen.font(), label.getString(), w - AI_HELP_BUTTON_TEXT_INSET);
         canvas.text(text,

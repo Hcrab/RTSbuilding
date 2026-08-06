@@ -27,6 +27,7 @@ import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTab;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTransition;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiSelectionAnimationSet;
 import net.minecraft.client.Minecraft;
@@ -75,6 +76,8 @@ public final class BottomPanel {
             new UiSelectionAnimationSet<>(SystemUiClock.INSTANCE,
                     Arrays.asList(BottomBarUiTab.values()),
                     110L, UiEasing.EASE_OUT_CUBIC);
+    private final UiControlAnimationRegistry<String> headerControlAnimations =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 8);
     private final BottomPanelInputRouter inputRouter =
             new BottomPanelInputRouter(this);
 
@@ -95,6 +98,7 @@ public final class BottomPanel {
         BottomBarUiTab activeTab = core.activeTab;
         BottomPanelHeaderRenderer.render(
                 g, screen.font(), header, core, tabAnimations,
+                headerControlAnimations,
                 Config.isUiAnimationsEnabled(),
                 Component.translatable(
                         "screen.rtsbuilding.creative.tab").getString(),
@@ -120,7 +124,7 @@ public final class BottomPanel {
                 layout.sortX(), layout.sortY());
         BottomPanelSortRenderer.render(
                 g, screen.font(), sortLayout,
-                core.sortLabel, core.sortAscending);
+                core.sortLabel, core.sortAscending, mouseX, mouseY);
         BottomPanelCraftDockLayout craftDock = resolveCraftDockLayout(layout);
         this.hoveredGuiBindingSlot = BottomPanelCraftDockRenderer.render(
                 g, screen.font(), core.guiBindings, this.controller,
@@ -132,7 +136,7 @@ public final class BottomPanel {
         BottomPanelCategoryRenderer.render(
                 g, screen.font(),
                 Component.translatable("screen.rtsbuilding.storage.category"),
-                core.categories, categoryLayout);
+                core.categories, categoryLayout, mouseX, mouseY);
 
         int storageX = layout.storageX();
         int storageY = layout.storageY();
@@ -156,7 +160,7 @@ public final class BottomPanel {
         BottomPanelBrowseRenderer.renderControls(
                 g, screen.font(), browseLayout,
                 core.searchFocused, !core.search.isEmpty(),
-                core.page, core.pageCount);
+                core.page, core.pageCount, mouseX, mouseY);
 
         renderToolArea(g, core, mouseX, mouseY, storageX, layout.toolY(), mainStorageW);
 

@@ -109,6 +109,20 @@ public final class RtsClientPacketGateway {
                 allowStore ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
     }
 
+    public static void sendBatchLinkStorage(
+            BlockPos first, BlockPos second, boolean allowStore) {
+        if (first == null || second == null) return;
+        RtsDeveloperScenarioTracker.getInstance().record(
+                "storage_batch_link_request",
+                "first=" + first.toShortString() + ",second=" + second.toShortString());
+        PacketDistributor.sendToServer(new C2SRtsBatchLinkStoragePayload(
+                first,
+                second,
+                allowStore
+                        ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL
+                        : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
+    }
+
     public static void sendRequestStoragePage(int page, String search, String category, RtsStorageSort sort, boolean ascending, int pageSize) {
         boolean pinyinSearchEnabled = isChineseLanguageSelected();
         PacketDistributor.sendToServer(new C2SRtsRequestStoragePagePayload(

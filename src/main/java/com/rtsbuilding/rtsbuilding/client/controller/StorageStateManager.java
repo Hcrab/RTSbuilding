@@ -435,6 +435,21 @@ public final class StorageStateManager {
         requestStoragePage(0);
     }
 
+    /**
+     * 直接选择一个储存排序字段。
+     *
+     * <p>合成终端使用两个显式按钮语义，不应通过反复调用 {@link #cycleSort()}
+     * 猜测共享枚举当前位于哪个位置。相同值保持 no-op，避免一次点击产生重复分页请求。</p>
+     */
+    public void setStorageSort(RtsStorageSort sort) {
+        RtsStorageSort normalized = Objects.requireNonNull(sort, "sort");
+        if (this.storageSort == normalized) {
+            return;
+        }
+        this.storageSort = normalized;
+        requestStoragePage(0);
+    }
+
     public void toggleSortDirection() {
         this.storageSortAscending = !this.storageSortAscending;
         requestStoragePage(0);

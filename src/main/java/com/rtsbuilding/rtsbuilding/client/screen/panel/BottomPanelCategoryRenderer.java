@@ -1,6 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiCategory;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelCategoryLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCategoryStyle;
 import net.minecraft.client.gui.Font;
@@ -17,6 +21,9 @@ import java.util.List;
  * 关闭阴影，避免分类栏被后绘制的半透明窗口覆盖时发生文字穿透。</p>
  */
 public final class BottomPanelCategoryRenderer {
+    private static final UiControlAnimationRegistry<String> ANIMATIONS =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 64);
+
     private BottomPanelCategoryRenderer() {
     }
 
@@ -25,7 +32,9 @@ public final class BottomPanelCategoryRenderer {
             Font font,
             Component title,
             List<BottomBarUiCategory> categories,
-            BottomPanelCategoryLayout layout) {
+            BottomPanelCategoryLayout layout,
+            int mouseX,
+            int mouseY) {
         fill(graphics, layout.panel, BottomPanelCategoryStyle.PANEL_BACKGROUND.toArgb());
         int titleX = layout.panel.x
                 + (layout.panel.width - font.width(title)) / 2;
@@ -36,9 +45,15 @@ public final class BottomPanelCategoryRenderer {
                 false);
 
         fill(graphics, layout.scrollUp,
-                BottomPanelCategoryStyle.SCROLL_BUTTON_BACKGROUND.toArgb());
+                BottomPanelCategoryStyle.buttonBackground(
+                        BottomPanelCategoryStyle.SCROLL_BUTTON_BACKGROUND,
+                        hover("scroll.up", layout.scrollUp.contains(mouseX, mouseY), false))
+                        .toArgb());
         fill(graphics, layout.scrollDown,
-                BottomPanelCategoryStyle.SCROLL_BUTTON_BACKGROUND.toArgb());
+                BottomPanelCategoryStyle.buttonBackground(
+                        BottomPanelCategoryStyle.SCROLL_BUTTON_BACKGROUND,
+                        hover("scroll.down", layout.scrollDown.contains(mouseX, mouseY), false))
+                        .toArgb());
         drawCenteredNoShadow(graphics, font, "^", layout.scrollUp);
         drawCenteredNoShadow(graphics, font, "v", layout.scrollDown);
 
@@ -46,8 +61,14 @@ public final class BottomPanelCategoryRenderer {
         for (int categoryIndex = layout.scroll; categoryIndex < to; categoryIndex++) {
             BottomBarUiCategory category = categories.get(categoryIndex);
             BottomPanelCategoryLayout.Area row = layout.rowArea(categoryIndex);
+            int visibleRow = categoryIndex - layout.scroll;
+            double rowHover = hover(
+                    "row." + visibleRow,
+                    row.contains(mouseX, mouseY),
+                    category.selected);
             fill(graphics, row,
-                    BottomPanelCategoryStyle.rowBackground(category.selected).toArgb());
+                    BottomPanelCategoryStyle.rowBackground(
+                            category.selected, rowHover).toArgb());
 
             int labelX = layout.panel.x + BottomPanelCategoryLayout.TEXT_LEFT_INSET
                     + category.depth * BottomPanelCategoryLayout.DEPTH_INDENT;
@@ -55,8 +76,14 @@ public final class BottomPanelCategoryRenderer {
                     - BottomPanelCategoryLayout.TEXT_LEFT_INSET;
             if (category.expandable) {
                 BottomPanelCategoryLayout.Area toggle = layout.toggleArea(categoryIndex);
+                double toggleHover = hover(
+                        "toggle." + visibleRow,
+                        toggle.contains(mouseX, mouseY),
+                        category.expanded);
                 fill(graphics, toggle,
-                        BottomPanelCategoryStyle.TOGGLE_BACKGROUND.toArgb());
+                        BottomPanelCategoryStyle.buttonBackground(
+                                BottomPanelCategoryStyle.TOGGLE_BACKGROUND,
+                                toggleHover).toArgb());
                 drawCenteredNoShadow(
                         graphics, font, category.expanded ? "-" : "+", toggle);
                 labelRight = toggle.x - BottomPanelCategoryLayout.LABEL_TOGGLE_GAP;
@@ -70,6 +97,14 @@ public final class BottomPanelCategoryRenderer {
                     row,
                     BottomPanelCategoryStyle.rowText(category.selected).toArgb());
         }
+    }
+
+    private static double hover(String id, boolean hovered, boolean selected) {
+        UiControlState state = new UiControlState(
+                true, selected, false, false, "")
+                .withInteraction(hovered, false, false);
+        return ANIMATIONS.update(
+                id, state, Config.isUiAnimationsEnabled()).hover();
     }
 
     private static void drawScaledLabel(

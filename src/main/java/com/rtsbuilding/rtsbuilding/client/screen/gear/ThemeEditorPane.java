@@ -1,8 +1,12 @@
 package com.rtsbuilding.rtsbuilding.client.screen.gear;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.theme.UiThemeDraft;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeDefinition;
@@ -25,6 +29,8 @@ final class ThemeEditorPane {
     private static final int MIN_VISIBLE_ROWS = 2;
     private static final int LIST_PICKER_GAP = 6;
     private final ThemeColorPicker picker = new ThemeColorPicker();
+    private final UiControlAnimationRegistry<UiThemeToken> tokenAnimations =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, UiThemeToken.values().length);
     private UiThemeDefinition source;
     private UiThemeDraft draft;
     private UiThemeToken selectedToken = UiThemeToken.ACCENT_PRIMARY;
@@ -36,6 +42,7 @@ final class ThemeEditorPane {
     void setSource(UiThemeDefinition next) {
         if (next == source) return;
         source = next;
+        tokenAnimations.clear();
         dirty = false;
         tokenScroll = 0;
         wheelDragging = false;
@@ -90,11 +97,23 @@ final class ThemeEditorPane {
             boolean selected = token == selectedToken;
             boolean hover = UiRect.contains(x + EDITOR_LIST_INSET, rowY, listW,
                     TOKEN_ROW_H - EDITOR_ROW_BOTTOM, mouseX, mouseY);
+            var animation = tokenAnimations.update(
+                    token,
+                    new UiControlState(
+                            true, true, hover, false, false,
+                            selected, false, false, ""),
+                    Config.isUiAnimationsEnabled());
+            var rowBackground = com.rtsbuilding.rtsbuilding.uikit.theme.UiColor.interpolate(
+                    SettingsWindowStyle.STEP_BACKGROUND,
+                    SettingsWindowStyle.STEP_HOVER_BACKGROUND,
+                    animation.hover());
+            rowBackground = com.rtsbuilding.rtsbuilding.uikit.theme.UiColor.interpolate(
+                    rowBackground,
+                    SettingsWindowStyle.TOGGLE_ON,
+                    animation.selection());
             g.fill(x + EDITOR_LIST_INSET, rowY, x + EDITOR_LIST_INSET + listW,
                     rowY + TOKEN_ROW_H - EDITOR_ROW_BOTTOM,
-                    (selected ? SettingsWindowStyle.TOGGLE_ON
-                            : hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND
-                            : SettingsWindowStyle.STEP_BACKGROUND).toArgb());
+                    rowBackground.toArgb());
             g.fill(x + w - EDITOR_SWATCH_RIGHT, rowY + EDITOR_SWATCH_TOP,
                     x + w - EDITOR_SWATCH_END,
                     rowY + TOKEN_ROW_H - EDITOR_SWATCH_BOTTOM,

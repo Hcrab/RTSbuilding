@@ -34,6 +34,54 @@ public final class PluginManagementStyle {
     public static final UiColor SCROLL_TRACK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SCROLLBAR_TRACK, 0X66334455);
     public static final UiColor SCROLL_THUMB = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.SETTINGS, UiThemeToken.SCROLLBAR_THUMB, 0XFF8FA8C3);
 
+    public static UiColor rowBackground(double hoverStrength) {
+        return UiColor.interpolate(ROW_BACKGROUND, ROW_HOVER, hoverStrength);
+    }
+
+    public static UiColor dangerBackground(double hoverStrength) {
+        return UiColor.interpolate(
+                DANGER_BACKGROUND,
+                INSTALL_HOVER,
+                hoverStrength);
+    }
+
+    public static UiColor installBackground(double hoverStrength) {
+        return UiColor.interpolate(
+                INSTALL_BACKGROUND, INSTALL_HOVER, hoverStrength);
+    }
+
+    public static UiColor installBorder(double hoverStrength) {
+        return UiColor.interpolate(
+                INSTALL_BORDER, INSTALL_HOVER_BORDER, hoverStrength);
+    }
+
+    public static UiColor refreshBackground(
+            boolean success,
+            double hoverStrength) {
+        if (success) {
+            return REFRESH_SUCCESS;
+        }
+        return UiColor.interpolate(
+                REFRESH_BACKGROUND, REFRESH_HOVER, hoverStrength);
+    }
+
+    public static UiColor refreshBorder(double hoverStrength) {
+        return UiColor.interpolate(
+                REFRESH_BORDER, REFRESH_HOVER_BORDER, hoverStrength);
+    }
+
+    public static UiColor slotBorder(double hoverStrength) {
+        return UiColor.interpolate(
+                SLOT_BORDER, SLOT_HOVER_BORDER, hoverStrength);
+    }
+
+    public static UiColor slotBackground(boolean plugin, double selectionStrength) {
+        return UiColor.interpolate(
+                plugin ? SLOT_PLUGIN : SLOT_BACKGROUND,
+                SLOT_SELECTED,
+                selectionStrength);
+    }
+
     private PluginManagementStyle() {
     }
 }
