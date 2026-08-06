@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_17",
   "client": [
     "CreateValueSettingsScreenMixin",
+    "FlywheelBlockEntityInstanceManagerMixin",
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
     "EmbeddiumWorldSliceMixin",

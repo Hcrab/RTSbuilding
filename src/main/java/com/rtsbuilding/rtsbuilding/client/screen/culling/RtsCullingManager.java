@@ -438,11 +438,13 @@ public final class RtsCullingManager {
         this.hoveredId = -1;
         this.handleInteraction.clear();
         this.boxAnimator.clear();
-        cancelDraft();
+        clearDraftState();
     }
 
     /** 用当前存档、当前维度从服务端恢复的快照替换内存状态。 */
     public void replaceWorldState(List<RtsCullingBox> restoredBoxes, List<BlockPos> restoredRevealedBlocks) {
+        List<RtsCullingBox> previousBoxes = List.copyOf(this.boxes);
+        RtsCullingBox previousPreview = activePreviewBox();
         clearWorldState();
         if (restoredBoxes != null) {
             for (RtsCullingBox box : restoredBoxes) {
@@ -459,6 +461,9 @@ public final class RtsCullingManager {
                     .map(BlockPos::immutable)
                     .forEach(this.revealedBlocks::add);
         }
+        // 新状态就绪后再同步旧区域：仍被新盒覆盖的实例保持移除，其余实例会恢复。
+        previousBoxes.forEach(this::markBoxDirty);
+        markBoxDirty(previousPreview);
         refreshWorldCullRendering();
     }
 
@@ -521,6 +526,13 @@ public final class RtsCullingManager {
     }
 
     private void cancelDraft() {
+        RtsCullingBox oldPreview = activePreviewBox();
+        clearDraftState();
+        markBoxDirty(oldPreview);
+    }
+
+    /** 世界切换可以只清内存；普通取消则由 {@link #cancelDraft()} 负责恢复旧预览范围。 */
+    private void clearDraftState() {
         this.firstCorner = null;
         this.secondCorner = null;
         this.previewHeight = DEFAULT_HEIGHT;
@@ -537,6 +549,7 @@ public final class RtsCullingManager {
             return;
         }
         RtsCullingRenderInvalidator.markBlocksDirty(box.min(), box.max());
+        RtsFlywheelCullingCompat.syncBox(box);
     }
 
     private void markBlockDirty(BlockPos pos) {
@@ -544,6 +557,7 @@ public final class RtsCullingManager {
             return;
         }
         RtsCullingRenderInvalidator.markBlocksDirty(pos, pos);
+        RtsFlywheelCullingCompat.syncBlock(pos);
     }
 
     public enum Phase {

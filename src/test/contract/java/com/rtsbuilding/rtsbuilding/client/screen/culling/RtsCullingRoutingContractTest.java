@@ -11,6 +11,48 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RtsCullingRoutingContractTest {
     @Test
+    void flywheelSyncIsStateDrivenAndGuardsTheCentralBlockEntityAdmission() throws IOException {
+        String state = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingClientState.java"));
+        String manager = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingManager.java"));
+        String compat = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsFlywheelCullingCompat.java"));
+        String mixin = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/mixin/FlywheelBlockEntityInstanceManagerMixin.java"));
+
+        assertTrue(manager.contains("RtsFlywheelCullingCompat.syncBox(box)"));
+        assertTrue(manager.contains("RtsFlywheelCullingCompat.syncBlock(pos)"));
+        assertTrue(state.contains("PERSISTENT_MANAGER.replaceWorldState(List.of(), List.of())"),
+                "requesting or applying an empty snapshot must restore visuals from old culling regions");
+        String replaceWorldState = methodBody(manager, "public void replaceWorldState");
+        assertTrue(replaceWorldState.contains("List<RtsCullingBox> previousBoxes = List.copyOf(this.boxes)"));
+        assertTrue(replaceWorldState.contains("RtsCullingBox previousPreview = activePreviewBox()"));
+        assertTrue(replaceWorldState.indexOf("clearWorldState()")
+                < replaceWorldState.indexOf("previousBoxes.forEach(this::markBoxDirty)"));
+        assertTrue(replaceWorldState.contains("markBoxDirty(previousPreview)"),
+                "server snapshots must restore Flywheel instances from removed boxes and previews");
+        String cancelDraft = methodBody(manager, "private void cancelDraft");
+        assertTrue(cancelDraft.contains("RtsCullingBox oldPreview = activePreviewBox()"));
+        assertTrue(cancelDraft.contains("markBoxDirty(oldPreview)"),
+                "cancelling a culling draft must restore Flywheel instances from the old preview");
+        assertTrue(compat.contains("getChunkNow"),
+                "Flywheel sync must inspect only already-loaded affected chunks");
+        assertTrue(compat.contains("InstancedRenderDispatcher"));
+        assertTrue(compat.contains("managerClass.getMethod(\"remove\", Object.class)"));
+        assertTrue(compat.contains("managerClass.getMethod(\"add\", Object.class)"));
+        assertTrue(compat.contains("REMOVE.invoke(instances, blockEntity)"));
+        assertTrue(compat.contains("ADD.invoke(instances, blockEntity)"));
+        assertFalse(compat.contains("RenderLevelStageEvent"));
+        assertFalse(compat.contains("ClientTickEvent"));
+        assertTrue(mixin.contains("BlockEntityInstanceManager"));
+        assertTrue(mixin.contains(
+                "method = \"canCreateInstance(Lnet/minecraft/world/level/block/entity/BlockEntity;)Z\""));
+        assertTrue(mixin.contains("RtsCullingClientState.shouldCull"));
+        assertFalse(mixin.contains("BuiltInRegistries"));
+    }
+
+    @Test
     void embeddiumCullingUsesItsAreaRebuildEntryWithoutBecomingARequiredDependency() throws IOException {
         String state = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/culling/RtsCullingClientState.java"));

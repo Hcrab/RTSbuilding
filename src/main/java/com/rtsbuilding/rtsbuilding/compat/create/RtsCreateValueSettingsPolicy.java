@@ -15,6 +15,17 @@ public final class RtsCreateValueSettingsPolicy {
         return primaryActionMouse && worldArea && eligibleBehaviour;
     }
 
+    /**
+     * 只有 Create 自己允许交互且主手没有占用 Clipboard 工作流时，RTS 才接管这次输入。
+     *
+     * <p>这不是另一套物品或玩家状态规则：两个布尔值都来自 Create 0.5.1 的原生入口，
+     * 这里只把“必须让行”的组合固定成可回归测试的纯决策。</p>
+     */
+    public static boolean allowsCreateGlobalInput(
+            boolean createCanInteract, boolean holdingCreateClipboard) {
+        return createCanInteract && !holdingCreateClipboard;
+    }
+
     public static boolean shouldApplyOnServer(
             boolean activeRtsSession,
             boolean exactDimension,

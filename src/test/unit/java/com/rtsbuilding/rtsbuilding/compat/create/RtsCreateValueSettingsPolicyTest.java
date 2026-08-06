@@ -16,6 +16,14 @@ class RtsCreateValueSettingsPolicyTest {
     }
 
     @Test
+    void createNativeGateAndClipboardBothKeepOwnershipOfTheirInput() {
+        assertTrue(RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(true, false));
+        assertFalse(RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(false, false));
+        assertFalse(RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(true, true));
+        assertFalse(RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(false, true));
+    }
+
+    @Test
     void everyServerAuthorityGateMustPass() {
         assertTrue(RtsCreateValueSettingsPolicy.shouldApplyOnServer(
                 true, true, true, true, true, true, true));

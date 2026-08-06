@@ -38,6 +38,10 @@ class RtsCreateValueSettingsForgeContractTest {
         assertFalse(runtime.contains("BuiltInRegistries"));
         assertTrue(runtime.contains("ValueSettingsBehaviour\""));
         assertTrue(runtime.contains("getAllBehaviours"));
+        assertTrue(runtime.contains("ValueSettingsInputHandler"));
+        assertTrue(runtime.contains("canInteract\", Player.class"));
+        assertTrue(runtime.contains("AllBlocks"));
+        assertTrue(runtime.contains("CLIPBOARD"));
         assertTrue(runtime.contains("onShortInteract\", Player.class, InteractionHand.class, Direction.class"));
         assertTrue(runtime.contains("createBoard\", Player.class, BlockHitResult.class"));
         assertTrue(runtime.contains("setValueSettings\", Player.class, valueSettingsClass, boolean.class"));
