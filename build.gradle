@@ -163,6 +163,10 @@ dependencies {
     testImplementation 'org.xerial:sqlite-jdbc:3.46.0.0'
 }
 
+// UI Core / Kit / headless preview 保持 Java 8 与 Minecraft/Loader 隔离。
+// 26.1 生产 UI 只通过后续平台适配器消费这些纯层，不在纯层引入版本 API。
+apply from: 'gradle/rts-ui.gradle'
+
 // ======================================================================
 // Test task
 // ======================================================================
