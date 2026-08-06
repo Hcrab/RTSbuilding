@@ -20,6 +20,7 @@ import com.rtsbuilding.rtsbuilding.server.service.interaction.RtsLinkedItemInter
 import com.rtsbuilding.rtsbuilding.server.service.interaction.RtsToolSlotInteractor;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -59,7 +60,7 @@ public final class RtsInteractionServiceImpl implements InteractionService {
     @Override
     public RtsRemoteInteractionResult interactTarget(EntityPlayerMP player, int entityId, BlockPos clickedPos, EnumFacing face,
                                double hitX, double hitY, double hitZ,
-                               byte sourceType, byte toolSlot, String itemId,
+                               byte sourceType, byte toolSlot, String itemId, ItemStack itemPrototype,
                                double rayOriginX, double rayOriginY, double rayOriginZ,
                                double rayDirX, double rayDirY, double rayDirZ,
                                long traceId) {
@@ -131,8 +132,11 @@ public final class RtsInteractionServiceImpl implements InteractionService {
                 ? com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.copyOrNull(
                         player.inventory.getStackInSlot(RtsMiningValidator.clampHotbarSlot(toolSlot)))
                 : null;
+        ItemStack selectedPrototype = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
+                ? RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype)
+                : null;
         ItemStack soundStack = sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM
-                ? SoundService.createSoundStack(itemId)
+                ? (selectedPrototype == null ? SoundService.createSoundStack(itemId) : selectedPrototype.copy())
                 : com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.copyOrNull(toolSnapshot);
         ItemStack protectionStack = oneItemCopy(soundStack);
         if (targetEntity != null && !RtsClaimProtectionService.canInteractEntity(
@@ -178,7 +182,9 @@ public final class RtsInteractionServiceImpl implements InteractionService {
             } else if (sourceType == C2SRtsInteractPayload.SOURCE_TOOL_SLOT_AIR) {
                 result = RtsToolSlotInteractor.useItemInAirWithToolSlot(player, level, hit, toolSlot, rayContext);
             } else if (sourceType == C2SRtsInteractPayload.SOURCE_PIN_ITEM) {
-                result = RtsLinkedItemInteractor.interactWithLinkedItem(player, level, session, targetEntity, blockHit, hit, itemId, rayContext);
+                result = RtsLinkedItemInteractor.interactWithLinkedItem(
+                        player, level, session, targetEntity, blockHit, hit,
+                        itemId, selectedPrototype, rayContext);
             } else if (sourceType == C2SRtsInteractPayload.SOURCE_EMPTY_HAND) {
                 result = RtsEmptyHandInteractor.interactWithEmptyHand(player, level, targetEntity, blockHit, hit, rayContext);
             }

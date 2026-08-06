@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
 import net.minecraft.block.Block;
 import com.rtsbuilding.rtsbuilding.platform.block.BlockState;
+import com.rtsbuilding.rtsbuilding.platform.storage.StackCompat;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
@@ -54,7 +55,7 @@ public final class RtsPlacementActionHandlers1122 {
                             player, message.clickedPos(), EnumFacing.byIndex(message.face()),
                             message.hitX(), message.hitY(), message.hitZ(), message.rotateSteps(),
                             message.statePreset(), message.forcePlace(), message.skipIfOccupied(),
-                            message.itemId(), message.itemPrototype().copy(),
+                            message.itemId(), StackCompat.copyOrNull(message.itemPrototype()),
                             message.rayOriginX(), message.rayOriginY(), message.rayOriginZ(),
                             message.rayDirX(), message.rayDirY(), message.rayDirZ(),
                             message.quickBuild(), message.forceEmptyHand());
@@ -84,7 +85,7 @@ public final class RtsPlacementActionHandlers1122 {
                             message.hitOffsetX(), message.hitOffsetY(), message.hitOffsetZ(),
                             message.rotateSteps(), message.statePreset(), message.forcePlace(),
                             message.skipIfOccupied(), message.overwriteExisting(), message.itemId(),
-                            message.itemPrototype().copy(), message.rayOriginX(), message.rayOriginY(),
+                            StackCompat.copyOrNull(message.itemPrototype()), message.rayOriginX(), message.rayOriginY(),
                             message.rayOriginZ(), message.rayDirX(), message.rayDirY(), message.rayDirZ());
                 }
             });
@@ -147,11 +148,12 @@ public final class RtsPlacementActionHandlers1122 {
                                 "interaction", "interactTarget", new Class<?>[]{
                                         EntityPlayerMP.class, int.class, BlockPos.class, EnumFacing.class,
                                         double.class, double.class, double.class, byte.class, byte.class,
-                                        String.class, double.class, double.class, double.class,
+                                        String.class, ItemStack.class, double.class, double.class, double.class,
                                         double.class, double.class, double.class, long.class},
                                 player, message.entityId(), message.clickedPos(),
                                 EnumFacing.byIndex(message.face()), message.hitX(), message.hitY(),
                                 message.hitZ(), message.sourceType(), message.toolSlot(), message.itemId(),
+                                StackCompat.copyOrNull(message.itemPrototype()),
                                 message.rayOriginX(), message.rayOriginY(), message.rayOriginZ(),
                                 message.rayDirX(), message.rayDirY(), message.rayDirZ(), message.traceId());
                         sendTerminal(player, message.traceId(), result);

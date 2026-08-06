@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
 import net.minecraft.entity.player.EntityPlayerMP;
 import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import net.minecraft.item.ItemStack;
 
 /**
  * 远程交互服务接口——处理 RTS 模式下与方块/实体的远程交互。
@@ -31,7 +32,7 @@ public interface InteractionService {
      */
     RtsRemoteInteractionResult interactTarget(EntityPlayerMP player, int entityId, BlockPos clickedPos, EnumFacing face,
                         double hitX, double hitY, double hitZ,
-                        byte sourceType, byte toolSlot, String itemId,
+                        byte sourceType, byte toolSlot, String itemId, ItemStack itemPrototype,
                         double rayOriginX, double rayOriginY, double rayOriginZ,
                         double rayDirX, double rayDirY, double rayDirZ,
                         long traceId);

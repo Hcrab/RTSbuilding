@@ -3,8 +3,15 @@ package com.rtsbuilding.rtsbuilding.client.compat;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
+import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
+import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
+import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiMainMenu;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.ItemStack;
 import net.minecraft.world.WorldSettings.GameType;
 import net.minecraft.world.WorldSettings;
 import net.minecraft.world.WorldType;
@@ -38,6 +45,7 @@ public final class RtsClientStartupSmoke {
     /** 必须超过入门提醒的 80 tick，才能覆盖最初的客户端崩溃路径。 */
     private static final int WORLD_STABLE_TICKS = 140;
     private static final int RTS_RENDER_TICKS = 60;
+    private static final int MINING_PACKET_SETTLE_TICKS = 20;
     private static final int FINAL_STABLE_TICKS = 40;
     private static final int STAGE_TIMEOUT_TICKS = 20 * 30;
     private static final int TOTAL_TIMEOUT_TICKS = 20 * 120;
@@ -49,6 +57,8 @@ public final class RtsClientStartupSmoke {
     private static int stageTicks;
     private static int totalTicks;
     private static int finalStableTicks;
+    private static BlockPos emptyToolMinePos;
+    private static BlockPos creativePrototypePlacedPos;
     private static boolean finished;
 
     private RtsClientStartupSmoke() {
@@ -83,6 +93,7 @@ public final class RtsClientStartupSmoke {
             }
             if (stageTicks < MAIN_MENU_STABLE_TICKS) return;
             append("MAIN_MENU_READY");
+            verifyTranslation(minecraft, "screen.rtsbuilding.plugins");
             WorldSettings settings = new WorldSettings(
                     0x525453112L, GameType.CREATIVE, true, false, WorldType.DEFAULT);
             settings.enableCommands();
@@ -116,6 +127,101 @@ public final class RtsClientStartupSmoke {
                 return;
             }
             append("RTS_ENABLED");
+            emptyToolMinePos = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat
+                    .blockPosition(minecraft.thePlayer).down();
+            RtsClientPacketGateway.sendMineStart(
+                    emptyToolMinePos, EnumFacing.UP.getIndex(), 0, "", null, false, false);
+            append("EMPTY_TOOL_MINE_START_SENT pos=" + emptyToolMinePos);
+            moveTo(Stage.WAIT_EMPTY_TOOL_MINE_START);
+            return;
+        }
+
+        if (stage == Stage.WAIT_EMPTY_TOOL_MINE_START) {
+            if (!integratedServerHealthy(minecraft)) {
+                finish(minecraft, false, "integrated server stopped after empty-tool mine start");
+                return;
+            }
+            if (stageTicks < MINING_PACKET_SETTLE_TICKS) return;
+            RtsClientPacketGateway.sendMineAbort(
+                    emptyToolMinePos, EnumFacing.UP.getIndex(), 0);
+            append("EMPTY_TOOL_MINE_ABORT_SENT pos=" + emptyToolMinePos);
+            moveTo(Stage.WAIT_EMPTY_TOOL_MINE_ABORT);
+            return;
+        }
+
+        if (stage == Stage.WAIT_EMPTY_TOOL_MINE_ABORT) {
+            if (!integratedServerHealthy(minecraft)) {
+                finish(minecraft, false, "integrated server stopped after empty-tool mine abort");
+                return;
+            }
+            if (stageTicks < MINING_PACKET_SETTLE_TICKS) return;
+            append("EMPTY_TOOL_MINING_ROUND_TRIP_OK");
+            Vec3d hit = new Vec3d(
+                    emptyToolMinePos.getX() + 0.5D,
+                    emptyToolMinePos.getY() + 1.0D,
+                    emptyToolMinePos.getZ() + 0.5D);
+            Vec3d origin = new Vec3d(
+                    minecraft.thePlayer.posX,
+                    minecraft.thePlayer.posY + minecraft.thePlayer.getEyeHeight(),
+                    minecraft.thePlayer.posZ);
+            Vec3d direction = hit.subtract(origin).normalize();
+            RtsClientPacketGateway.sendInteractBlockEmptyHand(
+                    new RayTraceResult(hit, EnumFacing.UP, emptyToolMinePos),
+                    origin,
+                    direction);
+            append("EMPTY_HAND_INTERACTION_SENT pos=" + emptyToolMinePos);
+            moveTo(Stage.WAIT_EMPTY_HAND_INTERACTION);
+            return;
+        }
+
+        if (stage == Stage.WAIT_EMPTY_HAND_INTERACTION) {
+            if (!integratedServerHealthy(minecraft)) {
+                finish(minecraft, false, "integrated server stopped after empty-hand interaction");
+                return;
+            }
+            if (stageTicks < MINING_PACKET_SETTLE_TICKS) return;
+            append("EMPTY_HAND_INTERACTION_ROUND_TRIP_OK");
+            BlockPos anchor = findCreativePlacementAnchor(minecraft);
+            if (anchor == null) {
+                finish(minecraft, false, "no nearby placement anchor for creative prototype probe");
+                return;
+            }
+            creativePrototypePlacedPos = anchor.up();
+            Vec3d hit = new Vec3d(
+                    anchor.getX() + 0.5D,
+                    anchor.getY() + 1.0D,
+                    anchor.getZ() + 0.5D);
+            Vec3d origin = new Vec3d(
+                    minecraft.thePlayer.posX,
+                    minecraft.thePlayer.posY + minecraft.thePlayer.getEyeHeight(),
+                    minecraft.thePlayer.posZ);
+            RtsClientPacketGateway.sendInteractBlockWithPinnedItem(
+                    new RayTraceResult(hit, EnumFacing.UP, anchor),
+                    "minecraft:wool",
+                    new ItemStack(Blocks.wool, 1, 14),
+                    origin,
+                    hit.subtract(origin).normalize());
+            append("CREATIVE_PINNED_PROTOTYPE_SENT target=" + creativePrototypePlacedPos + " metadata=14");
+            moveTo(Stage.WAIT_CREATIVE_PINNED_PROTOTYPE);
+            return;
+        }
+
+        if (stage == Stage.WAIT_CREATIVE_PINNED_PROTOTYPE) {
+            if (!integratedServerHealthy(minecraft)) {
+                finish(minecraft, false, "integrated server stopped after creative pinned-item interaction");
+                return;
+            }
+            if (stageTicks < MINING_PACKET_SETTLE_TICKS) return;
+            int x = creativePrototypePlacedPos.getX();
+            int y = creativePrototypePlacedPos.getY();
+            int z = creativePrototypePlacedPos.getZ();
+            if (minecraft.theWorld.getBlock(x, y, z) != Blocks.wool
+                    || minecraft.theWorld.getBlockMetadata(x, y, z) != 14) {
+                finish(minecraft, false,
+                        "creative pinned-item prototype was not preserved at " + creativePrototypePlacedPos);
+                return;
+            }
+            append("CREATIVE_PINNED_PROTOTYPE_ROUND_TRIP_OK metadata=14");
             moveTo(Stage.OBSERVE_RTS_RENDER);
             return;
         }
@@ -148,6 +254,46 @@ public final class RtsClientStartupSmoke {
 
     private static void failStageTimeout(Minecraft minecraft, String message) {
         if (stageTicks > STAGE_TIMEOUT_TICKS) finish(minecraft, false, message);
+    }
+
+    private static boolean integratedServerHealthy(Minecraft minecraft) {
+        return minecraft != null && minecraft.getIntegratedServer() != null
+                && minecraft.getIntegratedServer().isServerRunning();
+    }
+
+    /** 在玩家附近寻找一个上方为空气的实体方块，避免探针依赖固定出生地地形。 */
+    private static BlockPos findCreativePlacementAnchor(Minecraft minecraft) {
+        BlockPos center = com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat
+                .blockPosition(minecraft.thePlayer);
+        for (int radius = 3; radius <= 8; radius++) {
+            for (int dz = -radius; dz <= radius; dz++) {
+                for (int dy = 2; dy >= -6; dy--) {
+                    BlockPos anchor = center.add(radius, dy, dz);
+                    BlockPos above = anchor.up();
+                    if (!minecraft.theWorld.isAirBlock(
+                            anchor.getX(), anchor.getY(), anchor.getZ())
+                            && minecraft.theWorld.isAirBlock(
+                            above.getX(), above.getY(), above.getZ())) {
+                        return anchor;
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 1.7.10 按 en_US / zh_CN 形式精确寻找 .lang；文件名沿用现代小写格式时，
+     * {@link I18n#format(String, Object...)} 会原样返回 key。把这项检查放进真客户端，
+     * 可以同时覆盖资源是否进 JAR、语言管理器是否加载以及最终 UI 翻译调用三层边界。
+     */
+    private static void verifyTranslation(Minecraft minecraft, String key) {
+        String translated = I18n.format(key);
+        if (translated == null || translated.trim().isEmpty() || key.equals(translated)) {
+            finish(minecraft, false, "i18n unresolved key=" + key);
+            throw new IllegalStateException("I18n unresolved: " + key);
+        }
+        append("I18N_OK key=" + key + " value=" + translated);
     }
 
     private static void moveTo(Stage next) {
@@ -194,6 +340,10 @@ public final class RtsClientStartupSmoke {
         WAIT_MAIN_MENU,
         WAIT_WORLD,
         WAIT_RTS_ON,
+        WAIT_EMPTY_TOOL_MINE_START,
+        WAIT_EMPTY_TOOL_MINE_ABORT,
+        WAIT_EMPTY_HAND_INTERACTION,
+        WAIT_CREATIVE_PINNED_PROTOTYPE,
         OBSERVE_RTS_RENDER,
         WAIT_RTS_OFF
     }

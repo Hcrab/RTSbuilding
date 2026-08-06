@@ -532,6 +532,11 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendInteractBlockWithPinnedItem(RayTraceResult hit, String itemId, Vec3d rayOrigin, Vec3d rayDir) {
+        sendInteractBlockWithPinnedItem(hit, itemId, null, rayOrigin, rayDir);
+    }
+
+    public static void sendInteractBlockWithPinnedItem(RayTraceResult hit, String itemId, ItemStack itemPrototype,
+            Vec3d rayOrigin, Vec3d rayDir) {
         long traceId = beginRemoteInteraction("PINNED_ITEM", hit.getBlockPos(), hit.sideHit,
                 C2SRtsInteractPayload.NO_ENTITY);
         send(new C2SRtsInteractPayload(
@@ -545,6 +550,7 @@ public final class RtsClientPacketGateway {
                 C2SRtsInteractPayload.SOURCE_PIN_ITEM,
                 (byte) 0,
                 itemId,
+                itemPrototype,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,
@@ -598,6 +604,11 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendInteractEntityWithPinnedItem(int entityId, Vec3d hitLocation, String itemId, Vec3d rayOrigin, Vec3d rayDir) {
+        sendInteractEntityWithPinnedItem(entityId, hitLocation, itemId, null, rayOrigin, rayDir);
+    }
+
+    public static void sendInteractEntityWithPinnedItem(int entityId, Vec3d hitLocation, String itemId,
+            ItemStack itemPrototype, Vec3d rayOrigin, Vec3d rayDir) {
         BlockPos target = new BlockPos(hitLocation);
         long traceId = beginRemoteInteraction("PINNED_ITEM", target, EnumFacing.UP, entityId);
         send(new C2SRtsInteractPayload(
@@ -611,6 +622,7 @@ public final class RtsClientPacketGateway {
                 C2SRtsInteractPayload.SOURCE_PIN_ITEM,
                 (byte) 0,
                 itemId,
+                itemPrototype,
                 rayOrigin.x,
                 rayOrigin.y,
                 rayOrigin.z,

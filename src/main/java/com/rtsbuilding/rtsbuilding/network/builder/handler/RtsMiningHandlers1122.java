@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
+import com.rtsbuilding.rtsbuilding.platform.storage.StackCompat;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
@@ -42,7 +43,7 @@ public final class RtsMiningHandlers1122 {
                                     EntityPlayerMP.class, BlockPos.class, EnumFacing.class, boolean.class,
                                     byte.class, String.class, ItemStack.class, boolean.class, boolean.class},
                             player, message.pos(), EnumFacing.byIndex(message.face()), message.start(),
-                            message.toolSlot(), message.toolItemId(), message.toolPrototype().copy(),
+                            message.toolSlot(), message.toolItemId(), StackCompat.copyOrNull(message.toolPrototype()),
                             message.allowPlacedBlockRecovery(), message.toolProtectionEnabled());
                 }
             });
@@ -61,7 +62,7 @@ public final class RtsMiningHandlers1122 {
                                     EntityPlayerMP.class, BlockPos.class, EnumFacing.class, byte.class,
                                     String.class, ItemStack.class, int.class, byte.class, boolean.class},
                             player, message.pos(), EnumFacing.byIndex(message.face()), message.toolSlot(),
-                            message.toolItemId(), message.toolPrototype().copy(), message.limit(),
+                            message.toolItemId(), StackCompat.copyOrNull(message.toolPrototype()), message.limit(),
                             message.mode(), message.toolProtectionEnabled());
                 }
             });
@@ -82,7 +83,7 @@ public final class RtsMiningHandlers1122 {
                                     byte.class, byte.class, boolean.class},
                             player, message.minX(), message.maxX(), message.minY(), message.maxY(),
                             message.minZ(), message.maxZ(), message.toolSlot(), message.toolItemId(),
-                            message.toolPrototype().copy(), message.shapeType(), message.fillType(),
+                            StackCompat.copyOrNull(message.toolPrototype()), message.shapeType(), message.fillType(),
                             message.toolProtectionEnabled());
                 }
             });
@@ -106,7 +107,7 @@ public final class RtsMiningHandlers1122 {
                                     EntityPlayerMP.class, List.class, byte.class, String.class,
                                     ItemStack.class, boolean.class},
                             player, positions, message.toolSlot(), message.toolItemId(),
-                            message.toolPrototype().copy(), message.toolProtectionEnabled());
+                            StackCompat.copyOrNull(message.toolPrototype()), message.toolProtectionEnabled());
                 }
             });
             return null;

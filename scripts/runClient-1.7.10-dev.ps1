@@ -6,8 +6,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$projectRoot = $PSScriptRoot
-. (Join-Path $projectRoot 'gtnh-launch-common.ps1')
+$projectRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'gtnh-launch-common.ps1')
 $context = Get-Rts1710Context -ProjectRoot $projectRoot
 
 if ($NoLaunch) {

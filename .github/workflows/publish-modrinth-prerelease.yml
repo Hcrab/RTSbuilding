@@ -12,6 +12,7 @@ on:
         required: true
         type: choice
         options:
+          - 1.7.10
           - 1.12.2
           - 1.21.1
           - 26.1.2
@@ -22,10 +23,11 @@ on:
       version_type:
         description: Modrinth release channel
         required: true
+        default: alpha
         type: choice
         options:
-          - beta
           - alpha
+          - beta
       changelog_base64:
         description: UTF-8 release notes encoded as Base64
         required: true
@@ -67,14 +69,28 @@ jobs:
           }
           actual_minecraft="$(read_property minecraft_version)"
           if [ -z "$actual_minecraft" ]; then
+            actual_minecraft="$(read_property minecraftVersion)"
+          fi
+          if [ -z "$actual_minecraft" ]; then
             actual_minecraft="$(sed -nE \
               "s/^[[:space:]]*mcVersion\\.set\\('([^']+)'\\).*$/\\1/p" \
               build.gradle | head -n 1)"
           fi
           actual_version="$(read_property mod_version)"
+          if [ -z "$actual_version" ]; then
+            actual_version="$(read_property version)"
+          fi
           test "$actual_minecraft" = "$MINECRAFT_VERSION"
           test "$actual_version" = "$RELEASE_VERSION"
           case "$MINECRAFT_VERSION" in
+            1.7.10)
+              echo "java_version=25" >> "$GITHUB_OUTPUT"
+              echo "java_release=8" >> "$GITHUB_OUTPUT"
+              echo "loader=forge" >> "$GITHUB_OUTPUT"
+              echo "display_loader=Forge" >> "$GITHUB_OUTPUT"
+              echo "dependencies=" >> "$GITHUB_OUTPUT"
+              echo "artifact=build/libs/rtsbuilding-forge-1.7.10-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
+              ;;
             1.12.2)
               echo "java_version=21" >> "$GITHUB_OUTPUT"
               echo "java_release=8" >> "$GITHUB_OUTPUT"

@@ -148,7 +148,7 @@ public final class C2SRtsPlaceBatchPayload implements IMessage {
                 + rotateSteps + "|" + statePreset + "|" + forcePlace + "|" + skipIfOccupied
                 + "|" + overwriteExisting + "|" + itemId + "|" + rayOriginX + "|"
                 + rayOriginY + "|" + rayOriginZ + "|" + rayDirX + "|" + rayDirY + "|"
-                + rayDirZ + "|" + itemPrototype.toString() + "|"
-                + String.valueOf(itemPrototype.getTagCompound());
+                + rayDirZ + "|" + String.valueOf(itemPrototype) + "|"
+                + String.valueOf(itemPrototype == null ? null : itemPrototype.getTagCompound());
     }
 }

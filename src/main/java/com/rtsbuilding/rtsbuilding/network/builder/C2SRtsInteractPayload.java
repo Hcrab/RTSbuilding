@@ -6,6 +6,7 @@ import io.netty.buffer.ByteBuf;
 import com.rtsbuilding.rtsbuilding.platform.math.EnumFacing;
 import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
+import net.minecraft.item.ItemStack;
 
 /** 远程交互意图；实体、工具槽、链接物品及权限全部由服务端当前状态决定。 */
 public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {
@@ -19,6 +20,7 @@ public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {
     private double hitX, hitY, hitZ;
     private byte sourceType, toolSlot;
     private String itemId = "";
+    private ItemStack itemPrototype;
     private double rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ;
 
     public C2SRtsInteractPayload() {
@@ -28,11 +30,21 @@ public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {
             double hitX, double hitY, double hitZ, byte sourceType, byte toolSlot,
             String itemId, double rayOriginX, double rayOriginY, double rayOriginZ,
             double rayDirX, double rayDirY, double rayDirZ) {
+        this(traceId, entityId, clickedPos, face, hitX, hitY, hitZ, sourceType, toolSlot,
+                itemId, null, rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
+    }
+
+    public C2SRtsInteractPayload(long traceId, int entityId, BlockPos clickedPos, byte face,
+            double hitX, double hitY, double hitZ, byte sourceType, byte toolSlot,
+            String itemId, ItemStack itemPrototype,
+            double rayOriginX, double rayOriginY, double rayOriginZ,
+            double rayDirX, double rayDirY, double rayDirZ) {
         this.traceId = traceId;
         this.entityId = entityId; this.clickedPos = clickedPos; this.face = face;
         this.hitX = hitX; this.hitY = hitY; this.hitZ = hitZ;
         this.sourceType = sourceType; this.toolSlot = toolSlot;
         this.itemId = itemId == null ? "" : itemId;
+        this.itemPrototype = oneItemCopy(itemPrototype);
         this.rayOriginX = rayOriginX; this.rayOriginY = rayOriginY; this.rayOriginZ = rayOriginZ;
         this.rayDirX = rayDirX; this.rayDirY = rayDirY; this.rayDirZ = rayDirZ;
     }
@@ -52,6 +64,7 @@ public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {
         hitX = b.readDouble(); hitY = b.readDouble(); hitZ = b.readDouble();
         sourceType = b.readByte(); toolSlot = b.readByte();
         itemId = RtsPacketBuffer.readString(b, 128, "interaction item id");
+        itemPrototype = oneItemCopy(RtsPacketBuffer.readItemStack(b));
         rayOriginX = b.readDouble(); rayOriginY = b.readDouble(); rayOriginZ = b.readDouble();
         rayDirX = b.readDouble(); rayDirY = b.readDouble(); rayDirZ = b.readDouble();
         if (!isValid()) throw new IllegalArgumentException("invalid RTS interaction");
@@ -64,6 +77,7 @@ public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {
         b.writeDouble(hitX); b.writeDouble(hitY); b.writeDouble(hitZ);
         b.writeByte(sourceType); b.writeByte(toolSlot);
         RtsPacketBuffer.writeString(b, itemId, 128, "interaction item id");
+        RtsPacketBuffer.writeItemStack(b, itemPrototype);
         b.writeDouble(rayOriginX); b.writeDouble(rayOriginY); b.writeDouble(rayOriginZ);
         b.writeDouble(rayDirX); b.writeDouble(rayDirY); b.writeDouble(rayDirZ);
     }
@@ -73,7 +87,15 @@ public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {
                 && face < EnumFacing.values().length && sourceType >= SOURCE_TOOL_SLOT
                 && sourceType <= SOURCE_EMPTY_HAND && toolSlot >= 0 && toolSlot <= 8
                 && itemId != null && itemId.length() <= 128
+                && (itemPrototype == null || (itemPrototype.getItem() != null && itemPrototype.stackSize == 1))
                 && finite(hitX, hitY, hitZ, rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
+    }
+
+    private static ItemStack oneItemCopy(ItemStack stack) {
+        if (stack == null || stack.getItem() == null || stack.stackSize <= 0) return null;
+        ItemStack copy = stack.copy();
+        copy.stackSize = 1;
+        return copy;
     }
     private static boolean finite(double... values) {
         for (double value : values) if (Double.isNaN(value) || Double.isInfinite(value)) return false;
@@ -85,7 +107,8 @@ public final class C2SRtsInteractPayload implements IMessage, RtsTracedPayload {
     public byte face(){return face;} public double hitX(){return hitX;}
     public double hitY(){return hitY;} public double hitZ(){return hitZ;}
     public byte sourceType(){return sourceType;} public byte toolSlot(){return toolSlot;}
-    public String itemId(){return itemId;} public double rayOriginX(){return rayOriginX;}
+    public String itemId(){return itemId;} public ItemStack itemPrototype(){return oneItemCopy(itemPrototype);}
+    public double rayOriginX(){return rayOriginX;}
     public double rayOriginY(){return rayOriginY;} public double rayOriginZ(){return rayOriginZ;}
     public double rayDirX(){return rayDirX;} public double rayDirY(){return rayDirY;}
     public double rayDirZ(){return rayDirZ;}

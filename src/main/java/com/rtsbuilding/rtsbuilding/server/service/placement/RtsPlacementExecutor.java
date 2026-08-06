@@ -173,8 +173,10 @@ public final class RtsPlacementExecutor {
             BlockPos clickedPos, EnumFacing face, RayTraceResult hit,
             Vec3d interactionPos, TemporaryContextSwitcher.RayContext rayContext, boolean skipIfOccupied,
             boolean forcePlace, boolean refreshStoragePage) {
-        ItemStack sourceSnapshot = player.getHeldItem().copy();
-        boolean sourcePlacesBlock = sourceSnapshot.getItem() instanceof ItemBlock;
+        ItemStack sourceSnapshot = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.copyOrNull(
+                player.getHeldItem());
+        boolean sourcePlacesBlock = !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(sourceSnapshot)
+                && sourceSnapshot.getItem() instanceof ItemBlock;
         if (!RtsClaimProtectionService.canInteractBlock(
                 player, clickedPos, face, EnumHand.MAIN_HAND, sourceSnapshot)) {
             return false;
@@ -183,7 +185,7 @@ public final class RtsPlacementExecutor {
                 player, placementTargetPos(level, clickedPos, face))) {
             return false;
         }
-        if (skipIfOccupied && sourceSnapshot.getItem() instanceof ItemBlock) {
+        if (skipIfOccupied && sourcePlacesBlock) {
             if (!com.rtsbuilding.rtsbuilding.platform.world.WorldCompat.isBlockLoaded(level, clickedPos) || !BlockState.fromWorld(level, clickedPos).getMaterial().isReplaceable()) {
                 RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
                 return true;

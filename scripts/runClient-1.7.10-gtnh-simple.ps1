@@ -2,16 +2,16 @@
 param(
     [switch]$NoBuild,
     [switch]$NoLaunch,
-    [switch]$IncludeEzgt,
-    [string]$Profile = ''
+    [switch]$IncludeEzgt
 )
 
 $ErrorActionPreference = 'Stop'
-$projectRoot = $PSScriptRoot
-. (Join-Path $projectRoot 'gtnh-launch-common.ps1')
+$projectRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'gtnh-launch-common.ps1')
 $context = Get-Rts1710Context -ProjectRoot $projectRoot
 
-[void](Copy-RtsGtnhFastInstance -Context $context)
+Assert-RtsHmclStopped -Context $context
+Ensure-RtsHmclSimpleInstance -Context $context
 $jar = if ($NoBuild) {
     Get-Rts1710BuiltJar -Context $context
 } else {
@@ -39,5 +39,5 @@ if ($IncludeEzgt) {
 
 Write-Host '[RTSBuilding] GTNH Simple: isolated 2.8.4 FAST instance + GTNH Rates 1.11.0.'
 Write-Host '[RTSBuilding] The CLEAN instance and its saves are untouched.'
-Start-RtsPrismInstance `
-    -Context $context -InstanceId $context.FastInstanceId -Profile $Profile -NoLaunch:$NoLaunch
+Start-RtsHmclInstance `
+    -Context $context -InstanceId $context.FastInstanceId -NoLaunch:$NoLaunch

@@ -87,8 +87,8 @@ point I already cannot play without it.
 - Tested in a clean development client and in the Multiblock Madness modpack.
 - Includes dedicated compatibility work for remote menus, legacy rendering,
   container overlays, JEI recipe transfer, and far-distance mining drops.
-- This first public port is a beta: keep a backup and report compatibility
-  failures with `logs/latest.log`.
+- This port is an Alpha line with an independent `0.0.x` version sequence.
+  Keep a backup and report compatibility failures with `logs/latest.log`.
 
 #### Minecraft 1.7.10 / GT New Horizons
 
@@ -96,7 +96,8 @@ point I already cannot play without it.
 - Targets Forge 10.13.4.1614, GT New Horizons 2.8.4, and the GTNHLib 0.7.10 ABI.
 - Client RTS startup smoke tests and an official GTNH 2.8.4 dedicated-server
   boot have passed.
-- This line is still alpha. Remote GT/AE2/ModularUI menus and Angelica visual
+- This line is still Alpha and uses its own `0.0.x` version sequence. Remote
+  GT/AE2/ModularUI menus and Angelica visual
   compatibility need broader in-pack testing before a normal release.
 
 ### Contributors and credits
@@ -126,7 +127,7 @@ Special thanks to the following contributors:
 - `main`: Minecraft 1.21.1 / NeoForge.
 - `forge-1.20.1`: Minecraft 1.20.1 / Forge.
 - `forge-1.12.2`: Minecraft 1.12.2 / Forge.
-- `forge-1.7.10-gtnh`: Minecraft 1.7.10 / Forge, developed and tested against
+- `forge-1.7.10`: Minecraft 1.7.10 / Forge, developed and tested against
   GT New Horizons first.
 
 The `forge-1.12.2` branch uses the Gradle wrapper and pinned toolchains to emit a
@@ -142,17 +143,25 @@ On Windows:
 .\gradlew.bat build --no-daemon --no-configuration-cache
 ```
 
-The `forge-1.7.10-gtnh` branch uses the GTNH Gradle convention plugins and a
+The `forge-1.7.10` branch uses the GTNH Gradle convention plugins and a
 pinned Java toolchain. Build it on Windows with:
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-1.7.10-gtnh.ps1
+```bat
+build-1.7.10-gtnh.bat
 ```
 
-The branch also includes separate PowerShell launchers for the development
-client, a clean GTNH instance, and a lighter GTNH test instance. They prepare
-the environment only when invoked; cloning or building the source does not
-launch Minecraft.
+The branch also includes separate BAT launchers for the development client, a
+clean GTNH instance, and a lighter GTNH test instance. CLEAN and SIMPLE are
+native HMCL instances under `E:\RTSbuilding\run\versions`; on first use the
+scripts call HMCL 3.13.1's own MultiMC importer, then select the prepared
+instance and open HMCL. Supported options include `-NoBuild`, `-NoLaunch`, and
+`-IncludeEzgt`. The Gradle development client remains separate because it is a
+deobfuscated workspace rather than a normal launcher instance.
+
+Close any running HMCL window before using the CLEAN or SIMPLE BAT. A normal
+double-click opens HMCL with the requested instance selected; launch the game
+from HMCL with the existing player account. The scripts never create or rewrite
+account data.
 
 ---
 
@@ -222,8 +231,8 @@ launch Minecraft.
 - 已在纯净开发客户端与 Multiblock Madness 整合包中进行实际测试。
 - 针对远程 GUI、旧版渲染、容器 Overlay、JEI 配方填充和远距离挖掘掉落做了
   专门兼容处理。
-- 首个公开移植版仍为 Beta；请先备份存档，并在报告兼容问题时附上
-  `logs/latest.log`。
+- 该移植版本属于 Alpha，并使用独立的 `0.0.x` 版本序列；请先备份存档，
+  并在报告兼容问题时附上 `logs/latest.log`。
 
 #### Minecraft 1.7.10 / GT New Horizons
 
@@ -231,7 +240,8 @@ launch Minecraft.
 - 目标环境为 Forge 10.13.4.1614、GT New Horizons 2.8.4 与
   GTNHLib 0.7.10 ABI。
 - 已通过 RTS 客户端启动冒烟测试，并验证官方 GTNH 2.8.4 专用服务端可以完整启动。
-- 当前仍为 Alpha；远程打开 GT/AE2/ModularUI 菜单，以及 Angelica 下的视觉兼容，
+- 当前仍为 Alpha，并使用独立的 `0.0.x` 版本序列；远程打开
+  GT/AE2/ModularUI 菜单，以及 Angelica 下的视觉兼容，
   仍需要更多整合包内实测。
 
 ### 贡献者与鸣谢
@@ -257,7 +267,7 @@ launch Minecraft.
 - `main`：Minecraft 1.21.1 / NeoForge。
 - `forge-1.20.1`：Minecraft 1.20.1 / Forge。
 - `forge-1.12.2`：Minecraft 1.12.2 / Forge。
-- `forge-1.7.10-gtnh`：Minecraft 1.7.10 / Forge，优先针对 GT New Horizons
+- `forge-1.7.10`：Minecraft 1.7.10 / Forge，优先针对 GT New Horizons
   开发与验证。
 
 `forge-1.12.2` 分支使用 Gradle Wrapper 与锁定的工具链，最终输出兼容 Java 8 的
@@ -273,12 +283,18 @@ Linux/macOS:
 ./gradlew build --no-daemon --no-configuration-cache
 ```
 
-`forge-1.7.10-gtnh` 分支使用 GTNH Gradle 约定插件与锁定的 Java 工具链。
+`forge-1.7.10` 分支使用 GTNH Gradle 约定插件与锁定的 Java 工具链。
 Windows 下可运行：
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-1.7.10-gtnh.ps1
+```bat
+build-1.7.10-gtnh.bat
 ```
 
-该分支还分别提供开发客户端、纯净 GTNH 实例和轻量 GTNH 测试实例的 PowerShell
-启动脚本。只有主动运行脚本时才会准备或启动实例；克隆和构建源码本身不会启动游戏。
+该分支还分别提供开发客户端、纯净 GTNH 实例和轻量 GTNH 测试实例的 BAT 入口。
+CLEAN 与 SIMPLE 是位于 `E:\RTSbuilding\run\versions` 的 HMCL 原生隔离实例；首次运行时，
+脚本会调用 HMCL 3.13.1 自己的 MultiMC 导入器，随后选中目标实例并打开 HMCL。
+支持 `-NoBuild`、`-NoLaunch` 与 `-IncludeEzgt` 等参数。Gradle 开发客户端属于反混淆
+工作区，仍保持独立，不伪装成普通 HMCL 实例。
+
+使用 CLEAN 或 SIMPLE BAT 前请先关闭正在运行的 HMCL。正常双击后，脚本会打开 HMCL
+并选中对应实例；玩家再使用已有账号从 HMCL 内启动游戏。脚本不会创建或改写账号数据。

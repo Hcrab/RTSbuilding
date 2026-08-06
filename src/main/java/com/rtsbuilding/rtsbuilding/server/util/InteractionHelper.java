@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.platform.interaction.EnumHand;
 import com.rtsbuilding.rtsbuilding.platform.math.BlockPos;
 import com.rtsbuilding.rtsbuilding.platform.math.RayTraceResult;
 import com.rtsbuilding.rtsbuilding.platform.math.Vec3d;
+import com.rtsbuilding.rtsbuilding.platform.storage.StackCompat;
 import net.minecraft.world.WorldServer;
 
 /**
@@ -40,7 +41,7 @@ public final class InteractionHelper {
             result = TemporaryContextSwitcher.withTemporaryShiftKey(player, forceSecondaryUse,
                     () -> processRightClickBlock(player, level, hit));
         } finally {
-            remainder = player.getHeldItem().copy();
+            remainder = StackCompat.copyOrNull(player.getHeldItem());
             com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, EnumHand.MAIN_HAND, previousMainHand);
         }
         return new TemporaryContextSwitcher.UseOnOutcome(result, remainder);
@@ -64,7 +65,7 @@ public final class InteractionHelper {
             result = TemporaryContextSwitcher.withTemporaryShiftKey(player, forceSecondaryUse,
                     () -> processRightClick(player, level));
         } finally {
-            remainder = player.getHeldItem().copy();
+            remainder = StackCompat.copyOrNull(player.getHeldItem());
             com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, EnumHand.MAIN_HAND, previousMainHand);
         }
         return new TemporaryContextSwitcher.UseOnOutcome(result, remainder);
@@ -77,7 +78,7 @@ public final class InteractionHelper {
             WorldServer level, RayTraceResult hit, boolean forceSecondaryUse) {
         EnumActionResult result = TemporaryContextSwitcher.withTemporaryShiftKey(player, forceSecondaryUse,
                 () -> processRightClickBlock(player, level, hit));
-        return new TemporaryContextSwitcher.UseOnOutcome(result, player.getHeldItem().copy());
+        return new TemporaryContextSwitcher.UseOnOutcome(result, StackCompat.copyOrNull(player.getHeldItem()));
     }
 
     /**
@@ -87,7 +88,7 @@ public final class InteractionHelper {
             WorldServer level, boolean forceSecondaryUse) {
         EnumActionResult result = TemporaryContextSwitcher.withTemporaryShiftKey(player, forceSecondaryUse,
                 () -> processRightClick(player, level));
-        return new TemporaryContextSwitcher.UseOnOutcome(result, player.getHeldItem().copy());
+        return new TemporaryContextSwitcher.UseOnOutcome(result, StackCompat.copyOrNull(player.getHeldItem()));
     }
 
     // ======================================================================
@@ -106,7 +107,7 @@ public final class InteractionHelper {
         try {
             result = interactEntityWithMainHand(player, level, entity, hit);
         } finally {
-            remainder = player.getHeldItem().copy();
+            remainder = StackCompat.copyOrNull(player.getHeldItem());
             com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, EnumHand.MAIN_HAND, previousMainHand);
         }
         return new TemporaryContextSwitcher.UseOnOutcome(result, remainder);

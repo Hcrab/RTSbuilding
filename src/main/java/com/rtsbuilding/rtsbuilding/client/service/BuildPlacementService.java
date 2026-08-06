@@ -336,7 +336,8 @@ public final class BuildPlacementService {
                                             Runnable beginRemoteMenuOpenGrace) {
         if (hit == null || isBlank(itemId)) return;
         beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendInteractBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir);
+        RtsClientPacketGateway.sendInteractBlockWithPinnedItem(
+                hit, itemId, this.selectedItemPreview, rayOrigin, rayDir);
     }
 
     public void interactEntityWithToolSlot(int entityId, Vec3d hitLocation, int toolSlot, Vec3d rayOrigin, Vec3d rayDir,
@@ -350,7 +351,8 @@ public final class BuildPlacementService {
                                              Runnable beginRemoteMenuOpenGrace) {
         if (entityId < 0 || hitLocation == null || isBlank(itemId)) return;
         beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendInteractEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir);
+        RtsClientPacketGateway.sendInteractEntityWithPinnedItem(
+                entityId, hitLocation, itemId, this.selectedItemPreview, rayOrigin, rayDir);
     }
 
     // =========================================================================

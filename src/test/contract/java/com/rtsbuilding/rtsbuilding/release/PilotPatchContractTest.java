@@ -22,7 +22,9 @@ class PilotPatchContractTest {
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.lang"));
 
         assertTrue(properties.lines().map(String::trim)
-                .anyMatch("mod_version = 1.1.6-1.12.2-port"::equals));
+                .anyMatch("version = 0.0.1"::equals));
+        assertTrue(properties.lines().map(String::trim)
+                .anyMatch("customArchiveBaseName = rtsbuilding-forge-1.7.10"::equals));
         assertTrue(config.matches("(?s).*\"useBlockGhostPreview\",\\s*false,.*"));
         assertTrue(camera.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(camera.contains("\"item.rtsbuilding.rts_control_core\""));

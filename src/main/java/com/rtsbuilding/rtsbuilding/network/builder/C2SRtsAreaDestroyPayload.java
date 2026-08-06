@@ -117,6 +117,7 @@ public final class C2SRtsAreaDestroyPayload implements IMessage {
 
     public String metadataSignature() {
         return toolSlot + "|" + toolItemId + "|" + toolProtectionEnabled + "|"
-                + toolPrototype.toString() + "|" + String.valueOf(toolPrototype.getTagCompound());
+                + String.valueOf(toolPrototype) + "|"
+                + String.valueOf(toolPrototype == null ? null : toolPrototype.getTagCompound());
     }
 }

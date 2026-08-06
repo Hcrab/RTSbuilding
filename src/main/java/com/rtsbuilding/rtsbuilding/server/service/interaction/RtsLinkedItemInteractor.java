@@ -2,7 +2,6 @@ package com.rtsbuilding.rtsbuilding.server.service.interaction;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
-import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
@@ -12,6 +11,8 @@ import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.UseOnOutcome;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExtractor;
+import com.rtsbuilding.rtsbuilding.platform.storage.StackCompat;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.Item;
@@ -51,7 +52,8 @@ public final class RtsLinkedItemInteractor {
      * 任何剩余物品被退还。
      */
     public static EnumActionResult interactWithLinkedItem(EntityPlayerMP player, WorldServer level, RtsStorageSession session,
-            Entity targetEntity, RayTraceResult blockHit, Vec3d hit, String itemId, RayContext rayContext) {
+            Entity targetEntity, RayTraceResult blockHit, Vec3d hit, String itemId,
+            ItemStack itemPrototype, RayContext rayContext) {
         if (itemId == null || itemId.trim().isEmpty()) {
             return EnumActionResult.PASS;
         }
@@ -72,7 +74,10 @@ public final class RtsLinkedItemInteractor {
         }
 
         Item item = RtsRegistries.ITEMS.getValue(id);
-        ItemStack extracted = extractSelectedItem(player, extractHandlers, item, includePlayerMainInventory, creativeSource);
+        ItemStack preferredStack = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
+        ItemStack extracted = extractSelectedItem(
+                player, extractHandlers, item, preferredStack,
+                includePlayerMainInventory, creativeSource);
         if (com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(extracted)) {
             return EnumActionResult.PASS;
         }
@@ -96,19 +101,19 @@ public final class RtsLinkedItemInteractor {
             if (consumesAction(primaryOn.result())) {
                 return primaryOn;
             }
-            ItemStack afterPrimaryOn = primaryOn.remainder().copy();
+            ItemStack afterPrimaryOn = StackCompat.copyOrNull(primaryOn.remainder());
 
             UseOnOutcome primaryUse = InteractionHelper.useItemWithMainHand(player, level, afterPrimaryOn, false);
             if (consumesAction(primaryUse.result())) {
                 return primaryUse;
             }
-            ItemStack afterPrimaryUse = primaryUse.remainder().copy();
+            ItemStack afterPrimaryUse = StackCompat.copyOrNull(primaryUse.remainder());
 
             UseOnOutcome secondaryOn = InteractionHelper.useItemOnWithMainHand(player, level, afterPrimaryUse, blockHit, true);
             if (consumesAction(secondaryOn.result())) {
                 return secondaryOn;
             }
-            ItemStack afterSecondaryOn = secondaryOn.remainder().copy();
+            ItemStack afterSecondaryOn = StackCompat.copyOrNull(secondaryOn.remainder());
             return InteractionHelper.useItemWithMainHand(player, level, afterSecondaryOn, true);
                 });
         if (!creativeSource && !com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.isEmpty(outcome.remainder())) {
@@ -125,14 +130,16 @@ public final class RtsLinkedItemInteractor {
     }
 
     private static ItemStack extractSelectedItem(EntityPlayerMP player, List<IItemHandler> extractHandlers, Item item,
-            boolean includePlayerMainInventory, boolean creativeSource) {
+            ItemStack preferredStack, boolean includePlayerMainInventory, boolean creativeSource) {
         if (creativeSource) {
-            return new ItemStack(item);
+            return RtsPlacementExtractor.creativeStack(item, preferredStack);
         }
         if (includePlayerMainInventory) {
-            return RtsTransferExtractor.extractOneFromNetwork(extractHandlers, player, item);
+            return RtsPlacementExtractor.extractSelectedFromNetworkCached(
+                    player, extractHandlers, item, preferredStack);
         }
-        return RtsTransferExtractor.extractOneFromLinked(extractHandlers, item);
+        return RtsPlacementExtractor.extractSelectedFromLinkedCached(
+                player, extractHandlers, item, preferredStack);
     }
 
     private static ResourceLocation parseId(String itemId) {

@@ -67,7 +67,7 @@ import java.time.Duration;
 public final class RtsbuildingMod {
     public static final String MODID = "rtsbuilding";
     /** 首个 GTNH 可玩 alpha 的 FML 元数据版本；发布时与 Gradle version 一起更新。 */
-    public static final String VERSION = "1.1.6-1.7.10-gtnh-alpha.1";
+    public static final String VERSION = "0.0.1";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 
     @Mod.Instance(MODID)

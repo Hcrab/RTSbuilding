@@ -802,7 +802,8 @@ public final class RtsMiningStateMachine {
             broken = player.theItemInWorldManager.tryHarvestBlock(
                     pos.getX(), pos.getY(), pos.getZ());
         } finally {
-            remainder = player.getHeldItem().copy();
+            remainder = com.rtsbuilding.rtsbuilding.platform.storage.StackCompat.copyOrNull(
+                    player.getHeldItem());
             com.rtsbuilding.rtsbuilding.platform.player.PlayerCompat.setHeldItem(player, EnumHand.MAIN_HAND, previousMainHand);
         }
         return new MiningBreakResult(broken, remainder);
