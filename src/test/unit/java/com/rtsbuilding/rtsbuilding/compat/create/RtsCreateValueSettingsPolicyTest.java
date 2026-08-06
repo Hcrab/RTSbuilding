@@ -19,6 +19,16 @@ class RtsCreateValueSettingsPolicyTest {
     }
 
     @Test
+    void createGlobalInputGateRequiresNativePermissionAndNoClipboard() {
+        assertTrue(RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(true, false),
+                "Create 允许输入且主手不是剪贴板时，RTS 才可继续定位 Value Settings 行为。");
+        assertFalse(RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(false, false),
+                "Create 拒绝冒险模式等全局输入时必须回落既有 RTS 右键。");
+        assertFalse(RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(true, true),
+                "主手持有 Create 剪贴板时必须保持 Create 原生入口的让行语义。");
+    }
+
+    @Test
     void serverSubmissionDependsOnSessionLoadedTargetAndCreateValidationNotPlayerDistance() {
         assertTrue(RtsCreateValueSettingsPolicy.shouldApplyOnServer(true, true, true, true),
                 "有效 RTS 会话、已加载目标和 Create board 合法值应可远程保存。");

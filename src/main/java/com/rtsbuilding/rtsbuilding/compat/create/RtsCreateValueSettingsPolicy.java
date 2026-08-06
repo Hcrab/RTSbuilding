@@ -14,6 +14,16 @@ public final class RtsCreateValueSettingsPolicy {
         return primaryActionMouse && worldArea && eligibleBehaviour;
     }
 
+    /**
+     * 将 Create 全局输入反射结果收敛为 RTS 是否可以继续扫描行为的纯决策。
+     *
+     * <p>反射失败由运行时门面直接回落；这里仅表达已经取得的 Create 原生许可与剪贴板让行结果，
+     * 不用 RTS 自己的潜行、冒险模式或物品规则猜测替代。</p>
+     */
+    static boolean allowsCreateGlobalInput(boolean createCanInteract, boolean holdingCreateClipboard) {
+        return createCanInteract && !holdingCreateClipboard;
+    }
+
     public static boolean shouldApplyOnServer(
             boolean activeRtsSession, boolean targetChunkLoaded, boolean eligibleBehaviour, boolean legalValue) {
         return activeRtsSession && targetChunkLoaded && eligibleBehaviour && legalValue;

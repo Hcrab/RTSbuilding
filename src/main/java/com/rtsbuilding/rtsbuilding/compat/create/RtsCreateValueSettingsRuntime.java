@@ -11,6 +11,7 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.neoforged.neoforge.common.Tags;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.List;
@@ -31,6 +32,9 @@ public final class RtsCreateValueSettingsRuntime {
             "com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBehaviour$ValueSettings";
     private static final String VALUE_SETTINGS_BOARD_CLASS =
             "com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsBoard";
+    private static final String VALUE_SETTINGS_INPUT_HANDLER_CLASS =
+            "com.simibubi.create.foundation.blockEntity.behaviour.ValueSettingsInputHandler";
+    private static final String ALL_BLOCKS_CLASS = "com.simibubi.create.AllBlocks";
     private static final String SIDED_VALUE_BOX_TRANSFORM_CLASS =
             "com.simibubi.create.foundation.blockEntity.behaviour.ValueBoxTransform$Sided";
 
@@ -55,6 +59,9 @@ public final class RtsCreateValueSettingsRuntime {
     private static Method newSettingHovered;
     private static Method setValueSettings;
     private static Method onShortInteract;
+    private static Method canInteract;
+    private static Field clipboard;
+    private static Method clipboardAsItem;
     private static Method sidedIsSideActive;
     private static Method sidedFromSide;
     private static Method boardRows;
@@ -72,11 +79,13 @@ public final class RtsCreateValueSettingsRuntime {
      * 它不判断玩家到目标的距离；RTS 的远程资格由调用方的服务端会话校验负责。</p>
      */
     public static Candidate findEligible(Level level, BlockHitResult hit, Player player) {
-        if (!ensureAvailable() || level == null || hit == null || player == null
-                || player.isSpectator() || player.isShiftKeyDown()) {
+        if (!ensureAvailable() || level == null || hit == null || player == null) {
             return null;
         }
         try {
+            if (!passesCreateGlobalInputGate(player)) {
+                return null;
+            }
             BlockEntity blockEntity = level.getBlockEntity(hit.getBlockPos());
             if (!smartBlockEntityClass.isInstance(blockEntity)) {
                 return null;
@@ -220,6 +229,21 @@ public final class RtsCreateValueSettingsRuntime {
         return Boolean.TRUE.equals(method.invoke(target, arguments));
     }
 
+    /**
+     * 复用 Create 入口在扫描 ValueSettingsBehaviour 前执行的全局输入门槛。
+     *
+     * <p>这里不能把 Adventure、潜行或剪贴板物品各自复制为 RTS 规则：Create 的 canInteract
+     * 仍是唯一事实来源。任一可选反射结果不能确认时一律回落，避免 RTS 抢走 Create 原生本应让行的右键。</p>
+     */
+    private static boolean passesCreateGlobalInputGate(Player player) throws ReflectiveOperationException {
+        boolean createCanInteract = isTrue(canInteract, null, player);
+        Object clipboardItem = clipboardAsItem.invoke(clipboard.get(null));
+        return clipboardItem instanceof Item item
+                && RtsCreateValueSettingsPolicy.allowsCreateGlobalInput(
+                        createCanInteract,
+                        player.getMainHandItem().is(item));
+    }
+
     @SuppressWarnings("unchecked")
     private static TagKey<Item> wrenchTag() {
         return Tags.Items.TOOLS_WRENCH;
@@ -236,6 +260,8 @@ public final class RtsCreateValueSettingsRuntime {
             valueSettingsClass = Class.forName(VALUE_SETTINGS_CLASS);
             valueSettingsBoardClass = Class.forName(VALUE_SETTINGS_BOARD_CLASS);
             sidedValueBoxTransformClass = Class.forName(SIDED_VALUE_BOX_TRANSFORM_CLASS);
+            Class<?> valueSettingsInputHandlerClass = Class.forName(VALUE_SETTINGS_INPUT_HANDLER_CLASS);
+            Class<?> allBlocksClass = Class.forName(ALL_BLOCKS_CLASS);
 
             getAllBehaviours = smartBlockEntityClass.getMethod("getAllBehaviours");
             isActive = valueSettingsBehaviourClass.getMethod("isActive");
@@ -254,6 +280,9 @@ public final class RtsCreateValueSettingsRuntime {
             onShortInteract = valueSettingsBehaviourClass.getMethod(
                     "onShortInteract", Player.class, net.minecraft.world.InteractionHand.class,
                     Direction.class, BlockHitResult.class);
+            canInteract = valueSettingsInputHandlerClass.getMethod("canInteract", Player.class);
+            clipboard = allBlocksClass.getField("CLIPBOARD");
+            clipboardAsItem = clipboard.getType().getMethod("asItem");
             sidedIsSideActive = sidedValueBoxTransformClass.getDeclaredMethod(
                     "isSideActive", BlockState.class, Direction.class);
             sidedIsSideActive.setAccessible(true);
