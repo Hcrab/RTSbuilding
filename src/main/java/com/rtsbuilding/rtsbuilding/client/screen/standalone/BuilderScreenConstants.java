@@ -87,22 +87,6 @@ public final class BuilderScreenConstants {
     /** Gap between storage and recent items */
     public static final int STORAGE_RECENT_GAP = 6;
 
-    // ======================== Quick-build panel ========================
-    /** Quick-build panel width */
-    public static final int QUICK_BUILD_PANEL_W = 188;
-    /** Quick-build panel height */
-    public static final int QUICK_BUILD_PANEL_H = 216;
-    /** Quick-build panel minimum height */
-    public static final int QUICK_BUILD_PANEL_MIN_H = 156;
-    /** Quick-build shape slot size */
-    public static final int QUICK_BUILD_SHAPE_SLOT = 32;
-    /** Quick-build shape gap */
-    public static final int QUICK_BUILD_SHAPE_GAP = 8;
-    /** Quick-build gear menu width */
-    public static final int QUICK_BUILD_GEAR_MENU_W = 148;
-    /** Quick-build gear row height */
-    public static final int QUICK_BUILD_GEAR_ROW_H = 18;
-
     // ======================== Chain Destroy Limits ========================
     public static final int ULTIMINE_MIN_LIMIT = 1;
     public static final int ULTIMINE_MAX_LIMIT = 256;

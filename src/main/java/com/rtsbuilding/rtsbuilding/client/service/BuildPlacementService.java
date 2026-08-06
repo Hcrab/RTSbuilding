@@ -279,6 +279,26 @@ public final class BuildPlacementService {
         RtsClientPacketGateway.sendPlaceFluid(hit, forcePlace, this.selectedFluidId, rayOrigin, rayDir);
     }
 
+    /** 提交智能填坑意图；客户端只解析材料，不发送预览扫描出的目标坐标。 */
+    public void confirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        PlacementMaterial material = resolvePlacementMaterial();
+        RtsClientPacketGateway.sendConfirmSmartFill(
+                hit,
+                maxBlocks,
+                detectionDiameter,
+                material.itemId(),
+                material.prototype(),
+                material.itemId().isBlank() ? 0 : this.placeRotateSteps,
+                material.itemId().isBlank() ? "" : this.placementStatePreset,
+                rayOrigin,
+                rayDirection);
+    }
+
     // =========================================================================
     //  Fluid storage
     // =========================================================================
@@ -424,6 +444,39 @@ public final class BuildPlacementService {
         if (itemId == null || itemId.isBlank()) return Long.MAX_VALUE;
         if (isLocalPlayerCreative) return Long.MAX_VALUE;
         return hasStoragePageSnapshot ? storageTotalCount : Long.MAX_VALUE;
+    }
+
+    private PlacementMaterial resolvePlacementMaterial() {
+        String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
+        if (!itemId.isBlank()) {
+            return new PlacementMaterial(itemId, this.selectedItemPreview);
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.player == null) {
+            return PlacementMaterial.EMPTY;
+        }
+        int slot = Mth.clamp(minecraft.player.getInventory().selected, 0, 8);
+        ItemStack stack = minecraft.player.getInventory().getItem(slot);
+        if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem)) {
+            return PlacementMaterial.EMPTY;
+        }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return id == null
+                ? PlacementMaterial.EMPTY
+                : new PlacementMaterial(id.toString(), stack);
+    }
+
+    private record PlacementMaterial(String itemId, ItemStack prototype) {
+        private static final PlacementMaterial EMPTY =
+                new PlacementMaterial("", ItemStack.EMPTY);
+
+        private PlacementMaterial {
+            itemId = itemId == null ? "" : itemId;
+            prototype = prototype == null ? ItemStack.EMPTY : prototype.copy();
+            if (!prototype.isEmpty()) {
+                prototype.setCount(1);
+            }
+        }
     }
 
     private void setSelectedItem(String itemId, String label, ItemStack preview) {

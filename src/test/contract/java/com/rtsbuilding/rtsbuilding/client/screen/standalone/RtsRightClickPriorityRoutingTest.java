@@ -11,18 +11,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class RtsRightClickPriorityRoutingTest {
     @Test
     void selectedStorageItemSingleBlockNormalRightClickInteractsBeforePlacement() throws IOException {
-        String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
+        String router = owner("BuilderScreenPrimaryActionRouter.java");
+        String handler = owner("BuilderScreenItemActionHandler.java");
+        String builder = owner("BuilderScreen.java");
+        String gestureOwner = owner("BuilderScreenPointerGestureOwner.java");
+        String routeBody = methodBody(router, "boolean run(double mouseX, double mouseY, int mouseButton)");
+        String body = methodBody(handler, "boolean runSelectedItem(");
 
-        int selectedItemBranch = body.indexOf("if (this.controller.hasSelectedItem())");
+        int selectedItemBranch = routeBody.indexOf("if (this.controller.hasSelectedItem())");
         assertTrue(selectedItemBranch >= 0, "selected item branch missing");
 
         int normalInteractGuard = body.indexOf(
-                "if (!forceBackpackPlacement && !forcePlace && !rangeDestroyMode",
-                selectedItemBranch);
-        int interactPinnedItem = body.indexOf("this.controller.interactBlockWithPinnedItem", selectedItemBranch);
-        int forcePlacementBranch = body.indexOf("if (rangeDestroyMode)", selectedItemBranch);
+                "if (!forceBackpackPlacement && !forceBlockPlacement && !rangeDestroyMode");
+        int interactPinnedItem = body.indexOf("this.controller.interactBlockWithPinnedItem");
+        int forcePlacementBranch = body.indexOf("if (rangeDestroyMode)");
 
         assertTrue(normalInteractGuard >= 0,
                 "普通右键交互优先只能截获单方块模式，形状/范围放置不能被提前返回。");
@@ -37,21 +39,24 @@ class RtsRightClickPriorityRoutingTest {
                 "normal right-click with a selected storage item should send interact before placement");
         assertTrue(forcePlacementBranch > interactPinnedItem,
                 "placement branch should come after the normal interaction branch");
+        assertTrue(builder.contains("new BuilderScreenPrimaryActionRouter("));
+        assertTrue(gestureOwner.contains("screen.primaryActionRouter.run(mouseX, mouseY, mouseButton)"),
+                "生产鼠标入口必须进入同一主操作路由器");
     }
 
     @Test
     void selectedStorageItemShapePlacementBypassesNormalInteractBranch() throws IOException {
-        String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
+        String router = owner("BuilderScreenPrimaryActionRouter.java");
+        String handler = owner("BuilderScreenItemActionHandler.java");
+        String routeBody = methodBody(router, "boolean run(double mouseX, double mouseY, int mouseButton)");
+        String body = methodBody(handler, "boolean runSelectedItem(");
 
-        int selectedItemBranch = body.indexOf("if (this.controller.hasSelectedItem())");
+        int selectedItemBranch = routeBody.indexOf("if (this.controller.hasSelectedItem())");
         assertTrue(selectedItemBranch >= 0, "selected item branch missing");
 
         int normalInteractGuard = body.indexOf(
-                "this.controller.getBuildShape() == BuildShape.BLOCK",
-                selectedItemBranch);
-        int shapePlacement = body.indexOf("this.shapeController.placeWithShape(", selectedItemBranch);
+                "this.controller.getBuildShape() == BuildShape.BLOCK");
+        int shapePlacement = body.indexOf("this.shapeController.placeWithShape(");
 
         assertTrue(normalInteractGuard >= 0, "selected storage item routing must guard interact-first by shape");
         assertTrue(shapePlacement > normalInteractGuard,
@@ -60,23 +65,26 @@ class RtsRightClickPriorityRoutingTest {
 
     @Test
     void mainHandNormalRightClickInteractsAndShiftRightClickPlacesFirst() throws IOException {
-        String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean runPrimaryActionAt(double mouseX, double mouseY, int mouseButton)");
+        String body = methodBody(owner("BuilderScreenItemActionHandler.java"), "boolean runToolOrEmptyHand(");
 
         int toolSlotInteract = body.indexOf("this.controller.interactBlockWithToolSlot");
         assertTrue(toolSlotInteract >= 0, "normal main-hand right-click should send tool-slot interaction");
 
         int shiftPlace = body.lastIndexOf("this.controller.placeSelected(", toolSlotInteract);
-        int forceGuard = body.lastIndexOf("if (forcePlace ||", toolSlotInteract);
+        int forceGuard = body.lastIndexOf("if ((forcePlace && host.mainHandItemIsBlock())", toolSlotInteract);
 
-        assertTrue(forceGuard >= 0, "main-hand block action must keep the Shift force-place branch");
+        assertTrue(forceGuard >= 0, "Shift may force placement only for an actual main-hand block item");
         int forceGuardEnd = body.indexOf(") {", forceGuard);
         assertTrue(body.substring(forceGuard, forceGuardEnd)
-                        .contains("this.controller.getPlacementStatePreset().isBlank()"),
+                        .contains("!this.controller.getPlacementStatePreset().isBlank()"),
                 "手持方块的 R preset 也必须让右键走放置包，而不是不携带 preset 的自然交互包");
         assertTrue(shiftPlace > forceGuard,
                 "Shift right-click should run placeSelected before the normal interaction fallback");
+    }
+
+    private static String owner(String file) throws IOException {
+        return Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/" + file));
     }
 
     private static String methodBody(String source, String signatureStart) {

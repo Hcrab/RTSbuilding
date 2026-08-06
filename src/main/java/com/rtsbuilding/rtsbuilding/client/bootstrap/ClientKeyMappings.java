@@ -39,6 +39,10 @@ public final class ClientKeyMappings {
             "key.rtsbuilding.rotate_shape",
             GLFW.GLFW_KEY_R,
             "key.categories.rtsbuilding");
+    public static final KeyMapping PLACEMENT_STATE_WHEEL = new KeyMapping(
+            "key.rtsbuilding.placement_state_wheel",
+            GLFW.GLFW_KEY_M,
+            "key.categories.rtsbuilding");
     public static final KeyMapping OPEN_CRAFT_TERMINAL = new KeyMapping(
             "key.rtsbuilding.open_craft_terminal",
             GLFW.GLFW_KEY_C,
@@ -161,6 +165,7 @@ public final class ClientKeyMappings {
         event.register(QUICK_FUNNEL);
         event.register(QUICK_DROP);
         event.register(ROTATE_SHAPE);
+        event.register(PLACEMENT_STATE_WHEEL);
         event.register(OPEN_CRAFT_TERMINAL);
         event.register(PIN_QUICK_SLOT);
         event.register(BLUEPRINT_CANCEL);

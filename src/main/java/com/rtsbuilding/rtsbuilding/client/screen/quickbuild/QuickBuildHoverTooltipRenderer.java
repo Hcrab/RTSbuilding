@@ -14,13 +14,14 @@ import java.util.List;
 /**
  * 在 RTS 虚拟视口中绘制 Quick Build 的标题与说明提示。
  *
- * <p>本类只负责同一坐标空间内的定位、换行和主题绘制，不拥有按钮命中或玩法状态。
- * Minecraft 原生 tooltip 会读取外层 GUI 视口，因此不能用于已额外缩放的 Quick Build。</p>
+ * <p>它不调用 Minecraft 原生 tooltip，因为原生定位读取外层 GUI 视口，而 Quick Build
+ * 的命中和绘制使用 RTS 缩放后的虚拟坐标。这里让 Shapes 与 Tools 共享同一套定位、换行
+ * 和主题外观；业务状态与按钮命中仍由控制面负责。</p>
  */
 final class QuickBuildHoverTooltipRenderer {
-    private static final int MAX_TEXT_WIDTH = 145;
-    private static final int PADDING = 5;
-    private static final int TITLE_DETAIL_GAP = 3;
+    private static final int MAX_TEXT_WIDTH = 116;
+    private static final int PADDING = 4;
+    private static final int TITLE_DETAIL_GAP = 2;
     private static final int BORDER = 1;
 
     static void render(GuiGraphics graphics, BuilderScreen screen,

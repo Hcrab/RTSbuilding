@@ -13,8 +13,8 @@ class RtsBackpackRoutingContractTest {
     void carriedBackpackKeepsUuidBindingAndPlacementNeverFallsBackToOpen() throws Exception {
         String compat = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/compat/sophisticatedbackpacks/RtsBackpackCompat.java"));
-        String screen = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
+        String itemActions = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenItemActionHandler.java"));
         String placement = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementExecutor.java"));
         String lifecycle = Files.readString(Path.of(
@@ -26,8 +26,8 @@ class RtsBackpackRoutingContractTest {
                         && compat.contains("CapabilityBackpackWrapper")
                         && compat.contains("findCarriedBackpack(player, uuid)"),
                 "旧版必须同时覆盖 Forge capability 与精妙背包注册的饰品/Curios 槽位。");
-        assertTrue(screen.contains("forcePlace || forceBackpackPlacement")
-                        && screen.contains("!forceBackpackPlacement && !forcePlace"),
+        assertTrue(itemActions.contains("forcePlace || forceBackpackPlacement")
+                        && itemActions.contains("!forceBackpackPlacement && !forceBlockPlacement"),
                 "客户端右键精妙背包必须绕过交互并进入强制放置链路。");
         assertTrue(placement.contains("forcePlace || sophisticatedBackpackPlacementOnly")
                         && placement.contains("!sophisticatedBackpackPlacementOnly && !selectedOutcome.result().consumesAction()"),

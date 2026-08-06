@@ -25,6 +25,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.storage.wake.RtsCrossDimensionStorageWakeService;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
@@ -174,6 +175,7 @@ public final class RtsbuildingMod {
         static void onServerStopped(final ServerStoppedEvent event) {
             RuntimeException durableFailure = null;
             RtsWorkflowEngine.getInstance().stopTimeoutService();
+            RtsCrossDimensionStorageWakeService.INSTANCE.clear(event.getServer());
             try {
                 if (TaskPersistenceRuntime.INSTANCE.isStarted()) {
                     TaskPersistenceRuntime.INSTANCE.stop();
@@ -216,6 +218,8 @@ public final class RtsbuildingMod {
             RtsPlacementSound.forgetPlayer(player.getUUID());
             RtsProgressRefresher.clearPlayerCache(player.getUUID());
             RtsStoragePageRequestCoalescer.clearPlayer(player.getUUID());
+            RtsCrossDimensionStorageWakeService.INSTANCE.releasePlayer(
+                    player.server, player.getUUID());
             RtsDeveloperMetrics.clearPlayer(player.getUUID());
             RtsPluginService.syncRelatedPlayers(player);
             RtsEffectAccumulator.INSTANCE.clearPlayer(player.getUUID());
@@ -238,6 +242,8 @@ public final class RtsbuildingMod {
         static void onChunkLoad(final ChunkEvent.Load event) {
             if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
                 RtsTaskEngine.INSTANCE.resumeLoadedChunk(level, event.getChunk().getPos());
+                RtsCrossDimensionStorageWakeService.INSTANCE.onChunkLoaded(
+                        level, event.getChunk().getPos());
             }
         }
 

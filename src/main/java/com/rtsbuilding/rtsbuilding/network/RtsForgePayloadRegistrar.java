@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.forgecompat.network.ForgePayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderPackets;
 import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
 import com.rtsbuilding.rtsbuilding.network.culling.RtsCullingPackets;
+import com.rtsbuilding.rtsbuilding.network.create.RtsCreateValueSettingsPackets;
 import com.rtsbuilding.rtsbuilding.network.craft.RtsCraftPackets;
 import com.rtsbuilding.rtsbuilding.network.feedback.RtsFeedbackPackets;
 import com.rtsbuilding.rtsbuilding.network.pathfinding.RtsPathfindingPackets;
@@ -50,6 +51,7 @@ public final class RtsForgePayloadRegistrar {
         ForgePayloadRegistrar registrar = new ForgePayloadRegistrar(CHANNEL);
         RtsCameraPackets.register(registrar);
         RtsCullingPackets.register(registrar);
+        RtsCreateValueSettingsPackets.register(registrar);
         RtsStoragePackets.register(registrar);
         RtsBuilderPackets.register(registrar);
         RtsCraftPackets.register(registrar);

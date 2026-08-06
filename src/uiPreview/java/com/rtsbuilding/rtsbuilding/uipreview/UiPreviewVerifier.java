@@ -20,6 +20,7 @@ public final class UiPreviewVerifier {
         UiPreviewMain.requireHeadless();
         verifyDiffEngine();
         UiScenarioInputVerifier.verify();
+        UiPreviewWorldBackground.verifyAll(new UiRect(0, 0, 1920, 1080));
         File outputDirectory = UiPreviewMain.outputDirectory(args);
         File baselineDirectory = new File(args.length < 2 ? "src/uiPreviewSnapshots" : args[1]);
         if (!outputDirectory.isDirectory() && !outputDirectory.mkdirs()) {
@@ -55,10 +56,12 @@ public final class UiPreviewVerifier {
             }
         }
         TopBarAnimationPreviewRenderer.render(outputDirectory);
+        QuickBuildControlAnimationPreviewRenderer.render(outputDirectory);
         System.out.println("Verified " + UiPreviewScenario.firstBatch().size()
                 + " deterministic headless UI preview scenes and "
-                + TopBarAnimationPreviewRenderer.SLICE_COUNT
-                + " top-bar animation slices");
+                + (TopBarAnimationPreviewRenderer.SLICE_COUNT
+                + QuickBuildControlAnimationPreviewRenderer.SLICE_COUNT)
+                + " animation slices");
     }
 
     private static void verifyStructure(UiPreviewResult result) {

@@ -144,12 +144,13 @@ public final class StorageRenderer {
         long now = System.currentTimeMillis();
 
         List<LinkedStorageEntry> entries = controller.getLinkedStorageEntries();
+        String currentDimension = minecraft.level.dimension().location().toString();
 
         // ── 1. Detect additions / removals ─────────────────────────────────
 
         Set<BlockPos> currPositions = new HashSet<>();
         for (LinkedStorageEntry e : entries) {
-            if (e.worldAvailable() && e.pos() != null) currPositions.add(e.pos());
+            if (e.worldAvailable() && currentDimension.equals(e.dimensionId()) && e.pos() != null) currPositions.add(e.pos());
         }
 
         if (!initialised) {
@@ -184,7 +185,7 @@ public final class StorageRenderer {
 
             // Additions → start BINDING (or restart if still UNBINDING).
             for (LinkedStorageEntry e : entries) {
-                if (!e.worldAvailable()) continue;
+                if (!e.worldAvailable() || !currentDimension.equals(e.dimensionId())) continue;
                 BlockPos p = e.pos();
                 if (p == null || prevPositions.contains(p)) continue;
                 StorageAnim existing = anims.get(p);
@@ -236,7 +237,7 @@ public final class StorageRenderer {
         // ── 3. Render currently linked entries (BINDING / BOUND) ────────────
 
         for (LinkedStorageEntry entry : entries) {
-            if (!entry.worldAvailable()) {
+            if (!entry.worldAvailable() || !currentDimension.equals(entry.dimensionId())) {
                 continue;
             }
             BlockPos pos = entry.pos();

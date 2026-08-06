@@ -252,6 +252,52 @@ public final class RtsTransferPlayerIntegration {
         QuestService.runQuestDetect(player, session, false);
     }
 
+    /**
+     * 合成终端底部玩家槽位的 Shift+左键入口。
+     *
+     * <p>这里只缩减真正进入 linked storage 的数量。储存已满或暂时不可用时，
+     * 余量继续留在原槽，不转入九宫格、不换到其他背包槽，也不掉落。</p>
+     */
+    public static boolean depositCraftTerminalPlayerSlot(
+            ServerPlayer player, RtsStorageSession session, int menuSlot) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)
+                || session == null
+                || !(player.containerMenu
+                        instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu menu)
+                || menuSlot < com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu.INVENTORY_SLOT_START
+                || menuSlot >= com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu.HOTBAR_SLOT_END) {
+            return false;
+        }
+
+        Slot slot = menu.getSlot(menuSlot);
+        if (slot == null || slot.container != player.getInventory()
+                || !slot.hasItem() || !slot.mayPickup(player)) {
+            return false;
+        }
+
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+        if (insertHandlers.isEmpty()) {
+            return false;
+        }
+
+        ItemStack source = slot.getItem();
+        ItemStack remainder = RtsTransferInserter.storeToLinkedOnlyPreferExisting(insertHandlers, source);
+        int inserted = source.getCount() - remainder.getCount();
+        if (inserted <= 0) {
+            return false;
+        }
+
+        source.shrink(inserted);
+        slot.setByPlayer(source.isEmpty() ? ItemStack.EMPTY : source);
+        slot.setChanged();
+        menu.broadcastChanges();
+        ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+        QuestService.runQuestDetect(player, session, false);
+        return true;
+    }
+
     public static void pickupLinkedToCarried(ServerPlayer player, RtsStorageSession session, ItemStack prototype, int amount) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;

@@ -274,6 +274,10 @@ public final class ClientRtsController {
         return this.storageStateManager.getStoragePage();
     }
 
+    public int getStoragePageSize() {
+        return this.storageStateManager.getStoragePageSize();
+    }
+
     public int getStorageTotalPages() {
         return this.storageStateManager.getStorageTotalPages();
     }
@@ -1271,6 +1275,10 @@ public final class ClientRtsController {
         this.storageStateManager.linkStorage(pos, allowStore);
     }
 
+    public void linkStorageBatch(BlockPos first, BlockPos second, boolean allowStore) {
+        RtsClientPacketGateway.sendBatchLinkStorage(first, second, allowStore);
+    }
+
     public void requestStoragePage(int page) {
         this.storageStateManager.requestStoragePage(page);
     }
@@ -1315,6 +1323,10 @@ public final class ClientRtsController {
 
     public void cycleSort() {
         this.storageStateManager.cycleSort();
+    }
+
+    public void setStorageSort(RtsStorageSort sort) {
+        this.storageStateManager.setStorageSort(sort);
     }
 
     public void toggleSortDirection() {
@@ -1400,8 +1412,16 @@ public final class ClientRtsController {
         RtsClientPacketGateway.sendUnlinkStorage(pos);
     }
 
+    public void unlinkLinkedStorage(String dimensionId, BlockPos pos) {
+        RtsClientPacketGateway.sendUnlinkStorage(dimensionId, pos);
+    }
+
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
         RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
+    }
+
+    public void updateLinkedStorageSettings(String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
+        RtsClientPacketGateway.sendUpdateLinkedStorage(dimensionId, pos, extractOnly, priority);
     }
 
     private boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
@@ -1673,6 +1693,12 @@ public final class ClientRtsController {
         this.buildPlacementService.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
     }
 
+    public void confirmSmartFill(BlockHitResult hit, int maxBlocks, int detectionDiameter,
+            Vec3 rayOrigin, Vec3 rayDirection) {
+        this.buildPlacementService.confirmSmartFill(
+                hit, maxBlocks, detectionDiameter, rayOrigin, rayDirection);
+    }
+
     public void storeFluidFromStorageItem(String itemId) {
         this.buildPlacementService.storeFluidFromStorageItem(itemId);
     }
@@ -1789,6 +1815,18 @@ public final class ClientRtsController {
 
     public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) {
         this.miningOperationService.confirmShapeAreaDestroy(targets, toolSlot,
+                this.buildPlacementService.getSelectedItemId(),
+                this.buildPlacementService.getSelectedItemPreview(),
+                this.toolProtectionEnabled);
+    }
+
+    public void confirmConvenienceDestroy(
+            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode mode,
+            BlockHitResult hit,
+            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings settings,
+            int toolSlot) {
+        this.miningOperationService.confirmConvenienceDestroy(
+                mode, hit, settings, toolSlot,
                 this.buildPlacementService.getSelectedItemId(),
                 this.buildPlacementService.getSelectedItemPreview(),
                 this.toolProtectionEnabled);

@@ -41,20 +41,21 @@ final class StorageUiAdapter {
         LinkedStorageEntry entry=find(controller,action.stableKey);
         if(entry==null)return transition;
         if(transition.command==StorageUiTransition.Command.SET_PRIORITY){
-            controller.updateLinkedStorageSettings(entry.pos(),
+            controller.updateLinkedStorageSettings(entry.dimensionId(),entry.pos(),
                     entry.mode()==C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY,action.value);
         }else if(transition.command==StorageUiTransition.Command.TOGGLE_EXTRACT){
-            controller.updateLinkedStorageSettings(entry.pos(),
+            controller.updateLinkedStorageSettings(entry.dimensionId(),entry.pos(),
                     entry.mode()!=C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY,entry.priority());
         }else if(transition.command==StorageUiTransition.Command.UNLINK){
-            controller.unlinkLinkedStorage(entry.pos());
+            controller.unlinkLinkedStorage(entry.dimensionId(),entry.pos());
         }
         return transition;
     }
 
     static String key(LinkedStorageEntry entry){
         BlockPos p=entry==null?null:entry.pos();
-        return p==null?"":p.getX()+","+p.getY()+","+p.getZ();
+        String dimension=entry==null||entry.dimensionId()==null?"":entry.dimensionId();
+        return p==null?"":dimension+"|"+p.getX()+","+p.getY()+","+p.getZ();
     }
     private static LinkedStorageEntry find(ClientRtsController controller,String key){
         for(LinkedStorageEntry entry:controller.getLinkedStorageEntries())if(key(entry).equals(key))return entry;
@@ -63,8 +64,10 @@ final class StorageUiAdapter {
     private static StorageUiEntry toCore(LinkedStorageEntry entry){
         ItemStack preview=entry.preview(); ResourceLocation id=preview==null||preview.isEmpty()?null:
                 BuiltInRegistries.ITEM.getKey(preview.getItem());
-        BlockPos p=entry.pos(); String pos=!entry.worldAvailable()?"N/A":p==null?"? ? ?":
+        BlockPos p=entry.pos(); String coordinates=p==null?"? ? ?":
                 p.getX()+", "+p.getY()+", "+p.getZ();
+        String dimension=entry.dimensionId()==null||entry.dimensionId().isBlank()?"?":entry.dimensionId();
+        String pos=!entry.worldAvailable()?dimension+" · N/A":dimension+" · "+coordinates;
         return new StorageUiEntry(key(entry),entry.label(),pos,entry.priority(),
                 entry.mode()==C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY,
                 entry.worldAvailable(),id==null?"":id.toString());

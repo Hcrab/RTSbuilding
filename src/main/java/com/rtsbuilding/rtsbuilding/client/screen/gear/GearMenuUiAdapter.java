@@ -14,8 +14,9 @@ import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiState;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.settings.SettingsUiValue;
 import com.rtsbuilding.rtsbuilding.uikit.layout.SettingsWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
 import net.minecraft.network.chat.Component;
-import com.rtsbuilding.rtsbuilding.forgecompat.fml.ModList;
+import net.minecraftforge.fml.ModList;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -52,6 +53,8 @@ final class GearMenuUiAdapter {
         int scaleIndex = (int) Math.round((screen.getRtsGuiScale() - MIN_RTS_GUI_SCALE)
                 / RTS_GUI_SCALE_STEP);
         values.put(SettingsId.UI_SCALE, value(screen.rtsGuiScaleLabel(), scaleIndex, scaleCount));
+        values.put(SettingsId.UI_THEME, value(
+                UiThemeRuntime.manager().active().nameKey(), 0, 1));
         values.put(SettingsId.PLAYER_STATUS_OVERLAY, toggle(controller.isPlayerStatusOverlayEnabled()));
         values.put(SettingsId.CONTAINER_OVERLAY, toggle(RtsClientUiStateStore.isContainerOverlayEnabled()));
         values.put(SettingsId.SHIFT_IMPORT, toggle(RtsClientUiStateStore.isOverlayShiftImportEnabled()));

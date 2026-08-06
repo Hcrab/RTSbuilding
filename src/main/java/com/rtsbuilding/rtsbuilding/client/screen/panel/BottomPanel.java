@@ -120,7 +120,7 @@ public final class BottomPanel {
                 layout.sortX(), layout.sortY());
         BottomPanelSortRenderer.render(
                 g, screen.font(), sortLayout,
-                core.sortLabel, core.sortAscending);
+                core.sortLabel, core.sortAscending, mouseX, mouseY);
         BottomPanelCraftDockLayout craftDock = resolveCraftDockLayout(layout);
         this.hoveredGuiBindingSlot = BottomPanelCraftDockRenderer.render(
                 g, screen.font(), core.guiBindings, this.controller,

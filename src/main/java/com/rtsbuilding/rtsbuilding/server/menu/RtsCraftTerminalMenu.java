@@ -23,6 +23,8 @@ import java.util.List;
  * 记录合成产出并自动从关联存储中补满材料。
  */
 public final class RtsCraftTerminalMenu extends CraftingMenu {
+    public static final int INVENTORY_SLOT_START = 10;
+    public static final int HOTBAR_SLOT_END = 46;
 
     /**
      * 构造合成终端菜单。
@@ -61,6 +63,16 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
      */
     @Override
     public void clicked(int slotId, int button, ClickType clickType, Player player) {
+        if (button == 0
+                && clickType == ClickType.QUICK_MOVE
+                && slotId >= INVENTORY_SLOT_START
+                && slotId < HOTBAR_SLOT_END
+                && player instanceof ServerPlayer serverPlayer) {
+            ServiceRegistry.getInstance().transfer()
+                    .depositCraftTerminalPlayerSlot(serverPlayer, slotId);
+            return;
+        }
+
         ItemStack[] blueprint = null;
         CraftingRecipe recipe = null;
         if (slotId == 0 && player instanceof ServerPlayer) {

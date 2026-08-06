@@ -26,8 +26,9 @@ public final class SettingsUiCatalog {
                                          int scroll) {
         Map<SettingsSectionId, List<SettingsUiRow>> rows =
                 new EnumMap<SettingsSectionId, List<SettingsUiRow>>(SettingsSectionId.class);
-        for (SettingsSectionId section : SettingsSectionId.values()) {
-            rows.put(section, new ArrayList<SettingsUiRow>());
+        for (UiRegistration<SettingsSectionUiContribution> registration
+                : SettingsSectionUiCatalog.registrations()) {
+            rows.put(registration.getValue().getSection(), new ArrayList<SettingsUiRow>());
         }
         for (UiRegistration<SettingsUiContribution> registration : REGISTRATIONS) {
             SettingsId id = registration.getValue().getId();
@@ -40,7 +41,9 @@ public final class SettingsUiCatalog {
         List<SettingsUiSection> sections = new ArrayList<SettingsUiSection>();
         Set<SettingsSectionId> safeExpanded = expandedSections == null
                 ? EnumSet.noneOf(SettingsSectionId.class) : expandedSections;
-        for (SettingsSectionId id : SettingsSectionId.values()) {
+        for (UiRegistration<SettingsSectionUiContribution> registration
+                : SettingsSectionUiCatalog.registrations()) {
+            SettingsSectionId id = registration.getValue().getSection();
             sections.add(new SettingsUiSection(id, safeExpanded.contains(id), rows.get(id)));
         }
         return new SettingsUiState(sections, scroll);
@@ -69,6 +72,8 @@ public final class SettingsUiCatalog {
                 return UiControlRole.DRAG;
             case STEP_VALUE:
                 return UiControlRole.HOLD_REPEAT;
+            case ACTION:
+                return UiControlRole.COMMAND;
             case SIMPLE_TOGGLE:
             case HINT_TOGGLE:
             default:

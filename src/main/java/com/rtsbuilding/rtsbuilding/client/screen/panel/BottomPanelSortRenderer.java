@@ -1,7 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelSortLayout;
 import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelSortStyle;
@@ -15,6 +19,9 @@ import net.minecraft.client.gui.GuiGraphics;
  * {@link BottomPanel} 根据同一布局返回的控件语义执行。</p>
  */
 public final class BottomPanelSortRenderer {
+    private static final UiControlAnimationRegistry<String> ANIMATIONS =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 4);
+
     private BottomPanelSortRenderer() {
     }
 
@@ -23,11 +30,17 @@ public final class BottomPanelSortRenderer {
             Font font,
             BottomPanelSortLayout layout,
             String sortLabel,
-            boolean ascending) {
-        drawButton(graphics, font, layout.cycleSort, "S");
-        drawButton(graphics, font, layout.toggleDirection, ascending ? "A" : "D");
-        drawButton(graphics, font, layout.increaseHeight, "+");
-        drawButton(graphics, font, layout.decreaseHeight, "-");
+            boolean ascending,
+            int mouseX,
+            int mouseY) {
+        drawButton(graphics, font, layout.cycleSort, "S",
+                hover("sort", layout.cycleSort.contains(mouseX, mouseY)));
+        drawButton(graphics, font, layout.toggleDirection, ascending ? "A" : "D",
+                hover("direction", layout.toggleDirection.contains(mouseX, mouseY)));
+        drawButton(graphics, font, layout.increaseHeight, "+",
+                hover("increase", layout.increaseHeight.contains(mouseX, mouseY)));
+        drawButton(graphics, font, layout.decreaseHeight, "-",
+                hover("decrease", layout.decreaseHeight.contains(mouseX, mouseY)));
         graphics.drawString(
                 font, sortLabel,
                 layout.labelX(), layout.labelY(),
@@ -39,11 +52,12 @@ public final class BottomPanelSortRenderer {
             GuiGraphics graphics,
             Font font,
             BottomPanelSortLayout.Area area,
-            String label) {
+            String label,
+            double hoverStrength) {
         UiCompactFrameRenderer.frame(
                 new MinecraftUiCanvas(graphics, font),
                 new UiRect(area.x, area.y, area.width, area.height),
-                BottomPanelSortStyle.BUTTON_BACKGROUND,
+                BottomPanelSortStyle.buttonBackground(hoverStrength),
                 BottomPanelSortStyle.BUTTON_BORDER_LIGHT,
                 BottomPanelSortStyle.BUTTON_BORDER_DARK);
         int textX = area.x + (area.width - font.width(label)) / 2;
@@ -52,5 +66,12 @@ public final class BottomPanelSortRenderer {
                 font, label, textX, textY,
                 BottomPanelSortStyle.BUTTON_TEXT.toArgb(),
                 false);
+    }
+
+    private static double hover(String id, boolean hovered) {
+        return ANIMATIONS.update(
+                id,
+                UiControlState.enabled().withInteraction(hovered, false, false),
+                Config.isUiAnimationsEnabled()).hover();
     }
 }

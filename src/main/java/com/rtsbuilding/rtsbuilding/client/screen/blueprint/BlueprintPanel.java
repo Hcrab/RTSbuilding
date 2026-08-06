@@ -743,10 +743,11 @@ public final class BlueprintPanel {
         return cursorTarget.offset(-bounds.centerX(), -bounds.minY(), -bounds.centerZ());
     }
 
-    public static BlueprintGhostPreview createGhostPreview(BlockPos anchor, int yRotationSteps, ClientRtsController controller) {
+    public static com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview createGhostPreview(
+            BlockPos anchor, int yRotationSteps, ClientRtsController controller) {
         BlueprintEntry entry = selectedEntry();
         if (!Config.areBlueprintsEnabled() || anchor == null || entry == null || !entry.error().isBlank()) {
-            return BlueprintGhostPreview.EMPTY;
+            return com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview.EMPTY;
         }
         int previewLimit = Math.max(1, Config.maxBlueprintBlocks());
         List<BlueprintGhostBlock> out = new ArrayList<>(Math.min(entry.blockCount(), previewLimit));
@@ -764,7 +765,8 @@ public final class BlueprintPanel {
                 break;
             }
         }
-        return new BlueprintGhostPreview(List.copyOf(out), hasEnoughMaterials(entry, controller), entry.blockCount() > out.size());
+        return new com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview(
+                List.copyOf(out), hasEnoughMaterials(entry, controller), entry.blockCount() > out.size());
     }
 
     private static PlacementBounds transformedContentBounds(RtsBlueprint blueprint, int y, int x, int z) {

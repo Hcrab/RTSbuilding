@@ -6,6 +6,7 @@
   "client": [
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
+    "CreateValueSettingsScreenMixin",
     "EmbeddiumWorldSliceMixin",
     "GameRendererMixin",
     "RenderChunkRegionMixin",

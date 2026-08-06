@@ -40,7 +40,8 @@ class QuickBuildHintContractTest {
 
         assertEquals(2, occurrences(controller, "if (shouldSubmitShapeAfterSelection())"),
                 "范围建造和范围破坏都必须在最后一个选点后经过同一自动提交策略");
-        assertTrue(controller.contains("ShapeConfirmationPolicy.shouldSubmitAfterSelection("));
+        assertTrue(controller.contains("&& ShapeConfirmationPolicy.shouldSubmitAfterSelection("),
+                "Forge 1.20.1 的控制器必须直接复用共享自动提交策略");
     }
 
     private static int occurrences(String text, String needle) {

@@ -33,6 +33,9 @@ public final class RtsItems {
     public static final RegistryObject<Item> BLUEPRINT_PLUGIN = pluginItem("blueprint_plugin", true);
     public static final RegistryObject<Item> RANGE_CULLING_PLUGIN = pluginItem("range_culling_plugin", true);
     public static final RegistryObject<Item> FIELD_DEPLOYMENT_PLUGIN = pluginItem("field_deployment_plugin", true);
+    /** 跨维度储存插件，允许短期唤醒并访问异维度的已连接储存。 */
+    public static final RegistryObject<Item> CROSS_DIMENSION_STORAGE_PLUGIN =
+            pluginItem("cross_dimension_storage_plugin", true);
     public static final RegistryObject<Item> RANGE_EXTENSION_I = pluginItem("range_extension_i", true);
     public static final RegistryObject<Item> RANGE_EXTENSION_II = pluginItem("range_extension_ii", true);
     public static final RegistryObject<Item> RANGE_EXTENSION_III = pluginItem("range_extension_iii", true);

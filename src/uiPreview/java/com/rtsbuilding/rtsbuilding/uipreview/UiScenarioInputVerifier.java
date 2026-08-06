@@ -32,6 +32,7 @@ import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTab;
 import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiReducer;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
@@ -230,6 +231,17 @@ public final class UiScenarioInputVerifier {
         if (destroy.command != QuickBuildUiTransition.Command.SELECT_MODE
                 || destroy.state.mode != QuickBuildUiMode.DESTROY) {
             throw new IllegalStateException("quick build mode replay drifted");
+        }
+        QuickBuildUiTransition smartFill = QuickBuildUiReducer.apply(build,
+                QuickBuildUiAction.catalog(
+                        QuickBuildUiCatalogPage.CONVENIENCE_TOOLS));
+        if (smartFill.command != QuickBuildUiTransition.Command.SELECT_CATALOG_PAGE
+                || smartFill.state.mode != QuickBuildUiMode.SMART_FILL
+                || QuickBuildUiReducer.apply(smartFill.state,
+                        QuickBuildUiAction.smartFillMaxBlocks(9999)).state.smartFillMaxBlocks != 1024
+                || QuickBuildUiReducer.apply(smartFill.state,
+                        QuickBuildUiAction.smartFillDiameter(1)).state.smartFillDiameter != 3) {
+            throw new IllegalStateException("quick build smart-fill replay drifted");
         }
         UiPreviewScenario chainScenario = UiPreviewScenario.firstBatch().get(35);
         QuickBuildUiState chain = QuickBuildPreviewFixtures.forScenario(chainScenario,

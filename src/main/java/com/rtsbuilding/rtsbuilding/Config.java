@@ -140,6 +140,21 @@ public class Config {
             .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
             .defineInRange(java.util.List.of("storage", "refinedStorageNetworkRefreshThrottle"), 10, 1, 200);
 
+    public static final ForgeConfigSpec.IntValue MAX_LINKED_STORAGES = SERVER_BUILDER
+            .comment("Maximum linked storage endpoints retained for one player.")
+            .translation("rtsbuilding.configuration.maxLinkedStorages")
+            .defineInRange(java.util.List.of("storage", "maxLinkedStorages"), 200, 1, 4096);
+
+    public static final ForgeConfigSpec.BooleanValue ENABLE_CROSS_DIMENSION_STORAGE = SERVER_BUILDER
+            .comment("Allow the cross-dimension storage plugin to wake and access linked storage in other dimensions.")
+            .translation("rtsbuilding.configuration.enableCrossDimensionStorage")
+            .define(java.util.List.of("storage", "enableCrossDimensionStorage"), true);
+
+    public static final ForgeConfigSpec.IntValue MAX_CROSS_DIMENSION_AWAKE_CHUNKS = SERVER_BUILDER
+            .comment("Maximum short-lived cross-dimension storage chunk tickets retained for one player.")
+            .translation("rtsbuilding.configuration.maxCrossDimensionAwakeChunks")
+            .defineInRange(java.util.List.of("storage", "maxCrossDimensionAwakeChunks"), 32, 1, 256);
+
     public static final ForgeConfigSpec.IntValue PAGE_CACHE_MAX_PLAYERS = SERVER_BUILDER
             .comment("Maximum player count retained by the storage page LRU cache.")
             .translation("rtsbuilding.configuration.pageCacheMaxPlayers")
@@ -390,6 +405,18 @@ public class Config {
 
     public static int refinedStorageNetworkRefreshThrottle() {
         return REFINED_STORAGE_NETWORK_REFRESH_THROTTLE.get();
+    }
+
+    public static int maxLinkedStorages() {
+        return MAX_LINKED_STORAGES.get();
+    }
+
+    public static boolean isCrossDimensionStorageEnabled() {
+        return ENABLE_CROSS_DIMENSION_STORAGE.get();
+    }
+
+    public static int maxCrossDimensionAwakeChunks() {
+        return MAX_CROSS_DIMENSION_AWAKE_CHUNKS.get();
     }
 
     public static int pageCacheMaxPlayers() {

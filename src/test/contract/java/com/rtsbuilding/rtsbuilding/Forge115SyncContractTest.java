@@ -56,11 +56,18 @@ class Forge115SyncContractTest {
     @Test
     void nudgeRoutesAreSharedByBlueprintCullingAndQuickBuild() throws Exception {
         String builder = source("client/screen/standalone/BuilderScreen.java");
+        String keyboardOwner = source("client/screen/standalone/BuilderScreenKeyboardActionOwner.java");
+        String keyRouter = source("client/screen/standalone/BuilderScreenKeyPressRouter.java");
         String blueprint = source("client/screen/blueprint/BlueprintPanel.java");
         String keys = source("client/bootstrap/ClientKeyMappings.java");
 
-        assertTrue(builder.contains("this.cullingManager.nudgeSelectedBox"));
-        assertTrue(builder.contains("this.shapeController.nudgeCurrentShapeSelection"));
+        assertTrue(keyboardOwner.contains("screen.cullingManager.nudgeSelectedBox"));
+        assertTrue(keyboardOwner.contains("screen.shapeController.nudgeCurrentShapeSelection"));
+        assertTrue(keyRouter.indexOf("handleSelectionBoxKeys(")
+                        < keyRouter.indexOf("handleWorldInteractionKeys("),
+                "选择框微调必须先于世界/相机按键");
+        assertTrue(builder.contains("return this.keyboardActionOwner.handleSelectionBoxKeys("),
+                "BuilderScreen 必须把选择框快捷键委托给键盘动作 owner");
         assertTrue(blueprint.contains("RtsSelectionNudge.fromKey"));
         assertTrue(keys.contains("GLFW.GLFW_KEY_LEFT_SHIFT")
                 && keys.contains("SELECTION_NUDGE_FORWARD"));

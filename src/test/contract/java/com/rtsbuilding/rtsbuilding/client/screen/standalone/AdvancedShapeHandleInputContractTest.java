@@ -12,31 +12,35 @@ class AdvancedShapeHandleInputContractTest {
     @Test
     void advancedShapeHandleClickIsConsumedBeforeMiningOrPlacement() throws IOException {
         String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"));
+        String builder = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean handleWorldClickActions");
+        String body = methodBody(source, "boolean handleWorldClickActions");
 
         int handleClick = body.indexOf("handleAdvancedShapeHandleClick(mouseX, mouseY, button)");
         int batchConfirm = body.indexOf("handleBatchConfirmMouse(mouseX, mouseY, button)");
-        int startMining = body.indexOf("this.cameraInput.startMiningAt(mouseX, mouseY, button, false)");
+        int startMining = body.indexOf("screen.cameraInput.startMiningAt(mouseX, mouseY, button, false)");
 
         assertTrue(handleClick >= 0, "advanced shape handles must be checked in world click routing");
         assertTrue(batchConfirm > handleClick,
                 "handle clicks should not fall through into batch confirmation");
         assertTrue(startMining > handleClick,
                 "handle clicks should not fall through into block mining");
+        assertTrue(builder.contains("return this.pointerActionOwner.handleWorldClickActions(mouseX, mouseY, button)"),
+                "BuilderScreen 的世界点击入口必须委托给指针动作 owner");
     }
 
     @Test
     void advancedShapeHandleClickUsesWorldHandleRaycast() throws IOException {
         String source = Files.readString(Path.of(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
-        String body = methodBody(source, "private boolean handleAdvancedShapeHandleClick");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerActionOwner.java"));
+        String body = methodBody(source, "boolean handleAdvancedShapeHandleClick");
 
         assertTrue(body.contains("button != GLFW.GLFW_MOUSE_BUTTON_LEFT"));
         assertTrue(body.contains("isAdvancedShapeMode()"));
         assertTrue(body.contains("isWorldArea(mouseX, mouseY)"));
         assertTrue(body.contains("isMouseOverFloatingWindow(mouseX, mouseY)"));
-        assertTrue(body.contains("this.shapeController.clickAdvancedRangeDestroyHandle("));
+        assertTrue(body.contains("screen.shapeController.clickAdvancedRangeDestroyHandle("));
     }
 
     private static String methodBody(String source, String signatureStart) {

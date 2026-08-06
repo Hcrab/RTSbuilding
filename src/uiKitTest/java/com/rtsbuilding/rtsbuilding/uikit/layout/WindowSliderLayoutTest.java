@@ -26,4 +26,13 @@ final class WindowSliderLayoutTest {
         assertEquals(true, bounds.contains(10, 20));
         assertEquals(false, bounds.contains(110, 20));
     }
+
+    @Test
+    void displayValueMayTrailWithoutChangingLogicalValue() {
+        WindowSliderLayout.Geometry geometry = WindowSliderLayout.geometry(
+                new UiRect(10, 20, 100, 18), 0, 100, 25.0D, 100);
+
+        assertEquals(new UiRect(31, 23, 8, 12), geometry.knob);
+        assertEquals(100, geometry.value);
+    }
 }

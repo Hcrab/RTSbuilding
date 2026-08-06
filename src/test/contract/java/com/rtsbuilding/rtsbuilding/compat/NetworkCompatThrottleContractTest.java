@@ -22,7 +22,8 @@ class NetworkCompatThrottleContractTest {
         assertTrue(ae2.contains("Config.ae2NetworkRefreshThrottle()"));
         assertTrue(rs.contains("RefreshableSnapshotHandler"));
         assertTrue(rs.contains("Config.refinedStorageNetworkRefreshThrottle()"));
-        assertTrue(linked.contains("RtsRefinedStorageCompat.createNetworkItemHandler(player, pos)"));
+        assertTrue(linked.contains("RtsRefinedStorageCompat.createNetworkItemHandler(player, level, pos)"),
+                "跨维度解析必须把目标 ServerLevel 传入 RS 适配器");
     }
 
     private static String read(String relative) throws Exception {

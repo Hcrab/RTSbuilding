@@ -5,5 +5,6 @@ public enum SettingsRowKind {
     SENSITIVITY,
     STEP_VALUE,
     SIMPLE_TOGGLE,
-    HINT_TOGGLE
+    HINT_TOGGLE,
+    ACTION
 }

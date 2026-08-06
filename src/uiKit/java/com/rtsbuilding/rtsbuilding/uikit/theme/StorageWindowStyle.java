@@ -63,19 +63,27 @@ public final class StorageWindowStyle {
     }
 
     public static FrameVisual row(boolean hovered) {
+        return row(hovered ? 1.0D : 0.0D);
+    }
+
+    public static FrameVisual row(double hoverStrength) {
         return new FrameVisual(
-                hovered ? ROW_HOVER_BACKGROUND : ROW_BACKGROUND,
+                UiColor.interpolate(ROW_BACKGROUND, ROW_HOVER_BACKGROUND, hoverStrength),
                 ROW_BORDER,
                 ROW_DARK_BORDER,
                 ROW_LABEL_TEXT);
     }
 
     public static FrameVisual priority(boolean hovered) {
+        return priority(hovered ? 1.0D : 0.0D);
+    }
+
+    public static FrameVisual priority(double hoverStrength) {
         return new FrameVisual(
-                hovered
-                        ? PRIORITY_HOVER_BACKGROUND
-                        : PRIORITY_BACKGROUND,
-                hovered ? PRIORITY_HOVER_BORDER : ROW_BORDER,
+                UiColor.interpolate(PRIORITY_BACKGROUND,
+                        PRIORITY_HOVER_BACKGROUND, hoverStrength),
+                UiColor.interpolate(ROW_BORDER,
+                        PRIORITY_HOVER_BORDER, hoverStrength),
                 ROW_DARK_BORDER,
                 PRIORITY_TEXT);
     }
@@ -83,30 +91,40 @@ public final class StorageWindowStyle {
     public static FrameVisual extract(
             boolean extractOnly,
             boolean hovered) {
+        return extract(extractOnly, hovered ? 1.0D : 0.0D);
+    }
+
+    public static FrameVisual extract(
+            boolean extractOnly,
+            double hoverStrength) {
         if (extractOnly) {
             return new FrameVisual(
-                    hovered
-                            ? EXTRACT_ACTIVE_HOVER_BACKGROUND
-                            : EXTRACT_ACTIVE_BACKGROUND,
-                    hovered
-                            ? EXTRACT_ACTIVE_HOVER_BORDER
-                            : EXTRACT_ACTIVE_BORDER,
+                    UiColor.interpolate(EXTRACT_ACTIVE_BACKGROUND,
+                            EXTRACT_ACTIVE_HOVER_BACKGROUND, hoverStrength),
+                    UiColor.interpolate(EXTRACT_ACTIVE_BORDER,
+                            EXTRACT_ACTIVE_HOVER_BORDER, hoverStrength),
                     ROW_DARK_BORDER,
                     EXTRACT_ACTIVE_TEXT);
         }
         return new FrameVisual(
-                hovered
-                        ? EXTRACT_IDLE_HOVER_BACKGROUND
-                        : EXTRACT_IDLE_BACKGROUND,
-                hovered ? PRIORITY_HOVER_BORDER : ROW_BORDER,
+                UiColor.interpolate(EXTRACT_IDLE_BACKGROUND,
+                        EXTRACT_IDLE_HOVER_BACKGROUND, hoverStrength),
+                UiColor.interpolate(ROW_BORDER,
+                        PRIORITY_HOVER_BORDER, hoverStrength),
                 ROW_DARK_BORDER,
                 EXTRACT_IDLE_TEXT);
     }
 
     public static FrameVisual unlink(boolean hovered) {
+        return unlink(hovered ? 1.0D : 0.0D);
+    }
+
+    public static FrameVisual unlink(double hoverStrength) {
         return new FrameVisual(
-                hovered ? UNLINK_HOVER_BACKGROUND : UNLINK_BACKGROUND,
-                hovered ? UNLINK_HOVER_BORDER : UNLINK_BORDER,
+                UiColor.interpolate(UNLINK_BACKGROUND,
+                        UNLINK_HOVER_BACKGROUND, hoverStrength),
+                UiColor.interpolate(UNLINK_BORDER,
+                        UNLINK_HOVER_BORDER, hoverStrength),
                 UNLINK_DARK_BORDER,
                 UNLINK_TEXT);
     }

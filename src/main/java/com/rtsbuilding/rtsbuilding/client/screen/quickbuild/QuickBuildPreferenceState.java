@@ -1,6 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
+import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillLimits;
 
 import java.util.EnumMap;
 
@@ -16,7 +21,13 @@ final class QuickBuildPreferenceState {
     private BuildShape buildShape = BuildShape.BLOCK;
     private AreaMineShape destroyShape = AreaMineShape.CHAIN;
     private int chainLimit = 64;
+    private QuickBuildUiCatalogPage catalogPage = QuickBuildUiCatalogPage.SHAPES;
+    private QuickBuildUiConvenienceTool convenienceTool = QuickBuildUiConvenienceTool.REPEAT_BOX;
+    private QuickBuildUiConvenienceSettings convenienceSettings =
+            QuickBuildUiConvenienceSettings.DEFAULT;
     private boolean overwrite;
+    private int smartFillMaxBlocks = SmartFillLimits.DEFAULT_BLOCKS;
+    private int smartFillDiameter = SmartFillLimits.DEFAULT_DIAMETER;
     private final EnumMap<BuildShape, Boolean> advanced =
             new EnumMap<BuildShape, Boolean>(BuildShape.class);
     private final EnumMap<BuildShape, Boolean> vertical =
@@ -54,12 +65,62 @@ final class QuickBuildPreferenceState {
         chainLimit = value;
     }
 
+    QuickBuildUiCatalogPage catalogPage() {
+        return catalogPage;
+    }
+
+    void catalogPage(QuickBuildUiCatalogPage value) {
+        catalogPage = value == null ? QuickBuildUiCatalogPage.SHAPES : value;
+    }
+
+    QuickBuildUiConvenienceTool convenienceTool() {
+        return convenienceTool;
+    }
+
+    void convenienceTool(QuickBuildUiConvenienceTool value) {
+        convenienceTool = value == null ? QuickBuildUiConvenienceTool.REPEAT_BOX : value;
+    }
+
+    QuickBuildUiConvenienceSettings convenienceSettings() {
+        return convenienceSettings;
+    }
+
+    void convenienceSettings(QuickBuildUiConvenienceSettings value) {
+        convenienceSettings = value == null ? QuickBuildUiConvenienceSettings.DEFAULT : value;
+    }
+
+    void convenienceParameter(QuickBuildUiConvenienceParameter parameter, int value) {
+        if (parameter != null) {
+            convenienceSettings = convenienceSettings.with(parameter, value);
+        }
+    }
+
     boolean overwrite() {
         return overwrite;
     }
 
     void overwrite(boolean value) {
         overwrite = value;
+    }
+
+    int smartFillMaxBlocks() {
+        return smartFillMaxBlocks;
+    }
+
+    void smartFillMaxBlocks(int value) {
+        smartFillMaxBlocks = Math.max(
+                SmartFillLimits.MIN_BLOCKS,
+                Math.min(SmartFillLimits.MAX_BLOCKS, value));
+    }
+
+    int smartFillDiameter() {
+        return smartFillDiameter;
+    }
+
+    void smartFillDiameter(int value) {
+        smartFillDiameter = Math.max(
+                SmartFillLimits.MIN_DIAMETER,
+                Math.min(SmartFillLimits.MAX_DIAMETER, value));
     }
 
     boolean advanced(BuildShape shape) {

@@ -46,6 +46,7 @@ public final class UiPreviewScenario {
         QUICK_BUILD_DESTROY_CHAIN,
         QUICK_BUILD_LOCKED,
         QUICK_BUILD_PROGRESS,
+        QUICK_BUILD_SMART_FILL,
         CULLING_EMPTY,
         CULLING_DRAFT,
         CULLING_SELECTED,
@@ -282,7 +283,10 @@ public final class UiPreviewScenario {
                         Variant.CRAFT_FEEDBACK_POPUP, 300, 12, "faded craft result", false),
                 scene("66_animation_caret_damage", 1600, 900, 1.0D, "en_us", true,
                         Variant.ANIMATION_CARET_DAMAGE, 300, 12,
-                        "deterministic caret and half damage flash", false)
+                        "deterministic caret and half damage flash", false),
+                scene("67_quick_build_smart_fill", 1600, 900, 1.15D, "en_us", true,
+                        Variant.QUICK_BUILD_SMART_FILL, 300, 12,
+                        "anchored bounded smart fill", false)
         ));
     }
 

@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.common.capabilities.ForgeCapabilities;
 import net.minecraftforge.fluids.capability.IFluidHandler;
@@ -28,10 +29,15 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
     public static IItemHandler findHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+        return player == null ? null : findHandlerInLevel(player.serverLevel(), pos);
+    }
+
+    /** 在指定世界探测普通方块物品能力，不隐式加载区块。 */
+    public static IItemHandler findHandlerInLevel(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.hasChunkAt(pos)) {
             return null;
         }
-        var blockEntity = player.serverLevel().getBlockEntity(pos);
+        var blockEntity = level.getBlockEntity(pos);
         if (blockEntity == null) {
             return null;
         }
@@ -53,25 +59,35 @@ public final class RtsLinkedCapabilities {
      * 再回退到直接/侧面能力扫描。
      */
     public static IItemHandler findLinkedItemHandler(ServerPlayer player, BlockPos pos) {
-        IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, pos);
+        return player == null ? null : findLinkedItemHandler(player, player.serverLevel(), pos);
+    }
+
+    /** 在指定世界优先解析 AE2/RS 网络，再回退到普通方块能力。 */
+    public static IItemHandler findLinkedItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, level, pos);
         if (ae2Network != null) {
             return ae2Network;
         }
-        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, pos);
+        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, level, pos);
         if (refinedStorageNetwork != null) {
             return refinedStorageNetwork;
         }
-        return findHandler(player, pos);
+        return findHandlerInLevel(level, pos);
     }
 
     /**
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
     public static IFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.serverLevel().hasChunkAt(pos)) {
+        return player == null ? null : findFluidHandlerInLevel(player.serverLevel(), pos);
+    }
+
+    /** 在指定世界探测普通方块流体能力，不隐式加载区块。 */
+    public static IFluidHandler findFluidHandlerInLevel(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.hasChunkAt(pos)) {
             return null;
         }
-        var blockEntity = player.serverLevel().getBlockEntity(pos);
+        var blockEntity = level.getBlockEntity(pos);
         if (blockEntity == null) {
             return null;
         }

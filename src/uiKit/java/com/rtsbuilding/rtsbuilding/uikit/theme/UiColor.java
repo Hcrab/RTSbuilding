@@ -3,9 +3,52 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
 /** 不依赖渲染 API 的 ARGB 颜色值。 */
 public final class UiColor {
     private final int argb;
+    private final UiThemeToken themeToken;
+    private final UiThemeCoverageCatalog.ComponentFamily componentFamily;
+    private final boolean preserveLegacyAlpha;
 
     public UiColor(int argb) {
         this.argb = argb;
+        this.themeToken = null;
+        this.componentFamily = null;
+        this.preserveLegacyAlpha = false;
+    }
+
+    private UiColor(UiThemeCoverageCatalog.ComponentFamily componentFamily,
+                    UiThemeToken themeToken, int legacyArgb, boolean preserveLegacyAlpha) {
+        if (themeToken == null) throw new IllegalArgumentException("themeToken must not be null");
+        this.argb = legacyArgb;
+        this.themeToken = themeToken;
+        this.componentFamily = componentFamily;
+        this.preserveLegacyAlpha = preserveLegacyAlpha;
+    }
+
+    /**
+     * 建立兼容旧静态 style API 的动态主题视图。
+     *
+     * <p>Legacy Direct 返回逐组件旧值，保证像素基线；Palette 返回核心语义 token。该对象不持有
+     * 活动主题副本，因此切换后现有屏幕和已创建控件会立即读取新值。</p>
+     */
+    public static UiColor theme(UiThemeToken token, int legacyArgb) {
+        return new UiColor(null, token, legacyArgb, false);
+    }
+
+    /** Palette 使用 token 的 RGB，但保留该组件旧值的透明度层级。 */
+    public static UiColor themeWithLegacyAlpha(UiThemeToken token, int legacyArgb) {
+        return new UiColor(null, token, legacyArgb, true);
+    }
+
+    public static UiColor themeComponent(UiThemeCoverageCatalog.ComponentFamily family,
+                                         UiThemeToken token, int legacyArgb) {
+        if (family == null) throw new IllegalArgumentException("family must not be null");
+        return new UiColor(family, token, legacyArgb, false);
+    }
+
+    public static UiColor themeComponentWithLegacyAlpha(
+            UiThemeCoverageCatalog.ComponentFamily family,
+            UiThemeToken token, int legacyArgb) {
+        if (family == null) throw new IllegalArgumentException("family must not be null");
+        return new UiColor(family, token, legacyArgb, true);
     }
 
     public static UiColor opaque(int red, int green, int blue) {
@@ -21,23 +64,29 @@ public final class UiColor {
     }
 
     public int toArgb() {
-        return argb;
+        if (themeToken == null) return argb;
+        UiThemeDefinition active = UiThemeRuntime.manager().active();
+        if (active.renderMode() == UiThemeRenderMode.LEGACY_DIRECT) return argb;
+        int themed = (componentFamily == null
+                ? active.color(themeToken)
+                : active.componentColor(componentFamily, themeToken)).toArgb();
+        return preserveLegacyAlpha ? argb & 0xFF000000 | themed & 0x00FFFFFF : themed;
     }
 
     public int alpha() {
-        return argb >>> 24 & 0xFF;
+        return toArgb() >>> 24 & 0xFF;
     }
 
     public int red() {
-        return argb >>> 16 & 0xFF;
+        return toArgb() >>> 16 & 0xFF;
     }
 
     public int green() {
-        return argb >>> 8 & 0xFF;
+        return toArgb() >>> 8 & 0xFF;
     }
 
     public int blue() {
-        return argb & 0xFF;
+        return toArgb() & 0xFF;
     }
 
     public UiColor withAlpha(int alpha) {
@@ -72,16 +121,16 @@ public final class UiColor {
 
     @Override
     public boolean equals(Object other) {
-        return this == other || other instanceof UiColor && argb == ((UiColor) other).argb;
+        return this == other || other instanceof UiColor && toArgb() == ((UiColor) other).toArgb();
     }
 
     @Override
     public int hashCode() {
-        return argb;
+        return toArgb();
     }
 
     @Override
     public String toString() {
-        return String.format("UiColor{%08X}", argb);
+        return String.format("UiColor{%08X}", toArgb());
     }
 }

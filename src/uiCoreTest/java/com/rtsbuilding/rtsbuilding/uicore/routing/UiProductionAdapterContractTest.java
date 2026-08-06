@@ -55,12 +55,13 @@ class UiProductionAdapterContractTest {
     void 隐藏窗口和切屏会清理捕获焦点与escape() throws IOException {
         String input = floatingInputSource();
         String layer = floatingLayerSource();
-        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java");
         assertTrue(input.contains("pointerCapture.releaseOwner(window)"));
         assertTrue(input.contains("keyboardFocus.clear(window)"));
         assertTrue(input.contains("void clearTransientState()"));
         assertTrue(layer.contains("clearTransientInputState"));
-        assertTrue(screen.contains("this.floatingWindowLayer.clearTransientInputState();"));
+        assertTrue(screen.contains("screen.floatingWindowLayer.clearTransientInputState();"));
     }
 
     @Test
@@ -77,13 +78,15 @@ class UiProductionAdapterContractTest {
     @Test
     void 顶栏按下视觉来自Core所有权而不是全局鼠标轮询() throws IOException {
         String topbar = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java");
-        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java");
         assertTrue(topbar.contains("PointerCapture<TopBarTypes.TopBarButtonId>"));
         assertTrue(topbar.contains("pointerCapture.capture(PRIMARY_MOUSE_BUTTON, button.id())"));
         assertTrue(topbar.contains("pointerCapture.ownerOf(PRIMARY_MOUSE_BUTTON) == button.id()"));
         assertFalse(topbar.contains("glfwGetMouseButton"));
-        assertTrue(screen.contains("this.topBarPanel.mouseReleased(button);"));
-        assertTrue(screen.contains("this.topBarPanel.clearTransientInputState();"));
+        assertTrue(screen.contains("screen.topBarPanel.mouseReleased(button);"));
+        assertTrue(screen.contains("screen.topBarPanel.clearTransientInputState();"));
     }
 
     @Test
@@ -190,7 +193,6 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintNameDialog.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintMaterialDialog.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java"
         };
@@ -201,8 +203,15 @@ class UiProductionAdapterContractTest {
             assertFalse(source.contains("mouseY <= "), path);
             assertFalse(source.contains("private static boolean inside("), path);
         }
+        String craftTerminal = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java");
+        assertTrue(craftTerminal.contains("this.layout.actionAt("));
+        assertTrue(craftTerminal.contains("this.layout.storageCellAt("));
+        assertFalse(craftTerminal.contains("containsRelative("));
         String builder = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenRenderOwner.java");
         String quickBuild = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java");
         assertFalse(builder.contains("resolveQuickBuildPanelLayout("));
@@ -234,23 +243,37 @@ class UiProductionAdapterContractTest {
         assertFalse(previewCanvas.contains("UiNineSliceLayout"));
         assertTrue(topBar.contains("UiStateBlendAnimationSet<"));
         assertTrue(topBar.contains("SystemUiClock.INSTANCE"));
-        for (String production : new String[]{
-                quickBuild + quickBuildRenderer, bottomPanel}) {
-            assertTrue(production.contains("UiSelectionAnimationSet<"));
-            assertTrue(production.contains("SystemUiClock.INSTANCE"));
-        }
+        assertTrue((quickBuild + quickBuildRenderer).contains("UiControlAnimationState"));
+        assertTrue((quickBuild + quickBuildRenderer).contains("SystemUiClock.INSTANCE"));
+        assertTrue(bottomPanel.contains("UiSelectionAnimationSet<"));
+        assertTrue(bottomPanel.contains("SystemUiClock.INSTANCE"));
     }
 
     @Test
     void craftTerminal颜色与框体进入Kit主题和九宫格() throws IOException {
         String terminal = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/craftterminal/"
+                + "CraftTerminalRenderer.java");
+        String layout = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/CraftTerminalLayout.java");
+        String preview = read(
+                "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/CraftTerminalPreviewMain.java");
         String style = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/CraftTerminalStyle.java");
 
         assertTrue(terminal.contains("CraftTerminalStyle."));
-        assertTrue(terminal.contains("UiChromeRenderer.frame("));
-        assertTrue(terminal.contains("UiRect.contains("));
+        assertTrue(terminal.contains("textures/gui/ui/terminal.png"));
+        assertTrue(terminal.contains("layout.skinSlices()"));
+        assertTrue(terminal.contains("graphics.blit("));
+        assertTrue(layout.contains("CraftTerminalUiAction actionAt("));
+        assertTrue(layout.contains("int storageCellAt("));
+        assertTrue(layout.contains("TextureSlice[] skinSlices()"));
+        assertTrue(layout.contains("TextureSlice scrollbarHandleSlice(double fraction)"));
+        assertTrue(terminal.contains("layout.scrollbarHandleSlice(scrollFraction)"));
+        assertTrue(preview.contains("layout.skinSlices()"));
+        assertTrue(preview.contains("layout.scrollbarHandleSlice(scrollFraction)"));
+        assertTrue(preview.contains("canvas.imageRegion("));
         assertFalse(terminal.matches("(?s).*0x[0-9A-Fa-f]{6,8}.*"));
         assertFalse(terminal.contains("RtsClientUiUtil.drawPanelFrame("));
         assertTrue(style.contains("importBackground(boolean carriedStackPresent)"));
@@ -344,7 +367,9 @@ class UiProductionAdapterContractTest {
     @Test
     void BuilderScreen不再拥有颜色且绑定光标复用九宫格() throws IOException {
         String builder = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenRenderOwner.java");
         String tooltip = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/TooltipStyle.java");
         String craft = read(
@@ -433,7 +458,7 @@ class UiProductionAdapterContractTest {
         assertTrue(read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelInputRouter.java")
                 .contains("sortLayout.controlAt(mouseX, mouseY)"));
-        assertTrue(renderer.contains("BottomPanelSortStyle.BUTTON_BACKGROUND"));
+        assertTrue(renderer.contains("BottomPanelSortStyle.buttonBackground("));
         assertTrue(renderer.contains("graphics.drawString("));
         assertTrue(preview.contains("BottomPanelSortLayout.resolve("));
         assertTrue(preview.contains("BottomPanelSortStyle.BUTTON_BACKGROUND"));
@@ -538,12 +563,13 @@ class UiProductionAdapterContractTest {
         assertTrue(controlSurface.contains("layout.controlY(i)"));
         assertTrue(controlSurface.contains("QuickBuildWindowLayout.CHAIN_SLIDER_H"));
         assertTrue(controlSurface.contains("if (!this.syncingChainLimit)"));
-        assertTrue(controlRenderer.contains("QuickBuildStyle.mode("));
+        assertTrue(controlRenderer.contains("QuickBuildStyle.animatedMode("));
         assertTrue(controlRenderer.contains("QuickBuildChromeRenderer.renderMode("));
         assertTrue(controlRenderer.contains("QuickBuildWindowLayout.CONTROL_ICON_INSET"));
         assertTrue(controlRenderer.contains("QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET"));
-        assertTrue(iconCatalog.contains("static ResourceLocation shapeTexture("));
-        assertTrue(iconCatalog.contains("QUICK_BUILD_CHAIN_BLOCK"));
+        assertTrue(iconCatalog.contains("static WindowButton.StateTextureProvider shapeProvider("));
+        assertTrue(iconCatalog.contains("ThemedStateTextureResolver.resolve("));
+        assertTrue(iconCatalog.contains("quickbuild_pr133/"));
         assertTrue(panel.contains("QuickBuildStatusRenderer.render("));
         assertTrue(statusRenderer.contains("QuickBuildChromeRenderer.renderStatus("));
         assertTrue(statusRenderer.contains("layout.statusTextY"));
@@ -644,7 +670,7 @@ class UiProductionAdapterContractTest {
         assertTrue(blueprint.contains("WorkflowResumeWindowLayout.blueprint("));
         assertTrue(blueprint.contains("WorkflowResumeWindowLayout.scrollBlueprint("));
         assertTrue(blueprint.contains("geometry().hitAction("));
-        assertTrue(placementRenderer.contains("WorkflowResumeChromeRenderer.renderPlacement("));
+        assertTrue(placementRenderer.contains("WorkflowResumeChromeRenderer.renderPlacementAnimated("));
         assertTrue(placementRenderer.contains("WorkflowResumeStyle.action("));
         assertTrue(blueprintRenderer.contains("WorkflowResumeChromeRenderer.renderBlueprint("));
         assertTrue(blueprintRenderer.contains("WorkflowResumeStyle.action("));
@@ -659,7 +685,8 @@ class UiProductionAdapterContractTest {
     @Test
     void blueprintLibrarySharesChromeThemeRowsAndHalfOpenInput() throws IOException {
         String panel = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanel.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanel.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibrarySession.java");
         String renderer = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryPanelRenderer.java");
         String rowRenderer = read(
@@ -737,9 +764,10 @@ class UiProductionAdapterContractTest {
         String window = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java");
         String screen = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenComponentState.java");
 
-        assertTrue(screen.contains("private final BlueprintWindowPanel blueprintWindowPanel"));
+        assertTrue(screen.contains("final BlueprintWindowPanel blueprintWindowPanel"));
         assertTrue(window.contains("BlueprintUiAction.Type.SAVE_CAPTURE"));
         assertTrue(window.contains("BlueprintUiAction.Type.CANCEL_CAPTURE"));
         assertTrue(window.contains("BlueprintUiAction.Type.OPEN_MATERIALS"));
@@ -751,7 +779,7 @@ class UiProductionAdapterContractTest {
         assertTrue(window.contains("BlueprintWindowStyle.captureState("));
         assertTrue(window.contains("BlueprintWindowChromeRenderer.renderSection("));
         assertTrue(window.contains("BlueprintWindowChromeRenderer.renderStatus("));
-        assertTrue(window.contains("BlueprintWindowChromeRenderer.renderPrimaryAction("));
+        assertTrue(window.contains("setVisualRole(UiControlRole.PRIMARY_ACTION)"));
         assertFalse(stateOwner.contains("renderPlacementHud("));
         assertFalse(stateOwner.contains("mouseClickedPlacementHud("));
         assertFalse(stateOwner.contains("renderCaptureOverlay("));
@@ -772,22 +800,27 @@ class UiProductionAdapterContractTest {
     void windowButtonsShareExactProductionChromeAndThemeWithHeadlessReplay() throws IOException {
         String button = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/widget/WindowButton.java");
-        String chrome = read(
-                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/canvas/WindowButtonChromeRenderer.java");
-        String style = read(
-                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/WindowButtonStyle.java");
+        String productionTexture = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/theme/DefaultButtonTextureRenderer.java");
+        String textureCatalog = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/theme/DefaultButtonTextureCatalog.java");
+        String textureLayout = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/DefaultButtonTextureLayout.java");
         String preview = read(
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineWindowRenderer.java");
+        String previewButton = read(
+                "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/DefaultButtonPreviewRenderer.java");
 
-        assertTrue(button.contains("WindowButtonChromeRenderer.renderSolid("));
-        assertTrue(button.contains("WindowButtonStyle.text(this.active)"));
+        assertTrue(button.contains("DefaultButtonTextureRenderer.renderAnimated("));
+        assertTrue(button.contains("UiControlVisualStyle.animated("));
+        assertTrue(button.contains("UiControlAnimationState"));
         assertTrue(button.contains("WindowButtonStyle.MISSING_TEXTURE"));
-        assertTrue(chrome.contains("width + 1.0D"));
-        assertTrue(chrome.contains("height + 1.0D"));
-        assertTrue(style.contains("HOVER_BACKGROUND"));
-        assertTrue(style.contains("TEXT_DISABLED"));
-        assertTrue(preview.contains("WindowButtonChromeRenderer.renderSolid("));
-        assertTrue(preview.contains("WindowButtonStyle.text(enabled)"));
+        assertTrue(productionTexture.contains("DefaultButtonTextureLayout.slices("));
+        assertTrue(textureCatalog.contains("general/default_button.png"));
+        assertTrue(textureLayout.contains("SHEET_WIDTH = 4"));
+        assertTrue(preview.contains("DefaultButtonPreviewRenderer.render("));
+        assertTrue(previewButton.contains("DefaultButtonTextureLayout.slices("));
+        assertTrue(preview.contains("UiControlVisualStyle.resolve("));
         assertFalse(button.contains("RtsClientUiUtil.drawPanelFrame("));
         assertFalse(button.contains("0xFFFF0000"));
         assertFalse(preview.contains("int fill = !enabled"));
@@ -838,7 +871,7 @@ class UiProductionAdapterContractTest {
         assertTrue(panel.contains("GuideWindowChromeRenderer.renderScrollbar("));
         assertTrue(panel.contains("GuideWindowStyle.topicContent("));
         assertTrue(layout.contains("topicScrollRoute.contains(mouseX, mouseY)"));
-        assertTrue(chrome.contains("GuideWindowStyle.topicBackground(selected)"));
+        assertTrue(chrome.contains("GuideWindowStyle.topicBackground(selection, hover)"));
         assertTrue(preview.contains("GuideWindowLayout.geometry("));
         assertTrue(preview.contains("GuideWindowChromeRenderer.renderTopic("));
         assertTrue(preview.contains("GuideWindowChromeRenderer.renderScrollbar("));
@@ -905,7 +938,7 @@ class UiProductionAdapterContractTest {
         assertFalse(materialState.contains("public final int color"));
         assertTrue(materialDialog.contains("BlueprintDialogStyle.materialTone(line.tone)"));
         assertTrue(preview.contains("BlueprintDialogStyle.materialTone(line.tone)"));
-        assertTrue(quickBuildRenderer.contains("QuickBuildStyle.ICON_TINT.toArgb()"));
+        assertTrue(quickBuildRenderer.contains("RtsTextureRenderer.NO_TINT"));
         assertTrue(util.contains("RtsMainlineTheme.SLOT_COUNT_BACKGROUND.toArgb()"));
         assertFalse(panelUi.contains("0x"));
         assertFalse(inspector.contains("0x"));

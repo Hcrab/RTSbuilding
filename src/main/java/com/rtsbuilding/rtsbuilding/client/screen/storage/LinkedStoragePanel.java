@@ -7,7 +7,6 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowTextBox;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
-import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiEntry;
 import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiState;
@@ -16,7 +15,6 @@ import com.rtsbuilding.rtsbuilding.uicore.storage.StorageUiTransition;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.StorageWindowChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.StorageWindowLayout;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
@@ -39,7 +37,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
 
     private int scroll;
     private WindowTextBox priorityInput;
-    private BlockPos editingPriorityPos;
+    private String editingPriorityKey;
     private int editingPriorityFallback;
 
     @Override
@@ -48,7 +46,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             ClientRtsController controller) {
         super.init(screen, controller);
         this.priorityInput = null;
-        this.editingPriorityPos = null;
+        this.editingPriorityKey = null;
     }
 
     public void openNear(int anchorX, int anchorY) {
@@ -114,7 +112,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
                 continue;
             }
             boolean priorityEditing =
-                    isEditingPriority(platformEntry.pos());
+                    isEditingPriority(platformEntry);
             StorageWindowLayout.RowGeometry rowGeometry =
                     geometry.rows.get(rowIndex);
             LinkedStoragePanelRenderer.renderRow(
@@ -331,13 +329,14 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         if (entry == null || entry.pos() == null) {
             return;
         }
-        if (!entry.pos().equals(this.editingPriorityPos)) {
+        String key = StorageUiAdapter.key(entry);
+        if (!key.equals(this.editingPriorityKey)) {
             commitPriorityEdit();
         }
         if (this.priorityInput == null) {
             this.priorityInput = createPriorityInput();
         }
-        this.editingPriorityPos = entry.pos();
+        this.editingPriorityKey = key;
         this.editingPriorityFallback = entry.priority();
         placePriorityInput(bounds);
         this.priorityInput.setValue(
@@ -357,24 +356,15 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
     }
 
     private void commitPriorityEdit() {
-        if (this.editingPriorityPos == null
+        if (this.editingPriorityKey == null
                 || this.priorityInput == null) {
             return;
         }
-        BlockPos position = this.editingPriorityPos;
         int priority = parsePriorityDraft(
                 this.priorityInput.getValue(),
                 this.editingPriorityFallback);
-        LinkedStorageEntry entry = findEntry(position);
-        boolean extractOnly = entry != null
-                && entry.mode()
-                == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
-        if (entry == null) {
-            this.controller.updateLinkedStorageSettings(
-                    position,
-                    extractOnly,
-                    priority);
-        } else if (entry.priority() != priority) {
+        LinkedStorageEntry entry = findEntry(this.editingPriorityKey);
+        if (entry != null && entry.priority() != priority) {
             StorageUiState state = snapshot();
             StorageUiAdapter.dispatch(
                     this.controller,
@@ -387,29 +377,29 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
     }
 
     private void cancelPriorityEdit() {
-        this.editingPriorityPos = null;
+        this.editingPriorityKey = null;
         this.editingPriorityFallback = 0;
         if (this.priorityInput != null) {
             this.priorityInput.setFocused(false);
         }
     }
 
-    private LinkedStorageEntry findEntry(BlockPos position) {
-        if (position == null) {
+    private LinkedStorageEntry findEntry(String key) {
+        if (key == null || key.isBlank()) {
             return null;
         }
         for (LinkedStorageEntry entry
                 : this.controller.getLinkedStorageEntries()) {
-            if (entry != null && position.equals(entry.pos())) {
+            if (entry != null && key.equals(StorageUiAdapter.key(entry))) {
                 return entry;
             }
         }
         return null;
     }
 
-    private boolean isEditingPriority(BlockPos position) {
-        return position != null
-                && position.equals(this.editingPriorityPos)
+    private boolean isEditingPriority(LinkedStorageEntry entry) {
+        return entry != null
+                && StorageUiAdapter.key(entry).equals(this.editingPriorityKey)
                 && this.priorityInput != null
                 && this.priorityInput.isFocused();
     }

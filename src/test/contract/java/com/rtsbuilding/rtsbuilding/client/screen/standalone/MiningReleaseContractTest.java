@@ -12,34 +12,42 @@ class MiningReleaseContractTest {
     @Test
     void mouseReleaseStopsMiningBeforeFloatingWindowsCanConsumeRelease() throws IOException {
         String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java"));
+        String builder = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "public boolean mouseReleased");
 
-        int miningGuard = body.indexOf("this.cameraInput.isLeftMiningActive()");
-        int stopMining = body.indexOf("this.cameraInput.stopActiveMining()", miningGuard);
+        int miningGuard = body.indexOf("screen.cameraInput.isLeftMiningActive()");
+        int stopMining = body.indexOf("screen.cameraInput.stopActiveMining()", miningGuard);
         int floatingRelease = body.indexOf("handleFloatingWindowRelease");
 
         assertTrue(miningGuard >= 0, "mouse release must check active mining");
         assertTrue(stopMining > miningGuard, "mouse release must stop active mining");
         assertTrue(floatingRelease > stopMining,
                 "active mining release must be handled before floating windows can swallow the release event");
+        assertTrue(builder.contains("return this.pointerGestureOwner.mouseReleased(mouseX, mouseY, button)"),
+                "BuilderScreen 的鼠标释放入口必须委托给手势 owner");
     }
 
     @Test
     void keyboardReleaseStopsMiningImmediately() throws IOException {
         String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenKeyboardSessionOwner.java"));
+        String builder = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java"));
         String body = methodBody(source, "public boolean keyReleased");
 
-        int keyboardMiningGuard = body.indexOf("this.cameraInput.isKeyboardMining()");
+        int keyboardMiningGuard = body.indexOf("screen.cameraInput.isKeyboardMining()");
         int breakReleaseGuard = body.indexOf("ClientKeyMappings.ACTION_BREAK.matches(keyCode, scanCode)", keyboardMiningGuard);
-        int stopMining = body.indexOf("this.cameraInput.stopActiveMining()", breakReleaseGuard);
+        int stopMining = body.indexOf("screen.cameraInput.stopActiveMining()", breakReleaseGuard);
 
         assertTrue(keyboardMiningGuard >= 0, "keyboard mining release guard missing");
         assertTrue(breakReleaseGuard > keyboardMiningGuard,
                 "keyboard mining release must be tied to the break key");
         assertTrue(stopMining > breakReleaseGuard,
                 "releasing the keyboard break key must stop mining immediately");
+        assertTrue(builder.contains("return this.keyboardSessionOwner.keyReleased(keyCode, scanCode, modifiers)"),
+                "BuilderScreen 的键盘释放入口必须委托给键盘会话 owner");
     }
 
     @Test

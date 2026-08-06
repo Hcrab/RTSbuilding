@@ -16,13 +16,19 @@ class RtsAiForgeProductionWiringContractTest {
     void guideAndBuilderOwnTheCompletePlayerEntryFlow() throws Exception {
         String guide = source("client/screen/guide/GuidePanel.java");
         String builder = source("client/screen/standalone/BuilderScreen.java");
+        String state = source("client/screen/standalone/BuilderScreenComponentState.java");
+        String windowOwner = source("client/screen/standalone/BuilderScreenWindowActionOwner.java");
+        String worldQueryOwner = source("client/screen/standalone/BuilderScreenWorldQueryOwner.java");
 
         assertTrue(guide.contains("screen.rtsbuilding.ai_help.chat"));
         assertTrue(guide.contains("RtsAiHelpClipboard.copy"));
         assertTrue(guide.contains("RtsCommunityLinks.WEBSITE"));
         assertTrue(guide.contains("screen.openAiChat()"));
-        assertTrue(builder.contains("new RtsAiChatPanel()"));
-        assertTrue(builder.contains("this.aiChatPanel.isInputFocused()"));
+        assertTrue(state.contains("new RtsAiChatPanel()"));
+        assertTrue(windowOwner.contains("screen.aiChatPanel.open()"));
+        assertTrue(worldQueryOwner.contains("screen.aiChatPanel.isInputFocused()"));
+        assertTrue(builder.contains("this.windowActionOwner.openAiChat()"),
+                "BuilderScreen 的玩家入口必须连接到 AI 窗口 owner");
     }
 
     @Test

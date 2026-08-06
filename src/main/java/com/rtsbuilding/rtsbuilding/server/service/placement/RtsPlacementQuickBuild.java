@@ -92,6 +92,19 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
+        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
+        if (sourceId == null) {
+            return null;
+        }
+        BlockState frozenState = job.frozenPlacementState();
+        if (frozenState != null) {
+            // 持久任务只能恢复与材料物品对应的方块状态，拒绝被篡改的跨方块冻结值。
+            if (frozenState.getBlock() != blockItem.getBlock()) {
+                return null;
+            }
+            return new StatePlacementPlan(item, templateStack, frozenState, true, sourceId.toString());
+        }
+
         BlockPos templatePos = job.templatePosition();
         if (templatePos == null || job.face() == null || !player.serverLevel().hasChunkAt(templatePos)) {
             return null;
@@ -108,10 +121,6 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
-        if (sourceId == null) {
-            return null;
-        }
         return new StatePlacementPlan(
                 item,
                 templateStack,

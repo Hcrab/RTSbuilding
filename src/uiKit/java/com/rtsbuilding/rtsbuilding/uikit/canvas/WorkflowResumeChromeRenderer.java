@@ -19,6 +19,18 @@ public final class WorkflowResumeChromeRenderer {
             boolean enabled,
             double mouseX,
             double mouseY) {
+        renderPlacementAnimated(canvas, geometry, enabled,
+                geometry.primaryAction.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.secondaryAction != null
+                        && geometry.secondaryAction.contains(mouseX, mouseY) ? 1.0D : 0.0D);
+    }
+
+    public static void renderPlacementAnimated(
+            UiCanvas2D canvas,
+            WorkflowResumeWindowLayout.PlacementGeometry geometry,
+            boolean enabled,
+            double primaryHover,
+            double secondaryHover) {
         require(canvas, geometry);
         canvas.fill(geometry.topDivider, WorkflowResumeStyle.DIVIDER);
         canvas.fill(geometry.summaryDivider, WorkflowResumeStyle.DIVIDER);
@@ -32,7 +44,7 @@ public final class WorkflowResumeChromeRenderer {
                 WorkflowResumeStyle.action(
                         primaryKind,
                         enabled,
-                        geometry.primaryAction.contains(mouseX, mouseY)));
+                        primaryHover));
         if (geometry.secondaryAction != null) {
             frame(
                     canvas,
@@ -40,9 +52,7 @@ public final class WorkflowResumeChromeRenderer {
                     WorkflowResumeStyle.action(
                             WorkflowResumeStyle.ActionKind.OVERWRITE,
                             enabled,
-                            geometry.secondaryAction.contains(
-                                    mouseX,
-                                    mouseY)));
+                            secondaryHover));
         }
     }
 
@@ -52,6 +62,15 @@ public final class WorkflowResumeChromeRenderer {
             boolean enabled,
             double mouseX,
             double mouseY) {
+        renderBlueprint(canvas, geometry, enabled,
+                geometry.action.contains(mouseX, mouseY) ? 1.0D : 0.0D);
+    }
+
+    public static void renderBlueprint(
+            UiCanvas2D canvas,
+            WorkflowResumeWindowLayout.BlueprintGeometry geometry,
+            boolean enabled,
+            double actionHover) {
         require(canvas, geometry);
         canvas.fill(geometry.headerDivider, WorkflowResumeStyle.DIVIDER);
         canvas.fill(geometry.actionDivider, WorkflowResumeStyle.DIVIDER);
@@ -61,7 +80,7 @@ public final class WorkflowResumeChromeRenderer {
                 WorkflowResumeStyle.action(
                         WorkflowResumeStyle.ActionKind.RESUME,
                         enabled,
-                        geometry.action.contains(mouseX, mouseY)));
+                        actionHover));
     }
 
     public static void renderMissingItem(

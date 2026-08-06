@@ -6,7 +6,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.topbar;
  * <p>
  * Groups the button identifier enum and the layout parameter record that are
  * always used together by {@link TopBarPanel}, {@link TopBarIconRenderer},
- * {@link com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen},
+ * {@link com.rtsbuilding.rtsbuilding.client.screen.BuilderScreen},
  * and the {@link com.rtsbuilding.rtsbuilding.client.screen.guide.GuidePanel guide system}.
  * <p>
  * <b>Why combined:</b> {@link TopBarButtonLayout} references {@link TopBarButtonId}

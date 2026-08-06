@@ -89,6 +89,16 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleAreaDestroy);
 
         registrar.playToServer(
+                C2SRtsConvenienceDestroyPayload.TYPE,
+                C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
+                RtsMiningHandlers::handleConvenienceDestroy);
+
+        registrar.playToServer(
+                C2SRtsConfirmSmartFillPayload.TYPE,
+                C2SRtsConfirmSmartFillPayload.STREAM_CODEC,
+                RtsPlaceHandlers::handleConfirmSmartFill);
+
+        registrar.playToServer(
                 C2SRtsPauseWorkflowPayload.TYPE,
                 C2SRtsPauseWorkflowPayload.STREAM_CODEC,
                 RtsInteractionHandlers::handlePauseWorkflow);

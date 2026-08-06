@@ -21,4 +21,18 @@ public final class WindowButtonLayout {
     public static int textY(int y, int height) {
         return y + (height - TEXT_LINE_HEIGHT) / 2;
     }
+
+    /**
+     * 将像素纹理按原生尺寸放在较大的点击热区中央。
+     *
+     * <p>该规则只负责位置，不缩放纹理。它让 24px 按钮资源可以保留内部原生 16px
+     * 图标，同时继续使用 32px 点击热区，避免非整数倍放大造成模糊和像素宽度不均。</p>
+     */
+    public static int nativeTextureX(int buttonX, int buttonWidth, int textureWidth) {
+        return buttonX + (buttonWidth - textureWidth) / 2;
+    }
+
+    public static int nativeTextureY(int buttonY, int buttonHeight, int textureHeight) {
+        return buttonY + (buttonHeight - textureHeight) / 2;
+    }
 }

@@ -503,6 +503,16 @@ public final class StorageStateManager {
         requestStoragePage(0);
     }
 
+    /** 合成终端显式选择排序字段；相同值保持 no-op，避免重复分页请求。 */
+    public void setStorageSort(RtsStorageSort sort) {
+        RtsStorageSort normalized = Objects.requireNonNull(sort, "sort");
+        if (this.storageSort == normalized) {
+            return;
+        }
+        this.storageSort = normalized;
+        requestStoragePage(0);
+    }
+
     public void toggleSortDirection() {
         this.storageSortAscending = !this.storageSortAscending;
         requestStoragePage(0);
@@ -1208,6 +1218,9 @@ public final class StorageStateManager {
     }
 
     private LinkedStorageEntry decodeLinkedStorageEntry(S2CRtsStoragePagePayload payload, int index, BlockPos pos) {
+        String dimensionId = index >= 0 && index < payload.linkedDimensions().size()
+                ? payload.linkedDimensions().get(index)
+                : "";
         String label = index >= 0 && index < payload.linkedNames().size()
                 ? payload.linkedNames().get(index)
                 : this.linkedStorageName;
@@ -1230,7 +1243,7 @@ public final class StorageStateManager {
         if (iconKey != null && BuiltInRegistries.ITEM.containsKey(iconKey)) {
             preview = new ItemStack(BuiltInRegistries.ITEM.get(iconKey));
         }
-        return new LinkedStorageEntry(pos, label, mode, priority, preview, worldAvailable);
+        return new LinkedStorageEntry(pos, dimensionId, label, mode, priority, preview, worldAvailable);
     }
 
     private long getStorageFluidAmount(String fluidId) {
