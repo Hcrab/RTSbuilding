@@ -7,18 +7,18 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 负责，离屏回放只复用相同视觉规则。</p>
  */
 public final class PlayerStatusStyle {
-    public static final UiColor BACKGROUND = new UiColor(0xAA1A1E24);
-    public static final UiColor BORDER_LIGHT = new UiColor(0xFF3C4A5A);
-    public static final UiColor BORDER_DARK = new UiColor(0xFF0A0D12);
-    public static final UiColor TEXT = new UiColor(0xFFFFFFFF);
-    public static final UiColor HEALTH_HIGH = new UiColor(0xFFD04040);
-    public static final UiColor HEALTH_MEDIUM = new UiColor(0xFFD08030);
-    public static final UiColor HEALTH_LOW = new UiColor(0xFFC03020);
-    public static final UiColor FOOD_HIGH = new UiColor(0xFFC89030);
-    public static final UiColor FOOD_MEDIUM = new UiColor(0xFFB07820);
-    public static final UiColor FOOD_LOW = new UiColor(0xFFA06010);
-    public static final UiColor ARMOR = new UiColor(0xFF6B8FA0);
-    public static final UiColor ABSORPTION = new UiColor(0xFFE8C840);
+    public static final UiColor BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_IDLE, 0XAA1A1E24);
+    public static final UiColor BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF3C4A5A);
+    public static final UiColor BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF0A0D12);
+    public static final UiColor TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFFFFFFF);
+    public static final UiColor HEALTH_HIGH = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.ERROR, 0XFFD04040);
+    public static final UiColor HEALTH_MEDIUM = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.WARNING, 0XFFD08030);
+    public static final UiColor HEALTH_LOW = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.DESTRUCTIVE, 0XFFC03020);
+    public static final UiColor FOOD_HIGH = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.WARNING, 0XFFC89030);
+    public static final UiColor FOOD_MEDIUM = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.ACCENT_SECONDARY, 0XFFB07820);
+    public static final UiColor FOOD_LOW = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.DESTRUCTIVE, 0XFFA06010);
+    public static final UiColor ARMOR = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.WORLD_AXIS_Z, 0XFF6B8FA0);
+    public static final UiColor ABSORPTION = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.WARNING, 0XFFE8C840);
 
     private PlayerStatusStyle() {
     }

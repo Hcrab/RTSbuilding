@@ -23,6 +23,7 @@ apply from: 'gradle/scripts/helpers.gradle'
 
 // Early Assertions
 assertProperty 'mod_version'
+assertProperty 'mod_archive_name'
 assertProperty 'root_package'
 assertProperty 'mod_id'
 assertProperty 'mod_name'
@@ -51,7 +52,7 @@ version = propertyString('mod_version')
 group = propertyString('root_package')
 
 base {
-    archivesName.set(propertyString('mod_id'))
+    archivesName.set(propertyString('mod_archive_name'))
 }
 
 tasks.decompressDecompiledSources.enabled !propertyBool('change_minecraft_sources') || !layout.buildDirectory.dir('rfg/minecraft-src').get().asFile.exists()

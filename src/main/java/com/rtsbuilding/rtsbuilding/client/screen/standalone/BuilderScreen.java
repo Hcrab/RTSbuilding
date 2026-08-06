@@ -17,6 +17,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.storage.StorageBatchSelectionSession;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
@@ -99,6 +100,7 @@ public BuilderScreen(ClientRtsController controller) {
                 this.blueprintNameWindowPanel,
                 this.craftQuantityWindowPanel,
                 this.gearMenuPanel,
+                this.themeSettingsPanel,
                 this.aiChatPanel,
                 this.guidePanel,
                 this.quickBuildPanel,
@@ -116,6 +118,7 @@ public BuilderScreen(ClientRtsController controller) {
                 this.shapeController,
                 this.bottomPanel);
         this.uiStateManager.registerWindowPanel("settings", this.gearMenuPanel);
+        this.uiStateManager.registerWindowPanel("theme_settings", this.themeSettingsPanel);
         this.uiStateManager.registerWindowPanel("blueprints", this.blueprintWindowPanel);
         this.uiStateManager.registerWindowPanel("guide", this.guidePanel);
         this.uiStateManager.registerWindowPanel("ai_chat", this.aiChatPanel);
@@ -134,6 +137,10 @@ public BuilderScreen(ClientRtsController controller) {
         this.guidePanel.init(this, this.controller);
         this.aiChatPanel.init(this, this.controller);
         this.gearMenuPanel.init(this, this.controller);
+        this.themeSettingsPanel.init(this, this.controller);
+        this.gearMenuPanel.setThemeSettingsOpenAction(new Runnable() {
+            @Override public void run() { BuilderScreen.this.themeSettingsPanel.open(); }
+        });
         this.blueprintWindowPanel.init(this, this.controller);
         this.blueprintNameWindowPanel.init(this, this.controller);
         this.blueprintMaterialWindowPanel.init(this, this.controller);
@@ -212,11 +219,21 @@ public void clearShapeBuildSession() {
         this.shapeController.clearShapeBuildSession();
     }
 
+public StorageBatchSelectionSession getStorageBatchSelection() {
+        return this.storageBatchSelection;
+    }
+
 public void rotateShapeByStep(int step) {
         this.shapeController.rotateShapeByStep(step);
     }
 
 public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
+        if (this.quickBuildPanel.isSmartFillMode()) {
+            return this.quickBuildPanel.smartFillGhostPreview();
+        }
+        if (this.quickBuildPanel.isConvenienceDestroyMode()) {
+            return this.quickBuildPanel.convenienceDestroyGhostPreview();
+        }
         return this.shapeController.getShapeGhostPreview();
     }
 
@@ -440,6 +457,7 @@ boolean forwardUnhandledKeyPressed(int keyCode, int scanCode, int modifiers) {
     boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleWorldInteractionKeys(keyCode, scanCode, modifiers); }
     boolean handlePlacedBlockRotationKey(int keyCode) { return this.keyboardActionOwner.handlePlacedBlockRotationKey(keyCode); }
     boolean handleSelectionBoxKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleSelectionBoxKeys(keyCode, scanCode, modifiers); }
+    boolean handleStorageBatchSelectionKey(int keyCode) { return this.keyboardActionOwner.handleStorageBatchSelectionKey(keyCode); }
     boolean handleBatchConfirmKey(int keyCode, int scanCode) { return this.keyboardActionOwner.handleBatchConfirmKey(keyCode, scanCode); }
     boolean handleSearchFocusKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleSearchFocusKeys(keyCode, scanCode, modifiers); }
     boolean handleToolSlotKeys(int keyCode, int scanCode, int modifiers) { return this.keyboardActionOwner.handleToolSlotKeys(keyCode, scanCode, modifiers); }
@@ -448,6 +466,11 @@ boolean forwardUnhandledKeyPressed(int keyCode, int scanCode, int modifiers) {
     void handleRtsFlightToggle() { this.keyboardSessionOwner.handleRtsFlightToggle(); }
     boolean handleModeKeyPressed(int keyCode, int scanCode) { return this.keyboardSessionOwner.handleModeKeyPressed(keyCode, scanCode); }
     boolean switchToModeFromKey(BuilderMode mode, boolean funnelEnabled) { return this.keyboardSessionOwner.switchToModeFromKey(mode, funnelEnabled); }
+    boolean handleStorageBatchWorldClick(double mouseX, double mouseY) { return this.pointerActionOwner.handleStorageBatchWorldClick(mouseX, mouseY); }
+    boolean handleStorageBatchSelectionScroll(double mouseX, double mouseY, double scrollY) {
+        return this.storageBatchSelection.isActive() && this.isWorldArea(mouseX, mouseY)
+                && this.storageBatchSelection.adjustHeight(this.mc, scrollY, this.isAltDownForInput());
+    }
     public boolean charTyped(char codePoint, int modifiers) { return this.keyboardSessionOwner.charTyped(codePoint, modifiers); }
     @Override
     public void drawScreen(int mouseX, int mouseY, float partialTick) {
@@ -471,6 +494,8 @@ static boolean hasRecipeViewerLoaded() {
     public RtsFloatingWindowLayer getFloatingWindowLayer() { return this.windowActionOwner.getFloatingWindowLayer(); }
     public ClientRtsController uiController() { return this.windowActionOwner.uiController(); }
     public boolean isQuickBuildRangeDestroyMode() { return this.windowActionOwner.isQuickBuildRangeDestroyMode(); }
+    public boolean isQuickBuildConvenienceDestroyMode() { return this.windowActionOwner.isQuickBuildConvenienceDestroyMode(); }
+    public boolean isQuickBuildSmartFillMode() { return this.windowActionOwner.isQuickBuildSmartFillMode(); }
     public boolean isQuickBuildRangeDestroyChainMode() { return this.windowActionOwner.isQuickBuildRangeDestroyChainMode(); }
     public boolean isQuickBuildCreativeOverwriteEnabled() { return this.windowActionOwner.isQuickBuildCreativeOverwriteEnabled(); }
     public boolean isAdvancedRangeDestroyBoxMode() { return this.windowActionOwner.isAdvancedRangeDestroyBoxMode(); }
@@ -479,6 +504,8 @@ static boolean hasRecipeViewerLoaded() {
     public boolean isRoundShapeVertical(BuildShape shape) { return this.windowActionOwner.isRoundShapeVertical(shape); }
     public String activeQuickBuildShapeLabel() { return this.windowActionOwner.activeQuickBuildShapeLabel(); }
     public boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) { return this.windowActionOwner.handleQuickBuildRangeDestroyClick(mouseX, mouseY); }
+    public boolean handleQuickBuildSmartFillClick() { return this.windowActionOwner.handleQuickBuildSmartFillClick(); }
+    public boolean cancelQuickBuildSmartFillAnchor() { return this.windowActionOwner.cancelQuickBuildSmartFillAnchor(); }
     public void setQuickBuildMode(QuickBuildMode mode) { this.windowActionOwner.setQuickBuildMode(mode); }
     public int getUltimineLimit() { return this.windowActionOwner.getUltimineLimit(); }
     public boolean isAreaMineHeightPreview() { return this.windowActionOwner.isAreaMineHeightPreview(); }

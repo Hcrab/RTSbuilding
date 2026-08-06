@@ -8,7 +8,12 @@ import java.io.InputStreamReader;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/** 读取主线扁平语言 JSON 的小型 Java 8 适配器，不维护预览专用翻译副本。 */
+/**
+ * 读取发布资源中扁平语言文件的小型 Java 8 适配器，不维护预览专用翻译副本。
+ *
+ * <p>1.12.2 生产线使用 {@code .lang}，较新主线使用 JSON；离屏预览必须按当前
+ * loader 的真实格式读取，不能因为预览工具仍期待 JSON 而悄悄跳过四语言验收。</p>
+ */
 public final class UiLanguageBundle {
     private final Map<String, String> values;
 
@@ -17,17 +22,20 @@ public final class UiLanguageBundle {
     }
 
     public static UiLanguageBundle load(File file) throws IOException {
-        StringBuilder json = new StringBuilder();
+        StringBuilder content = new StringBuilder();
         BufferedReader reader = new BufferedReader(new InputStreamReader(
                 new FileInputStream(file), "UTF-8"));
         try {
             char[] buffer = new char[4096];
             int read;
-            while ((read = reader.read(buffer)) >= 0) json.append(buffer, 0, read);
+            while ((read = reader.read(buffer)) >= 0) content.append(buffer, 0, read);
         } finally {
             reader.close();
         }
-        return new UiLanguageBundle(parseFlatObject(json.toString()));
+        String text = content.toString();
+        return new UiLanguageBundle(file.getName().endsWith(".lang")
+                ? parseLang(text)
+                : parseFlatObject(text));
     }
 
     public String text(String key) {
@@ -69,6 +77,36 @@ public final class UiLanguageBundle {
             char next = peek(json, index);
             if (next == ',') index[0]++;
             else if (next != '}') throw new IOException("Invalid language JSON near " + index[0]);
+        }
+        return result;
+    }
+
+    /**
+     * 解析 Forge 1.12.2 的 {@code key=value} 本地化文件。
+     *
+     * <p>只按第一个等号切分，保留玩家可见值中的后续等号；该语法已覆盖本模组的
+     * 发布语言文件。这里不使用 {@link java.util.Properties}，避免其 ISO-8859-1
+     * 默认规则把 UTF-8 中文重新转义。</p>
+     */
+    private static Map<String, String> parseLang(String text) throws IOException {
+        LinkedHashMap<String, String> result = new LinkedHashMap<String, String>();
+        BufferedReader reader = new BufferedReader(new java.io.StringReader(text));
+        try {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.length() > 0 && line.charAt(0) == '\uFEFF') line = line.substring(1);
+                String trimmed = line.trim();
+                if (trimmed.length() == 0 || trimmed.startsWith("#")) continue;
+                int separator = line.indexOf('=');
+                if (separator <= 0) {
+                    throw new IOException("Invalid language entry: " + line);
+                }
+                String key = line.substring(0, separator).trim();
+                if (key.length() == 0) throw new IOException("Empty language key: " + line);
+                result.put(key, line.substring(separator + 1));
+            }
+        } finally {
+            reader.close();
         }
         return result;
     }

@@ -94,9 +94,18 @@ public class WindowTextBox extends GuiTextField {
             graphics.drawString(font, placeholder, (int) placeholderGeometry.placeholderX,
                     (int) placeholderGeometry.textY, WindowTextBoxStyle.PLACEHOLDER.toArgb(), false);
         }
-        withInnerGeometry(geometry.geometry, new Runnable() {
-            @Override public void run() { WindowTextBox.super.drawTextBox(); }
-        });
+        int normalColor = WindowTextBoxStyle.TEXT.toArgb();
+        int disabledColor = WindowTextBoxStyle.TEXT_UNEDITABLE.toArgb();
+        setTextColor(applyAlpha(normalColor, graphics.alphaMultiplier()));
+        setDisabledTextColour(applyAlpha(disabledColor, graphics.alphaMultiplier()));
+        try {
+            withInnerGeometry(geometry.geometry, new Runnable() {
+                @Override public void run() { WindowTextBox.super.drawTextBox(); }
+            });
+        } finally {
+            setTextColor(normalColor);
+            setDisabledTextColour(disabledColor);
+        }
     }
 
     public void render(LegacyGuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
@@ -172,6 +181,12 @@ public class WindowTextBox extends GuiTextField {
 
     private void notifyIfChanged(String before) {
         if (!getText().equals(before)) responder.accept(getText());
+    }
+
+    /** 使原版编辑态文字、选择和光标跟随父窗口，不另建一套文本绘制路径。 */
+    private static int applyAlpha(int color, float multiplier) {
+        int alpha = (int) Math.round((color >>> 24 & 255) * multiplier);
+        return alpha << 24 | color & 16777215;
     }
 
     private static final class GeometryState {

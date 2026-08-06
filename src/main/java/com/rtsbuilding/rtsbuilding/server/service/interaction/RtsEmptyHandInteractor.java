@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.server.service.interaction;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
+import com.rtsbuilding.rtsbuilding.server.util.RtsSyntheticHandOutputRecovery;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.RayContext;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher.UseOnOutcome;
@@ -37,7 +38,7 @@ public final class RtsEmptyHandInteractor {
     public static EnumActionResult interactWithEmptyHand(EntityPlayerMP player, WorldServer level, Entity targetEntity,
             RayTraceResult blockHit, Vec3d hit, RayContext rayContext) {
         Vec3d interactionPos = InteractionHelper.resolveInteractionPosition(targetEntity, blockHit, hit);
-        return TemporaryContextSwitcher.withTemporaryUseItemContext(
+        UseOnOutcome outcome = TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
                 interactionPos,
                 hit,
@@ -45,15 +46,18 @@ public final class RtsEmptyHandInteractor {
                 Config.remotePovBlockReach(),
                 () -> {
                     if (targetEntity != null) {
-                        return InteractionHelper.useItemOnEntityWithMainHand(player, level, ItemStack.EMPTY, targetEntity, hit).result();
+                        return InteractionHelper.useItemOnEntityWithMainHand(
+                                player, level, ItemStack.EMPTY, targetEntity, hit);
                     }
                     if (blockHit != null) {
                         UseOnOutcome primary = InteractionHelper.useItemOnWithMainHand(player, level, ItemStack.EMPTY, blockHit, false);
-                        if (primary.result() == EnumActionResult.SUCCESS) {
-                            return primary.result();
+                        if (primary.result() == EnumActionResult.SUCCESS
+                                || RtsSyntheticHandOutputRecovery.hasOutput(primary)) {
+                            return primary;
                         }
                     }
-                    return InteractionHelper.useItemWithMainHand(player, level, ItemStack.EMPTY, false).result();
+                    return InteractionHelper.useItemWithMainHand(player, level, ItemStack.EMPTY, false);
                 });
+        return RtsSyntheticHandOutputRecovery.recoverToPlayer(player, outcome);
     }
 }

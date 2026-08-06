@@ -63,13 +63,21 @@ public class WindowButton extends GuiButton {
     public void onPress() { if (onPress != null) onPress.onPress(this); }
 
     @Override public void drawButton(Minecraft minecraft, int mouseX, int mouseY, float partialTicks) {
+        LegacyGuiGraphics graphics = new LegacyGuiGraphics(minecraft,
+                new net.minecraft.client.gui.ScaledResolution(minecraft).getScaledWidth(),
+                new net.minecraft.client.gui.ScaledResolution(minecraft).getScaledHeight());
+        renderButton(minecraft, graphics, mouseX, mouseY, partialTicks);
+    }
+
+    /**
+     * 使用调用窗口传入的画布绘制，从而继承父窗口的退场透明度；该方法不拥有输入状态。
+     */
+    private void renderButton(Minecraft minecraft, LegacyGuiGraphics graphics,
+                              int mouseX, int mouseY, float partialTicks) {
         if (!visible) return;
         hovered = mouseX >= x && mouseY >= y && mouseX < x + width && mouseY < y + height;
         boolean effectiveHovered = !globalSkipHover && (hovered || focusedVisual);
         UiControlVisualStyle visual = resolveVisual(effectiveHovered);
-        LegacyGuiGraphics graphics = new LegacyGuiGraphics(minecraft,
-                new net.minecraft.client.gui.ScaledResolution(minecraft).getScaledWidth(),
-                new net.minecraft.client.gui.ScaledResolution(minecraft).getScaledHeight());
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
             renderTexture(minecraft, graphics, visual, effectiveHovered);
         }
@@ -81,12 +89,12 @@ public class WindowButton extends GuiButton {
         if (!label.isEmpty()) {
             int textX = x + (width - font.getStringWidth(label)) / 2;
             int textY = WindowButtonLayout.textY(y, height);
-            font.drawString(label, textX, textY, visual.getText().toArgb(), false);
+            graphics.drawString(font, label, textX, textY, visual.getText().toArgb(), false);
         }
     }
 
     public void render(LegacyGuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
-        drawButton(Minecraft.getMinecraft(), mouseX, mouseY, partialTick);
+        renderButton(Minecraft.getMinecraft(), graphics, mouseX, mouseY, partialTick);
     }
 
     private void renderTexture(Minecraft minecraft, LegacyGuiGraphics graphics,
@@ -107,7 +115,7 @@ public class WindowButton extends GuiButton {
                 GlStateManager.SourceFactor.ONE, GlStateManager.DestFactor.ZERO);
         try {
             // 旧版 OpenGL 会继承调用方颜色；纹理按钮必须像主线一样从白色无染色状态开始。
-            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            GlStateManager.color(1.0F, 1.0F, 1.0F, graphics.alphaMultiplier());
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MIN_FILTER, GL11.GL_LINEAR);
             GL11.glTexParameteri(GL11.GL_TEXTURE_2D, GL11.GL_TEXTURE_MAG_FILTER, GL11.GL_LINEAR);
             Gui.drawScaledCustomSizeModalRect(x, y, textureU, currentV, textureWidth, currentHeight,
@@ -155,6 +163,8 @@ public class WindowButton extends GuiButton {
     public void setY(int value) { y = value; }
     public int getX() { return x; }
     public int getY() { return y; }
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
     public void setFocused(boolean value) { focusedVisual = value; }
     public boolean isFocused() { return focusedVisual; }
     public void setVisualRole(UiControlRole role) {

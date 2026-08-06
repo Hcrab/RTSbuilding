@@ -6,6 +6,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.CapabilityItemHandler;
@@ -30,10 +31,15 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
     public static IItemHandler findHandler(EntityPlayerMP player, BlockPos pos) {
-        if (player == null || pos == null || !player.getServerWorld().isBlockLoaded(pos)) {
+        return player == null ? null : findHandlerInLevel(player.getServerWorld(), pos);
+    }
+
+    /** 在指定世界探测原生容器 capability，不隐式加载区块。 */
+    public static IItemHandler findHandlerInLevel(WorldServer level, BlockPos pos) {
+        if (level == null || pos == null || !level.isBlockLoaded(pos)) {
             return null;
         }
-        TileEntity tile = player.getServerWorld().getTileEntity(pos);
+        TileEntity tile = level.getTileEntity(pos);
         if (tile == null) {
             return null;
         }
@@ -70,10 +76,15 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
     public static IFluidHandler findFluidHandler(EntityPlayerMP player, BlockPos pos) {
-        if (player == null || pos == null || !player.getServerWorld().isBlockLoaded(pos)) {
+        return player == null ? null : findFluidHandlerInLevel(player.getServerWorld(), pos);
+    }
+
+    /** 在指定世界探测原生流体 capability，不隐式加载区块。 */
+    public static IFluidHandler findFluidHandlerInLevel(WorldServer level, BlockPos pos) {
+        if (level == null || pos == null || !level.isBlockLoaded(pos)) {
             return null;
         }
-        TileEntity tile = player.getServerWorld().getTileEntity(pos);
+        TileEntity tile = level.getTileEntity(pos);
         if (tile == null) {
             return null;
         }

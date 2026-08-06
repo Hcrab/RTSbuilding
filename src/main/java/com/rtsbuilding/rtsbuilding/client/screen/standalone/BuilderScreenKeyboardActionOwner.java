@@ -68,6 +68,9 @@ final class BuilderScreenKeyboardActionOwner {
         }
 
     boolean handleWorldInteractionKeys(int keyCode, int scanCode, int modifiers) {
+            if (keyCode == Keyboard.KEY_ESCAPE && screen.cancelQuickBuildSmartFillAnchor()) {
+                return true;
+            }
             if (screen.cullingManager.isManagementMode()) {
                 return true;
             }
@@ -209,6 +212,26 @@ final class BuilderScreenKeyboardActionOwner {
             }
             return false;
         }
+
+    boolean handleStorageBatchSelectionKey(int keyCode) {
+        if (screen.isSearchFocused()) return false;
+        if (keyCode == Keyboard.KEY_LCONTROL || keyCode == Keyboard.KEY_RCONTROL) {
+            if (screen.controller.getMode() != BuilderMode.LINK_STORAGE
+                    && !screen.storageBatchSelection.isActive()) {
+                return false;
+            }
+            screen.storageBatchSelection.toggle(screen.getMinecraft(), screen.controller.getMode());
+            return true;
+        }
+        if (!screen.storageBatchSelection.isActive()) return false;
+        if (keyCode == Keyboard.KEY_ESCAPE) {
+            return screen.storageBatchSelection.cancelOrExit(screen.getMinecraft());
+        }
+        if (keyCode == Keyboard.KEY_RETURN || keyCode == Keyboard.KEY_NUMPADENTER) {
+            return screen.storageBatchSelection.confirm(screen.getMinecraft());
+        }
+        return false;
+    }
 
     boolean handleBatchConfirmKey(int keyCode, int scanCode) {
             if (!Config.isKeyboardBatchConfirmEnabled()) {

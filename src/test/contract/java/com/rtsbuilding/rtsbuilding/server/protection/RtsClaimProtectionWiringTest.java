@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class RtsClaimProtectionWiringTest {
     @Test
@@ -43,5 +44,22 @@ class RtsClaimProtectionWiringTest {
             assertTrue(source.contains("canInteractBlock"),
                     file + " should respect claim interaction permissions for remote storage/GUI access");
         }
+    }
+
+    @Test
+    void crossDimensionStorageChecksTargetClaimWithoutRequiringPlayerWorld() throws IOException {
+        String service = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/server/protection/RtsClaimProtectionService.java"));
+        String compat = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/compat/ftb/RtsFtbClaimsCompatImpl.java"));
+
+        assertTrue(service.contains("RtsOpenPacCompat.canInteractBlockInWorld(player, level, pos)"),
+                "cross-dimension storage should evaluate the actual target world");
+        assertFalse(service.contains("requiresPlayerWorldForClaimCheck"),
+                "FTB Utilities presence must not disable valid cross-dimension storage");
+        assertTrue(compat.contains("chunkDimPosConstructor.newInstance(pos, dimensionId)"),
+                "FTB claim lookup must include the target dimension identity");
+        assertTrue(compat.contains("getInteractWithBlocksStatus"),
+                "target-dimension lookup must preserve FTB team interaction policy");
     }
 }

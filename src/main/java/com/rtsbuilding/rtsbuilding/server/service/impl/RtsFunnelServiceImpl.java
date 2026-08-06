@@ -4,7 +4,7 @@ import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.QuestService;
-import com.rtsbuilding.rtsbuilding.server.service.RtsBoundedItemEntityQuery;
+import com.rtsbuilding.rtsbuilding.server.service.RtsBoundedCollectibleEntityQuery;
 import com.rtsbuilding.rtsbuilding.server.service.RtsServiceConstants;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.FunnelService;
@@ -12,7 +12,9 @@ import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.item.EntityXPOrb;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
@@ -173,29 +175,36 @@ public final class RtsFunnelServiceImpl implements FunnelService {
         AxisAlignedBB box = new AxisAlignedBB(target).grow(RtsServiceConstants.FUNNEL_RADIUS);
         int queryLimit = Math.min(RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK, Math.max(0, maxUnits));
         if (queryLimit == 0) return new WorkResult(0, false);
-        List<EntityItem> drops = RtsBoundedItemEntityQuery.query(
-                player.getServerWorld(), box, queryLimit,
-                entity -> entity != null && entity.isEntityAlive() && !entity.getItem().isEmpty()).entities();
+        List<Entity> collectibles = RtsBoundedCollectibleEntityQuery.query(
+                player.getServerWorld(), box, queryLimit);
 
         int processedEntities = 0;
         int processedItems = 0;
         boolean changed = false;
 
-        for (EntityItem drop : drops) {
+        for (Entity collectible : collectibles) {
             if (processedEntities >= RtsServiceConstants.FUNNEL_MAX_ENTITIES_PER_TICK
-                    || processedEntities >= maxUnits
-                    || processedItems >= RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK) {
+                    || processedEntities >= maxUnits) {
                 break;
             }
             if (System.nanoTime() >= deadlineNanos) break;
-            if (drop == null || !drop.isEntityAlive()) continue;
+            if (collectible == null || !collectible.isEntityAlive()) continue;
+            processedEntities++;
+
+            if (collectible instanceof EntityXPOrb) {
+                EntityXPOrb experienceOrb = (EntityXPOrb) collectible;
+                changed |= collectExperienceOrb(player, experienceOrb);
+                continue;
+            }
+
+            EntityItem drop = (EntityItem) collectible;
             ItemStack worldStack = drop.getItem();
             if (worldStack.isEmpty()) continue;
-            processedEntities++;
+            if (processedItems >= RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK) continue;
 
             int batchSize = Math.min(worldStack.getCount(),
                     RtsServiceConstants.FUNNEL_MAX_ITEMS_PER_TICK - processedItems);
-            if (batchSize <= 0) break;
+            if (batchSize <= 0) continue;
             // 批量插入：一次传入整个 batch，减少存储调用次数
             ItemStack batch = worldStack.copy();
             batch.setCount(batchSize);
@@ -217,6 +226,18 @@ public final class RtsFunnelServiceImpl implements FunnelService {
             }
         }
         return new WorkResult(processedEntities, changed);
+    }
+
+    private static boolean collectExperienceOrb(EntityPlayerMP player, EntityXPOrb experienceOrb) {
+        int previousPickupDelay = player.xpCooldown;
+        player.xpCooldown = 0;
+        try {
+            // 复用原版拾取入口以保留经验修补等语义；漏斗自身的任务预算负责限制批量处理量。
+            experienceOrb.onCollideWithPlayer(player);
+        } finally {
+            player.xpCooldown = previousPickupDelay;
+        }
+        return !experienceOrb.isEntityAlive();
     }
 
     private static final class WorkResult {

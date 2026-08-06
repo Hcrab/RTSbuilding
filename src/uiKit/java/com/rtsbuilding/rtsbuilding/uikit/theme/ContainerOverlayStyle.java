@@ -7,59 +7,64 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 不拥有容器生命周期、JEI 交互、物品绘制或网络动作。</p>
  */
 public final class ContainerOverlayStyle {
-    public static final UiColor INVENTORY_HOME_BACKGROUND = new UiColor(0xCC303030);
-    public static final UiColor INVENTORY_HOME_TEXT = new UiColor(0xFFFFFFFF);
-    public static final UiColor SEARCH_IDLE = new UiColor(0xAA202731);
-    public static final UiColor SEARCH_FOCUSED = new UiColor(0xAA304153);
-    public static final UiColor SEARCH_BORDER_LIGHT = new UiColor(0xFF61758A);
-    public static final UiColor SEARCH_BORDER_DARK = new UiColor(0xFF10161D);
-    public static final UiColor SEARCH_TEXT = new UiColor(0xFFEAF2FF);
-    public static final UiColor SEARCH_CLEAR_BACKGROUND = new UiColor(0xAA2A3340);
-    public static final UiColor SEARCH_CLEAR_EMPTY = new UiColor(0x88A0B4C8);
+    /** 保留 1.12 原版容器“返回背包”入口的语义名，同时允许 Palette 轨道统一换色。 */
+    public static final UiColor INVENTORY_HOME_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(
+            UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY,
+            UiThemeToken.CONTROL_IDLE, 0XCC303030);
+    public static final UiColor INVENTORY_HOME_TEXT = UiColor.themeComponent(
+            UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY,
+            UiThemeToken.TEXT_ON_ACCENT, 0XFFFFFFFF);
+    public static final UiColor SEARCH_IDLE = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SURFACE_SUNKEN, 0XAA202731);
+    public static final UiColor SEARCH_FOCUSED = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.FOCUS_RING, 0XAA304153);
+    public static final UiColor SEARCH_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF61758A);
+    public static final UiColor SEARCH_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF10161D);
+    public static final UiColor SEARCH_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFEAF2FF);
+    public static final UiColor SEARCH_CLEAR_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SURFACE_SUNKEN, 0XAA2A3340);
+    public static final UiColor SEARCH_CLEAR_EMPTY = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SURFACE_SUNKEN, 0X88A0B4C8);
 
-    public static final UiColor WINDOW_BACKGROUND = new UiColor(0xF0182028);
-    public static final UiColor WINDOW_BORDER_LIGHT = new UiColor(0xFF7489A0);
-    public static final UiColor WINDOW_BORDER_DARK = new UiColor(0xFF0B1016);
+    public static final UiColor WINDOW_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_IDLE, 0XF0182028);
+    public static final UiColor WINDOW_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF7489A0);
+    public static final UiColor WINDOW_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF0B1016);
     public static final UiColor WINDOW_TITLE = RtsMainlineTheme.WINDOW_TITLE;
     public static final UiColor WINDOW_TITLE_TEXT = RtsMainlineTheme.WINDOW_TITLE_TEXT;
 
-    public static final UiColor MINI_BUTTON_BACKGROUND = new UiColor(0xAA2B3642);
-    public static final UiColor BUTTON_IDLE = new UiColor(0xAA24303A);
-    public static final UiColor BUTTON_HOVER = new UiColor(0xAA3E5368);
-    public static final UiColor BUTTON_BORDER_LIGHT = new UiColor(0xFF6E8799);
-    public static final UiColor BUTTON_BORDER_DARK = new UiColor(0xFF111821);
-    public static final UiColor BUTTON_TEXT = new UiColor(0xFFFFFFFF);
+    public static final UiColor MINI_BUTTON_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_IDLE, 0XAA2B3642);
+    public static final UiColor BUTTON_IDLE = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_IDLE, 0XAA24303A);
+    public static final UiColor BUTTON_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_HOVER, 0XAA3E5368);
+    public static final UiColor BUTTON_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF6E8799);
+    public static final UiColor BUTTON_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF111821);
+    public static final UiColor BUTTON_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFFFFFFF);
 
-    public static final UiColor SHIFT_IMPORT_IDLE = new UiColor(0xCC2C873F);
-    public static final UiColor SHIFT_IMPORT_HOVER = new UiColor(0xCC3AA156);
-    public static final UiColor SHIFT_IMPORT_BORDER_LIGHT = new UiColor(0xFF74E88C);
-    public static final UiColor SHIFT_IMPORT_BORDER_DARK = new UiColor(0xFF123A1D);
-    public static final UiColor REFRESH_RUNNING = new UiColor(0xAA3F627E);
+    public static final UiColor SHIFT_IMPORT_IDLE = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_SELECTED, 0XCC2C873F);
+    public static final UiColor SHIFT_IMPORT_HOVER = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_HOVER, 0XCC3AA156);
+    public static final UiColor SHIFT_IMPORT_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF74E88C);
+    public static final UiColor SHIFT_IMPORT_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF123A1D);
+    public static final UiColor REFRESH_RUNNING = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.ACCENT_SECONDARY, 0XAA3F627E);
 
-    public static final UiColor INFO_CLOSE_BACKGROUND = new UiColor(0xCC2B3440);
-    public static final UiColor INFO_CLOSE_BORDER_LIGHT = new UiColor(0xFF7F92A8);
-    public static final UiColor INFO_BODY_TEXT = new UiColor(0xFFD8E6F5);
+    public static final UiColor INFO_CLOSE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_IDLE, 0XCC2B3440);
+    public static final UiColor INFO_CLOSE_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF7F92A8);
+    public static final UiColor INFO_BODY_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFD8E6F5);
 
-    public static final UiColor PAGE_BACKGROUND = new UiColor(0xAA2A2A2A);
-    public static final UiColor PAGE_TEXT = new UiColor(0xFFDDDDDD);
-    public static final UiColor STORAGE_SLOT = new UiColor(0xAA131313);
-    public static final UiColor STORAGE_COUNT = new UiColor(0xFFF7E6A8);
-    public static final UiColor RETURN_SLOT = new UiColor(0xAA20262E);
-    public static final UiColor RETURN_BORDER_LIGHT = new UiColor(0xFF4E5A67);
-    public static final UiColor RETURN_BORDER_DARK = new UiColor(0xFF161A20);
-    public static final UiColor RETURN_COUNT = new UiColor(0xFFE8F6FF);
-    public static final UiColor RETURN_EMPTY_TEXT = new UiColor(0xAACEE1FF);
+    public static final UiColor PAGE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_IDLE, 0XAA2A2A2A);
+    public static final UiColor PAGE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFDDDDDD);
+    public static final UiColor STORAGE_SLOT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SLOT_IDLE, 0XAA131313);
+    public static final UiColor STORAGE_COUNT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFF7E6A8);
+    public static final UiColor RETURN_SLOT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SLOT_IDLE, 0XAA20262E);
+    public static final UiColor RETURN_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF4E5A67);
+    public static final UiColor RETURN_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF161A20);
+    public static final UiColor RETURN_COUNT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFE8F6FF);
+    public static final UiColor RETURN_EMPTY_TEXT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_MUTED, 0XAACEE1FF);
 
-    public static final UiColor QUICK_SLOT_FILLED = new UiColor(0xAA253043);
-    public static final UiColor QUICK_SLOT_EMPTY = new UiColor(0xAA1A1A1A);
-    public static final UiColor QUICK_SLOT_BORDER_LIGHT = new UiColor(0xFF67758A);
-    public static final UiColor QUICK_SLOT_BORDER_DARK = new UiColor(0xFF0C0D10);
-    public static final UiColor QUICK_SLOT_SELECTED = new UiColor(0x3340FF80);
-    public static final UiColor QUICK_SLOT_EMPTY_TEXT = new UiColor(0x88D0D8E4);
+    public static final UiColor QUICK_SLOT_FILLED = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SLOT_IDLE, 0XAA253043);
+    public static final UiColor QUICK_SLOT_EMPTY = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SLOT_IDLE, 0XAA1A1A1A);
+    public static final UiColor QUICK_SLOT_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF67758A);
+    public static final UiColor QUICK_SLOT_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF0C0D10);
+    public static final UiColor QUICK_SLOT_SELECTED = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SLOT_SELECTED, 0X3340FF80);
+    public static final UiColor QUICK_SLOT_EMPTY_TEXT = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_MUTED, 0X88D0D8E4);
 
-    public static final UiColor TOOLTIP_COUNT = new UiColor(0xFFFFFFAA);
-    public static final UiColor TOOLTIP_CRAFTABLE = new UiColor(0xFFAEE8AE);
-    public static final UiColor TOOLTIP_MISSING = new UiColor(0xFFFFB0B0);
+    public static final UiColor TOOLTIP_COUNT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFFFFFAA);
+    public static final UiColor TOOLTIP_CRAFTABLE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFAEE8AE);
+    public static final UiColor TOOLTIP_MISSING = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.ERROR, 0XFFFFB0B0);
 
     private ContainerOverlayStyle() {
     }

@@ -7,20 +7,32 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 点击动作，避免分类栏再次出现一套生产色值和一套截图色值。</p>
  */
 public final class BottomPanelCategoryStyle {
-    public static final UiColor PANEL_BACKGROUND = new UiColor(0x8820222A);
-    public static final UiColor SCROLL_BUTTON_BACKGROUND = new UiColor(0xAA2A2A2A);
-    public static final UiColor ROW_IDLE_BACKGROUND = new UiColor(0x66343A47);
-    public static final UiColor ROW_SELECTED_BACKGROUND = new UiColor(0xFF335E4C);
-    public static final UiColor TOGGLE_BACKGROUND = new UiColor(0xAA2A313B);
-    public static final UiColor TITLE_TEXT = new UiColor(0xFFFFFFFF);
-    public static final UiColor ROW_TEXT = new UiColor(0xFFE0E0E0);
-    public static final UiColor ROW_SELECTED_TEXT = new UiColor(0xFFFFFFFF);
+    public static final UiColor PANEL_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0X8820222A);
+    public static final UiColor SCROLL_BUTTON_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA2A2A2A);
+    public static final UiColor BUTTON_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0XCC3A4756);
+    public static final UiColor ROW_IDLE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0X66343A47);
+    public static final UiColor ROW_SELECTED_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_SELECTED, 0XFF335E4C);
+    public static final UiColor ROW_HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_HOVER, 0XCC3A4756);
+    public static final UiColor TOGGLE_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.CONTROL_IDLE, 0XAA2A313B);
+    public static final UiColor TITLE_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFFFFFFF);
+    public static final UiColor ROW_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFE0E0E0);
+    public static final UiColor ROW_SELECTED_TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.BOTTOM_BAR, UiThemeToken.TEXT_PRIMARY, 0XFFFFFFFF);
 
     private BottomPanelCategoryStyle() {
     }
 
     public static UiColor rowBackground(boolean selected) {
         return selected ? ROW_SELECTED_BACKGROUND : ROW_IDLE_BACKGROUND;
+    }
+
+    public static UiColor rowBackground(boolean selected, double hoverStrength) {
+        return UiColor.interpolate(
+                rowBackground(selected), ROW_HOVER_BACKGROUND, hoverStrength);
+    }
+
+    public static UiColor buttonBackground(UiColor idle, double hoverStrength) {
+        return UiColor.interpolate(
+                idle, BUTTON_HOVER_BACKGROUND, hoverStrength);
     }
 
     public static UiColor rowText(boolean selected) {

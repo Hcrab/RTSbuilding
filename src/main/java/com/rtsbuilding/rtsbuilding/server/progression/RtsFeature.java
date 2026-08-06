@@ -26,5 +26,7 @@ public enum RtsFeature {
     AREA_MINE,
     AREA_DESTROY,
     BLUEPRINTS,
-    RANGE_CULLING
+    RANGE_CULLING,
+    /** 已连接容器的异维访问；仍须经过服务器开关、权限和短期区块票据。 */
+    CROSS_DIMENSION_STORAGE
 }

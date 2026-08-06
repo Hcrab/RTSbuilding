@@ -15,6 +15,7 @@ import java.util.Objects;
  * server.
  */
 public final class LinkedStorageEntry {
+    private final int dimension;
     private final BlockPos pos;
     private final String label;
     private final byte mode;
@@ -22,8 +23,9 @@ public final class LinkedStorageEntry {
     private final ItemStack preview;
     private final boolean worldAvailable;
 
-    public LinkedStorageEntry(BlockPos pos, String label, byte mode, int priority,
+    public LinkedStorageEntry(int dimension, BlockPos pos, String label, byte mode, int priority,
                               ItemStack preview, boolean worldAvailable) {
+        this.dimension = dimension;
         this.pos = pos;
         this.label = label;
         this.mode = mode;
@@ -32,6 +34,7 @@ public final class LinkedStorageEntry {
         this.worldAvailable = worldAvailable;
     }
 
+    public int dimension() { return dimension; }
     public BlockPos pos() { return pos; }
     public String label() { return label; }
     public byte mode() { return mode; }
@@ -44,7 +47,7 @@ public final class LinkedStorageEntry {
         if (this == other) return true;
         if (!(other instanceof LinkedStorageEntry)) return false;
         LinkedStorageEntry value = (LinkedStorageEntry) other;
-        return mode == value.mode && priority == value.priority
+        return dimension == value.dimension && mode == value.mode && priority == value.priority
                 && worldAvailable == value.worldAvailable && Objects.equals(pos, value.pos)
                 && Objects.equals(label, value.label)
                 && ClientRecordSupport.stackEquals(preview, value.preview);
@@ -52,13 +55,13 @@ public final class LinkedStorageEntry {
 
     @Override
     public int hashCode() {
-        return 31 * Objects.hash(pos, label, mode, priority, worldAvailable)
+        return 31 * Objects.hash(dimension, pos, label, mode, priority, worldAvailable)
                 + ClientRecordSupport.stackHash(preview);
     }
 
     @Override
     public String toString() {
-        return "LinkedStorageEntry[pos=" + pos + ", label=" + label + ", mode=" + mode
+        return "LinkedStorageEntry[dimension=" + dimension + ", pos=" + pos + ", label=" + label + ", mode=" + mode
                 + ", priority=" + priority + ", preview=" + preview
                 + ", worldAvailable=" + worldAvailable + ']';
     }

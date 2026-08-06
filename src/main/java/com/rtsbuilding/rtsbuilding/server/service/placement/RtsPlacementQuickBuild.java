@@ -91,6 +91,19 @@ public final class RtsPlacementQuickBuild {
         }
         ItemBlock blockItem = (ItemBlock) item;
 
+        ResourceLocation sourceId = Item.REGISTRY.getNameForObject(item);
+        if (sourceId == null) {
+            return null;
+        }
+        IBlockState frozenState = job.frozenPlacementState();
+        if (frozenState != null) {
+            if (frozenState.getBlock() != blockItem.getBlock()) {
+                return null;
+            }
+            return new StatePlacementPlan(
+                    item, templateStack, frozenState, true, sourceId.toString());
+        }
+
         BlockPos templatePos = job.templatePosition();
         if (templatePos == null || job.face() == null || !player.getServerWorld().isBlockLoaded(templatePos)) {
             return null;
@@ -107,10 +120,6 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        ResourceLocation sourceId = Item.REGISTRY.getNameForObject(item);
-        if (sourceId == null) {
-            return null;
-        }
         return new StatePlacementPlan(
                 item,
                 templateStack,

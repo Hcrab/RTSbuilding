@@ -117,7 +117,8 @@ final class StoragePagePayloadDecoder {
         ResourceLocation iconKey = parseId(iconId);
         Item icon = iconKey == null ? null : ForgeRegistries.ITEMS.getValue(iconKey);
         if (icon != null) preview = new ItemStack(icon);
-        return new LinkedStorageEntry(pos, label, mode, priority, preview, available);
+        int dimension = index < payload.linkedDimensions().size() ? payload.linkedDimensions().get(index) : 0;
+        return new LinkedStorageEntry(dimension, pos, label, mode, priority, preview, available);
     }
 
     private static RecentEntry decodeRecent(String idText, long amount, long capacity, byte kind) {

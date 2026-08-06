@@ -83,6 +83,7 @@ final class BuilderScreenLifecycleOwner {
 
     void onClose() {
             screen.floatingWindowLayer.clearTransientInputState();
+            screen.storageBatchSelection.deactivate(screen.getMinecraft(), false);
             screen.topBarPanel.clearTransientInputState();
             screen.shapeController.clearShapeBuildSession();
             screen.cullingManager.closeManagementMode();
@@ -118,6 +119,7 @@ final class BuilderScreenLifecycleOwner {
     void removed() {
 
             screen.aiChatPanel.close();
+            screen.storageBatchSelection.deactivate(screen.getMinecraft(), false);
             screen.floatingWindowLayer.clearTransientInputState();
             screen.topBarPanel.clearTransientInputState();
             screen.cameraInput.resetCameraVerticalHeld();
@@ -145,6 +147,11 @@ final class BuilderScreenLifecycleOwner {
         }
 
     void tick() {
+
+            RayTraceResult storageBatchHit = screen.storageBatchSelection.isActive()
+                    ? screen.cursorPicker.pickBlockHit() : null;
+            screen.storageBatchSelection.update(screen.controller.getMode(),
+                    storageBatchHit == null ? null : storageBatchHit.getBlockPos());
 
             // 每 tick 写入脏状态（无脏时零开销）
             screen.uiStateManager.flush();

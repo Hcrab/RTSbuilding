@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "S": {"item": "rtsbuilding:storage_integration_plugin"},
+    "D": {"item": "minecraft:diamond"},
+    "B": {"item": "minecraft:beacon"},
+    "E": {"item": "minecraft:end_crystal"},
+    "N": {"item": "minecraft:nether_star"}
+  },
+  "pattern": [
+    " B ",
+    "DSD",
+    "ENE"
+  ],
+  "result": {"count": 1, "id": "rtsbuilding:cross_dimension_storage_plugin"}
+}

@@ -13,11 +13,20 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class QuickBuildTooltipScaleContractTest {
     @Test
     void edgeClampUsesBuilderVirtualViewport() throws Exception {
-        String source = Files.readString(Path.of(
+        String renderer = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildControlRenderer.java"),
                 StandardCharsets.UTF_8);
-        assertTrue(source.contains("screen.width - tooltipWidth"));
-        assertTrue(source.contains("screen.height - tooltipHeight"));
-        assertFalse(source.contains("new ScaledResolution"));
+        String tooltip = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildHoverTooltipRenderer.java"),
+                StandardCharsets.UTF_8);
+        String layout = Files.readString(Path.of(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/QuickBuildWindowLayout.java"),
+                StandardCharsets.UTF_8);
+        assertTrue(renderer.contains("QuickBuildHoverTooltipRenderer.render"));
+        assertTrue(tooltip.contains("QuickBuildWindowLayout.tooltipBounds(screen.width, screen.height"));
+        assertTrue(layout.contains("screenWidth - TOOLTIP_SCREEN_MARGIN - width"));
+        assertTrue(layout.contains("screenHeight - TOOLTIP_SCREEN_MARGIN - height"));
+        assertFalse(renderer.contains("new ScaledResolution"));
+        assertFalse(tooltip.contains("new ScaledResolution"));
     }
 }

@@ -1,6 +1,11 @@
 package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
 
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
+import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillLimits;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 
 import java.util.EnumMap;
 
@@ -16,7 +21,13 @@ final class QuickBuildPreferenceState {
     private BuildShape buildShape = BuildShape.BLOCK;
     private AreaMineShape destroyShape = AreaMineShape.CHAIN;
     private int chainLimit = 64;
+    private QuickBuildUiCatalogPage catalogPage = QuickBuildUiCatalogPage.SHAPES;
+    private QuickBuildUiConvenienceTool convenienceTool = QuickBuildUiConvenienceTool.REPEAT_BOX;
+    private QuickBuildUiConvenienceSettings convenienceSettings =
+            QuickBuildUiConvenienceSettings.DEFAULT;
     private boolean overwrite;
+    private int smartFillMaxBlocks = SmartFillLimits.DEFAULT_BLOCKS;
+    private int smartFillDiameter = SmartFillLimits.DEFAULT_DIAMETER;
     private final EnumMap<BuildShape, Boolean> advanced =
             new EnumMap<BuildShape, Boolean>(BuildShape.class);
     private final EnumMap<BuildShape, Boolean> vertical =
@@ -52,6 +63,54 @@ final class QuickBuildPreferenceState {
 
     void chainLimit(int value) {
         chainLimit = value;
+    }
+
+    /**
+     * 目录和工具参数是客户端 UI 偏好，不参与服务端破坏或放置的业务判定。
+     * 1.12 当前状态文件尚无对应字段，因此只保证同一客户端会话内稳定保留。
+     */
+    QuickBuildUiCatalogPage catalogPage() {
+        return catalogPage;
+    }
+
+    void catalogPage(QuickBuildUiCatalogPage value) {
+        catalogPage = value == null ? QuickBuildUiCatalogPage.SHAPES : value;
+    }
+
+    QuickBuildUiConvenienceTool convenienceTool() {
+        return convenienceTool;
+    }
+
+    void convenienceTool(QuickBuildUiConvenienceTool value) {
+        convenienceTool = value == null ? QuickBuildUiConvenienceTool.REPEAT_BOX : value;
+    }
+
+    QuickBuildUiConvenienceSettings convenienceSettings() {
+        return convenienceSettings;
+    }
+
+    void convenienceParameter(QuickBuildUiConvenienceParameter parameter, int value) {
+        if (parameter != null) {
+            convenienceSettings = convenienceSettings.with(parameter, value);
+        }
+    }
+
+    int smartFillMaxBlocks() {
+        return smartFillMaxBlocks;
+    }
+
+    void smartFillMaxBlocks(int value) {
+        smartFillMaxBlocks = Math.max(SmartFillLimits.MIN_BLOCKS,
+                Math.min(SmartFillLimits.MAX_BLOCKS, value));
+    }
+
+    int smartFillDiameter() {
+        return smartFillDiameter;
+    }
+
+    void smartFillDiameter(int value) {
+        smartFillDiameter = Math.max(SmartFillLimits.MIN_DIAMETER,
+                Math.min(SmartFillLimits.MAX_DIAMETER, value));
     }
 
     boolean overwrite() {

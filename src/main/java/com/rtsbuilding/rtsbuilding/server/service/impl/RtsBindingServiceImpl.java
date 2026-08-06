@@ -9,6 +9,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteMenuService;
 import com.rtsbuilding.rtsbuilding.server.service.RtsStorageTickService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.BindingService;
+import com.rtsbuilding.rtsbuilding.server.service.bindings.RtsBatchStorageBindingService;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
@@ -65,12 +66,26 @@ public final class RtsBindingServiceImpl implements BindingService {
     }
 
     @Override
+    public void linkStoragesInSelection(EntityPlayerMP player, BlockPos first, BlockPos second,
+            byte linkMode) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.LINK_STORAGE)) return;
+        RtsStorageSession session = registry.session().getOrCreate(player);
+        applyUpdate(player, session, RtsBatchStorageBindingService.linkLoadedStorages(
+                player, session, first, second, linkMode));
+    }
+
+    @Override
     public void unlinkStorage(EntityPlayerMP player, BlockPos pos) {
+        unlinkStorage(player, player == null ? 0 : player.dimension, pos);
+    }
+
+    @Override
+    public void unlinkStorage(EntityPlayerMP player, int dimension, BlockPos pos) {
         if (player == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
-        if (removeLinkedRef(session, player.dimension, pos)) {
+        if (removeLinkedRef(session, dimension, pos)) {
             RtsEndpointLeaseCache.INSTANCE.invalidate(
-                    player.getUniqueID(), player.dimension, pos);
+                    player.getUniqueID(), dimension, pos);
             registry.serviceOp().afterModification(player, session);
         }
     }
@@ -85,19 +100,25 @@ public final class RtsBindingServiceImpl implements BindingService {
 
     @Override
     public void updateLinkedStorageSettings(EntityPlayerMP player, BlockPos pos, byte linkMode, int priority) {
+        updateLinkedStorageSettings(player, player == null ? 0 : player.dimension, pos, linkMode, priority);
+    }
+
+    @Override
+    public void updateLinkedStorageSettings(EntityPlayerMP player, int dimension, BlockPos pos,
+            byte linkMode, int priority) {
         if (player == null || pos == null) return;
         RtsStorageSession session = registry.session().getOrCreate(player);
         RtsStorageBindings.UpdateResult update = RtsStorageBindings.updateLinkedStorageSettings(
-                player, session, pos, linkMode, priority);
+                player, session, dimension, pos, linkMode, priority);
         if (update != null && update.saveSession()) {
             // 权限变更必须立即使旧聚合挂载失效；下一次页面请求会按新模式重建。
             // 这是低频设置操作，牺牲一次快照复用可换取 Extract Only 的失败关闭语义。
             RtsStorageTickService.INSTANCE.unregisterPlayer(player);
         }
-        LinkedStorageRef ref = new LinkedStorageRef(player.dimension, pos);
+        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos);
         RtsbuildingMod.LOGGER.info(
-                "[RTS-STORAGE] side=S event=LINK_POLICY_UPDATED player={} pos={} linked={} requestedMode={} appliedMode={} priority={} cacheReset={}",
-                player.getGameProfile().getName(), pos, session.linkedStorageInfo.contains(ref), linkMode,
+                "[RTS-STORAGE] side=S event=LINK_POLICY_UPDATED player={} dimension={} pos={} linked={} requestedMode={} appliedMode={} priority={} cacheReset={}",
+                player.getGameProfile().getName(), dimension, pos, session.linkedStorageInfo.contains(ref), linkMode,
                 session.linkedStorageInfo.getMode(ref), session.linkedStorageInfo.getPriority(ref),
                 update != null && update.saveSession());
         applyUpdate(player, session, update);

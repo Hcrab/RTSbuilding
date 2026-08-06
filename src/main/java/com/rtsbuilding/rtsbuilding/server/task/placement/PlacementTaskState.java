@@ -87,6 +87,14 @@ public final class PlacementTaskState {
         return cursorUnits >= totalUnits;
     }
 
+    /** 使用兼容恢复后升级过的不可变 definition 推进任务，其余进度字段保持同一语义。 */
+    public PlacementTaskState advance(
+            NBTTagCompound nextDefinition, int nextCursor, int nextSucceeded, int nextFailed,
+            List<BlockPos> nextPlacedPositions) {
+        return new PlacementTaskState(nextDefinition, workflowEntryId, totalUnits,
+                nextCursor, nextSucceeded, nextFailed, nextPlacedPositions, resumePolicy);
+    }
+
     /** 返回同一任务的新纯值状态；用于 executor 将 slice 输出交回 TaskStore。 */
     public PlacementTaskState advance(
             int nextCursor, int nextSucceeded, int nextFailed, List<BlockPos> nextPlacedPositions) {

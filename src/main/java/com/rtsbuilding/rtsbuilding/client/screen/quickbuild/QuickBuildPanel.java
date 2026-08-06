@@ -6,6 +6,10 @@ import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.common.smartfill.SmartFillPlan;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyPlanner;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.server.plugin.BuiltInRtsPluginCatalog;
@@ -14,6 +18,10 @@ import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiMode;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiState;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiTransition;
 import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiReducer;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiCatalogPage;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceParameter;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceSettings;
+import com.rtsbuilding.rtsbuilding.uicore.quickbuild.QuickBuildUiConvenienceTool;
 import com.rtsbuilding.rtsbuilding.uikit.layout.QuickBuildWindowLayout;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
@@ -22,6 +30,8 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
 import org.lwjgl.input.Keyboard;
 
 import java.util.List;
@@ -37,12 +47,16 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
 public final class QuickBuildPanel extends RtsWindowPanel {
     // ======================== 面板尺寸 ========================
     private static final int QUICK_BUILD_PANEL_W = QuickBuildWindowLayout.WINDOW_W;
-    private static final int QUICK_BUILD_PANEL_H = QuickBuildWindowLayout.BUILD_BASE_H;
-    private static final int QUICK_BUILD_PANEL_MIN_H = QuickBuildWindowLayout.BUILD_BASE_H;
+    private static final int QUICK_BUILD_PANEL_H =
+            QuickBuildWindowLayout.windowHeight(QuickBuildUiMode.BUILD);
+    private static final int QUICK_BUILD_PANEL_MIN_H = QUICK_BUILD_PANEL_H;
 
     // ======================== 实例 ========================
     private QuickBuildControlSurface controlSurface;
     private final QuickBuildPreferenceState preferences = new QuickBuildPreferenceState();
+    private final SmartFillClientSession smartFill = new SmartFillClientSession();
+    private final QuickBuildConvenienceController convenience =
+            new QuickBuildConvenienceController(this.preferences);
 
     // ======================== 持久化属性 ========================
 
@@ -59,12 +73,14 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
         super.init(screen, controller);
-        this.open = true;
+        // 必须走统一生命周期；直接写 open 会绕过淡入状态机，导致首次打开的内容透明。
+        setOpen(true);
         this.resizable = false;
         this.preferences.buildShape(controller.getBuildShape());
         AreaMineShape storedDestroyShape = controller.getAreaMineShape();
         this.preferences.destroyShape(storedDestroyShape);
         this.controlSurface = new QuickBuildControlSurface(this::dispatchCore);
+        this.convenience.init(screen, controller);
         this.controlSurface.refreshAll(QuickBuildUiAdapter.snapshot(this));
     }
 
@@ -125,6 +141,158 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return this.preferences.chainLimit();
     }
 
+    /**
+     * Build 始终从形状页开始；Destroy 可在形状和便利工具目录之间切换。
+     * Smart Fill 的内部模式由 Core 在 Build 的工具目录中推导，不能写成第三个顶栏状态。
+     */
+    QuickBuildUiCatalogPage getCatalogPage() {
+        return this.convenience.page(isDestroyModeActive());
+    }
+
+    QuickBuildUiConvenienceTool getConvenienceTool() {
+        return this.convenience.tool();
+    }
+
+    QuickBuildUiConvenienceSettings getConvenienceSettings() {
+        return this.convenience.settings();
+    }
+
+    void setCatalogPage(QuickBuildUiCatalogPage page) {
+        this.convenience.setPage(page, isDestroyModeActive());
+        afterConvenienceModeChanged();
+    }
+
+    void setConvenienceTool(QuickBuildUiConvenienceTool tool) {
+        this.convenience.setTool(tool);
+        afterConvenienceModeChanged();
+    }
+
+    void setConvenienceParameter(QuickBuildUiConvenienceParameter parameter, int value) {
+        this.convenience.setParameter(parameter, value);
+        if (this.screen != null) {
+            this.screen.persistUiState();
+        }
+        if (this.controlSurface != null) {
+            this.controlSurface.syncConvenienceSettings(this.preferences.convenienceSettings());
+        }
+    }
+
+    /** 当前是否处于智能填坑两次确认模式。 */
+    public boolean isSmartFillMode() {
+        return isOpen() && effectiveMode() == QuickBuildMode.SMART_FILL;
+    }
+
+    int getSmartFillMaxBlocks() {
+        return this.preferences.smartFillMaxBlocks();
+    }
+
+    int getSmartFillDiameter() {
+        return this.preferences.smartFillDiameter();
+    }
+
+    void setSmartFillMaxBlocks(int value) {
+        this.preferences.smartFillMaxBlocks(value);
+        syncSmartFillSettings();
+        if (this.screen != null) {
+            this.screen.persistUiState();
+        }
+    }
+
+    void setSmartFillDiameter(int value) {
+        this.preferences.smartFillDiameter(value);
+        syncSmartFillSettings();
+        if (this.screen != null) {
+            this.screen.persistUiState();
+        }
+    }
+
+    public ShapeDataRecords.GhostPreview smartFillGhostPreview() {
+        if (!isSmartFillMode() || this.screen == null) {
+            return ShapeDataRecords.GhostPreview.EMPTY;
+        }
+        syncSmartFillSettings();
+        return this.smartFill.preview(Minecraft.getMinecraft(), this.screen.pickBlockHit());
+    }
+
+    public SmartFillPlan smartFillPlan() {
+        syncSmartFillSettings();
+        return this.smartFill.plan(Minecraft.getMinecraft(),
+                this.screen == null ? null : this.screen.pickBlockHit());
+    }
+
+    public boolean isSmartFillAnchored() {
+        return this.smartFill.anchored();
+    }
+
+    /** 第一次点击锁定预览，第二次才将锚点提交给服务端。 */
+    public boolean submitOrAnchorSmartFill(RayTraceResult hit, Vec3d rayOrigin, Vec3d rayDirection) {
+        if (!isSmartFillMode()) return false;
+        syncSmartFillSettings();
+        return this.smartFill.submitOrAnchor(Minecraft.getMinecraft(), hit, rayOrigin, rayDirection,
+                this.controller::confirmSmartFill);
+    }
+
+    public boolean cancelSmartFillAnchor() {
+        return isSmartFillMode() && this.smartFill.cancelAnchor();
+    }
+
+    /** 便捷破坏选项只在“破坏”页有效，点击当前选项可回到普通形状破坏。 */
+    public boolean isConvenienceDestroyMode() {
+        return isOpen() && this.convenience.isActive(isDestroyModeActive());
+    }
+
+    public ShapeDataRecords.GhostPreview convenienceDestroyGhostPreview() {
+        return isConvenienceDestroyMode() ? this.convenience.ghostPreview(isDestroyModeActive())
+                : ShapeDataRecords.GhostPreview.EMPTY;
+    }
+
+    public boolean submitConvenienceDestroy(RayTraceResult hit) {
+        return isConvenienceDestroyMode() && this.convenience.submit(isDestroyModeActive(), hit);
+    }
+
+    /** 保持既有输入 owner 的工具名称读取入口；实际选择仍由目录 Core 管理。 */
+    public RtsConvenienceDestroyMode getConvenienceDestroyMode() {
+        return RtsConvenienceDestroyMode.valueOf(this.convenience.tool().name());
+    }
+
+    public RtsConvenienceDestroyPlanner.Plan convenienceDestroyPreview() {
+        return isConvenienceDestroyMode() ? this.convenience.preview(isDestroyModeActive())
+                : new RtsConvenienceDestroyPlanner.Plan(
+                        RtsConvenienceDestroyPlanner.ResultCode.INVALID_TARGET,
+                        java.util.Collections.<net.minecraft.util.math.BlockPos>emptyList(), 0);
+    }
+
+    String convenienceDimensionLabel() {
+        return this.convenience.dimensionLabel();
+    }
+
+    String convenienceHintKey() {
+        return this.convenience.hintKey(isDestroyModeActive());
+    }
+
+    private void syncSmartFillSettings() {
+        this.smartFill.maxBlocks(this.preferences.smartFillMaxBlocks());
+        this.smartFill.diameter(this.preferences.smartFillDiameter());
+        if (this.controlSurface != null) {
+            this.controlSurface.syncSmartFill(
+                    this.preferences.smartFillMaxBlocks(), this.preferences.smartFillDiameter());
+        }
+    }
+
+    private void afterConvenienceModeChanged() {
+        if (isOpen()) {
+            applyActiveShapeToController();
+            this.screen.clearShapeBuildSession();
+            this.controller.clearAreaMineSession();
+        }
+        if (this.screen != null) {
+            this.screen.persistUiState();
+        }
+        if (this.controlSurface != null) {
+            this.controlSurface.refreshAll(QuickBuildUiAdapter.snapshot(this));
+        }
+    }
+
     public void setChainDestroyLimit(int limit) {
         setChainDestroyLimit(limit, true);
     }
@@ -169,7 +337,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
      */
     @Override
     public void render(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        this.windowHeight = QuickBuildWindowLayout.windowHeight(isDestroyModeActive());
+        this.windowHeight = QuickBuildWindowLayout.windowHeight(QuickBuildUiMode.BUILD);
         super.render(g, mouseX, mouseY, partialTick);
     }
 
@@ -178,7 +346,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         if (!this.open || !canShowWindow()) return;
         QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         QuickBuildWindowLayout.Geometry layout = QuickBuildWindowLayout.geometry(
-                this.windowX, this.windowY, core.mode == QuickBuildUiMode.DESTROY);
+                this.windowX, this.windowY, core.mode);
         this.controlSurface.renderTooltip(
                 g, this.screen, core, layout, this.windowWidth, mouseX, mouseY);
     }
@@ -189,7 +357,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         int x = this.windowX;
         int y = this.windowY;
         QuickBuildWindowLayout.Geometry sharedLayout = QuickBuildWindowLayout.geometry(
-                x, y, core.mode == QuickBuildUiMode.DESTROY);
+                x, y, core.mode);
         MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
         this.controlSurface.render(
                 g, canvas, screen, core, sharedLayout,
@@ -215,9 +383,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         this.controlSurface.mouseClicked(
                 core,
-                QuickBuildWindowLayout.geometry(
-                        this.windowX, this.windowY,
-                        core.mode == QuickBuildUiMode.DESTROY),
+                QuickBuildWindowLayout.geometry(this.windowX, this.windowY, core.mode),
                 this.windowWidth,
                 mouseX, mouseY, button);
     }
@@ -227,9 +393,7 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         QuickBuildUiState core = QuickBuildUiAdapter.snapshot(this);
         if (this.controlSurface.mouseDragged(
                 core,
-                QuickBuildWindowLayout.geometry(
-                        this.windowX, this.windowY,
-                        core.mode == QuickBuildUiMode.DESTROY),
+                QuickBuildWindowLayout.geometry(this.windowX, this.windowY, core.mode),
                 this.windowWidth,
                 mouseX, mouseY, button)) {
             return true;
@@ -239,10 +403,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (this.controlSurface.mouseReleased(mouseX, mouseY, button)) {
-            return true;
-        }
-        return super.mouseReleased(mouseX, mouseY, button);
+        boolean contentHandled = this.controlSurface.mouseReleased(mouseX, mouseY, button);
+        boolean windowHandled = super.mouseReleased(mouseX, mouseY, button);
+        return contentHandled || windowHandled;
     }
 
     // ======================== 抽象方法实现 ========================
@@ -272,6 +435,12 @@ public final class QuickBuildPanel extends RtsWindowPanel {
         return QUICK_BUILD_PANEL_MIN_H;
     }
 
+    /** Quick Build 固定为 Kit 的 144x288 外框，旧版保存的宽高不得重新撑开紧凑布局。 */
+    @Override
+    public void setBounds(int x, int y, int width, int height) {
+        super.setBounds(x, y, QUICK_BUILD_PANEL_W, QUICK_BUILD_PANEL_H);
+    }
+
     @Override
     protected void computeDefaultPosition() {
         int y = QuickBuildWindowLayout.defaultY(TOP_H);
@@ -293,6 +462,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     @Override
     protected void onClose() {
         restoreSingleBlockCursor();
+        this.convenience.invalidate();
+        this.smartFill.clear();
         if (screen != null) {
             screen.persistUiState();
         }
@@ -339,6 +510,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             return;
         }
         this.preferences.mode(next);
+        this.smartFill.clear();
+        this.convenience.invalidate();
         if (isOpen()) {
             // 切换模式时，将 ScreenShapeController 的活跃状态在 BUILD/DESTROY 独立字段间交换
             if (isDestroyModeActive()) {
@@ -362,7 +535,8 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     public boolean isRangeDestroyChainMode() {
-        return isRangeDestroyMode() && effectiveRangeDestroyShape() == AreaMineShape.CHAIN;
+        return isRangeDestroyMode() && !isConvenienceDestroyMode()
+                && effectiveRangeDestroyShape() == AreaMineShape.CHAIN;
     }
 
     /**
@@ -409,7 +583,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     }
 
     BuildShape activeAdvancedShape() {
-        return isDestroyModeActive()
+        return isConvenienceDestroyMode()
+                ? BuildShape.BLOCK
+                : isDestroyModeActive()
                 ? toBuildShape(effectiveRangeDestroyShape())
                 : this.preferences.buildShape();
     }
@@ -547,6 +723,11 @@ public final class QuickBuildPanel extends RtsWindowPanel {
 
     private void applyActiveShapeToController() {
         if (isDestroyModeActive()) {
+            if (isConvenienceDestroyMode()) {
+                this.controller.setAreaMineShape(AreaMineShape.BLOCK);
+                this.controller.setBuildShape(BuildShape.BLOCK);
+                return;
+            }
             AreaMineShape shape = effectiveRangeDestroyShape();
             this.preferences.destroyShape(shape);
             this.controller.setAreaMineShape(shape);
@@ -556,8 +737,10 @@ public final class QuickBuildPanel extends RtsWindowPanel {
             }
             return;
         }
-        this.controller.setBuildShape(this.preferences.buildShape());
-        screen.ensureFillModeForShape(this.preferences.buildShape());
+        BuildShape buildShape = effectiveMode() == QuickBuildMode.SMART_FILL
+                ? BuildShape.BLOCK : this.preferences.buildShape();
+        this.controller.setBuildShape(buildShape);
+        screen.ensureFillModeForShape(buildShape);
     }
 
     private void restoreSingleBlockCursor() {

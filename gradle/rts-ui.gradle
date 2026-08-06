@@ -30,6 +30,12 @@ sourceSets {
         compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
         runtimeClasspath += output + compileClasspath
     }
+    uiPreviewTest {
+        java.srcDir 'src/uiPreviewTest/java'
+        resources.setSrcDirs([])
+        compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output + sourceSets.uiPreview.output
+        runtimeClasspath += output + compileClasspath
+    }
     main {
         compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
         runtimeClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
@@ -50,10 +56,12 @@ dependencies {
     uiCoreTestRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
     uiKitTestImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
     uiKitTestRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
+    uiPreviewTestImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
+    uiPreviewTestRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.0"
 }
 
 ['compileUiCoreJava', 'compileUiKitJava', 'compileUiCoreTestJava',
- 'compileUiKitTestJava', 'compileUiPreviewJava'].each { taskName ->
+ 'compileUiKitTestJava', 'compileUiPreviewJava', 'compileUiPreviewTestJava'].each { taskName ->
     tasks.named(taskName, JavaCompile).configure {
         options.release = 8
     }
@@ -140,6 +148,53 @@ tasks.register('uiKitTest', Test) {
     }
 }
 
+/*
+ * RFG 会把当前 Gradle user home 下的原版 client.jar 放入这个稳定缓存路径。
+ * 这里只在执行离屏任务时解析，不把某个开发者机器的绝对路径写进仓库；缺少资源时必须明确失败，
+ * 绝不能退回操作系统字体。
+ */
+def resolveRfgClientJar = {
+    def cachePath = 'caches/retro_futura_gradle/mc-vanilla/1.12.2/client.jar'
+    def candidates = [
+            new File(gradle.gradleUserHomeDir, cachePath),
+            file(".gradle-user-home/${cachePath}")
+    ]
+    def clientJar = candidates.find { candidate -> candidate.isFile() }
+    if (clientJar == null) {
+        throw new GradleException('Missing RFG 1.12.2 client.jar for headless UI preview. '
+                + 'Run the RFG setup first or configure Gradle with the shared cache containing '
+                + cachePath)
+    }
+    return clientJar
+}
+
+def attachLegacyPreviewFont = { JavaExec task ->
+    task.doFirst {
+        def clientJar = resolveRfgClientJar()
+        task.systemProperty 'rts.uipreview.minecraftClientJar', clientJar.absolutePath
+    }
+}
+
+tasks.register('uiPreviewTest', Test) {
+    group = 'verification'
+    description = '运行使用真实 1.12.2 位图字体的离屏预览像素契约测试。'
+    dependsOn tasks.named('uiPreviewTestClasses')
+    testClassesDirs = sourceSets.uiPreviewTest.output.classesDirs
+    classpath = sourceSets.uiPreviewTest.runtimeClasspath
+    useJUnitPlatform()
+    doFirst {
+        systemProperty 'rts.uipreview.minecraftClientJar', resolveRfgClientJar().absolutePath
+    }
+    maxParallelForks = 1
+    minHeapSize = '32m'
+    maxHeapSize = '192m'
+    forkEvery = 0
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        exceptionFormat = 'short'
+    }
+}
+
 def uiPreviewOutput = layout.buildDirectory.dir('reports/ui-preview')
 def uiSnapshotBaselines = layout.projectDirectory.dir('src/uiPreviewSnapshots')
 
@@ -163,6 +218,17 @@ tasks.register('renderUiSnapshots', JavaExec) {
     systemProperty 'java.awt.headless', 'true'
     args uiPreviewOutput.get().asFile.absolutePath
     outputs.dir uiPreviewOutput
+}
+
+tasks.register('renderUiThemeGallery', JavaExec) {
+    group = 'ui preview'
+    description = '使用正式共享 UI 几何、chrome 和主题路径输出五套内建主题联系表。'
+    dependsOn tasks.named('uiPreviewClasses')
+    classpath = sourceSets.uiPreview.runtimeClasspath
+    mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiThemeGalleryMain'
+    systemProperty 'java.awt.headless', 'true'
+    args uiPreviewOutput.map { it.dir('theme-gallery') }.get().asFile.absolutePath
+    outputs.dir uiPreviewOutput.map { it.dir('theme-gallery') }
 }
 
 tasks.register('compareUiReference', JavaExec) {
@@ -208,12 +274,19 @@ tasks.register('updateUiSnapshots', JavaExec) {
     outputs.dir uiSnapshotBaselines
 }
 
+['runUiPreview', 'renderUiSnapshots', 'renderUiThemeGallery',
+ 'verifyUiSnapshots', 'updateUiSnapshots'].each { taskName ->
+    tasks.named(taskName, JavaExec).configure { JavaExec task ->
+        attachLegacyPreviewFont(task)
+    }
+}
+
 tasks.register('verifyUiBaselineResources') {
     group = 'verification'
     description = '静态核对四语言键集合和首批 UI 产品母版资源。'
     def languageDirectory = file('src/main/resources/assets/rtsbuilding/lang')
     def languageFiles = ['en_us', 'zh_cn', 'zh_tw', 'zh_hk'].collect {
-        file("${languageDirectory}/${it}.json")
+        file("${languageDirectory}/${it}.lang")
     }
     def requiredTextures = [
             file('src/main/resources/assets/rtsbuilding/textures/gui/general/close_button.png'),
@@ -233,13 +306,21 @@ tasks.register('verifyUiBaselineResources') {
     ]
     inputs.files(languageFiles + requiredTextures + requiredPanels)
     doLast {
-        def parser = new groovy.json.JsonSlurper()
         def keySets = languageFiles.collectEntries { language ->
             def text = language.getText('UTF-8').replaceFirst('^\\uFEFF', '')
-            def parsed = parser.parseText(text)
-            [(language.name): parsed.keySet() as Set]
+            def keys = text.readLines()
+                    .collect { line -> line.trim() }
+                    .findAll { line -> !line.isEmpty() && !line.startsWith('#') }
+                    .collect { line ->
+                        int equals = line.indexOf('=')
+                        if (equals <= 0) {
+                            throw new GradleException("Invalid 1.12.2 language entry in ${language}: ${line}")
+                        }
+                        line.substring(0, equals).trim()
+                    } as Set
+            [(language.name): keys]
         }
-        def baseline = keySets['en_us.json']
+        def baseline = keySets['en_us.lang']
         keySets.each { name, keys ->
             def missing = baseline - keys
             def extra = keys - baseline
@@ -306,6 +387,12 @@ tasks.register('verifyUiDevModSources') {
             }
         }
         println 'Verified RFG main runtime classpath contains UI Core and UI Kit outputs'
+    }
+}
+
+['runUiPreview', 'renderUiSnapshots', 'renderUiThemeGallery'].each { taskName ->
+    tasks.named(taskName, JavaExec).configure { task ->
+        attachLegacyPreviewFont(task)
     }
 }
 

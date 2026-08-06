@@ -16,12 +16,14 @@ import com.rtsbuilding.rtsbuilding.uicore.routing.UiEventTarget;
 import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
 import com.rtsbuilding.rtsbuilding.uikit.animation.UiFloatAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiWindowVisibilityAnimation;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.ScaledResolution;
+import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
@@ -53,9 +55,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     private static final int CLOSE_SHEET_W = 450;
     private static final int CLOSE_SHEET_H = 900;
     private static final int CLOSE_STATE_H = 450;
+    private static final int SNAP_THRESHOLD = 6;
     private static final ResourceLocation CLOSE_BUTTON_TEXTURE = new ResourceLocation(
             "rtsbuilding", "textures/gui/general/close_button.png");
-    private static final int SNAP_THRESHOLD = 6;
 
     protected BuilderScreen screen;
     protected ClientRtsController controller;
@@ -73,31 +75,21 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     private int defaultHeight;
     private boolean positionInitialized;
     private long lastClickTime = NEXT_Z_ORDER.incrementAndGet();
-    private boolean dragging;
-    private double dragOffsetX;
-    private double dragOffsetY;
-    private boolean resizing;
-    private ResizeEdge resizeEdge = ResizeEdge.NONE;
-    private int resizeStartMouseX;
-    private int resizeStartMouseY;
-    private int resizeStartWidth;
-    private int resizeStartHeight;
-    private int resizeStartWindowX;
-    private int resizeStartWindowY;
     private WindowButton closeButton;
     private boolean boundsDirty;
     private boolean userBoundsPreference;
     private final UiFloatAnimation hoverBorderAnimation =
             new UiFloatAnimation(SystemUiClock.INSTANCE, 0.0D);
     private boolean hoverBorderTarget;
-
     /**
-     * Hysteresis flag: when true, a wider threshold (SNAP_THRESHOLD * 2) is used
-     * to break free from the current snap. Set on mouse click (drag start) and
-     * cleared on mouse release. This prevents small mouse movements from
-     * constantly re-snapping the panel, making separation feel smoother.
+     * 仅负责视觉显隐。逻辑 open 关闭后输入立即失效，当前对象可在这段时间保留最后一帧，
+     * 让老版即时模式下的窗口关闭不再突兀。
      */
-    private boolean snapEngaged;
+    private final UiWindowVisibilityAnimation visibilityAnimation =
+            new UiWindowVisibilityAnimation(SystemUiClock.INSTANCE, false);
+
+    /** 拖拽、缩放与窗口吸附的短生命周期输入状态，和面板渲染/持久化职责分离。 */
+    private final RtsWindowPointerSession pointerSession = new RtsWindowPointerSession();
 
     /**
      * When set, the render() method skips hover detection so the
@@ -113,18 +105,6 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         RESIZE_NS,
         RESIZE_NWSE,
         RESIZE_NESW
-    }
-
-    protected enum ResizeEdge {
-        NONE,
-        LEFT,
-        RIGHT,
-        TOP,
-        BOTTOM,
-        TOP_LEFT,
-        TOP_RIGHT,
-        BOTTOM_LEFT,
-        BOTTOM_RIGHT
     }
 
     /**
@@ -174,14 +154,18 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     @Override
     public void render(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        if (!this.open || !canShowWindow()) {
+        if (!shouldRenderWindow()) {
             this.mouseHovering = false;
             return;
         }
         initializePosition();
         clampWindowToScreen();
-        this.mouseHovering = !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
+        this.mouseHovering = this.open && !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
         updateHoverBorderAnimation(this.mouseHovering);
+
+        double previousAlpha = g.pushAlpha(visibilityAnimation.subtreeTintOpacity());
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(0.0F, (float) visibilityAnimation.offsetY(), 0.0F);
 
         // When the window is covered, globally suppress hover effects on all child buttons
         // Must be set before renderWindowFrame because the close button renders there
@@ -208,6 +192,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             if (shouldClipContent()) {
                 GL11.glDisable(GL11.GL_SCISSOR_TEST);
             }
+            GlStateManager.popMatrix();
+            g.restoreAlpha(previousAlpha);
+            visibilityAnimation.finishDismissalIfNeeded(Config.isUiAnimationsEnabled());
         }
     }
 
@@ -223,13 +210,23 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         return this.open && canShowWindow();
     }
 
+    /**
+     * 渲染层专用可见性：逻辑关闭的窗口仍可完成短暂淡出，但绝不重新参与命中、焦点或 Escape。
+     */
+    public boolean shouldRenderWindow() {
+        return visibilityAnimation.shouldRender(this.open) && canShowWindow();
+    }
+
     public void setOpen(boolean open) {
         boolean wasOpen = this.open;
         if (open && !wasOpen) {
             initializePosition();
+            visibilityAnimation.reveal(Config.isUiAnimationsEnabled());
         }
         this.open = open;
         if (!open && wasOpen) {
+            this.pointerSession.cancel();
+            visibilityAnimation.dismiss(Config.isUiAnimationsEnabled());
             onClose();
         }
     }
@@ -366,14 +363,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             return ResizeCursor.DEFAULT;
         }
         initializePosition();
-        ResizeEdge edge = this.resizing ? this.resizeEdge : getResizeEdgeAt((int) mouseX, (int) mouseY);
-        switch (edge) {
-            case LEFT: case RIGHT: return ResizeCursor.RESIZE_EW;
-            case TOP: case BOTTOM: return ResizeCursor.RESIZE_NS;
-            case TOP_LEFT: case BOTTOM_RIGHT: return ResizeCursor.RESIZE_NWSE;
-            case TOP_RIGHT: case BOTTOM_LEFT: return ResizeCursor.RESIZE_NESW;
-            case NONE: default: return ResizeCursor.DEFAULT;
-        }
+        return this.pointerSession.currentResizeCursor(this, (int) mouseX, (int) mouseY);
     }
 
     @Override
@@ -391,18 +381,14 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
                 setOpen(false);
                 return true;
             }
-            if (this.resizable) {
-                ResizeEdge edge = getResizeEdgeAt((int) mouseX, (int) mouseY);
-                if (edge != ResizeEdge.NONE) {
-                    beginResize(edge, mouseX, mouseY);
-                    return true;
-                }
+            if (isInsideTitleBar(mouseX, mouseY)
+                    && handleTitleBarAction(mouseX, mouseY, button)) {
+                return true;
             }
-            if (this.draggable && isInsideTitleBar(mouseX, mouseY)) {
-                this.dragging = true;
-                this.dragOffsetX = mouseX - this.windowX;
-                this.dragOffsetY = mouseY - this.windowY;
-                this.snapEngaged = false;
+            if (this.pointerSession.beginResize(this, mouseX, mouseY)) {
+                return true;
+            }
+            if (this.pointerSession.beginDrag(this, mouseX, mouseY)) {
                 return true;
             }
             if (isInsideWindow(mouseX, mouseY)) {
@@ -415,34 +401,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     @Override
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        if (!this.open || button != 0) {
-            return false;
-        }
-        if (this.resizing) {
-            int beforeX = this.windowX;
-            int beforeY = this.windowY;
-            int beforeW = this.windowWidth;
-            int beforeH = this.windowHeight;
-            resizeToMouse((int) mouseX, (int) mouseY);
-            if (beforeX != this.windowX || beforeY != this.windowY
-                    || beforeW != this.windowWidth || beforeH != this.windowHeight) {
-                markUserBoundsDirty();
-            }
-            return true;
-        }
-        if (this.dragging) {
-            int beforeX = this.windowX;
-            int beforeY = this.windowY;
-            this.windowX = (int) (mouseX - this.dragOffsetX);
-            this.windowY = (int) (mouseY - this.dragOffsetY);
-            clampWindowToScreen();
-            snapToNearbyPanel();
-            if (beforeX != this.windowX || beforeY != this.windowY) {
-                markUserBoundsDirty();
-            }
-            return true;
-        }
-        return false;
+        return this.pointerSession.drag(this, mouseX, mouseY, button);
     }
 
     public boolean handleMouseDragged(double mouseX, double mouseY, int button) {
@@ -451,23 +410,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (!this.open) {
-            this.dragging = false;
-            this.resizing = false;
-            this.resizeEdge = ResizeEdge.NONE;
-            return false;
-        }
-        if (button == 0) {
-            boolean boundsChanged = this.dragging || this.resizing;
-            this.dragging = false;
-            this.snapEngaged = false;
-            this.resizing = false;
-            this.resizeEdge = ResizeEdge.NONE;
-            if (boundsChanged) {
-                onBoundsChanged();
-            }
-        }
-        return isInsideWindow(mouseX, mouseY);
+        return this.pointerSession.release(this, mouseX, mouseY, button);
     }
 
     public void handleMouseReleased(double mouseX, double mouseY, int button) {
@@ -668,7 +611,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         }
     }
 
-    private void markUserBoundsDirty() {
+    void markUserBoundsDirty() {
         this.userBoundsPreference = true;
         this.boundsDirty = true;
         onBoundsChanged();
@@ -707,6 +650,19 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
             this.closeButton.setY(closeButtonY());
             this.closeButton.render(g, mouseX, mouseY, 0.0F);
         }
+        renderTitleBarActions(g, mouseX, mouseY);
+    }
+
+    /**
+     * 子窗口可在标题栏增加无业务副作用的本地操作，例如主题选择入口；默认不占用拖拽。
+     * 该钩子不负责窗口焦点、关闭或输入捕获，仍由父类的统一路由维护。
+     */
+    protected boolean handleTitleBarAction(double mouseX, double mouseY, int button) {
+        return false;
+    }
+
+    /** 与 {@link #handleTitleBarAction(double, double, int)} 使用同一命中区域绘制标题栏附加操作。 */
+    protected void renderTitleBarActions(LegacyGuiGraphics graphics, int mouseX, int mouseY) {
     }
 
     /** 只在悬浮目标变化时重定向动画，避免每帧重启动导致边框永远追不上终值。 */
@@ -727,101 +683,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         this.screen.enableRtsScissor(g, x1, y1, x2, y2);
     }
 
-    private boolean isInsideTitleBar(double mouseX, double mouseY) {
+    boolean isInsideTitleBar(double mouseX, double mouseY) {
         return mouseX >= this.windowX && mouseX < this.windowX + this.windowWidth
                 && mouseY >= this.windowY && mouseY < this.windowY + getTitleBarHeight();
-    }
-
-    private ResizeEdge getResizeEdgeAt(int mouseX, int mouseY) {
-        int border = getResizeBorderWidth();
-        boolean left = mouseX >= this.windowX - border && mouseX < this.windowX + border;
-        boolean right = mouseX >= this.windowX + this.windowWidth - border
-                && mouseX < this.windowX + this.windowWidth + border;
-        boolean top = mouseY >= this.windowY - border && mouseY < this.windowY + border;
-        boolean bottom = mouseY >= this.windowY + this.windowHeight - border
-                && mouseY < this.windowY + this.windowHeight + border;
-        if (top && left) {
-            return ResizeEdge.TOP_LEFT;
-        }
-        if (top && right) {
-            return ResizeEdge.TOP_RIGHT;
-        }
-        if (bottom && left) {
-            return ResizeEdge.BOTTOM_LEFT;
-        }
-        if (bottom && right) {
-            return ResizeEdge.BOTTOM_RIGHT;
-        }
-        if (left) {
-            return ResizeEdge.LEFT;
-        }
-        if (right) {
-            return ResizeEdge.RIGHT;
-        }
-        if (top) {
-            return ResizeEdge.TOP;
-        }
-        if (bottom) {
-            return ResizeEdge.BOTTOM;
-        }
-        return ResizeEdge.NONE;
-    }
-
-    private void beginResize(ResizeEdge edge, double mouseX, double mouseY) {
-        this.resizing = true;
-        this.resizeEdge = edge;
-        this.resizeStartMouseX = (int) mouseX;
-        this.resizeStartMouseY = (int) mouseY;
-        this.resizeStartWidth = this.windowWidth;
-        this.resizeStartHeight = this.windowHeight;
-        this.resizeStartWindowX = this.windowX;
-        this.resizeStartWindowY = this.windowY;
-    }
-
-    private void resizeToMouse(int mouseX, int mouseY) {
-        int dx = mouseX - this.resizeStartMouseX;
-        int dy = mouseY - this.resizeStartMouseY;
-        switch (this.resizeEdge) {
-            case RIGHT: this.windowWidth = this.resizeStartWidth + dx; break;
-            case BOTTOM: this.windowHeight = this.resizeStartHeight + dy; break;
-            case LEFT: adjustLeftEdge(dx); break;
-            case TOP: adjustTopEdge(dy); break;
-            case TOP_LEFT:
-                adjustLeftEdge(dx);
-                adjustTopEdge(dy);
-                break;
-            case TOP_RIGHT:
-                this.windowWidth = this.resizeStartWidth + dx;
-                adjustTopEdge(dy);
-                break;
-            case BOTTOM_LEFT:
-                adjustLeftEdge(dx);
-                this.windowHeight = this.resizeStartHeight + dy;
-                break;
-            case BOTTOM_RIGHT:
-                this.windowWidth = this.resizeStartWidth + dx;
-                this.windowHeight = this.resizeStartHeight + dy;
-                break;
-            case NONE: default: break;
-        }
-        clampWindowSize();
-        clampWindowToScreen();
-    }
-
-    private void adjustLeftEdge(int dx) {
-        int newWidth = this.resizeStartWidth - dx;
-        int maxRight = this.resizeStartWindowX + this.resizeStartWidth;
-        this.windowWidth = newWidth;
-        clampWindowSize();
-        this.windowX = maxRight - this.windowWidth;
-    }
-
-    private void adjustTopEdge(int dy) {
-        int newHeight = this.resizeStartHeight - dy;
-        int maxBottom = this.resizeStartWindowY + this.resizeStartHeight;
-        this.windowHeight = newHeight;
-        clampWindowSize();
-        this.windowY = maxBottom - this.windowHeight;
     }
 
     private void initializePosition() {
@@ -848,12 +712,12 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
         }
     }
 
-    private void clampWindowSize() {
+    void clampWindowSize() {
         this.windowWidth = MathHelper.clamp(this.windowWidth, getMinWindowWidth(), getMaxWindowWidth());
         this.windowHeight = MathHelper.clamp(this.windowHeight, getMinWindowHeight(), getMaxWindowHeight());
     }
 
-    private void clampWindowToScreen() {
+    void clampWindowToScreen() {
         if (this.screen == null) {
             return;
         }
@@ -881,8 +745,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
      *   <li>This panel's BOTTOM edge snaps to another panel's TOP edge</li>
      * </ul>
      */
-    private void snapToNearbyPanel() {
-        if (this.screen == null) return;
+    boolean snapToNearbyPanel() {
+        if (this.screen == null) return false;
         RtsFloatingWindowLayer layer = this.screen.getFloatingWindowLayer();
         List<RtsWindowPanel> panels = layer.frontToBackWindows();
 
@@ -926,9 +790,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
                 }
             }
         }
-        // Update snap engagement: if any snap alignment occurred, enable hysteresis
-        // so the next frame uses a wider threshold before releasing.
-        this.snapEngaged = this.windowX != preSnapX || this.windowY != preSnapY;
+        return this.windowX != preSnapX || this.windowY != preSnapY;
     }
 
     /** Returns the overlapping pixel count in the Y axis between two panels, or 0 if none. */

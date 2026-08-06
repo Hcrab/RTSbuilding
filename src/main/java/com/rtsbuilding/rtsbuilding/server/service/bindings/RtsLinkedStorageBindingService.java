@@ -105,17 +105,70 @@ public final class RtsLinkedStorageBindingService {
     }
 
     /**
+     * 批量链接的幂等写入入口。与点击式 {@link #linkStorage} 不同，已存在引用不会被解释为
+     * “取消链接”；这使一个框选请求可以安全重放，也避免双箱两半互相 toggle。
+     */
+    static RtsStorageBindings.UpdateResult ensureStorageLinked(EntityPlayerMP player,
+            RtsStorageSession session, BlockPos pos, byte linkMode) {
+        if (player == null || session == null || pos == null || !canLinkStorageTarget(player, pos)) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        WorldServer level = player.getServerWorld();
+        BlockPos canonical = canonicalStoragePosition(level, pos);
+        LinkedStorageRef ref = new LinkedStorageRef(player.dimension, canonical);
+        if (session.linkedStorageInfo.contains(ref)) return RtsStorageBindings.UpdateResult.none();
+        if (session.linkedStorageInfo.size() >= RtsStorageBindings.MAX_LINKED_STORAGES) {
+            return RtsStorageBindings.UpdateResult.none();
+        }
+        return linkStorage(player, session, canonical, linkMode);
+    }
+
+    /** 批量发现阶段的完整端点门禁；写入阶段仍会再次检查。 */
+    static boolean canLinkStorageTarget(EntityPlayerMP player, BlockPos pos) {
+        if (player == null || pos == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)
+                || !RtsClaimProtectionService.canInteractBlock(
+                player, pos, EnumFacing.UP, EnumHand.MAIN_HAND, ItemStack.EMPTY)) {
+            return false;
+        }
+        return RtsLinkedCapabilities.findLinkedItemHandler(player, pos) != null
+                || RtsLinkedCapabilities.findFluidHandler(player, pos) != null;
+    }
+
+    /** 双箱两半使用坐标序最小的一半作为稳定链接身份。 */
+    static BlockPos canonicalStoragePosition(WorldServer level, BlockPos pos) {
+        if (level == null || pos == null || !level.isBlockLoaded(pos)) {
+            return pos == null ? BlockPos.ORIGIN : pos.toImmutable();
+        }
+        IBlockState state = level.getBlockState(pos);
+        if (!(state.getBlock() instanceof BlockChest)) return pos.toImmutable();
+        BlockPos best = pos.toImmutable();
+        for (EnumFacing facing : EnumFacing.HORIZONTALS) {
+            BlockPos other = pos.offset(facing);
+            if (level.isBlockLoaded(other) && level.getBlockState(other).getBlock() == state.getBlock()
+                    && comparePositions(other, best) < 0) {
+                best = other.toImmutable();
+            }
+        }
+        return best;
+    }
+
+    /**
      * 更新已有链接存储行的设置。这有意不作为链接/创建操作：
      * 详情面板可以编辑模式和 AE 式优先级，但服务器仍然要求
      * 引用已经属于玩家的会话。
      */
     public static RtsStorageBindings.UpdateResult updateSettings(EntityPlayerMP player, RtsStorageSession session,
             BlockPos pos, byte linkMode, int priority) {
+        return updateSettings(player, session, player == null ? 0 : player.dimension, pos, linkMode, priority);
+    }
+
+    public static RtsStorageBindings.UpdateResult updateSettings(EntityPlayerMP player, RtsStorageSession session,
+            int dimension, BlockPos pos, byte linkMode, int priority) {
         if (player == null || session == null || pos == null) {
             return RtsStorageBindings.UpdateResult.none();
         }
         RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
-        LinkedStorageRef ref = new LinkedStorageRef(player.dimension, pos.toImmutable());
+        LinkedStorageRef ref = new LinkedStorageRef(dimension, pos.toImmutable());
         if (!session.linkedStorageInfo.contains(ref)) {
             return RtsStorageBindings.UpdateResult.none();
         }
@@ -128,7 +181,10 @@ public final class RtsLinkedStorageBindingService {
         }
         session.linkedStorageInfo.setMode(ref, normalizedMode);
         session.linkedStorageInfo.setPriority(ref, normalizedPriority);
-        session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), ref.pos()));
+        WorldServer targetLevel = player.getServer() == null ? null : player.getServer().getWorld(dimension);
+        if (targetLevel != null && targetLevel.isBlockLoaded(ref.pos())) {
+            session.linkedStorageInfo.setName(ref, RtsLinkedStorageResolver.resolveDisplayName(targetLevel, ref.pos()));
+        }
         return RtsStorageBindings.UpdateResult.refreshCurrent(session, true);
     }
 
@@ -223,5 +279,12 @@ public final class RtsLinkedStorageBindingService {
             }
         }
         return null;
+    }
+
+    private static int comparePositions(BlockPos first, BlockPos second) {
+        int x = Integer.compare(first.getX(), second.getX());
+        if (x != 0) return x;
+        int y = Integer.compare(first.getY(), second.getY());
+        return y != 0 ? y : Integer.compare(first.getZ(), second.getZ());
     }
 }

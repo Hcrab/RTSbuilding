@@ -17,6 +17,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResol
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
+import com.rtsbuilding.rtsbuilding.server.util.RtsSyntheticHandOutputRecovery;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -138,13 +139,14 @@ public final class RtsPlacementExecutor {
                 rayContext,
                 Config.remotePovBlockReach(),
                 () -> InteractionHelper.useItemOnWithMainHand(player, level, ItemStack.EMPTY, hit, forcePlace));
+        EnumActionResult emptyUseResult = RtsSyntheticHandOutputRecovery.recoverToPlayer(player, emptyUse);
         Container menuAfterEmptyUse = player.openContainer;
         if (menuAfterEmptyUse != menuBeforeEmptyUse) {
             RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterEmptyUse, clickedPos);
             return false;
         }
 
-        if (consumesAction(emptyUse.result())) {
+        if (consumesAction(emptyUseResult)) {
             RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
             return true;
         }
@@ -157,12 +159,13 @@ public final class RtsPlacementExecutor {
                 rayContext,
                 Config.remotePovBlockReach(),
                 () -> InteractionHelper.useItemWithMainHand(player, level, ItemStack.EMPTY, forcePlace));
+        EnumActionResult emptyFallbackResult = RtsSyntheticHandOutputRecovery.recoverToPlayer(player, emptyFallback);
         Container menuAfterEmptyFallback = player.openContainer;
         if (menuAfterEmptyFallback != menuBeforeEmptyFallback) {
             RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterEmptyFallback, clickedPos);
             return false;
         }
-        if (consumesAction(emptyFallback.result())) {
+        if (consumesAction(emptyFallbackResult)) {
             RtsEffectAccumulator.INSTANCE.markPersistence(player.getUniqueID(), player.dimension);
             return true;
         }

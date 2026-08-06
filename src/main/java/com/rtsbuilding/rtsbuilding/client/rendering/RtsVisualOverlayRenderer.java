@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintGhostRend
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.AdvancedShapeSelectionBoxRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.storage.StorageBatchSelectionRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.BoundaryLineRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.ChunkGuideRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.InteractionTargetRenderer;
@@ -94,6 +95,7 @@ public final class RtsVisualOverlayRenderer {
         try {
             ShapeGhostRenderer.renderShapeGhostPreview(minecraft, LINE_BUFFER, FILL_BUFFER);
             AdvancedShapeSelectionBoxRenderer.render(minecraft, LINE_BUFFER, FILL_BUFFER);
+            StorageBatchSelectionRenderer.render(minecraft, LINE_BUFFER, FILL_BUFFER);
             drawPrivateBuffers();
         } catch (RuntimeException exception) {
             discard(LINE_BUFFER);

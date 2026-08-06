@@ -10,6 +10,8 @@ import com.rtsbuilding.rtsbuilding.server.storage.model.GuiBinding;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
+import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
+import com.rtsbuilding.rtsbuilding.server.util.RtsSyntheticHandOutputRecovery;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.init.Blocks;
@@ -223,30 +225,14 @@ final class RtsGuiBindingHelper {
     private static EnumActionResult interactWithBoundGui(EntityPlayerMP player, WorldServer level,
             GuiBindingInteraction interaction, boolean forceSecondaryUse, double remotePovBlockReach) {
         RayTraceResult hit = interaction.hit();
-        float hitX = (float) (hit.hitVec.x - hit.getBlockPos().getX());
-        float hitY = (float) (hit.hitVec.y - hit.getBlockPos().getY());
-        float hitZ = (float) (hit.hitVec.z - hit.getBlockPos().getZ());
-        return TemporaryContextSwitcher.withTemporaryUseItemContext(
+        TemporaryContextSwitcher.UseOnOutcome outcome = TemporaryContextSwitcher.withTemporaryUseItemContext(
                 player,
                 interaction.interactionPos(),
                 hit.hitVec,
                 remotePovBlockReach,
-                () -> TemporaryContextSwitcher.withTemporaryMainHandItem(
-                        player,
-                        ItemStack.EMPTY,
-                        () -> TemporaryContextSwitcher.withTemporaryShiftKey(
-                                player,
-                                forceSecondaryUse,
-                                () -> player.interactionManager.processRightClickBlock(
-                                        player,
-                                        level,
-                                        ItemStack.EMPTY,
-                                        EnumHand.MAIN_HAND,
-                                        hit.getBlockPos(),
-                                        hit.sideHit,
-                                        hitX,
-                                        hitY,
-                                        hitZ))));
+                () -> InteractionHelper.useItemOnWithMainHand(
+                        player, level, ItemStack.EMPTY, hit, forceSecondaryUse));
+        return RtsSyntheticHandOutputRecovery.recoverToPlayer(player, outcome);
     }
 
     private static boolean markOpenedMenu(EntityPlayerMP player, RtsStorageSession session,

@@ -12,5 +12,7 @@ public final class RtsStorageBindingPackets {
         RtsPayloadRegistrar.registerMessage(131,RtsStorageBindingPacketHandlers.FunnelTarget.class,C2SRtsFunnelTargetPayload.class,Side.SERVER);
         RtsPayloadRegistrar.registerMessage(132,RtsStorageBindingPacketHandlers.SetFunnel.class,C2SRtsSetFunnelPayload.class,Side.SERVER);
         RtsPayloadRegistrar.registerMessage(133,RtsStorageBindingPacketHandlers.SetAutoStore.class,C2SRtsSetAutoStorePayload.class,Side.SERVER);
+        // 134-137 已由存储分页快照占用；批量框选使用独立编号，避免客户端/服务端解码错位。
+        RtsPayloadRegistrar.registerMessage(138,RtsStorageBindingPacketHandlers.BatchLink.class,C2SRtsBatchLinkStoragePayload.class,Side.SERVER);
     }
 }

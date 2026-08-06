@@ -12,7 +12,6 @@ import java.util.List;
 
 /** 储存页面请求的 1.12 服务端边界；页面内容始终按连接玩家的当前会话构建。 */
 public final class RtsPageHandlers {
-    private static final String CAMERA = "com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager";
     private static final String REGISTRY = "com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry";
     private RtsPageHandlers() {}
 
@@ -21,18 +20,11 @@ public final class RtsPageHandlers {
             if (!message.isValid()) return null;
             final EntityPlayerMP player = context.getServerHandler().player;
             player.getServerWorld().addScheduledTask(new Runnable() { @Override public void run() {
-                if (active(player)) invokePage(player, message);
+                // 与正式 1.12.2 入口保持一致：可见 overlay 的只读刷新不依赖相机状态。
+                invokePage(player, message);
             }});
             return null;
         }
-    }
-
-    private static boolean active(EntityPlayerMP player) {
-        try { return Boolean.TRUE.equals(Class.forName(CAMERA).getMethod("isActive", EntityPlayerMP.class)
-                .invoke(null, player)); }
-        catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException exception) {
-            throw new IllegalStateException("1.12 storage camera adapter unavailable", exception);
-        } catch (InvocationTargetException exception) { throw propagate("Storage camera check failed", exception); }
     }
     private static void invokePage(EntityPlayerMP player, C2SRtsRequestStoragePagePayload message) {
         try {

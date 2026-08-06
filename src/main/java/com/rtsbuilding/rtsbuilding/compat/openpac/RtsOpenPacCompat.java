@@ -8,6 +8,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.common.Loader;
 
 /**
@@ -58,6 +59,13 @@ public final class RtsOpenPacCompat {
             EnumHand hand, ItemStack heldItem) {
         return player != null && pos != null
                 && RtsFtbCompat.canInteractBlock(player, pos, face, hand, heldItem)
+                && !OPENPAC_LOADED;
+    }
+
+    /** 跨维目标不能复用玩家当前世界；FTB 走目标维度查询，未知 OpenPAC backport 仍保守拒绝。 */
+    public static boolean canInteractBlockInWorld(EntityPlayerMP player, WorldServer level, BlockPos pos) {
+        return player != null && level != null && pos != null
+                && RtsFtbCompat.canInteractBlockInWorld(player, level, pos)
                 && !OPENPAC_LOADED;
     }
 

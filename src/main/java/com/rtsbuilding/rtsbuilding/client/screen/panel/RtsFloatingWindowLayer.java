@@ -69,7 +69,9 @@ public final class RtsFloatingWindowLayer {
             GlStateManager.pushMatrix();
             try {
                 GlStateManager.translate(0.0F, 0.0F, windowLayerZ(i));
-                window.render(graphics, mouseX, mouseY, 0.0F);
+                if (window.shouldRenderWindow()) {
+                    window.render(graphics, mouseX, mouseY, 0.0F);
+                }
             } finally {
                 GlStateManager.popMatrix();
                 window.setSkipHoverDetection(false);

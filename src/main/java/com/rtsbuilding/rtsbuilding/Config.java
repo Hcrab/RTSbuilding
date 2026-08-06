@@ -113,6 +113,15 @@ public final class Config {
             "refinedStorageNetworkRefreshThrottle", 10, 1, 200,
             "Number of storage cache refresh cycles between expensive Refined Storage network snapshots.",
             "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle");
+    /** 异维储存只保留短期区块票据；该总开关不会放宽同维 RTS 操作半径。 */
+    public static final BooleanValue ENABLE_CROSS_DIMENSION_STORAGE = bool(Domain.SERVER, "storage",
+            "enableCrossDimensionStorage", true,
+            "Allow the cross-dimension storage plugin to wake and access already-linked storage in other dimensions.",
+            "rtsbuilding.configuration.enableCrossDimensionStorage");
+    public static final IntValue MAX_CROSS_DIMENSION_AWAKE_CHUNKS = integer(Domain.SERVER, "storage",
+            "maxCrossDimensionAwakeChunks", 32, 1, 256,
+            "Maximum short-lived cross-dimension storage chunk tickets retained for one player.",
+            "rtsbuilding.configuration.maxCrossDimensionAwakeChunks");
     public static final IntValue PAGE_CACHE_MAX_PLAYERS = integer(Domain.SERVER, "storage", "pageCacheMaxPlayers",
             256, 1, 4096, "Maximum player count retained by the storage page LRU cache.",
             "rtsbuilding.configuration.pageCacheMaxPlayers");
@@ -504,6 +513,8 @@ public final class Config {
     public static RangeMiningHarvestTier areaMineMaxHarvestTier() { return AREA_MINE_MAX_HARVEST_TIER.get(); }
     public static int ae2NetworkRefreshThrottle() { return AE2_NETWORK_REFRESH_THROTTLE.getAsInt(); }
     public static int refinedStorageNetworkRefreshThrottle() { return REFINED_STORAGE_NETWORK_REFRESH_THROTTLE.getAsInt(); }
+    public static boolean isCrossDimensionStorageEnabled() { return ENABLE_CROSS_DIMENSION_STORAGE.getAsBoolean(); }
+    public static int maxCrossDimensionAwakeChunks() { return MAX_CROSS_DIMENSION_AWAKE_CHUNKS.getAsInt(); }
     public static int pageCacheMaxPlayers() { return PAGE_CACHE_MAX_PLAYERS.getAsInt(); }
     public static int defaultStoragePageSize() { return Math.min(DEFAULT_STORAGE_PAGE_SIZE.getAsInt(), maxStoragePageSize()); }
     public static int maxStoragePageSize() { return MAX_STORAGE_PAGE_SIZE.getAsInt(); }

@@ -41,20 +41,20 @@ final class StorageUiAdapter {
         LinkedStorageEntry entry=find(controller,action.stableKey);
         if(entry==null)return transition;
         if(transition.command==StorageUiTransition.Command.SET_PRIORITY){
-            controller.updateLinkedStorageSettings(entry.pos(),
+            controller.updateLinkedStorageSettings(entry.dimension(), entry.pos(),
                     entry.mode()==C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY,action.value);
         }else if(transition.command==StorageUiTransition.Command.TOGGLE_EXTRACT){
-            controller.updateLinkedStorageSettings(entry.pos(),
+            controller.updateLinkedStorageSettings(entry.dimension(), entry.pos(),
                     entry.mode()!=C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY,entry.priority());
         }else if(transition.command==StorageUiTransition.Command.UNLINK){
-            controller.unlinkLinkedStorage(entry.pos());
+            controller.unlinkLinkedStorage(entry.dimension(), entry.pos());
         }
         return transition;
     }
 
     static String key(LinkedStorageEntry entry){
         BlockPos p=entry==null?null:entry.pos();
-        return p==null?"":p.getX()+","+p.getY()+","+p.getZ();
+        return p==null?"":entry.dimension()+":"+p.getX()+","+p.getY()+","+p.getZ();
     }
     private static LinkedStorageEntry find(ClientRtsController controller,String key){
         for(LinkedStorageEntry entry:controller.getLinkedStorageEntries())if(key(entry).equals(key))return entry;

@@ -44,6 +44,24 @@ class PlacementTaskStateTest {
     }
 
     @Test
+    void upgradedDefinitionFromLegacyRecoveryBecomesTheNextAuthoritativeSnapshot() {
+        PlacementTaskState before = new PlacementTaskState(definition(), 7, 4, 1, 0, 0, List.of());
+        NBTTagCompound upgradedDefinition = before.definition();
+        NBTTagCompound frozenState = new NBTTagCompound();
+        frozenState.setString("Name", "minecraft:stone");
+        upgradedDefinition.setTag("frozenPlacementState", frozenState);
+
+        PlacementTaskState after = before.advance(upgradedDefinition, 2, 1, 1,
+                List.of(new BlockPos(4, 5, 6)));
+        upgradedDefinition.getCompoundTag("frozenPlacementState").setString("Name", "outside");
+
+        assertFalse(before.definition().hasKey("frozenPlacementState"));
+        assertEquals("minecraft:stone", after.definition()
+                .getCompoundTag("frozenPlacementState").getString("Name"));
+        assertEquals(2, after.cursorUnits());
+    }
+
+    @Test
     void resumePolicyChangesWithoutChangingAuthoritativeProgress() {
         PlacementTaskState before = new PlacementTaskState(definition(), 7, 4, 1, 0, 0, List.of());
         PlacementTaskState after = before.withResumePolicy(PlacementResumePolicy.SKIP_CONFLICTS);

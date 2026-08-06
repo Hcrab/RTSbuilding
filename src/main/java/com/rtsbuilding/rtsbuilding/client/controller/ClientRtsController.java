@@ -120,7 +120,7 @@ public static ClientRtsController get() {
     public int getProgressionRadiusBlocks() { return this.stateQueryOwner.getProgressionRadiusBlocks(); }
     public int getProgressionFluidCapacityBuckets() { return this.stateQueryOwner.getProgressionFluidCapacityBuckets(); }
     public int getProgressionUltimineLimit() { return this.stateQueryOwner.getProgressionUltimineLimit(); }
-    public boolean isProgressionBypassHomeRadius() { return this.stateQueryOwner.isProgressionBypassHomeRadius(); }
+public boolean isProgressionBypassHomeRadius() { return this.stateQueryOwner.isProgressionBypassHomeRadius(); }
     public List<PluginStateManager.InstalledPluginView> getInstalledPlugins() { return this.stateQueryOwner.getInstalledPlugins(); }
     public String getPluginTeamName() { return this.stateQueryOwner.getPluginTeamName(); }
     public boolean hasInstalledPlugin(String pluginId) { return this.stateQueryOwner.hasInstalledPlugin(pluginId); }
@@ -247,7 +247,9 @@ public static ClientRtsController get() {
     public void storeHotbarSlotToLinked(int slot) { this.commandOwner.storeHotbarSlotToLinked(slot); }
     public void fillInventoryFromLinked() { this.commandOwner.fillInventoryFromLinked(); }
     public void unlinkLinkedStorage(BlockPos pos) { this.commandOwner.unlinkLinkedStorage(pos); }
+    public void unlinkLinkedStorage(int dimension, BlockPos pos) { this.commandOwner.unlinkLinkedStorage(dimension, pos); }
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(pos, extractOnly, priority); }
+    public void updateLinkedStorageSettings(int dimension, BlockPos pos, boolean extractOnly, int priority) { this.commandOwner.updateLinkedStorageSettings(dimension, pos, extractOnly, priority); }
     boolean shouldUseRtsCraftTerminalScreen(GuiCrafting craftingScreen) { return this.commandOwner.shouldUseRtsCraftTerminalScreen(craftingScreen); }
     public void quickDropSelectedItem(String itemId, int amount, Vec3d dropPos) { this.commandOwner.quickDropSelectedItem(itemId, amount, dropPos); }
     public void applyStoragePage(S2CRtsStoragePagePayload payload) { this.commandOwner.applyStoragePage(payload); }
@@ -290,6 +292,9 @@ public static ClientRtsController get() {
     public void placeSelectedBatch(List<RayTraceResult> hits, RayTraceResult templateHit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied); }
     public void placeSelectedBatch(List<RayTraceResult> hits, RayTraceResult templateHit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir, boolean skipIfOccupied, boolean overwriteExisting) { this.interactionOwner.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, overwriteExisting); }
     public void placeSelectedFluid(RayTraceResult hit, boolean forcePlace, Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir); }
+    public void confirmSmartFill(RayTraceResult hit, int maxBlocks, int detectionDiameter,
+            Vec3d rayOrigin, Vec3d rayDir) { this.interactionOwner.confirmSmartFill(
+                    hit, maxBlocks, detectionDiameter, rayOrigin, rayDir); }
     public void storeFluidFromStorageItem(String itemId) { this.interactionOwner.storeFluidFromStorageItem(itemId); }
     public void storeFluidFromPinnedItem(String itemId) { this.interactionOwner.storeFluidFromPinnedItem(itemId); }
     public void storeFluidFromToolSlot(int toolSlot) { this.interactionOwner.storeFluidFromToolSlot(toolSlot); }

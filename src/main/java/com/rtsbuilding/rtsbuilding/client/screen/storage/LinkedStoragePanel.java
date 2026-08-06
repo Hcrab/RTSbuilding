@@ -42,6 +42,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
     private int scroll;
     private WindowTextBox priorityInput;
     private BlockPos editingPriorityPos;
+    private int editingPriorityDimension;
     private int editingPriorityFallback;
 
     @Override
@@ -51,6 +52,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         super.init(screen, controller);
         this.priorityInput = null;
         this.editingPriorityPos = null;
+        this.editingPriorityDimension = 0;
     }
 
     public void openNear(int anchorX, int anchorY) {
@@ -116,7 +118,7 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
                 continue;
             }
             boolean priorityEditing =
-                    isEditingPriority(platformEntry.pos());
+                    isEditingPriority(platformEntry.dimension(), platformEntry.pos());
             StorageWindowLayout.RowGeometry rowGeometry =
                     geometry.rows.get(rowIndex);
             LinkedStoragePanelRenderer.renderRow(
@@ -331,13 +333,15 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
         if (entry == null || entry.pos() == null) {
             return;
         }
-        if (!entry.pos().equals(this.editingPriorityPos)) {
+        if (entry.dimension() != this.editingPriorityDimension
+                || !entry.pos().equals(this.editingPriorityPos)) {
             commitPriorityEdit();
         }
         if (this.priorityInput == null) {
             this.priorityInput = createPriorityInput();
         }
         this.editingPriorityPos = entry.pos();
+        this.editingPriorityDimension = entry.dimension();
         this.editingPriorityFallback = entry.priority();
         placePriorityInput(bounds);
         this.priorityInput.setValue(
@@ -362,15 +366,17 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
             return;
         }
         BlockPos position = this.editingPriorityPos;
+        int dimension = this.editingPriorityDimension;
         int priority = parsePriorityDraft(
                 this.priorityInput.getValue(),
                 this.editingPriorityFallback);
-        LinkedStorageEntry entry = findEntry(position);
+        LinkedStorageEntry entry = findEntry(dimension, position);
         boolean extractOnly = entry != null
                 && entry.mode()
                 == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
         if (entry == null) {
             this.controller.updateLinkedStorageSettings(
+                    dimension,
                     position,
                     extractOnly,
                     priority);
@@ -388,27 +394,28 @@ public final class LinkedStoragePanel extends RtsWindowPanel {
 
     private void cancelPriorityEdit() {
         this.editingPriorityPos = null;
+        this.editingPriorityDimension = 0;
         this.editingPriorityFallback = 0;
         if (this.priorityInput != null) {
             this.priorityInput.setFocused(false);
         }
     }
 
-    private LinkedStorageEntry findEntry(BlockPos position) {
+    private LinkedStorageEntry findEntry(int dimension, BlockPos position) {
         if (position == null) {
             return null;
         }
         for (LinkedStorageEntry entry
                 : this.controller.getLinkedStorageEntries()) {
-            if (entry != null && position.equals(entry.pos())) {
+            if (entry != null && dimension == entry.dimension() && position.equals(entry.pos())) {
                 return entry;
             }
         }
         return null;
     }
 
-    private boolean isEditingPriority(BlockPos position) {
-        return position != null
+    private boolean isEditingPriority(int dimension, BlockPos position) {
+        return position != null && dimension == this.editingPriorityDimension
                 && position.equals(this.editingPriorityPos)
                 && this.priorityInput != null
                 && this.priorityInput.isFocused();

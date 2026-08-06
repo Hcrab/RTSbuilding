@@ -8,13 +8,13 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 避免蓝图窗、快速建造窗和预览图各自维护近似颜色。</p>
  */
 public final class WindowButtonStyle {
-    public static final UiColor TEXT = new UiColor(0xFFD8E3EE);
-    public static final UiColor TEXT_DISABLED = new UiColor(0xFF556677);
-    public static final UiColor BACKGROUND = new UiColor(0xDD1A232E);
-    public static final UiColor HOVER_BACKGROUND = new UiColor(0xDD2A3442);
-    public static final UiColor BORDER_LIGHT = new UiColor(0xFF647B92);
-    public static final UiColor BORDER_DARK = new UiColor(0xFF0D1117);
-    public static final UiColor MISSING_TEXTURE = new UiColor(0xFFFF0000);
+    public static final UiColor TEXT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_PRIMARY, 0XFFD8E3EE);
+    public static final UiColor TEXT_DISABLED = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.TEXT_MUTED, 0XFF556677);
+    public static final UiColor BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XDD1A232E);
+    public static final UiColor HOVER_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_HOVER, 0XDD2A3442);
+    public static final UiColor BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.BORDER_STRONG, 0XFF647B92);
+    public static final UiColor BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.BORDER_SOFT, 0XFF0D1117);
+    public static final UiColor MISSING_TEXTURE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.ERROR, 0XFFFF0000);
 
     private WindowButtonStyle() {
     }

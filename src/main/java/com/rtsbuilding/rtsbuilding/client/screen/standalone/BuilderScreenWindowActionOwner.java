@@ -12,6 +12,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsFloatingWindowLayer;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.QuickBuildMode;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
+import net.minecraft.util.math.RayTraceResult;
 
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -56,8 +57,31 @@ final class BuilderScreenWindowActionOwner {
             return screen.isQuickBuildOpen() && screen.quickBuildPanel.isRangeDestroyMode();
         }
 
+    boolean isQuickBuildSmartFillMode() {
+            return screen.isQuickBuildOpen() && screen.quickBuildPanel.isSmartFillMode();
+        }
+
+    boolean handleQuickBuildSmartFillClick() {
+            if (!isQuickBuildSmartFillMode()) return false;
+            RayTraceResult hit = screen.pickBlockHit();
+            if (hit != null) {
+                screen.quickBuildPanel.submitOrAnchorSmartFill(hit,
+                        screen.cursorPicker.currentRayOrigin(),
+                        screen.cursorPicker.computeCursorRayDirection());
+            }
+            return true;
+        }
+
+    boolean cancelQuickBuildSmartFillAnchor() {
+            return isQuickBuildSmartFillMode() && screen.quickBuildPanel.cancelSmartFillAnchor();
+        }
+
     boolean isQuickBuildRangeDestroyChainMode() {
             return screen.isQuickBuildOpen() && screen.quickBuildPanel.isRangeDestroyChainMode();
+        }
+
+    boolean isQuickBuildConvenienceDestroyMode() {
+            return screen.isQuickBuildOpen() && screen.quickBuildPanel.isConvenienceDestroyMode();
         }
 
     boolean isQuickBuildCreativeOverwriteEnabled() {
@@ -81,6 +105,18 @@ final class BuilderScreenWindowActionOwner {
         }
 
     String activeQuickBuildShapeLabel() {
+            if (screen.isQuickBuildSmartFillMode()) {
+                return screen.text("screen.rtsbuilding.quick_build.mode_smart_fill");
+            }
+            if (screen.isQuickBuildConvenienceDestroyMode()) {
+                return screen.text(screen.quickBuildPanel.getConvenienceDestroyMode()
+                        == com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode.CHUNK_QUARRY
+                        ? "screen.rtsbuilding.quick_build.convenience.chunk_tooltip"
+                        : screen.quickBuildPanel.getConvenienceDestroyMode()
+                        == com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode.TREE_FELL
+                        ? "screen.rtsbuilding.quick_build.convenience.tree_tooltip"
+                        : "screen.rtsbuilding.quick_build.convenience.repeat_tooltip");
+            }
             if (screen.isQuickBuildRangeDestroyChainMode()) {
                 return screen.text("screen.rtsbuilding.shape.chain");
             }
@@ -90,6 +126,10 @@ final class BuilderScreenWindowActionOwner {
     boolean handleQuickBuildRangeDestroyClick(double mouseX, double mouseY) {
             if (!screen.isQuickBuildRangeDestroyMode() || screen.isQuickBuildRangeDestroyChainMode() || !screen.isWorldArea(mouseX, mouseY)) {
                 return false;
+            }
+            if (screen.isQuickBuildConvenienceDestroyMode()) {
+                RayTraceResult hit = screen.pickBlockHit();
+                return hit == null || screen.quickBuildPanel.submitConvenienceDestroy(hit);
             }
             if (screen.isAdvancedShapeMode()
                     && screen.shapeController.clickAdvancedRangeDestroyHandle(

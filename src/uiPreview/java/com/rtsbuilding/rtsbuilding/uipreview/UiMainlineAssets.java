@@ -47,7 +47,7 @@ public final class UiMainlineAssets {
     public UiLanguageBundle language(String language) {
         UiLanguageBundle cached = languages.get(language);
         if (cached != null) return cached;
-        File file = new File(new File(assetsRoot, "lang"), language + ".json");
+        File file = new File(new File(assetsRoot, "lang"), language + ".lang");
         try {
             UiLanguageBundle loaded = UiLanguageBundle.load(file);
             if (loaded.size() < 900) throw new IOException("language file looks truncated");

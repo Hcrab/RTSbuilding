@@ -15,7 +15,7 @@ import java.util.List;
 public final class S2CRtsStoragePagePayload implements IMessage {
     public static final byte RECENT_ITEM_PLACED=0, RECENT_ITEM_USED=1, RECENT_ITEM_CRAFTED=2;
     public static final byte RECENT_FLUID_PLACED=3, RECENT_FLUID_USED=4, RECENT_FLUID_CRAFTED=5;
-    public static final int MAX_LINKED=50, MAX_CATEGORIES=256, MAX_PAGE_ITEMS=180;
+    public static final int MAX_LINKED=200, MAX_CATEGORIES=256, MAX_PAGE_ITEMS=180;
     public static final int MAX_TOTAL_ITEMS=65536, MAX_FLUIDS=4096, MAX_RECENT=24;
     public static final int MAX_QUICK_SLOTS=27, MAX_GUI_BINDINGS=8, MAX_FUNNEL_ENTRIES=4096;
 
@@ -31,7 +31,7 @@ public final class S2CRtsStoragePagePayload implements IMessage {
     private List<String> quickSlotItemIds=empty(), guiBindingLabels=empty(), guiBindingItemIds=empty();
     private List<String> funnelBufferItemIds=empty();
     private List<Byte> linkedModes=empty(), recentKinds=empty();
-    private List<Integer> linkedPriorities=empty();
+    private List<Integer> linkedDimensions=empty(), linkedPriorities=empty();
     private List<Boolean> linkedWorldAvailable=empty();
     private List<ItemStack> itemStacks=empty(), quickSlotPreviews=empty();
 
@@ -39,7 +39,7 @@ public final class S2CRtsStoragePagePayload implements IMessage {
     }
 
     public S2CRtsStoragePagePayload(boolean linked, String linkedName, List<Long> linkedPositions,
-            List<String> linkedNames, List<Byte> linkedModes, List<Integer> linkedPriorities,
+            List<Integer> linkedDimensions, List<String> linkedNames, List<Byte> linkedModes, List<Integer> linkedPriorities,
             List<String> linkedIconItemIds, List<Boolean> linkedWorldAvailable,
             int page, int totalPages, int totalEntries, boolean totalCountsSnapshot,
             String search, String category, byte sort, boolean ascending,
@@ -52,7 +52,7 @@ public final class S2CRtsStoragePagePayload implements IMessage {
             List<String> guiBindingItemIds, boolean funnelEnabled,
             List<String> funnelBufferItemIds, List<Long> funnelBufferCounts) {
         this.linked=linked; this.linkedName=s(linkedName); this.linkedPositions=c(linkedPositions);
-        this.linkedNames=c(linkedNames); this.linkedModes=c(linkedModes);
+        this.linkedDimensions=c(linkedDimensions); this.linkedNames=c(linkedNames); this.linkedModes=c(linkedModes);
         this.linkedPriorities=c(linkedPriorities); this.linkedIconItemIds=c(linkedIconItemIds);
         this.linkedWorldAvailable=c(linkedWorldAvailable); this.page=page;
         this.totalPages=totalPages; this.totalEntries=totalEntries;
@@ -73,7 +73,7 @@ public final class S2CRtsStoragePagePayload implements IMessage {
         validate();
         b.writeBoolean(linked); ws(b,linkedName); wl(b,linkedPositions,MAX_LINKED,"linked positions");
         wc(b,linkedNames.size(),MAX_LINKED,"linked details");
-        for(int i=0;i<linkedNames.size();i++){ws(b,linkedNames.get(i));b.writeByte(linkedModes.get(i));
+        for(int i=0;i<linkedNames.size();i++){b.writeInt(linkedDimensions.get(i));ws(b,linkedNames.get(i));b.writeByte(linkedModes.get(i));
             b.writeInt(linkedPriorities.get(i));ws(b,linkedIconItemIds.get(i));b.writeBoolean(linkedWorldAvailable.get(i));}
         b.writeInt(page);b.writeInt(totalPages);b.writeInt(totalEntries);b.writeBoolean(totalCountsSnapshot);
         ws(b,search);ws(b,category);b.writeByte(sort);b.writeBoolean(ascending);
@@ -98,10 +98,10 @@ public final class S2CRtsStoragePagePayload implements IMessage {
         linked=b.readBoolean();linkedName=rs(b);linkedPositions=rl(b,MAX_LINKED,"linked positions");
         int n=rc(b,MAX_LINKED,"linked details");
         List<String> names=new ArrayList<String>(n),icons=new ArrayList<String>(n);
-        List<Byte> modes=new ArrayList<Byte>(n);List<Integer> priorities=new ArrayList<Integer>(n);
+        List<Integer> dimensions=new ArrayList<Integer>(n);List<Byte> modes=new ArrayList<Byte>(n);List<Integer> priorities=new ArrayList<Integer>(n);
         List<Boolean> available=new ArrayList<Boolean>(n);
-        for(int i=0;i<n;i++){names.add(rs(b));modes.add(b.readByte());priorities.add(b.readInt());icons.add(rs(b));available.add(b.readBoolean());}
-        linkedNames=c(names);linkedModes=c(modes);linkedPriorities=c(priorities);
+        for(int i=0;i<n;i++){dimensions.add(b.readInt());names.add(rs(b));modes.add(b.readByte());priorities.add(b.readInt());icons.add(rs(b));available.add(b.readBoolean());}
+        linkedDimensions=c(dimensions);linkedNames=c(names);linkedModes=c(modes);linkedPriorities=c(priorities);
         linkedIconItemIds=c(icons);linkedWorldAvailable=c(available);
         page=b.readInt();totalPages=b.readInt();totalEntries=b.readInt();totalCountsSnapshot=b.readBoolean();
         search=rs(b);category=rs(b);sort=b.readByte();ascending=b.readBoolean();
@@ -130,7 +130,7 @@ public final class S2CRtsStoragePagePayload implements IMessage {
     }
 
     private void validate(){
-        same(linkedPositions.size(),linkedNames,linkedModes,linkedPriorities,linkedIconItemIds,linkedWorldAvailable);
+        same(linkedPositions.size(),linkedDimensions,linkedNames,linkedModes,linkedPriorities,linkedIconItemIds,linkedWorldAvailable);
         same(itemStacks.size(),counts);same(totalItemIds.size(),totalItemCounts);
         same(fluidIds.size(),fluidAmounts,fluidCapacities);
         same(recentIds.size(),recentAmounts,recentCapacities,recentKinds);
@@ -161,7 +161,7 @@ public final class S2CRtsStoragePagePayload implements IMessage {
     private static <T>List<T> c(List<T>x){return x==null||x.isEmpty()?Collections.<T>emptyList():Collections.unmodifiableList(new ArrayList<T>(x));}
     private static <T>List<T> empty(){return Collections.emptyList();}
 
-    public boolean linked(){return linked;}public String linkedName(){return linkedName;}public List<Long> linkedPositions(){return linkedPositions;}public List<String> linkedNames(){return linkedNames;}public List<Byte> linkedModes(){return linkedModes;}public List<Integer> linkedPriorities(){return linkedPriorities;}public List<String> linkedIconItemIds(){return linkedIconItemIds;}public List<Boolean> linkedWorldAvailable(){return linkedWorldAvailable;}
+    public boolean linked(){return linked;}public String linkedName(){return linkedName;}public List<Long> linkedPositions(){return linkedPositions;}public List<Integer> linkedDimensions(){return linkedDimensions;}public List<String> linkedNames(){return linkedNames;}public List<Byte> linkedModes(){return linkedModes;}public List<Integer> linkedPriorities(){return linkedPriorities;}public List<String> linkedIconItemIds(){return linkedIconItemIds;}public List<Boolean> linkedWorldAvailable(){return linkedWorldAvailable;}
     public int page(){return page;}public int totalPages(){return totalPages;}public int totalEntries(){return totalEntries;}public boolean totalCountsSnapshot(){return totalCountsSnapshot;}public String search(){return search;}public String category(){return category;}public byte sort(){return sort;}public boolean ascending(){return ascending;}public boolean autoStoreMinedDrops(){return autoStoreMinedDrops;}public boolean useBdNetwork(){return useBdNetwork;}
     public List<String> categories(){return categories;}public List<ItemStack> itemStacks(){return itemStacks;}public List<Long> counts(){return counts;}public List<String> totalItemIds(){return totalItemIds;}public List<Long> totalItemCounts(){return totalItemCounts;}public List<String> fluidIds(){return fluidIds;}public List<Long> fluidAmounts(){return fluidAmounts;}public List<Long> fluidCapacities(){return fluidCapacities;}
     public List<String> recentIds(){return recentIds;}public List<Long> recentAmounts(){return recentAmounts;}public List<Long> recentCapacities(){return recentCapacities;}public List<Byte> recentKinds(){return recentKinds;}public List<String> quickSlotItemIds(){return quickSlotItemIds;}public List<ItemStack> quickSlotPreviews(){return quickSlotPreviews;}public List<String> guiBindingLabels(){return guiBindingLabels;}public List<String> guiBindingItemIds(){return guiBindingItemIds;}public boolean funnelEnabled(){return funnelEnabled;}public List<String> funnelBufferItemIds(){return funnelBufferItemIds;}public List<Long> funnelBufferCounts(){return funnelBufferCounts;}

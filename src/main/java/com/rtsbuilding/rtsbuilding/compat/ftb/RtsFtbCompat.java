@@ -7,6 +7,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.common.Loader;
 
 /** 1.12 FTB Quests、FTB Library 队伍和 FTB Utilities claims 的可选兼容入口。 */
@@ -55,6 +56,16 @@ public final class RtsFtbCompat {
         }
         return player != null && pos != null && CLAIMS_IMPL != null
                 && CLAIMS_IMPL.canInteractBlock(player, pos, hand, heldItem);
+    }
+
+    /** 使用目标世界的维度身份检查 claim，供跨维储存使用。 */
+    public static boolean canInteractBlockInWorld(EntityPlayerMP player, WorldServer level, BlockPos pos) {
+        if (!FTB_UTILITIES_LOADED) {
+            return true;
+        }
+        return player != null && level != null && pos != null && CLAIMS_IMPL != null
+                && CLAIMS_IMPL.canInteractBlockInDimension(
+                        player, pos, level.provider.getDimension(), level.getBlockState(pos));
     }
 
     public static boolean canInteractEntity(EntityPlayerMP player, Entity target, EnumHand hand,

@@ -11,7 +11,6 @@ import java.util.List;
 
 /** 储存页面 C2S 请求边界；页面和链接内容始终由该连接对应的服务端玩家会话构建。 */
 public final class RtsStoragePageHandlers1122 {
-    private static final String CAMERA="com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager";
     private static final String REGISTRY="com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry";
     private RtsStoragePageHandlers1122(){}
 
@@ -20,17 +19,11 @@ public final class RtsStoragePageHandlers1122 {
             if(!m.isValid())return null;
             final EntityPlayerMP p=c.getServerHandler().player;
             p.getServerWorld().addScheduledTask(new Runnable(){@Override public void run(){
-                if(!active(p))return;
+                // 容器 overlay 在相机退出后仍可能可见；权限由页面服务统一校验，不能在网络层静默丢弃搜索。
                 invokePage(p,m);
             }});
             return null;
         }
-    }
-
-    private static boolean active(EntityPlayerMP p){
-        try{return Boolean.TRUE.equals(Class.forName(CAMERA).getMethod("isActive",EntityPlayerMP.class).invoke(null,p));}
-        catch(ClassNotFoundException|NoSuchMethodException|IllegalAccessException e){throw new IllegalStateException("1.12.2 storage camera adapter unavailable",e);}
-        catch(InvocationTargetException e){throw propagate("Storage camera check failed",e);}
     }
 
     private static void invokePage(EntityPlayerMP p,C2SRtsRequestStoragePagePayload m){

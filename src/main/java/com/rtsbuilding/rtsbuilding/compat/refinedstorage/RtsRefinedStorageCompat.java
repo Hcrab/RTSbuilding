@@ -60,6 +60,30 @@ public final class RtsRefinedStorageCompat {
         return new RsNetworkItemHandler(player, network.network(), network.storageCache(), REFLECTION);
     }
 
+    /**
+     * 返回 Refined Storage 网络对象的引用身份，避免批量链接把同一网络的多个终端重复加入。
+     */
+    public static BatchNetworkProbe probeBatchNetwork(WorldServer world, BlockPos pos) {
+        if (world == null || pos == null || REFLECTION == null || !world.isBlockLoaded(pos)) {
+            return null;
+        }
+        RsNetworkRef network = REFLECTION.findNetwork(world, pos);
+        return network == null || network.network() == null ? null
+                : new BatchNetworkProbe(network.network());
+    }
+
+    public static final class BatchNetworkProbe {
+        private final Object identity;
+
+        private BatchNetworkProbe(Object identity) {
+            this.identity = identity;
+        }
+
+        public Object identity() {
+            return this.identity;
+        }
+    }
+
     private static final class RsNetworkItemHandler implements IItemHandler, ReportedCountItemHandler,
             AnySlotInsertItemHandler, RefreshableSnapshotHandler {
         private final EntityPlayerMP player;

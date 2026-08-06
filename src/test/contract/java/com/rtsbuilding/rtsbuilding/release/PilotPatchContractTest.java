@@ -22,7 +22,11 @@ class PilotPatchContractTest {
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.lang"));
 
         assertTrue(properties.lines().map(String::trim)
-                .anyMatch("mod_version = 1.1.6-1.12.2-port"::equals));
+                .anyMatch("mod_version = 1.1.7"::equals));
+        assertTrue(properties.lines().map(String::trim)
+                .anyMatch("mod_archive_name = rtsbuilding-forge-1.12.2"::equals));
+        assertTrue(properties.lines().map(String::trim)
+                .anyMatch("release_type = alpha"::equals));
         assertTrue(config.matches("(?s).*\"useBlockGhostPreview\",\\s*false,.*"));
         assertTrue(camera.contains("\"message.rtsbuilding.camera_locked\""));
         assertTrue(camera.contains("\"item.rtsbuilding.rts_control_core\""));

@@ -25,15 +25,21 @@ public final class RtsStorageBindingPacketHandlers {
             if(!m.isValid())return null; schedule(c,new Action(){public void run(EntityPlayerMP p){
                 if(inRange(p,m.pos()))call("linkStorage",new Class<?>[]{EntityPlayerMP.class,BlockPos.class,byte.class},p,m.pos(),m.linkMode());}});return null;}
     }
+    public static final class BatchLink implements IMessageHandler<C2SRtsBatchLinkStoragePayload,IMessage>{
+        public IMessage onMessage(final C2SRtsBatchLinkStoragePayload m,MessageContext c){
+            if(!m.isValid())return null; schedule(c,new Action(){public void run(EntityPlayerMP p){
+                call("linkStoragesInSelection",new Class<?>[]{EntityPlayerMP.class,BlockPos.class,BlockPos.class,byte.class},
+                        p,m.first(),m.second(),m.linkMode());}});return null;}
+    }
     public static final class Unlink implements IMessageHandler<C2SRtsUnlinkStoragePayload,IMessage>{
         public IMessage onMessage(final C2SRtsUnlinkStoragePayload m,MessageContext c){
             if(!m.isValid())return null; schedule(c,new Action(){public void run(EntityPlayerMP p){
-                call("unlinkStorage",new Class<?>[]{EntityPlayerMP.class,BlockPos.class},p,m.pos());}});return null;}
+                int dimension=m.dimension()==Integer.MIN_VALUE?p.dimension:m.dimension();call("unlinkStorage",new Class<?>[]{EntityPlayerMP.class,int.class,BlockPos.class},p,dimension,m.pos());}});return null;}
     }
     public static final class Update implements IMessageHandler<C2SRtsUpdateLinkedStoragePayload,IMessage>{
         public IMessage onMessage(final C2SRtsUpdateLinkedStoragePayload m,MessageContext c){
             if(!m.isValid())return null; schedule(c,new Action(){public void run(EntityPlayerMP p){
-                call("updateLinkedStorageSettings",new Class<?>[]{EntityPlayerMP.class,BlockPos.class,byte.class,int.class},p,m.pos(),m.linkMode(),m.priority());}});return null;}
+                int dimension=m.dimension()==Integer.MIN_VALUE?p.dimension:m.dimension();call("updateLinkedStorageSettings",new Class<?>[]{EntityPlayerMP.class,int.class,BlockPos.class,byte.class,int.class},p,dimension,m.pos(),m.linkMode(),m.priority());}});return null;}
     }
     public static final class FunnelTarget implements IMessageHandler<C2SRtsFunnelTargetPayload,IMessage>{
         public IMessage onMessage(final C2SRtsFunnelTargetPayload m,MessageContext c){

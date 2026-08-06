@@ -10,6 +10,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.items.IItemHandler;
 
@@ -53,6 +54,30 @@ public final class RtsAe2Compat {
         }
         Object inventory = REFLECTION.findNetworkInventory(world, pos);
         return inventory == null ? null : new Ae2NetworkItemHandler(player, inventory, REFLECTION);
+    }
+
+    /**
+     * 返回 AE2 网络库存对象的引用身份，专供批量存储链接去重使用。
+     * 不返回包装后的 IItemHandler，以免每次探测新建包装器而失去“同一网络”的精确判定。
+     */
+    public static BatchNetworkProbe probeBatchNetwork(WorldServer world, BlockPos pos) {
+        if (world == null || pos == null || REFLECTION == null || !world.isBlockLoaded(pos)) {
+            return null;
+        }
+        Object inventory = REFLECTION.findNetworkInventory(world, pos);
+        return inventory == null ? null : new BatchNetworkProbe(inventory);
+    }
+
+    public static final class BatchNetworkProbe {
+        private final Object identity;
+
+        private BatchNetworkProbe(Object identity) {
+            this.identity = identity;
+        }
+
+        public Object identity() {
+            return this.identity;
+        }
     }
 
     public static long getReportedCount(IItemHandler handler, int slot, ItemStack fallbackStack) {

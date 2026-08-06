@@ -128,6 +128,9 @@ final class BuilderScreenPointerActionOwner {
             if (screen.bottomPanel.handleClick(mouseX, mouseY)) {
                 return true;
             }
+            if (screen.handleStorageBatchWorldClick(mouseX, mouseY)) {
+                return true;
+            }
             if (screen.pendingGuiBindSlot >= 0 && screen.isWorldArea(mouseX, mouseY)) {
                 RayTraceResult hit = screen.cursorPicker.pickBlockHit();
                 if (hit != null) {
@@ -179,6 +182,17 @@ final class BuilderScreenPointerActionOwner {
             }
             return false;
         }
+
+    boolean handleStorageBatchWorldClick(double mouseX, double mouseY) {
+        if (!screen.storageBatchSelection.isActive()
+                || screen.controller.getMode() != BuilderMode.LINK_STORAGE
+                || !screen.isWorldArea(mouseX, mouseY)) {
+            return false;
+        }
+        RayTraceResult hit = screen.cursorPicker.pickBlockHit();
+        return screen.storageBatchSelection.click(
+                screen.getMinecraft(), hit == null ? null : hit.getBlockPos());
+    }
 
     boolean handleWorldClickActions(double mouseX, double mouseY, int button) {
             if (screen.handleAdvancedShapeHandleClick(mouseX, mouseY, button)) {

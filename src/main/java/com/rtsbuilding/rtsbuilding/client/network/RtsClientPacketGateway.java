@@ -147,6 +147,12 @@ public final class RtsClientPacketGateway {
         }
     }
 
+    public static void sendUnlinkStorage(int dimension, BlockPos pos) {
+        if (pos != null) {
+            send(new C2SRtsUnlinkStoragePayload(dimension, pos));
+        }
+    }
+
     public static void sendUpdateLinkedStorage(BlockPos pos, boolean extractOnly, int priority) {
         if (pos != null) {
             send(new C2SRtsUpdateLinkedStoragePayload(
@@ -478,6 +484,22 @@ public final class RtsClientPacketGateway {
                 rayDir.z));
     }
 
+    /** 智能填坑只发锚点与玩家意图；服务端负责重算闭合区域。 */
+    public static void sendConfirmSmartFill(RayTraceResult hit, int maxBlocks, int detectionDiameter,
+            String itemId, ItemStack itemPrototype, int rotateSteps,
+            Vec3d rayOrigin, Vec3d rayDir) {
+        if (hit == null || rayOrigin == null || rayDir == null) return;
+        BlockPos clicked = hit.getBlockPos();
+        if (clicked == null || hit.sideHit == null) return;
+        ItemStack prototype = itemPrototype == null ? ItemStack.EMPTY : itemPrototype.copy();
+        if (!prototype.isEmpty()) prototype.setCount(1);
+        send(new C2SRtsConfirmSmartFillPayload(clicked, (byte) hit.sideHit.getIndex(),
+                maxBlocks, detectionDiameter,
+                hit.hitVec.x - clicked.getX(), hit.hitVec.y - clicked.getY(), hit.hitVec.z - clicked.getZ(),
+                (byte) MathHelper.clamp(rotateSteps, 0, 3), itemId == null ? "" : itemId, prototype,
+                rayOrigin.x, rayOrigin.y, rayOrigin.z, rayDir.x, rayDir.y, rayDir.z));
+    }
+
     /**
      * 发送方块空手交互意图。
      *
@@ -669,6 +691,24 @@ public final class RtsClientPacketGateway {
                     toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                     toolProtectionEnabled));
         }
+    }
+
+    public static void sendUpdateLinkedStorage(int dimension, BlockPos pos, boolean extractOnly, int priority) {
+        if (pos != null) {
+            send(new C2SRtsUpdateLinkedStoragePayload(
+                    dimension, pos,
+                    extractOnly ? C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY
+                            : C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL,
+                    MathHelper.clamp(priority, -9999, 9999)));
+        }
+    }
+
+    /** 框选存储链接：服务端只接收边界并重新发现已加载端点。 */
+    public static void sendBatchLinkStorage(BlockPos first, BlockPos second, boolean allowStore) {
+        if (first == null || second == null) return;
+        send(new C2SRtsBatchLinkStoragePayload(first, second,
+                allowStore ? C2SRtsLinkStoragePayload.MODE_BIDIRECTIONAL
+                        : C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY));
     }
 
     public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,

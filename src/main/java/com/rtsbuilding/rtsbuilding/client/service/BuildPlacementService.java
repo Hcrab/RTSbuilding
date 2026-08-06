@@ -312,6 +312,15 @@ public final class BuildPlacementService {
         RtsClientOnlyBlockGuiCompat.tryOpenAfterAuthoritativeSend(hit);
     }
 
+    /** 智能填坑的第二次确认；坐标规划始终由服务端重做。 */
+    public void confirmSmartFill(RayTraceResult hit, int maxBlocks, int detectionDiameter,
+            Vec3d rayOrigin, Vec3d rayDir) {
+        if (hit == null || isBlank(this.selectedItemId)) return;
+        RtsClientPacketGateway.sendConfirmSmartFill(hit, maxBlocks, detectionDiameter,
+                this.selectedItemId, this.selectedItemPreview,
+                this.placeRotateSteps, rayOrigin, rayDir);
+    }
+
     public void interactEntityEmpty(int entityId, Vec3d hitLocation, Vec3d rayOrigin, Vec3d rayDir,
                                     Runnable beginRemoteMenuOpenGrace) {
         beginRemoteMenuOpenGrace.run();

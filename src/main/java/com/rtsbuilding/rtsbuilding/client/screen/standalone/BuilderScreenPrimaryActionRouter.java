@@ -75,6 +75,9 @@ final class BuilderScreenPrimaryActionRouter {
         if (!host.isWorldArea(mouseX, mouseY)) {
             return true;
         }
+        if (host.handleStorageBatchWorldClick(mouseX, mouseY)) {
+            return true;
+        }
         if (this.cullingManager.isManagementMode()) {
             return mouseButton == 0 || mouseButton < 0
                     ? host.handleRangeCullingWorldAction(mouseX, mouseY)

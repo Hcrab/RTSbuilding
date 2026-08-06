@@ -8,8 +8,6 @@ import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import java.awt.Color;
 import java.awt.AlphaComposite;
 import java.awt.Composite;
-import java.awt.Font;
-import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.Shape;
@@ -30,8 +28,10 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
     private final int logicalWidth;
     private final int logicalHeight;
     private final UiRenderStats stats = new UiRenderStats();
+    private final LegacyMinecraftFontRenderer font;
     private final Stack<Shape> clipStack = new Stack<Shape>();
     private final Stack<AffineTransform> transformStack = new Stack<AffineTransform>();
+    private double fontScale = 1.0D;
     private int maximumNineSliceQuads;
 
     public BufferedImageUiCanvas(int width, int height) {
@@ -39,11 +39,19 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
     }
 
     public BufferedImageUiCanvas(int width, int height, double scale) {
+        this(width, height, scale, LegacyMinecraftFontRenderer.fromConfiguredClientJar());
+    }
+
+    BufferedImageUiCanvas(int width, int height, double scale, LegacyMinecraftFontRenderer font) {
         if (scale <= 0.0D || Double.isNaN(scale) || Double.isInfinite(scale)) {
             throw new IllegalArgumentException("scale must be finite and positive");
         }
+        if (font == null) {
+            throw new IllegalArgumentException("font is required");
+        }
         image = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         graphics = image.createGraphics();
+        this.font = font;
         this.scale = scale;
         this.logicalWidth = Math.max(1, (int) Math.round(width / scale));
         this.logicalHeight = Math.max(1, (int) Math.round(height / scale));
@@ -51,7 +59,6 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
         graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
         graphics.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_OFF);
         graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_NEAREST_NEIGHBOR);
-        graphics.setFont(new Font(Font.DIALOG_INPUT, Font.PLAIN, 10));
     }
 
     public BufferedImage image() {
@@ -75,26 +82,20 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
     }
 
     public void configureFont(String language) {
-        String family = language != null && language.startsWith("zh")
-                ? "Microsoft YaHei UI" : Font.DIALOG_INPUT;
-        graphics.setFont(new Font(family, Font.PLAIN, 10));
+        // 原版字体按资源包字形覆盖所有语言；保留入口以兼容既有预览调用方。
     }
 
     public int textWidth(String text) {
-        return graphics.getFontMetrics().stringWidth(text == null ? "" : text);
+        return (int) Math.round(font.stringWidth(text) * fontScale);
     }
 
     public String trimToWidth(String text, int maximumWidth) {
         if (text == null || maximumWidth <= 0) return "";
-        FontMetrics metrics = graphics.getFontMetrics();
-        if (metrics.stringWidth(text) <= maximumWidth) return text;
+        if (textWidth(text) <= maximumWidth) return text;
         String suffix = "...";
-        int suffixWidth = metrics.stringWidth(suffix);
-        int end = text.length();
-        while (end > 0 && metrics.stringWidth(text.substring(0, end)) + suffixWidth > maximumWidth) {
-            end--;
-        }
-        return text.substring(0, end) + suffix;
+        int suffixWidth = textWidth(suffix);
+        int available = (int) Math.floor((maximumWidth - suffixWidth) / fontScale);
+        return font.trimStringToWidth(text, available) + suffix;
     }
 
     public void recordLayoutRebuild() {
@@ -142,15 +143,14 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
     }
 
     public void text(String text, double x, double baselineY, Color color) {
-        graphics.setColor(color);
-        graphics.drawString(text, round(x), round(baselineY));
+        drawTextAtTop(text, x, baselineY - font.fontHeight() * fontScale, color);
         stats.addPrimitives(1);
     }
 
     @Override
     public void text(String text, double x, double topY, UiColor color) {
-        text(text == null ? "" : text, x,
-                topY + graphics.getFontMetrics().getAscent(), new Color(color.toArgb(), true));
+        drawTextAtTop(text == null ? "" : text, x, topY, new Color(color.toArgb(), true));
+        stats.addPrimitives(1);
     }
 
     public void centeredText(String text, double centerX, double baselineY, Color color) {
@@ -203,12 +203,15 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
     }
 
     public void withFontSize(float size, Runnable draw) {
-        Font old = graphics.getFont();
-        graphics.setFont(old.deriveFont(size));
+        if (size <= 0.0F || Float.isInfinite(size) || Float.isNaN(size)) {
+            throw new IllegalArgumentException("font size must be finite and positive");
+        }
+        double old = fontScale;
+        fontScale = size / 10.0D;
         try {
             draw.run();
         } finally {
-            graphics.setFont(old);
+            fontScale = old;
         }
     }
 
@@ -268,5 +271,9 @@ public final class BufferedImageUiCanvas implements UiCanvas2D, AutoCloseable {
 
     private static int round(double value) {
         return (int) Math.round(value);
+    }
+
+    private void drawTextAtTop(String text, double x, double topY, Color color) {
+        font.drawString(graphics, text, x, topY, color, fontScale);
     }
 }

@@ -48,7 +48,7 @@ public final class StorageRenderer {
         World world = minecraft.world;
         long now = System.currentTimeMillis();
         List<LinkedStorageEntry> entries = controller.getLinkedStorageEntries();
-        Set<BlockPos> current = availablePositions(entries);
+        Set<BlockPos> current = availablePositions(world, entries);
         updateMembership(world, entries, current, now);
         advanceAnimations(world, current, now);
         RenderManager manager = minecraft.getRenderManager();
@@ -74,9 +74,9 @@ public final class StorageRenderer {
     public static void renderLinkedStorages(Minecraft minecraft,ClientRtsController controller,
             BufferBuilder callerBuffer){renderLinkedStorages(minecraft,controller);}
 
-    private static Set<BlockPos> availablePositions(List<LinkedStorageEntry> entries){
+    private static Set<BlockPos> availablePositions(World world,List<LinkedStorageEntry> entries){
         Set<BlockPos> result=new HashSet<BlockPos>();
-        for(LinkedStorageEntry entry:entries)if(entry.worldAvailable()&&entry.pos()!=null)result.add(entry.pos());
+        for(LinkedStorageEntry entry:entries)if(entry.worldAvailable()&&entry.dimension()==world.provider.getDimension()&&entry.pos()!=null)result.add(entry.pos());
         return result;
     }
 
@@ -101,7 +101,7 @@ public final class StorageRenderer {
         }
         for(LinkedStorageEntry entry:entries){
             BlockPos pos=entry.pos();
-            if(!entry.worldAvailable()||pos==null||previousPositions.contains(pos))continue;
+            if(!entry.worldAvailable()||entry.dimension()!=world.provider.getDimension()||pos==null||previousPositions.contains(pos))continue;
             StorageAnim old=ANIMS.get(pos);
             if(old==null||old.phase==Phase.UNBINDING)ANIMS.put(pos,new StorageAnim(Phase.BINDING,now));
         }
@@ -125,7 +125,7 @@ public final class StorageRenderer {
 
     private static void appendLinked(World world,LinkedStorageEntry entry,Vec3d camera,long now){
         BlockPos pos=entry.pos();
-        if(!entry.worldAvailable()||pos==null||!isLoadedStorage(world,pos))return;
+        if(!entry.worldAvailable()||entry.dimension()!=world.provider.getDimension()||pos==null||!isLoadedStorage(world,pos))return;
         AxisAlignedBB full=computeStorageBounds(world,pos,world.getBlockState(pos));
         boolean extract=entry.mode()==C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
         float tr=extract?1.00F:0.24F,tg=extract?0.30F:0.55F,tb=extract?0.82F:1.00F;

@@ -34,6 +34,9 @@ public interface BindingService {
      */
     void linkStorage(EntityPlayerMP player, BlockPos pos, byte linkMode);
 
+    /** 服务端按框选重新发现已加载端点并批量链接；不接受客户端列出的端点。 */
+    void linkStoragesInSelection(EntityPlayerMP player, BlockPos first, BlockPos second, byte linkMode);
+
     /**
      * 从玩家的 RTS 会话中解绑指定的存储方块。
      * 解绑后，该存储容器将不再可通过远程储存浏览器访问。
@@ -42,6 +45,11 @@ public interface BindingService {
      * @param pos    要解绑的存储方块坐标
      */
     void unlinkStorage(EntityPlayerMP player, BlockPos pos);
+
+    /** 按精确维度与坐标解绑；旧 API 仍默认使用玩家当前维度。 */
+    default void unlinkStorage(EntityPlayerMP player, int dimension, BlockPos pos) {
+        unlinkStorage(player, pos);
+    }
 
     /**
      * 更新已链接存储的设置，包括链接模式和优先级。
@@ -53,6 +61,12 @@ public interface BindingService {
      * @param priority 新的优先级（数值越大优先级越高）
      */
     void updateLinkedStorageSettings(EntityPlayerMP player, BlockPos pos, byte linkMode, int priority);
+
+    /** 按精确维度与坐标更新已存在链接，避免同坐标异维条目串改。 */
+    default void updateLinkedStorageSettings(EntityPlayerMP player, int dimension, BlockPos pos,
+            byte linkMode, int priority) {
+        updateLinkedStorageSettings(player, pos, linkMode, priority);
+    }
 
     /**
      * 启用或禁用掉落物漏斗功能。

@@ -51,6 +51,10 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private boolean animationExpanded = false;
     private final Set<String> expandedHintKeys = new HashSet<>();
     private SettingsId draggingCoreSensitivity = null;
+    /** 主题选择窗口由 BuilderScreen 创建；设置面板只保留本地入口，不拥有主题文件或渲染状态。 */
+    private Runnable openThemeSettings = new Runnable() {
+        @Override public void run() { }
+    };
 
     EnumSet<SettingsSectionId> coreExpandedSections() {
         EnumSet<SettingsSectionId> out = EnumSet.noneOf(SettingsSectionId.class);
@@ -104,6 +108,38 @@ public final class GearMenuPanel extends RtsWindowPanel {
     public void open() {
         setOpen(true);
         markBroughtToFront();
+    }
+
+    /** 由屏幕组装器注入主题窗口入口，避免齿轮面板反向依赖其它浮窗的生命周期。 */
+    public void setThemeSettingsOpenAction(Runnable action) {
+        this.openThemeSettings = action == null ? new Runnable() {
+            @Override public void run() { }
+        } : action;
+    }
+
+    @Override
+    protected boolean handleTitleBarAction(double mouseX, double mouseY, int button) {
+        if (button != 0 || !themeButtonBounds().contains(mouseX, mouseY)) return false;
+        openThemeSettings.run();
+        return true;
+    }
+
+    @Override
+    protected void renderTitleBarActions(LegacyGuiGraphics graphics, int mouseX, int mouseY) {
+        UiRect bounds = themeButtonBounds();
+        boolean hover = bounds.contains(mouseX, mouseY);
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(graphics, screen.font(), screen);
+        UiCompactFrameRenderer.frame(canvas, bounds,
+                hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND : SettingsWindowStyle.STEP_BACKGROUND,
+                SettingsWindowStyle.STEP_BORDER, SettingsWindowStyle.STEP_DARK_BORDER);
+        RtsClientUiUtil.drawCenteredStringNoShadow(graphics, screen.font(), text("screen.rtsbuilding.theme.open"),
+                (int) Math.round(bounds.getX() + bounds.getWidth() / 2.0D),
+                (int) Math.round(bounds.getY() + 6), SettingsWindowStyle.VALUE.toArgb());
+    }
+
+    /** 标题栏按钮保留关闭按钮左侧的固定安全间距，拖拽区域仍完整可用。 */
+    private UiRect themeButtonBounds() {
+        return new UiRect(windowX + Math.max(96, windowWidth - 104), windowY + 2, 68, 16);
     }
 
     @Override

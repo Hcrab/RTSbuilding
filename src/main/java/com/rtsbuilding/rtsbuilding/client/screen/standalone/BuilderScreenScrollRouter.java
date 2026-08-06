@@ -58,6 +58,9 @@ final class BuilderScreenScrollRouter {
                 mouseX, mouseY, scrollX, scrollY)) {
             return true;
         }
+        if (host.handleStorageBatchSelectionScroll(mouseX, mouseY, scrollY)) {
+            return true;
+        }
         boolean fast = host.isAltDown();
         if (BlueprintPanel.mouseScrolledCaptureHeight(scrollY, fast)) {
             return true;

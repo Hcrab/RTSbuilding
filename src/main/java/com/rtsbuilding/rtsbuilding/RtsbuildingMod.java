@@ -28,6 +28,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.storage.wake.RtsCrossDimensionStorageWakeService;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
@@ -151,6 +152,8 @@ public final class RtsbuildingMod {
     public void onServerStopping(FMLServerStoppingEvent event) {
         MinecraftServer server = requireActiveServer();
         try {
+            // WorldServer 仍可用时先归还跨维 ticket，避免停服后留下无法 unforce 的强加载。
+            RtsCrossDimensionStorageWakeService.INSTANCE.clear();
             for (EntityPlayerMP player : server.getPlayerList().getPlayers()) {
                 RtsTaskEngine.INSTANCE.preparePlayerDetach(player);
             }
@@ -190,6 +193,7 @@ public final class RtsbuildingMod {
             RtsEffectAccumulator.INSTANCE.clearAll();
             RtsDeveloperMetrics.clearAll();
             RtsPositionBatchAssembler1122.clearAll();
+            RtsCrossDimensionStorageWakeService.INSTANCE.clear();
         } finally {
             activeServer = null;
         }
@@ -243,6 +247,7 @@ public final class RtsbuildingMod {
             RtsStoragePageRequestCoalescer.clearPlayer(player.getUniqueID());
             RtsDeveloperMetrics.clearPlayer(player.getUniqueID());
             RtsPositionBatchAssembler1122.clearPlayer(player.getUniqueID());
+            RtsCrossDimensionStorageWakeService.INSTANCE.releasePlayer(player.getUniqueID());
             RtsPluginService.syncRelatedPlayers(player);
             RtsEffectAccumulator.INSTANCE.clearPlayer(player.getUniqueID());
             ServerHistoryManager.clear(player.getUniqueID());
@@ -284,6 +289,7 @@ public final class RtsbuildingMod {
             ServerTickOrchestrator.getInstance().tickMining(server);
             SaveScheduler.INSTANCE.onTick(server);
             TaskPersistenceRuntime.INSTANCE.tick();
+            RtsCrossDimensionStorageWakeService.INSTANCE.tick(server);
         }
     }
 }

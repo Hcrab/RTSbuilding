@@ -18,7 +18,9 @@ class QuickBuildButtonVisualStateContractTest {
         String button = Files.readString(Path.of(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/widget/WindowButton.java"));
 
-        assertTrue(renderer.contains("state.mode == mode && enabled"));
+        assertTrue(renderer.contains("state.mode != QuickBuildUiMode.DESTROY")
+                && renderer.contains("state.mode == QuickBuildUiMode.DESTROY")
+                && renderer.contains("&& enabled"));
         assertTrue(renderer.contains("QuickBuildStyle.mode(enabled, active, hovered)"));
         assertTrue(surface.contains("setSelectedVisual(option.selected)"));
         assertTrue(surface.contains("setSelectedVisual(control.selected)"));

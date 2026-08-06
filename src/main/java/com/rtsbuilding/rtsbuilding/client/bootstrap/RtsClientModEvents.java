@@ -3,7 +3,9 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraRenderSync;
 import com.rtsbuilding.rtsbuilding.client.rendering.RtsVisualOverlayRenderer;
+import com.rtsbuilding.rtsbuilding.client.theme.UiThemeStorage;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.client.event.ModelRegistryEvent;
 import net.minecraftforge.common.MinecraftForge;
@@ -38,6 +40,7 @@ public final class RtsClientModEvents {
 
     public static synchronized void register() {
         if (registered) return;
+        loadClientThemes();
         ClientKeyMappings.register();
         RenderingRegistry.registerEntityRenderingHandler(
                 RtsCameraEntity.class, RtsCameraEntityRenderer::new);
@@ -50,6 +53,18 @@ public final class RtsClientModEvents {
         String username = minecraft.getSession() == null
                 ? "unknown" : minecraft.getSession().getUsername();
         LOGGER.info("RTSBuilding 客户端初始化完成，当前用户 " + username);
+    }
+
+    /**
+     * 在任何 RTS 窗口第一次读取动态语义色之前恢复客户端主题。损坏的单个文件只记录告警，
+     * 当前会话保留 Legacy；这里绝不读取服务器配置、世界存档或网络数据。
+     */
+    private static void loadClientThemes() {
+        UiThemeStorage storage = UiThemeStorage.defaultStorage();
+        for (String error : storage.loadAll(UiThemeRuntime.registry())) {
+            LOGGER.warning("RTSBuilding UI 主题未加载: " + error);
+        }
+        storage.restoreActiveTheme();
     }
 
     private static void initializeMovementModes() {

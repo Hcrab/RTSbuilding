@@ -29,9 +29,11 @@ public final class UiPreviewMain {
             }
         }
         TopBarAnimationPreviewRenderer.render(outputDirectory);
+        QuickBuildControlAnimationPreviewRenderer.render(outputDirectory);
         System.out.println("Rendered " + scenarios.size() + " headless UI preview scenes and "
-                + TopBarAnimationPreviewRenderer.SLICE_COUNT
-                + " top-bar animation slices to " + outputDirectory);
+                + (TopBarAnimationPreviewRenderer.SLICE_COUNT
+                + QuickBuildControlAnimationPreviewRenderer.SLICE_COUNT)
+                + " animation slices to " + outputDirectory);
     }
 
     static File outputDirectory(String[] args) {

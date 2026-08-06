@@ -34,7 +34,9 @@ class UnifiedLongTaskRuntimeContractTest {
     @Test
     void funnelEntityQueryHasHardResultLimit() throws IOException {
         String source = read("server/service/impl/RtsFunnelServiceImpl.java");
-        assertTrue(source.contains("RtsBoundedItemEntityQuery.query("));
+        assertTrue(source.contains("RtsBoundedCollectibleEntityQuery.query("));
+        assertTrue(source.contains("instanceof EntityXPOrb"));
+        assertTrue(source.contains("experienceOrb.onCollideWithPlayer(player)"));
         assertFalse(source.contains("getEntitiesWithinAABB("));
     }
 

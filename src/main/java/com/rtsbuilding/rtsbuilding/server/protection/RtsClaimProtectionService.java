@@ -7,6 +7,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 /**
  * RTS 世界修改的统一区块保护入口。
@@ -31,6 +32,18 @@ public final class RtsClaimProtectionService {
             EnumHand hand, ItemStack heldItem) {
         return player != null && pos != null
                 && RtsOpenPacCompat.canInteractBlock(player, pos, face, hand, heldItem);
+    }
+
+    /** 在目标世界检查储存端点；跨维时直接查询目标维度的 claim，不改变玩家所在世界。 */
+    public static boolean canInteractBlockInWorld(EntityPlayerMP player, WorldServer level, BlockPos pos,
+            EnumFacing face, EnumHand hand, ItemStack heldItem) {
+        if (player == null || level == null || pos == null || !level.isBlockModifiable(player, pos)) {
+            return false;
+        }
+        if (player.getServerWorld() != level) {
+            return RtsOpenPacCompat.canInteractBlockInWorld(player, level, pos);
+        }
+        return canInteractBlock(player, pos, face, hand, heldItem);
     }
 
     public static boolean canInteractEntity(EntityPlayerMP player, Entity target, EnumHand hand,

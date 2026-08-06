@@ -66,18 +66,23 @@ public final class RtsLinkedHandlerResolutionService {
                 UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
                 boolean backpackLink = backpackUuid != null;
                 boolean sameDimension = currentDimension == ref.dimension();
+                WorldServer targetLevel = player.getServer() == null
+                        ? null : player.getServer().getWorld(ref.dimension());
                 IItemHandler handler = null;
 
-                if (sameDimension && RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref)) {
-                    Object endpointIdentity = player.getServerWorld().getTileEntity(pos);
+                if (RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref)) {
+                    Object endpointIdentity = targetLevel.getTileEntity(pos);
                     handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
-                            player.getUniqueID(), currentDimension, pos, backpackUuid, endpointIdentity,
+                            player.getUniqueID(), ref.dimension(), pos, backpackUuid, endpointIdentity,
                             () -> backpackLink
-                                    ? findMatchingBackpackBlockHandler(player, pos, backpackUuid)
-                                    : RtsLinkedCapabilities.findLinkedItemHandler(player, pos));
+                                    ? findMatchingBackpackBlockHandler(player, targetLevel, pos, backpackUuid, sameDimension)
+                                    : resolveItemHandler(player, targetLevel, pos, sameDimension));
                 }
 
                 if (handler == null && backpackLink) {
+                    if (!sameDimension && !RtsLinkedStorageResolver.isCrossDimensionStorageAllowed(player)) {
+                        continue;
+                    }
                     handler = RtsEndpointLeaseCache.INSTANCE.resolveItem(
                             player.getUniqueID(), ref.dimension(), pos, backpackUuid, null,
                             () -> RtsBackpackCompat.openBackpack(backpackUuid,
@@ -88,7 +93,7 @@ public final class RtsLinkedHandlerResolutionService {
                     continue;
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
-                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), pos));
+                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(targetLevel, pos));
                 BooleanSupplier storePermission = () -> RtsLinkedStorageResolver.isStoreAllowed(session, ref);
                 boolean allowStore = storePermission.getAsBoolean();
                 out.add(new LinkedHandler(ref, name, new LinkedItemHandlerView(handler, storePermission), allowStore,
@@ -161,21 +166,22 @@ public final class RtsLinkedHandlerResolutionService {
         List<LinkedFluidHandler> out = new ArrayList<>();
 
         if (!session.linkedStorageInfo.getAll().isEmpty()) {
-            int currentDimension = player.dimension;
             for (LinkedStorageRef ref : session.linkedStorageInfo.getAll()) {
-                if (ref == null || ref.pos() == null || currentDimension != ref.dimension()) {
+                if (ref == null || ref.pos() == null) {
                     continue;
                 }
                 BlockPos pos = ref.pos();
+                WorldServer targetLevel = player.getServer() == null
+                        ? null : player.getServer().getWorld(ref.dimension());
                 if (!RtsLinkedStorageResolver.isLinkedRefWorldVisible(player, session, ref)) {
                     continue;
                 }
-                IFluidHandler handler = RtsLinkedCapabilities.findFluidHandler(player, pos);
+                IFluidHandler handler = RtsLinkedCapabilities.findFluidHandlerInLevel(targetLevel, pos);
                 if (handler == null) {
                     continue;
                 }
                 String name = session.linkedStorageInfo.computeNameIfAbsent(ref,
-                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(player.getServerWorld(), pos));
+                        ignored -> RtsLinkedStorageResolver.resolveDisplayName(targetLevel, pos));
                 BooleanSupplier storePermission = () -> RtsLinkedStorageResolver.isStoreAllowed(session, ref);
                 boolean allowStore = storePermission.getAsBoolean();
                 out.add(new LinkedFluidHandler(ref, name, new LinkedFluidHandlerView(handler, storePermission), allowStore,
@@ -246,11 +252,19 @@ public final class RtsLinkedHandlerResolutionService {
     }
 
     private static IItemHandler findMatchingBackpackBlockHandler(
-            EntityPlayerMP player, BlockPos pos, UUID expectedUuid) {
-        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(player.getServerWorld(), pos))) {
+            EntityPlayerMP player, WorldServer level, BlockPos pos, UUID expectedUuid, boolean sameDimension) {
+        if (expectedUuid == null || !expectedUuid.equals(readBackpackUuid(level, pos))) {
             return null;
         }
-        return RtsLinkedCapabilities.findLinkedItemHandler(player, pos);
+        return resolveItemHandler(player, level, pos, sameDimension);
+    }
+
+    /** 异维只走原生 Capability；AE2/RS 适配器仍仅在本维且实际依赖存在时参与。 */
+    private static IItemHandler resolveItemHandler(EntityPlayerMP player, WorldServer level,
+            BlockPos pos, boolean sameDimension) {
+        return sameDimension
+                ? RtsLinkedCapabilities.findLinkedItemHandler(player, pos)
+                : RtsLinkedCapabilities.findHandlerInLevel(level, pos);
     }
 
     private static UUID readBackpackUuid(WorldServer level, BlockPos pos) {

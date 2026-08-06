@@ -35,7 +35,9 @@ class RtsOpenPacCompatContractTest {
                 "1.12 block interaction claims must preserve action context");
         assertTrue(facade.contains("RtsFtbCompat.canInteractEntity(player, target, hand, heldItem, attack)"),
                 "1.12 entity claims must preserve interaction/attack intent");
-        assertTrue(count(facade, "&& !OPENPAC_LOADED") == 4,
+        assertTrue(facade.contains("RtsFtbCompat.canInteractBlockInWorld(player, level, pos)"),
+                "cross-dimension storage must ask FTB Utilities about the target dimension");
+        assertTrue(count(facade, "&& !OPENPAC_LOADED") == 5,
                 "an unknown OpenPAC backport must fail closed for every world action");
     }
 

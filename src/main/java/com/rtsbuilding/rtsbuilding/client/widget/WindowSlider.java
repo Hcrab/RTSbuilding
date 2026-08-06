@@ -1,10 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.input.overlay.LegacyGuiGraphics;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
 import com.rtsbuilding.rtsbuilding.uikit.layout.WindowSliderLayout;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiMotionSpec;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiValueAnimation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.math.MathHelper;
 
@@ -27,6 +31,8 @@ public class WindowSlider {
     private boolean visible = true;
     private boolean dragging = false;
     private Consumer<Integer> onChange;
+    /** 逻辑值立刻提交；该对象只让 Legacy 纹理轨道上的旋钮平滑追随。 */
+    private final UiValueAnimation displayValue = new UiValueAnimation(SystemUiClock.INSTANCE);
 
     public WindowSlider(int x, int y, int width, int height, int min, int max, int value) {
         this.x = x;
@@ -118,7 +124,8 @@ public class WindowSlider {
     // ======================== Private helpers ========================
 
     private WindowSliderLayout.Geometry geometry() {
-        return WindowSliderLayout.geometry(bounds(), min, max, value);
+        double shown = displayValue.update(value, Config.isUiAnimationsEnabled(), UiMotionSpec.SLIDER_MS);
+        return WindowSliderLayout.geometry(bounds(), min, max, shown, value);
     }
 
     private UiRect bounds() {

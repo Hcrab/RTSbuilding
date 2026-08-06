@@ -413,6 +413,9 @@ public final class CameraInputHandler {
         if (screen.isQuickBuildRangeDestroyMode() && !screen.isQuickBuildRangeDestroyChainMode()) {
             return screen.handleQuickBuildRangeDestroyClick(mouseX, mouseY);
         }
+        if (screen.isQuickBuildSmartFillMode()) {
+            return screen.handleQuickBuildSmartFillClick();
+        }
         if (!screen.isQuickBuildRangeDestroyMode() && screen.getShapeController().hasConfirmedDestroyWorkArea()) {
             return false;
         }

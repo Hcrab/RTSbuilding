@@ -8,29 +8,31 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
  * 进度条可以统一换肤，同时不会把游戏状态带进 Kit。</p>
  */
 public final class OverlayStyle {
-    public static final UiColor HOME_BACKGROUND = new UiColor(0xCC101820);
-    public static final UiColor HOME_BORDER_LIGHT = new UiColor(0xFF6E8799);
-    public static final UiColor HOME_BORDER_DARK = new UiColor(0xFF0D1218);
+    public static final UiColor HOME_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_IDLE, 0XCC101820);
+    public static final UiColor HOME_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF6E8799);
+    public static final UiColor HOME_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF0D1218);
     public static final UiColor HOME_TITLE = RtsMainlineTheme.BUTTON_TEXT;
-    public static final UiColor HOME_AREA = new UiColor(0xFFD8E6F5);
-    public static final UiColor HOME_CONFIRM = new UiColor(0xFFBFD2E6);
+    public static final UiColor HOME_AREA = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFD8E6F5);
+    public static final UiColor HOME_CONFIRM = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFBFD2E6);
     public static final UiColor HOME_GUIDE = RtsMainlineTheme.GUIDE_HINT;
 
-    public static final UiColor POPUP_BACKGROUND = new UiColor(0xEE151A22);
+    public static final UiColor POPUP_BACKGROUND = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.CONTROL_IDLE, 0XEE151A22);
     public static final UiColor POPUP_BORDER_LIGHT = RtsMainlineTheme.INPUT_BORDER_LIGHT;
     public static final UiColor POPUP_BORDER_DARK = RtsMainlineTheme.WINDOW_BORDER_DARK;
     public static final UiColor POPUP_TITLE = RtsMainlineTheme.WINDOW_TITLE_TEXT;
-    public static final UiColor STATUS_NORMAL = new UiColor(0xFFCFE3F7);
+    public static final UiColor STATUS_NORMAL = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFFCFE3F7);
     public static final UiColor STATUS_UNAVAILABLE = RtsMainlineTheme.GUIDE_HINT;
-    public static final UiColor STATUS_ERROR = new UiColor(0xFFFFB0B0);
+    public static final UiColor STATUS_ERROR = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.ERROR, 0XFFFFB0B0);
 
-    public static final UiColor PROGRESS_TRACK = new UiColor(0xAA202832);
-    public static final UiColor PROGRESS_RUNNING = new UiColor(0xFF88BEF4);
-    public static final UiColor PROGRESS_COMPLETE = new UiColor(0xFF78B28C);
-    public static final UiColor PROGRESS_ERROR = new UiColor(0xFFE07070);
-    public static final UiColor PROGRESS_BORDER_LIGHT = new UiColor(0xFF405064);
-    public static final UiColor PROGRESS_BORDER_DARK = new UiColor(0xFF0A0D12);
-    public static final UiColor CURSOR_LINE = new UiColor(0xFFFFFFFF);
+    public static final UiColor PROGRESS_TRACK = UiColor.themeComponentWithLegacyAlpha(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SURFACE_SUNKEN, 0XAA202832);
+    public static final UiColor PROGRESS_RUNNING = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.TEXT_PRIMARY, 0XFF88BEF4);
+    public static final UiColor PROGRESS_COMPLETE = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.SUCCESS, 0XFF78B28C);
+    public static final UiColor PROGRESS_ERROR = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.ERROR, 0XFFE07070);
+    public static final UiColor PROGRESS_BORDER_LIGHT = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_STRONG, 0XFF405064);
+    public static final UiColor PROGRESS_BORDER_DARK = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY, UiThemeToken.BORDER_SOFT, 0XFF0A0D12);
+    public static final UiColor CURSOR_LINE = UiColor.themeComponent(
+            UiThemeCoverageCatalog.ComponentFamily.HUD_OVERLAY,
+            UiThemeToken.TEXT_ON_ACCENT, 0XFFFFFFFF);
     public static final UiColor CURSOR_TRANSPARENT = RtsMainlineTheme.TRANSPARENT;
 
     public static UiColor questStatus(boolean error, boolean unavailable) {

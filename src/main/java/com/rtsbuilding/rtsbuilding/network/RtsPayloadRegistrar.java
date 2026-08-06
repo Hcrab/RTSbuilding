@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.RtsCameraPackets;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStoragePackets;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsActionControlPackets;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsMiningPackets1122;
+import com.rtsbuilding.rtsbuilding.network.builder.RtsSmartFillPackets1122;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsPlacementActionPackets1122;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBlockActionSoundPackets1122;
 import com.rtsbuilding.rtsbuilding.network.builder.RtsBuilderSyncPackets1122;
@@ -60,6 +61,7 @@ public final class RtsPayloadRegistrar {
         RtsActionControlPackets.register();
         RtsPathfindingPackets.register();
         RtsMiningPackets1122.register();
+        RtsSmartFillPackets1122.register();
         RtsPlacementActionPackets1122.register();
         RtsBlockActionSoundPackets1122.register();
         RtsPluginPackets.register();
