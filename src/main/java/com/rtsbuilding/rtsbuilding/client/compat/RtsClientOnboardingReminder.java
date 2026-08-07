@@ -22,7 +22,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
-    private static final String STABLE_VERSION = "1.1.6-patch3";
+    private static final String STABLE_VERSION = "1.1.6-patch2";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean shownThisConnection;

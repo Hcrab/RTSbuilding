@@ -28,6 +28,8 @@ class RtsAiHelpPromptTest {
                 "general log tail", "[Workflow] RTS log", true);
 
         assertTrue(prompt.contains("Current RTS mode: Interact"));
+        assertTrue(prompt.contains("Technical Information Appendix"));
+        assertTrue(prompt.contains("reply “反馈渠道”"));
         assertTrue(prompt.contains("# Getting started"));
         assertTrue(prompt.contains("2–5 distinct troubleshooting paths"));
         assertTrue(prompt.contains("Label anything not directly supported"));
