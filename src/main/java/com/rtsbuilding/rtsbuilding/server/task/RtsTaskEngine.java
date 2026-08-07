@@ -538,7 +538,8 @@ public final class RtsTaskEngine {
         String dimensionId = player.getLevel().dimension().location().toString();
         var workflowIds = com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
                 .coordinator().query().ownedBy(player.getUUID()).stream()
-                .filter(snapshot -> snapshot.type() == TaskType.MINING && !snapshot.state().terminal())
+                .filter(snapshot -> (snapshot.type() == TaskType.MINING
+                        || snapshot.type() == TaskType.DESTRUCTION) && !snapshot.state().terminal())
                 .filter(snapshot -> snapshot.dimensionId().equals(dimensionId))
                 .map(com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot::workflowEntryId)
                 .filter(entryId -> entryId >= 0)
