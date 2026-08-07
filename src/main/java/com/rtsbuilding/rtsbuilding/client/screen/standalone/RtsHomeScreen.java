@@ -114,6 +114,13 @@ public final class RtsHomeScreen extends Screen {
     }
 
     @Override
+    public void onClose() {
+        if (this.minecraft != null) {
+            this.minecraft.setScreen(this.parent);
+        }
+    }
+
+    @Override
     protected void renderBlurredBackground(float partialTick) {
     }
 
