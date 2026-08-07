@@ -10,6 +10,8 @@ public final class StandaloneScreenStyle {
     public static final UiColor PAGE_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XFF101820);
     public static final UiColor BAR_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XFF151B23);
     public static final UiColor BAR_DIVIDER = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.BORDER_STRONG, 0XFF273747);
+    public static final UiColor DIALOG_SCRIM = UiColor.themeComponentWithLegacyAlpha(
+            UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CANVAS, 0X99000000);
     public static final UiColor TITLE_TEXT = RtsMainlineTheme.BUTTON_TEXT;
 
     public static final UiColor INFO_ROW_BACKGROUND = UiColor.themeComponent(UiThemeCoverageCatalog.ComponentFamily.MODAL, UiThemeToken.CONTROL_IDLE, 0XFF17202A);

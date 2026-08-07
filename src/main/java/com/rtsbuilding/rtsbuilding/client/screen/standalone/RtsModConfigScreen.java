@@ -545,7 +545,7 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     private void renderConfirmDialog(GuiGraphics g) {
-        g.fill(0, 0, this.width, this.height, 0x99000000);
+        g.fill(0, 0, this.width, this.height, StandaloneScreenStyle.DIALOG_SCRIM.toArgb());
         UiRect rect = dialogRect();
         int x = (int) rect.getX();
         int y = (int) rect.getY();
