@@ -31,7 +31,7 @@ public final class RtsCrossDimensionStorageGameTests implements FabricGameTest {
   private static final String EMPTY_TEMPLATE = FabricGameTest.EMPTY_STRUCTURE;
   private static final BlockPos FAR_NETHER_POS = new BlockPos(96_008, 64, 96_008);
 
-  private RtsCrossDimensionStorageGameTests() {}
+  public RtsCrossDimensionStorageGameTests() {}
 
   @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 200)
   public static void crossDimensionWakeLoadsChunkWithoutBlocking(GameTestHelper helper) {

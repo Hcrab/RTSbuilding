@@ -33,7 +33,7 @@ import net.minecraft.world.phys.Vec3;
 public final class RtsSmartFillGameTests implements FabricGameTest {
   private static final String EMPTY_TEMPLATE = FabricGameTest.EMPTY_STRUCTURE;
 
-  private RtsSmartFillGameTests() {}
+  public RtsSmartFillGameTests() {}
 
   @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 160, batch = "smart_fill")
   public static void boundedHoleIsReplannedPlacedAndUndoable(GameTestHelper helper) {

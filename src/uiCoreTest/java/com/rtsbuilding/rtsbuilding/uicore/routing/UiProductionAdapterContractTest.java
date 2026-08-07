@@ -194,7 +194,6 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintNameDialog.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintMaterialDialog.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java"
         };
@@ -205,6 +204,11 @@ class UiProductionAdapterContractTest {
             assertFalse(source.contains("mouseY <= "), path);
             assertFalse(source.contains("private static boolean inside("), path);
         }
+        String terminal = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java");
+        assertTrue(terminal.contains("CraftTerminalLayout"));
+        assertTrue(terminal.contains("layout.actionAt("));
+        assertTrue(terminal.contains(".contains("));
         String builder = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
                 + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
@@ -250,12 +254,18 @@ class UiProductionAdapterContractTest {
     void craftTerminal颜色与框体进入Kit主题和九宫格() throws IOException {
         String terminal = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java");
+        String renderer = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/craftterminal/CraftTerminalRenderer.java");
+        String layout = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/CraftTerminalLayout.java");
         String style = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/CraftTerminalStyle.java");
 
         assertTrue(terminal.contains("CraftTerminalStyle."));
-        assertTrue(terminal.contains("UiChromeRenderer.frame("));
-        assertTrue(terminal.contains("UiRect.contains("));
+        assertTrue(renderer.contains("layout.skinSlices()"));
+        assertTrue(renderer.contains("renderSlice("));
+        assertTrue(layout.contains("TextureSlice[] skinSlices()"));
+        assertTrue(terminal.contains("layout.actionAt("));
         assertFalse(terminal.matches("(?s).*0x[0-9A-Fa-f]{6,8}.*"));
         assertFalse(terminal.contains("RtsClientUiUtil.drawPanelFrame("));
         assertTrue(style.contains("importBackground(boolean carriedStackPresent)"));

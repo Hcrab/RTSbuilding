@@ -16,7 +16,7 @@ import net.minecraft.world.level.block.Blocks;
 public final class RtsBatchStorageGameTests implements FabricGameTest {
   private static final String EMPTY_TEMPLATE = FabricGameTest.EMPTY_STRUCTURE;
 
-  private RtsBatchStorageGameTests() {}
+  public RtsBatchStorageGameTests() {}
 
   @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
   public static void selectionLinksLoadedContainersAndIsIdempotent(GameTestHelper helper) {

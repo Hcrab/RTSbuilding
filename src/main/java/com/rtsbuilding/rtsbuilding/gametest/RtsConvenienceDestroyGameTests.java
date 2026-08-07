@@ -27,7 +27,7 @@ import net.minecraft.world.level.block.Blocks;
 public final class RtsConvenienceDestroyGameTests implements FabricGameTest {
   private static final String EMPTY_TEMPLATE = FabricGameTest.EMPTY_STRUCTURE;
 
-  private RtsConvenienceDestroyGameTests() {}
+  public RtsConvenienceDestroyGameTests() {}
 
   @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
   public static void repeatXyzSettingsPlanAtTwoIndependentAnchors(GameTestHelper helper) {

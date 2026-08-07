@@ -30,7 +30,7 @@ import net.minecraft.world.phys.Vec3;
 public final class RtsRemoteMenuGameTests implements FabricGameTest {
   private static final String EMPTY_TEMPLATE = FabricGameTest.EMPTY_STRUCTURE;
 
-  private RtsRemoteMenuGameTests() {}
+  public RtsRemoteMenuGameTests() {}
 
   @GameTest(template = EMPTY_TEMPLATE, timeoutTicks = 80)
   public static void farRtsChestSurvivesServerDistanceValidation(GameTestHelper helper) {
