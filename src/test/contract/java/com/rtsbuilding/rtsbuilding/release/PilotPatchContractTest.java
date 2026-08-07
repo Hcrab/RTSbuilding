@@ -8,10 +8,10 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Forge 1.19.2 正式 1.1.7 移植线的版本与玩家提示契约。
+ * Forge 1.19.2 0.0.2 测试线的版本与玩家提示契约。
  *
- * <p>1.1.7 三版本同步后语言文件仍不硬编码版本；入门提醒必须
- * 从 Forge ModContainer 读取实际版本，并把版本与官网作为两个参数传入。</p>
+ * <p>语言文件不硬编码当前版本；入门提醒必须从 Forge ModContainer 读取实际版本，
+ * 并把本版本线回退说明与官网作为参数传入。</p>
  */
 class PilotPatchContractTest {
     @Test
@@ -26,8 +26,8 @@ class PilotPatchContractTest {
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
-        assertTrue(properties.lines().anyMatch("mod_version=1.1.7"::equals),
-                "Forge 1.19.2 正式移植必须报告 1.1.7 版本");
+        assertTrue(properties.lines().anyMatch("mod_version=0.0.2"::equals),
+                "Forge 1.19.2 测试线必须报告 0.0.2 版本");
         assertTrue(properties.lines().anyMatch(
                         "mod_archive_name=rtsbuilding-forge-1.19.2"::equals),
                 "JAR 名必须显式包含加载器和 Minecraft 版本");
@@ -40,10 +40,12 @@ class PilotPatchContractTest {
         assertTrue(onboarding.contains("ModList.get()")
                         && onboarding.contains("getModContainerById(RtsbuildingMod.MODID)")
                         && onboarding.contains("Component.literal(currentModVersion())")
+                        && onboarding.contains("STABLE_VERSION = \"No prior Forge 1.19.2 release\"")
+                        && onboarding.contains("Component.literal(STABLE_VERSION)")
                         && onboarding.contains("websiteComponent()"),
-                "入门提醒必须从运行中的 Forge ModContainer 读取实际版本，并传入官网链接");
-        assertTrue(zhCn.contains("%1$s") && zhCn.contains("%2$s"),
-                "入门提醒翻译必须为实际版本和官网保留两个占位符");
+                "入门提醒必须读取实际版本，并传入本线回退说明和官网链接");
+        assertTrue(zhCn.contains("%1$s") && zhCn.contains("%2$s") && zhCn.contains("%3$s"),
+                "入门提醒翻译必须为当前版本、回退说明和官网保留三个占位符");
         assertFalse(zhCn.contains("1.1.6-pilot") || zhCn.contains("1.1.5-patch4"),
                 "语言资源不能硬编码任一发布线版本号");
     }
