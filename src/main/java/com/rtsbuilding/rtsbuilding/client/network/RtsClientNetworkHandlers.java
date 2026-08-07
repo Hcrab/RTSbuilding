@@ -1,12 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
-
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.PlacementHistoryManager;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
@@ -18,6 +19,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
+import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
@@ -30,6 +32,15 @@ import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 public final class RtsClientNetworkHandlers {
     private RtsClientNetworkHandlers() {
+    }
+
+    /** 把服务端终态回执交给客户端诊断追踪器闭合，不改变玩家操作结果。 */
+    public static void handleOperationTerminal(
+            S2CRtsOperationTerminalPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            RtsClientOperationDiagnostics.serverTerminal(payload);
+            RtsClientPacketGateway.handleOperationTerminal(payload.traceId());
+        });
     }
 
     public static void handleCameraState(S2CRtsCameraStatePayload payload, IPayloadContext context) {
@@ -61,6 +72,10 @@ public final class RtsClientNetworkHandlers {
 
     public static void handleCraftFeedback(S2CRtsCraftFeedbackPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyCraftFeedback(payload));
+    }
+
+    public static void handleCullingState(S2CRtsCullingStatePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> RtsCullingClientState.applyCurrentWorldState(payload));
     }
 
     public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload, IPayloadContext context) {
@@ -110,7 +125,8 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize()));
+        context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(
+                payload.undoSize(), payload.redoSize()));
     }
 
     public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload, IPayloadContext context) {

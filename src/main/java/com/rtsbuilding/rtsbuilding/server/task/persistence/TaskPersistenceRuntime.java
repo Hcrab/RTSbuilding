@@ -470,6 +470,18 @@ public final class TaskPersistenceRuntime {
         return started();
     }
 
+    /** 健康诊断读取的聚合状态；不暴露任务内容、文件路径或可变仓库。 */
+    public Diagnostics diagnostics() {
+        TaskPersistenceCoordinator current = coordinator;
+        return current == null
+                ? new Diagnostics(0, false, 0)
+                : new Diagnostics(current.dirtyCount(), inFlight != null,
+                        blueprintAdmissionQueue == null ? 0 : blueprintAdmissionQueue.pendingCount());
+    }
+
+    public record Diagnostics(int dirty, boolean inFlight, int pendingAssetAdmissions) {
+    }
+
     private static void verifyManifestAssets(TaskPersistenceCoordinator coordinator,
             AtomicBlueprintBlobRepository blobs, BlueprintBlobCodec blobCodec) {
         for (TaskAssetMetadata metadata : coordinator.assetManifest().entries().values()) {

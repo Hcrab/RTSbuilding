@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.*;
@@ -20,6 +21,7 @@ import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoal
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import com.rtsbuilding.rtsbuilding.server.storage.port.RtsFluidPlatform;
+import com.rtsbuilding.rtsbuilding.server.storage.wake.RtsCrossDimensionStorageWakeService;
 import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
@@ -121,6 +123,7 @@ public class RtsbuildingMod {
 
         // 注册所有工作流管线，为蓝图放置、挖掘等操作建立处理链路
         RtsPipelineRegistration.registerAll();
+        RtsOperationDiagnostics.install();
 
         LOGGER.info("RTSBuilding 通用初始化完成");
     }
@@ -246,6 +249,7 @@ public class RtsbuildingMod {
         @SubscribeEvent
         static void onServerStopped(ServerStoppedEvent event) {
             RuntimeException durableFailure = null;
+            RtsCrossDimensionStorageWakeService.INSTANCE.clear(event.getServer());
             try {
                 // Minecraft 会在 ServerStopping 之后才移除在线玩家；等所有 logout flush 完成再关 writer。
                 // 启动期读取 root 失败时 ServerStopped 仍会触发；此时没有 writer 可关，不能用二次异常覆盖首因。
@@ -266,6 +270,10 @@ public class RtsbuildingMod {
             RtsStoragePageRequestCoalescer.clearAll();
             RtsEffectAccumulator.INSTANCE.clearAll();
             RtsDeveloperMetrics.clearAll();
+            com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry.reset();
+            com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerHealthDiagnostics.reset();
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsAsyncJsonlWriter
+                    .flush(java.time.Duration.ofSeconds(2));
             if (durableFailure != null) throw durableFailure;
         }
 
@@ -316,6 +324,8 @@ public class RtsbuildingMod {
                 // 清除进度刷新缓存
                 RtsProgressRefresher.clearPlayerCache(serverPlayer.getUUID());
                 RtsStoragePageRequestCoalescer.clearPlayer(serverPlayer.getUUID());
+                RtsCrossDimensionStorageWakeService.INSTANCE.releasePlayer(
+                        serverPlayer.level().getServer(), serverPlayer.getUUID());
                 RtsDeveloperMetrics.clearPlayer(serverPlayer.getUUID());
                 // 同步相关玩家持久化数据
                 RtsPluginService.syncRelatedPlayers(serverPlayer);
@@ -359,6 +369,7 @@ public class RtsbuildingMod {
         static void onChunkLoad(net.neoforged.neoforge.event.level.ChunkEvent.Load event) {
             if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
                 RtsTaskEngine.INSTANCE.resumeLoadedChunk(level, event.getChunk().getPos());
+                RtsCrossDimensionStorageWakeService.INSTANCE.onChunkLoaded(level, event.getChunk().getPos());
             }
         }
 

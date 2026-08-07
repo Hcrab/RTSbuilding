@@ -503,6 +503,16 @@ public final class StorageStateManager {
         requestStoragePage(0);
     }
 
+    /** 直接选择排序字段；值未变化时不重复请求服务端页面。 */
+    public void setStorageSort(RtsStorageSort sort) {
+        RtsStorageSort normalized = Objects.requireNonNull(sort, "sort");
+        if (this.storageSort == normalized) {
+            return;
+        }
+        this.storageSort = normalized;
+        requestStoragePage(0);
+    }
+
     public void toggleSortDirection() {
         this.storageSortAscending = !this.storageSortAscending;
         requestStoragePage(0);
@@ -587,8 +597,17 @@ public final class StorageStateManager {
         RtsClientPacketGateway.sendUnlinkStorage(pos);
     }
 
+    public void unlinkLinkedStorage(String dimensionId, BlockPos pos) {
+        RtsClientPacketGateway.sendUnlinkStorage(dimensionId, pos);
+    }
+
     public void updateLinkedStorageSettings(BlockPos pos, boolean extractOnly, int priority) {
         RtsClientPacketGateway.sendUpdateLinkedStorage(pos, extractOnly, priority);
+    }
+
+    public void updateLinkedStorageSettings(
+            String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
+        RtsClientPacketGateway.sendUpdateLinkedStorage(dimensionId, pos, extractOnly, priority);
     }
 
     public void storeHotbarSlotToLinked(int slot) {
@@ -1208,6 +1227,9 @@ public final class StorageStateManager {
     }
 
     private LinkedStorageEntry decodeLinkedStorageEntry(S2CRtsStoragePagePayload payload, int index, BlockPos pos) {
+        String dimensionId = index >= 0 && index < payload.linkedDimensions().size()
+                ? payload.linkedDimensions().get(index)
+                : "";
         String label = index >= 0 && index < payload.linkedNames().size()
                 ? payload.linkedNames().get(index)
                 : this.linkedStorageName;
@@ -1230,7 +1252,7 @@ public final class StorageStateManager {
         if (iconKey != null && BuiltInRegistries.ITEM.containsKey(iconKey)) {
             preview = new ItemStack(BuiltInRegistries.ITEM.getValue(iconKey));
         }
-        return new LinkedStorageEntry(pos, label, mode, priority, preview, worldAvailable);
+        return new LinkedStorageEntry(pos, dimensionId, label, mode, priority, preview, worldAvailable);
     }
 
     private long getStorageFluidAmount(String fluidId) {

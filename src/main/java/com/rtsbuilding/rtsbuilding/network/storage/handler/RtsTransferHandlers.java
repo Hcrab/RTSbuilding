@@ -23,6 +23,17 @@ public final class RtsTransferHandlers {
         });
     }
 
+    public static void handleBulkStorageOperation(
+            com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer player) {
+                ServiceRegistry.getInstance().transfer().bulkStorageOperation(
+                        player, payload.action(), payload.prototype(), payload.amount());
+            }
+        });
+    }
+
     public static void handleLinkedPickup(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {

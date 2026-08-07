@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+
 import net.minecraft.util.Util;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -24,13 +28,13 @@ final class BlueprintNameDialog {
             boolean capture, String value, BlueprintEntry currentEntry, BlockPos capturePointA, BlockPos capturePointB,
             long captureBlockCount) {
         BlueprintPanelLayout.NameDialogLayout layout = nameDialogLayout(screenW, screenH, capture);
-        g.fill(0, 0, screenW, screenH, 0x66000000);
-        drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEE121922, 0xFF6E8799, 0xFF0B0E13);
-        g.fill(layout.x() + 1, layout.y() + 1, layout.x() + layout.w() - 1, layout.y() + TITLE_H, 0xCC233345);
+        g.fill(0, 0, screenW, screenH, RtsMainlineTheme.LEGACY_66000000.toArgb());
+        drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), RtsMainlineTheme.LEGACY_EE121922.toArgb(), RtsMainlineTheme.LEGACY_FF6E8799.toArgb(), RtsMainlineTheme.LEGACY_FF0B0E13.toArgb());
+        g.fill(layout.x() + 1, layout.y() + 1, layout.x() + layout.w() - 1, layout.y() + TITLE_H, RtsMainlineTheme.LEGACY_CC233345.toArgb());
         String title = capture
                 ? text("screen.rtsbuilding.blueprints.name_dialog_capture_title")
                 : text("screen.rtsbuilding.blueprints.name_dialog_rename_title");
-        g .text(font, trim(font, title, layout.w() - 36), layout.x() + 8, layout.y() + 6, 0xFFEAF2FF, false);
+        g .text(font, trim(font, title, layout.w() - 36), layout.x() + 8, layout.y() + 6, RtsMainlineTheme.LEGACY_FFEAF2FF.toArgb(), false);
         int closeX = closeX(layout);
         drawButton(g, font, closeX, layout.y() + 3, CLOSE_SIZE, CLOSE_SIZE, "x",
                 inside(mouseX, mouseY, closeX, layout.y() + 3, CLOSE_SIZE, CLOSE_SIZE));
@@ -38,22 +42,22 @@ final class BlueprintNameDialog {
         int textY = layout.y() + 30;
         if (capture) {
             g .text(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), layout.w() - 20),
-                    layout.x() + 10, textY, 0xFFCDEBFF, false);
+                    layout.x() + 10, textY, RtsMainlineTheme.LEGACY_FFCDEBFF.toArgb(), false);
             textY += 12;
             g .text(font, trim(font, capturePreviewSummaryLine(capturePointA, capturePointB, captureBlockCount),
                     layout.w() - 20),
-                    layout.x() + 10, textY, 0xFFB8FFB8, false);
+                    layout.x() + 10, textY, RtsMainlineTheme.LEGACY_FFB8FFB8.toArgb(), false);
         } else if (currentEntry != null) {
             g .text(font, trim(font, text("screen.rtsbuilding.blueprints.name_dialog_current", currentEntry.name()),
-                    layout.w() - 20), layout.x() + 10, textY, 0xFF9EACB9, false);
+                    layout.w() - 20), layout.x() + 10, textY, RtsMainlineTheme.LEGACY_FF9EACB9.toArgb(), false);
         }
 
         g .text(font, text("screen.rtsbuilding.blueprints.name_dialog_label"), layout.inputX(), layout.inputY() - 11,
-                0xFFB7CDE2, false);
-        drawFrame(g, layout.inputX(), layout.inputY(), layout.inputW(), 18, 0xDD05070B, 0xFF8BA4B8, 0xFF0B0E13);
+                RtsMainlineTheme.LEGACY_FFB7CDE2.toArgb(), false);
+        drawFrame(g, layout.inputX(), layout.inputY(), layout.inputW(), 18, RtsMainlineTheme.LEGACY_DD05070B.toArgb(), RtsMainlineTheme.LEGACY_FF8BA4B8.toArgb(), RtsMainlineTheme.LEGACY_FF0B0E13.toArgb());
         String displayValue = value + ((Util.getMillis() / 500L) % 2L == 0L ? "_" : "");
         g .text(font, trim(font, displayValue, layout.inputW() - 8), layout.inputX() + 4, layout.inputY() + 5,
-                0xFFEAF2FF, false);
+                RtsMainlineTheme.LEGACY_FFEAF2FF.toArgb(), false);
 
         drawButton(g, font, layout.confirmX(), layout.buttonY(), layout.confirmW(), BUTTON_H,
                 text("screen.rtsbuilding.blueprints.name_dialog_confirm"),
@@ -66,26 +70,26 @@ final class BlueprintNameDialog {
     static void renderContent(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h, int mouseX, int mouseY,
             boolean capture, String value, BlueprintEntry currentEntry, BlockPos capturePointA, BlockPos capturePointB,
             long captureBlockCount) {
-        int textY = y + 10;
+        int textY = y + RtsMainlineLayout.D10;
         if (capture) {
-            g .text(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), w - 20),
-                    x + 10, textY, 0xFFCDEBFF, false);
+            g .text(font, trim(font, text("screen.rtsbuilding.blueprints.capture_preview_title"), w - RtsMainlineLayout.D20),
+                    x + RtsMainlineLayout.D10, textY, RtsMainlineTheme.LEGACY_FFCDEBFF.toArgb(), false);
             textY += 12;
             g .text(font, trim(font, capturePreviewSummaryLine(capturePointA, capturePointB, captureBlockCount),
-                    w - 20), x + 10, textY, 0xFFB8FFB8, false);
+                    w - RtsMainlineLayout.D20), x + RtsMainlineLayout.D10, textY, RtsMainlineTheme.LEGACY_FFB8FFB8.toArgb(), false);
         } else if (currentEntry != null) {
             g .text(font, trim(font, text("screen.rtsbuilding.blueprints.name_dialog_current", currentEntry.name()),
-                    w - 20), x + 10, textY, 0xFF9EACB9, false);
+                    w - RtsMainlineLayout.D20), x + RtsMainlineLayout.D10, textY, RtsMainlineTheme.LEGACY_FF9EACB9.toArgb(), false);
         }
 
         NameContentLayout layout = contentLayout(x, y, w, h);
         g .text(font, text("screen.rtsbuilding.blueprints.name_dialog_label"), layout.inputX(),
-                layout.inputY() - 11, 0xFFB7CDE2, false);
+                layout.inputY() - 11, RtsMainlineTheme.LEGACY_FFB7CDE2.toArgb(), false);
         drawFrame(g, layout.inputX(), layout.inputY(), layout.inputW(), 18,
-                0xDD05070B, 0xFF8BA4B8, 0xFF0B0E13);
+                RtsMainlineTheme.LEGACY_DD05070B.toArgb(), RtsMainlineTheme.LEGACY_FF8BA4B8.toArgb(), RtsMainlineTheme.LEGACY_FF0B0E13.toArgb());
         String displayValue = value + ((Util.getMillis() / 500L) % 2L == 0L ? "_" : "");
         g .text(font, trim(font, displayValue, layout.inputW() - 8),
-                layout.inputX() + 4, layout.inputY() + 5, 0xFFEAF2FF, false);
+                layout.inputX() + 4, layout.inputY() + 5, RtsMainlineTheme.LEGACY_FFEAF2FF.toArgb(), false);
 
         drawButton(g, font, layout.confirmX(), layout.buttonY(), layout.confirmW(), BUTTON_H,
                 text("screen.rtsbuilding.blueprints.name_dialog_confirm"),
@@ -132,12 +136,12 @@ final class BlueprintNameDialog {
     }
 
     private static NameContentLayout contentLayout(int x, int y, int w, int h) {
-        int inputX = x + 10;
-        int inputW = Math.max(80, w - 20);
+        int inputX = x + RtsMainlineLayout.D10;
+        int inputW = Math.max(80, w - RtsMainlineLayout.D20);
         int cancelW = 58;
         int confirmW = 70;
-        int buttonY = y + h - 24;
-        int inputY = Math.max(y + 36, buttonY - 28);
+        int buttonY = y + h - RtsMainlineLayout.D24;
+        int inputY = Math.max(y + RtsMainlineLayout.D36, buttonY - 28);
         int cancelX = x + w - cancelW - 10;
         int confirmX = cancelX - confirmW - 6;
         return new NameContentLayout(inputX, inputY, inputW, confirmX, confirmW, cancelX, cancelW, buttonY);

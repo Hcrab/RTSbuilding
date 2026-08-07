@@ -4,7 +4,9 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.client.pathfinding.RtsMovementModeRegistry;
+import com.rtsbuilding.rtsbuilding.client.theme.UiThemeStorage;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
 import net.minecraft.client.Minecraft;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -23,6 +25,14 @@ public final class RtsClientModEvents {
         // event so other mods can register custom movement modes.
         RtsMovementModeRegistry.init();
         RtsMovementModeRegistry.fireRegistrationEvent();
+
+        // 用户主题只在客户端 setup 的安全阶段加载；格式错误的文件不会阻止默认主题启动。
+        event.enqueueWork(() -> {
+            for (String error : UiThemeStorage.defaultStorage().loadAll(UiThemeRuntime.registry())) {
+                RtsbuildingMod.LOGGER.warn("用户 UI 主题未加载：{}", error);
+            }
+            UiThemeStorage.defaultStorage().restoreActiveTheme();
+        });
 
         RtsbuildingMod.LOGGER.info("HELLO FROM CLIENT SETUP");
         RtsbuildingMod.LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());

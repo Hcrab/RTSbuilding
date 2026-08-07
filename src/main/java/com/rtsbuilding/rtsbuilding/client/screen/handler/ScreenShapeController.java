@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.handler;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.bootstrap.ClientKeyMappings;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
@@ -164,6 +165,10 @@ public final class ScreenShapeController {
 
     public int getShapeUndoSize() {
         return this.placementHistory.getUndoSize();
+    }
+
+    public int getShapeRedoSize() {
+        return this.placementHistory.getRedoSize();
     }
 
     // ===== Shape session management =====
@@ -381,6 +386,9 @@ public final class ScreenShapeController {
             return;
         }
         advanceShapeSession(hit, rayDir, mouseY, shape);
+        if (shouldSubmitShapeAfterSelection()) {
+            tryConfirmPendingShapeBuild(forcePlace);
+        }
     }
 
     public void selectRangeDestroyShape(BlockHitResult hit, double mouseY, Vec3 rayDir) {
@@ -401,6 +409,21 @@ public final class ScreenShapeController {
             return;
         }
         advanceShapeSession(hit, rayDir, mouseY, shape);
+        if (shouldSubmitShapeAfterSelection()) {
+            tryConfirmPendingRangeDestroy();
+        }
+    }
+
+    public void selectRangeDestroyShape(BlockHitResult hit, double mouseY, Vec3 rayDir,
+                                        RtsTraceInputKind inputKind) {
+        selectRangeDestroyShape(hit, mouseY, rayDir);
+    }
+
+    /** 未启用键盘终确认时，最后一个选点就是玩家明确提交本次操作的动作。 */
+    private boolean shouldSubmitShapeAfterSelection() {
+        return !Config.isKeyboardBatchConfirmEnabled()
+                && this.shapeBuildSession != null
+                && this.shapeBuildSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM;
     }
 
     /**
@@ -1053,7 +1076,13 @@ public final class ScreenShapeController {
     // ===== Ghost preview =====
 
     public ShapeDataRecords.GhostPreview getShapeGhostPreview() {
+        if (this.screen.isQuickBuildSmartFillMode()) {
+            return this.screen.getSmartFillGhostPreview();
+        }
         if (this.screen.isQuickBuildRangeDestroyMode()) {
+            if (this.screen.isQuickBuildConvenienceDestroyMode()) {
+                return this.screen.getConvenienceDestroyGhostPreview();
+            }
             if (this.screen.isQuickBuildRangeDestroyChainMode()) {
                 ShapeDataRecords.GhostPreview confirmed = confirmedChainDestroyPreviewOrEmpty();
                 if (confirmed != ShapeDataRecords.GhostPreview.EMPTY) {
@@ -1213,6 +1242,14 @@ public final class ScreenShapeController {
 
     public boolean undoLastPlacementBatch() {
         return this.placementHistory.undo();
+    }
+
+    public boolean tryConfirmPendingRangeDestroy(RtsTraceInputKind inputKind) {
+        return tryConfirmPendingRangeDestroy();
+    }
+
+    public boolean redoLastPlacementBatch() {
+        return this.placementHistory.redo();
     }
 
     /**

@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
@@ -96,7 +97,7 @@ final class BlueprintMaterialInspector {
                     ItemStack.EMPTY,
                     text("screen.rtsbuilding.blueprints.details_missing_mod", mod.getKey()),
                     text("screen.rtsbuilding.blueprints.details_missing_mod_count"),
-                    0xFFFF9E88));
+                    BlueprintMaterialUiState.Tone.MISSING));
         }
         if (!isCreativePlayer()) {
             for (UnsupportedLine line : unsupportedBlockLines(entry)) {
@@ -104,7 +105,7 @@ final class BlueprintMaterialInspector {
                         ItemStack.EMPTY,
                         line.label(),
                         text("screen.rtsbuilding.blueprints.details_unsupported_count", line.count()),
-                        0xFFFF9E88));
+                        BlueprintMaterialUiState.Tone.MISSING));
             }
         }
         for (MaterialLine line : materialLines(entry, controller)) {
@@ -113,7 +114,8 @@ final class BlueprintMaterialInspector {
                     line.preview(),
                     line.label(),
                     text("screen.rtsbuilding.blueprints.details_count", line.available(), line.required()),
-                    enough ? 0xFF8EEA9B : 0xFFFFC06C));
+                    enough ? BlueprintMaterialUiState.Tone.READY
+                            : BlueprintMaterialUiState.Tone.WARNING));
         }
         return out;
     }
@@ -388,7 +390,7 @@ record UnsupportedLine(String label, int count) {
 record MissingBlueprintBlockLine(String blockId, int count, String namespace) {
 }
 
-record DetailLine(ItemStack preview, String label, String detail, int color) {
+record DetailLine(ItemStack preview, String label, String detail, BlueprintMaterialUiState.Tone tone) {
 }
 
 record BuildStats(

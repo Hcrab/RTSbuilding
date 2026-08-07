@@ -16,6 +16,9 @@ import java.util.List;
  * 快照/还原合成格配方蓝图等操作。
  */
 public interface CraftingService {
+    /** 安全清空 RTS 合成终端九格材料，不允许因目标已满而丢失物品。 */
+    void clearCraftingGrid(ServerPlayer player, boolean toPlayerInventory);
+
 
     /**
      * 打开 RTS 合成终端 GUI。

@@ -6,7 +6,11 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.storage.LinkedStoragePanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.StorageLinkDetailStyle;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -66,13 +70,17 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
         int x = contentX();
         int y = contentY();
         int w = contentWidth();
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, contentHeight(),
-                hovered ? 0xFF26394A : 0xF817212D,
-                hovered ? 0xFFB7D2EC : 0xFF6C839A,
-                0xFF0D1117);
+        double hover = animateContentControl("open_linked_storage", true, hovered, false).hover();
+        UiChromeRenderer.frame(
+                new MinecraftUiCanvas(g, screen.font(), screen),
+                new UiRect(x, y, w, contentHeight()),
+                1.0D,
+                StorageLinkDetailStyle.background(hover),
+                StorageLinkDetailStyle.border(hover),
+                StorageLinkDetailStyle.BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
                 screen.trimToWidth(this.actionLabel, Math.max(8, contentWidth() - 8)),
-                contentX() + contentWidth() / 2, contentY() + 4, 0xFFF4FAFF);
+                contentX() + contentWidth() / 2, contentY() + 4, StorageLinkDetailStyle.TEXT.toArgb());
     }
 
     // ===== Click =====
@@ -150,9 +158,9 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
         int bridgeRight = Math.max(linkButton.x() + linkButton.width(), x + w);
         int bridgeY = 4 + TOP_BUTTON_H;
         int bridgeH = Math.max(0, y - bridgeY);
-        return inside(mouseX, mouseY, linkButton.x(), 4, linkButton.width(), TOP_BUTTON_H)
-                || inside(mouseX, mouseY, x, y, w, STORAGE_LINK_DETAIL_ACTION_H)
-                || inside(mouseX, mouseY, bridgeX, bridgeY, bridgeRight - bridgeX, bridgeH);
+        return UiRect.contains(linkButton.x(), 4, linkButton.width(), TOP_BUTTON_H, mouseX, mouseY)
+                || UiRect.contains(x, y, w, STORAGE_LINK_DETAIL_ACTION_H, mouseX, mouseY)
+                || UiRect.contains(bridgeX, bridgeY, bridgeRight - bridgeX, bridgeH, mouseX, mouseY);
     }
 
     private int actionX(TopBarTypes.TopBarButtonLayout linkButton, String label) {
@@ -170,7 +178,4 @@ public final class StorageLinkDetailHandler extends RtsWindowPanel {
         return Math.min(desired, Math.max(40, screen.width - 8));
     }
 
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
-    }
 }

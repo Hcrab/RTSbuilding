@@ -18,13 +18,15 @@ class RtsUiArchitectureContractTest {
 
     @Test
     void floatingLayerOwnsCaptureAndNeverEndsMinecraftSharedBuffer() throws IOException {
-        String source = read("screen/panel/RtsFloatingWindowLayer.java");
+        String layer = read("screen/panel/RtsFloatingWindowLayer.java");
+        String router = read("screen/panel/RtsFloatingWindowInputRouter.java");
 
-        assertTrue(source.contains("pointerCapture.release(button)"),
-                "release 必须只返回给 press 时的捕获窗口");
-        assertTrue(source.contains("RtsInputResult.BLOCK_WORLD"),
+        assertTrue(router.contains("UiPointerEvent.Type.RELEASE")
+                        && router.contains("router.routePointer("),
+                "release 必须经过拥有 press 捕获状态的统一 Core 路由器");
+        assertTrue(layer.contains("RtsInputResult.BLOCK_WORLD"),
                 "窗口内滚轮必须阻断世界/镜头");
-        assertFalse(source.contains("endBatch("),
+        assertFalse(layer.contains("endBatch(") || router.contains("endBatch("),
                 "浮窗层不得结束 Minecraft 的共享渲染批次");
     }
 
@@ -32,7 +34,7 @@ class RtsUiArchitectureContractTest {
     void screenLifecycleCancelsOutstandingPointerCapture() throws IOException {
         String source = read("screen/standalone/BuilderScreen.java");
 
-        assertTrue(count(source, "floatingWindowLayer.cancelPointerCapture()") >= 2,
+        assertTrue(count(source, "floatingWindowLayer.clearTransientInputState()") >= 2,
                 "关闭和移除屏幕都必须清空指针捕获");
     }
 
@@ -79,8 +81,8 @@ class RtsUiArchitectureContractTest {
                 "26.1 会通过当前 pose 变换 scissor，RTS 只能提交逻辑坐标");
         assertFalse(method.contains("* scale"),
                 "RTS 不得在 enableScissor 前再次乘缩放，否则浮动窗口正文会被全部裁掉");
-        assertTrue(window.contains("return 0xFFF2F7FF;"),
-                "26.1 窗口标题文字必须使用带非零 alpha 的完整 ARGB 颜色");
+        assertTrue(window.contains("return RtsMainlineTheme.WINDOW_TITLE_TEXT.toArgb();"),
+                "26.1 窗口标题文字必须来自主题的完整 ARGB 颜色，不能退回无 alpha 常量");
     }
 
     private static String read(String relative) throws IOException {

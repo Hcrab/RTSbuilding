@@ -14,8 +14,12 @@ public final class CullingWindowChromeRenderer {
     }
 
     public static int renderDeleteButton(UiCanvas2D canvas, UiRect bounds, boolean hovered) {
+        return renderDeleteButton(canvas, bounds, hovered ? 1.0D : 0.0D);
+    }
+
+    public static int renderDeleteButton(UiCanvas2D canvas, UiRect bounds, double hoverStrength) {
         CullingWindowStyle.DeleteVisual visual =
-                CullingWindowStyle.deleteButton(hovered);
+                CullingWindowStyle.deleteButton(hoverStrength);
         return UiCompactFrameRenderer.frame(
                 canvas, bounds, visual.background, visual.border, visual.darkBorder);
     }

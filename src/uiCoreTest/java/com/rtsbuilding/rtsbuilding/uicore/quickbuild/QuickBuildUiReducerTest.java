@@ -62,6 +62,62 @@ class QuickBuildUiReducerTest {
         assertTrue(result.state.control(QuickBuildUiControl.Id.FILL).selected);
     }
 
+    @Test
+    void conveniencePageKeepsToolAndClampsTreeGroupLimit() {
+        QuickBuildUiState base = state(true, QuickBuildUiMode.DESTROY, QuickBuildUiShape.BOX);
+        QuickBuildUiTransition page = QuickBuildUiReducer.apply(
+                base, QuickBuildUiAction.catalog(QuickBuildUiCatalogPage.CONVENIENCE_TOOLS));
+        assertTrue(page.state.convenienceMode());
+
+        QuickBuildUiTransition tool = QuickBuildUiReducer.apply(
+                page.state, QuickBuildUiAction.convenienceTool(QuickBuildUiConvenienceTool.TREE_FELL));
+        QuickBuildUiTransition limit = QuickBuildUiReducer.apply(
+                tool.state, QuickBuildUiAction.convenienceParameter(
+                        QuickBuildUiConvenienceParameter.TREE_MAX_BLOCKS, 99_999));
+        assertEquals(QuickBuildUiConvenienceTool.TREE_FELL, limit.state.convenienceTool);
+        assertEquals(QuickBuildUiConvenienceSettings.TREE_MAX,
+                limit.state.convenienceSettings.treeMaxBlocks());
+        assertEquals(QuickBuildUiShape.BOX, limit.state.destroyShape);
+    }
+
+    @Test
+    void smartFillParametersOnlyChangeInSmartFillMode() {
+        QuickBuildUiState smart = state(true, QuickBuildUiMode.SMART_FILL, QuickBuildUiShape.BLOCK);
+        QuickBuildUiTransition maxBlocks = QuickBuildUiReducer.apply(
+                smart, QuickBuildUiAction.smartFillMaxBlocks(99_999));
+        QuickBuildUiTransition diameter = QuickBuildUiReducer.apply(
+                maxBlocks.state, QuickBuildUiAction.smartFillDiameter(1));
+        assertEquals(1024, diameter.state.smartFillMaxBlocks);
+        assertEquals(3, diameter.state.smartFillDiameter);
+
+        QuickBuildUiState build = state(true, QuickBuildUiMode.BUILD, QuickBuildUiShape.BLOCK);
+        assertEquals(QuickBuildUiTransition.Command.NONE,
+                QuickBuildUiReducer.apply(
+                        build, QuickBuildUiAction.smartFillMaxBlocks(32)).command);
+    }
+
+    @Test
+    void buildCatalogOpensSmartFillAsItsFirstToolAndReturnsToShapes() {
+        QuickBuildUiState build = state(
+                true, QuickBuildUiMode.BUILD, QuickBuildUiShape.BLOCK);
+        QuickBuildUiTransition tools = QuickBuildUiReducer.apply(
+                build,
+                QuickBuildUiAction.catalog(
+                        QuickBuildUiCatalogPage.CONVENIENCE_TOOLS));
+        assertEquals(QuickBuildUiTransition.Command.SELECT_CATALOG_PAGE,
+                tools.command);
+        assertEquals(QuickBuildUiMode.SMART_FILL, tools.state.mode);
+        assertEquals(QuickBuildUiCatalogPage.CONVENIENCE_TOOLS,
+                tools.state.catalogPage);
+
+        QuickBuildUiTransition shapes = QuickBuildUiReducer.apply(
+                tools.state,
+                QuickBuildUiAction.catalog(QuickBuildUiCatalogPage.SHAPES));
+        assertEquals(QuickBuildUiMode.BUILD, shapes.state.mode);
+        assertEquals(QuickBuildUiCatalogPage.SHAPES,
+                shapes.state.catalogPage);
+    }
+
     private static QuickBuildUiState state(boolean destroyEnabled, QuickBuildUiMode mode,
                                            QuickBuildUiShape destroyShape) {
         return new QuickBuildUiState(true, mode, destroyEnabled, "",

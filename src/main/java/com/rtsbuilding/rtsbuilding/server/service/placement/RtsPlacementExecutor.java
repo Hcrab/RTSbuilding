@@ -83,7 +83,8 @@ public final class RtsPlacementExecutor {
      * @return {@code true} 如果位置已处理且批次应继续，{@code false} 中止当前批处理作业
      */
     public static boolean placeSelectedInternal(ServerPlayer player, RtsStorageSession session, BlockPos clickedPos,
-                                                Direction face, double hitX, double hitY, double hitZ, byte rotateSteps, boolean forcePlace,
+                                                Direction face, double hitX, double hitY, double hitZ, byte rotateSteps, String statePreset,
+                                                boolean forcePlace,
                                                 boolean skipIfOccupied, String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY,
                                                 double rayOriginZ, double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild,
                                                 boolean forceEmptyHand, boolean refreshStoragePage, boolean sendRemoteHint) {
@@ -118,7 +119,7 @@ public final class RtsPlacementExecutor {
         }
 
         return placeWithStorageItem(player, session, level, clickedPos, face, hit, interactionPos, rayContext,
-                rotateSteps, skipIfOccupied, forcePlace, itemId, itemPrototype, refreshStoragePage);
+                rotateSteps, statePreset, skipIfOccupied, forcePlace, itemId, itemPrototype, refreshStoragePage);
     }
 
     private static boolean placeWithForcedEmptyHand(ServerPlayer player, RtsStorageSession session, ServerLevel level,
@@ -299,7 +300,8 @@ public final class RtsPlacementExecutor {
 
     private static boolean placeWithStorageItem(ServerPlayer player, RtsStorageSession session, ServerLevel level,
             BlockPos clickedPos, Direction face, BlockHitResult hit,
-            Vec3 interactionPos, TemporaryContextSwitcher.RayContext rayContext, byte rotateSteps, boolean skipIfOccupied,
+            Vec3 interactionPos, TemporaryContextSwitcher.RayContext rayContext, byte rotateSteps, String statePreset,
+            boolean skipIfOccupied,
             boolean forcePlace, String itemId, ItemStack itemPrototype, boolean refreshStoragePage) {
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
@@ -423,6 +425,7 @@ public final class RtsPlacementExecutor {
         BlockPos placedPos = RtsPlacementHelper.detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
         if (placedPos != null) {
             RtsPlacementHelper.rotatePlacedBlock(level, placedPos, rotateSteps);
+            RtsPlacementHelper.applyPlacementStatePreset(level, placedPos, statePreset);
             PlacedBlockTrackerData.get(level).mark(placedPos);
             if (selectedPlacesBlock) {
                 RtsPlacementSound.playRemotePlacedBlockAnimation(player, placedPos);

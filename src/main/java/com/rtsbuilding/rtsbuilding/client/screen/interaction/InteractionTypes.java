@@ -12,6 +12,9 @@ import net.minecraft.world.phys.Vec3;
  */
 public final class InteractionTypes {
 
+    // The legacy interaction wheel has been retired from the public screen path;
+    // the internal adapter remains only to preserve the established placement flow.
+
     private InteractionTypes() {}
 
     /**

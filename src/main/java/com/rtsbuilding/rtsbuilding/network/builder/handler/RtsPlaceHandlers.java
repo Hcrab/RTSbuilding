@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.builder.handler;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsSmartFillService;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -51,6 +52,7 @@ public final class RtsPlaceHandlers {
                         payload.hitY(),
                         payload.hitZ(),
                         payload.rotateSteps(),
+                        payload.statePreset(),
                         payload.forcePlace(),
                         payload.skipIfOccupied(),
                         payload.itemId(),
@@ -79,6 +81,7 @@ public final class RtsPlaceHandlers {
                         payload.hitOffsetY(),
                         payload.hitOffsetZ(),
                         payload.rotateSteps(),
+                        payload.statePreset(),
                         payload.forcePlace(),
                         payload.skipIfOccupied(),
                         payload.itemId(),
@@ -89,6 +92,32 @@ public final class RtsPlaceHandlers {
                         payload.rayDirX(),
                         payload.rayDirY(),
                         payload.rayDirZ());
+            }
+        });
+    }
+
+    public static void handleOrientBlock(
+            C2SRtsOrientBlockPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer
+                    && payload.axisDirection() >= 0
+                    && payload.axisDirection() < Direction.values().length
+                    && Math.abs(payload.quarterTurns()) == 1) {
+                ServiceRegistry.getInstance().placement().rotateBlockStep(
+                        serverPlayer,
+                        payload.pos(),
+                        Direction.from3DDataValue(payload.axisDirection()),
+                        payload.quarterTurns());
+            }
+        });
+    }
+
+    /** 智能填坑只转交声明式意图，实际目标始终由服务端重算。 */
+    public static void handleConfirmSmartFill(C2SRtsConfirmSmartFillPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsSmartFillService.confirm(serverPlayer, payload);
             }
         });
     }

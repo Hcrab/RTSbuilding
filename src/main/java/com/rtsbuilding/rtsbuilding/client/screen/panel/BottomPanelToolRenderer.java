@@ -1,0 +1,235 @@
+package com.rtsbuilding.rtsbuilding.client.screen.panel;
+
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiState;
+import com.rtsbuilding.rtsbuilding.uicore.bottom.BottomBarUiToolSlot;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCanvas2D;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.BottomPanelToolLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelToolStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+
+/**
+ * 26.1 工具行的生产绘制适配器。
+ *
+ * <p>它消费 Core 快照、玩家真实热栏与控制器固定槽预览，并复用 Kit 的布局及主题。
+ * 选择、导入、流体收纳与清理不会在绘制阶段执行，仍从输入适配器进入原有控制器链路。</p>
+ */
+public final class BottomPanelToolRenderer {
+    private static final int CONTENT_INSET = 1;
+    private static final int EMPTY_HAND_MARK_SIZE = 10;
+    private static final UiControlAnimationRegistry<String> ANIMATIONS =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 64);
+
+    private BottomPanelToolRenderer() {
+    }
+
+    public static HoverResult render(
+            GuiGraphicsExtractor graphics,
+            Font font,
+            BottomBarUiState state,
+            Inventory inventory,
+            ClientRtsController controller,
+            BottomPanelToolLayout layout,
+            int mouseX,
+            int mouseY) {
+        int hoveredHotbarCell = layout.hotbarIndexAt(mouseX, mouseY);
+        UiCanvas2D canvas = new MinecraftUiCanvas(graphics, font);
+        int slotSize = layout.slotSize();
+        int rowY = layout.y();
+        for (int cell = 0; cell < layout.hotbarCellCount(); cell++) {
+            int cellX = layout.hotbarCellX(cell);
+            boolean emptyHand = cell == BottomPanelToolLayout.EMPTY_HAND_INDEX;
+            BottomBarUiToolSlot slot = findSlot(
+                    state,
+                    emptyHand ? BottomBarUiToolSlot.Kind.EMPTY_HAND
+                            : BottomBarUiToolSlot.Kind.HOTBAR,
+                    cell);
+            drawFrame(canvas, cellX, rowY, slotSize,
+                    BottomPanelToolStyle.hotbarBackground(
+                            emptyHand, slot != null && slot.selected),
+                    BottomPanelToolStyle.hotbarBorderLight(emptyHand));
+
+            if (emptyHand) {
+                drawEmptyHandMark(graphics, cellX, rowY, slotSize);
+            } else {
+                ItemStack stack = inventory.getItem(cell);
+                if (!stack.isEmpty()) {
+                    graphics.item(stack, cellX + CONTENT_INSET, rowY + CONTENT_INSET);
+                    graphics.itemDecorations(
+                            font, stack, cellX + CONTENT_INSET, rowY + CONTENT_INSET);
+                }
+            }
+            double cellHover = hover(
+                    "hotbar." + cell,
+                    hoveredHotbarCell == cell,
+                    slot != null && slot.selected);
+            if (cellHover > 0.0D) {
+                fillInside(graphics, cellX, rowY, slotSize,
+                        BottomPanelToolStyle.hoverOverlay(cellHover));
+            }
+        }
+
+        int hoveredPinCell = layout.pinCellAt(mouseX, mouseY);
+        for (int cell = 0; cell < layout.visiblePinCells(); cell++) {
+            int cellX = layout.pinCellX(cell);
+            boolean pager = layout.isPinPagerCell(cell);
+            int pinIndex = layout.pinIndexForCell(cell);
+            BottomBarUiToolSlot pin = findSlot(
+                    state, BottomBarUiToolSlot.Kind.PINNED, pinIndex);
+            boolean filled = !pager && pin != null && !pin.itemId.isEmpty();
+            drawFrame(canvas, cellX, rowY, slotSize,
+                    BottomPanelToolStyle.pinBackground(filled),
+                    BottomPanelToolStyle.PIN_BORDER_LIGHT);
+
+            if (pager) {
+                fillInside(graphics, cellX, rowY, slotSize,
+                        BottomPanelToolStyle.PIN_PAGER_OVERLAY);
+                drawCenteredNoShadow(graphics, font, "+", cellX, rowY, slotSize,
+                        BottomPanelToolStyle.PIN_PAGER_TEXT);
+            } else if (pinIndex >= 0) {
+                ItemStack preview = controller.getQuickSlotPreview(pinIndex);
+                if (!preview.isEmpty()) {
+                    graphics.item(preview, cellX + CONTENT_INSET, rowY + CONTENT_INSET);
+                    if (pin != null && pin.selected) {
+                        fillInside(graphics, cellX, rowY, slotSize,
+                                BottomPanelToolStyle.SELECTED_OVERLAY);
+                    }
+                    long amount = pin == null ? 0L : pin.amount;
+                    RtsClientUiUtil.drawSlotCountOverlay(
+                            graphics, font, cellX, rowY, slotSize,
+                            RtsClientUiUtil.compactCount(amount),
+                            argb(BottomPanelToolStyle.pinCount(amount)));
+                } else {
+                    drawCenteredNoShadow(graphics, font, Integer.toString(pinIndex + RtsMainlineLayout.D1),
+                            cellX, rowY, slotSize,
+                            BottomPanelToolStyle.PIN_INDEX_TEXT);
+                }
+            }
+            double pinHover = hover(
+                    "pin." + cell,
+                    hoveredPinCell == cell,
+                    pin != null && pin.selected);
+            if (pinHover > 0.0D) {
+                fillInside(graphics, cellX, rowY, slotSize,
+                        BottomPanelToolStyle.hoverOverlay(pinHover));
+            }
+        }
+
+        boolean emptyHandHovered =
+                hoveredHotbarCell == BottomPanelToolLayout.EMPTY_HAND_INDEX;
+        int hotbarHovered = hoveredHotbarCell >= 0 && !emptyHandHovered
+                ? hoveredHotbarCell : -1;
+        boolean pagerHovered = hoveredPinCell >= 0
+                && layout.isPinPagerCell(hoveredPinCell);
+        int pinHovered = hoveredPinCell >= 0 && !pagerHovered
+                ? layout.pinIndexForCell(hoveredPinCell) : -1;
+        return new HoverResult(
+                hotbarHovered, emptyHandHovered, pinHovered, pagerHovered);
+    }
+
+    private static double hover(String id, boolean hovered, boolean selected) {
+        UiControlState state = new UiControlState(
+                true, selected, false, false, "")
+                .withInteraction(hovered, false, false);
+        return ANIMATIONS.update(
+                id, state, Config.isUiAnimationsEnabled()).hover();
+    }
+
+    private static BottomBarUiToolSlot findSlot(
+            BottomBarUiState state,
+            BottomBarUiToolSlot.Kind kind,
+            int sourceIndex) {
+        if (sourceIndex < 0) {
+            return null;
+        }
+        for (BottomBarUiToolSlot slot : state.toolSlots) {
+            if (slot.kind == kind && slot.sourceIndex == sourceIndex) {
+                return slot;
+            }
+        }
+        return null;
+    }
+
+    private static void drawFrame(
+            UiCanvas2D canvas,
+            int x,
+            int y,
+            int size,
+            UiColor background,
+            UiColor borderLight) {
+        UiCompactFrameRenderer.frame(
+                canvas, new UiRect(x, y, size, size),
+                background, borderLight, BottomPanelToolStyle.BORDER_DARK);
+    }
+
+    private static void drawEmptyHandMark(
+            GuiGraphicsExtractor graphics, int x, int y, int slotSize) {
+        int left = x + (slotSize - EMPTY_HAND_MARK_SIZE) / 2;
+        int top = y + (slotSize - EMPTY_HAND_MARK_SIZE) / 2;
+        graphics.fill(
+                left, top,
+                left + EMPTY_HAND_MARK_SIZE,
+                top + EMPTY_HAND_MARK_SIZE,
+                argb(BottomPanelToolStyle.EMPTY_HAND_MARK));
+    }
+
+    private static void fillInside(
+            GuiGraphicsExtractor graphics, int x, int y, int size, UiColor color) {
+        graphics.fill(
+                x + CONTENT_INSET,
+                y + CONTENT_INSET,
+                x + size - CONTENT_INSET,
+                y + size - CONTENT_INSET,
+                argb(color));
+    }
+
+    private static void drawCenteredNoShadow(
+            GuiGraphicsExtractor graphics,
+            Font font,
+            String text,
+            int x,
+            int y,
+            int size,
+            UiColor color) {
+        int textX = x + (size - font.width(text)) / 2;
+        int textY = y + Math.max(0, (size - font.lineHeight) / 2);
+        graphics.text(font, text, textX, textY, argb(color), false);
+    }
+
+    private static int argb(UiColor color) {
+        return color.toArgb();
+    }
+
+    /** 当前帧四类工具控件互斥的悬停结果。 */
+    public static final class HoverResult {
+        public final int hotbarIndex;
+        public final boolean emptyHand;
+        public final int pinIndex;
+        public final boolean pinPager;
+
+        private HoverResult(
+                int hotbarIndex,
+                boolean emptyHand,
+                int pinIndex,
+                boolean pinPager) {
+            this.hotbarIndex = hotbarIndex;
+            this.emptyHand = emptyHand;
+            this.pinIndex = pinIndex;
+            this.pinPager = pinPager;
+        }
+    }
+}

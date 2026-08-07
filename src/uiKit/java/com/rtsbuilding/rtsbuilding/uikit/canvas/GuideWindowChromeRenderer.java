@@ -18,18 +18,26 @@ public final class GuideWindowChromeRenderer {
     }
 
     public static int renderTopic(UiCanvas2D canvas, UiRect bounds, boolean selected) {
+        return renderTopic(canvas, bounds, selected ? 1.0D : 0.0D, 0.0D);
+    }
+
+    public static int renderTopic(
+            UiCanvas2D canvas,
+            UiRect bounds,
+            double selection,
+            double hover) {
         require(canvas, bounds);
         double x = bounds.getX();
         double y = bounds.getY();
         double width = bounds.getWidth();
         double height = bounds.getHeight();
-        canvas.fill(bounds, GuideWindowStyle.topicBackground(selected));
+        canvas.fill(bounds, GuideWindowStyle.topicBackground(selection, hover));
         canvas.fill(x, y, width + 1.0D, 1.0D,
-                GuideWindowStyle.topicBorderLight(selected));
+                GuideWindowStyle.topicBorderLight(selection, hover));
         canvas.fill(x, y + height, width + 1.0D, 1.0D,
                 GuideWindowStyle.TOPIC_BORDER_DARK);
         canvas.fill(x, y, 1.0D, height + 1.0D,
-                GuideWindowStyle.topicBorderLight(selected));
+                GuideWindowStyle.topicBorderLight(selection, hover));
         canvas.fill(x + width, y, 1.0D, height + 1.0D,
                 GuideWindowStyle.TOPIC_BORDER_DARK);
         return TOPIC_PRIMITIVE_COUNT;

@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -27,7 +31,7 @@ final class BlueprintPanelUi {
      */
     static int buttonWidth(Font font, String key, int min, int max) {
         int labelWidth = font == null ? 0 : font.width(text(key));
-        return Mth.clamp(labelWidth + 10, min, max);
+        return Mth.clamp(labelWidth + RtsMainlineLayout.D10, min, max);
     }
 
     /**
@@ -45,9 +49,9 @@ final class BlueprintPanelUi {
      * action.</p>
      */
     static void drawButton(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h, String label, boolean hover, boolean active) {
-        int fill = active ? 0xCC2E6A50 : (hover ? 0xCC334052 : 0xAA24303C);
-        drawFrame(g, x, y, w, h, fill, 0xFF64788E, 0xFF0D1015);
-        g .centeredText(font, trim(font, label, w - 6), x + w / 2, y + 3, 0xFFEAF2FF);
+        int fill = active ? RtsMainlineTheme.LEGACY_CC2E6A50.toArgb() : (hover ? RtsMainlineTheme.LEGACY_CC334052.toArgb() : RtsMainlineTheme.LEGACY_AA24303C.toArgb());
+        drawFrame(g, x, y, w, h, fill, RtsMainlineTheme.LEGACY_FF64788E.toArgb(), RtsMainlineTheme.LEGACY_FF0D1015.toArgb());
+        g .centeredText(font, trim(font, label, w - RtsMainlineLayout.D6), x + w / 2, y + RtsMainlineLayout.D3, RtsMainlineTheme.LEGACY_FFEAF2FF.toArgb());
     }
 
     /**
@@ -65,7 +69,7 @@ final class BlueprintPanelUi {
      * Returns whether a mouse coordinate is inside a UI rectangle.
      */
     static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 
     /**

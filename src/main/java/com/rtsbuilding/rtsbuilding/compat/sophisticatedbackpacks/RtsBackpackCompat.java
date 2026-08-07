@@ -96,6 +96,22 @@ public final class RtsBackpackCompat {
         return itemId != null && MOD_ID.equals(itemId.getNamespace());
     }
 
+    public static boolean isBackpackItem(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        if (itemId == null || !MOD_ID.equals(itemId.getNamespace())) {
+            return false;
+        }
+        for (Class<?> type = stack.getItem().getClass(); type != null; type = type.getSuperclass()) {
+            if ("net.p3pp3rf1y.sophisticatedbackpacks.backpack.BackpackItem".equals(type.getName())) {
+                return true;
+            }
+        }
+        return isSophisticatedBackpackItem(stack);
+    }
+
     private static final class BackpackReflection {
         private final Class<?> backpackBlockEntityClass;
         private final Method getBackpackWrapper;

@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
+import com.rtsbuilding.rtsbuilding.client.util.RtsUiFrameRenderer;
+
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
@@ -390,21 +394,21 @@ public final class OverlayLayoutHelper {
     // =========================================================================
 
     public static void drawPanelFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
+        RtsUiFrameRenderer.frame(g, x, y, w, h, fillColor, light, dark);
     }
 
     public static void drawOverlayWindowFrame(GuiGraphicsExtractor g, int x, int y, int w, int h) {
-        drawPanelFrame(g, x, y, w, h, 0xF0182028, 0xFF7489A0, 0xFF0B1016);
-        g.fill(x + 1, y + 1, x + w - 1, y + OVERLAY_WINDOW_TITLE_H, 0xCC233345);
+        drawPanelFrame(g, x, y, w, h, RtsMainlineTheme.LEGACY_F0182028.toArgb(), RtsMainlineTheme.LEGACY_FF7489A0.toArgb(), RtsMainlineTheme.LEGACY_FF0B1016.toArgb());
+        g.fill(x + 1, y + 1, x + w - 1, y + OVERLAY_WINDOW_TITLE_H, RtsMainlineTheme.LEGACY_CC233345.toArgb());
     }
 
     public static void drawMiniButton(GuiGraphicsExtractor g, Font font, int x, int y, int w, int h, String label) {
-        g.fill(x, y, x + w, y + h, 0xAA2B3642);
-        g.horizontalLine(x, x + w, y, 0xFF667D95);
-        g.horizontalLine(x, x + w, y + h, 0xFF111821);
-        g.verticalLine(x, y, y + h, 0xFF667D95);
-        g.verticalLine(x + w, y, y + h, 0xFF111821);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, label, x + w / 2, y + 2, 0xFFFFFF);
+        g.fill(x, y, x + w, y + h, RtsMainlineTheme.LEGACY_AA2B3642.toArgb());
+        g.horizontalLine(x, x + w, y, RtsMainlineTheme.LEGACY_FF667D95.toArgb());
+        g.horizontalLine(x, x + w, y + h, RtsMainlineTheme.LEGACY_FF111821.toArgb());
+        g.verticalLine(x, y, y + h, RtsMainlineTheme.LEGACY_FF667D95.toArgb());
+        g.verticalLine(x + w, y, y + h, RtsMainlineTheme.LEGACY_FF111821.toArgb());
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, label, x + w / 2, y + 2, RtsMainlineTheme.LEGACY_FFFFFF.toArgb());
     }
 
     public static void drawSlotCountOverlay(GuiGraphicsExtractor g, Font font, int slotX, int slotY,
@@ -432,6 +436,6 @@ public final class OverlayLayoutHelper {
     }
 
     public static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 }

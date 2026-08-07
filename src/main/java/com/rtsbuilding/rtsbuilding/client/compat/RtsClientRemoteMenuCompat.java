@@ -11,6 +11,7 @@ import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.level.Level;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InaccessibleObjectException;
 import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
@@ -43,14 +44,27 @@ public final class RtsClientRemoteMenuCompat {
         return wrapped;
     }
 
-    public static void relaxValidation(AbstractContainerMenu menu) {
+    /**
+     * 尽可能替换菜单内部的距离校验入口，并返回可写入客户端日志的扫描结果。
+     *
+     * <p>第三方菜单字段不可访问或链接失败时只跳过该字段，保留原菜单行为。
+     * 兼容失败最多导致远程 GUI 关闭，不能让诊断/反射层炸掉客户端。</p>
+     */
+    public static RelaxationReport relaxValidation(AbstractContainerMenu menu) {
         if (menu == null || RtsRemoteMenuCompat.isRemoteMenuPersistenceDisabledForProbe()) {
-            return;
+            return RelaxationReport.empty();
         }
         boolean preserveContainerIdentity = menu instanceof ChestMenu;
+        int scannedFields = 0;
+        int accessWrappers = 0;
+        int nullAccessReplacements = 0;
+        int containerWrappers = 0;
+        int skippedFields = 0;
+        String firstSkippedField = "";
         Class<?> type = menu.getClass();
         while (type != null && type != Object.class) {
             for (Field field : type.getDeclaredFields()) {
+                scannedFields++;
                 try {
                     field.setAccessible(true);
                     Class<?> fieldType = field.getType();
@@ -60,8 +74,10 @@ public final class RtsClientRemoteMenuCompat {
                         if (current instanceof ContainerLevelAccess access
                                 && !(access instanceof RelaxedContainerLevelAccess)) {
                             field.set(menu, new RelaxedContainerLevelAccess(access));
+                            accessWrappers++;
                         } else if (current == null) {
                             field.set(menu, ContainerLevelAccess.NULL);
+                            nullAccessReplacements++;
                         }
                         continue;
                     }
@@ -70,14 +86,27 @@ public final class RtsClientRemoteMenuCompat {
                         Object current = field.get(menu);
                         if (current instanceof Container delegate && !(delegate instanceof AlwaysValidContainer)) {
                             field.set(menu, new AlwaysValidContainer(delegate));
+                            containerWrappers++;
                         }
                     }
-                } catch (ReflectiveOperationException ignored) {
-                    // Some runtime-specific/final fields cannot be patched reflectively.
+                } catch (ReflectiveOperationException | InaccessibleObjectException | SecurityException | LinkageError ignored) {
+                    // 单字段失败时回落到原始校验；不要让可选兼容破坏整个 Screen。
+                    skippedFields++;
+                    if (firstSkippedField.isBlank()) {
+                        firstSkippedField = type.getName() + "#" + field.getName()
+                                + " (" + ignored.getClass().getSimpleName() + ")";
+                    }
                 }
             }
             type = type.getSuperclass();
         }
+        return new RelaxationReport(
+                scannedFields,
+                accessWrappers,
+                nullAccessReplacements,
+                containerWrappers,
+                skippedFields,
+                firstSkippedField);
     }
 
     private static void remapContainerScreenMenu(Screen screen, AbstractContainerMenu menu) {
@@ -118,11 +147,31 @@ public final class RtsClientRemoteMenuCompat {
 
     private static boolean isInstanceOf(Object instance, String className) {
         try {
-            return Class.forName(className).isInstance(instance);
+            ClassLoader loader = instance == null ? RtsClientRemoteMenuCompat.class.getClassLoader()
+                    : instance.getClass().getClassLoader();
+            return Class.forName(className, false, loader).isInstance(instance);
         } catch (ClassNotFoundException | LinkageError ignored) {
             // Optional mod client classes can fail to resolve in dev/remapped runtimes.
             // In that case fail open: the compatibility guard must not close vanilla menus.
             return false;
+        }
+    }
+
+    /** 反射放宽的聚合结果；仅用于诊断和测试，不参与玩家行为判定。 */
+    public record RelaxationReport(
+            int scannedFields,
+            int accessWrappers,
+            int nullAccessReplacements,
+            int containerWrappers,
+            int skippedFields,
+            String firstSkippedField) {
+
+        public RelaxationReport {
+            firstSkippedField = firstSkippedField == null ? "" : firstSkippedField;
+        }
+
+        static RelaxationReport empty() {
+            return new RelaxationReport(0, 0, 0, 0, 0, "");
         }
     }
 
@@ -179,13 +228,13 @@ public final class RtsClientRemoteMenuCompat {
         }
 
         @Override
-        public void startOpen(net.minecraft.world.entity.ContainerUser user) {
-            this.delegate.startOpen(user);
+        public void startOpen(net.minecraft.world.entity.ContainerUser player) {
+            this.delegate.startOpen(player);
         }
 
         @Override
-        public void stopOpen(net.minecraft.world.entity.ContainerUser user) {
-            this.delegate.stopOpen(user);
+        public void stopOpen(net.minecraft.world.entity.ContainerUser player) {
+            this.delegate.stopOpen(player);
         }
 
         @Override

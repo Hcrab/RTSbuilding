@@ -3,8 +3,10 @@ package com.rtsbuilding.rtsbuilding.server.service.api;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 
 /**
  * 存储绑定服务接口——管理玩家链接存储、快捷槽、GUI 绑定和建造模式切换等绑定操作。
@@ -34,6 +36,10 @@ public interface BindingService {
      */
     void linkStorage(ServerPlayer player, BlockPos pos, byte linkMode);
 
+    /** 服务端扫描闭区间选区内已加载的储存端点，并以幂等方式批量链接。 */
+    void linkStoragesInSelection(
+            ServerPlayer player, BlockPos first, BlockPos second, byte linkMode);
+
     /**
      * 从玩家的 RTS 会话中解绑指定的存储方块。
      * 解绑后，该存储容器将不再可通过远程储存浏览器访问。
@@ -42,6 +48,11 @@ public interface BindingService {
      * @param pos    要解绑的存储方块坐标
      */
     void unlinkStorage(ServerPlayer player, BlockPos pos);
+
+    /** 跨维度详情面板按已持久化的引用身份解绑，不回退到玩家当前维度。 */
+    default void unlinkStorage(ServerPlayer player, ResourceKey<Level> dimension, BlockPos pos) {
+        unlinkStorage(player, pos);
+    }
 
     /**
      * 更新已链接存储的设置，包括链接模式和优先级。
@@ -53,6 +64,12 @@ public interface BindingService {
      * @param priority 新的优先级（数值越大优先级越高）
      */
     void updateLinkedStorageSettings(ServerPlayer player, BlockPos pos, byte linkMode, int priority);
+
+    /** 跨维度详情面板按已持久化的引用身份更新，不让同坐标的当前维度端点被误改。 */
+    default void updateLinkedStorageSettings(ServerPlayer player, ResourceKey<Level> dimension,
+            BlockPos pos, byte linkMode, int priority) {
+        updateLinkedStorageSettings(player, pos, linkMode, priority);
+    }
 
     /**
      * 启用或禁用掉落物漏斗功能。

@@ -25,9 +25,11 @@ public final class PlacementHistoryManager {
 
     /** Cached undoSize from last server sync (preserved before INSTANCE is available). */
     private static int CACHED_UNDO_SIZE = 0;
+    private static int CACHED_REDO_SIZE = 0;
 
     private BuilderScreen screen;
     private int undoSize = 0;
+    private int redoSize = 0;
 
     /**
      * Initialises the manager, binding the owning Screen.
@@ -37,6 +39,7 @@ public final class PlacementHistoryManager {
         INSTANCE = this;
         // Apply cached sync value (server may send a sync packet before INSTANCE is set when entering RTS mode)
         this.undoSize = CACHED_UNDO_SIZE;
+        this.redoSize = CACHED_REDO_SIZE;
     }
 
     // ===== State queries =====
@@ -46,6 +49,10 @@ public final class PlacementHistoryManager {
         return this.undoSize;
     }
 
+    public int getRedoSize() {
+        return this.redoSize;
+    }
+
     // ===== Undo =====
 
     /**
@@ -53,6 +60,11 @@ public final class PlacementHistoryManager {
      */
     public boolean undo() {
         RtsClientPacketGateway.sendUndo();
+        return true;
+    }
+
+    public boolean redo() {
+        RtsClientPacketGateway.sendRedo();
         return true;
     }
 
@@ -66,12 +78,14 @@ public final class PlacementHistoryManager {
      *
      * @param newUndoSize the server's current undoable step count
      */
-    public static void syncHistoryState(int newUndoSize) {
+    public static void syncHistoryState(int newUndoSize, int newRedoSize) {
         // Always update cache so no sync is lost before INSTANCE is set
         CACHED_UNDO_SIZE = newUndoSize;
+        CACHED_REDO_SIZE = newRedoSize;
         PlacementHistoryManager instance = INSTANCE;
         if (instance != null) {
             instance.undoSize = newUndoSize;
+            instance.redoSize = newRedoSize;
         }
     }
 
@@ -81,6 +95,8 @@ public final class PlacementHistoryManager {
     public void clear() {
         this.undoSize = 0;
         CACHED_UNDO_SIZE = 0;
+        this.redoSize = 0;
+        CACHED_REDO_SIZE = 0;
         INSTANCE = null;
     }
 

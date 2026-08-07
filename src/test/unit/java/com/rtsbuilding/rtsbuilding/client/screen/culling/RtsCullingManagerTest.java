@@ -6,6 +6,9 @@ import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -236,6 +239,38 @@ class RtsCullingManagerTest {
                 "点击已有剔除盒时不应穿透到后面的方块并开始新草稿");
         assertEquals(1, manager.boxes().size());
         assertEquals(1, manager.selectedId());
+    }
+
+    @Test
+    void persistentStateChangesNotifyButDraftEditsDoNot() {
+        RtsCullingManager manager = new RtsCullingManager();
+        AtomicInteger changes = new AtomicInteger();
+        manager.setStateChangeListener(changes::incrementAndGet);
+        manager.setManagementMode(true);
+
+        clickBlock(manager, new BlockPos(10, 64, 10));
+        clickBlock(manager, new BlockPos(12, 64, 12));
+        assertEquals(0, changes.get(), "草稿只能影响本地预览，不能提前写入服务器状态");
+
+        manager.confirmDraft();
+        manager.revealWorldBlock(new BlockPos(11, 64, 11));
+        manager.deleteSelected();
+
+        assertEquals(3, changes.get(), "确认、显式显示和删除正式盒子都必须请求保存");
+    }
+
+    @Test
+    void replacingWorldStateDropsPreviousCoordinates() {
+        RtsCullingManager manager = new RtsCullingManager();
+        BlockPos firstWorld = new BlockPos(10, 64, 10);
+        BlockPos secondWorld = new BlockPos(100, 80, 100);
+
+        manager.replaceWorldState(List.of(new RtsCullingBox(1, firstWorld, firstWorld)), List.of());
+        assertTrue(manager.shouldCullWorldBlock(firstWorld));
+
+        manager.replaceWorldState(List.of(new RtsCullingBox(1, secondWorld, secondWorld)), List.of());
+        assertFalse(manager.shouldCullWorldBlock(firstWorld));
+        assertTrue(manager.shouldCullWorldBlock(secondWorld));
     }
 
     private static void clickBlock(RtsCullingManager manager, BlockPos pos) {

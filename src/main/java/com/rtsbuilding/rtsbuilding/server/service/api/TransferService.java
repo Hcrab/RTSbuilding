@@ -13,6 +13,9 @@ import java.util.function.Predicate;
  * 快速丢弃、菜单槽位导入、快速移动以及批量填充背包等。
  */
 public interface TransferService {
+    /** 服务端权威执行合成终端批量存取。 */
+    void bulkStorageOperation(ServerPlayer player, byte action, ItemStack prototype, int requestedAmount);
+
 
     /**
      * 统计链接存储中匹配指定谓词的物品总数量。

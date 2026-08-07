@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.menu;
 
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftTerminalLayout;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -9,6 +10,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.ContainerLevelAccess;
 import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.ResultSlot;
+import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.crafting.CraftingInput;
 import net.minecraft.world.item.crafting.CraftingRecipe;
@@ -24,6 +27,7 @@ import java.util.List;
  * 记录合成产出并自动从关联存储中补满材料。
  */
 public final class RtsCraftTerminalMenu extends CraftingMenu {
+    private final Player terminalPlayer;
 
     /**
      * 构造合成终端菜单。
@@ -34,6 +38,29 @@ public final class RtsCraftTerminalMenu extends CraftingMenu {
      */
     public RtsCraftTerminalMenu(int containerId, Inventory inventory, ContainerLevelAccess access) {
         super(containerId, inventory, access);
+        this.terminalPlayer = inventory.player;
+        recreateTerminalSlots();
+    }
+
+    /**
+     * 终端仍沿用原版 CraftingMenu 的槽位顺序和服务端合成语义，只把同一批真实槽位摆到
+     * 终端皮肤的 3×3 合成区和玩家背包区域。这样 Shift 导入仍可按既有 menu slot 编号走
+     * C2S 权威路径，不需要额外的近距离或客户端会话确认。
+     */
+    private void recreateTerminalSlots() {
+        replaceTerminalSlot(0, new ResultSlot(this.terminalPlayer, this.craftSlots, this.resultSlots, 0,
+                CraftTerminalLayout.menuSlotX(0), CraftTerminalLayout.menuSlotY(0)));
+        for (int index = 1; index <= 45; index++) {
+            Slot original = this.slots.get(index);
+            replaceTerminalSlot(index, new Slot(original.container, original.getContainerSlot(),
+                    CraftTerminalLayout.menuSlotX(index), CraftTerminalLayout.menuSlotY(index)));
+        }
+    }
+
+    /** 保持菜单索引不变，只替换为构造时已带终端坐标的真实槽位。 */
+    private void replaceTerminalSlot(int menuSlot, Slot replacement) {
+        replacement.index = this.slots.get(menuSlot).index;
+        this.slots.set(menuSlot, replacement);
     }
 
     /**

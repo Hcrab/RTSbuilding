@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.overlay;
 
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -52,26 +54,26 @@ public final class PlayerStatusRenderer {
         // ---- Health Bar (red) ----
         drawStatusBar(g, hx, y, barW, barH,
                 Mth.clamp(health / maxHealth, 0.0F, 1.0F),
-                pct -> pct > 0.5F ? 0xFFD04040 : (pct > 0.25F ? 0xFFD08030 : 0xFFC03020));
+                pct -> pct > 0.5F ? RtsMainlineTheme.LEGACY_FFD04040.toArgb() : (pct > 0.25F ? RtsMainlineTheme.LEGACY_FFD08030.toArgb() : RtsMainlineTheme.LEGACY_FFC03020.toArgb()));
         g .text(this.screen.font(), String.format("HP %.0f/%.0f", health, maxHealth),
-                hx + 4, y + 1, 0xFFFFFFFF, false);
+                hx + 4, y + 1, RtsMainlineTheme.LEGACY_FFFFFFFF.toArgb(), false);
         y += barH + gap;
 
         // ---- Food Bar (gold) ----
         drawStatusBar(g, hx, y, barW, barH,
                 Mth.clamp(food / 20.0F, 0.0F, 1.0F),
-                pct -> pct > 0.5F ? 0xFFC89030 : (pct > 0.25F ? 0xFFB07820 : 0xFFA06010));
+                pct -> pct > 0.5F ? RtsMainlineTheme.LEGACY_FFC89030.toArgb() : (pct > 0.25F ? RtsMainlineTheme.LEGACY_FFB07820.toArgb() : RtsMainlineTheme.LEGACY_FFA06010.toArgb()));
         g .text(this.screen.font(), String.format("FD %d/20", food),
-                hx + 4, y + 1, 0xFFFFFFFF, false);
+                hx + 4, y + 1, RtsMainlineTheme.LEGACY_FFFFFFFF.toArgb(), false);
         y += barH + gap;
 
         // ---- Armor Bar (steel blue) ----
         float armorMax = Math.max(20, armor);
         drawStatusBar(g, hx, y, barW, barH,
                 Mth.clamp(armor / armorMax, 0.0F, 1.0F),
-                pct -> 0xFF6B8FA0);
+                pct -> RtsMainlineTheme.LEGACY_FF6B8FA0.toArgb());
         g .text(this.screen.font(), String.format("AD %d", armor),
-                hx + 4, y + 1, 0xFFFFFFFF, false);
+                hx + 4, y + 1, RtsMainlineTheme.LEGACY_FFFFFFFF.toArgb(), false);
         y += barH + gap;
 
         // ---- Absorption Bar (golden yellow, only when active) ----
@@ -79,9 +81,9 @@ public final class PlayerStatusRenderer {
             float absMax = Math.max(maxHealth, absorption);
             drawStatusBar(g, hx, y, barW, barH,
                     Mth.clamp(absorption / absMax, 0.0F, 1.0F),
-                    pct -> 0xFFE8C840);
+                    pct -> RtsMainlineTheme.LEGACY_FFE8C840.toArgb());
             g .text(this.screen.font(), String.format("AB %.0f", absorption),
-                    hx + 4, y + 1, 0xFFFFFFFF, false);
+                    hx + 4, y + 1, RtsMainlineTheme.LEGACY_FFFFFFFF.toArgb(), false);
         }
     }
 
@@ -98,11 +100,11 @@ public final class PlayerStatusRenderer {
      */
     private static void drawStatusBar(GuiGraphicsExtractor g, int x, int y, int w, int h,
                                        float fillPct, Function<Float, Integer> colorFn) {
-        g.fill(x, y, x + w, y + h, 0xAA1A1E24);
-        g.horizontalLine(x, x + w, y, 0xFF3C4A5A);
-        g.horizontalLine(x, x + w, y + h, 0xFF0A0D12);
-        g.verticalLine(x, y, y + h, 0xFF3C4A5A);
-        g.verticalLine(x + w, y, y + h, 0xFF0A0D12);
+        g.fill(x, y, x + w, y + h, RtsMainlineTheme.LEGACY_AA1A1E24.toArgb());
+        g.horizontalLine(x, x + w, y, RtsMainlineTheme.LEGACY_FF3C4A5A.toArgb());
+        g.horizontalLine(x, x + w, y + h, RtsMainlineTheme.LEGACY_FF0A0D12.toArgb());
+        g.verticalLine(x, y, y + h, RtsMainlineTheme.LEGACY_FF3C4A5A.toArgb());
+        g.verticalLine(x + w, y, y + h, RtsMainlineTheme.LEGACY_FF0A0D12.toArgb());
 
         int fillW = Math.max(0, (int) ((w - 2) * fillPct));
         if (fillW > 0) {

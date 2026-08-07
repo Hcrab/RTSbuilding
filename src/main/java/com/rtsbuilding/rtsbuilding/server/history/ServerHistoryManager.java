@@ -12,7 +12,12 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.*;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * 服务端历史记录管理器（类似 Ultimine-Rewind 的 RewindDataManager）。
@@ -42,7 +47,8 @@ public final class ServerHistoryManager {
     //  记录操作
     // ======================================================================
 
-    public static void recordPlacement(ServerPlayer player, List<BlockPos> positions, Direction face) {
+    public static void recordPlacement(
+            ServerPlayer player, List<BlockPos> positions, Direction face) {
         if (player == null || positions == null || positions.isEmpty()) {
             return;
         }
@@ -50,14 +56,10 @@ public final class ServerHistoryManager {
         if (records.isEmpty()) {
             return;
         }
-        HistoryEntry entry = new HistoryEntry(false, records, face, player.level().dimension());
-        PlayerHistory ph = playerHistories.computeIfAbsent(player.getUUID(), k -> new PlayerHistory());
-        ph.undoStack.add(entry);
-        if (ph.undoStack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
-            ph.undoStack.removeFirst();
-        }
-        cleanupIfNeeded();
-        sendSync(player);
+        pushEntry(player, new HistoryEntry(
+                player.isCreative() ? HistoryOperation.CREATIVE_PLACEMENT
+                        : HistoryOperation.SURVIVAL_PLACEMENT,
+                records, face, player.level().dimension()));
     }
 
     public static void recordBreak(ServerPlayer player, List<BlockPos> positions, Direction face) {
@@ -71,16 +73,33 @@ public final class ServerHistoryManager {
         pushBreakEntry(player, records, face);
     }
 
-    public static void recordBreakWithRecords(ServerPlayer player, List<HistoryBlockRecord> records, Direction face) {
+    public static void recordBreakWithRecords(
+            ServerPlayer player, List<HistoryBlockRecord> records, Direction face) {
         if (player == null || records == null || records.isEmpty()) {
             return;
         }
         pushBreakEntry(player, records, face);
     }
 
-    private static void pushBreakEntry(ServerPlayer player, List<HistoryBlockRecord> records, Direction face) {
-        HistoryEntry entry = new HistoryEntry(true, records, face, player.level().dimension());
+    private static void pushBreakEntry(
+            ServerPlayer player, List<HistoryBlockRecord> records, Direction face) {
+        HistoryEntry entry = new HistoryEntry(
+                player.isCreative() ? HistoryOperation.CREATIVE_BREAK
+                        : HistoryOperation.SURVIVAL_BREAK,
+                records, face, player.level().dimension());
+        pushEntry(player, entry);
+    }
+
+    private static void pushEntry(ServerPlayer player, HistoryEntry entry) {
         PlayerHistory ph = playerHistories.computeIfAbsent(player.getUUID(), k -> new PlayerHistory());
+        ph.redoStack.clear();
+        if (!HistoryCapacityPolicy.accepts(entry.getBlocks())) {
+            player.sendOverlayMessage(
+                    net.minecraft.network.chat.Component.translatable(
+                            "message.rtsbuilding.history.too_large"));
+            sendSync(player);
+            return;
+        }
         ph.undoStack.add(entry);
         if (ph.undoStack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
             ph.undoStack.removeFirst();
@@ -94,9 +113,13 @@ public final class ServerHistoryManager {
     // ======================================================================
 
     public static int executeUndo(ServerPlayer player) {
-        if (player == null) return 0;
+        if (player == null) {
+            return 0;
+        }
         HistoryEntry entry = undo(player);
-        if (entry == null) return 0;
+        if (entry == null) {
+            return 0;
+        }
 
         if (!entry.getDimension().equals(player.level().dimension())) {
             PlayerHistory ph = playerHistories.get(player.getUUID());
@@ -106,34 +129,76 @@ public final class ServerHistoryManager {
             return 0;
         }
 
-        int executed = HistoryExecutor.executeUndo(player, entry);
-        if (executed < entry.getBlockCount()) {
-            if (executed <= 0) {
-                PlayerHistory ph0 = playerHistories.get(player.getUUID());
-                if (ph0 != null) {
-                    ph0.undoStack.add(entry);
-                }
-            } else {
-                HistoryEntry remaining = entry.removeRestored(executed);
-                if (remaining != null) {
-                    updateUndoEntry(player, remaining);
+        HistoryExecutionResult result = HistoryExecutor.executeUndo(player, entry);
+        PlayerHistory ph = playerHistories.computeIfAbsent(
+                player.getUUID(), ignored -> new PlayerHistory());
+        if (result.completedPositions().isEmpty()) {
+            ph.undoStack.addLast(entry);
+        } else {
+            HistoryEntry remaining = entry.remainingAfter(result.completedPositions());
+            if (remaining != null) {
+                ph.undoStack.addLast(remaining);
+            }
+            if (entry.getOperation().creative()) {
+                HistoryEntry completed = entry.completedOnly(result.completedPositions());
+                if (completed != null) {
+                    ph.redoStack.addLast(completed);
+                    trimToLimit(ph.redoStack);
                 }
             }
         }
         sendSync(player);
-        return executed;
+        return result.executedCount();
+    }
+
+    public static int executeRedo(ServerPlayer player) {
+        if (player == null || !player.isCreative()) {
+            return 0;
+        }
+        PlayerHistory ph = playerHistories.get(player.getUUID());
+        if (ph == null || ph.redoStack.isEmpty()) {
+            return 0;
+        }
+        HistoryEntry entry = ph.redoStack.peekLast();
+        if (entry == null || !entry.getOperation().creative()
+                || !entry.getDimension().equals(player.level().dimension())) {
+            return 0;
+        }
+        ph.redoStack.removeLast();
+        HistoryExecutionResult result = HistoryExecutor.executeRedo(player, entry);
+        if (result.completedPositions().isEmpty()) {
+            ph.redoStack.addLast(entry);
+        } else {
+            HistoryEntry remaining = entry.remainingAfter(result.completedPositions());
+            if (remaining != null) {
+                ph.redoStack.addLast(remaining);
+            }
+            HistoryEntry completed = entry.completedOnly(result.completedPositions());
+            if (completed != null) {
+                ph.undoStack.addLast(completed);
+                trimToLimit(ph.undoStack);
+            }
+        }
+        sendSync(player);
+        return result.executedCount();
     }
 
     public static void sendSync(ServerPlayer player) {
-        if (player != null) RtsEffectAccumulator.INSTANCE.markHistory(player.getUUID());
+        if (player != null) {
+            RtsEffectAccumulator.INSTANCE.markHistory(player.getUUID());
+        }
     }
 
     /** 仅由 Tick 末 Effect Committer 调用。 */
     public static void sendSyncNow(ServerPlayer player) {
-        if (player == null) return;
+        if (player == null) {
+            return;
+        }
         int undoSize = getUndoSize(player.getUUID());
+        int redoSize = getRedoSize(player.getUUID());
         RtsClientboundPackets.sendToPlayer(player,
-                new com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload(undoSize));
+                new com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHistorySyncPayload(
+                        undoSize, redoSize));
     }
 
     // ======================================================================
@@ -142,10 +207,13 @@ public final class ServerHistoryManager {
 
     @Nullable
     public static HistoryEntry undo(ServerPlayer player) {
-        if (player == null) return null;
+        if (player == null) {
+            return null;
+        }
         PlayerHistory ph = playerHistories.get(player.getUUID());
-        if (ph == null) return null;
-        if (ph.undoStack.isEmpty()) return null;
+        if (ph == null || ph.undoStack.isEmpty()) {
+            return null;
+        }
         return ph.undoStack.removeLast();
     }
 
@@ -154,9 +222,13 @@ public final class ServerHistoryManager {
     // ======================================================================
 
     public static void updateUndoEntry(ServerPlayer player, HistoryEntry entry) {
-        if (player == null || entry == null) return;
+        if (player == null || entry == null) {
+            return;
+        }
         PlayerHistory ph = playerHistories.get(player.getUUID());
-        if (ph == null) return;
+        if (ph == null) {
+            return;
+        }
         if (!ph.undoStack.isEmpty()) {
             ph.undoStack.removeLast();
             ph.undoStack.add(entry);
@@ -169,9 +241,20 @@ public final class ServerHistoryManager {
 
     public static int getUndoSize(UUID playerId) {
         PlayerHistory ph = playerHistories.get(playerId);
-        if (ph == null) return 0;
+        if (ph == null) {
+            return 0;
+        }
         cleanupExpired(ph);
         return ph.undoStack.size();
+    }
+
+    public static int getRedoSize(UUID playerId) {
+        PlayerHistory ph = playerHistories.get(playerId);
+        if (ph == null) {
+            return 0;
+        }
+        cleanupExpired(ph);
+        return ph.redoStack.size();
     }
 
     // ======================================================================
@@ -195,13 +278,18 @@ public final class ServerHistoryManager {
 
     private static void cleanupExpired(PlayerHistory ph) {
         ph.undoStack.removeIf(HistoryEntry::isExpired);
+        ph.redoStack.removeIf(HistoryEntry::isExpired);
     }
 
     @Nullable
     public static HistoryBlockRecord captureBlock(ServerLevel level, BlockPos pos) {
-        if (level == null || pos == null || !level.isLoaded(pos)) return null;
+        if (level == null || pos == null || !level.isLoaded(pos)) {
+            return null;
+        }
         BlockState state = level.getBlockState(pos);
-        if (state.isAir()) return null;
+        if (state.isAir()) {
+            return null;
+        }
         CompoundTag beData = captureBlockEntityData(level, pos);
         return new HistoryBlockRecord(pos, state, beData);
     }
@@ -210,12 +298,17 @@ public final class ServerHistoryManager {
     //  内部方法
     // ======================================================================
 
-    private static List<HistoryBlockRecord> captureBlocks(ServerLevel level, List<BlockPos> positions) {
+    private static List<HistoryBlockRecord> captureBlocks(
+            ServerLevel level, List<BlockPos> positions) {
         List<HistoryBlockRecord> records = new ArrayList<>(positions.size());
         for (BlockPos pos : positions) {
-            if (!level.isLoaded(pos)) continue;
+            if (!level.isLoaded(pos)) {
+                continue;
+            }
             BlockState state = level.getBlockState(pos);
-            if (state.isAir()) continue;
+            if (state.isAir()) {
+                continue;
+            }
             CompoundTag beData = captureBlockEntityData(level, pos);
             records.add(new HistoryBlockRecord(pos, state, beData));
         }
@@ -224,9 +317,13 @@ public final class ServerHistoryManager {
 
     @Nullable
     private static CompoundTag captureBlockEntityData(ServerLevel level, BlockPos pos) {
-        if (!level.isLoaded(pos)) return null;
+        if (!level.isLoaded(pos)) {
+            return null;
+        }
         BlockEntity blockEntity = level.getBlockEntity(pos);
-        if (blockEntity == null) return null;
+        if (blockEntity == null) {
+            return null;
+        }
         return blockEntity.saveWithFullMetadata(level.registryAccess());
     }
 
@@ -237,5 +334,12 @@ public final class ServerHistoryManager {
     /** 每个玩家独立的撤回栈。所有访问均为单线程（服务端游戏主线程）。 */
     private static final class PlayerHistory {
         final ArrayDeque<HistoryEntry> undoStack = new ArrayDeque<>();
+        final ArrayDeque<HistoryEntry> redoStack = new ArrayDeque<>();
+    }
+
+    private static void trimToLimit(ArrayDeque<HistoryEntry> stack) {
+        while (stack.size() > RtsHistoryConstants.SHAPE_HISTORY_LIMIT) {
+            stack.removeFirst();
+        }
     }
 }

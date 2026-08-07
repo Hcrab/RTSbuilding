@@ -74,6 +74,16 @@ public record PlacementTaskState(
                 nextCursor, nextSucceeded, nextFailed, nextPlacedPositions, resumePolicy);
     }
 
+    /**
+     * 兼容恢复旧任务后允许升级不可变 definition，其余进度字段仍由同一份任务快照拥有。
+     */
+    public PlacementTaskState advance(
+            CompoundTag nextDefinition, int nextCursor, int nextSucceeded, int nextFailed,
+            List<BlockPos> nextPlacedPositions) {
+        return new PlacementTaskState(nextDefinition, workflowEntryId, totalUnits,
+                nextCursor, nextSucceeded, nextFailed, nextPlacedPositions, resumePolicy);
+    }
+
     /** 只改变后续逐目标策略，游标与历史计数保持不变。 */
     public PlacementTaskState withResumePolicy(PlacementResumePolicy nextPolicy) {
         return new PlacementTaskState(definition, workflowEntryId, totalUnits,

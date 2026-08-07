@@ -3,17 +3,28 @@ package com.rtsbuilding.rtsbuilding.client.screen.topbar;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.RtsUiFrameRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.Config;
-import com.rtsbuilding.rtsbuilding.client.screen.developer.RtsDeveloperTaskScreen;
-import net.minecraft.client.Minecraft;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.routing.PointerCapture;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButton;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiButtonId;
+import com.rtsbuilding.rtsbuilding.uicore.topbar.TopBarUiState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiMotionSpec;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiStateBlendAnimationSet;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiTextureState;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.resources.Identifier;
-import net.neoforged.fml.ModList;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants.*;
@@ -40,6 +51,7 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  * @see TopBarIconRenderer
  */
 public final class TopBarPanel {
+    private static final int PRIMARY_MOUSE_BUTTON = 0;
 
     /**
      * Maps the current {@link BuilderMode} to a high-level action category used
@@ -54,6 +66,13 @@ public final class TopBarPanel {
 
     private BuilderScreen screen;
     private ClientRtsController controller;
+    private final UiStateBlendAnimationSet<TopBarTypes.TopBarButtonId,
+            UiTextureState> iconTransitions =
+            new UiStateBlendAnimationSet<>(SystemUiClock.INSTANCE,
+                    Arrays.asList(TopBarTypes.TopBarButtonId.values()),
+                    TopBarIconRenderer.visualStates(),
+                    UiMotionSpec.STATE_BLEND_MS, UiEasing.EASE_IN_OUT_QUAD);
+    private final PointerCapture<TopBarTypes.TopBarButtonId> pointerCapture = new PointerCapture<>();
 
     // ======================== Lifecycle ========================
 
@@ -109,9 +128,11 @@ public final class TopBarPanel {
                 + (screen.getPendingGuiBindSlot() >= 0 ? "    " + screen.text("screen.rtsbuilding.status.gui_bind_armed", screen.getPendingGuiBindSlot() + 1) : "");
 
         TopBarLayout.Status status = TopBarLayout.status(screen.width);
-        g .text(screen.font(), screen.trimToWidth(row1, status.width()), status.x(), status.row1Y(), 0xF0F0F0, false);
+        g .text(screen.font(), screen.trimToWidth(row1, status.width()), status.x(), status.row1Y(),
+                RtsMainlineTheme.PRIMARY_TEXT.toArgb(), false);
         g .text(screen.font(), screen.trimToWidth(row2, status.width()), status.x(), status.row2Y(),
-                this.controller.isStorageLinked() ? 0xB8FFB8 : 0xFFD8AE, false);
+                (this.controller.isStorageLinked() ? RtsMainlineTheme.STATUS_LINKED
+                        : RtsMainlineTheme.STATUS_UNLINKED).toArgb(), false);
     }
 
     // ======================== Click Handling ========================
@@ -126,61 +147,23 @@ public final class TopBarPanel {
      * @return {@code true} if a button was hit (click consumed), {@code false} otherwise
      */
     public boolean handleClick(double mouseX, double mouseY) {
-        if (mouseY < TopBarLayout.BUTTON_Y || mouseY > TopBarLayout.BUTTON_Y + TOP_BUTTON_H) {
-            return false;
-        }
-
-        for (TopBarTypes.TopBarButtonLayout button : buildTopBarButtonLayouts()) {
-            if (!inside(mouseX, mouseY, button.x(), TopBarLayout.BUTTON_Y, button.width(), TOP_BUTTON_H)) {
+        TopBarUiState state = TopBarUiAdapter.snapshot(screen, controller);
+        for (TopBarTypes.TopBarButtonLayout button : buildTopBarButtonLayouts(state)) {
+            if (!UiRect.contains(button.x(), TopBarLayout.BUTTON_Y,
+                    button.width(), TOP_BUTTON_H, mouseX, mouseY)) {
                 continue;
             }
-            if (screen.isBlueprintPlacementModeLocked() && isModeButton(button.id())) {
-                this.controller.setMode(BuilderMode.INTERACT);
-                this.controller.setFunnelEnabled(false);
+            if (!this.pointerCapture.capture(PRIMARY_MOUSE_BUTTON, button.id())) {
                 return true;
             }
-            switch (button.id()) {
-                case INTERACT -> {
-                    this.controller.setMode(BuilderMode.INTERACT);
-                    this.controller.setFunnelEnabled(false);
-                    screen.clearShapeBuildSession();
-                }
-                case LINK -> {
-                    this.controller.setMode(BuilderMode.LINK_STORAGE);
-                    this.controller.setFunnelEnabled(false);
-                    screen.clearShapeBuildSession();
-                }
-                case FUNNEL -> {
-                    this.controller.setMode(BuilderMode.FUNNEL);
-                    this.controller.setFunnelEnabled(true);
-                    screen.clearShapeBuildSession();
-                }
-                case ROTATE -> {
-                    this.controller.setMode(BuilderMode.ROTATE);
-                    this.controller.setFunnelEnabled(false);
-                    screen.clearShapeBuildSession();
-                }
-                case QUICK_BUILD -> {
-                    screen.toggleQuickBuild();
-                    screen.persistUiState();
-                }
-                case QUEST_DETECT -> {
-                    this.controller.detectQuestsNow();
-                }
-                case CHUNK_VIEW -> {
-                    this.controller.setChunkCurtainVisible(!this.controller.isChunkCurtainVisible());
-                    screen.persistUiState();
-                }
-                case RANGE_CULLING -> screen.toggleRangeCullingManagement();
-                case GUIDE -> {
-                    screen.toggleTopGuide(button.x() + button.width() / 2,
-                            TopBarLayout.BUTTON_Y + TOP_BUTTON_H);
-                }
-                case DEVELOPER -> Minecraft.getInstance().setScreen(new RtsDeveloperTaskScreen(screen));
-                case GEAR -> screen.toggleGearMenu();
-                default -> { /* no-op for unrecognised button IDs */ }
+            boolean handled = TopBarUiAdapter.dispatch(
+                    TopBarUiAction.click(TopBarUiButtonId.valueOf(button.id().name())),
+                    screen, controller, button.x() + button.width() / 2,
+                    TopBarLayout.BUTTON_Y + TOP_BUTTON_H);
+            if (!handled) {
+                this.pointerCapture.release(PRIMARY_MOUSE_BUTTON);
             }
-            return true;
+            return handled;
         }
         return false;
     }
@@ -201,68 +184,49 @@ public final class TopBarPanel {
      * @return a new list of {@link TopBarTypes.TopBarButtonLayout}s for this frame
      */
     public List<TopBarTypes.TopBarButtonLayout> buildTopBarButtonLayouts() {
+        return buildTopBarButtonLayouts(TopBarUiAdapter.snapshot(screen, controller));
+    }
+
+    /** Core 决定可见性和选中语义，平台层只把快照投影到现有图标槽位。 */
+    private List<TopBarTypes.TopBarButtonLayout> buildTopBarButtonLayouts(
+            TopBarUiState state) {
         List<TopBarTypes.TopBarButtonLayout> layouts = new ArrayList<>();
-        boolean quickBuild = screen.canUseQuickBuild();
-        boolean questDetect = isFtbQuestIntegrationLoaded();
-        boolean rangeCulling = screen.canUseRangeCulling();
-        boolean developer = Config.isDeveloperModeEnabled();
+        boolean quickBuild = visible(state, TopBarUiButtonId.QUICK_BUILD);
+        boolean questDetect = visible(state, TopBarUiButtonId.QUEST_DETECT);
+        boolean rangeCulling = visible(state, TopBarUiButtonId.RANGE_CULLING);
+        boolean developer = visible(state, TopBarUiButtonId.DEVELOPER);
         TopBarLayout.Buttons positions = TopBarLayout.buttons(
                 screen.width, TOP_MODE_BUTTON_W, TOP_ICON_BUTTON_W, TOP_BUTTON_GAP,
                 quickBuild, questDetect, rangeCulling, developer);
-
-        // ---- Mode buttons (left group) ----
-        layouts.add(TopBarTypes.TopBarButtonLayout.mode(TopBarTypes.TopBarButtonId.INTERACT,
-                positions.x(TopBarTypes.TopBarButtonId.INTERACT), TOP_MODE_BUTTON_W,
-                topActionForMode() == TopAction.INTERACT));
-        layouts.add(TopBarTypes.TopBarButtonLayout.mode(TopBarTypes.TopBarButtonId.LINK,
-                positions.x(TopBarTypes.TopBarButtonId.LINK), TOP_MODE_BUTTON_W,
-                topActionForMode() == TopAction.LINK));
-        layouts.add(TopBarTypes.TopBarButtonLayout.mode(TopBarTypes.TopBarButtonId.FUNNEL,
-                positions.x(TopBarTypes.TopBarButtonId.FUNNEL), TOP_MODE_BUTTON_W,
-                topActionForMode() == TopAction.FUNNEL));
-        layouts.add(TopBarTypes.TopBarButtonLayout.mode(TopBarTypes.TopBarButtonId.ROTATE,
-                positions.x(TopBarTypes.TopBarButtonId.ROTATE), TOP_MODE_BUTTON_W,
-                topActionForMode() == TopAction.ROTATE));
-
-        // ---- Action buttons (center group) ----
-        if (quickBuild) {
-            layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.QUICK_BUILD,
-                    positions.x(TopBarTypes.TopBarButtonId.QUICK_BUILD), TOP_ICON_BUTTON_W,
-                    screen.isQuickBuildOpen()));
+        for (TopBarUiButton coreButton : state.buttons) {
+            if (!coreButton.visible) {
+                continue;
+            }
+            TopBarTypes.TopBarButtonId id = TopBarTypes.TopBarButtonId.valueOf(
+                    coreButton.id.name());
+            int width = coreButton.id.modeButton ? TOP_MODE_BUTTON_W : TOP_ICON_BUTTON_W;
+            if (coreButton.id.modeButton) {
+                layouts.add(TopBarTypes.TopBarButtonLayout.mode(
+                        id, positions.x(id), width, coreButton.active));
+            } else if (coreButton.id == TopBarUiButtonId.QUEST_DETECT
+                    || coreButton.id == TopBarUiButtonId.DEVELOPER) {
+                layouts.add(TopBarTypes.TopBarButtonLayout.command(id, positions.x(id), width));
+            } else {
+                layouts.add(TopBarTypes.TopBarButtonLayout.toggle(
+                        id, positions.x(id), width, coreButton.active));
+            }
         }
-        if (questDetect) {
-            layouts.add(TopBarTypes.TopBarButtonLayout.command(TopBarTypes.TopBarButtonId.QUEST_DETECT,
-                    positions.x(TopBarTypes.TopBarButtonId.QUEST_DETECT), TOP_ICON_BUTTON_W));
-        }
-        layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.CHUNK_VIEW,
-                positions.x(TopBarTypes.TopBarButtonId.CHUNK_VIEW), TOP_ICON_BUTTON_W,
-                this.controller.isChunkCurtainVisible()));
-        if (rangeCulling) {
-            layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.RANGE_CULLING,
-                    positions.x(TopBarTypes.TopBarButtonId.RANGE_CULLING), TOP_ICON_BUTTON_W,
-                    screen.isRangeCullingManagementActive()));
-        }
-        layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.GUIDE,
-                positions.x(TopBarTypes.TopBarButtonId.GUIDE), TOP_ICON_BUTTON_W, screen.isGuideOpen()));
-        if (developer) {
-            layouts.add(TopBarTypes.TopBarButtonLayout.command(
-                    TopBarTypes.TopBarButtonId.DEVELOPER,
-                    positions.x(TopBarTypes.TopBarButtonId.DEVELOPER),
-                    TOP_ICON_BUTTON_W));
-        }
-
-        // ---- Right-aligned buttons ----
-        layouts.add(TopBarTypes.TopBarButtonLayout.toggle(TopBarTypes.TopBarButtonId.GEAR,
-                positions.x(TopBarTypes.TopBarButtonId.GEAR), TOP_ICON_BUTTON_W, screen.isGearMenuOpen()));
         return layouts;
     }
 
-    /**
-     * Checks whether the primary (left) mouse button is currently held down.
-     * Used to compute the "pressed" visual state for icon buttons.
-     */
-    public boolean isPrimaryMouseDown() {
-        return GLFW.glfwGetMouseButton(Minecraft.getInstance().getWindow().handle(), GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+    /** release 只清理首次按下的所有者，移入别的按钮不会伪造 pressed。 */
+    public void mouseReleased(int button) {
+        this.pointerCapture.release(button);
+    }
+
+    /** 切屏、关闭和失焦时清空瞬时所有权。 */
+    public void clearTransientInputState() {
+        this.pointerCapture.clear();
     }
 
     // ======================== Button Rendering ========================
@@ -285,14 +249,16 @@ public final class TopBarPanel {
     private void drawTopButtonSized(GuiGraphicsExtractor g, int x, String label, boolean active, int w) {
         int y = TopBarLayout.BUTTON_Y;
         int h = TOP_BUTTON_H;
-        int bg = active ? 0xFF2E6A50 : 0xAA1F2329;
+        int bg = (active ? RtsMainlineTheme.CONTROL_SELECTED_BACKGROUND
+                : RtsMainlineTheme.CONTROL_IDLE_BACKGROUND).toArgb();
         g.fill(x, y, x + w, y + h, bg);
-        g.horizontalLine(x, x + w, y, 0xFF5B6673);
-        g.horizontalLine(x, x + w, y + h, 0xFF0D0E10);
-        g.verticalLine(x, y, y + h, 0xFF5B6673);
-        g.verticalLine(x + w, y, y + h, 0xFF0D0E10);
+        g.horizontalLine(x, x + w, y, RtsMainlineTheme.CONTROL_IDLE_BORDER_LIGHT.toArgb());
+        g.horizontalLine(x, x + w, y + h, RtsMainlineTheme.CONTROL_IDLE_BORDER_DARK.toArgb());
+        g.verticalLine(x, y, y + h, RtsMainlineTheme.CONTROL_IDLE_BORDER_LIGHT.toArgb());
+        g.verticalLine(x + w, y, y + h, RtsMainlineTheme.CONTROL_IDLE_BORDER_DARK.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
-                screen.trimToWidth(label, Math.max(6, w - 8)), x + w / 2, y + 8, 0xFFFFFF);
+                screen.trimToWidth(label, Math.max(6, w - RtsMainlineLayout.D8)), x + w / 2, y + RtsMainlineLayout.D8,
+                RtsMainlineTheme.PRIMARY_TEXT.toArgb());
     }
 
     /**
@@ -308,25 +274,33 @@ public final class TopBarPanel {
         int y = TopBarLayout.BUTTON_Y;
         int w = button.width();
         int h = TOP_BUTTON_H;
-        boolean hovered = inside(mouseX, mouseY, x, y, w, h);
-        boolean pressed = hovered && isPrimaryMouseDown();
+        boolean hovered = UiRect.contains(x, y, w, h, mouseX, mouseY);
+        boolean pressed = hovered
+                && this.pointerCapture.ownerOf(PRIMARY_MOUSE_BUTTON) == button.id();
 
-        int bg = 0xAA1F2329;
-        int light = 0xFF5B6673;
-        int dark = 0xFF0D0E10;
-        int icon = 0xFFBDC9D6;
+        if (TopBarIconRenderer.renderBlended(
+                g, button.id(), x + (w - TOP_BUTTON_H) / 2, y, TOP_BUTTON_H,
+                TopBarIconRenderer.visualState(button.active(), hovered, pressed),
+                this.iconTransitions, Config.isUiAnimationsEnabled())) {
+            return;
+        }
+
+        int bg = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_IDLE_BACKGROUND.toArgb();
+        int light = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_IDLE_BORDER_LIGHT.toArgb();
+        int dark = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_IDLE_BORDER_DARK.toArgb();
+        int icon = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_IDLE_ICON.toArgb();
         if (button.active()) {
-            bg = 0xFF2D6B47;
-            light = 0xFF9AD2AE;
-            icon = 0xFFF4FBF5;
+            bg = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_SELECTED_BACKGROUND.toArgb();
+            light = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_SELECTED_BORDER_LIGHT.toArgb();
+            icon = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_SELECTED_ICON.toArgb();
         } else if (pressed) {
-            bg = 0xFF1F5037;
-            light = 0xFF6AA784;
-            icon = 0xFFD9E3EF;
+            bg = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_PRESSED_BACKGROUND.toArgb();
+            light = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_PRESSED_BORDER_LIGHT.toArgb();
+            icon = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_HOVER_ICON.toArgb();
         } else if (hovered) {
-            bg = 0xFF1D2530;
-            light = 0xFF7A90AA;
-            icon = 0xFFD9E3EF;
+            bg = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_HOVER_BACKGROUND.toArgb();
+            light = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_HOVER_BORDER_LIGHT.toArgb();
+            icon = com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme.CONTROL_HOVER_ICON.toArgb();
         }
 
         // Try texture-based icon first
@@ -349,10 +323,10 @@ public final class TopBarPanel {
         }
 
         // Fall back to pixel-art background + icon
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, light, dark);
+        RtsUiFrameRenderer.frame(g, x, y, w, h, bg, light, dark);
         if (pressed) {
-            g.horizontalLine(x + 1, x + w - 1, y + 1, dark);
-            g.verticalLine(x + 1, y + 1, y + h - 1, dark);
+            g.horizontalLine(x + RtsMainlineLayout.D1, x + w - RtsMainlineLayout.D1, y + RtsMainlineLayout.D1, dark);
+            g.verticalLine(x + RtsMainlineLayout.D1, y + RtsMainlineLayout.D1, y + h - RtsMainlineLayout.D1, dark);
         }
 
         // Draw the pixel-art icon at the button centre
@@ -361,7 +335,7 @@ public final class TopBarPanel {
         if (button.id() == TopBarTypes.TopBarButtonId.GUIDE
                 || button.id() == TopBarTypes.TopBarButtonId.DEVELOPER) {
             String glyph = button.id() == TopBarTypes.TopBarButtonId.DEVELOPER ? "D" : "i";
-            RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), glyph, cx, y + 7, icon);
+            RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), glyph, cx, y + RtsMainlineLayout.D7, icon);
         } else {
             TopBarIconRenderer.renderIcon(button.id(), g, cx, cy, icon, button.active(), screen.font());
         }
@@ -395,28 +369,8 @@ public final class TopBarPanel {
         };
     }
 
-    /**
-     * Checks whether any FTB Quest mod (ftbquests, ftb_quests, ftblibrary)
-     * is loaded. When detected, the QUEST_DETECT button is shown in the top bar.
-     */
-    private static boolean isFtbQuestIntegrationLoaded() {
-        return ModList.get().isLoaded("ftbquests")
-                || ModList.get().isLoaded("ftb_quests")
-                || ModList.get().isLoaded("ftblibrary");
-    }
-
-    private static boolean isModeButton(TopBarTypes.TopBarButtonId id) {
-        return id == TopBarTypes.TopBarButtonId.INTERACT
-                || id == TopBarTypes.TopBarButtonId.LINK
-                || id == TopBarTypes.TopBarButtonId.FUNNEL
-                || id == TopBarTypes.TopBarButtonId.ROTATE;
-    }
-
-    /**
-     * Hit-test helper: checks whether a point (mouseX, mouseY) lies inside
-     * a rectangle defined by (x, y, w, h).
-     */
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+    private static boolean visible(TopBarUiState state, TopBarUiButtonId id) {
+        TopBarUiButton button = state.button(id);
+        return button != null && button.visible;
     }
 }

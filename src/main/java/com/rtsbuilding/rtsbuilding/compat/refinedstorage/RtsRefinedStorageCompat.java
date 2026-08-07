@@ -8,6 +8,8 @@ import com.rtsbuilding.rtsbuilding.compat.ReportedCountItemHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -25,6 +27,7 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -51,6 +54,33 @@ public final class RtsRefinedStorageCompat {
         return REFLECTION != null;
     }
 
+    /**
+     * 为批量链接返回轻量的 RS 网络身份，不创建库存快照，身份只用于本次扫描的引用去重。
+     */
+    public static BatchNetworkProbe probeBatchNetwork(ServerLevel level, BlockPos pos) {
+        if (REFLECTION == null || level == null || pos == null || !level.hasChunkAt(pos)) {
+            return null;
+        }
+        RsNetworkRef network = REFLECTION.findNetwork(level, pos);
+        return network == null
+                ? null
+                : new BatchNetworkProbe(network.network(), isPreferredTerminalPosition(level, pos));
+    }
+
+    public record BatchNetworkProbe(Object identity, boolean preferredTerminal) {
+    }
+
+    private static boolean isPreferredTerminalPosition(ServerLevel level, BlockPos pos) {
+        Identifier blockId = BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock());
+        if (blockId != null) {
+            String path = blockId.getPath().toLowerCase(Locale.ROOT);
+            if (path.equals("grid") || path.endsWith("_grid") || path.contains("terminal")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static boolean isNetworkNodePosition(ServerPlayer player, BlockPos pos) {
         if (player == null || pos == null || REFLECTION == null) {
             return false;
@@ -60,11 +90,17 @@ public final class RtsRefinedStorageCompat {
     }
 
     public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
-        if (player == null || pos == null || REFLECTION == null) {
+        return player == null ? null : createNetworkItemHandler(player, player.level(), pos);
+    }
+
+    /**
+     * 在指定服务端世界解析 RS 网络。它只改变端点世界，不放宽玩家的 RS OPEN 权限检查。
+     */
+    public static IItemHandler createNetworkItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        if (player == null || level == null || pos == null || REFLECTION == null) {
             return null;
         }
-        ServerLevel level = player.level();
-        if (level == null || !level.hasChunkAt(pos)) {
+        if (!level.hasChunkAt(pos)) {
             return null;
         }
 

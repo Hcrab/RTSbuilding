@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.controller.PluginStateManager;
 import com.rtsbuilding.rtsbuilding.client.plugin.RtsClientPluginCatalog;
@@ -61,7 +64,7 @@ public final class RtsPluginManagementScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> {
                     onClose();
                 })
-                .bounds(this.width - 86, this.height - 28, 74, 20)
+                .bounds(this.width - RtsMainlineLayout.D86, this.height - RtsMainlineLayout.D28, 74, 20)
                 .build());
     }
 
@@ -81,10 +84,10 @@ public final class RtsPluginManagementScreen extends Screen {
         this.hoveredInstalledStack = ItemStack.EMPTY;
 
         Layout layout = resolveLayout();
-        drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), 0xEF111820, 0xFF6C8197);
+        drawFrame(g, layout.x(), layout.y(), layout.w(), layout.h(), RtsMainlineTheme.LEGACY_EF111820.toArgb(), RtsMainlineTheme.LEGACY_FF6C8197.toArgb());
         g.fill(layout.x() + 1, layout.y() + 1, layout.x() + layout.w() - 1,
-                layout.y() + HEADER_H, 0xEE1A2430);
-        g .text(this.font, this.title, layout.x() + PAD, layout.y() + 10, 0xFFFFFFFF, false);
+                layout.y() + HEADER_H, RtsMainlineTheme.LEGACY_EE1A2430.toArgb());
+        g .text(this.font, this.title, layout.x() + PAD, layout.y() + 10, RtsMainlineTheme.LEGACY_FFFFFFFF.toArgb(), false);
 
         int leftX = layout.x() + PAD;
         int leftY = layout.y() + HEADER_H + 8;
@@ -99,7 +102,7 @@ public final class RtsPluginManagementScreen extends Screen {
         if (this.selectedInventorySlot >= 0) {
             ItemStack selected = inventoryStack(this.selectedInventorySlot);
             if (!selected.isEmpty()) {
-                g .item(selected, mouseX + 8, mouseY + 8);
+                g .item(selected, mouseX + RtsMainlineLayout.D8, mouseY + RtsMainlineLayout.D8);
             }
         }
 
@@ -205,52 +208,52 @@ public final class RtsPluginManagementScreen extends Screen {
     }
 
     private void drawInstalledList(GuiGraphicsExtractor g, int x, int y, int w, int h, int mouseX, int mouseY) {
-        drawFrame(g, x, y, w, h, 0xCC17202A, 0xFF43566B);
+        drawFrame(g, x, y, w, h, RtsMainlineTheme.LEGACY_CC17202A.toArgb(), RtsMainlineTheme.LEGACY_FF43566B.toArgb());
         g .text(this.font, Component.translatable("screen.rtsbuilding.plugins.installed"),
-                x + 7, y + 7, 0xFFEAF2FF, false);
+                x + RtsMainlineLayout.D7, y + RtsMainlineLayout.D7, RtsMainlineTheme.LEGACY_FFEAF2FF.toArgb(), false);
         String teamName = this.controller.getPluginTeamName();
         boolean hasTeam = teamName != null && !teamName.isBlank();
         if (hasTeam) {
-            g .text(this.font, trim(Component.translatable("screen.rtsbuilding.plugins.team", teamName).getString(), w - 16),
-                    x + 7, y + 18, 0xFF9FB0C2, false);
+            g .text(this.font, trim(Component.translatable("screen.rtsbuilding.plugins.team", teamName).getString(), w - RtsMainlineLayout.D16),
+                    x + RtsMainlineLayout.D7, y + RtsMainlineLayout.D18, RtsMainlineTheme.LEGACY_FF9FB0C2.toArgb(), false);
         }
         List<PluginStateManager.InstalledPluginView> installed = this.controller.getInstalledPlugins();
         if (installed.isEmpty()) {
             this.installedScroll = 0;
             drawWrapped(g, Component.translatable("screen.rtsbuilding.plugins.empty"),
-                    x + 8, y + (hasTeam ? 38 : 28), w - 16, 0xFF9FB0C2);
+                    x + RtsMainlineLayout.D8, y + (hasTeam ? RtsMainlineLayout.D38 : RtsMainlineLayout.D28), w - RtsMainlineLayout.D16, RtsMainlineTheme.LEGACY_FF9FB0C2.toArgb());
             return;
         }
 
         int rowY = y + (hasTeam ? 34 : 24);
-        int visibleRows = Math.max(1, (y + h - 4 - rowY) / INSTALLED_ROW_H);
+        int visibleRows = Math.max(1, (y + h - RtsMainlineLayout.D4 - rowY) / INSTALLED_ROW_H);
         int maxScroll = Math.max(0, installed.size() - visibleRows);
         this.installedScroll = Mth.clamp(this.installedScroll, 0, maxScroll);
         for (int i = this.installedScroll; i < installed.size(); i++) {
             PluginStateManager.InstalledPluginView plugin = installed.get(i);
-            if (rowY + INSTALLED_ROW_H > y + h - 4) {
+            if (rowY + INSTALLED_ROW_H > y + h - RtsMainlineLayout.D4) {
                 break;
             }
-            boolean hover = inside(mouseX, mouseY, x + 4, rowY, w - 8, INSTALLED_ROW_H - 2);
+            boolean hover = inside(mouseX, mouseY, x + RtsMainlineLayout.D4, rowY, w - RtsMainlineLayout.D8, INSTALLED_ROW_H - RtsMainlineLayout.D2);
             if (hover) {
                 this.hoveredInstalledPluginId = plugin.pluginId();
                 this.hoveredInstalledStack = plugin.stack();
             }
-            g.fill(x + 4, rowY, x + w - 4, rowY + INSTALLED_ROW_H - 2,
-                    hover ? 0xAA2A3846 : 0x88202B36);
+            g.fill(x + RtsMainlineLayout.D4, rowY, x + w - RtsMainlineLayout.D4, rowY + INSTALLED_ROW_H - RtsMainlineLayout.D2,
+                    hover ? RtsMainlineTheme.LEGACY_AA2A3846.toArgb() : RtsMainlineTheme.LEGACY_88202B36.toArgb());
             ItemStack stack = plugin.stack();
             if (!stack.isEmpty()) {
-                g .item(stack, x + 7, rowY + 4);
+                g .item(stack, x + RtsMainlineLayout.D7, rowY + RtsMainlineLayout.D4);
             }
             String name = stack.isEmpty() ? plugin.pluginId() : stack.getHoverName().getString();
-            g .text(this.font, trim(name, w - 76), x + 28, rowY + 5, 0xFFFFFFFF, false);
+            g .text(this.font, trim(name, w - RtsMainlineLayout.D76), x + RtsMainlineLayout.D28, rowY + RtsMainlineLayout.D5, RtsMainlineTheme.LEGACY_FFFFFFFF.toArgb(), false);
             String status = pluginStatus(plugin);
-            g .text(this.font, trim(status, w - 82), x + 28, rowY + 16, 0xFFB8C7D6, false);
+            g .text(this.font, trim(status, w - RtsMainlineLayout.D82), x + RtsMainlineLayout.D28, rowY + RtsMainlineLayout.D16, RtsMainlineTheme.LEGACY_FFB8C7D6.toArgb(), false);
             if (plugin.personal()) {
-                int uninstallX = x + w - 50;
-                g.fill(uninstallX, rowY + 5, uninstallX + 44, rowY + 21, 0xCC3A2630);
+                int uninstallX = x + w - RtsMainlineLayout.D50;
+                g.fill(uninstallX, rowY + 5, uninstallX + 44, rowY + 21, RtsMainlineTheme.LEGACY_CC3A2630.toArgb());
                 g .centeredText(this.font, Component.translatable("screen.rtsbuilding.plugins.uninstall"),
-                        uninstallX + 22, rowY + 9, 0xFFFFD4D4);
+                        uninstallX + 22, rowY + 9, RtsMainlineTheme.LEGACY_FFFFD4D4.toArgb());
             }
             rowY += INSTALLED_ROW_H;
         }
@@ -263,32 +266,32 @@ public final class RtsPluginManagementScreen extends Screen {
         this.installW = w;
         this.installH = 46;
         boolean hover = inside(mouseX, mouseY, x, y, w, this.installH);
-        drawFrame(g, x, y, w, this.installH, hover ? 0xCC243341 : 0xBB17202A,
-                hover ? 0xFF85A7C5 : 0xFF4B5F73);
+        drawFrame(g, x, y, w, this.installH, hover ? RtsMainlineTheme.LEGACY_CC243341.toArgb() : RtsMainlineTheme.LEGACY_BB17202A.toArgb(),
+                hover ? RtsMainlineTheme.LEGACY_FF85A7C5.toArgb() : RtsMainlineTheme.LEGACY_FF4B5F73.toArgb());
         this.refreshW = 52;
         this.refreshH = 16;
         this.refreshX = x + w - this.refreshW - 7;
-        this.refreshY = y + 5;
+        this.refreshY = y + RtsMainlineLayout.D5;
         boolean refreshHover = inside(mouseX, mouseY, this.refreshX, this.refreshY, this.refreshW, this.refreshH);
-        int refreshFill = this.refreshFeedbackTicks > 0 ? 0xCC2F5B45 : refreshHover ? 0xCC2B4055 : 0xAA1D2A37;
+        int refreshFill = this.refreshFeedbackTicks > 0 ? RtsMainlineTheme.LEGACY_CC2F5B45.toArgb() : refreshHover ? RtsMainlineTheme.LEGACY_CC2B4055.toArgb() : RtsMainlineTheme.LEGACY_AA1D2A37.toArgb();
         drawFrame(g, this.refreshX, this.refreshY, this.refreshW, this.refreshH, refreshFill,
-                refreshHover ? 0xFF9FC7E6 : 0xFF5C7188);
+                refreshHover ? RtsMainlineTheme.LEGACY_FF9FC7E6.toArgb() : RtsMainlineTheme.LEGACY_FF5C7188.toArgb());
         g .centeredText(this.font, Component.translatable("screen.rtsbuilding.plugins.refresh"),
-                this.refreshX + this.refreshW / 2, this.refreshY + 4, 0xFFEAF2FF);
+                this.refreshX + this.refreshW / 2, this.refreshY + 4, RtsMainlineTheme.LEGACY_FFEAF2FF.toArgb());
         g .text(this.font, Component.translatable("screen.rtsbuilding.plugins.install_area"),
-                x + 8, y + 7, 0xFFEAF2FF, false);
+                x + RtsMainlineLayout.D8, y + RtsMainlineLayout.D7, RtsMainlineTheme.LEGACY_FFEAF2FF.toArgb(), false);
         Component hint = this.selectedInventorySlot >= 0
                 ? Component.translatable("screen.rtsbuilding.plugins.drop_to_install")
                 : Component.translatable("screen.rtsbuilding.plugins.pick_hint");
-        drawWrapped(g, hint, x + 8, y + 22, w - 16, 0xFF9FB0C2);
+        drawWrapped(g, hint, x + RtsMainlineLayout.D8, y + RtsMainlineLayout.D22, w - RtsMainlineLayout.D16, RtsMainlineTheme.LEGACY_FF9FB0C2.toArgb());
     }
 
     private void drawInventoryPlugins(GuiGraphicsExtractor g, int x, int y, int w, int mouseX, int mouseY) {
         int gridW = INVENTORY_COLS * SLOT;
         int gridX = x + Math.max(0, (w - gridW) / 2);
         g .text(this.font, Component.translatable("screen.rtsbuilding.plugins.inventory"),
-                x, y, 0xFFEAF2FF, false);
-        int slotY = y + 14;
+                x, y, RtsMainlineTheme.LEGACY_FFEAF2FF.toArgb(), false);
+        int slotY = y + RtsMainlineLayout.D14;
         int[] slots = displayedInventorySlots();
         for (int i = 0; i < slots.length; i++) {
             int inventorySlot = slots[i];
@@ -301,8 +304,8 @@ public final class RtsPluginManagementScreen extends Screen {
             if (hover) {
                 this.hoveredInventorySlot = inventorySlot;
             }
-            int fill = selected ? 0xCC2F6B47 : plugin ? 0xAA25364A : 0x77313A45;
-            drawFrame(g, sx, sy, SLOT, SLOT, fill, hover ? 0xFF9FB8D3 : 0xFF46576A);
+            int fill = selected ? RtsMainlineTheme.LEGACY_CC2F6B47.toArgb() : plugin ? RtsMainlineTheme.LEGACY_AA25364A.toArgb() : RtsMainlineTheme.LEGACY_77313A45.toArgb();
+            drawFrame(g, sx, sy, SLOT, SLOT, fill, hover ? RtsMainlineTheme.LEGACY_FF9FB8D3.toArgb() : RtsMainlineTheme.LEGACY_FF46576A.toArgb());
             if (!stack.isEmpty()) {
                 g .item(stack, sx + 1, sy + 1);
                 g .itemDecorations(this.font, stack, sx + 1, sy + 1);
@@ -426,9 +429,9 @@ public final class RtsPluginManagementScreen extends Screen {
     private void drawFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int fill, int border) {
         g.fill(x, y, x + w, y + h, fill);
         g.horizontalLine(x, x + w, y, border);
-        g.horizontalLine(x, x + w, y + h, 0xFF0B1016);
+        g.horizontalLine(x, x + w, y + h, RtsMainlineTheme.LEGACY_FF0B1016.toArgb());
         g.verticalLine(x, y, y + h, border);
-        g.verticalLine(x + w, y, y + h, 0xFF0B1016);
+        g.verticalLine(x + w, y, y + h, RtsMainlineTheme.LEGACY_FF0B1016.toArgb());
     }
 
     private void drawInstalledScrollBar(GuiGraphicsExtractor g, int x, int y, int w, int h, boolean hasTeam,
@@ -437,12 +440,12 @@ public final class RtsPluginManagementScreen extends Screen {
             return;
         }
         int contentY = y + (hasTeam ? 34 : 24);
-        int trackH = Math.max(12, y + h - 6 - contentY);
-        int trackX = x + w - 8;
-        g.fill(trackX, contentY, trackX + 3, contentY + trackH, 0x66334455);
+        int trackH = Math.max(12, y + h - RtsMainlineLayout.D6 - contentY);
+        int trackX = x + w - RtsMainlineLayout.D8;
+        g.fill(trackX, contentY, trackX + 3, contentY + trackH, RtsMainlineTheme.LEGACY_66334455.toArgb());
         int thumbH = Mth.clamp(trackH * visibleRows / Math.max(1, totalRows), 12, trackH);
         int thumbY = contentY + (trackH - thumbH) * this.installedScroll / maxScroll;
-        g.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, 0xFF8FA8C3);
+        g.fill(trackX, thumbY, trackX + 3, thumbY + thumbH, RtsMainlineTheme.LEGACY_FF8FA8C3.toArgb());
     }
 
     private InstalledListMetrics installedListMetrics() {
@@ -459,12 +462,12 @@ public final class RtsPluginManagementScreen extends Screen {
     }
 
     private void renderPageBackground(GuiGraphicsExtractor g) {
-        g.fill(0, 0, this.width, this.height, 0xD80D1117);
+        g.fill(0, 0, this.width, this.height, RtsMainlineTheme.LEGACY_D80D1117.toArgb());
     }
 
     private Layout resolveLayout() {
-        int w = Math.min(PANEL_MAX_W, Math.max(300, this.width - 20));
-        int h = Math.min(PANEL_MAX_H, Math.max(214, this.height - 42));
+        int w = Math.min(PANEL_MAX_W, Math.max(300, this.width - RtsMainlineLayout.D20));
+        int h = Math.min(PANEL_MAX_H, Math.max(214, this.height - RtsMainlineLayout.D42));
         return new Layout((this.width - w) / 2, Math.max(10, (this.height - h) / 2 - 6), w, h);
     }
 

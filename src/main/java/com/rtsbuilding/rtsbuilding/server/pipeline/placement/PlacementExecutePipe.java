@@ -47,6 +47,8 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
             new TypedKey<>("hitOffsetZ", Double.class);
     public static final TypedKey<Integer> ARG_ROTATE_STEPS =
             new TypedKey<>("rotateSteps", Integer.class);
+    public static final TypedKey<String> ARG_STATE_PRESET =
+            new TypedKey<>("statePreset", String.class);
     public static final TypedKey<Boolean> ARG_FORCE_PLACE =
             new TypedKey<>("forcePlace", Boolean.class);
     public static final TypedKey<Boolean> ARG_SKIP_IF_OCCUPIED =
@@ -94,6 +96,7 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
         double hitOffsetZ = pctx.getHitOffsetZ();
         // 从参数（不可变输入）中读取，而不是从 data（可变共享状态）中读取
         byte rotateSteps = pctx.getRotateSteps();
+        String statePreset = pctx.getStatePreset();
         boolean forcePlace = pctx.isForcePlace();
         boolean skipIfOccupied = pctx.isSkipIfOccupied();
         String itemId = pctx.getItemId();
@@ -112,7 +115,7 @@ public final class PlacementExecutePipe implements PipelinePipe<PlaceContext> {
                 ? pctx.getWorkflowEntryId() : -1;
 
         boolean enqueued = RtsPlacementBatch.enqueuePlaceBatch(player, session, clickedPositions,
-                face, hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps,
+                face, hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps, statePreset,
                 forcePlace, skipIfOccupied, itemId, itemPrototype,
                 rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ,

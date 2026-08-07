@@ -46,6 +46,49 @@ public final class RtsMainlineLayout {
     public static final int SORT_BUTTON_GAP = 4;
     public static final int CRAFT_DOCK_X_INSET = 2;
 
+    // 生产适配层只使用命名间距，避免各屏幕重新散落几何魔法数字。
+    public static final int D1 = 1;
+    public static final int D2 = 2;
+    public static final int D3 = 3;
+    public static final int D4 = 4;
+    public static final int D5 = 5;
+    public static final int D6 = 6;
+    public static final int D7 = 7;
+    public static final int D8 = 8;
+    public static final int D10 = 10;
+    public static final int D12 = 12;
+    public static final int D14 = 14;
+    public static final int D16 = 16;
+    public static final int D18 = 18;
+    public static final int D20 = 20;
+    public static final int D22 = 22;
+    public static final int D24 = 24;
+    public static final int D26 = 26;
+    public static final int D28 = 28;
+    public static final int D31 = 31;
+    public static final int D32 = 32;
+    public static final int D36 = 36;
+    public static final int D38 = 38;
+    public static final int D40 = 40;
+    public static final int D42 = 42;
+    public static final int D48 = 48;
+    public static final int D64 = 64;
+    public static final int D50 = 50;
+    public static final int D58 = 58;
+    public static final int D60 = 60;
+    public static final int D70 = 70;
+    public static final int D72 = 72;
+    public static final int D76 = 76;
+    public static final int D82 = 82;
+    public static final int D86 = 86;
+    public static final int D90 = 90;
+    public static final int D92 = 92;
+    public static final int D116 = 116;
+    public static final int D124 = 124;
+    public static final int D126 = 126;
+    public static final int D156 = 156;
+    public static final int D2200 = 2200;
+
     private RtsMainlineLayout() {
     }
 

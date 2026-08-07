@@ -1,11 +1,32 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
+import com.rtsbuilding.rtsbuilding.client.widget.WindowSlider;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiEventReply;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiKeyEvent;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiPointerEvent;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.routing.UiEventTarget;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiFloatAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiMotionSpec;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationRegistry;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiWindowVisibilityAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -13,6 +34,7 @@ import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Base class for movable RTS window panels.
@@ -23,7 +45,8 @@ import java.util.List;
  * That separation lets us migrate visible panels one at a time while the current
  * container overlay and legacy input gate continue to work unchanged.
  */
-public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
+public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEventTarget {
+    private static final AtomicLong NEXT_Z_ORDER = new AtomicLong();
     private static final int DEFAULT_TITLE_BAR_H = 20;
     private static final int DEFAULT_MIN_W = 80;
     private static final int DEFAULT_MIN_H = 60;
@@ -52,7 +75,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     private int defaultWidth;
     private int defaultHeight;
     private boolean positionInitialized;
-    private long lastClickTime = System.nanoTime();
+    private long lastClickTime = NEXT_Z_ORDER.incrementAndGet();
     private boolean dragging;
     private double dragOffsetX;
     private double dragOffsetY;
@@ -67,6 +90,20 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     private WindowButton closeButton;
     private boolean boundsDirty;
     private boolean userBoundsPreference;
+    /** 边框只做视觉插值；命中区始终保持为窗口真实矩形。 */
+    private final UiFloatAnimation hoverBorderAnimation =
+            new UiFloatAnimation(SystemUiClock.INSTANCE, 0.0D);
+    private final UiWindowVisibilityAnimation visibilityAnimation =
+            new UiWindowVisibilityAnimation(SystemUiClock.INSTANCE, true);
+    /**
+     * 子面板共享的、有上限的控件视觉动画缓存。
+     *
+     * <p>它只保存 hover/selected 的插值，不参与命中、网络命令或窗口边界，
+     * 因而动态行列表不会因视觉缓存而吞掉输入或无限增长。</p>
+     */
+    private final UiControlAnimationRegistry<String> contentControlAnimations =
+            new UiControlAnimationRegistry<>(SystemUiClock.INSTANCE, 128);
+    private boolean hoverBorderTarget;
 
     /**
      * Hysteresis flag: when true, a wider threshold (SNAP_THRESHOLD * 2) is used
@@ -151,42 +188,48 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
 
     @Override
     public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
-        if (!this.open || !canShowWindow()) {
+        boolean interactivelyVisible = this.open && canShowWindow();
+        if (!this.visibilityAnimation.shouldRender(interactivelyVisible)) {
+            this.mouseHovering = false;
+            return;
+        }
+        if (this.visibilityAnimation.finishDismissalIfNeeded(
+                Config.isUiAnimationsEnabled())) {
             this.mouseHovering = false;
             return;
         }
         initializePosition();
         clampWindowToScreen();
-        this.mouseHovering = !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
+        this.mouseHovering = interactivelyVisible
+                && !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
+        updateHoverBorderAnimation(this.mouseHovering);
+        boolean suppressChildHover = this.skipHoverDetection
+                || this.visibilityAnimation.isDismissing()
+                || this.visibilityAnimation.opacity() < 0.999D;
 
-        // When the window is covered, globally suppress hover effects on all child buttons
-        // Must be set before renderWindowFrame because the close button renders there
-        if (this.skipHoverDetection) {
-            WindowButton.setGlobalSkipHover(true);
-        }
+        double windowOpacity = visualOpacity();
+        double previousButtonOpacity = WindowButton.setGlobalOpacity(windowOpacity);
+        double previousSliderOpacity = WindowSlider.setGlobalOpacity(windowOpacity);
+        boolean previousButtonSkipHover = WindowButton.setGlobalSkipHover(suppressChildHover);
+        g.pose().pushMatrix();
+        g.pose().translate(0.0F, (float) this.visibilityAnimation.offsetY());
         try {
             renderWindowFrame(g, mouseX, mouseY);
-            // Flush the window frame first (no scissor) so the border is not clipped
-            // by the content scissor that follows.
-            // Must be flushed separately from content because the window border lies
-            // outside the content clipping region.
             g.nextStratum();
 
             if (shouldClipContent()) {
                 enableContentScissor(g);
             }
             renderContent(g, mouseX, mouseY, partialTick);
-            // Flush content while scissor is still active, so item icons (renderItem) and
-            // text batched vertices are clipped to the content region at rasterisation time,
-            // preventing visual bleed-through to adjacent panels.
             g.nextStratum();
         } finally {
-            if (this.skipHoverDetection) {
-                WindowButton.setGlobalSkipHover(false);
-            }
+            WindowButton.setGlobalSkipHover(previousButtonSkipHover);
+            WindowSlider.setGlobalOpacity(previousSliderOpacity);
+            WindowButton.setGlobalOpacity(previousButtonOpacity);
             if (shouldClipContent()) {
                 g.disableScissor();
             }
+            g.pose().popMatrix();
         }
     }
 
@@ -206,9 +249,15 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
         boolean wasOpen = this.open;
         if (open && !wasOpen) {
             initializePosition();
+            this.visibilityAnimation.reveal(Config.isUiAnimationsEnabled());
         }
         this.open = open;
         if (!open && wasOpen) {
+            this.dragging = false;
+            this.resizing = false;
+            this.resizeEdge = ResizeEdge.NONE;
+            this.snapEngaged = false;
+            this.visibilityAnimation.dismiss(Config.isUiAnimationsEnabled());
             onClose();
         }
     }
@@ -238,7 +287,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     public void markBroughtToFront() {
-        this.lastClickTime = System.nanoTime();
+        // 单调序号避免系统时钟精度导致两个窗口并列。
+        this.lastClickTime = NEXT_Z_ORDER.incrementAndGet();
     }
 
     public boolean hasInitializedBounds() {
@@ -384,7 +434,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
                 return true;
             }
             if (isInsideWindow(mouseX, mouseY)) {
-                handleContentClick(mouseX, mouseY, button);
+                if (!areChildControlsSuppressed()) {
+                    handleContentClick(mouseX, mouseY, button);
+                }
                 return true;
             }
         }
@@ -454,7 +506,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        if (!isVisibleWindow() || !isInsideWindow(mouseX, mouseY)) {
+        if (!isVisibleWindow() || areChildControlsSuppressed() || !isInsideWindow(mouseX, mouseY)) {
             return false;
         }
         handleContentScroll(mouseX, mouseY, scrollX, scrollY);
@@ -476,6 +528,56 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         return this.open && handleWindowCharTyped(codePoint, modifiers);
+    }
+
+    @Override
+    public UiEventReply handlePointer(UiPointerEvent event) {
+        boolean handled = switch (event.getType()) {
+            case PRESS -> mouseClicked(event.getX(), event.getY(), event.getButton());
+            case DRAG -> mouseDragged(event.getX(), event.getY(), event.getButton(),
+                    event.getDeltaX(), event.getDeltaY());
+            case RELEASE -> mouseReleased(event.getX(), event.getY(), event.getButton());
+            case SCROLL -> mouseScrolled(event.getX(), event.getY(),
+                    event.getDeltaX(), event.getDeltaY());
+            case MOVE -> false;
+        };
+        if (!handled) {
+            // Layer 已按窗口/可调边框命中本目标时，非左键、滚轮边缘等未触发业务
+            // 的事件也不能穿透到世界。真实命中矩形仍未扩大，窗口外继续 PASS。
+            if ((event.getType() == UiPointerEvent.Type.PRESS
+                    || event.getType() == UiPointerEvent.Type.SCROLL)
+                    && isInsideWindowOrResizeBorder(event.getX(), event.getY())) {
+                return UiEventReply.BLOCK_WORLD;
+            }
+            return UiEventReply.PASS;
+        }
+        if (event.getType() == UiPointerEvent.Type.PRESS) {
+            markBroughtToFront();
+            return UiEventReply.CAPTURE_POINTER;
+        }
+        return UiEventReply.BLOCK_WORLD;
+    }
+
+    @Override
+    public UiEventReply handleKey(UiKeyEvent event) {
+        boolean handled = switch (event.getType()) {
+            case PRESS -> keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers());
+            case CHAR_TYPED -> charTyped(event.getCharacter(), event.getModifiers());
+            case RELEASE -> false;
+        };
+        return handled ? UiEventReply.BLOCK_WORLD : UiEventReply.PASS;
+    }
+
+    @Override
+    public boolean handleEscape() {
+        if (!isVisibleWindow() || !this.closable) {
+            return false;
+        }
+        setOpen(false);
+        this.userBoundsPreference = true;
+        this.boundsDirty = true;
+        onBoundsChanged();
+        return true;
     }
 
     @Override
@@ -512,35 +614,40 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     protected int getBackgroundColor() {
-        return 0xFF161C24;
+        return RtsMainlineTheme.WINDOW_BACKGROUND.toArgb();
     }
 
     protected int getBorderLightColor() {
-        return 0xFF6C839A;
+        return RtsMainlineTheme.WINDOW_BORDER_LIGHT.toArgb();
     }
 
     protected int getBorderDarkColor() {
-        return 0xFF0D1117;
+        return RtsMainlineTheme.WINDOW_BORDER_DARK.toArgb();
     }
 
     protected int getHoverBorderLightColor() {
-        return 0xFFAAC8E8;
+        return RtsMainlineTheme.WINDOW_BORDER_HOVER_LIGHT.toArgb();
     }
 
     protected int getHoverBorderDarkColor() {
-        return 0xFF2A3A4A;
+        return RtsMainlineTheme.WINDOW_BORDER_HOVER_DARK.toArgb();
     }
 
     protected int getTitleBarColor() {
-        return 0xCC233345;
+        return RtsMainlineTheme.WINDOW_TITLE.toArgb();
     }
 
     protected int getTitleTextColor() {
-        return 0xFFF2F7FF;
+        return RtsMainlineTheme.WINDOW_TITLE_TEXT.toArgb();
     }
 
     protected boolean canShowWindow() {
         return true;
+    }
+
+    /** 子类仅在确实需要阻断全部背景 UI/世界输入时覆写。 */
+    protected boolean isModalWindow() {
+        return false;
     }
 
     protected boolean shouldClipContent() {
@@ -556,7 +663,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     protected int contentWidth() {
-        return Math.max(0, this.windowWidth - 2);
+        return Math.max(0, this.windowWidth - RtsMainlineLayout.D2);
     }
 
     protected int contentHeight() {
@@ -573,6 +680,37 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
 
     protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
         return false;
+    }
+
+    /**
+     * 为窗口内容中的稳定控件标识取得视觉插值。
+     *
+     * <p>渲染与命中仍须共用同一个真实矩形；本方法刻意不改变任何交互语义。</p>
+     */
+    protected UiControlAnimationState.Snapshot animateContentControl(
+            String id, boolean enabled, boolean hovered, boolean selected) {
+        return this.contentControlAnimations.update(id,
+                new UiControlState(true, enabled, hovered, false, false, selected,
+                        false, false, enabled ? "" : "disabled"),
+                Config.isUiAnimationsEnabled());
+    }
+
+    /** 当前窗口淡入淡出期间的可见透明度，子类仅用于渲染，不能把它当作业务状态。 */
+    protected final double visualOpacity() {
+        return this.visibilityAnimation.opacity();
+    }
+
+    /** 淡入淡出或被上层窗口覆盖时，子控件不能响应输入或产生 tooltip。 */
+    protected final boolean areChildControlsSuppressed() {
+        return this.skipHoverDetection || this.visibilityAnimation.isDismissing()
+                || this.visibilityAnimation.opacity() < 0.999D;
+    }
+
+    /** 把已有 ARGB 颜色与父窗口可见度相乘，保留其原始 RGB 和透明层级。 */
+    protected final int withVisualOpacity(int color) {
+        int sourceAlpha = color >>> 24 & 0xFF;
+        int alpha = (int) Math.round(sourceAlpha * visualOpacity());
+        return alpha << 24 | color & RtsMainlineTheme.LEGACY_00FFFFFF.toArgb();
     }
 
     private WindowButton createCloseButton() {
@@ -612,25 +750,42 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     private void renderWindowFrame(GuiGraphicsExtractor g, int mouseX, int mouseY) {
-        int light = this.mouseHovering ? getHoverBorderLightColor() : getBorderLightColor();
-        int dark = this.mouseHovering ? getHoverBorderDarkColor() : getBorderDarkColor();
-        RtsClientUiUtil.drawPanelFrame(g, this.windowX, this.windowY, this.windowWidth, this.windowHeight,
-                getBackgroundColor(), light, dark);
+        double hoverProgress = Config.isUiAnimationsEnabled()
+                ? this.hoverBorderAnimation.value()
+                : (this.mouseHovering ? 1.0D : 0.0D);
+        UiColor light = UiColor.interpolate(new UiColor(getBorderLightColor()),
+                new UiColor(getHoverBorderLightColor()), hoverProgress);
+        UiColor dark = UiColor.interpolate(new UiColor(getBorderDarkColor()),
+                new UiColor(getHoverBorderDarkColor()), hoverProgress);
+        UiChromeRenderer.frame(
+                new MinecraftUiCanvas(g, this.screen.font(), this.screen, visualOpacity()),
+                new UiRect(this.windowX, this.windowY, this.windowWidth, this.windowHeight),
+                1.0D, new UiColor(getBackgroundColor()), light, dark);
         int titleH = getTitleBarHeight();
         if (titleH > 0) {
-            g.fill(this.windowX + 1, this.windowY + 1, this.windowX + this.windowWidth - 1,
-                    this.windowY + titleH, getTitleBarColor());
+            g.fill(this.windowX + 1, this.windowY + 1, this.windowX + this.windowWidth - RtsMainlineLayout.D1,
+                    this.windowY + titleH, withVisualOpacity(getTitleBarColor()));
             String title = RtsClientUiUtil.trimToWidth(this.screen.font(), getTitle().getString(),
-                    Math.max(8, this.windowWidth - 36));
+                    Math.max(8, this.windowWidth - RtsMainlineLayout.D36));
             g .text(this.screen.font(), title, this.windowX + 8,
                     this.windowY + Math.max(1, (titleH - this.screen.font().lineHeight) / 2),
-                    getTitleTextColor(), false);
+                    withVisualOpacity(getTitleTextColor()), false);
         }
         if (this.closable && this.closeButton != null) {
             this.closeButton.setX(closeButtonX());
             this.closeButton.setY(closeButtonY());
             this.closeButton.render(g, mouseX, mouseY, 0.0F);
         }
+    }
+
+    /** 仅在悬停目标变化时重定向，避免每帧重启动画而永远到不了终值。 */
+    private void updateHoverBorderAnimation(boolean hovering) {
+        if (this.hoverBorderTarget == hovering) {
+            return;
+        }
+        this.hoverBorderTarget = hovering;
+        this.hoverBorderAnimation.animateTo(hovering ? 1.0D : 0.0D,
+                UiMotionSpec.HOVER_MS, UiEasing.EASE_OUT_CUBIC);
     }
 
     private void enableContentScissor(GuiGraphicsExtractor g) {
@@ -830,7 +985,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
                 if (Math.abs(mL - oR) < threshold) {
                     this.windowX = oR + 1;
                 } else if (Math.abs(mR - oL) < threshold) {
-                    this.windowX = oL - this.windowWidth - 1;
+                    this.windowX = oL - this.windowWidth - RtsMainlineLayout.D1;
                 }
             }
 

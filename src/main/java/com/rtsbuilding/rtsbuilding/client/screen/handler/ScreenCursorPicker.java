@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.screen.handler;
 
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingRayClipper;
@@ -151,6 +152,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public Vec3 computeCursorRayDirection() {
+        if (RtsPlacementRayFreeze.isFrozen()) {
+            return RtsPlacementRayFreeze.directionOr(new Vec3(0.0D, 0.0D, 1.0D));
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null) {
             return new Vec3(0, 0, -1);
@@ -195,6 +199,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public Vec3 currentRayOrigin() {
+        if (RtsPlacementRayFreeze.isFrozen()) {
+            return RtsPlacementRayFreeze.originOr(Vec3.ZERO);
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.gameRenderer == null) {
             return Vec3.ZERO;

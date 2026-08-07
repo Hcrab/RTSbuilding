@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
+import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
@@ -65,6 +66,14 @@ public final class ClientPayloadDispatcher {
         }
     }
 
+    /** 范围剔除状态单独分流，保证专用服务器不会加载客户端状态类。 */
+    public static void dispatchCulling(Object payload, IPayloadContext ctx) {
+        if (!IS_CLIENT) return;
+        if (payload instanceof S2CRtsCullingStatePayload cullingState) {
+            RtsClientNetworkHandlers.handleCullingState(cullingState, ctx);
+        }
+    }
+
     // ======================================================================
     //  Builder domain
     // ======================================================================
@@ -92,6 +101,8 @@ public final class ClientPayloadDispatcher {
                     RtsClientNetworkHandlers.handleResumePlacementScan(p, ctx);
             case S2CRtsBlueprintResumeScanPayload p ->
                     RtsClientNetworkHandlers.handleBlueprintResumeScan(p, ctx);
+            case S2CRtsOperationTerminalPayload p ->
+                    RtsClientNetworkHandlers.handleOperationTerminal(p, ctx);
             default -> {}
         }
     }

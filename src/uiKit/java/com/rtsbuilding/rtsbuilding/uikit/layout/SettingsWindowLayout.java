@@ -18,7 +18,8 @@ public final class SettingsWindowLayout {
     public static final int SENSITIVITY_ROW_H = 46;
     public static final int SCALE_ROW_H = 34;
     public static final int SOUND_LIMIT_ROW_H = 38;
-    public static final int SIMPLE_TOGGLE_ROW_H = 28;
+    public static final int SIMPLE_TOGGLE_ROW_H = 32;
+    public static final int ACTION_ROW_H = 34;
     public static final int HINT_TOGGLE_ROW_H = 34;
     public static final int HINT_LINE_H = 10;
     public static final int HINT_EXPAND_BUTTON_SIZE = 12;
@@ -26,7 +27,9 @@ public final class SettingsWindowLayout {
     public static final int ROW_TEXT_INSET = 16;
     public static final int SENSITIVITY_TRACK_INSET = 16;
     public static final int STEP_CONTROLS_RIGHT_INSET = 124;
-    public static final int TOGGLE_RIGHT_INSET = 92;
+    public static final int TOGGLE_RIGHT_INSET = 82;
+    public static final int TOGGLE_WIDTH = SettingsSwitchLayout.WIDTH;
+    public static final int TOGGLE_HEIGHT = SettingsSwitchLayout.HEIGHT;
     public static final int TOGGLE_ROW_HORIZONTAL_INSET = 12;
     public static final int SCROLLBAR_RIGHT_INSET = 7;
     public static final int SENSITIVITY_VALUE_RIGHT_INSET = 60;
@@ -39,15 +42,16 @@ public final class SettingsWindowLayout {
     public static final int SECTION_TITLE_RIGHT_RESERVE = 58;
     public static final int STEP_BUTTON_TEXT_X = 11;
     public static final int STEP_BUTTON_TEXT_TOP = 7;
-    public static final int TOGGLE_KNOB_RIGHT_INSET = 26;
-    public static final int TOGGLE_KNOB_LEFT_INSET = 6;
-    public static final int TOGGLE_KNOB_TOP = 4;
-    public static final int TOGGLE_KNOB_WIDTH = 18;
-    public static final int TOGGLE_KNOB_BOTTOM_INSET = 4;
     public static final int TOGGLE_TEXT_TOP = 7;
     public static final int SCROLL_TRACK_TOP = 2;
     public static final int SCROLL_TRACK_VERTICAL_INSET = 4;
     public static final int HINT_BUTTON_GAP = 4;
+    public static final int ACTION_LABEL_RIGHT_RESERVE = 142;
+    public static final int ACTION_BUTTON_RIGHT_INSET = 112;
+    public static final int ACTION_BUTTON_TOP = 6;
+    public static final int ACTION_BUTTON_W = 96;
+    public static final int ACTION_BUTTON_H = 22;
+    public static final int ACTION_BUTTON_TEXT_TOP = 7;
 
     private SettingsWindowLayout() {
     }
@@ -80,6 +84,7 @@ public final class SettingsWindowLayout {
     public static int rowHeight(SettingsUiRow row, int expandedHintLines) {
         if (row.id.kind == SettingsRowKind.SENSITIVITY) return SENSITIVITY_ROW_H;
         if (row.id.kind == SettingsRowKind.SIMPLE_TOGGLE) return SIMPLE_TOGGLE_ROW_H;
+        if (row.id.kind == SettingsRowKind.ACTION) return ACTION_ROW_H;
         if (row.id.kind == SettingsRowKind.STEP_VALUE) {
             return row.id == SettingsId.BLOCK_SOUNDS_PER_TICK
                     ? SOUND_LIMIT_ROW_H : SCALE_ROW_H;

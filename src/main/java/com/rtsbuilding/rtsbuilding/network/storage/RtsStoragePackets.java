@@ -37,6 +37,11 @@ public final class RtsStoragePackets {
                 RtsBindingHandlers::handleLinkStorage);
 
         registrar.playToServer(
+                C2SRtsBatchLinkStoragePayload.TYPE,
+                C2SRtsBatchLinkStoragePayload.STREAM_CODEC,
+                RtsBindingHandlers::handleBatchLinkStorage);
+
+        registrar.playToServer(
                 C2SRtsUnlinkStoragePayload.TYPE,
                 C2SRtsUnlinkStoragePayload.STREAM_CODEC,
                 RtsBindingHandlers::handleUnlinkStorage);
@@ -80,6 +85,11 @@ public final class RtsStoragePackets {
                 C2SRtsFillInventoryPayload.TYPE,
                 C2SRtsFillInventoryPayload.STREAM_CODEC,
                 RtsTransferHandlers::handleFillInventory);
+
+        registrar.playToServer(
+                C2SRtsBulkStorageOpPayload.TYPE,
+                C2SRtsBulkStorageOpPayload.STREAM_CODEC,
+                RtsTransferHandlers::handleBulkStorageOperation);
 
         registrar.playToServer(
                 C2SRtsLinkedPickupPayload.TYPE,

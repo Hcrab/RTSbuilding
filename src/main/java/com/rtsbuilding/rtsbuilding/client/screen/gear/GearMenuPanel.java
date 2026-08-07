@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.gear;
 
+import com.rtsbuilding.rtsbuilding.client.util.RtsUiFrameRenderer;
+
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
@@ -7,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.uikit.theme.SettingsWindowStyle;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
@@ -35,6 +40,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private static final int SECTION_GAP = 6;
     private static final int SENSITIVITY_ROW_H = 46;
     private static final int SCALE_ROW_H = 34;
+    private static final int THEME_ACTION_ROW_H = 34;
     private static final int SOUND_LIMIT_ROW_H = 38;
     private static final int SIMPLE_TOGGLE_ROW_H = 28;
     private static final int HINT_TOGGLE_ROW_H = 34;
@@ -49,6 +55,8 @@ public final class GearMenuPanel extends RtsWindowPanel {
     private boolean animationExpanded = false;
     private final Set<String> expandedHintKeys = new HashSet<>();
     private SensitivityControl draggingSensitivityControl = null;
+    /** 由 BuilderScreen 拥有的主题窗口；设置菜单只负责打开它。 */
+    private ThemeSettingsPanel themeSettingsPanel;
 
     private enum SensitivityControl {
         PAN_DRAG("screen.rtsbuilding.settings.sensitivity.pan_drag"),
@@ -72,6 +80,11 @@ public final class GearMenuPanel extends RtsWindowPanel {
     public void open() {
         setOpen(true);
         markBroughtToFront();
+    }
+
+    /** 绑定生产主题窗口，避免设置面板自行拥有另一个浮窗生命周期。 */
+    public void bindThemeSettingsPanel(ThemeSettingsPanel panel) {
+        this.themeSettingsPanel = panel;
     }
 
     @Override
@@ -197,6 +210,8 @@ public final class GearMenuPanel extends RtsWindowPanel {
         if (this.displayExpanded) {
             drawScaleRow(g, mouseX, mouseY, rowY, x, w);
             rowY += SCALE_ROW_H;
+            drawThemeActionRow(g, mouseX, mouseY, rowY, x, w);
+            rowY += THEME_ACTION_ROW_H;
             drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.player_status_overlay",
                     "screen.rtsbuilding.settings.player_status_overlay.hint",
@@ -292,6 +307,11 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.category.animation", this.animationExpanded);
         if (this.animationExpanded) {
             drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
+                    "screen.rtsbuilding.settings.ui_animations",
+                    "screen.rtsbuilding.settings.ui_animations.hint",
+                    Config.isUiAnimationsEnabled());
+            rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.ui_animations.hint");
+            drawSettingsToggleWithHint(g, mouseX, mouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.smooth_camera",
                     "screen.rtsbuilding.settings.smooth_camera.hint",
                     this.controller.isSmoothCamera());
@@ -335,69 +355,89 @@ public final class GearMenuPanel extends RtsWindowPanel {
 
     private int drawSectionHeader(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int w, int y,
             String titleKey, boolean expanded) {
-        boolean hover = inside(mouseX, mouseY, x + 8, y, w - 16, SECTION_HEADER_H);
-        int bg = hover ? 0xCC2C3948 : 0xCC202A35;
-        RtsClientUiUtil.drawPanelFrame(g, x + 8, y, w - 16, SECTION_HEADER_H,
-                bg, 0xFF596D82, 0xFF0B1016);
-        g .text(screen.font(), expanded ? "v" : ">", x + 16, y + 7, 0xFFEAF4FF, false);
-        g .text(screen.font(), trimToWidth(text(titleKey), w - 58), x + 31, y + 7, 0xFFF4F7FF, false);
+        boolean hover = inside(mouseX, mouseY, x + RtsMainlineLayout.D8, y, w - RtsMainlineLayout.D16, SECTION_HEADER_H);
+        int bg = (hover ? SettingsWindowStyle.SECTION_HOVER_BACKGROUND
+                : SettingsWindowStyle.SECTION_BACKGROUND).toArgb();
+        RtsUiFrameRenderer.frame(g, x + RtsMainlineLayout.D8, y, w - RtsMainlineLayout.D16, SECTION_HEADER_H,
+                bg, SettingsWindowStyle.SECTION_BORDER.toArgb(),
+                SettingsWindowStyle.SECTION_DARK_BORDER.toArgb());
+        g.text(screen.font(), expanded ? "v" : ">", x + RtsMainlineLayout.D16, y + RtsMainlineLayout.D7,
+                SettingsWindowStyle.VALUE.toArgb(), false);
+        g.text(screen.font(), trimToWidth(text(titleKey), w - RtsMainlineLayout.D58), x + RtsMainlineLayout.D31, y + RtsMainlineLayout.D7,
+                SettingsWindowStyle.VALUE.toArgb(), false);
         return y + SECTION_HEADER_H;
     }
 
     private void drawSensitivityRow(GuiGraphicsExtractor g, int rowY, int x, int w, SensitivityControl control) {
-        g .text(screen.font(), Component.translatable(control.labelKey),
-                x + 16, rowY + 5, 0xFFC8D3DF, false);
-        g .text(screen.font(), sensitivityLabel(control),
-                x + w - 60, rowY + 5, 0xFFEAF4FF, false);
+        g.text(screen.font(), Component.translatable(control.labelKey),
+                x + RtsMainlineLayout.D16, rowY + 5, SettingsWindowStyle.LABEL.toArgb(), false);
+        g.text(screen.font(), sensitivityLabel(control),
+                x + w - RtsMainlineLayout.D60, rowY + 5, SettingsWindowStyle.VALUE.toArgb(), false);
 
-        int trackX = x + 16;
+        int trackX = x + RtsMainlineLayout.D16;
         int trackY = rowY + 24;
-        int trackW = w - 32;
-        g.fill(trackX, trackY, trackX + trackW, trackY + 4, 0xFF07090D);
-        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3, 0xFF313946);
+        int trackW = w - RtsMainlineLayout.D32;
+        g.fill(trackX, trackY, trackX + trackW, trackY + 4,
+                SettingsWindowStyle.TRACK_BACKGROUND.toArgb());
+        g.fill(trackX + 1, trackY + 1, trackX + trackW - 1, trackY + 3,
+                SettingsWindowStyle.TRACK_FILL.toArgb());
         int presetCount = Math.max(1, this.controller.getInputSensitivityPresetCount());
         int knobX = trackX + (int) Math.round((sensitivityIndex(control)
                 / (double) Math.max(1, presetCount - 1)) * trackW);
-        g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8, 0xFF5FE36C);
+        g.fill(knobX - 3, trackY - 5, knobX + 4, trackY + 8,
+                SettingsWindowStyle.KNOB.toArgb());
     }
 
     private void drawScaleRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int rowY, int x, int w) {
-        int minusX = x + w - 124;
+        int minusX = x + w - RtsMainlineLayout.D124;
         int valueX = minusX + 26;
         int plusX = valueX + 60;
-        g .text(screen.font(), Component.translatable("screen.rtsbuilding.settings.ui_scale"),
-                x + 16, rowY + 8, 0xFFC8D3DF, false);
+        g.text(screen.font(), Component.translatable("screen.rtsbuilding.settings.ui_scale"),
+                x + RtsMainlineLayout.D16, rowY + 8, SettingsWindowStyle.LABEL.toArgb(), false);
         drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 6, 22, 22, "-", false);
-        RtsClientUiUtil.drawPanelFrame(g, valueX, rowY + 6, 56, 22, 0xCC1A232E, 0xFF566B80, 0xFF0D1218);
+        RtsUiFrameRenderer.frame(g, valueX, rowY + 6, 56, 22,
+                SettingsWindowStyle.VALUE_BACKGROUND.toArgb(), SettingsWindowStyle.VALUE_BORDER.toArgb(),
+                SettingsWindowStyle.VALUE_DARK_BORDER.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), rtsGuiScaleLabel(),
-                valueX + 28, rowY + 13, 0xFFEAF4FF);
+                valueX + 28, rowY + 13, SettingsWindowStyle.VALUE.toArgb());
         drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 6, 22, 22, "+", false);
     }
 
+    /** 显示主题入口；实际主题选择、导入和应用由独立浮窗负责。 */
+    private void drawThemeActionRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int rowY, int x, int w) {
+        g.text(screen.font(), trimToWidth(text("screen.rtsbuilding.settings.ui_theme"), w - RtsMainlineLayout.D126),
+                x + RtsMainlineLayout.D16, rowY + 2, SettingsWindowStyle.LABEL.toArgb(), false);
+        g.text(screen.font(), trimToWidth(text("screen.rtsbuilding.settings.ui_theme.hint"), w - RtsMainlineLayout.D126),
+                x + RtsMainlineLayout.D16, rowY + 14, SettingsWindowStyle.HINT.toArgb(), false);
+        drawGearMenuRow(g, mouseX, mouseY, x + w - RtsMainlineLayout.D92, rowY + 5, 76, 22,
+                text("screen.rtsbuilding.theme.open"), false);
+    }
+
     private void drawSoundLimitRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int rowY, int x, int w) {
-        int minusX = x + w - 124;
+        int minusX = x + w - RtsMainlineLayout.D124;
         int valueX = minusX + 26;
         int plusX = valueX + 60;
-        g .text(screen.font(), trimToWidth(
-                        text("screen.rtsbuilding.settings.block_sounds_per_tick"), w - 156),
-                x + 16, rowY + 3, 0xFFC8D3DF, false);
-        g .text(screen.font(), trimToWidth(
-                        text("screen.rtsbuilding.settings.block_sounds_per_tick.hint"), w - 156),
-                x + 16, rowY + 18, 0xFF9FB0C2, false);
+        g.text(screen.font(), trimToWidth(
+                        text("screen.rtsbuilding.settings.block_sounds_per_tick"), w - RtsMainlineLayout.D156),
+                x + RtsMainlineLayout.D16, rowY + 3, SettingsWindowStyle.LABEL.toArgb(), false);
+        g.text(screen.font(), trimToWidth(
+                        text("screen.rtsbuilding.settings.block_sounds_per_tick.hint"), w - RtsMainlineLayout.D156),
+                x + RtsMainlineLayout.D16, rowY + 18, SettingsWindowStyle.HINT.toArgb(), false);
         drawGearMenuRow(g, mouseX, mouseY, minusX, rowY + 8, 22, 22, "-", false);
-        RtsClientUiUtil.drawPanelFrame(g, valueX, rowY + 8, 56, 22,
-                0xCC1A232E, 0xFF566B80, 0xFF0D1218);
+        RtsUiFrameRenderer.frame(g, valueX, rowY + 8, 56, 22,
+                SettingsWindowStyle.VALUE_BACKGROUND.toArgb(), SettingsWindowStyle.VALUE_BORDER.toArgb(),
+                SettingsWindowStyle.VALUE_DARK_BORDER.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
                 Integer.toString(RtsClientUiStateStore.getRtsBlockSoundsPerTick()),
-                valueX + 28, rowY + 15, 0xFFEAF4FF);
+                valueX + 28, rowY + 15, SettingsWindowStyle.VALUE.toArgb());
         drawGearMenuRow(g, mouseX, mouseY, plusX, rowY + 8, 22, 22, "+", false);
     }
 
     private void drawSimpleToggleRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int w, int rowY,
             String labelKey, boolean active) {
-        g .text(screen.font(), trimToWidth(text(labelKey), w - 126),
-                x + 16, rowY + 9, 0xFFC8D3DF, false);
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, active,
+        g.text(screen.font(), trimToWidth(text(labelKey), w - RtsMainlineLayout.D126),
+                x + RtsMainlineLayout.D16, rowY + 9, SettingsWindowStyle.LABEL.toArgb(), false);
+        drawToggleButton(g, mouseX, mouseY, x + w - RtsMainlineLayout.D92, rowY + 4, 76, 22, active,
                 text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
     }
 
@@ -407,20 +447,23 @@ public final class GearMenuPanel extends RtsWindowPanel {
         boolean expanded = expandable && this.expandedHintKeys.contains(hintKey);
         int hintX = hintTextX(x, expandable);
         int hintW = hintTextMaxWidth(x, w, expandable);
-        String label = trimToWidth(text(labelKey), w - 116);
-        g .text(screen.font(), label, x + 16, rowY + 2, 0xFFC8D3DF, false);
+        String label = trimToWidth(text(labelKey), w - RtsMainlineLayout.D116);
+        g.text(screen.font(), label, x + RtsMainlineLayout.D16, rowY + 2,
+                SettingsWindowStyle.LABEL.toArgb(), false);
         if (expandable) {
             drawHintExpandButton(g, mouseX, mouseY, x, rowY, expanded);
         }
         if (expanded) {
             List<FormattedCharSequence> lines = wrappedHintLines(x, w, hintKey);
             for (int i = 0; i < lines.size(); i++) {
-                g .text(screen.font(), lines.get(i), hintX, rowY + 13 + i * HINT_LINE_H, 0xFF9FB0C2, false);
+                g.text(screen.font(), lines.get(i), hintX, rowY + 13 + i * HINT_LINE_H,
+                        SettingsWindowStyle.HINT.toArgb(), false);
             }
         } else {
-            g .text(screen.font(), trimToWidth(text(hintKey), hintW), hintX, rowY + 13, 0xFF9FB0C2, false);
+            g.text(screen.font(), trimToWidth(text(hintKey), hintW), hintX, rowY + 13,
+                    SettingsWindowStyle.HINT.toArgb(), false);
         }
-        drawToggleButton(g, mouseX, mouseY, x + w - 92, rowY + 4, 76, 22, active,
+        drawToggleButton(g, mouseX, mouseY, x + w - RtsMainlineLayout.D92, rowY + 4, 76, 22, active,
                 text(active ? "gui.rtsbuilding.on" : "gui.rtsbuilding.off"));
     }
 
@@ -430,7 +473,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         int rowY = contentY() + CONTENT_TOP_PADDING;
         double contentMouseY = mouseY + this.scroll;
 
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D8, rowY, w - RtsMainlineLayout.D16, SECTION_HEADER_H)) {
             this.controlsExpanded = !this.controlsExpanded;
             clampScroll();
             screen.persistUiState();
@@ -439,14 +482,14 @@ public final class GearMenuPanel extends RtsWindowPanel {
         rowY += SECTION_HEADER_H;
         if (this.controlsExpanded) {
             for (SensitivityControl control : SensitivityControl.values()) {
-                if (inside(mouseX, contentMouseY, x + 16, rowY + 16, w - 32, 22)) {
+                if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D16, rowY + 16, w - RtsMainlineLayout.D32, 22)) {
                     setSensitivityByFraction(control, calcSensitivityFraction(mouseX, x, w));
                     this.draggingSensitivityControl = control;
                     return;
                 }
                 rowY += SENSITIVITY_ROW_H;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24, SIMPLE_TOGGLE_ROW_H)) {
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24, SIMPLE_TOGGLE_ROW_H)) {
                 this.controller.toggleStartCameraAtPlayerHead();
                 screen.persistUiState();
                 return;
@@ -456,7 +499,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.pan_drag_x_invert.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_x_invert.hint"))) {
                 this.controller.toggleInvertPanDragX();
                 screen.persistUiState();
@@ -467,7 +510,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.pan_drag_y_invert.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.pan_drag_y_invert.hint"))) {
                 this.controller.toggleInvertPanDragY();
                 screen.persistUiState();
@@ -478,7 +521,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.keyboard_batch_confirm.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.keyboard_batch_confirm.hint"))) {
                 Config.setKeyboardBatchConfirmEnabled(!Config.isKeyboardBatchConfirmEnabled());
                 return;
@@ -487,7 +530,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         rowY += SECTION_GAP;
 
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D8, rowY, w - RtsMainlineLayout.D16, SECTION_HEADER_H)) {
             this.displayExpanded = !this.displayExpanded;
             clampScroll();
             screen.persistUiState();
@@ -495,7 +538,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         rowY += SECTION_HEADER_H;
         if (this.displayExpanded) {
-            int minusX = x + w - 124;
+            int minusX = x + w - RtsMainlineLayout.D124;
             int plusX = minusX + 86;
             if (inside(mouseX, contentMouseY, minusX, rowY + 6, 22, 22)) {
                 adjustRtsGuiScale(-RTS_GUI_SCALE_STEP);
@@ -506,11 +549,19 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 return;
             }
             rowY += SCALE_ROW_H;
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24, THEME_ACTION_ROW_H)) {
+                if (this.themeSettingsPanel != null) {
+                    close();
+                    this.themeSettingsPanel.open();
+                }
+                return;
+            }
+            rowY += THEME_ACTION_ROW_H;
             if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
                     "screen.rtsbuilding.settings.player_status_overlay.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.player_status_overlay.hint"))) {
                 this.controller.togglePlayerStatusOverlayEnabled();
                 screen.persistUiState();
@@ -521,7 +572,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.container_overlay.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.container_overlay.hint"))) {
                 screen.toggleContainerOverlayEnabled();
                 return;
@@ -531,7 +582,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.shift_import.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.shift_import.hint"))) {
                 screen.toggleOverlayShiftImportEnabled();
                 return;
@@ -541,7 +592,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.show_storage_ready_popup.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_storage_ready_popup.hint"))) {
                 screen.toggleShowStorageReadyPopup();
                 return;
@@ -551,7 +602,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.show_workflow_panel.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.show_workflow_panel.hint"))) {
                 screen.toggleShowWorkflowPanelEnabled();
                 return;
@@ -560,7 +611,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         rowY += SECTION_GAP;
 
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D8, rowY, w - RtsMainlineLayout.D16, SECTION_HEADER_H)) {
             this.helpersExpanded = !this.helpersExpanded;
             clampScroll();
             screen.persistUiState();
@@ -568,7 +619,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         rowY += SECTION_HEADER_H;
         if (this.helpersExpanded) {
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24, SIMPLE_TOGGLE_ROW_H)) {
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24, SIMPLE_TOGGLE_ROW_H)) {
                 this.controller.toggleAutoStoreMinedDrops();
                 screen.persistUiState();
                 return;
@@ -578,7 +629,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.storage_refresh_quiet.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_refresh_quiet.hint"))) {
                 screen.toggleStorageRefreshQuietEnabled();
                 return;
@@ -588,7 +639,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.storage_auto_refresh.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.storage_auto_refresh.hint"))) {
                 screen.toggleStorageAutoRefreshEnabled();
                 return;
@@ -598,7 +649,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.placed_recovery.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placed_recovery.hint"))) {
                 this.controller.toggleAllowPlacedBlockRecovery();
                 screen.persistUiState();
@@ -609,7 +660,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.tool_protection.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.tool_protection.hint"))) {
                 this.controller.toggleToolProtectionEnabled();
                 screen.persistUiState();
@@ -620,7 +671,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.damage_auto_return.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_auto_return.hint"))) {
                 this.controller.toggleDamageAutoReturnEnabled();
                 screen.persistUiState();
@@ -631,7 +682,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.bd_network.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.bd_network.hint"))) {
                 this.controller.toggleBdNetworkEnabled();
                 screen.persistUiState();
@@ -641,7 +692,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         rowY += SECTION_GAP;
 
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D8, rowY, w - RtsMainlineLayout.D16, SECTION_HEADER_H)) {
             this.soundExpanded = !this.soundExpanded;
             clampScroll();
             screen.persistUiState();
@@ -653,7 +704,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.rts_sounds.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.rts_sounds.hint"))) {
                 RtsClientUiStateStore.setRtsSoundsEnabled(!RtsClientUiStateStore.isRtsSoundsEnabled());
                 return;
@@ -663,7 +714,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.break_sounds.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.break_sounds.hint"))) {
                 RtsClientUiStateStore.setRtsBreakSoundsEnabled(
                         !RtsClientUiStateStore.isRtsBreakSoundsEnabled());
@@ -674,14 +725,14 @@ public final class GearMenuPanel extends RtsWindowPanel {
                     "screen.rtsbuilding.settings.damage_sound.hint")) {
                 return;
             }
-            if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+            if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                     hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint"))) {
                 this.controller.toggleDamageSoundEnabled();
                 screen.persistUiState();
                 return;
             }
             rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.damage_sound.hint");
-            int minusX = x + w - 124;
+            int minusX = x + w - RtsMainlineLayout.D124;
             int plusX = minusX + 86;
             if (inside(mouseX, contentMouseY, minusX, rowY + 8, 22, 22)) {
                 RtsClientUiStateStore.setRtsBlockSoundsPerTick(
@@ -697,7 +748,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         }
         rowY += SECTION_GAP;
 
-        if (inside(mouseX, contentMouseY, x + 8, rowY, w - 16, SECTION_HEADER_H)) {
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D8, rowY, w - RtsMainlineLayout.D16, SECTION_HEADER_H)) {
             this.animationExpanded = !this.animationExpanded;
             clampScroll();
             screen.persistUiState();
@@ -708,10 +759,20 @@ public final class GearMenuPanel extends RtsWindowPanel {
             return;
         }
         if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
+                "screen.rtsbuilding.settings.ui_animations.hint")) {
+            return;
+        }
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
+                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.ui_animations.hint"))) {
+            Config.setUiAnimationsEnabled(!Config.isUiAnimationsEnabled());
+            return;
+        }
+        rowY += hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.ui_animations.hint");
+        if (handleHintExpandClick(mouseX, contentMouseY, x, w, rowY,
                 "screen.rtsbuilding.settings.smooth_camera.hint")) {
             return;
         }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.smooth_camera.hint"))) {
             this.controller.toggleSmoothCamera();
             screen.persistUiState();
@@ -722,7 +783,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.placement_block_ghost_preview.hint")) {
             return;
         }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_block_ghost_preview.hint"))) {
             Config.setPlacementBlockGhostPreviewEnabled(!Config.isPlacementBlockGhostPreviewEnabled());
             return;
@@ -732,7 +793,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.place_block_ghost_animation.hint")) {
             return;
         }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_block_ghost_animation.hint"))) {
             Config.setPlaceBlockGhostAnimationEnabled(!Config.isPlaceBlockGhostAnimationEnabled());
             return;
@@ -742,7 +803,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.destroy_block_ghost_animation.hint")) {
             return;
         }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_block_ghost_animation.hint"))) {
             Config.setDestroyBlockGhostAnimationEnabled(!Config.isDestroyBlockGhostAnimationEnabled());
             return;
@@ -752,7 +813,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.placement_wireframe_preview.hint")) {
             return;
         }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_wireframe_preview.hint"))) {
             Config.setPlacementWireframePreviewEnabled(!Config.isPlacementWireframePreviewEnabled());
             return;
@@ -762,7 +823,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.place_wireframe_animation.hint")) {
             return;
         }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_wireframe_animation.hint"))) {
             Config.setPlaceWireframeAnimationEnabled(!Config.isPlaceWireframeAnimationEnabled());
             return;
@@ -772,7 +833,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.destroy_wireframe_animation.hint")) {
             return;
         }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_wireframe_animation.hint"))) {
             Config.setDestroyWireframeAnimationEnabled(!Config.isDestroyWireframeAnimationEnabled());
             return;
@@ -782,7 +843,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
                 "screen.rtsbuilding.settings.range_destroy_skeleton.hint")) {
             return;
         }
-        if (inside(mouseX, contentMouseY, x + 12, rowY, w - 24,
+        if (inside(mouseX, contentMouseY, x + RtsMainlineLayout.D12, rowY, w - RtsMainlineLayout.D24,
                 hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.range_destroy_skeleton.hint"))) {
             Config.setRangeDestroySkeletonEnabled(!Config.isRangeDestroySkeletonEnabled());
         }
@@ -893,6 +954,7 @@ public final class GearMenuPanel extends RtsWindowPanel {
         height += SECTION_GAP;
         height += sectionHeight(this.displayExpanded,
                 SCALE_ROW_H
+                        + THEME_ACTION_ROW_H
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.player_status_overlay.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.container_overlay.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.shift_import.hint")
@@ -915,7 +977,8 @@ public final class GearMenuPanel extends RtsWindowPanel {
                         + SOUND_LIMIT_ROW_H);
         height += SECTION_GAP;
         height += sectionHeight(this.animationExpanded,
-                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.smooth_camera.hint")
+                hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.ui_animations.hint")
+                        + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.smooth_camera.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.placement_block_ghost_preview.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.place_block_ghost_animation.hint")
                         + hintToggleRowHeight(x, w, "screen.rtsbuilding.settings.destroy_block_ghost_animation.hint")
@@ -935,27 +998,34 @@ public final class GearMenuPanel extends RtsWindowPanel {
         if (maxScroll <= 0) {
             return;
         }
-        int trackX = x + w - 7;
+        int trackX = x + w - RtsMainlineLayout.D7;
         int trackH = Math.max(1, h);
-        g.fill(trackX, y + 2, trackX + 2, y + h - 2, 0x88313A46);
+        g.fill(trackX, y + RtsMainlineLayout.D2, trackX + 2, y + h - RtsMainlineLayout.D2,
+                SettingsWindowStyle.SCROLL_TRACK.toArgb());
         int totalH = settingsContentHeight() + CONTENT_TOP_PADDING;
         int thumbH = Math.max(18, (int) Math.round(trackH * (trackH / (double) Math.max(trackH, totalH))));
         int thumbY = y + (int) Math.round((trackH - thumbH) * (this.scroll / (double) maxScroll));
-        g.fill(trackX - 1, thumbY, trackX + 3, thumbY + thumbH, 0xCC8AA0B8);
+        g.fill(trackX - 1, thumbY, trackX + 3, thumbY + thumbH,
+                SettingsWindowStyle.SCROLL_THUMB.toArgb());
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 
     private void drawToggleButton(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, int h,
             boolean active, String label) {
         boolean hover = inside(mouseX, mouseY, x, y, w, h);
-        int bg = active ? (hover ? 0xDD45BA53 : 0xDD329A42) : (hover ? 0xDD3D4957 : 0xDD28313C);
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, active ? 0xFF8EF19A : 0xFF68788A, 0xFF10151B);
-        int switchX = active ? x + w - 26 : x + 6;
-        g.fill(switchX, y + 4, switchX + 18, y + h - 4, active ? 0xFF72F07A : 0xFF788696);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label, x + w / 2, y + 7, 0xFFF7FBFF);
+        int bg = (active ? (hover ? SettingsWindowStyle.TOGGLE_ON_HOVER : SettingsWindowStyle.TOGGLE_ON)
+                : (hover ? SettingsWindowStyle.TOGGLE_OFF_HOVER : SettingsWindowStyle.TOGGLE_OFF)).toArgb();
+        RtsUiFrameRenderer.frame(g, x, y, w, h, bg,
+                (active ? SettingsWindowStyle.TOGGLE_ON_BORDER : SettingsWindowStyle.TOGGLE_OFF_BORDER).toArgb(),
+                SettingsWindowStyle.TOGGLE_DARK_BORDER.toArgb());
+        int switchX = active ? x + w - RtsMainlineLayout.D26 : x + RtsMainlineLayout.D6;
+        g.fill(switchX, y + RtsMainlineLayout.D4, switchX + 18, y + h - RtsMainlineLayout.D4,
+                (active ? SettingsWindowStyle.TOGGLE_ON_KNOB : SettingsWindowStyle.TOGGLE_OFF_KNOB).toArgb());
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label, x + w / 2, y + RtsMainlineLayout.D7,
+                SettingsWindowStyle.VALUE.toArgb());
     }
 
     private int hintToggleRowHeight(int x, int w, String hintKey) {
@@ -974,16 +1044,16 @@ public final class GearMenuPanel extends RtsWindowPanel {
     }
 
     private int hintTextX(int x, boolean hasExpandButton) {
-        return x + 16 + (hasExpandButton ? HINT_EXPAND_BUTTON_SIZE + 4 : 0);
+        return x + RtsMainlineLayout.D16 + (hasExpandButton ? HINT_EXPAND_BUTTON_SIZE + 4 : 0);
     }
 
     private int hintTextMaxWidth(int x, int w, boolean hasExpandButton) {
-        int toggleX = x + w - 92;
+        int toggleX = x + w - RtsMainlineLayout.D92;
         return Math.max(24, toggleX - hintTextX(x, hasExpandButton) - 8);
     }
 
     private int hintExpandButtonX(int x) {
-        return x + 16;
+        return x + RtsMainlineLayout.D16;
     }
 
     private void drawHintExpandButton(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int rowY, boolean expanded) {
@@ -991,20 +1061,25 @@ public final class GearMenuPanel extends RtsWindowPanel {
         int buttonY = rowY + 12;
         boolean hover = inside(mouseX, mouseY, buttonX, buttonY,
                 HINT_EXPAND_BUTTON_SIZE, HINT_EXPAND_BUTTON_SIZE);
-        int bg = hover ? 0xCC334054 : 0xAA26303D;
-        RtsClientUiUtil.drawPanelFrame(g, buttonX, buttonY,
-                HINT_EXPAND_BUTTON_SIZE, HINT_EXPAND_BUTTON_SIZE, bg, 0xFF6A8299, 0xFF0E1116);
+        int bg = (hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND
+                : SettingsWindowStyle.STEP_BACKGROUND).toArgb();
+        RtsUiFrameRenderer.frame(g, buttonX, buttonY,
+                HINT_EXPAND_BUTTON_SIZE, HINT_EXPAND_BUTTON_SIZE, bg,
+                SettingsWindowStyle.STEP_BORDER.toArgb(), SettingsWindowStyle.STEP_DARK_BORDER.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), expanded ? "v" : ">",
-                buttonX + HINT_EXPAND_BUTTON_SIZE / 2, buttonY + 2, 0xFFDDEBFA);
+                buttonX + HINT_EXPAND_BUTTON_SIZE / 2, buttonY + 2,
+                SettingsWindowStyle.VALUE.toArgb());
     }
 
     private void drawGearMenuRow(GuiGraphicsExtractor g, int mouseX, int mouseY, int x, int y, int w, int h,
             String label, boolean active) {
         boolean hover = inside(mouseX, mouseY, x, y, w, h);
-        int bg = active ? 0xCC2D7C4B : (hover ? 0xCC334054 : 0xCC26303D);
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, bg, 0xFF6A8299, 0xFF0E1116);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), trimToWidth(label, w - 10),
-                x + w / 2, y + 7, 0xFFF2F6FB);
+        int bg = (active ? SettingsWindowStyle.TOGGLE_ON
+                : (hover ? SettingsWindowStyle.STEP_HOVER_BACKGROUND : SettingsWindowStyle.STEP_BACKGROUND)).toArgb();
+        RtsUiFrameRenderer.frame(g, x, y, w, h, bg,
+                SettingsWindowStyle.STEP_BORDER.toArgb(), SettingsWindowStyle.STEP_DARK_BORDER.toArgb());
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), trimToWidth(label, w - RtsMainlineLayout.D10),
+                x + w / 2, y + RtsMainlineLayout.D7, SettingsWindowStyle.VALUE.toArgb());
     }
 
     private final List<PersistableProperty> properties = List.of(

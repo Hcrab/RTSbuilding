@@ -58,12 +58,19 @@ public final class BlueprintLibraryStyle {
     public static FrameVisual button(
             boolean hovered,
             boolean active) {
+        return button(hovered ? 1.0D : 0.0D, active);
+    }
+
+    public static FrameVisual button(
+            double hoverStrength,
+            boolean active) {
         return new FrameVisual(
                 active
                         ? BUTTON_ACTIVE_BACKGROUND
-                        : hovered
-                                ? BUTTON_HOVER_BACKGROUND
-                                : BUTTON_BACKGROUND,
+                        : UiColor.interpolate(
+                                BUTTON_BACKGROUND,
+                                BUTTON_HOVER_BACKGROUND,
+                                hoverStrength),
                 BUTTON_BORDER,
                 BUTTON_DARK_BORDER,
                 BUTTON_TEXT);
@@ -84,6 +91,15 @@ public final class BlueprintLibraryStyle {
             boolean ready,
             boolean selected,
             boolean hovered) {
+        return rowBackground(valid, ready, selected,
+                hovered ? 1.0D : 0.0D);
+    }
+
+    public static UiColor rowBackground(
+            boolean valid,
+            boolean ready,
+            boolean selected,
+            double hoverStrength) {
         if (!valid) {
             return selected
                     ? ROW_INVALID_SELECTED_BACKGROUND
@@ -92,10 +108,10 @@ public final class BlueprintLibraryStyle {
         if (selected) {
             return ROW_SELECTED_BACKGROUND;
         }
-        if (hovered) {
-            return ROW_HOVER_BACKGROUND;
-        }
-        return ready ? ROW_READY_BACKGROUND : ROW_IDLE_BACKGROUND;
+        return UiColor.interpolate(
+                ready ? ROW_READY_BACKGROUND : ROW_IDLE_BACKGROUND,
+                ROW_HOVER_BACKGROUND,
+                hoverStrength);
     }
 
     public static UiColor progress(boolean ready) {

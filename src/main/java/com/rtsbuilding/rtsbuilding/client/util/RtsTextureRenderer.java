@@ -11,6 +11,8 @@ import net.minecraft.resources.Identifier;
  * supports centre rotation, colour tinting, and does not pollute global GL texture filter state.
  */
 public final class RtsTextureRenderer {
+    /** 保持资源贴图的原始像素颜色，避免主题色意外乘算到图标本身。 */
+    public static final int NO_TINT = 0xFFFFFFFF;
 
     private RtsTextureRenderer() {
     }

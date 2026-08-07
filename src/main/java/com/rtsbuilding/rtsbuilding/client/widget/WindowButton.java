@@ -1,6 +1,18 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.theme.DefaultButtonTextureRenderer;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlRole;
+import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WindowButtonLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiControlVisualStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.WindowButtonStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractButton;
@@ -34,28 +46,13 @@ public class WindowButton extends AbstractButton {
     private final int hoverTextureHeight;  // Texture height for hover state
     private final int fullTextureWidth;   // Total width of the full texture
     private final int fullTextureHeight;  // Total height of the full texture
-
-    private static final int TEXT_COLOR = 0xFFD8E3EE;
-    private static final int TEXT_COLOR_DISABLED = 0xFF556677;
-    private static final int BUTTON_BACKGROUND = 0xDD1A232E;
-    private static final int BUTTON_HOVER = 0xDD2A3442;
-    private static final int BORDER_LIGHT = 0xFF647B92;
-    private static final int BORDER_DARK = 0xFF0D1117;
-    private static final int PRIMARY_BACKGROUND = 0xCC244E35;
-    private static final int PRIMARY_HOVER = 0xDD326A49;
-    private static final int PRIMARY_BORDER = 0xFF7FCEA0;
-    private static final int SELECTED_BACKGROUND = 0xDD244A67;
-    private static final int SELECTED_HOVER = 0xDD315F82;
-    private static final int SELECTED_BORDER = 0xFF83BDE8;
-    private static final int PENDING_BACKGROUND = 0xDD5A4720;
-    private static final int PENDING_BORDER = 0xFFE0B65F;
-    private static final int FAILED_BACKGROUND = 0xDD5A2529;
-    private static final int FAILED_BORDER = 0xFFE47A82;
-    private static final int DESTRUCTIVE_BACKGROUND = 0xCC40252A;
-    private static final int DESTRUCTIVE_HOVER = 0xDD583139;
-    private static final int DESTRUCTIVE_BORDER = 0xFFD58A91;
+    /** Palette 只乘色 Legacy 原图；未指定时保持旧的白色原样提交。 */
+    private UiColor textureTint;
 
     private RtsControlState controlState = RtsControlState.enabled(RtsControlRole.COMMAND);
+    private final UiControlAnimationState visualAnimation =
+            new UiControlAnimationState(SystemUiClock.INSTANCE);
+    private boolean pressedVisual;
 
     /**
      * When set, all WindowButton instances suppress hover/focus effects.
@@ -63,6 +60,7 @@ public class WindowButton extends AbstractButton {
      * covered by a higher overlapping window.
      */
     private static boolean globalSkipHover;
+    private static double globalOpacity = 1.0D;
 
     /**
      * Creates a solid-colour button.
@@ -137,6 +135,14 @@ public class WindowButton extends AbstractButton {
         return this.controlState;
     }
 
+    /**
+     * 指定纹理在 Palette 主题下使用的语义乘色。该方法不改变贴图、UV 或点击区域。
+     */
+    public WindowButton setTextureTint(UiColor textureTint) {
+        this.textureTint = textureTint;
+        return this;
+    }
+
     @Override
     public void onPress(@NotNull InputWithModifiers input) {
         onPress();
@@ -151,29 +157,38 @@ public class WindowButton extends AbstractButton {
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        return this.mouseClicked(new MouseButtonEvent(
+        boolean consumed = this.mouseClicked(new MouseButtonEvent(
                 mouseX, mouseY, new MouseButtonInfo(button, 0)), false);
+        if (consumed) {
+            this.pressedVisual = true;
+        }
+        return consumed;
     }
 
     @Override
     protected void extractContents(@NotNull GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTick) {
         Minecraft minecraft = Minecraft.getInstance();
+        boolean effectiveHovered = !globalSkipHover && this.isHoveredOrFocused();
+        UiControlAnimationState.Snapshot animation = updateAnimation(effectiveHovered);
+        UiControlVisualStyle visual = UiControlVisualStyle.animated(
+                visualRole(), animation);
 
         if (textureLocation != null && textureWidth > 0 && textureHeight > 0) {
-            // Render with texture (vector scaling)
+            // 业务专属贴图仍由资源包控制；通用按钮改走同一套九宫格像素母版。
             renderWithTexture(guiGraphics);
         } else {
-            // Render with solid colour
-            renderWithSolidColor(guiGraphics);
+            DefaultButtonTextureRenderer.renderAnimated(
+                    guiGraphics,
+                    new UiRect(this.getX(), this.getY(), this.width, this.height),
+                    animation, visual.getOverlay(), globalOpacity);
         }
 
-        // Calculate text position (centred)
-        int textColor = this.active ? TEXT_COLOR : TEXT_COLOR_DISABLED;
+        int textColor = applyOpacity(visual.getText().toArgb());
         String label = RtsClientUiUtil.trimToWidth(minecraft.font, this.getMessage().getString(),
-                Math.max(4, this.width - 8));
+                WindowButtonLayout.textWidth(this.width));
         int textWidth = minecraft.font.width(label);
         int textX = this.getX() + (this.width - textWidth) / 2;
-        int textY = this.getY() + (this.height - 8) / 2;
+        int textY = WindowButtonLayout.textY(this.getY(), this.height);
 
         // Draw text
         if (!label.isEmpty()) {
@@ -190,68 +205,57 @@ public class WindowButton extends AbstractButton {
         int currentV = effectiveHovered ? hoverTextureV : textureV;
         int currentHeight = effectiveHovered ? hoverTextureHeight : textureHeight;
         // 26.1 只提取 GUI 渲染状态；纹理绑定、混合与过滤由渲染管线统一管理。
-        guiGraphics.blit(
-            RenderPipelines.GUI_TEXTURED,
-            textureLocation,
-            this.getX(),
-            this.getY(),
-            textureU,
-            currentV,
-            this.width,
-            this.height,
-            textureWidth,
-            currentHeight,
-            fullTextureWidth,
-            fullTextureHeight
-        );
+        try {
+            guiGraphics.blit(
+                RenderPipelines.GUI_TEXTURED,
+                textureLocation,
+                this.getX(),
+                this.getY(),
+                textureU,
+                currentV,
+                this.width,
+                this.height,
+                textureWidth,
+                currentHeight,
+                fullTextureWidth,
+                fullTextureHeight,
+                applyOpacity(textureTint == null ? RtsMainlineTheme.LEGACY_FFFFFFFF.toArgb() : textureTint.toArgb())
+            );
+        } catch (RuntimeException ignored) {
+            // 资源包提供了非法贴图时给出主题化可见提示，避免点击热区变成无反馈空洞。
+            guiGraphics.fill(this.getX(), this.getY(),
+                    this.getX() + this.width, this.getY() + this.height,
+                    applyOpacity(WindowButtonStyle.MISSING_TEXTURE.toArgb()));
+        }
     }
 
-    /**
-     * Renders the button with solid colours (RTS dark style).
-     */
-    private void renderWithSolidColor(GuiGraphicsExtractor guiGraphics) {
-        boolean hovered = !globalSkipHover && this.isHoveredOrFocused();
-        int backgroundColor = resolveBackgroundColor(hovered);
-        int borderLight = resolveBorderLightColor();
-        RtsClientUiUtil.drawPanelFrame(guiGraphics,
-                this.getX(), this.getY(), this.width, this.height,
-                backgroundColor, borderLight, BORDER_DARK);
+    /** 将既有业务状态转换成 Core 的视觉快照；不改变原来的可点击规则。 */
+    private UiControlAnimationState.Snapshot updateAnimation(boolean hovered) {
+        String disabledReason = this.controlState.disabledReason() == null
+                ? "disabled" : this.controlState.disabledReason().getString();
+        UiControlState state = new UiControlState(
+                true,
+                this.active,
+                hovered,
+                this.isFocused(),
+                this.pressedVisual && this.active,
+                this.controlState.selected(),
+                this.controlState.pending(),
+                this.controlState.failed(),
+                this.active ? "" : disabledReason);
+        UiControlAnimationState.Snapshot snapshot = this.visualAnimation.update(
+                state, Config.isUiAnimationsEnabled());
+        this.pressedVisual = false;
+        return snapshot;
     }
 
-    private int resolveBackgroundColor(boolean hovered) {
-        if (!this.active && !this.controlState.pending()) {
-            return BUTTON_BACKGROUND;
-        }
-        if (this.controlState.failed()) {
-            return FAILED_BACKGROUND;
-        }
-        if (this.controlState.pending()) {
-            return PENDING_BACKGROUND;
-        }
-        if (this.controlState.selected()) {
-            return hovered ? SELECTED_HOVER : SELECTED_BACKGROUND;
-        }
+    private UiControlRole visualRole() {
         return switch (this.controlState.role()) {
-            case PRIMARY_ACTION -> hovered ? PRIMARY_HOVER : PRIMARY_BACKGROUND;
-            case DESTRUCTIVE -> hovered ? DESTRUCTIVE_HOVER : DESTRUCTIVE_BACKGROUND;
-            case COMMAND, MODE, TOGGLE -> hovered ? BUTTON_HOVER : BUTTON_BACKGROUND;
-        };
-    }
-
-    private int resolveBorderLightColor() {
-        if (this.controlState.failed()) {
-            return FAILED_BORDER;
-        }
-        if (this.controlState.pending()) {
-            return PENDING_BORDER;
-        }
-        if (this.controlState.selected()) {
-            return SELECTED_BORDER;
-        }
-        return switch (this.controlState.role()) {
-            case PRIMARY_ACTION -> PRIMARY_BORDER;
-            case DESTRUCTIVE -> DESTRUCTIVE_BORDER;
-            case COMMAND, MODE, TOGGLE -> BORDER_LIGHT;
+            case PRIMARY_ACTION -> UiControlRole.PRIMARY_ACTION;
+            case DESTRUCTIVE -> UiControlRole.DESTRUCTIVE;
+            case MODE -> UiControlRole.MODE;
+            case TOGGLE -> UiControlRole.TOGGLE;
+            case COMMAND -> UiControlRole.COMMAND;
         };
     }
 
@@ -264,7 +268,27 @@ public class WindowButton extends AbstractButton {
      * Sets whether all WindowButton instances should globally skip
      * hover/focus visual effects during the next render call.
      */
-    public static void setGlobalSkipHover(boolean skip) {
+    /**
+     * 为同一帧的父窗口临时抑制悬停，并返回先前状态，避免相邻浮窗串扰。
+     */
+    public static boolean setGlobalSkipHover(boolean skip) {
+        boolean previous = globalSkipHover;
         globalSkipHover = skip;
+        return previous;
+    }
+
+    /**
+     * 由父窗口在绘制其子控件前暂存透明度。返回旧值，调用方必须在 finally 中恢复。
+     */
+    public static double setGlobalOpacity(double opacity) {
+        double previous = globalOpacity;
+        globalOpacity = Math.max(0.0D, Math.min(1.0D, opacity));
+        return previous;
+    }
+
+    private static int applyOpacity(int color) {
+        int sourceAlpha = color >>> 24 & 0xFF;
+        int alpha = (int) Math.round(sourceAlpha * globalOpacity);
+        return alpha << 24 | color & RtsMainlineTheme.LEGACY_00FFFFFF.toArgb();
     }
 }

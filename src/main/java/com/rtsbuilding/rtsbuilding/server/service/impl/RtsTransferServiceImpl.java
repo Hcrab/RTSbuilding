@@ -27,6 +27,13 @@ public final class RtsTransferServiceImpl implements TransferService {
     private final ServiceRegistry registry = ServiceRegistry.getInstance();
 
     @Override
+    public void bulkStorageOperation(
+            ServerPlayer player, byte action, ItemStack prototype, int requestedAmount) {
+        RtsTransferPlayerIntegration.bulkStorageOperation(
+                player, registry.session().getIfPresent(player), action, prototype, requestedAmount);
+    }
+
+    @Override
     public long countLinkedItemsMatching(ServerPlayer player, Predicate<ItemStack> predicate) {
         if (player == null || predicate == null) {
             return 0L;

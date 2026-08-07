@@ -53,6 +53,26 @@ class QuickBuildChromeRendererTest {
         assertEquals(QuickBuildStyle.PROGRESS_IDLE_TICK, idle.colors.get(2));
     }
 
+    @Test
+    void Palette工具状态标记使用四层确定性像素结构() {
+        CapturingCanvas canvas = new CapturingCanvas();
+        UiRect bounds = new UiRect(20, 30, 16, 16);
+        QuickBuildStyle.ControlIndicatorVisual visual =
+                QuickBuildStyle.controlIndicator(true, false);
+
+        QuickBuildChromeRenderer.renderControlIndicator(canvas, bounds, visual);
+
+        assertEquals(4, canvas.rects.size());
+        assertEquals(bounds, canvas.rects.get(0));
+        assertEquals(new UiRect(21, 31, 14, 14), canvas.rects.get(1));
+        assertEquals(new UiRect(22, 32, 12, 12), canvas.rects.get(2));
+        assertEquals(new UiRect(24, 34, 8, 8), canvas.rects.get(3));
+        assertEquals(visual.darkEdge, canvas.colors.get(0));
+        assertEquals(visual.lightEdge, canvas.colors.get(1));
+        assertEquals(visual.background, canvas.colors.get(2));
+        assertEquals(visual.glyph, canvas.colors.get(3));
+    }
+
     private static final class CapturingCanvas implements UiCanvas2D {
         private final List<UiRect> rects = new ArrayList<UiRect>();
         private final List<UiColor> colors = new ArrayList<UiColor>();

@@ -8,8 +8,14 @@ package com.rtsbuilding.rtsbuilding.common;
  */
 public final class RtsHistoryConstants {
 
-    /** 每位玩家形状/建造历史栈的最大条目数 */
-    public static final int SHAPE_HISTORY_LIMIT = 1000;
+    /** 每位玩家只保留最近三次完整操作。 */
+    public static final int SHAPE_HISTORY_LIMIT = 3;
+
+    /** 单次历史允许记录的最大方块数；超限时整条历史不入栈。 */
+    public static final int MAX_BLOCKS_PER_ENTRY = 98_304;
+
+    /** 创造模式快照的压缩 NBT 预算，供完整快照实现统一引用。 */
+    public static final int MAX_COMPRESSED_NBT_BYTES_PER_ENTRY = 32 * 1024 * 1024;
 
     private RtsHistoryConstants() {
     }

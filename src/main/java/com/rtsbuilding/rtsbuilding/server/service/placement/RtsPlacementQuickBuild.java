@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -91,6 +92,18 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
+        Identifier sourceId = BuiltInRegistries.ITEM.getKey(item);
+        if (sourceId == null) {
+            return null;
+        }
+        BlockState frozenState = job.frozenPlacementState();
+        if (frozenState != null) {
+            if (frozenState.getBlock() != blockItem.getBlock()) {
+                return null;
+            }
+            return new StatePlacementPlan(item, templateStack, frozenState, true, sourceId.toString());
+        }
+
         BlockPos templatePos = job.templatePosition();
         if (templatePos == null || job.face() == null || !player.level().hasChunkAt(templatePos)) {
             return null;
@@ -107,14 +120,12 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        Identifier sourceId = BuiltInRegistries.ITEM.getKey(item);
-        if (sourceId == null) {
-            return null;
-        }
         return new StatePlacementPlan(
                 item,
                 templateStack,
-                RtsPlacementHelper.rotateState(state, job.rotateSteps()),
+                PlacementStatePreset.apply(
+                        RtsPlacementHelper.rotateState(state, job.rotateSteps()),
+                        job.statePreset()),
                 true,
                 sourceId.toString());
     }

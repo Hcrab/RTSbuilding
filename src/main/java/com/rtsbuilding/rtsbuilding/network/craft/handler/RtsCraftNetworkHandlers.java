@@ -71,4 +71,14 @@ public final class RtsCraftNetworkHandlers {
             }
         });
     }
+
+    public static void handleClearCraftingGrid(
+            C2SRtsClearCraftingGridPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer player) {
+                ServiceRegistry.getInstance().crafting()
+                        .clearCraftingGrid(player, payload.toPlayerInventory());
+            }
+        });
+    }
 }

@@ -267,12 +267,12 @@ public final class RtsCameraManager {
     }
 
     /**
-     * 判断指定方块位置是否在玩家的 RTS 动作范围内（基于锚点的 AABB 碰撞检测）。
+     * 判断指定方块位置是否在玩家可配置的 RTS 动作范围内（基于锚点的 AABB 碰撞检测）。
      * <p>家选择模式下始终返回 {@code false}。</p>
      *
      * @param player 目标玩家
      * @param pos    待检测的方块位置
-     * @return 是否在动作范围内
+     * @return 是否在 RTS 动作范围内
      */
     public static boolean isWithinActionRange(ServerPlayer player, BlockPos pos) {
         Session session = SESSIONS.get(player.getUUID());

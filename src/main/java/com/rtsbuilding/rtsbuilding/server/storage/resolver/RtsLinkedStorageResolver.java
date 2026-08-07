@@ -1,15 +1,18 @@
 package com.rtsbuilding.rtsbuilding.server.storage.resolver;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkStoragePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedHandlerResolutionService;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlockEventHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.wake.RtsCrossDimensionStorageWakeService;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -97,7 +100,7 @@ public final class RtsLinkedStorageResolver {
 
     /**
      * 链接引用是世界目标，因此解析器拥有在解析之前使用的
-     * 共享相机、区块、交互和家园半径门控。
+     * 共享 RTS 会话、区块、世界边界和交互权限校验。
      * <p>
      * 同时强制基岩层边界：拒绝任何在世界最小建筑高度
      *（基岩层）或以下的坐标，防止在虚空中进行 RTS 操作。
@@ -118,10 +121,47 @@ public final class RtsLinkedStorageResolver {
         if (!level.mayInteract(player, pos)) {
             return false;
         }
-        if (!RtsCameraManager.isWithinActionRange(player, pos)) {
+        // 这里保留玩家可见、可配置的 RTS 操作范围；它属于玩法承诺，
+        // 与需要绕过的原版/第三方实体近距离门槛不是同一类限制。
+        return RtsCameraManager.isWithinActionRange(player, pos);
+    }
+
+    /**
+     * 验证已经存在于会话中的链接引用。
+     *
+     * <p>同维度与异维度都只接受有效 RTS 会话、可解析的目标维度与区块、世界边界和交互权限。
+     * 异维度还必须拥有专用插件，并以短期区块票据等待端点准备完成。同维度继续遵守玩家配置的
+     * RTS 操作范围；异维度插件路径不借用当前维度的距离。</p>
+     */
+    public static boolean canAccessLinkedRef(
+            ServerPlayer player, RtsStorageSession session, LinkedStorageRef ref, ServerLevel targetLevel) {
+        if (player == null || session == null || ref == null || ref.pos() == null
+                || targetLevel == null || session.linkedStorageInfo.isDetached(ref)
+                || !RtsCameraManager.isActive(player)) {
             return false;
         }
-        return RtsProgressionManager.canAccessHomeRadius(player, pos);
+        boolean sameDimension = player.level().dimension().equals(ref.dimension());
+        if (!sameDimension && !isCrossDimensionStorageAllowed(player)) {
+            return false;
+        }
+        BlockPos pos = ref.pos();
+        boolean ready = sameDimension
+                ? targetLevel.hasChunkAt(pos)
+                : RtsCrossDimensionStorageWakeService.INSTANCE.ensureReady(player, targetLevel, pos);
+        if (!ready || pos.getY() < targetLevel.getMinY() || pos.getY() > targetLevel.getMaxY()) {
+            return false;
+        }
+        if (!targetLevel.mayInteract(player, pos)) {
+            return false;
+        }
+        return !sameDimension || RtsCameraManager.isWithinActionRange(player, pos);
+    }
+
+    /** 异维度链接不借用当前维度的射程，只受专用插件和服务端开关控制。 */
+    public static boolean isCrossDimensionStorageAllowed(ServerPlayer player) {
+        return player != null
+                && Config.isCrossDimensionStorageEnabled()
+                && RtsProgressionManager.canUse(player, RtsFeature.CROSS_DIMENSION_STORAGE);
     }
 
     /**
@@ -198,17 +238,18 @@ public final class RtsLinkedStorageResolver {
     }
 
     public static boolean isLinkedRefWorldVisible(ServerPlayer player, RtsStorageSession session, LinkedStorageRef ref) {
-        if (player == null || session == null || ref == null || ref.pos() == null
-                || !player.level().dimension().equals(ref.dimension())
-                || session.linkedStorageInfo.isDetached(ref)
-                || !player.level().hasChunkAt(ref.pos())) {
+        if (player == null || session == null || ref == null || ref.pos() == null) {
+            return false;
+        }
+        ServerLevel level = player.level().getServer().getLevel(ref.dimension());
+        if (!canAccessLinkedRef(player, session, ref, level)) {
             return false;
         }
         UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
         if (backpackUuid != null) {
-            return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(player.level(), ref.pos()));
+            return backpackUuid.equals(RtsLinkedStorageBlockEventHandler.readBackpackUuid(level, ref.pos()));
         }
-        return !player.level().getBlockState(ref.pos()).isAir();
+        return !level.getBlockState(ref.pos()).isAir();
     }
 
     // ======================================================================

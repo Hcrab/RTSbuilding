@@ -1,9 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
@@ -17,6 +19,10 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.lang.reflect.Field;
 import java.util.Optional;
@@ -57,7 +63,11 @@ import java.util.function.BiFunction;
  *   <li>反射访问不可访问或 final 字段时静默忽略，不破坏菜单功能</li>
  * </ul>
  */
+@EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsRemoteMenuService {
+    private static final long DEFERRED_OPEN_MAX_AGE_TICKS = 20L;
+    private static final RemoteMenuOpenExpectationTracker OPEN_EXPECTATIONS =
+            new RemoteMenuOpenExpectationTracker();
 
     private RtsRemoteMenuService() {
     }
@@ -99,7 +109,11 @@ public final class RtsRemoteMenuService {
         }
     }
 
-    public static void markRemoteMenuOpen(ServerPlayer player, RtsStorageSession session, AbstractContainerMenu menu, BlockPos pos) {
+    public static void markRemoteMenuOpen(
+            ServerPlayer player,
+            RtsStorageSession session,
+            AbstractContainerMenu menu,
+            BlockPos pos) {
         if (menu == null) {
             return;
         }
@@ -128,7 +142,9 @@ public final class RtsRemoteMenuService {
     }
 
     public static void closeTracked(ServerPlayer player, RtsStorageSession session) {
-        if (player == null || session == null || session.transfer.remoteMenuContainerId < 0) return;
+        if (player == null || session == null || session.transfer.remoteMenuContainerId < 0) {
+            return;
+        }
         if (player.containerMenu != null
                 && player.containerMenu.containerId == session.transfer.remoteMenuContainerId
                 && !(player.containerMenu instanceof InventoryMenu)) {
@@ -142,6 +158,7 @@ public final class RtsRemoteMenuService {
         if (player == null || pos == null) {
             return;
         }
+        OPEN_EXPECTATIONS.expect(player.getUUID(), pos, player.level().getGameTime());
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
         if (!(player.level() instanceof ServerLevel level) || !level.hasChunkAt(pos)) {
             return;
@@ -151,6 +168,31 @@ public final class RtsRemoteMenuService {
         if (blockEntity != null) {
             player.connection.send(ClientboundBlockEntityDataPacket.create(blockEntity));
         }
+    }
+
+    /** 认领交互调用返回后才异步打开的第三方菜单。 */
+    @SubscribeEvent
+    public static void onContainerOpened(PlayerContainerEvent.Open event) {
+        if (!(event.getEntity() instanceof ServerPlayer player)
+                || !RtsCameraManager.isActive(player)) {
+            return;
+        }
+        Optional<BlockPos> expectedTarget = OPEN_EXPECTATIONS.consume(
+                player.getUUID(), player.level().getGameTime(), DEFERRED_OPEN_MAX_AGE_TICKS);
+        if (expectedTarget.isEmpty()) {
+            return;
+        }
+        AbstractContainerMenu menu = event.getContainer();
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (menu == null || menu instanceof InventoryMenu || session == null) {
+            return;
+        }
+        markRemoteMenuOpen(player, session, menu, expectedTarget.get());
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        OPEN_EXPECTATIONS.clear(event.getEntity().getUUID());
     }
 
     private static final class AlwaysValidContainer implements Container {

@@ -35,6 +35,22 @@ public final class StorageWindowChromeRenderer {
             boolean priorityEditing,
             double mouseX,
             double mouseY) {
+        renderRow(canvas, geometry, entry, priorityEditing,
+                geometry.row.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.priority.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.extract.contains(mouseX, mouseY) ? 1.0D : 0.0D,
+                geometry.unlink.contains(mouseX, mouseY) ? 1.0D : 0.0D);
+    }
+
+    public static void renderRow(
+            UiCanvas2D canvas,
+            StorageWindowLayout.RowGeometry geometry,
+            StorageUiEntry entry,
+            boolean priorityEditing,
+            double rowHover,
+            double priorityHover,
+            double extractHover,
+            double unlinkHover) {
         if (canvas == null || geometry == null || entry == null) {
             throw new IllegalArgumentException(
                     "canvas, geometry and entry must not be null");
@@ -42,26 +58,21 @@ public final class StorageWindowChromeRenderer {
         frame(
                 canvas,
                 geometry.row,
-                StorageWindowStyle.row(
-                        geometry.row.contains(mouseX, mouseY)));
+                StorageWindowStyle.row(rowHover));
         if (!priorityEditing) {
             frame(
                     canvas,
                     geometry.priority,
-                    StorageWindowStyle.priority(
-                            geometry.priority.contains(mouseX, mouseY)));
+                    StorageWindowStyle.priority(priorityHover));
         }
         frame(
                 canvas,
                 geometry.extract,
-                StorageWindowStyle.extract(
-                        entry.extractOnly,
-                        geometry.extract.contains(mouseX, mouseY)));
+                StorageWindowStyle.extract(entry.extractOnly, extractHover));
         frame(
                 canvas,
                 geometry.unlink,
-                StorageWindowStyle.unlink(
-                        geometry.unlink.contains(mouseX, mouseY)));
+                StorageWindowStyle.unlink(unlinkHover));
     }
 
     public static void renderMissingIcon(

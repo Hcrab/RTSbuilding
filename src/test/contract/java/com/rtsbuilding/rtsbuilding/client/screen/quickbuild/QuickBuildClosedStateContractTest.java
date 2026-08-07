@@ -74,8 +74,8 @@ class QuickBuildClosedStateContractTest {
                 "shape dimensions should live in the quick-build panel, not the top bar");
         assertTrue(source.contains("screen.currentShapeSizeText()"),
                 "the panel should render the live width/height/depth readout");
-        assertTrue(source.contains("private static final int BOTTOM_INFO_H = 72"),
-                "the bottom hint area should leave room for the extra dimension row");
+        assertTrue(source.contains("QuickBuildWindowLayout.BOTTOM_INFO_H"),
+                "the bottom hint area should use the shared 144×288 layout kit");
     }
 
     @Test

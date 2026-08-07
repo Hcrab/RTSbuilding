@@ -1,8 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
-import com.rtsbuilding.rtsbuilding.client.input.RtsPointerCapture;
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
 import com.rtsbuilding.rtsbuilding.client.input.RtsInputResult;
-import com.rtsbuilding.rtsbuilding.client.input.RtsKeyboardFocus;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.ArrayList;
@@ -10,21 +10,20 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * 浮动窗口的唯一层级、渲染与输入路由器。
+ * 浮动窗口的唯一层级、渲染与输入入口。
  *
- * <p>按下事件只命中鼠标下方最上层窗口。命中后，拖动和释放由同一窗口独占，
- * 不再广播给所有面板；滚轮位于窗口内时也始终阻断镜头，即使内容已经滚到边缘。
- * 该类不拥有任何玩法动作，旧面板与新面板都通过同一个布尔消费桥接进入现有
- * BuilderScreen，便于把这套规则反哺旧版本。</p>
+ * <p>26.1 通过 Extractor 的 stratum 划分窗口提交层，而不是结束 Minecraft 的共享
+ * buffer。输入完全委托给 {@link RtsFloatingWindowInputRouter}：按下、拖拽、释放、
+ * 滚轮、键盘、字符和 Escape 均使用同一份 Core 捕获/焦点/模态规则。</p>
  */
 public final class RtsFloatingWindowLayer {
     private final List<RtsWindowPanel> frontToBackWindows;
-    private final RtsPointerCapture<RtsWindowPanel> pointerCapture = new RtsPointerCapture<>();
-    private final RtsKeyboardFocus<RtsWindowPanel> keyboardFocus = new RtsKeyboardFocus<>();
+    private final RtsFloatingWindowInputRouter inputRouter;
 
     public RtsFloatingWindowLayer(RtsWindowPanel... frontToBackWindows) {
         this.frontToBackWindows = new ArrayList<>(List.of(frontToBackWindows));
-        for (int i = frontToBackWindows.length - 1; i >= 0; i--) {
+        this.inputRouter = new RtsFloatingWindowInputRouter(this.frontToBackWindows);
+        for (int i = frontToBackWindows.length - RtsMainlineLayout.D1; i >= 0; i--) {
             frontToBackWindows[i].markBroughtToFront();
         }
     }
@@ -36,20 +35,21 @@ public final class RtsFloatingWindowLayer {
     public void renderFloatingWindows(GuiGraphicsExtractor g, int mouseX, int mouseY) {
         sortBackToFront();
         int topmostHoverIdx = topmostWindowIndexAt(mouseX, mouseY, false);
-
         for (int i = 0; i < this.frontToBackWindows.size(); i++) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
             boolean shouldSuppress = topmostHoverIdx >= 0 && i != topmostHoverIdx
                     && window.isVisibleWindow()
                     && window.isInsideWindow(mouseX, mouseY);
             window.setSkipHoverDetection(shouldSuppress);
-            window.render(g, mouseX, mouseY, 0.0F);
-            window.setSkipHoverDetection(false);
-            /*
-             * 只切换 GUI 层级，不主动结束 Minecraft 的共享 buffer。
-             * 共享 buffer 的生命周期属于渲染管线；窗口层自行 endBatch 会破坏
-             * Sodium/Embeddium 等渲染器对批次边界的假设。
-             */
+            g.pose().pushMatrix();
+            try {
+                window.render(g, mouseX, mouseY, 0.0F);
+            } finally {
+                g.pose().popMatrix();
+                window.setSkipHoverDetection(false);
+            }
+            // Extractor 的独立 stratum 代替旧版手工 buffer flush，避免窗口与底栏
+            // 物品、数量文本在同一批次互相穿透。
             g.nextStratum();
         }
     }
@@ -79,54 +79,35 @@ public final class RtsFloatingWindowLayer {
     }
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        return mouseClickResult(mouseX, mouseY, button).blocksFurtherInput();
+        return this.inputRouter.mouseClicked(mouseX, mouseY, button);
     }
 
+    /** 保留旧 boolean/result 桥接，避免未迁移调用者重新实现输入策略。 */
     public RtsInputResult mouseClickResult(double mouseX, double mouseY, int button) {
-        sortBackToFront();
-        int index = topmostWindowIndexAt(mouseX, mouseY, true);
-        if (index < 0) {
-            this.keyboardFocus.blur();
-            return RtsInputResult.PASS;
-        }
-
-        RtsWindowPanel window = this.frontToBackWindows.get(index);
-        /*
-         * 边框/窗口矩形本身就是世界输入屏障。即使具体内容没有动作，也不能让
-         * 同一次点击穿透到挖掘、放置或镜头拖动。
-         */
-        window.mouseClicked(mouseX, mouseY, button);
-        window.markBroughtToFront();
-        this.pointerCapture.capture(button, window);
-        this.keyboardFocus.focus(window);
-        return RtsInputResult.CAPTURE_POINTER;
+        return mouseClicked(mouseX, mouseY, button)
+                ? RtsInputResult.CAPTURE_POINTER : RtsInputResult.PASS;
     }
 
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        return this.pointerCapture.owner(button)
-                .map(window -> {
-                    window.mouseDragged(mouseX, mouseY, button, dragX, dragY);
-                    return true;
-                })
-                .orElse(false);
+    public boolean mouseDragged(double mouseX, double mouseY, int button,
+                                double dragX, double dragY) {
+        return this.inputRouter.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        return this.pointerCapture.release(button)
-                .map(window -> {
-                    window.mouseReleased(mouseX, mouseY, button);
-                    return true;
-                })
-                .orElse(false);
+        return this.inputRouter.mouseReleased(mouseX, mouseY, button);
     }
 
+    /** 旧生命周期入口委托给 Core 瞬时状态清理。 */
     public void cancelPointerCapture() {
-        this.pointerCapture.clear();
-        this.keyboardFocus.blur();
+        clearTransientInputState();
+    }
+
+    public void clearTransientInputState() {
+        this.inputRouter.clearTransientState();
     }
 
     public boolean hasPointerCapture(int button) {
-        return this.pointerCapture.hasCapture(button);
+        return this.inputRouter.hasPointerCapture(button);
     }
 
     public boolean consumeAnyBoundsDirty() {
@@ -138,47 +119,21 @@ public final class RtsFloatingWindowLayer {
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        return mouseScrollResult(mouseX, mouseY, scrollX, scrollY).blocksFurtherInput();
+        return this.inputRouter.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
-    public RtsInputResult mouseScrollResult(double mouseX, double mouseY, double scrollX, double scrollY) {
-        sortBackToFront();
-        int index = topmostWindowIndexAt(mouseX, mouseY, false);
-        if (index < 0) {
-            return RtsInputResult.PASS;
-        }
-        this.frontToBackWindows.get(index).mouseScrolled(mouseX, mouseY, scrollX, scrollY);
-        return RtsInputResult.BLOCK_WORLD;
+    public RtsInputResult mouseScrollResult(double mouseX, double mouseY,
+                                             double scrollX, double scrollY) {
+        return mouseScrolled(mouseX, mouseY, scrollX, scrollY)
+                ? RtsInputResult.BLOCK_WORLD : RtsInputResult.PASS;
     }
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        RtsWindowPanel focused = visibleKeyboardWindow();
-        if (focused != null && focused.keyPressed(keyCode, scanCode, modifiers)) {
-            return true;
-        }
-        sortBackToFront();
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window != focused && window.keyPressed(keyCode, scanCode, modifiers)) {
-                this.keyboardFocus.focus(window);
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.keyPressed(keyCode, scanCode, modifiers);
     }
 
     public boolean charTyped(char codePoint, int modifiers) {
-        RtsWindowPanel focused = visibleKeyboardWindow();
-        return focused != null && focused.charTyped(codePoint, modifiers);
-    }
-
-    private RtsWindowPanel visibleKeyboardWindow() {
-        RtsWindowPanel focused = this.keyboardFocus.owner().orElse(null);
-        if (focused != null && focused.isVisibleWindow()) {
-            return focused;
-        }
-        this.keyboardFocus.blur();
-        return null;
+        return this.inputRouter.charTyped(codePoint, modifiers);
     }
 
     private void sortBackToFront() {

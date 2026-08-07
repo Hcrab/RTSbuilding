@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.record.RecentEntry;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -14,6 +15,7 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -34,6 +36,8 @@ public final class BuildPlacementService {
     private ItemStack selectedFluidPreview = ItemStack.EMPTY;
     private boolean emptyHandSelected = false;
     private int placeRotateSteps;
+    private String placementStatePreset = "";
+    private String placementStateItemId = "";
 
     // =========================================================================
     //  Build shape
@@ -55,6 +59,7 @@ public final class BuildPlacementService {
     public boolean hasSelectedFluid() { return !this.selectedFluidId.isBlank(); }
     public boolean isEmptyHandSelected() { return this.emptyHandSelected; }
     public int getPlaceRotateDegrees() { return this.placeRotateSteps * 90; }
+    public String getPlacementStatePreset() { return this.placementStatePreset; }
 
     // =========================================================================
     //  Build shape access
@@ -109,6 +114,8 @@ public final class BuildPlacementService {
         clearSelectedFluid();
         this.emptyHandSelected = false;
         this.placeRotateSteps = 0;
+        this.placementStatePreset = "";
+        this.placementStateItemId = "";
     }
 
     public void selectEmptyHand(Runnable setModeInteract) {
@@ -116,6 +123,8 @@ public final class BuildPlacementService {
         clearSelectedFluid();
         this.emptyHandSelected = true;
         this.placeRotateSteps = 0;
+        this.placementStatePreset = "";
+        this.placementStateItemId = "";
         setModeInteract.run();
     }
 
@@ -206,7 +215,9 @@ public final class BuildPlacementService {
         ItemStack itemPrototype = payloadItemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview;
 
         RtsClientPacketGateway.sendPlace(hit, forcePlace, skipIfOccupied, payloadItemId, itemPrototype,
-                payloadItemId.isBlank() ? 0 : this.placeRotateSteps, rayOrigin, rayDir, quickBuild);
+                payloadItemId.isBlank() ? 0 : this.placeRotateSteps,
+                payloadItemId.isBlank() ? "" : this.placementStatePreset,
+                rayOrigin, rayDir, quickBuild);
         if (clearAfterPlace) {
             selectEmptyHandPreserveMode();
             requestStoragePage.run();
@@ -252,11 +263,56 @@ public final class BuildPlacementService {
         RtsClientPacketGateway.sendPlaceBatch(hits, templateHit, forcePlace, skipIfOccupied,
                 payloadItemId,
                 payloadItemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview,
-                payloadItemId.isBlank() ? 0 : this.placeRotateSteps, rayOrigin, rayDir);
+                payloadItemId.isBlank() ? 0 : this.placeRotateSteps,
+                payloadItemId.isBlank() ? "" : this.placementStatePreset,
+                rayOrigin, rayDir);
         if (clearAfterPlace) {
             selectEmptyHandPreserveMode();
             requestStoragePage.run();
         }
+    }
+
+    /**
+     * 提交智能填坑的第二次确认。
+     *
+     * <p>此处只解析当前 RTS 材料或手持方块并发送点击意图；客户端扫描到的候选
+     * 坐标不离开客户端，服务端会依据锚点重新规划。</p>
+     */
+    public void confirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        if (hit == null || rayOrigin == null || rayDirection == null) {
+            return;
+        }
+        String payloadItemId = this.selectedItemId == null ? "" : this.selectedItemId;
+        ItemStack prototype = this.selectedItemPreview == null ? ItemStack.EMPTY : this.selectedItemPreview.copy();
+        if (payloadItemId.isBlank()) {
+            Minecraft mc = Minecraft.getInstance();
+            if (mc.player != null) {
+                int slot = Mth.clamp(mc.player.getInventory().getSelectedSlot(), 0, 8);
+                ItemStack held = mc.player.getInventory().getItem(slot);
+                if (!held.isEmpty() && held.getItem() instanceof BlockItem) {
+                    Identifier id = BuiltInRegistries.ITEM.getKey(held.getItem());
+                    if (id != null) {
+                        payloadItemId = id.toString();
+                        prototype = held.copy();
+                    }
+                }
+            }
+        }
+        RtsClientPacketGateway.sendConfirmSmartFill(
+                hit,
+                maxBlocks,
+                detectionDiameter,
+                payloadItemId,
+                prototype,
+                payloadItemId.isBlank() ? 0 : this.placeRotateSteps,
+                payloadItemId.isBlank() ? "" : this.placementStatePreset,
+                rayOrigin,
+                rayDirection);
     }
 
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
@@ -354,12 +410,37 @@ public final class BuildPlacementService {
         RtsClientPacketGateway.sendRotateBlock(pos);
     }
 
+    public void rotateBlockStep(
+            BlockPos pos,
+            Direction axisDirection,
+            int quarterTurns) {
+        if (pos != null && axisDirection != null && quarterTurns != 0) {
+            RtsClientPacketGateway.sendRotateBlockStep(
+                    pos, axisDirection, quarterTurns);
+        }
+    }
+
     public void rotatePlacementClockwise() {
         this.placeRotateSteps = (this.placeRotateSteps + 1) & 3;
     }
 
     public void rotatePlacementCounterClockwise() {
         this.placeRotateSteps = (this.placeRotateSteps + 3) & 3;
+    }
+
+    /** 修改下一次放置预设中的单个属性，供轮盘或其他精确状态控件复用。 */
+    public void setPlacementStateProperty(String propertyName, String valueName) {
+        this.placementStatePreset = PlacementStatePreset.withValue(
+                this.placementStatePreset, propertyName, valueName);
+        this.placementStateItemId = this.selectedItemId;
+    }
+
+    /** 用轮盘确认的完整状态替换下一次放置预设。 */
+    public void copyPlacementState(BlockState state) {
+        this.placeRotateSteps = 0;
+        this.placementStatePreset = PlacementStatePreset.fromBlockState(state);
+        Identifier itemId = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
+        this.placementStateItemId = itemId == null ? "" : itemId.toString();
     }
 
     // =========================================================================
@@ -379,6 +460,8 @@ public final class BuildPlacementService {
         clearSelectedFluid();
         this.emptyHandSelected = true;
         this.placeRotateSteps = 0;
+        this.placementStatePreset = "";
+        this.placementStateItemId = "";
     }
 
     private long getSelectedItemCountForPlacement(String itemId, boolean isLocalPlayerCreative,
@@ -389,7 +472,16 @@ public final class BuildPlacementService {
     }
 
     private void setSelectedItem(String itemId, String label, ItemStack preview) {
-        this.selectedItemId = itemId == null ? "" : itemId;
+        String nextItemId = itemId == null ? "" : itemId;
+        if (!nextItemId.equals(this.selectedItemId)) {
+            this.placeRotateSteps = 0;
+            // 同一种手持/储存物品切换来源时保留玩家刚选好的状态。
+            if (!nextItemId.equals(this.placementStateItemId)) {
+                this.placementStatePreset = "";
+                this.placementStateItemId = "";
+            }
+        }
+        this.selectedItemId = nextItemId;
         this.selectedItemLabel = label == null ? "" : label;
         this.selectedItemPreview = preview == null ? ItemStack.EMPTY : preview;
         if (!this.selectedItemId.isBlank()) {

@@ -339,6 +339,9 @@ public final class RtsClientUiStateStore {
         public static final class QuickBuildState {
             public boolean quickBuildOpen = true;
             public String quickBuildMode = "BUILD";
+            /** 智能填坑的客户端偏好；候选坐标不会持久化或发送给服务端。 */
+            public int smartFillMaxBlocks = 512;
+            public int smartFillDiameter = 16;
 
             /** BUILD 模式独立状态 */
             public BuildingState building = new BuildingState();
@@ -373,6 +376,15 @@ public final class RtsClientUiStateStore {
         public static final class MiningState {
             public int ultimineLimit = 64;
             public String areaMineShape = "CHAIN";
+            /** 便捷破坏工具的客户端偏好；服务端目标始终会重新规划。 */
+            public String catalogPage = "SHAPES";
+            public String convenienceTool = "REPEAT_BOX";
+            public int repeatSizeX = 3;
+            public int repeatSizeY = 3;
+            public int repeatSizeZ = 3;
+            public int chunkUp = 0;
+            public int chunkDown = 15;
+            public int treeMaxBlocks = 256;
 
             // ===== 范围破坏模式独立状态 =====
             public String destroyFillMode = "FILL";
@@ -406,6 +418,8 @@ public final class RtsClientUiStateStore {
         public static final class OverlayState {
             public boolean containerOverlayEnabled = false;
             public boolean overlayShiftImportEnabled = false;
+            public boolean jadePanelTrackMouse = false;
+            public boolean jadePanelHidden = false;
             public boolean chunkCurtainVisible = false;
             public boolean playerStatusOverlayEnabled = true;
         }
@@ -483,6 +497,10 @@ public final class RtsClientUiStateStore {
             // quickBuild — building
             clean.quickBuild.quickBuildOpen = this.quickBuild.quickBuildOpen;
             clean.quickBuild.quickBuildMode = sanitizeEnum(this.quickBuild.quickBuildMode, "BUILD");
+            clean.quickBuild.smartFillMaxBlocks = Math.max(1,
+                    Math.min(1024, this.quickBuild.smartFillMaxBlocks));
+            clean.quickBuild.smartFillDiameter = Math.max(3,
+                    Math.min(32, this.quickBuild.smartFillDiameter));
             clean.quickBuild.building.buildShape = sanitizeEnum(this.quickBuild.building.buildShape, "BLOCK");
             clean.quickBuild.building.buildFillMode = sanitizeEnum(this.quickBuild.building.buildFillMode, "FILL");
             clean.quickBuild.building.buildRotationDegrees = Math.floorMod(this.quickBuild.building.buildRotationDegrees, 360);
@@ -490,6 +508,17 @@ public final class RtsClientUiStateStore {
             // quickBuild — mining
             clean.quickBuild.mining.ultimineLimit = Math.max(1, Math.min(256, this.quickBuild.mining.ultimineLimit));
             clean.quickBuild.mining.areaMineShape = sanitizeEnum(this.quickBuild.mining.areaMineShape, "CHAIN");
+            clean.quickBuild.mining.catalogPage = sanitizeEnum(
+                    this.quickBuild.mining.catalogPage, "SHAPES");
+            clean.quickBuild.mining.convenienceTool = sanitizeEnum(
+                    this.quickBuild.mining.convenienceTool, "REPEAT_BOX");
+            clean.quickBuild.mining.repeatSizeX = Math.max(1, Math.min(64, this.quickBuild.mining.repeatSizeX));
+            clean.quickBuild.mining.repeatSizeY = Math.max(1, Math.min(128, this.quickBuild.mining.repeatSizeY));
+            clean.quickBuild.mining.repeatSizeZ = Math.max(1, Math.min(64, this.quickBuild.mining.repeatSizeZ));
+            clean.quickBuild.mining.chunkUp = Math.max(0, Math.min(128, this.quickBuild.mining.chunkUp));
+            clean.quickBuild.mining.chunkDown = Math.max(0, Math.min(128, this.quickBuild.mining.chunkDown));
+            clean.quickBuild.mining.treeMaxBlocks = Math.max(1,
+                    Math.min(8192, this.quickBuild.mining.treeMaxBlocks));
             clean.quickBuild.mining.destroyFillMode = sanitizeEnum(this.quickBuild.mining.destroyFillMode, "FILL");
             clean.quickBuild.mining.destroyRotationDegrees = Math.floorMod(this.quickBuild.mining.destroyRotationDegrees, 360);
             clean.quickBuild.mining.destroyLineConnected = this.quickBuild.mining.destroyLineConnected;
@@ -519,6 +548,8 @@ public final class RtsClientUiStateStore {
             // overlay
             clean.overlay.containerOverlayEnabled = this.overlay.containerOverlayEnabled;
             clean.overlay.overlayShiftImportEnabled = this.overlay.overlayShiftImportEnabled;
+            clean.overlay.jadePanelTrackMouse = this.overlay.jadePanelTrackMouse;
+            clean.overlay.jadePanelHidden = this.overlay.jadePanelHidden;
             clean.overlay.chunkCurtainVisible = this.overlay.chunkCurtainVisible;
             clean.overlay.playerStatusOverlayEnabled = this.overlay.playerStatusOverlayEnabled;
             // storage

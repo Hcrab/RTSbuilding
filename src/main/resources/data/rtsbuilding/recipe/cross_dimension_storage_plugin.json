@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "S": "rtsbuilding:storage_integration_plugin",
+    "N": "minecraft:netherite_ingot",
+    "B": "minecraft:beacon",
+    "E": "minecraft:end_crystal",
+    "R": "minecraft:respawn_anchor"
+  },
+  "pattern": [
+    " B ",
+    "NSN",
+    "ERE"
+  ],
+  "result": {"count": 1, "id": "rtsbuilding:cross_dimension_storage_plugin"}
+}

@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
 import com.rtsbuilding.rtsbuilding.compat.refinedstorage.RtsRefinedStorageCompat;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.capabilities.Capabilities;
 import net.neoforged.neoforge.fluids.capability.IFluidHandler;
@@ -28,16 +29,21 @@ public final class RtsLinkedCapabilities {
      * 探测方块坐标的物品处理器，先检查直接能力，再检查所有侧面。
      */
     public static IItemHandler findHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.level().hasChunkAt(pos)) {
+        return player == null ? null : findHandlerInLevel(player.level(), pos);
+    }
+
+    /** 在指定世界探测物品 Transfer 能力，不会为了查询隐式加载区块。 */
+    public static IItemHandler findHandlerInLevel(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.hasChunkAt(pos)) {
             return null;
         }
-        var directTransfer = player.level().getCapability(Capabilities.Item.BLOCK, pos, null);
+        var directTransfer = level.getCapability(Capabilities.Item.BLOCK, pos, null);
         IItemHandler direct = directTransfer == null ? null : IItemHandler.of(directTransfer);
         if (direct != null) {
             return direct;
         }
         for (Direction direction : Direction.values()) {
-            var sidedTransfer = player.level().getCapability(Capabilities.Item.BLOCK, pos, direction);
+            var sidedTransfer = level.getCapability(Capabilities.Item.BLOCK, pos, direction);
             IItemHandler sided = sidedTransfer == null ? null : IItemHandler.of(sidedTransfer);
             if (sided != null) {
                 return sided;
@@ -51,31 +57,43 @@ public final class RtsLinkedCapabilities {
      * 再回退到直接/侧面能力扫描。
      */
     public static IItemHandler findLinkedItemHandler(ServerPlayer player, BlockPos pos) {
-        IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, pos);
+        return player == null ? null : findLinkedItemHandler(player, player.level(), pos);
+    }
+
+    /**
+     * 在指定世界优先解析 AE2/RS 网络，随后回退到 26.1 Transfer capability。
+     */
+    public static IItemHandler findLinkedItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        IItemHandler ae2Network = RtsAe2Compat.createNetworkItemHandler(player, level, pos);
         if (ae2Network != null) {
             return ae2Network;
         }
-        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, pos);
+        IItemHandler refinedStorageNetwork = RtsRefinedStorageCompat.createNetworkItemHandler(player, level, pos);
         if (refinedStorageNetwork != null) {
             return refinedStorageNetwork;
         }
-        return findHandler(player, pos);
+        return findHandlerInLevel(level, pos);
     }
 
     /**
      * 探测方块坐标的流体处理器，先检查直接能力，再检查所有侧面。
      */
     public static IFluidHandler findFluidHandler(ServerPlayer player, BlockPos pos) {
-        if (!player.level().hasChunkAt(pos)) {
+        return player == null ? null : findFluidHandlerInLevel(player.level(), pos);
+    }
+
+    /** 在指定世界探测流体 Transfer 能力，不会为了查询隐式加载区块。 */
+    public static IFluidHandler findFluidHandlerInLevel(ServerLevel level, BlockPos pos) {
+        if (level == null || pos == null || !level.hasChunkAt(pos)) {
             return null;
         }
-        var directTransfer = player.level().getCapability(Capabilities.Fluid.BLOCK, pos, null);
+        var directTransfer = level.getCapability(Capabilities.Fluid.BLOCK, pos, null);
         IFluidHandler direct = directTransfer == null ? null : IFluidHandler.of(directTransfer);
         if (direct != null) {
             return direct;
         }
         for (Direction direction : Direction.values()) {
-            var sidedTransfer = player.level().getCapability(Capabilities.Fluid.BLOCK, pos, direction);
+            var sidedTransfer = level.getCapability(Capabilities.Fluid.BLOCK, pos, direction);
             IFluidHandler sided = sidedTransfer == null ? null : IFluidHandler.of(sidedTransfer);
             if (sided != null) {
                 return sided;

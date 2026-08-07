@@ -133,6 +133,34 @@ public final class RtsTaskEngine {
         return new TaskDiagnostics(java.util.Map.copyOf(active), java.util.Map.copyOf(waiting));
     }
 
+    /** 诊断层按玩家与工作流读取稳定任务快照，不暴露可变任务记录。 */
+    public java.util.Optional<com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot>
+            diagnosticTaskSnapshot(net.minecraft.server.level.ServerPlayer player, int workflowEntryId) {
+        if (player == null || workflowEntryId < 0
+                || !com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.isStarted()) {
+            return java.util.Optional.empty();
+        }
+        return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().findByWorkflow(
+                        player.getUUID(),
+                        player.level().dimension().identifier().toString(),
+                        workflowEntryId);
+    }
+
+    /** 服务端健康日志使用的聚合计数，不泄露任务目标或路径。 */
+    public QueueDiagnostics queueDiagnostics() {
+        int runnable = 0;
+        int waiting = 0;
+        if (com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.isStarted()) {
+            for (var snapshot : com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                    .coordinator().query().snapshots()) {
+                if (snapshot.state().runnable()) runnable++;
+                else if (snapshot.state().waiting()) waiting++;
+            }
+        }
+        return new QueueDiagnostics(runnable + scheduler.activeTaskCount(), waiting);
+    }
+
     public void detachPlayer(UUID playerId) {
         // 必须在移除 scheduler lane 前把 durable cursor 冻结，并释放 Context→ServerPlayer 强引用。
         durableBlueprintBridge.detachOwner(playerId);
@@ -968,6 +996,9 @@ public final class RtsTaskEngine {
 
     public record TaskDiagnostics(Map<TaskType, Integer> activeByType,
             Map<TaskType, Integer> waitingByType) {
+    }
+
+    public record QueueDiagnostics(int runnable, int waiting) {
     }
 
     /** UI 可读取的等待放置票据；TaskId + revision 用于拒绝过期扫描结果。 */

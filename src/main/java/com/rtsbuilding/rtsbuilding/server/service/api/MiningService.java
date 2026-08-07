@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
@@ -39,6 +40,13 @@ public interface MiningService {
               String toolItemId, ItemStack toolPrototype, boolean allowPlacedBlockRecovery,
               boolean toolProtectionEnabled);
 
+    default void mine(ServerPlayer player, BlockPos pos, Direction face, boolean start, byte toolSlot,
+              String toolItemId, ItemStack toolPrototype, boolean allowPlacedBlockRecovery,
+              boolean toolProtectionEnabled, RtsOperationTraceContext trace) {
+        mine(player, pos, face, start, toolSlot, toolItemId, toolPrototype,
+                allowPlacedBlockRecovery, toolProtectionEnabled);
+    }
+
     /**
      * 开始连锁挖掘（Ultimine）——挖掘与目标相连的所有同类型方块。
      *
@@ -56,6 +64,13 @@ public interface MiningService {
                        String toolItemId, ItemStack toolPrototype, int requestedLimit,
                        byte mode, boolean toolProtectionEnabled);
 
+    default void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot,
+                       String toolItemId, ItemStack toolPrototype, int requestedLimit,
+                       byte mode, boolean toolProtectionEnabled, RtsOperationTraceContext trace) {
+        startUltimine(player, pos, face, toolSlot, toolItemId, toolPrototype,
+                requestedLimit, mode, toolProtectionEnabled);
+    }
+
     /**
      * 范围挖掘（Area Mine）——在指定的三维区域范围内批量挖掘方块。
      *
@@ -72,6 +87,14 @@ public interface MiningService {
                   byte toolSlot, String toolItemId, ItemStack toolPrototype,
                   byte shapeType, byte fillType, boolean toolProtectionEnabled);
 
+    default void areaMine(ServerPlayer player, int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
+                  byte toolSlot, String toolItemId, ItemStack toolPrototype,
+                  byte shapeType, byte fillType, boolean toolProtectionEnabled,
+                  RtsOperationTraceContext trace) {
+        areaMine(player, minX, maxX, minY, maxY, minZ, maxZ, toolSlot,
+                toolItemId, toolPrototype, shapeType, fillType, toolProtectionEnabled);
+    }
+
     /**
      * 范围破坏（Area Destroy）——在指定的一组位置强制破坏所有方块。
      * 与范围挖掘不同，范围破坏不关心方块类型，破坏所有指定的方块。
@@ -85,6 +108,12 @@ public interface MiningService {
      */
     void areaDestroy(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
                      String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled);
+
+    default void areaDestroy(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
+                     String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled,
+                     RtsOperationTraceContext trace) {
+        areaDestroy(player, positions, toolSlot, toolItemId, toolPrototype, toolProtectionEnabled);
+    }
 
     /**
      * 获取当前范围破坏操作中的总方块数。

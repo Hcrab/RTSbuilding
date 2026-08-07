@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsDiagnosticLevel;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.fluids.FluidType;
 
@@ -19,7 +20,7 @@ public class Config {
             .define("shareSurvivalProgressionWithTeams", false);
 
     public static final ModConfigSpec.IntValue MAX_ACTION_RADIUS_BLOCKS = COMMON_BUILDER
-            .comment("Maximum RTS action radius in blocks.")
+            .comment("RTS 操作的最大半径（方块）。")
             .translation("rtsbuilding.configuration.maxActionRadiusBlocks")
             .defineInRange("maxActionRadiusBlocks", 128, 48, 512);
 
@@ -70,6 +71,14 @@ public class Config {
             .translation("rtsbuilding.configuration.useRangeDestroySkeleton")
             .define("useRangeDestroySkeleton", true);
 
+    /**
+     * 只控制 RTS 客户端界面的短过渡；按钮动作、窗口命中和服务端请求始终即时生效。
+     */
+    public static final ModConfigSpec.BooleanValue USE_UI_ANIMATIONS = CLIENT_BUILDER
+            .comment("Fade RTS UI hover, selection, and window transitions without delaying actions.")
+            .translation("screen.rtsbuilding.settings.ui_animations")
+            .define("useUiAnimations", true);
+
     // ---- Control options ----
 
     public static final ModConfigSpec.BooleanValue REQUIRE_KEYBOARD_BATCH_CONFIRM = CLIENT_BUILDER
@@ -82,7 +91,15 @@ public class Config {
             .translation("rtsbuilding.configuration.developerMode")
             .define("developerMode", false);
 
+    public static final ModConfigSpec.EnumValue<RtsDiagnosticLevel> CLIENT_DIAGNOSTIC_LEVEL = CLIENT_BUILDER
+            .comment("RTS operation diagnostics. BASIC records bounded lifecycle events; VERBOSE keeps additional detail.")
+            .defineEnum("diagnostics.level", RtsDiagnosticLevel.BASIC);
+
     // ---- Server runtime limits ----
+
+    public static final ModConfigSpec.EnumValue<RtsDiagnosticLevel> SERVER_DIAGNOSTIC_LEVEL = SERVER_BUILDER
+            .comment("RTS operation diagnostics. VERBOSE adds one-second task progress samples; gameplay is unchanged.")
+            .defineEnum("diagnostics.level", RtsDiagnosticLevel.BASIC);
 
     public static final ModConfigSpec.IntValue ULTIMINE_MAX_BLOCKS = SERVER_BUILDER
             .comment("Maximum blocks collected by one RTS chain mining request.")
@@ -123,6 +140,20 @@ public class Config {
             .comment("Number of storage cache refresh cycles between expensive Refined Storage network snapshots.")
             .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
             .defineInRange("storage.refinedStorageNetworkRefreshThrottle", 10, 1, 200);
+
+    /**
+     * 异维度已连接储存只会持有有界、短期区块票据；关闭时保留链接记录但不解析目标端点。
+     */
+    public static final ModConfigSpec.BooleanValue ENABLE_CROSS_DIMENSION_STORAGE = SERVER_BUILDER
+            .comment("Allow the cross-dimension storage plugin to wake and access linked storage in other dimensions.")
+            .translation("rtsbuilding.configuration.enableCrossDimensionStorage")
+            .define("storage.enableCrossDimensionStorage", true);
+
+    /** 每名玩家可同时保持的异维度储存唤醒区块上限。 */
+    public static final ModConfigSpec.IntValue MAX_CROSS_DIMENSION_AWAKE_CHUNKS = SERVER_BUILDER
+            .comment("Maximum short-lived cross-dimension storage chunk tickets retained for one player.")
+            .translation("rtsbuilding.configuration.maxCrossDimensionAwakeChunks")
+            .defineInRange("storage.maxCrossDimensionAwakeChunks", 32, 1, 256);
 
     public static final ModConfigSpec.IntValue PAGE_CACHE_MAX_PLAYERS = SERVER_BUILDER
             .comment("Maximum player count retained by the storage page LRU cache.")
@@ -220,6 +251,14 @@ public class Config {
         return MAX_BLUEPRINT_BLOCKS.getAsInt();
     }
 
+    public static boolean isCrossDimensionStorageEnabled() {
+        return ENABLE_CROSS_DIMENSION_STORAGE.getAsBoolean();
+    }
+
+    public static int maxCrossDimensionAwakeChunks() {
+        return MAX_CROSS_DIMENSION_AWAKE_CHUNKS.getAsInt();
+    }
+
     public static void saveGeneralSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
             boolean blueprintsEnabled, int maxBlueprintBlocks) {
         ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
@@ -304,6 +343,15 @@ public class Config {
 
     public static void setRangeDestroySkeletonEnabled(boolean enabled) {
         USE_RANGE_DESTROY_SKELETON.set(enabled);
+        CLIENT_SPEC.save();
+    }
+
+    public static boolean isUiAnimationsEnabled() {
+        return USE_UI_ANIMATIONS.getAsBoolean();
+    }
+
+    public static void setUiAnimationsEnabled(boolean enabled) {
+        USE_UI_ANIMATIONS.set(enabled);
         CLIENT_SPEC.save();
     }
 

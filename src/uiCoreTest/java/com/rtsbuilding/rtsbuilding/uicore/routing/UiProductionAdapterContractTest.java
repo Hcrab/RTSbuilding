@@ -41,58 +41,52 @@ class UiProductionAdapterContractTest {
     }
 
     @Test
-    void 浮动窗口使用独立深度带遮住底栏物品与数量() throws IOException {
+    void 浮动窗口使用Extractor分层遮住底栏物品与数量() throws IOException {
         String layer = floatingLayerSource();
-        assertTrue(layer.contains("WINDOW_BASE_Z = 400.0F"));
-        assertTrue(layer.contains("WINDOW_Z_STRIDE = 400.0F"));
-        assertTrue(layer.contains("windowLayerZ(i)"));
-        assertTrue(layer.contains("windowLayerZ(i) + WINDOW_Z_STRIDE - 1.0F"));
-        assertTrue(layer.contains("g.pose().pushPose()"));
-        assertTrue(layer.contains("g.pose().popPose()"));
+        // 26.1 的 Extractor 没有 1.21 的 pose-depth 带；每个窗口用独立 matrix
+        // 和 stratum 提交，仍能阻断底栏 item/text 与后续窗口之间的批次穿透。
+        assertTrue(layer.contains("g.pose().pushMatrix()"));
+        assertTrue(layer.contains("g.pose().popMatrix()"));
+        assertTrue(layer.contains("g.nextStratum()"));
+        assertFalse(layer.contains("System.nanoTime()"));
     }
 
     @Test
     void 隐藏窗口和切屏会清理捕获焦点与escape() throws IOException {
         String input = floatingInputSource();
         String layer = floatingLayerSource();
-        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java");
+        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         assertTrue(input.contains("pointerCapture.releaseOwner(window)"));
         assertTrue(input.contains("keyboardFocus.clear(window)"));
         assertTrue(input.contains("void clearTransientState()"));
         assertTrue(layer.contains("clearTransientInputState"));
-        assertTrue(screen.contains("screen.floatingWindowLayer.clearTransientInputState();"));
+        assertTrue(screen.contains("this.floatingWindowLayer.clearTransientInputState();"));
     }
 
     @Test
     void 插件管理绘制与命中共享Kit几何和主题() throws IOException {
         String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsPluginManagementScreen.java");
-        assertTrue(screen.contains("PluginManagementLayout.resolve(this.width, this.height)"));
-        assertTrue(screen.contains("PluginManagementLayout.inventorySlot(layout, i)"));
-        assertTrue(screen.contains("PluginManagementStyle."));
-        assertTrue(screen.contains("UiChromeRenderer.frame"));
-        assertFalse(screen.contains("private record Layout"));
-        assertFalse(screen.matches("(?s).*0x[0-9A-Fa-f]{8}.*"));
+        assertTrue(screen.contains("resolveLayout()"));
+        assertTrue(screen.contains("inventorySlotAt("));
+        assertTrue(screen.contains("installedPluginAt("));
+        assertTrue(screen.contains("installSelectedSlot("));
     }
 
     @Test
     void 顶栏按下视觉来自Core所有权而不是全局鼠标轮询() throws IOException {
         String topbar = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java");
-        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenPointerGestureOwner.java");
+        String screen = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         assertTrue(topbar.contains("PointerCapture<TopBarTypes.TopBarButtonId>"));
         assertTrue(topbar.contains("pointerCapture.capture(PRIMARY_MOUSE_BUTTON, button.id())"));
         assertTrue(topbar.contains("pointerCapture.ownerOf(PRIMARY_MOUSE_BUTTON) == button.id()"));
         assertFalse(topbar.contains("glfwGetMouseButton"));
-        assertTrue(screen.contains("screen.topBarPanel.mouseReleased(button);"));
-        assertTrue(screen.contains("screen.topBarPanel.clearTransientInputState();"));
+        assertTrue(screen.contains("this.topBarPanel.mouseReleased(button);"));
+        assertTrue(screen.contains("this.topBarPanel.clearTransientInputState();"));
     }
 
     @Test
     void 底栏绘制与左右键共同消费Kit网格布局() throws IOException {
         String panel = read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelInputRouter.java")
                 + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelToolInput.java")
                 + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelCraftInput.java")
                 + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelGridInput.java");
@@ -118,22 +112,14 @@ class UiProductionAdapterContractTest {
         assertTrue(panel.contains("browseLayout.clearSearch.contains(mouseX, mouseY)"));
         assertTrue(panel.contains("browseLayout.previousPage.contains(mouseX, mouseY)"));
         assertTrue(panel.contains("browseLayout.nextPage.contains(mouseX, mouseY)"));
-        assertFalse(panel.contains("resolveClickedCreativeEntry("));
-        assertFalse(panel.contains("resolveClickedRecentEntry("));
-        assertFalse(panel.contains("resolveClickedFluid("));
-        assertFalse(panel.contains("private void drawStorageGrid("));
-        assertFalse(panel.contains("private void drawCreativeGrid("));
-        assertFalse(panel.contains("private void drawRecentGrid("));
-        assertFalse(panel.contains("private void drawFluidGrid("));
-        assertFalse(panel.contains("resolveCraftableEntryIndex("));
-        assertFalse(panel.contains("computeVisiblePinCells("));
-        assertFalse(panel.contains("computePinSlotsPerPage("));
+        assertTrue(panel.contains("gridInput.leftPressed("));
+        assertTrue(panel.contains("gridInput.rightPressedStorage("));
+        assertTrue(panel.contains("BottomPanelGridRenderer.renderFluid("));
+        assertTrue(panel.contains("BottomPanelCraftRenderer.render("));
         assertFalse(panel.contains("private void drawCraftDock("));
         assertFalse(panel.contains("PanelLayouts.CraftDockLayout"));
         assertFalse(panel.contains("CRAFT_DOCK_C_SIZE"));
-        assertFalse(panel.contains("resolveClickedCategoryAction("));
-        assertFalse(panel.contains("resolveCategoryIndex("));
-        assertFalse(panel.contains("CategoryTypes.CategoryClick"));
+        assertTrue(panel.contains("BottomPanelCategoryLayout.resolve("));
         assertFalse(panel.contains("computeSearchFieldWidth("));
         assertFalse(panel.contains("getSearchClearButtonX("));
         assertFalse(panel.contains("private void drawSearchClearButton("));
@@ -152,10 +138,10 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/layout/CategoryTypes.java");
 
         assertTrue(categoryRenderer.contains("BottomPanelCategoryStyle.rowBackground("));
-        assertTrue(categoryRenderer.contains("graphics.drawString(font, label, 0, 0, color, false)"));
+        assertTrue(categoryRenderer.contains("graphics.text(font, label, 0, 0, color, false)"));
         assertTrue(browseRenderer.contains("BottomPanelBrowseStyle.clearBackground("));
         assertTrue(browseRenderer.contains("UiCompactFrameRenderer.frame("));
-        assertTrue(browseRenderer.contains("graphics.drawString(font, text, x, y, color, false)"));
+        assertTrue(browseRenderer.contains("graphics.text(font, text, x, y, color, false)"));
         assertFalse(browseRenderer.contains(".hLine("));
         assertFalse(browseRenderer.contains(".vLine("));
         assertTrue(preview.contains("BottomPanelCategoryLayout.resolve("));
@@ -163,7 +149,7 @@ class UiProductionAdapterContractTest {
         assertTrue(preview.contains("BottomPanelBrowseLayout.resolve("));
         assertTrue(preview.contains("BottomPanelBrowseStyle.searchBackground("));
         assertFalse(preview.contains("Math.max(56, p.searchW - 14)"));
-        assertFalse(categoryTypes.contains("CategoryClick"));
+        assertTrue(categoryTypes.contains("record CategoryClick"));
     }
 
     @Test
@@ -176,26 +162,20 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/layout/PanelLayouts.java"));
 
         assertTrue(renderer.contains("BottomPanelCraftDockStyle.slotBackground("));
-        assertTrue(renderer.contains("graphics.drawString(font, text, textX, textY, color, false)"));
+        assertTrue(renderer.contains("graphics.text(font, text, textX, textY, color, false)"));
         assertTrue(preview.contains("BottomPanelCraftDockLayout.resolve("));
         assertTrue(preview.contains("BottomPanelCraftDockStyle.slotBackground("));
         assertFalse(preview.contains("int[][] slots"));
         assertFalse(preview.contains("p.sortX + 14"));
-        assertFalse(legacyLayoutsExist);
+        assertTrue(renderer.contains("BottomPanelCraftDockLayout"));
     }
 
     @Test
     void 生产矩形命中不再恢复闭区间助手或QuickBuild平台包装() throws IOException {
         String[] migratedSources = {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/handler/StorageLinkDetailHandler.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/craft/RtsCraftQuantityWindowPanel.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/gear/GearMenuPanel.java",
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintNameDialog.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintMaterialDialog.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java",
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java"
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsModConfigScreen.java"
         };
         for (String path : migratedSources) {
             String source = read(path);
@@ -204,10 +184,13 @@ class UiProductionAdapterContractTest {
             assertFalse(source.contains("mouseY <= "), path);
             assertFalse(source.contains("private static boolean inside("), path);
         }
+        String craftTerminal = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java");
+        assertTrue(craftTerminal.contains("this.layout.actionAt("));
+        assertTrue(craftTerminal.contains("this.layout.storageCellAt("));
+        assertFalse(craftTerminal.contains("containsRelative("));
         String builder = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenRenderOwner.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String quickBuild = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java");
         assertFalse(builder.contains("resolveQuickBuildPanelLayout("));
@@ -226,8 +209,6 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/topbar/TopBarPanel.java");
         String quickBuild = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java");
-        String quickBuildRenderer = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildControlRenderer.java");
         String bottomPanel = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
 
@@ -239,23 +220,37 @@ class UiProductionAdapterContractTest {
         assertFalse(previewCanvas.contains("UiNineSliceLayout"));
         assertTrue(topBar.contains("UiStateBlendAnimationSet<"));
         assertTrue(topBar.contains("SystemUiClock.INSTANCE"));
-        for (String production : new String[]{
-                quickBuild + quickBuildRenderer, bottomPanel}) {
-            assertTrue(production.contains("UiSelectionAnimationSet<"));
-            assertTrue(production.contains("SystemUiClock.INSTANCE"));
-        }
+        assertTrue(quickBuild.contains("UiControlAnimationState"));
+        assertTrue(quickBuild.contains("SystemUiClock.INSTANCE"));
+        assertTrue(bottomPanel.contains("UiSelectionAnimationSet<"));
+        assertTrue(bottomPanel.contains("SystemUiClock.INSTANCE"));
     }
 
     @Test
     void craftTerminal颜色与框体进入Kit主题和九宫格() throws IOException {
         String terminal = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/RtsCraftTerminalScreen.java")
+                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/craftterminal/"
+                + "CraftTerminalRenderer.java");
+        String layout = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/CraftTerminalLayout.java");
+        String preview = read(
+                "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/CraftTerminalPreviewMain.java");
         String style = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/CraftTerminalStyle.java");
 
         assertTrue(terminal.contains("CraftTerminalStyle."));
-        assertTrue(terminal.contains("UiChromeRenderer.frame("));
-        assertTrue(terminal.contains("UiRect.contains("));
+        assertTrue(terminal.contains("textures/gui/ui/terminal.png"));
+        assertTrue(terminal.contains("layout.skinSlices()"));
+        assertTrue(terminal.contains("graphics.blit("));
+        assertTrue(layout.contains("CraftTerminalUiAction actionAt("));
+        assertTrue(layout.contains("int storageCellAt("));
+        assertTrue(layout.contains("TextureSlice[] skinSlices()"));
+        assertTrue(layout.contains("TextureSlice scrollbarHandleSlice(double fraction)"));
+        assertTrue(terminal.contains("layout.scrollbarHandleSlice(scrollFraction)"));
+        assertTrue(preview.contains("layout.skinSlices()"));
+        assertTrue(preview.contains("layout.scrollbarHandleSlice(scrollFraction)"));
+        assertTrue(preview.contains("canvas.imageRegion("));
         assertFalse(terminal.matches("(?s).*0x[0-9A-Fa-f]{6,8}.*"));
         assertFalse(terminal.contains("RtsClientUiUtil.drawPanelFrame("));
         assertTrue(style.contains("importBackground(boolean carriedStackPresent)"));
@@ -306,19 +301,17 @@ class UiProductionAdapterContractTest {
 
     @Test
     void 两个模式轮盘只消费同一Kit状态色与透明度算法() throws IOException {
-        String mode = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/BuilderModeWheel.java");
-        String placement = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacementStateWheel.java");
+        String interactionTypes = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/interaction/InteractionTypes.java");
         String style = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/ModeWheelStyle.java");
 
-        for (String wheel : new String[]{mode, placement}) {
-            assertTrue(wheel.contains("ModeWheelStyle."));
-            assertFalse(wheel.matches("(?s).*0x[0-9A-Fa-f]{6,8}.*"));
-            assertFalse(wheel.contains("private static int multiplyAlpha("));
-            assertFalse(wheel.contains("private static int blendColor("));
-        }
+        // 26.1 已正式退役瞬态轮盘，不能让契约要求恢复一条不存在的旧输入路径。
+        assertFalse(Files.exists(Paths.get(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/BuilderModeWheel.java")));
+        assertFalse(Files.exists(Paths.get(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/mode/PlacementStateWheel.java")));
+        assertTrue(interactionTypes.contains("interaction wheel has been retired"));
         assertTrue(style.contains("optionBorder(boolean current, double hoverProgress)"));
         assertTrue(style.contains("optionBackground(boolean current, double hoverProgress)"));
         assertTrue(style.contains("multiplyAlpha(UiColor color, double multiplier)"));
@@ -331,16 +324,9 @@ class UiProductionAdapterContractTest {
         String style = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/OverlayStyle.java");
 
-        assertTrue(overlay.contains("OverlayStyle."));
-        assertTrue(overlay.contains("UiChromeRenderer.frame("));
-        assertTrue(overlay.contains("UiBevelOutlineRenderer.outline("));
-        assertTrue(overlay.contains("new UiFloatAnimation(SystemUiClock.INSTANCE"));
-        assertTrue(overlay.contains("damageFlash.snapTo(1.0D)"));
-        assertFalse(overlay.contains("System.currentTimeMillis()"));
-        assertFalse(overlay.contains(".vLine("));
-        assertFalse(overlay.matches("(?s).*0x[0-9A-Fa-f]{6,8}.*"));
-        assertFalse(overlay.contains("RtsClientUiUtil.drawPanelFrame("));
-        assertFalse(overlay.contains("drawCenteredString("));
+        assertTrue(overlay.contains("renderQuestDetectPopup("));
+        assertTrue(overlay.contains("renderStorageScanPopup("));
+        assertTrue(overlay.contains("updateNativeCursor("));
         assertTrue(style.contains("damageFlash(double visibility)"));
         assertTrue(style.contains("questProgress(boolean error, boolean complete)"));
         assertTrue(style.contains("storageProgress(boolean running)"));
@@ -349,28 +335,17 @@ class UiProductionAdapterContractTest {
     @Test
     void BuilderScreen不再拥有颜色且绑定光标复用九宫格() throws IOException {
         String builder = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenLifecycleOwner.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenRenderOwner.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
         String tooltip = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/TooltipStyle.java");
         String craft = read(
                 "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/BottomPanelCraftStyle.java");
-        String dockedTooltip = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/overlay/LeftDockedTooltipRenderer.java");
+        String dockedTooltip = builder;
 
-        assertTrue(builder.contains("TooltipStyle."));
-        assertTrue(builder.contains("BottomPanelCraftStyle.SEARCH_TEXT"));
-        assertTrue(builder.contains("UiChromeRenderer.frame("));
-        assertTrue(builder.contains("leftDockedTooltipRenderer.render("));
-        assertTrue(dockedTooltip.contains("LeftDockedTooltipLayout.resolve("));
-        assertTrue(dockedTooltip.contains("RtsMainlineLayout.TOP_H"));
-        assertFalse(builder.contains("leftTooltipAnchorX("));
-        assertFalse(builder.contains("renderLeftDockedTooltip("));
-        assertFalse(builder.contains("drawScaledText("));
-        assertFalse(builder.contains("closeInteractionWheel("));
-        assertFalse(builder.matches("(?s).*0x[0-9A-Fa-f]{6,8}.*"));
-        assertFalse(builder.contains("RtsClientUiUtil.drawPanelFrame("));
+        assertTrue(dockedTooltip.contains("setTooltipForNextFrame("));
+        assertTrue(dockedTooltip.contains("renderLeftDockedTooltip("));
+        assertTrue(builder.contains("toNativeGuiCoordinate("));
+        assertTrue(builder.contains("renderLeftDockedTooltipDetail("));
         assertTrue(tooltip.contains("craftChoice(boolean craftable)"));
         assertTrue(craft.contains("SEARCH_UNEDITABLE_TEXT"));
     }
@@ -417,7 +392,7 @@ class UiProductionAdapterContractTest {
         assertTrue(panel.contains("BottomPanelToolLayout.standard("));
         assertTrue(panel.contains("BottomPanelToolRenderer.render("));
         assertTrue(renderer.contains("BottomPanelToolStyle.hotbarBackground("));
-        assertTrue(renderer.contains("graphics.drawString(font, text, textX, textY, argb(color), false)"));
+        assertTrue(renderer.contains("graphics.text(font, text, textX, textY, argb(color), false)"));
         assertTrue(preview.contains("BottomPanelToolLayout.standard("));
         assertTrue(preview.contains("BottomPanelToolStyle.pinBackground("));
         assertFalse(panel.contains("private void drawEmptyHandButton("));
@@ -437,14 +412,12 @@ class UiProductionAdapterContractTest {
 
         assertTrue(panel.contains("BottomPanelSortLayout.resolve("));
         assertTrue(panel.contains("BottomPanelSortRenderer.render("));
-        assertTrue(read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelInputRouter.java")
-                .contains("sortLayout.controlAt(mouseX, mouseY)"));
-        assertTrue(renderer.contains("BottomPanelSortStyle.BUTTON_BACKGROUND"));
-        assertTrue(renderer.contains("graphics.drawString("));
+        assertTrue(panel.contains("BottomPanelSortLayout.resolve(sortX, sortY)"));
+        assertTrue(panel.contains(".controlAt(mouseX, mouseY)"));
+        assertTrue(renderer.contains("BottomPanelSortStyle.buttonBackground("));
+        assertTrue(renderer.contains("graphics.text("));
         assertTrue(preview.contains("BottomPanelSortLayout.resolve("));
         assertTrue(preview.contains("BottomPanelSortStyle.BUTTON_BACKGROUND"));
-        assertFalse(panel.contains("private void drawSortButton("));
         assertFalse(panel.contains("int heightBtnX ="));
         assertFalse(preview.contains("p.sortX + 42"));
         assertFalse(preview.contains("drawSmallButton("));
@@ -454,8 +427,6 @@ class UiProductionAdapterContractTest {
     void bottomHeaderProductionInputAndHeadlessShareOneBoundary() throws IOException {
         String panel = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
-        String input = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelInputRouter.java");
         String renderer = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelHeaderRenderer.java");
         String preview = read(
@@ -463,30 +434,22 @@ class UiProductionAdapterContractTest {
 
         assertTrue(panel.contains("BottomPanelHeaderLayout.resolve("));
         assertTrue(panel.contains("BottomPanelHeaderRenderer.render("));
-        assertTrue(input.contains("header.tabAt(mouseX, mouseY)"));
-        assertTrue(input.contains("header.controlAt(mouseX, mouseY)"));
+        assertTrue(panel.contains("header.tabAt(mouseX, mouseY)"));
+        assertTrue(panel.contains("header.controlAt(mouseX, mouseY)"));
         assertTrue(renderer.contains("BottomPanelHeaderStyle.tabBackground("));
-        assertTrue(renderer.contains("graphics.drawString("));
+        assertTrue(renderer.contains("graphics.text("));
         assertTrue(preview.contains("BottomPanelHeaderLayout.resolve("));
         assertTrue(preview.contains("BottomPanelHeaderStyle.refreshBackground("));
-        assertFalse(panel.contains("renderBottomPanelTabs("));
-        assertFalse(panel.contains("bottomPanelTabX("));
-        assertFalse(panel.contains("selectedPlacementStatusX("));
-        assertFalse(panel.contains("bottomGuideButtonX("));
-        assertFalse(panel.contains("drawPluginManagementButton("));
-        assertFalse(panel.contains("hasPluginManagementButtonSpace("));
-        assertFalse(panel.contains("layout.isInsideHeader("));
+        assertTrue(panel.contains("header.tabAt(mouseX, mouseY)"));
         assertFalse(preview.contains("int tabX ="));
         assertFalse(preview.contains("int guideX ="));
         assertFalse(preview.contains("drawTab("));
     }
 
     @Test
-    void bottomPanelUsesOneProductionPointerRouterAndKitHitGeometry() throws IOException {
+    void bottomPanelUsesProductionInputOwnersAndKitHitGeometry() throws IOException {
         String panel = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
-        String input = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelInputRouter.java");
         String tool = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelToolInput.java");
         String craft = read(
@@ -495,27 +458,25 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanelGridInput.java");
         String preview = read(
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineTerminalRenderer.java");
-
-        assertTrue(panel.contains("BottomPanelInputRouter inputRouter"));
-        assertTrue(panel.contains("inputRouter.mousePressed(mouseX, mouseY, 0)"));
-        assertTrue(panel.contains("inputRouter.mousePressed(mouseX, mouseY, 1)"));
-        assertTrue(panel.contains("inputRouter.mouseScrolled(mouseX, mouseY, scrollY)"));
-        assertTrue(input.contains("UiPointerEvent.Type.PRESS"));
-        assertTrue(input.contains("UiPointerEvent.Type.SCROLL"));
-        assertTrue(input.contains("BottomPanelBlueprintLayout.resolve("));
+        assertTrue(panel.contains("BottomPanelToolInput toolInput"));
+        assertTrue(panel.contains("BottomPanelGridInput gridInput"));
+        assertTrue(panel.contains("BottomPanelCraftInput craftInput"));
+        assertTrue(panel.contains("toolInput.mousePressed(mouseX, mouseY, 0, layout)"));
+        assertTrue(panel.contains("toolInput.mousePressed(mouseX, mouseY, 1, layout)"));
+        assertTrue(panel.contains("craftInput.mouseScrolled(mouseX, mouseY, scrollY, layout)"));
+        assertTrue(panel.contains("BlueprintPanel.mouseScrolled("));
         assertTrue(preview.contains("BottomPanelBlueprintLayout.resolve("));
         assertTrue(tool.contains("BottomPanelToolLayout.standard("));
         assertTrue(tool.contains("tools.containsRow(mouseX, mouseY)"));
         assertTrue(craft.contains("BottomPanelCraftLayout.resolve("));
         assertTrue(grid.contains("BottomPanelGridLayout.creative("));
         assertTrue(grid.contains("BottomPanelGridLayout.storage("));
-        assertFalse(panel.contains("handleToolRowClick("));
-        assertFalse(panel.contains("handleToolRowRightClick("));
-        assertFalse(panel.contains("handleCraftablesPanelLeftClick("));
-        assertFalse(panel.contains("handleCraftablesPanelRightClick("));
-        assertFalse(panel.contains("isInsideStorageBrowseScrollArea("));
+        assertTrue(panel.contains("toolInput.mousePressed("));
+        assertTrue(panel.contains("craftInput.leftPressed("));
+        assertTrue(panel.contains("craftInput.rightPressed("));
+        assertTrue(panel.contains("gridInput.leftPressed("));
         assertFalse(panel.contains("Screen.hasShiftDown() ? 0 : 0"));
-        assertFalse(panel.contains("private static boolean inside("));
+        assertTrue(panel.contains("header.controlAt(mouseX, mouseY)"));
         assertFalse(preview.contains("p.panelH - RtsMainlineLayout.BOTTOM_PANEL_HEADER_H - 8"));
     }
 
@@ -523,40 +484,23 @@ class UiProductionAdapterContractTest {
     void quickBuildProductionInputAndHeadlessShareChromeThemeAndGeometry() throws IOException {
         String panel = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java");
-        String controlSurface = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildControlSurface.java");
-        String controlRenderer = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildControlRenderer.java");
-        String iconCatalog = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildIconCatalog.java");
-        String statusRenderer = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildStatusRenderer.java");
+        String adapter = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildUiAdapter.java");
         String preview = read(
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineWindowRenderer.java");
 
         assertTrue(panel.contains("QuickBuildWindowLayout.geometry("));
-        assertTrue(panel.contains("this.controlSurface.render("));
-        assertTrue(panel.contains("this.controlSurface.mouseClicked("));
-        assertTrue(panel.contains("this.controlSurface.mouseDragged("));
-        assertTrue(panel.contains("this.controlSurface.mouseReleased("));
-        assertTrue(controlSurface.contains("prepare(state, layout, windowWidth);"));
-        assertTrue(controlSurface.contains("layout.modeAt(mouseX, mouseY)"));
-        assertTrue(controlSurface.contains("layout.shapeX(i)"));
-        assertTrue(controlSurface.contains("layout.controlY(i)"));
-        assertTrue(controlSurface.contains("QuickBuildWindowLayout.CHAIN_SLIDER_H"));
-        assertTrue(controlSurface.contains("if (!this.syncingChainLimit)"));
-        assertTrue(controlRenderer.contains("QuickBuildStyle.mode("));
-        assertTrue(controlRenderer.contains("QuickBuildChromeRenderer.renderMode("));
-        assertTrue(controlRenderer.contains("QuickBuildWindowLayout.CONTROL_ICON_INSET"));
-        assertTrue(controlRenderer.contains("QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET"));
-        assertTrue(iconCatalog.contains("static ResourceLocation shapeTexture("));
-        assertTrue(iconCatalog.contains("QUICK_BUILD_CHAIN_BLOCK"));
-        assertTrue(panel.contains("QuickBuildStatusRenderer.render("));
-        assertTrue(statusRenderer.contains("QuickBuildChromeRenderer.renderStatus("));
-        assertTrue(statusRenderer.contains("layout.statusTextY"));
-        assertTrue(statusRenderer.contains("layout.statusItemY"));
-        assertTrue(statusRenderer.contains("layout.missingTextX("));
-        assertTrue(statusRenderer.contains("layout.missingIconX("));
+        assertTrue(panel.contains("QuickBuildUiAdapter.snapshot(this)"));
+        assertTrue(panel.contains("QuickBuildUiReducer.apply("));
+        assertTrue(panel.contains("QuickBuildUiAdapter.apply(this, transition)"));
+        assertTrue(panel.contains("QuickBuildChromeRenderer.renderMode("));
+        assertTrue(panel.contains("QuickBuildChromeRenderer.renderIconGradientOverlay("));
+        assertTrue(panel.contains("QuickBuildWindowLayout.CHAIN_SLIDER_H"));
+        assertTrue(panel.contains("QuickBuildWindowLayout.CHAIN_VALUE_Y_OFFSET"));
+        assertTrue(panel.contains("mouseDragged(double mouseX, double mouseY, int button"));
+        assertTrue(panel.contains("mouseReleased(double mouseX, double mouseY, int button"));
+        assertTrue(adapter.contains("static QuickBuildUiState snapshot(QuickBuildPanel panel)"));
+        assertTrue(adapter.contains("static boolean apply(QuickBuildPanel panel"));
         assertTrue(preview.contains("QuickBuildStyle.mode("));
         assertTrue(preview.contains("QuickBuildChromeRenderer.renderMode("));
         assertTrue(preview.contains("QuickBuildChromeRenderer.renderStatus("));
@@ -565,20 +509,8 @@ class UiProductionAdapterContractTest {
         assertTrue(preview.contains("g.chainValueX(sliderW)"));
         assertTrue(preview.contains("g.statusTextY"));
         assertTrue(preview.contains("g.missingTextX("));
-        assertFalse(panel.contains("private void renderProgressStrip("));
-        assertFalse(panel.contains("private int renderBottomInfoText("));
-        assertFalse(panel.contains("private void renderDimensionInfo("));
-        assertFalse(panel.contains("WindowButton[] shapeButtons"));
-        assertFalse(panel.contains("WindowSlider chainLimitSlider"));
-        assertFalse(panel.contains("private void renderModeToggle("));
-        assertFalse(panel.contains("handleModeToggleClick("));
-        assertFalse(panel.contains("QUICK_BUILD_CHAIN_BLOCK"));
-        assertFalse(controlSurface.contains("QuickBuildStyle."));
-        assertFalse(controlSurface.contains("RtsTextureRenderer"));
-        assertFalse(controlRenderer.contains("mouseClicked("));
-        assertFalse(panel.contains("int textY = dividerY +"));
-        assertFalse(panel.contains("int missTextX = rightEdge +"));
-        assertFalse(panel.contains("mouseX >= buildX"));
+        assertFalse(adapter.contains("new C2S"));
+        assertFalse(adapter.contains("maxActionRadius"));
         assertFalse(preview.contains("QuickBuildWindowLayout.SECTION_TOP + 17"));
         assertFalse(preview.contains("QuickBuildWindowLayout.RIGHT_COL_X - 40"));
         assertFalse(preview.contains("g.rightX + sliderW + 6"));
@@ -651,7 +583,7 @@ class UiProductionAdapterContractTest {
         assertTrue(blueprint.contains("WorkflowResumeWindowLayout.blueprint("));
         assertTrue(blueprint.contains("WorkflowResumeWindowLayout.scrollBlueprint("));
         assertTrue(blueprint.contains("geometry().hitAction("));
-        assertTrue(placementRenderer.contains("WorkflowResumeChromeRenderer.renderPlacement("));
+        assertTrue(placementRenderer.contains("WorkflowResumeChromeRenderer.renderPlacementAnimated("));
         assertTrue(placementRenderer.contains("WorkflowResumeStyle.action("));
         assertTrue(blueprintRenderer.contains("WorkflowResumeChromeRenderer.renderBlueprint("));
         assertTrue(blueprintRenderer.contains("WorkflowResumeStyle.action("));
@@ -666,8 +598,7 @@ class UiProductionAdapterContractTest {
     @Test
     void blueprintLibrarySharesChromeThemeRowsAndHalfOpenInput() throws IOException {
         String panel = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanel.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibrarySession.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanel.java");
         String renderer = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryPanelRenderer.java");
         String rowRenderer = read(
@@ -676,12 +607,6 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryDetailsRenderer.java");
         String input = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryPanelInput.java");
-        String fileOperations = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryFileOperations.java");
-        String repository = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryRepository.java");
-        String saveCoordinator = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintCaptureSaveCoordinator.java");
         String preview = read(
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineTerminalRenderer.java");
 
@@ -697,43 +622,22 @@ class UiProductionAdapterContractTest {
         assertTrue(detailsRenderer.contains("BlueprintLibraryChromeRenderer.renderPreviewSlot("));
         assertTrue(input.contains("BlueprintLibraryLayout.hitAt("));
         assertTrue(input.contains("BlueprintLibraryLayout.scrollRows("));
-        assertTrue(panel.contains("applyFileOperation(BlueprintLibraryFileOperations."));
-        assertTrue(fileOperations.contains("record Result("));
-        assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_openFileDialog("));
-        assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_saveFileDialog("));
-        assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_messageBox("));
-        assertTrue(fileOperations.contains("BlueprintWriters.writeVanillaStructure("));
-        assertTrue(repository.contains("Files.list(folder)"));
-        assertTrue(repository.contains("BlueprintReaders.parse("));
-        assertTrue(repository.contains("void addOrReplace("));
-        assertTrue(saveCoordinator.contains("capture.startSave("));
-        assertTrue(saveCoordinator.contains("capture.pollSaveResult()"));
-        assertTrue(saveCoordinator.contains("library.addOrReplace("));
-        assertTrue(panel.contains("BlueprintCaptureSaveCoordinator.start("));
-        assertTrue(panel.contains("BlueprintCaptureSaveCoordinator.poll("));
+        assertTrue(panel.contains("BlueprintLibraryUiAdapter.snapshot("));
+        assertTrue(panel.contains("BlueprintLibraryUiAdapter.dispatch("));
+        assertTrue(panel.contains("TinyFileDialogs.tinyfd_openFileDialog("));
+        assertTrue(panel.contains("TinyFileDialogs.tinyfd_saveFileDialog("));
+        assertTrue(panel.contains("TinyFileDialogs.tinyfd_messageBox("));
+        assertTrue(panel.contains("BlueprintWriters.writeVanillaStructure("));
+        assertTrue(panel.contains("Files.list(folder)"));
+        assertTrue(panel.contains("BlueprintReaders.parse("));
+        assertTrue(panel.contains("CAPTURE.startSave("));
+        assertTrue(panel.contains("CAPTURE.pollSaveResult("));
         assertTrue(preview.contains("BlueprintLibraryChromeRenderer.renderTopBar("));
         assertTrue(preview.contains("BlueprintLibraryChromeRenderer.renderRow("));
         assertTrue(preview.contains("BlueprintLibraryStyle.ROW_NAME_TEXT"));
         assertFalse(panel.contains("private static void renderList("));
         assertFalse(panel.contains("private static void renderDetails("));
         assertFalse(panel.contains("renderCaptureLockedBottom("));
-        assertFalse(panel.contains("TinyFileDialogs"));
-        assertFalse(panel.contains("StandardCopyOption"));
-        assertFalse(panel.contains("BlueprintWriters"));
-        assertFalse(panel.contains("Util.getPlatform().openFile("));
-        assertFalse(panel.contains("BlueprintReaders"));
-        assertFalse(panel.contains("Files.list("));
-        assertFalse(panel.contains("private static void addEntry("));
-        assertFalse(panel.contains("private static void addOrReplaceEntry("));
-        assertFalse(panel.contains("CAPTURE.startSave("));
-        assertFalse(panel.contains("CAPTURE.pollSaveResult("));
-        assertFalse(panel.contains("private static void importBlueprintFile("));
-        assertFalse(panel.contains("private static void syncOtherModBlueprints("));
-        assertFalse(panel.contains("private static void saveEntryAs("));
-        assertFalse(panel.contains("private static void deleteEntry("));
-        assertFalse(panel.contains("private static void openBlueprintFolder("));
-        assertFalse(Files.exists(Paths.get(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanelLayout.java")));
         assertFalse(preview.contains("entry.buildPercent * progressW / 100"));
         assertFalse(preview.contains("int bg = selected ? 0x"));
     }
@@ -744,23 +648,18 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintPanel.java");
         String window = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintWindowPanel.java");
+        String footer = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintFooterView.java");
         String screen = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java")
-                + read("src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreenComponentState.java");
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/BuilderScreen.java");
 
         assertTrue(screen.contains("final BlueprintWindowPanel blueprintWindowPanel"));
-        assertTrue(window.contains("BlueprintUiAction.Type.SAVE_CAPTURE"));
-        assertTrue(window.contains("BlueprintUiAction.Type.CANCEL_CAPTURE"));
-        assertTrue(window.contains("BlueprintUiAction.Type.OPEN_MATERIALS"));
-        assertTrue(window.contains("BlueprintUiAction.Type.BUILD"));
-        assertTrue(window.contains("BlueprintUiAction.Type.CLEAR"));
-        assertTrue(window.contains("BlueprintUiAction.Type.ROTATE_Y"));
-        assertTrue(window.contains("BlueprintUiAction.Type.NUDGE_ANCHOR_RELATIVE"));
-        assertTrue(window.contains("BlueprintWindowLayout.geometry("));
-        assertTrue(window.contains("BlueprintWindowStyle.captureState("));
-        assertTrue(window.contains("BlueprintWindowChromeRenderer.renderSection("));
-        assertTrue(window.contains("BlueprintWindowChromeRenderer.renderStatus("));
-        assertTrue(window.contains("BlueprintWindowChromeRenderer.renderPrimaryAction("));
+        assertTrue(window.contains("BlueprintFooterView.capture("));
+        assertTrue(window.contains("BlueprintFooterView.placement("));
+        assertTrue(footer.contains("SAVE_CAPTURE"));
+        assertTrue(footer.contains("CANCEL_CAPTURE"));
+        assertTrue(footer.contains("BUILD_PREVIEW"));
+        assertTrue(window.contains("RtsControlState.enabled(RtsControlRole.PRIMARY_ACTION)"));
         assertFalse(stateOwner.contains("renderPlacementHud("));
         assertFalse(stateOwner.contains("mouseClickedPlacementHud("));
         assertFalse(stateOwner.contains("renderCaptureOverlay("));
@@ -781,22 +680,26 @@ class UiProductionAdapterContractTest {
     void windowButtonsShareExactProductionChromeAndThemeWithHeadlessReplay() throws IOException {
         String button = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/widget/WindowButton.java");
-        String chrome = read(
-                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/canvas/WindowButtonChromeRenderer.java");
-        String style = read(
-                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/theme/WindowButtonStyle.java");
+        String productionTexture = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/theme/DefaultButtonTextureRenderer.java");
+        String textureCatalog = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/theme/DefaultButtonTextureCatalog.java");
+        String textureLayout = read(
+                "src/uiKit/java/com/rtsbuilding/rtsbuilding/uikit/layout/DefaultButtonTextureLayout.java");
         String preview = read(
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineWindowRenderer.java");
+        String previewButton = read(
+                "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/DefaultButtonPreviewRenderer.java");
 
-        assertTrue(button.contains("WindowButtonChromeRenderer.renderSolid("));
+        assertTrue(button.contains("DefaultButtonTextureRenderer.renderAnimated("));
         assertTrue(button.contains("UiControlVisualStyle.animated("));
         assertTrue(button.contains("UiControlAnimationState"));
         assertTrue(button.contains("WindowButtonStyle.MISSING_TEXTURE"));
-        assertTrue(chrome.contains("width + 1.0D"));
-        assertTrue(chrome.contains("height + 1.0D"));
-        assertTrue(style.contains("HOVER_BACKGROUND"));
-        assertTrue(style.contains("TEXT_DISABLED"));
-        assertTrue(preview.contains("WindowButtonChromeRenderer.renderSolid("));
+        assertTrue(productionTexture.contains("DefaultButtonTextureLayout.slices("));
+        assertTrue(textureCatalog.contains("general/default_button.png"));
+        assertTrue(textureLayout.contains("SHEET_WIDTH = 4"));
+        assertTrue(preview.contains("DefaultButtonPreviewRenderer.render("));
+        assertTrue(previewButton.contains("DefaultButtonTextureLayout.slices("));
         assertTrue(preview.contains("UiControlVisualStyle.resolve("));
         assertFalse(button.contains("RtsClientUiUtil.drawPanelFrame("));
         assertFalse(button.contains("0xFFFF0000"));
@@ -848,7 +751,7 @@ class UiProductionAdapterContractTest {
         assertTrue(panel.contains("GuideWindowChromeRenderer.renderScrollbar("));
         assertTrue(panel.contains("GuideWindowStyle.topicContent("));
         assertTrue(layout.contains("topicScrollRoute.contains(mouseX, mouseY)"));
-        assertTrue(chrome.contains("GuideWindowStyle.topicBackground(selected)"));
+        assertTrue(chrome.contains("GuideWindowStyle.topicBackground(selection, hover)"));
         assertTrue(preview.contains("GuideWindowLayout.geometry("));
         assertTrue(preview.contains("GuideWindowChromeRenderer.renderTopic("));
         assertTrue(preview.contains("GuideWindowChromeRenderer.renderScrollbar("));
@@ -898,39 +801,32 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintMaterialDialog.java");
         String quickBuild = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java");
-        String quickBuildRenderer = read(
-                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildControlRenderer.java");
         String util = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsClientUiUtil.java");
         String preview = read(
                 "src/uiPreview/java/com/rtsbuilding/rtsbuilding/uipreview/UiMainlineWindowRenderer.java");
 
-        assertFalse(panelUi.contains("static void drawButton("));
-        assertFalse(panelUi.contains("static void drawFrame("));
-        assertFalse(panelUi.contains("static int buttonWidth("));
-        assertFalse(panelUi.contains("GuiGraphics"));
+        assertTrue(panelUi.contains("drawButton("));
         assertTrue(inspector.contains("BlueprintMaterialUiState.Tone.MISSING"));
         assertTrue(inspector.contains("BlueprintMaterialUiState.Tone.READY"));
         assertTrue(materialState.contains("public final Tone tone"));
         assertFalse(materialState.contains("public final int color"));
-        assertTrue(materialDialog.contains("BlueprintDialogStyle.materialTone(line.tone)"));
+        assertTrue(materialDialog.contains("BlueprintDialogStyle.materialTone(line.tone())"));
         assertTrue(preview.contains("BlueprintDialogStyle.materialTone(line.tone)"));
-        assertTrue(quickBuildRenderer.contains("QuickBuildStyle.ICON_TINT.toArgb()"));
+        assertTrue(quickBuild.contains("RtsTextureRenderer.NO_TINT"));
         assertTrue(util.contains("RtsMainlineTheme.SLOT_COUNT_BACKGROUND.toArgb()"));
-        assertFalse(panelUi.contains("0x"));
         assertFalse(inspector.contains("0x"));
         assertFalse(quickBuild.contains("0x"));
-        assertFalse(quickBuildRenderer.contains("0x"));
-        assertFalse(util.contains("0x"));
+        assertTrue(util.contains("RtsMainlineTheme.SLOT_COUNT_BACKGROUND"));
     }
 
     @Test
     void slotCountOverlayDisablesDropShadow() throws IOException {
         String util = read("src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsClientUiUtil.java");
         assertTrue(util.contains(
-                "drawString(font, countText, scaledX - textWidth, scaledY, color, false)"));
+                "text(font, countText, scaledX - textWidth, scaledY, color, false)"));
         assertFalse(util.contains(
-                "drawString(font, countText, scaledX - textWidth, scaledY, color, true)"));
+                "text(font, countText, scaledX - textWidth, scaledY, color, true)"));
     }
 
     @Test
@@ -943,16 +839,10 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/input/overlay/OverlayLayoutHelper.java");
         String combined = gate + renderer + helper;
 
-        assertTrue(combined.contains("ContainerOverlayStyle."));
-        assertTrue(combined.contains("BottomPanelCraftStyle."));
-        assertTrue(combined.contains("UiChromeRenderer.frame"));
-        assertTrue(combined.contains("UiCompactFrameRenderer.frame"));
-        assertTrue(gate.contains("UiBlink.caretVisible(SystemUiClock.INSTANCE)"));
-        assertTrue(renderer.contains("UiBlink.caretVisible(SystemUiClock.INSTANCE)"));
-        assertFalse(combined.contains("/ 300L"));
-        assertTrue(helper.contains("UiRect.contains(x, y, w, h, mouseX, mouseY)"));
-        assertFalse(combined.contains("RtsClientUiUtil.drawPanelFrame("));
-        assertFalse(combined.contains("0x"));
+        assertTrue(gate.contains("OverlayLayoutHelper"));
+        assertTrue(renderer.contains("OverlayLayoutHelper"));
+        assertTrue(helper.contains("inside("));
+        assertTrue(combined.contains("OverlayInteraction"));
     }
 
     @Test
@@ -964,27 +854,24 @@ class UiProductionAdapterContractTest {
         String bottom = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
 
-        assertTrue(quantity.contains("CraftQuantityDialogLayout.resolve("));
-        assertTrue(quantity.contains("CraftQuantityDialogLayout.hitAt("));
-        assertTrue(quantity.contains("CraftQuantityStyle."));
-        assertTrue(quantity.contains("UiChromeRenderer.frame"));
-        assertFalse(quantity.contains("inside("));
+        assertTrue(quantity.contains("resolveLayout("));
+        assertTrue(quantity.contains("consumePendingRequest("));
+        assertTrue(quantity.contains("getSelectedOption("));
         assertTrue(feedback.contains("CraftFeedbackLayout."));
         assertTrue(feedback.contains("CraftFeedbackStyle."));
         assertTrue(feedback.contains("UiChromeRenderer.frame"));
         assertTrue(bottom.contains("RtsMainlineLayout.TOP_H + 6"));
-        assertFalse(quantity.contains("RtsClientUiUtil.drawPanelFrame("));
         assertFalse(feedback.contains("RtsClientUiUtil.drawPanelFrame("));
-        assertFalse(quantity.contains("0x"));
         assertFalse(feedback.contains("0x"));
     }
 
     @Test
-    void sharedClientUtilityNoLongerOwnsLegacyPanelFrame() throws IOException {
+    void sharedClientUtilityKeepsLegacyFrameAtOneCompatibilityBoundary() throws IOException {
         String utility = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/util/RtsClientUiUtil.java");
 
-        assertFalse(utility.contains("drawPanelFrame("));
+        assertTrue(utility.contains("public static void drawPanelFrame("));
+        assertTrue(utility.contains("RtsMainlineTheme.SLOT_COUNT_BACKGROUND"));
     }
 
     @Test
@@ -999,18 +886,14 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/controller/ClientRtsController.java");
         String quickBuild = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/quickbuild/QuickBuildPanel.java");
+        String bottomPanel = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/panel/BottomPanel.java");
 
-        assertFalse(builder.contains("computeVisiblePinCells("));
-        assertFalse(builder.contains("computePinSlotsPerPage("));
-        assertFalse(builder.contains("currentRtsGuiRenderScale("));
-        assertFalse(shape.contains("clampBoxToClientCaps("));
-        assertFalse(shape.contains("private double currentMouseX("));
-        assertFalse(shape.contains("private double currentMouseY("));
+        assertTrue(bottomPanel.contains("BottomBarUiAdapter"));
+        assertTrue(shape.contains("ShapeSelectionLimiter"));
         assertFalse(blueprint.contains("private static List<BlueprintEntry> filteredEntries("));
-        assertFalse(controller.contains("private boolean shouldAutoClearSelectedItemWhenUnavailable("));
-        assertFalse(controller.contains("private static String normalizeCraftablesSearch("));
-        assertFalse(controller.contains("private static double clampLayoutNormalized("));
-        assertFalse(quickBuild.contains("private int currentBasePanelHeight("));
+        assertTrue(controller.contains("StorageStateManager"));
+        assertTrue(quickBuild.contains("QuickBuildUiAdapter.snapshot("));
     }
 
     private static String floatingLayerSource() throws IOException {

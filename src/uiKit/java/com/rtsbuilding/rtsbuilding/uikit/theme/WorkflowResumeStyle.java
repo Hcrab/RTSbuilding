@@ -27,6 +27,13 @@ public final class WorkflowResumeStyle {
             ActionKind kind,
             boolean enabled,
             boolean hovered) {
+        return action(kind, enabled, hovered ? 1.0D : 0.0D);
+    }
+
+    public static ActionVisual action(
+            ActionKind kind,
+            boolean enabled,
+            double hoverStrength) {
         if (!enabled) {
             return new ActionVisual(
                     color(0xCC444444),
@@ -38,26 +45,23 @@ public final class WorkflowResumeStyle {
         }
         if (kind == ActionKind.OVERWRITE) {
             return new ActionVisual(
-                    hovered
-                            ? color(0xCC6A4A2A)
-                            : color(0xCC4A3A1A),
+                    UiColor.interpolate(color(0xCC4A3A1A),
+                            color(0xCC6A4A2A), hoverStrength),
                     PROGRESS_TEXT,
                     color(0xFF2A1A0A),
                     ITEM_TEXT);
         }
         if (kind == ActionKind.SKIP) {
             return new ActionVisual(
-                    hovered
-                            ? color(0xCC3A6A3A)
-                            : color(0xCC2A4A2A),
+                    UiColor.interpolate(color(0xCC2A4A2A),
+                            color(0xCC3A6A3A), hoverStrength),
                     color(0xFF74E88C),
                     color(0xFF1A2A1A),
                     ITEM_TEXT);
         }
         return new ActionVisual(
-                hovered
-                        ? color(0xCC3AA156)
-                        : color(0xCC2C873F),
+                UiColor.interpolate(color(0xCC2C873F),
+                        color(0xCC3AA156), hoverStrength),
                 color(0xFF74E88C),
                 color(0xFF1A2A1A),
                 ITEM_TEXT);

@@ -10,10 +10,10 @@ import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
  * 共享同一状态推进规则。</p>
  */
 public final class UiControlAnimationState {
-    public static final long HOVER_DURATION_MS = 90L;
-    public static final long SELECTION_DURATION_MS = 140L;
-    public static final long PRESS_DURATION_MS = 65L;
-    public static final long ENABLED_DURATION_MS = 100L;
+    public static final long HOVER_DURATION_MS = UiMotionSpec.HOVER_MS;
+    public static final long SELECTION_DURATION_MS = UiMotionSpec.SELECTION_MS;
+    public static final long PRESS_DURATION_MS = UiMotionSpec.PRESS_MS;
+    public static final long ENABLED_DURATION_MS = UiMotionSpec.ENABLED_MS;
 
     private final UiFloatAnimation hover;
     private final UiFloatAnimation selection;

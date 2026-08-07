@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
@@ -16,9 +17,9 @@ import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
-import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
-
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 历史记录执行器（类似 Ultimine-Rewind 的 RewindExecutor）。
@@ -48,14 +49,22 @@ public final class HistoryExecutor {
      * @param entry  要撤回的历史记录
      * @return 实际成功处理的方块数量（可能小于总数，如位置已被占用时跳过）
      */
-    public static int executeUndo(ServerPlayer player, HistoryEntry entry) {
-        if (entry.isDestructive()) {
-            // 破坏批次→撤回=重新放置方块
-            return restoreBlocks(player, entry.getBlocks(), entry.getFace());
-        } else {
-            // 放置批次→撤回=破坏方块
-            return breakBlocks(player, entry.getBlocks());
+    public static HistoryExecutionResult executeUndo(ServerPlayer player, HistoryEntry entry) {
+        Set<BlockPos> completed = entry.isDestructive()
+                ? restoreBlocks(player, entry.getBlocks(), entry.getOperation().creative())
+                : breakBlocks(player, entry.getBlocks(), entry.getOperation().creative());
+        return new HistoryExecutionResult(completed.size(), completed);
+    }
+
+    /** 当前阶段只允许创造模式重做；生存条目不会产生世界或物品副作用。 */
+    public static HistoryExecutionResult executeRedo(ServerPlayer player, HistoryEntry entry) {
+        if (!entry.getOperation().creative()) {
+            return new HistoryExecutionResult(0, Set.of());
         }
+        Set<BlockPos> completed = entry.isDestructive()
+                ? breakBlocks(player, entry.getBlocks(), true)
+                : restoreBlocks(player, entry.getBlocks(), true);
+        return new HistoryExecutionResult(completed.size(), completed);
     }
 
     // ======================================================================
@@ -69,15 +78,19 @@ public final class HistoryExecutor {
      * 跳过已被占用的位置。
      * 创造模式额外恢复方块实体 NBT 数据（类似 Ultimine-Rewind 的 RewindExecutor）。
      */
-    private static int restoreBlocks(ServerPlayer player, List<HistoryBlockRecord> blocks, net.minecraft.core.Direction face) {
+    private static Set<BlockPos> restoreBlocks(
+            ServerPlayer player, List<HistoryBlockRecord> blocks, boolean isCreative) {
         ServerLevel level = player.level();
-        boolean isCreative = player.isCreative();
-        int restoredCount = 0;
+        Set<BlockPos> restored = new LinkedHashSet<>();
 
         for (HistoryBlockRecord record : blocks) {
             BlockPos pos = record.pos();
-            if (!level.isLoaded(pos)) continue;
-            if (!RtsClaimProtectionService.canPlaceBlock(player, pos)) continue;
+            if (!level.isLoaded(pos)) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canPlaceBlock(player, pos)) {
+                continue;
+            }
 
             BlockState currentState = level.getBlockState(pos);
             if (!currentState.isAir() && !currentState.canBeReplaced()) {
@@ -111,10 +124,10 @@ public final class HistoryExecutor {
                 }
             }
 
-            restoredCount++;
+            restored.add(pos);
         }
 
-        return restoredCount;
+        return restored;
     }
 
     /**
@@ -160,22 +173,31 @@ public final class HistoryExecutor {
      *   <li>背包也满时生成掉落物作为最终回退</li>
      * </ul>
      */
-    private static int breakBlocks(ServerPlayer player, List<HistoryBlockRecord> blocks) {
+    private static Set<BlockPos> breakBlocks(
+            ServerPlayer player, List<HistoryBlockRecord> blocks, boolean isCreative) {
         ServerLevel level = player.level();
-        boolean isCreative = player.isCreative();
-        int brokenCount = 0;
+        Set<BlockPos> broken = new LinkedHashSet<>();
 
         for (HistoryBlockRecord record : blocks) {
             BlockPos pos = record.pos();
-            if (!level.isLoaded(pos)) continue;
-            if (!RtsClaimProtectionService.canBreakBlock(player, pos, net.minecraft.core.Direction.UP)) continue;
+            if (!level.isLoaded(pos)) {
+                continue;
+            }
+            if (!RtsClaimProtectionService.canBreakBlock(
+                    player, pos, net.minecraft.core.Direction.UP)) {
+                continue;
+            }
 
             BlockState currentState = level.getBlockState(pos);
-            if (currentState.isAir()) continue; // 方块已不存在
+            if (currentState.isAir()) {
+                continue; // 方块已不存在
+            }
 
             BlockState expectedState = record.state();
             // 只破坏与记录中类型相同的方块（防止误破坏玩家后来放置的其他方块）
-            if (!currentState.is(expectedState.getBlock())) continue;
+            if (!currentState.is(expectedState.getBlock())) {
+                continue;
+            }
 
             // 移除方块（不生成掉落物实体）
             level.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL | Block.UPDATE_CLIENTS);
@@ -187,8 +209,10 @@ public final class HistoryExecutor {
                     boolean refunded = false;
                     RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
                     if (session != null) {
-                        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-                        List<RtsItemStorage> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+                        List<LinkedHandler> activeLinked =
+                                RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+                        List<RtsItemStorage> handlers =
+                                RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
                         if (!handlers.isEmpty()) {
                             RtsTransferInserter.refundToLinked(handlers, player, stack);
                             refunded = true;
@@ -203,7 +227,7 @@ public final class HistoryExecutor {
                 }
             }
 
-            brokenCount++;
+            broken.add(pos);
         }
 
         // 撤回后强制刷新 RTS 页面，确保退还到链接储存后的数量正确显示
@@ -214,7 +238,6 @@ public final class HistoryExecutor {
             }
         }
 
-        return brokenCount;
+        return broken;
     }
-
 }

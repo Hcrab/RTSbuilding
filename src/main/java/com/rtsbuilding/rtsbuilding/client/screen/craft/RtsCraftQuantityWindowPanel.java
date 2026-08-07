@@ -1,11 +1,16 @@
 package com.rtsbuilding.rtsbuilding.client.screen.craft;
 
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.CraftRecipeOption;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.RtsUiFrameRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -88,14 +93,14 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
             g .item(this.preview, layout.x(), layout.y());
         }
         String label = screen.font().plainSubstrByWidth(this.itemLabel, Math.max(24, layout.w() - 28));
-        g .text(screen.font(), label, layout.x() + 22, layout.y() + 1, 0xE4ECF6, false);
+        g .text(screen.font(), label, layout.x() + 22, layout.y() + 1, RtsMainlineTheme.LEGACY_E4ECF6.toArgb(), false);
         int selectedCount = selected == null ? 1 : Math.max(1, selected.resultCount());
         g .text(screen.font(), "Each craft: x" + selectedCount,
-                layout.x() + 22, layout.y() + 13, 0xAFC0D3, false);
+                layout.x() + 22, layout.y() + 13, RtsMainlineTheme.LEGACY_AFC0D3.toArgb(), false);
 
-        g .text(screen.font(), "Recipes", layout.optionsX(), layout.optionsY() - 10, 0xD8E3EE, false);
+        g .text(screen.font(), "Recipes", layout.optionsX(), layout.optionsY() - 10, RtsMainlineTheme.LEGACY_D8E3EE.toArgb(), false);
         drawPanelFrame(g, layout.optionsX(), layout.optionsY(), layout.optionsW(), layout.optionsH(),
-                0xAA202833, 0xFF61758A, 0xFF11161C);
+                RtsMainlineTheme.LEGACY_AA202833.toArgb(), RtsMainlineTheme.LEGACY_FF61758A.toArgb(), RtsMainlineTheme.LEGACY_FF11161C.toArgb());
         for (int row = 0; row < visibleRows; row++) {
             int optionIndex = this.recipeScroll + row;
             if (optionIndex >= this.recipeOptions.size()) {
@@ -103,24 +108,24 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
             }
             CraftRecipeOption option = this.recipeOptions.get(optionIndex);
             int rowY = layout.optionsY() + 2 + row * OPTION_ROW_H;
-            int fill = option.craftable() ? 0xAA223B2E : 0xAA402626;
+            int fill = option.craftable() ? RtsMainlineTheme.LEGACY_AA223B2E.toArgb() : RtsMainlineTheme.LEGACY_AA402626.toArgb();
             if (optionIndex == this.selectedRecipeIndex) {
-                fill = option.craftable() ? 0xCC2E5B43 : 0xCC684040;
+                fill = option.craftable() ? RtsMainlineTheme.LEGACY_CC2E5B43.toArgb() : RtsMainlineTheme.LEGACY_CC684040.toArgb();
             }
             g.fill(layout.optionsX() + 2, rowY, layout.optionsX() + layout.optionsW() - 2,
                     rowY + OPTION_ROW_H - 1, fill);
             String summary = "x" + Math.max(1, option.resultCount()) + " " + normalizeOptionSummary(option.summary());
             g .text(screen.font(), screen.font().plainSubstrByWidth(summary, layout.optionsW() - 56),
-                    layout.optionsX() + 6, rowY + 4, 0xF2F7FF, false);
+                    layout.optionsX() + 6, rowY + 4, RtsMainlineTheme.LEGACY_F2F7FF.toArgb(), false);
             g .text(screen.font(), option.craftable() ? "MAKE" : "MISS",
                     layout.optionsX() + layout.optionsW() - 30, rowY + 4,
-                    option.craftable() ? 0xC9F0C7 : 0xF0C4C4, false);
+                    option.craftable() ? RtsMainlineTheme.LEGACY_C9F0C7.toArgb() : RtsMainlineTheme.LEGACY_F0C4C4.toArgb(), false);
         }
         if (this.recipeOptions.size() > visibleRows) {
-            String pageText = (this.selectedRecipeIndex + 1) + "/" + this.recipeOptions.size();
+            String pageText = (this.selectedRecipeIndex + RtsMainlineLayout.D1) + "/" + this.recipeOptions.size();
             g .text(screen.font(), pageText,
                     layout.optionsX() + layout.optionsW() - screen.font().width(pageText) - 4,
-                    layout.optionsY() - 10, 0xAFC0D3, false);
+                    layout.optionsY() - 10, RtsMainlineTheme.LEGACY_AFC0D3.toArgb(), false);
         }
 
         String detail = selected == null
@@ -128,23 +133,23 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
                 : selected.craftable()
                         ? normalizeOptionSummary(selected.summary())
                         : normalizeOptionMissingSummary(selected.missingSummary());
-        int detailColor = selected != null && !selected.craftable() ? 0xFFD6AAAA : 0xFFBCD0E2;
+        int detailColor = selected != null && !selected.craftable() ? RtsMainlineTheme.LEGACY_FFD6AAAA.toArgb() : RtsMainlineTheme.LEGACY_FFBCD0E2.toArgb();
         g .text(screen.font(), screen.font().plainSubstrByWidth(detail, layout.w()),
                 layout.x(), layout.detailY(), detailColor, false);
 
-        drawSmallButton(g, layout.minusTenX(), layout.inputY(), STEP_W, STEP_H, "-10", 0xAA2A3340);
-        drawSmallButton(g, layout.minusOneX(), layout.inputY(), STEP_W, STEP_H, "-1", 0xAA2A3340);
+        drawSmallButton(g, layout.minusTenX(), layout.inputY(), STEP_W, STEP_H, "-10", RtsMainlineTheme.LEGACY_AA2A3340.toArgb());
+        drawSmallButton(g, layout.minusOneX(), layout.inputY(), STEP_W, STEP_H, "-1", RtsMainlineTheme.LEGACY_AA2A3340.toArgb());
         drawPanelFrame(g, layout.inputX(), layout.inputY(), INPUT_W, INPUT_H,
-                0xFF202833, 0xFF61758A, 0xFF11161C);
+                RtsMainlineTheme.LEGACY_FF202833.toArgb(), RtsMainlineTheme.LEGACY_FF61758A.toArgb(), RtsMainlineTheme.LEGACY_FF11161C.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), this.quantityText,
-                layout.inputX() + (INPUT_W / 2), layout.inputY() + 3, 0xFFFFFF);
-        drawSmallButton(g, layout.plusOneX(), layout.inputY(), STEP_W, STEP_H, "+1", 0xAA2A3340);
-        drawSmallButton(g, layout.plusTenX(), layout.inputY(), STEP_W, STEP_H, "+10", 0xAA2A3340);
+                layout.inputX() + (INPUT_W / 2), layout.inputY() + 3, RtsMainlineTheme.LEGACY_FFFFFF.toArgb());
+        drawSmallButton(g, layout.plusOneX(), layout.inputY(), STEP_W, STEP_H, "+1", RtsMainlineTheme.LEGACY_AA2A3340.toArgb());
+        drawSmallButton(g, layout.plusTenX(), layout.inputY(), STEP_W, STEP_H, "+10", RtsMainlineTheme.LEGACY_AA2A3340.toArgb());
 
         g .text(screen.font(), screen.font().plainSubstrByWidth("Enter confirm, Esc cancel", layout.w()),
-                layout.x(), layout.helpY(), 0xAFC0D3, false);
-        drawSmallButton(g, layout.cancelX(), layout.actionY(), ACTION_W, ACTION_H, "Cancel", 0xAA473030);
-        drawSmallButton(g, layout.confirmX(), layout.actionY(), ACTION_W, ACTION_H, "Craft", 0xAA345A38);
+                layout.x(), layout.helpY(), RtsMainlineTheme.LEGACY_AFC0D3.toArgb(), false);
+        drawSmallButton(g, layout.cancelX(), layout.actionY(), ACTION_W, ACTION_H, "Cancel", RtsMainlineTheme.LEGACY_AA473030.toArgb());
+        drawSmallButton(g, layout.confirmX(), layout.actionY(), ACTION_W, ACTION_H, "Craft", RtsMainlineTheme.LEGACY_AA345A38.toArgb());
     }
 
     @Override
@@ -394,7 +399,7 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
         int helpY = actionY - 14;
         int inputY = helpY - 18;
         int detailY = inputY - 14;
-        int optionsY = y + 40;
+        int optionsY = y + RtsMainlineLayout.D40;
         int optionsH = Math.max(OPTION_ROW_H + 4, detailY - optionsY - 8);
         int controlsW = STEP_W * 4 + INPUT_W + 24;
         int controlsX = x + Math.max(0, (w - controlsW) / 2);
@@ -433,17 +438,17 @@ public final class RtsCraftQuantityWindowPanel extends RtsWindowPanel {
     }
 
     private void drawSmallButton(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, int fill) {
-        drawPanelFrame(g, x, y, w, h, fill, 0xFF667D95, 0xFF111821);
+        drawPanelFrame(g, x, y, w, h, fill, RtsMainlineTheme.LEGACY_FF667D95.toArgb(), RtsMainlineTheme.LEGACY_FF111821.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(), label,
-                x + (w / 2), y + Math.max(2, (h - screen.font().lineHeight) / 2), 0xFFFFFF);
+                x + (w / 2), y + Math.max(2, (h - screen.font().lineHeight) / 2), RtsMainlineTheme.LEGACY_FFFFFF.toArgb());
     }
 
     private static void drawPanelFrame(GuiGraphicsExtractor g, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
+        RtsUiFrameRenderer.frame(g, x, y, w, h, fillColor, light, dark);
     }
 
     private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 
     public record Request(String recipeId, int craftCount) {

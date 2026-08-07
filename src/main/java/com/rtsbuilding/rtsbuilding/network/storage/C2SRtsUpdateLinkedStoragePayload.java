@@ -7,17 +7,20 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.Identifier;
 
-public record C2SRtsUpdateLinkedStoragePayload(BlockPos pos, byte linkMode, int priority) implements CustomPacketPayload {
+public record C2SRtsUpdateLinkedStoragePayload(
+        Identifier dimension, BlockPos pos, byte linkMode, int priority) implements CustomPacketPayload {
     public static final Type<C2SRtsUpdateLinkedStoragePayload> TYPE = new Type<>(
             Identifier.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_update_linked_storage"));
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SRtsUpdateLinkedStoragePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
+                Identifier.STREAM_CODEC.encode(buf, payload.dimension());
                 buf.writeBlockPos(payload.pos());
                 buf.writeByte(payload.linkMode());
                 buf.writeVarInt(payload.priority());
             },
-            (buf) -> new C2SRtsUpdateLinkedStoragePayload(buf.readBlockPos(), buf.readByte(), buf.readVarInt()));
+            (buf) -> new C2SRtsUpdateLinkedStoragePayload(
+                    Identifier.STREAM_CODEC.decode(buf), buf.readBlockPos(), buf.readByte(), buf.readVarInt()));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

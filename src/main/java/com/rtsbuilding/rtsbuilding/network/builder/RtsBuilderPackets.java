@@ -28,6 +28,11 @@ public final class RtsBuilderPackets {
                 RtsPlaceHandlers::handleRotateBlock);
 
         registrar.playToServer(
+                C2SRtsOrientBlockPayload.TYPE,
+                C2SRtsOrientBlockPayload.STREAM_CODEC,
+                RtsPlaceHandlers::handleOrientBlock);
+
+        registrar.playToServer(
                 C2SRtsPlacePayload.TYPE,
                 C2SRtsPlacePayload.STREAM_CODEC,
                 RtsPlaceHandlers::handlePlace);
@@ -36,6 +41,11 @@ public final class RtsBuilderPackets {
                 C2SRtsPlaceBatchPayload.TYPE,
                 C2SRtsPlaceBatchPayload.STREAM_CODEC,
                 RtsPlaceHandlers::handlePlaceBatch);
+
+        registrar.playToServer(
+                C2SRtsConfirmSmartFillPayload.TYPE,
+                C2SRtsConfirmSmartFillPayload.STREAM_CODEC,
+                RtsPlaceHandlers::handleConfirmSmartFill);
 
         registrar.playToServer(
                 C2SRtsPlaceFluidPayload.TYPE,
@@ -68,9 +78,19 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleMine);
 
         registrar.playToServer(
+                C2SRtsMineTracePayload.TYPE,
+                C2SRtsMineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleMineTrace);
+
+        registrar.playToServer(
                 C2SRtsUltiminePayload.TYPE,
                 C2SRtsUltiminePayload.STREAM_CODEC,
                 RtsMiningHandlers::handleUltimine);
+
+        registrar.playToServer(
+                C2SRtsUltimineTracePayload.TYPE,
+                C2SRtsUltimineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleUltimineTrace);
 
         registrar.playToServer(
                 C2SRtsAreaMinePayload.TYPE,
@@ -78,9 +98,29 @@ public final class RtsBuilderPackets {
                 RtsMiningHandlers::handleAreaMine);
 
         registrar.playToServer(
+                C2SRtsAreaMineTracePayload.TYPE,
+                C2SRtsAreaMineTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaMineTrace);
+
+        registrar.playToServer(
                 C2SRtsAreaDestroyPayload.TYPE,
                 C2SRtsAreaDestroyPayload.STREAM_CODEC,
                 RtsMiningHandlers::handleAreaDestroy);
+
+        registrar.playToServer(
+                C2SRtsAreaDestroyTracePayload.TYPE,
+                C2SRtsAreaDestroyTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleAreaDestroyTrace);
+
+        registrar.playToServer(
+                C2SRtsConvenienceDestroyPayload.TYPE,
+                C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
+                RtsMiningHandlers::handleConvenienceDestroy);
+
+        registrar.playToServer(
+                C2SRtsConvenienceDestroyTracePayload.TYPE,
+                C2SRtsConvenienceDestroyTracePayload.STREAM_CODEC,
+                RtsMiningHandlers::handleConvenienceDestroyTrace);
 
         registrar.playToClient(
                 S2CRtsMineProgressPayload.TYPE,
@@ -107,12 +147,22 @@ public final class RtsBuilderPackets {
                 S2CRtsUltimineProgressPayload.STREAM_CODEC,
                 ClientPayloadDispatcher::dispatchBuilder);
 
+        registrar.playToClient(
+                S2CRtsOperationTerminalPayload.TYPE,
+                S2CRtsOperationTerminalPayload.STREAM_CODEC,
+                ClientPayloadDispatcher::dispatchBuilder);
+
         // ===== Undo =====
 
         registrar.playToServer(
                 C2SRtsUndoPayload.TYPE,
                 C2SRtsUndoPayload.STREAM_CODEC,
                 RtsInteractionHandlers::handleUndo);
+
+        registrar.playToServer(
+                C2SRtsRedoPayload.TYPE,
+                C2SRtsRedoPayload.STREAM_CODEC,
+                RtsInteractionHandlers::handleRedo);
 
         registrar.playToServer(
                 C2SRtsSubmitPendingPayload.TYPE,

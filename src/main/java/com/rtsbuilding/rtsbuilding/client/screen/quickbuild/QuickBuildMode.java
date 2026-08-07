@@ -9,5 +9,7 @@ package com.rtsbuilding.rtsbuilding.client.screen.quickbuild;
  */
 public enum QuickBuildMode {
     BUILD,
-    DESTROY
+    DESTROY,
+    /** 先预览并锁定洞穴，再由第二次点击确认的智能填坑模式。 */
+    SMART_FILL
 }

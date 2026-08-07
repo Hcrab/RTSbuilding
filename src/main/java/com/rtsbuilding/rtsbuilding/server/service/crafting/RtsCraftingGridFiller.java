@@ -378,6 +378,54 @@ public final class RtsCraftingGridFiller {
 
     // ---- JEI helper --------------------------------------------------------------
 
+    /**
+     * 安全清空终端合成格。首选目标已满时回退到另一个目标；两边都满时把剩余物留在原槽。
+     */
+    public static void clearCraftingGrid(
+            ServerPlayer player, RtsStorageSession session, boolean toPlayerInventory) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)
+                || session == null
+                || !(player.containerMenu
+                        instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu menu)) {
+            return;
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
+        boolean changed = false;
+        for (int i = 0; i < 9; i++) {
+            Slot grid = menu.getSlot(1 + i);
+            ItemStack source = grid.getItem();
+            if (source.isEmpty()) {
+                continue;
+            }
+            ItemStack remain = source.copy();
+            grid.set(ItemStack.EMPTY);
+            if (toPlayerInventory) {
+                remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
+                if (!remain.isEmpty()) {
+                    remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(insertHandlers, remain);
+                }
+            } else {
+                remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(insertHandlers, remain);
+                if (!remain.isEmpty()) {
+                    remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
+                }
+            }
+            if (!remain.isEmpty()) {
+                grid.set(remain);
+            }
+            grid.setChanged();
+            changed = true;
+        }
+        if (changed) {
+            RtsCraftingUtils.refreshCraftingResult(menu);
+            menu.broadcastChanges();
+            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+            QuestService.runQuestDetect(player, session, false);
+        }
+    }
+
     private static ItemStack[] sanitizeIngredientPrototypes(Ingredient[] required, List<ItemStack> prototypes) {
         ItemStack[] sanitized = new ItemStack[9];
         for (int i = 0; i < sanitized.length; i++) {

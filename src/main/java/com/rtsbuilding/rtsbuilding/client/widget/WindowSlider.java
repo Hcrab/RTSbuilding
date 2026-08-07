@@ -1,5 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiMotionSpec;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiValueAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowSliderChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WindowSliderLayout;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.util.Mth;
 
@@ -12,6 +20,9 @@ import java.util.function.Consumer;
  */
 public class WindowSlider {
 
+    /** 当前父窗口的视觉透明度，仅包住一次 render 调用，不参与数值或命中。 */
+    private static double globalOpacity = 1.0D;
+
     private int x;
     private int y;
     private int width;
@@ -22,14 +33,9 @@ public class WindowSlider {
     private boolean visible = true;
     private boolean dragging = false;
     private Consumer<Integer> onChange;
-
-    // ======================== Colour constants ========================
-    private static final int TRACK_BG = 0xFF07090D;
-    private static final int TRACK_FILL = 0xFF313946;
-    private static final int KNOB_COLOR = 0xFF5FE36C;
-    private static final int TRACK_H = 4;
-    private static final int KNOB_W = 8;
-    private static final int KNOB_H = 12;
+    /** 逻辑值立即生效，显示值只负责平滑追随，绝不延迟业务回调。 */
+    private final UiValueAnimation displayValue =
+            new UiValueAnimation(SystemUiClock.INSTANCE);
 
     public WindowSlider(int x, int y, int width, int height, int min, int max, int value) {
         this.x = x;
@@ -86,25 +92,20 @@ public class WindowSlider {
     // ======================== Rendering ========================
 
     public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
-        if (!visible) return;
-
-        int knobX = knobPosition();
-        int trackCenterY = y + height / 2;
-
-        // Track background
-        g.fill(x, trackCenterY - TRACK_H / 2, x + width, trackCenterY + TRACK_H - TRACK_H / 2, TRACK_BG);
-        g.fill(x + 1, trackCenterY - TRACK_H / 2 + 1, x + width - 1, trackCenterY + TRACK_H - TRACK_H / 2 - 1, TRACK_FILL);
-
-        // Knob
-        int knobY = trackCenterY - KNOB_H / 2;
-        g.fill(knobX - KNOB_W / 2, knobY, knobX + KNOB_W - KNOB_W / 2, knobY + KNOB_H, KNOB_COLOR);
+        if (!visible) {
+            return;
+        }
+        WindowSliderChromeRenderer.render(
+                new MinecraftUiCanvas(g, net.minecraft.client.Minecraft.getInstance().font,
+                        null, globalOpacity),
+                geometry());
     }
 
     // ======================== Input handling ========================
 
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (!visible || button != 0) return false;
-        if (mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height) {
+        if (bounds().contains(mouseX, mouseY)) {
             setValueFromMouse(mouseX);
             this.dragging = true;
             return true;
@@ -122,23 +123,32 @@ public class WindowSlider {
 
     public boolean mouseDragged(double mouseX, double mouseY, int button) {
         if (!visible || !dragging || button != 0) return false;
-        double clampedX = Mth.clamp(mouseX, x, x + width);
-        setValueFromMouse(clampedX);
+        setValueFromMouse(mouseX);
         return true;
+    }
+
+    /**
+     * 由父窗口在绘制子控件前暂存透明度，并在 finally 中恢复，避免相邻窗口互相串色。
+     */
+    public static double setGlobalOpacity(double opacity) {
+        double previous = globalOpacity;
+        globalOpacity = Math.max(0.0D, Math.min(1.0D, opacity));
+        return previous;
     }
 
     // ======================== Private helpers ========================
 
-    private int knobPosition() {
-        if (max <= min) return x;
-        double fraction = (value - min) / (double) (max - min);
-        return x + (int) Math.round(fraction * width);
+    private WindowSliderLayout.Geometry geometry() {
+        double animatedValue = displayValue.update(
+                value, Config.isUiAnimationsEnabled(), UiMotionSpec.SLIDER_MS);
+        return WindowSliderLayout.geometry(bounds(), min, max, animatedValue, value);
+    }
+
+    private UiRect bounds() {
+        return new UiRect(x, y, width, height);
     }
 
     private void setValueFromMouse(double mouseX) {
-        double fraction = (mouseX - x) / Math.max(1.0D, width);
-        fraction = Mth.clamp(fraction, 0.0D, 1.0D);
-        int newValue = (int) Math.round(min + fraction * (max - min));
-        setValue(Mth.clamp(newValue, min, max));
+        setValue(WindowSliderLayout.valueAt(bounds(), min, max, mouseX));
     }
 }

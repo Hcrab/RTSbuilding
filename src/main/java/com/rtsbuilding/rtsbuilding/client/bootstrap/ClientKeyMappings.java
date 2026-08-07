@@ -44,6 +44,11 @@ public final class ClientKeyMappings {
             "key.rtsbuilding.rotate_shape",
             GLFW.GLFW_KEY_R,
             CATEGORY);
+    /** 打开下一次放置的完整方块状态轮盘。 */
+    public static final RtsKeyMapping PLACEMENT_STATE_WHEEL = new RtsKeyMapping(
+            "key.rtsbuilding.placement_state_wheel",
+            GLFW.GLFW_KEY_M,
+            CATEGORY);
     public static final RtsKeyMapping OPEN_CRAFT_TERMINAL = new RtsKeyMapping(
             "key.rtsbuilding.open_craft_terminal",
             GLFW.GLFW_KEY_C,
@@ -167,6 +172,7 @@ public final class ClientKeyMappings {
         event.register(QUICK_FUNNEL);
         event.register(QUICK_DROP);
         event.register(ROTATE_SHAPE);
+        event.register(PLACEMENT_STATE_WHEEL);
         event.register(OPEN_CRAFT_TERMINAL);
         event.register(PIN_QUICK_SLOT);
         event.register(BLUEPRINT_CANCEL);

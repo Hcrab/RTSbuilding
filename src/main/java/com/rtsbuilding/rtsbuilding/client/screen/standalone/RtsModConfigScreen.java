@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.theme.StandaloneScreenStyle;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -52,7 +54,7 @@ public final class RtsModConfigScreen extends Screen {
     @Override
     public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
-        g .centeredText(this.font, this.title, this.width / 2, 14, 0xFFFFFFFF);
+        g.centeredText(this.font, this.title, this.width / 2, 14, StandaloneScreenStyle.TITLE_TEXT.toArgb());
         drawGeneralPage(g);
         drawScrollbar(g);
         super.extractRenderState(g, mouseX, mouseY, partialTick);
@@ -196,8 +198,8 @@ public final class RtsModConfigScreen extends Screen {
         EditBox box = new EditBox(this.font, x, y + 10, width, 18, label);
         box.setMaxLength(maxLength);
         box.setValue(value);
-        box.setTextColor(0xFFFFFFFF);
-        box.setTextColorUneditable(0xFFB8C7D6);
+        box.setTextColor(StandaloneScreenStyle.TITLE_TEXT.toArgb());
+        box.setTextColorUneditable(StandaloneScreenStyle.INFO_EMPTY.toArgb());
         addRenderableWidget(box);
         return box;
     }
@@ -389,31 +391,31 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     private boolean insideViewport(double mouseX, double mouseY) {
-        return mouseX >= contentX() && mouseX <= contentX() + contentWidth()
-                && mouseY >= viewportTop() && mouseY <= viewportBottom();
+        return UiRect.contains(contentX(), viewportTop(), contentWidth(), viewportHeight(), mouseX, mouseY);
     }
 
     private void renderPageBackground(GuiGraphicsExtractor g) {
-        g.fill(0, 0, this.width, this.height, 0xFF101820);
-        g.fill(0, 0, this.width, HEADER_H, 0xFF151B23);
-        g.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF151B23);
-        g.horizontalLine(0, this.width, HEADER_H, 0xFF273747);
-        g.horizontalLine(0, this.width, this.height - FOOTER_H, 0xFF273747);
+        g.fill(0, 0, this.width, this.height, StandaloneScreenStyle.PAGE_BACKGROUND.toArgb());
+        g.fill(0, 0, this.width, HEADER_H, StandaloneScreenStyle.BAR_BACKGROUND.toArgb());
+        g.fill(0, this.height - FOOTER_H, this.width, this.height, StandaloneScreenStyle.BAR_BACKGROUND.toArgb());
+        g.horizontalLine(0, this.width, HEADER_H, StandaloneScreenStyle.BAR_DIVIDER.toArgb());
+        g.horizontalLine(0, this.width, this.height - FOOTER_H, StandaloneScreenStyle.BAR_DIVIDER.toArgb());
     }
 
     private void drawSection(GuiGraphicsExtractor g, int x, int y, Component label) {
-        g .text(this.font, label, x + 2, y + 5, 0xFFF4F7FF);
-        g.horizontalLine(x, x + contentWidth(), y + SECTION_H - 1, 0xFF263545);
+        g.text(this.font, label, x + 2, y + 5, StandaloneScreenStyle.SECTION_TEXT.toArgb());
+        g.horizontalLine(x, x + contentWidth(), y + SECTION_H - 1,
+                StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
     }
 
     private void drawOptionRow(GuiGraphicsExtractor g, int x, int y, int width, Component label, Component hint) {
         int controlW = controlWidth(width);
         int hintW = Math.max(24, width - controlW - 34);
-        g.fill(x, y, x + width, y + OPTION_ROW_H - 2, 0xFF17202A);
-        g.horizontalLine(x, x + width, y, 0xFF263545);
-        g .text(this.font, label, x + 10, y + 7, 0xFFEAF2FF);
+        g.fill(x, y, x + width, y + OPTION_ROW_H - 2, StandaloneScreenStyle.INFO_ROW_BACKGROUND.toArgb());
+        g.horizontalLine(x, x + width, y, StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
+        g.text(this.font, label, x + 10, y + 7, StandaloneScreenStyle.INFO_VALUE.toArgb());
         String hintText = this.font.plainSubstrByWidth(hint.getString(), hintW);
-        g .text(this.font, Component.literal(hintText), x + 10, y + 20, 0xFFAFC2D4);
+        g.text(this.font, Component.literal(hintText), x + 10, y + 20, StandaloneScreenStyle.INFO_LABEL.toArgb());
     }
 
     private void drawScrollbar(GuiGraphicsExtractor g) {
@@ -427,7 +429,7 @@ public final class RtsModConfigScreen extends Screen {
         int y = viewportTop();
         int thumbH = Math.max(18, viewportH * viewportH / contentH);
         int thumbY = y + (viewportH - thumbH) * this.scroll / max;
-        g.fill(x, y, x + 3, y + viewportH, 0x66263545);
-        g.fill(x, thumbY, x + 3, thumbY + thumbH, 0xFFAFC2D4);
+        g.fill(x, y, x + 3, y + viewportH, StandaloneScreenStyle.SCROLLBAR_TRACK.toArgb());
+        g.fill(x, thumbY, x + 3, thumbY + thumbH, StandaloneScreenStyle.INFO_LABEL.toArgb());
     }
 }

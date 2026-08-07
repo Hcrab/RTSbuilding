@@ -14,6 +14,7 @@ import net.minecraft.network.chat.HoverEvent;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.client.event.ClientTickEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 
@@ -23,6 +24,7 @@ import java.net.URI;
 @EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT)
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
+    private static final String STABLE_VERSION = "0.0.1";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean shownThisConnection;
@@ -78,6 +80,8 @@ public final class RtsClientOnboardingReminder {
                 Component.keybind("key.rtsbuilding.toggle_rts")).withStyle(ChatFormatting.AQUA));
         minecraft.player.sendSystemMessage(Component.translatable(
                 "chat.rtsbuilding.intro.version_warning",
+                Component.literal(currentModVersion()),
+                Component.literal(STABLE_VERSION),
                 websiteComponent())
                 .withStyle(ChatFormatting.GOLD));
         minecraft.player.sendSystemMessage(Component.translatable(
@@ -105,6 +109,13 @@ public final class RtsClientOnboardingReminder {
                 .withUnderlined(true)
                 .withClickEvent(new ClickEvent.OpenUrl(URI.create(RtsCommunityLinks.DISCORD_INVITE)))
                 .withHoverEvent(new HoverEvent.ShowText(Component.literal(RtsCommunityLinks.DISCORD_INVITE))));
+    }
+
+    /** 从实际加载的 ModContainer 读取当前版本，避免开屏提示与构建元数据漂移。 */
+    private static String currentModVersion() {
+        return ModList.get().getModContainerById(RtsbuildingMod.MODID)
+                .map(container -> container.getModInfo().getVersion().toString())
+                .orElse("unknown");
     }
 
     private static Component websiteComponent() {

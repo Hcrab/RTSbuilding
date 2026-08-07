@@ -1,6 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.guide;
 
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreenConstants;
@@ -8,6 +11,10 @@ import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarIconRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.topbar.TopBarTypes;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.GuideWindowChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.GuideWindowLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.GuideWindowStyle;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -48,14 +55,17 @@ public final class GuidePanel extends RtsWindowPanel {
     @Override
     protected void renderContent(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick) {
         GuideTypes.GuidePanelRect rect = contentRect();
+        GuideWindowLayout.Geometry geometry = GuideWindowLayout.geometry(
+                new UiRect(rect.x(), rect.y(), rect.w(), rect.h()),
+                this.context == GuideTypes.GuideContext.BOTTOM);
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, screen.font(), screen);
         GuideTypes.GuideTopic[] topics = topics();
-        this.page = Mth.clamp(this.page, 0, Math.max(0, topics.length - 1));
+        this.page = Mth.clamp(this.page, 0, Math.max(0, topics.length - RtsMainlineLayout.D1));
 
-        int tabX = rect.x() + CONTENT_PAD;
-        int tabY = rect.y() + CONTENT_PAD;
-        int tabW = topicTabWidth();
-        int topicAreaH = topicAreaHeight(rect.h());
-        int visibleTopics = visibleTopicRows(rect.h());
+        int tabX = (int) geometry.topicArea.getX();
+        int tabY = (int) geometry.topicArea.getY();
+        int tabW = geometry.topicTabWidth;
+        int visibleTopics = geometry.visibleTopicRows;
         this.topicScroll = Mth.clamp(this.topicScroll, 0, Math.max(0, topics.length - visibleTopics));
         if (this.page < this.topicScroll) {
             this.topicScroll = this.page;
@@ -64,36 +74,35 @@ public final class GuidePanel extends RtsWindowPanel {
         }
         int topicEnd = Math.min(topics.length, this.topicScroll + visibleTopics);
         for (int i = this.topicScroll; i < topicEnd; i++) {
-            int ty = tabY + (i - this.topicScroll) * 22;
+            UiRect topicBounds = geometry.topicRow(i, this.topicScroll);
+            int ty = (int) topicBounds.getY();
             boolean active = i == this.page;
-            int bg = active ? 0xCC355A71 : 0x88303A45;
-            RtsClientUiUtil.drawPanelFrame(g, tabX, ty, tabW, 18, bg,
-                    active ? 0xFF8FB4D0 : 0xFF4A5665, 0xFF0D1218);
+            GuideWindowChromeRenderer.renderTopic(canvas, topicBounds, active);
             if (this.context == GuideTypes.GuideContext.BOTTOM) {
                 String label = RtsClientUiUtil.trimToWidth(screen.font(),
                         Component.translatable(topics[i].titleKey()).getString(), tabW - 8);
-                g .text(screen.font(), label, tabX + 4, ty + 5,
-                        active ? 0xFFF4FBFF : 0xFFB9C7D5, false);
+                g .text(screen.font(), label, tabX + 4, ty + RtsMainlineLayout.D5,
+                        GuideWindowStyle.topicContent(active).toArgb(), false);
             } else {
                 drawTopicIcon(g, topics[i].icon(), tabX + 10, ty + 9,
-                        active ? 0xFFF4FBFF : 0xFFB9C7D5);
+                        GuideWindowStyle.topicContent(active).toArgb());
             }
         }
-        drawVerticalScrollbar(g, tabX + tabW + 3, tabY, topicAreaH,
+        GuideWindowChromeRenderer.renderScrollbar(canvas, geometry.topicScrollbar,
                 this.topicScroll, topics.length, visibleTopics);
 
-        int textX = rect.x() + tabW + 18;
-        int lineY = rect.y() + 10;
-        int maxTextW = textMaxWidth(rect.w(), tabW);
+        int textX = (int) geometry.title.getX();
+        int lineY = (int) geometry.title.getY();
+        int maxTextW = (int) geometry.title.getWidth();
         GuideTypes.GuideTopic topic = topics[this.page];
         g .text(screen.font(),
                 RtsClientUiUtil.trimToWidth(screen.font(),
                         Component.translatable(topic.titleKey()).getString(), maxTextW),
-                textX, lineY, 0xFFE7C46A, false);
+                textX, lineY, GuideWindowStyle.TITLE_TEXT.toArgb(), false);
 
-        int bodyTop = lineY + 16;
-        int bodyAreaH = textAreaHeight(rect.h());
-        int visibleTextLines = visibleTextLines(rect.h());
+        int bodyTop = (int) geometry.body.getY();
+        int bodyAreaH = (int) geometry.body.getHeight();
+        int visibleTextLines = geometry.visibleTextLines;
         List<FormattedCharSequence> bodyLines = collectTextLines(topic, maxTextW);
         this.textScroll = Mth.clamp(this.textScroll, 0, Math.max(0, bodyLines.size() - visibleTextLines));
         int lineEnd = Math.min(bodyLines.size(), this.textScroll + visibleTextLines);
@@ -101,12 +110,13 @@ public final class GuidePanel extends RtsWindowPanel {
         try {
             for (int i = this.textScroll; i < lineEnd; i++) {
                 g .text(screen.font(), bodyLines.get(i), textX,
-                        bodyTop + (i - this.textScroll) * 12, 0xE6EDF8, false);
+                        bodyTop + (i - this.textScroll) * 12,
+                        GuideWindowStyle.BODY_TEXT.toArgb(), false);
             }
         } finally {
             g.disableScissor();
         }
-        drawVerticalScrollbar(g, rect.x() + rect.w() - 8, bodyTop, bodyAreaH,
+        GuideWindowChromeRenderer.renderScrollbar(canvas, geometry.bodyScrollbar,
                 this.textScroll, bodyLines.size(), visibleTextLines);
     }
 
@@ -128,25 +138,25 @@ public final class GuidePanel extends RtsWindowPanel {
             return true;
         }
         GuideTypes.GuidePanelRect rect = contentRect();
-        if (!inside(mouseX, mouseY, rect.x(), rect.y(), rect.w(), rect.h())) {
+        GuideWindowLayout.Geometry geometry = GuideWindowLayout.geometry(
+                new UiRect(rect.x(), rect.y(), rect.w(), rect.h()),
+                this.context == GuideTypes.GuideContext.BOTTOM);
+        if (!geometry.content.contains(mouseX, mouseY)) {
             return true;
         }
 
         GuideTypes.GuideTopic[] topics = topics();
         int delta = scrollY > 0.0D ? -1 : 1;
-        int tabX = rect.x() + CONTENT_PAD;
-        int tabY = rect.y() + CONTENT_PAD;
-        int tabW = topicTabWidth();
-        if (inside(mouseX, mouseY, tabX, tabY, tabW + 8, topicAreaHeight(rect.h()))) {
-            int visible = visibleTopicRows(rect.h());
+        if (geometry.topicScrollRoute.contains(mouseX, mouseY)) {
+            int visible = geometry.visibleTopicRows;
             this.topicScroll = Mth.clamp(this.topicScroll + delta, 0, Math.max(0, topics.length - visible));
             return true;
         }
 
-        int maxTextW = textMaxWidth(rect.w(), tabW);
-        this.page = Mth.clamp(this.page, 0, Math.max(0, topics.length - 1));
+        int maxTextW = (int) geometry.title.getWidth();
+        this.page = Mth.clamp(this.page, 0, Math.max(0, topics.length - RtsMainlineLayout.D1));
         GuideTypes.GuideTopic topic = topics[this.page];
-        int visible = visibleTextLines(rect.h());
+        int visible = geometry.visibleTextLines;
         int maxScroll = Math.max(0, collectTextLines(topic, maxTextW).size() - visible);
         this.textScroll = Mth.clamp(this.textScroll + delta, 0, maxScroll);
         return true;
@@ -200,8 +210,8 @@ public final class GuidePanel extends RtsWindowPanel {
         this.anchorY = anchorY;
 
         if (!hasUserBoundsPreference()) {
-            int panelW = Math.min(DEFAULT_WINDOW_W, Math.max(MIN_WINDOW_W, this.screen.width - 28));
-            int panelH = Math.min(DEFAULT_WINDOW_H, Math.max(MIN_WINDOW_H, this.screen.height - 90));
+            int panelW = Math.min(DEFAULT_WINDOW_W, Math.max(MIN_WINDOW_W, this.screen.width - RtsMainlineLayout.D28));
+            int panelH = Math.min(DEFAULT_WINDOW_H, Math.max(MIN_WINDOW_H, this.screen.height - RtsMainlineLayout.D90));
             GuideTypes.GuidePanelRect rect = openingWindowRect(panelW, panelH);
             setTransientBounds(rect.x(), rect.y(), rect.w(), rect.h());
         }
@@ -214,7 +224,7 @@ public final class GuidePanel extends RtsWindowPanel {
             return;
         }
         TopBarTypes.TopBarButtonLayout guide = null;
-        int nextX = screen.width - 8;
+        int nextX = screen.width - RtsMainlineLayout.D8;
         for (TopBarTypes.TopBarButtonLayout button : topButtons) {
             if (button.id() == TopBarTypes.TopBarButtonId.GUIDE) {
                 guide = button;
@@ -238,8 +248,8 @@ public final class GuidePanel extends RtsWindowPanel {
             return;
         }
         int y = 12;
-        g .text(screen.font(), ">", hintX, y, 0xFFE7C46A, false);
-        g .text(screen.font(), hint, hintX + 8, y, 0xFFE7C46A, false);
+        g .text(screen.font(), ">", hintX, y, GuideWindowStyle.HINT_TEXT.toArgb(), false);
+        g .text(screen.font(), hint, hintX + 8, y, GuideWindowStyle.HINT_TEXT.toArgb(), false);
     }
 
     private Component title() {
@@ -299,7 +309,7 @@ public final class GuidePanel extends RtsWindowPanel {
                 y = Math.max(TOP_H + 6, getBottomY() - panelH - 6);
             }
         } else if (this.context == GuideTypes.GuideContext.SETTINGS) {
-            int settingsW = Math.min(300, screen.width - 24);
+            int settingsW = Math.min(300, screen.width - RtsMainlineLayout.D24);
             int settingsX = (screen.width - settingsW) / 2;
             int settingsY = (screen.height - GEAR_MENU_H) / 2;
             int gap = 6;
@@ -311,10 +321,10 @@ public final class GuidePanel extends RtsWindowPanel {
                 x = useLeft ? settingsX - gap - panelW : settingsX + settingsW + gap;
                 y = Mth.clamp(settingsY, 8, Math.max(8, screen.height - panelH - 8));
             } else {
-                panelW = Math.min(DEFAULT_WINDOW_W, Math.max(220, screen.width - 16));
+                panelW = Math.min(DEFAULT_WINDOW_W, Math.max(220, screen.width - RtsMainlineLayout.D16));
                 x = Math.max(8, (screen.width - panelW) / 2);
                 int belowY = settingsY + GEAR_MENU_H + gap;
-                y = belowY + panelH <= screen.height - 8
+                y = belowY + panelH <= screen.height - RtsMainlineLayout.D8
                         ? belowY
                         : Math.max(8, settingsY - panelH - gap);
             }
@@ -350,17 +360,12 @@ public final class GuidePanel extends RtsWindowPanel {
     private int resolveTopicClick(double mouseX, double mouseY) {
         GuideTypes.GuidePanelRect rect = contentRect();
         GuideTypes.GuideTopic[] topics = topics();
-        int tabX = rect.x() + CONTENT_PAD;
-        int tabY = rect.y() + CONTENT_PAD;
-        int tabW = topicTabWidth();
-        int visible = visibleTopicRows(rect.h());
-        int end = Math.min(topics.length, this.topicScroll + visible);
-        for (int i = this.topicScroll; i < end; i++) {
-            if (inside(mouseX, mouseY, tabX, tabY + (i - this.topicScroll) * 22, tabW, 18)) {
-                return i;
-            }
-        }
-        return -1;
+        GuideWindowLayout.Geometry geometry = GuideWindowLayout.geometry(
+                new UiRect(rect.x(), rect.y(), rect.w(), rect.h()),
+                this.context == GuideTypes.GuideContext.BOTTOM);
+        GuideWindowLayout.Hit hit = GuideWindowLayout.hitAt(
+                geometry, mouseX, mouseY, this.topicScroll, topics.length);
+        return hit.target == GuideWindowLayout.Target.TOPIC ? hit.topicIndex : -1;
     }
 
     private int topicTabWidth() {
@@ -395,93 +400,27 @@ public final class GuidePanel extends RtsWindowPanel {
         return lines;
     }
 
-    private void drawVerticalScrollbar(GuiGraphicsExtractor g, int x, int y, int h, int scroll, int total, int visible) {
-        if (total <= visible || h <= 0) {
-            return;
-        }
-        int trackW = 3;
-        int knobH = Math.max(10, h * visible / Math.max(visible + 1, total));
-        int maxScroll = Math.max(1, total - visible);
-        int knobY = y + (h - knobH) * Mth.clamp(scroll, 0, maxScroll) / maxScroll;
-        g.fill(x, y, x + trackW, y + h, 0x55303A45);
-        g.fill(x, knobY, x + trackW, knobY + knobH, 0xCC8FB4D0);
-    }
-
+    /** Guide 图标统一走预制纹理，避免生产界面重新绘制第二套像素图标。 */
     private void drawTopicIcon(GuiGraphicsExtractor g, GuideTypes.GuideIcon icon, int cx, int cy, int color) {
-        switch (icon) {
-            case HAND -> drawGuideTextureIcon(g, TOPBAR_INTERACT_ACTIVE, cx, cy);
-            case LINK -> drawGuideTextureIcon(g, TOPBAR_LINK_ACTIVE, cx, cy);
-            case FUNNEL -> drawGuideTextureIcon(g, TOPBAR_FUNNEL_ACTIVE, cx, cy);
-            case ROTATE -> drawGuideTextureIcon(g, TOPBAR_ROTATE_ACTIVE, cx, cy);
-            case BUILD -> drawGuideTextureIcon(g, TOPBAR_QUICK_BUILD_ACTIVE, cx, cy);
-            case PICKAXE -> drawGuideTextureIcon(g, TOPBAR_ULTIMINE_ACTIVE, cx, cy);
-            case GRID -> drawGuideTextureIcon(g, TOPBAR_CHUNK_VIEW_ACTIVE, cx, cy);
-            case SEARCH -> {
-                g.fill(cx - 6, cy - 6, cx + 2, cy - 4, color);
-                g.fill(cx - 6, cy + 1, cx + 2, cy + 3, color);
-                g.fill(cx - 6, cy - 6, cx - 4, cy + 3, color);
-                g.fill(cx + 1, cy - 6, cx + 3, cy + 3, color);
-                g.fill(cx + 3, cy + 3, cx + 7, cy + 7, color);
-            }
-            case SORT -> {
-                g.fill(cx - 7, cy - 7, cx - 2, cy - 5, color);
-                g.fill(cx - 7, cy - 1, cx + 2, cy + 1, color);
-                g.fill(cx - 7, cy + 5, cx + 7, cy + 7, color);
-                g.fill(cx + 5, cy - 7, cx + 7, cy - 3, color);
-                g.fill(cx + 3, cy - 4, cx + 9, cy - 2, color);
-                g.fill(cx + 5, cy + 2, cx + 7, cy + 7, color);
-                g.fill(cx + 3, cy + 1, cx + 9, cy + 3, color);
-            }
-            case CLOCK -> {
-                g.fill(cx - 6, cy - 6, cx + 6, cy + 6, 0x331B222C);
-                g.horizontalLine(cx - 4, cx + 4, cy - 6, color);
-                g.horizontalLine(cx - 4, cx + 4, cy + 6, color);
-                g.verticalLine(cx - 6, cy - 4, cy + 4, color);
-                g.verticalLine(cx + 6, cy - 4, cy + 4, color);
-                g.fill(cx, cy - 4, cx + 2, cy + 1, color);
-                g.fill(cx, cy, cx + 5, cy + 2, color);
-            }
-            case DROPLET -> {
-                g.fill(cx - 2, cy - 7, cx + 2, cy - 4, color);
-                g.fill(cx - 5, cy - 3, cx + 5, cy + 5, color);
-                g.fill(cx - 3, cy + 5, cx + 3, cy + 8, color);
-            }
-            case PIN -> {
-                g.fill(cx - 4, cy - 7, cx + 4, cy - 5, color);
-                g.fill(cx - 2, cy - 5, cx + 2, cy + 2, color);
-                g.fill(cx - 5, cy + 1, cx + 5, cy + 3, color);
-                g.fill(cx, cy + 3, cx + 1, cy + 8, color);
-            }
-            case CRAFT -> {
-                g.fill(cx - 7, cy - 7, cx + 7, cy + 7, color);
-                g.fill(cx - 4, cy - 4, cx + 4, cy + 4, 0xFF1B222C);
-                g.fill(cx - 1, cy - 7, cx + 1, cy + 7, 0xFF1B222C);
-                g.fill(cx - 7, cy - 1, cx + 7, cy + 1, 0xFF1B222C);
-            }
-            case SLIDER -> {
-                g.fill(cx - 7, cy - 4, cx + 7, cy - 2, color);
-                g.fill(cx - 7, cy + 4, cx + 7, cy + 6, color);
-                g.fill(cx - 2, cy - 7, cx + 2, cy + 1, color);
-                g.fill(cx + 3, cy + 1, cx + 7, cy + 8, color);
-            }
-            case TOGGLE -> {
-                g.fill(cx - 8, cy - 4, cx + 8, cy + 4, color);
-                g.fill(cx + 1, cy - 7, cx + 7, cy + 7, 0xFF1B222C);
-            }
-            case GEAR -> TopBarIconRenderer.renderIcon(TopBarTypes.TopBarButtonId.GEAR, g, cx, cy, color, false, null);
-        }
+        Identifier texture = switch (icon) {
+            case HAND -> TOPBAR_INTERACT_ACTIVE;
+            case LINK -> TOPBAR_LINK_ACTIVE;
+            case FUNNEL -> TOPBAR_FUNNEL_ACTIVE;
+            case ROTATE -> TOPBAR_ROTATE_ACTIVE;
+            case BUILD -> TOPBAR_QUICK_BUILD_ACTIVE;
+            case PICKAXE -> TOPBAR_ULTIMINE_ACTIVE;
+            case GRID -> TOPBAR_CHUNK_VIEW_ACTIVE;
+            case GEAR -> TOPBAR_GEAR_ACTIVE;
+            default -> TOPBAR_GEAR_ACTIVE;
+        };
+        drawGuideTextureIcon(g, texture, cx, cy);
     }
-
     private void drawGuideTextureIcon(GuiGraphicsExtractor g, Identifier texture, int cx, int cy) {
         g.pose().pushMatrix();
         g.pose().translate(cx - 9, cy - 9);
         g.pose().scale(0.75F, 0.75F);
         g.blit(texture, 0, 0, 0, 0, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H, TOP_BUTTON_H);
         g.pose().popMatrix();
-    }
-
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
     }
 
     private final List<PersistableProperty> properties = List.of(

@@ -40,12 +40,36 @@ public final class RtsAe2Compat {
         return REFLECTION != null;
     }
 
-    public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
-        if (player == null || pos == null || REFLECTION == null) {
+    /**
+     * 为批量链接返回轻量的 AE2 网络身份；该身份只允许在当前服务端调用期间按引用比较，不能持久化。
+     */
+    public static BatchNetworkProbe probeBatchNetwork(ServerLevel level, BlockPos pos) {
+        if (REFLECTION == null || level == null || pos == null || !level.hasChunkAt(pos)) {
             return null;
         }
-        ServerLevel level = player.level();
-        if (level == null || !level.hasChunkAt(pos)) {
+        Object storageService = REFLECTION.findStorageService(level, pos);
+        return storageService == null
+                ? null
+                : new BatchNetworkProbe(
+                        storageService, RtsAe2IconResolver.isTerminalPosition(level, pos));
+    }
+
+    public record BatchNetworkProbe(Object identity, boolean preferredTerminal) {
+    }
+
+    public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
+        return player == null ? null : createNetworkItemHandler(player, player.level(), pos);
+    }
+
+    /**
+     * 在指定服务端世界解析 AE2 网络，供异维度已连接储存使用。
+     * 权限上下文仍然是实际发起 RTS 操作的玩家，不能由目标世界替代。
+     */
+    public static IItemHandler createNetworkItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        if (player == null || level == null || pos == null || REFLECTION == null) {
+            return null;
+        }
+        if (!level.hasChunkAt(pos)) {
             return null;
         }
 

@@ -86,6 +86,15 @@ public final class RtsInteractionHandlers {
         });
     }
 
+    public static void handleRedo(C2SRtsRedoPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer player
+                    && RtsCameraManager.isActive(player)) {
+                ServerHistoryManager.executeRedo(player);
+            }
+        });
+    }
+
     public static void handleSubmitPending(C2SRtsSubmitPendingPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {

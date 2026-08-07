@@ -29,7 +29,7 @@
   "screen.rtsbuilding.quick_build.destroy_hint_auto": "Left-click to set points and use the wheel for height; the final point destroys immediately.",
   "screen.rtsbuilding.quick_build.destroy_advanced_box_hint_auto": "Left-click to set A/B, then adjust with the arrows; finishing the selection destroys immediately.",
   "screen.rtsbuilding.guide.top.mode.title": "Mode Wheel & Shortcuts",
-  "screen.rtsbuilding.guide.top.mode.1": "Hold Alt to open the mode wheel near the pointer. Move toward Interact, Storage Link, Funnel, or Rotate, then left-click to select it.",
+  "screen.rtsbuilding.guide.top.mode.1": "Hold Alt to open the mode wheel near the pointer. Move toward Interact, Storage binding, Funnel, or Rotate, then left-click to select it.",
   "screen.rtsbuilding.guide.top.mode.2": "Press I, L, or R to switch directly. Hold F for a temporary Funnel and release it to return to the previous mode.",
   "screen.rtsbuilding.guide.top.quest.title": "FTB Quest Scan",
   "screen.rtsbuilding.guide.top.quest.1": "With FTB Quests and FTB Teams installed, the top-bar quest button scans inventory and linked storage to update item tasks that neither consume items nor require crafting.",
@@ -41,6 +41,7 @@
   "key.rtsbuilding.quick_funnel": "Quick Funnel",
   "key.rtsbuilding.quick_drop": "Throw",
   "key.rtsbuilding.rotate_shape": "Rotate Build Shape",
+  "key.rtsbuilding.placement_state_wheel": "Open Block State Wheel",
   "key.rtsbuilding.open_craft_terminal": "Open Craft Terminal",
   "key.rtsbuilding.pin_quick_slot": "Pin Quick Slot",
   "key.rtsbuilding.blueprint_cancel": "Cancel Blueprint Preview",
@@ -49,7 +50,7 @@
   "key.rtsbuilding.decrease_sensitivity": "Decrease RTS Sensitivity",
   "key.rtsbuilding.increase_sensitivity": "Increase RTS Sensitivity",
   "key.rtsbuilding.mode_interact": "RTS Mode: Interact",
-  "key.rtsbuilding.mode_link_storage": "RTS Mode: Storage Link",
+  "key.rtsbuilding.mode_link_storage": "RTS Mode: Storage binding",
   "key.rtsbuilding.mode_rotate": "RTS Mode: Rotate",
   "key.rtsbuilding.mode_funnel": "RTS Mode: Funnel",
   "key.rtsbuilding.action_primary": "RTS Action: Interact / Place",
@@ -83,6 +84,7 @@
   "item.rtsbuilding.blueprint_plugin": "Blueprint Plugin",
   "item.rtsbuilding.range_culling_plugin": "Range Hiding Plugin",
   "item.rtsbuilding.field_deployment_plugin": "Field Deployment Plugin",
+  "item.rtsbuilding.cross_dimension_storage_plugin": "Cross-Dimension Storage Plugin",
   "item.rtsbuilding.range_extension_i": "Range Extension I",
   "item.rtsbuilding.range_extension_ii": "Range Extension II",
   "item.rtsbuilding.range_extension_iii": "Range Extension III",
@@ -100,6 +102,7 @@
   "tooltip.rtsbuilding.plugin.blueprint_plugin": "Unlocks blueprint save, library, and build.",
   "tooltip.rtsbuilding.plugin.range_culling_plugin": "Hides blocking areas for clearer RTS view.",
   "tooltip.rtsbuilding.plugin.field_deployment_plugin": "Open RTS outside the 3x3 chunk area around RTS Home.",
+  "tooltip.rtsbuilding.plugin.cross_dimension_storage_plugin": "Wake and access linked storage in other dimensions.",
   "tooltip.rtsbuilding.plugin.range_extension_i": "Action radius +16.",
   "tooltip.rtsbuilding.plugin.range_extension_ii": "Action radius +32.",
   "tooltip.rtsbuilding.plugin.range_extension_iii": "Action radius +48.",
@@ -144,7 +147,7 @@
   "message.rtsbuilding.plugin.uninstalled": "Plugin removed.",
   "message.rtsbuilding.plugin.not_installed": "That plugin is not installed.",
   "screen.rtsbuilding.mode.interact": "Interact",
-  "screen.rtsbuilding.mode.link_storage": "Storage Link",
+  "screen.rtsbuilding.mode.link_storage": "Storage binding",
   "screen.rtsbuilding.mode.funnel": "Funnel",
   "screen.rtsbuilding.mode.camera": "Camera",
   "screen.rtsbuilding.mode.rotate": "Rotate",
@@ -364,7 +367,7 @@
   "screen.rtsbuilding.topbar.tooltip.developer": "Open developer scenarios",
   "screen.rtsbuilding.topbar.tooltip.gear": "Open RTS settings",
   "chat.rtsbuilding.intro.rts_key": "Press %s to open RTS Build/Storage mode.",
-  "chat.rtsbuilding.intro.version_warning": "Current RTS Building test version: %1$s; stable version: %2$s. Detailed guide: %3$s. If this build is unstable in your modpack, return to the stable version.",
+  "chat.rtsbuilding.intro.version_warning": "Current RTS Building test version: %1$s; latest release: %2$s. Detailed guide: %3$s. If this build is unstable in your modpack, return to the latest release.",
   "chat.rtsbuilding.intro.feedback": "Feedback links: Discord %s | GitHub %s | QQ group %s. If RTSBuilding helps you, a GitHub star would mean a lot.",
   "chat.rtsbuilding.intro.config_hint": "Small i buttons open tutorials for panels and overlays.",
   "chat.rtsbuilding.intro.dismiss": "[Don't remind me again]",
@@ -404,8 +407,8 @@
   "rtsbuilding.configuration.enableSurvivalProgression.tooltip": "Enables survival progression, feature unlocks, RTS home anchors, and RTS starting-area limits.",
   "rtsbuilding.configuration.shareSurvivalProgressionWithTeams": "Team sharing",
   "rtsbuilding.configuration.shareSurvivalProgressionWithTeams.tooltip": "Shares RTS plugins and RTS home anchors through FTB Teams, OpenPAC parties, or vanilla scoreboard teams.",
-  "rtsbuilding.configuration.maxActionRadiusBlocks": "Max action radius",
-  "rtsbuilding.configuration.maxActionRadiusBlocks.tooltip": "Maximum RTS action radius in blocks. Range: 48-512.",
+  "rtsbuilding.configuration.maxActionRadiusBlocks": "Max camera view radius",
+  "rtsbuilding.configuration.maxActionRadiusBlocks.tooltip": "Maximum RTS camera view boundary in blocks. It limits camera movement, not verified remote operations. Range: 48-512.",
   "rtsbuilding.configuration.enableBlueprints": "Blueprint system",
   "rtsbuilding.configuration.enableBlueprints.tooltip": "Enables the blueprint library tab, local blueprint upload, and server-side blueprint placement.",
   "rtsbuilding.configuration.maxBlueprintBlocks": "Blueprint max blocks",
@@ -490,6 +493,12 @@
   "rtsbuilding.configuration.ae2NetworkRefreshThrottle.tooltip": "Storage cache refresh cycles between expensive AE2 network snapshots.",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle": "Refined Storage refresh throttle",
   "rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle.tooltip": "Storage cache refresh cycles between expensive Refined Storage network snapshots.",
+  "rtsbuilding.configuration.maxLinkedStorages": "Maximum linked storages",
+  "rtsbuilding.configuration.maxLinkedStorages.tooltip": "Maximum storage endpoints retained for one player. Batch linking keeps one representative for each AE2 or Refined Storage network.",
+  "rtsbuilding.configuration.enableCrossDimensionStorage": "Cross-dimension linked storage",
+  "rtsbuilding.configuration.enableCrossDimensionStorage.tooltip": "Allow the cross-dimension storage plugin to wake and access linked storage in other dimensions.",
+  "rtsbuilding.configuration.maxCrossDimensionAwakeChunks": "Cross-dimension awake chunks",
+  "rtsbuilding.configuration.maxCrossDimensionAwakeChunks.tooltip": "Maximum short-lived cross-dimension storage chunk tickets retained for one player.",
   "rtsbuilding.configuration.pageCacheMaxPlayers": "Page cache players",
   "rtsbuilding.configuration.pageCacheMaxPlayers.tooltip": "Maximum player count retained by the storage page LRU cache.",
   "rtsbuilding.configuration.defaultStoragePageSize": "Default storage page size",
@@ -522,8 +531,8 @@
   "screen.rtsbuilding.home_select.cooldown": "After choosing, changing RTS Home again needs 20 in-game days unless Field Deployment is unlocked.",
   "screen.rtsbuilding.home_select.target": "Target: %s, %s, %s",
   "screen.rtsbuilding.quick_build.title": "Quick Build",
-  "screen.rtsbuilding.quick_build.mode_build": "Range Build",
-  "screen.rtsbuilding.quick_build.mode_destroy": "Range Destroy",
+  "screen.rtsbuilding.quick_build.mode_build": "Build",
+  "screen.rtsbuilding.quick_build.mode_destroy": "Destroy",
   "screen.rtsbuilding.quick_build.shape": "Shape",
   "screen.rtsbuilding.quick_build.fill": "Fill",
   "screen.rtsbuilding.quick_build.rotation": "Rotation",
@@ -536,6 +545,28 @@
   "screen.rtsbuilding.quick_build.chain_hint": "Preview connected blocks, then press %s to destroy.",
   "screen.rtsbuilding.quick_build.chain_limit": "Limit: %s",
   "screen.rtsbuilding.quick_build.chain_limit_label": "Limit",
+  "screen.rtsbuilding.quick_build.catalog_shapes": "Shapes",
+  "screen.rtsbuilding.quick_build.catalog_tools": "Tools",
+  "screen.rtsbuilding.quick_build.tool.repeat_box": "Repeat",
+  "screen.rtsbuilding.quick_build.tool.repeat_box.detail": "Destroy an adjustable X/Y/Z box at each aimed target.",
+  "screen.rtsbuilding.quick_build.tool.chunk_quarry": "Chunk",
+  "screen.rtsbuilding.quick_build.tool.chunk_quarry.detail": "Destroy the aimed chunk with adjustable upward and downward height.",
+  "screen.rtsbuilding.quick_build.tool.tree_fell": "Tree",
+  "screen.rtsbuilding.quick_build.tool.tree_fell.detail": "Fell connected logs, natural leaves, or a giant mushroom.",
+  "screen.rtsbuilding.quick_build.parameter.size_x": "X size",
+  "screen.rtsbuilding.quick_build.parameter.size_y": "Y size",
+  "screen.rtsbuilding.quick_build.parameter.size_z": "Z size",
+  "screen.rtsbuilding.quick_build.parameter.chunk_up": "Upward Y",
+  "screen.rtsbuilding.quick_build.parameter.chunk_down": "Downward Y",
+  "screen.rtsbuilding.quick_build.parameter.tree_max_blocks": "Maximum blocks",
+  "screen.rtsbuilding.quick_build.convenience.hint": "Aim and confirm to run again with the saved parameters.",
+  "screen.rtsbuilding.quick_build.convenience.over_limit": "The complete target exceeds the selected limit; nothing will be broken.",
+  "screen.rtsbuilding.quick_build.convenience.unloaded": "The target touches an unloaded chunk; the whole operation is cancelled.",
+  "screen.rtsbuilding.quick_build.convenience.tree_invalid": "Aim at a log, natural leaves, or a giant mushroom.",
+  "message.rtsbuilding.convenience_destroy.over_limit": "The complete target exceeds the limit (%s); nothing was broken.",
+  "message.rtsbuilding.convenience_destroy.unloaded": "The target touches an unloaded chunk; the whole operation was cancelled.",
+  "message.rtsbuilding.convenience_destroy.empty": "No breakable blocks were found.",
+  "message.rtsbuilding.convenience_destroy.invalid": "This target cannot use the selected convenience tool.",
   "screen.rtsbuilding.quick_build.connect": "Connect",
   "screen.rtsbuilding.quick_build.overwrite": "Overwrite",
   "screen.rtsbuilding.quick_build.vertical": "Vertical",
@@ -680,7 +711,7 @@
   "screen.rtsbuilding.storage_links.title": "Linked Storage",
   "screen.rtsbuilding.storage_links.header": "Bound blocks",
   "screen.rtsbuilding.storage_links.empty": "No linked storage",
-  "screen.rtsbuilding.storage_links.empty_detail": "Use Storage Link, then left-click a storage block.",
+  "screen.rtsbuilding.storage_links.empty_detail": "Use Storage binding, then left-click a storage block.",
   "screen.rtsbuilding.storage_links.loading": "Reading linked storage...",
   "screen.rtsbuilding.storage_links.failed": "Could not read linked storage. Reopen this window to retry.",
   "screen.rtsbuilding.storage_links.priority": "Priority",
@@ -765,7 +796,7 @@
   "screen.rtsbuilding.guide.top.4": "4. If the target has a valid interaction, normal right-click uses it first; otherwise it tries placement. Hold Shift while right-clicking to prioritize item use or placement.",
   "screen.rtsbuilding.guide.top.5": "5. Hold Shift and right-click when you specifically want to force item use or placement on an interactable block.",
   "screen.rtsbuilding.guide.top.6": "6. Hold Alt to open the mode wheel, move toward a mode, then left-click to select it. The matching top-bar button stays highlighted.",
-  "screen.rtsbuilding.guide.top.7": "7. In Storage Link mode, left-click binds storage + extraction. Short right-click binds extract-only; right-drag still rotates the camera.",
+  "screen.rtsbuilding.guide.top.7": "7. In Storage binding mode, left-click binds storage + extraction. Short right-click binds extract-only; right-drag still rotates the camera.",
   "screen.rtsbuilding.guide.top.8": "8. Funnel mode waits without absorbing. Hold right-click to collect at the cursor, or hold F for a temporary quick funnel.",
   "screen.rtsbuilding.guide.top.9": "9. In Rotate mode, left-click a placed block, then left-click an arc around it to rotate horizontally or flip vertically. Right mouse still drags the camera.",
   "screen.rtsbuilding.guide.top.10": "10. Quick Build appears after Remote Place is unlocked. Pick a shape, choose Fill/Hollow/Skeleton where available, then place staged points.",
@@ -809,7 +840,7 @@
   "screen.rtsbuilding.guide.top.camera.2": "Hold Rotate Drag, default right mouse, and drag to rotate. If Interact / Place shares that key, release without dragging to interact/place.",
   "screen.rtsbuilding.guide.top.camera.3": "Hold Pan Drag, default middle mouse, and drag to pan. If Pick Block shares that key, a short click picks the targeted block.",
   "screen.rtsbuilding.guide.top.camera.4": "W/A/S/D pan the camera, Space raises it, and left Shift lowers it. Hold the sprint key to move faster.",
-  "screen.rtsbuilding.guide.top.link.title": "Storage Link",
+  "screen.rtsbuilding.guide.top.link.title": "Storage binding",
   "screen.rtsbuilding.guide.top.link.1": "Left-click a chest, barrel, controller, or storage block to bind it for storage + extraction.",
   "screen.rtsbuilding.guide.top.link.2": "Short right-click binds extract-only; right-drag rotates the camera. Use extract-only when RTS may take from that block but should not store into it.",
   "screen.rtsbuilding.guide.top.funnel.title": "Funnel",
@@ -872,7 +903,7 @@
   "rtsbuilding.progression.radius_3.desc": "Increase RTS action radius.",
   "rtsbuilding.progression.radius_max": "Radius Max",
   "rtsbuilding.progression.radius_max.desc": "Use the configured maximum RTS action radius.",
-  "rtsbuilding.progression.storage_link": "Storage Link",
+  "rtsbuilding.progression.storage_link": "Storage binding",
   "rtsbuilding.progression.storage_link.desc": "Link storage to RTS mode.",
   "rtsbuilding.progression.remote_place": "Remote Place",
   "rtsbuilding.progression.remote_place.desc": "Place blocks remotely.",
@@ -972,14 +1003,23 @@
   "message.rtsbuilding.plugin_required": "Install %s to use this feature.",
   "message.rtsbuilding.camera_locked": "RTS camera locked. Install the %s plugin, or turn off Survival balance in mod config.",
   "screen.rtsbuilding.tooltip.shape_block": "Block",
+  "screen.rtsbuilding.tooltip.shape_block.detail": "Place or destroy one block.",
   "screen.rtsbuilding.tooltip.shape_line": "Line",
+  "screen.rtsbuilding.tooltip.shape_line.detail": "Stretch a straight line from the first point.",
   "screen.rtsbuilding.tooltip.shape_square": "Plane",
+  "screen.rtsbuilding.tooltip.shape_square.detail": "Make a flat rectangular surface.",
   "screen.rtsbuilding.tooltip.shape_wall": "Wall",
+  "screen.rtsbuilding.tooltip.shape_wall.detail": "Make a vertical rectangular wall.",
   "screen.rtsbuilding.tooltip.shape_circle": "Circle",
+  "screen.rtsbuilding.tooltip.shape_circle.detail": "Make a flat circle around the target.",
   "screen.rtsbuilding.tooltip.shape_cylinder": "Cylinder",
+  "screen.rtsbuilding.tooltip.shape_cylinder.detail": "Make a vertical cylinder.",
   "screen.rtsbuilding.tooltip.shape_ball": "Sphere",
+  "screen.rtsbuilding.tooltip.shape_ball.detail": "Make a sphere around the target.",
   "screen.rtsbuilding.tooltip.shape_box": "Cube",
+  "screen.rtsbuilding.tooltip.shape_box.detail": "Make an adjustable rectangular box.",
   "screen.rtsbuilding.tooltip.shape_chain": "Chain",
+  "screen.rtsbuilding.tooltip.shape_chain.detail": "Follow connected blocks of the same kind.",
   "message.rtsbuilding.drop_buffer.full": "Mining paused: the auto-store buffer is full.",
   "message.rtsbuilding.drop_buffer.fallback": "Storage may be full; auto-store failed.",
   "rtsbuilding.configuration.taskEngineMaxUnitsPerTick": "RTS global work units per tick",
@@ -1009,4 +1049,127 @@
   ,"screen.rtsbuilding.rotation_gizmo.horizontal_cw": "Horizontal · clockwise"
   ,"screen.rtsbuilding.rotation_gizmo.vertical_ccw": "Vertical · counter-clockwise"
   ,"screen.rtsbuilding.rotation_gizmo.vertical_cw": "Vertical · clockwise"
+  ,"screen.rtsbuilding.craft_terminal.short_title": "Terminal"
+  ,"screen.rtsbuilding.craft_terminal.search": "Search"
+  ,"screen.rtsbuilding.craft_terminal.search_mode.standard": "Search linked storage only"
+  ,"screen.rtsbuilding.craft_terminal.search_mode.sync_to_jei": "Send terminal searches to JEI"
+  ,"screen.rtsbuilding.craft_terminal.search_mode.bidirectional": "Keep terminal and JEI searches in sync"
+  ,"screen.rtsbuilding.craft_terminal.search_pin": "Keep this search when reopening the terminal"
+  ,"screen.rtsbuilding.craft_terminal.clear_to_storage": "Return the crafting grid to linked storage"
+  ,"screen.rtsbuilding.craft_terminal.clear_to_inventory": "Return the crafting grid to your inventory"
+  ,"screen.rtsbuilding.craft_terminal.deposit_all": "Store inventory and hotbar"
+  ,"screen.rtsbuilding.craft_terminal.deposit_hotbar": "Store hotbar"
+  ,"screen.rtsbuilding.craft_terminal.sort_field.name": "Name"
+  ,"screen.rtsbuilding.craft_terminal.sort_field.quantity": "Quantity"
+  ,"screen.rtsbuilding.craft_terminal.sort_direction.ascending": "Ascending"
+  ,"screen.rtsbuilding.craft_terminal.sort_direction.descending": "Descending"
+  ,"screen.rtsbuilding.craft_terminal.utility_button": "Left/Right: clear grid to storage/inventory · Shift+Left/Right: store inventory/hotbar"
+  ,"screen.rtsbuilding.craft_terminal.rows": "Change visible storage rows"
+  ,"screen.rtsbuilding.quick_build.mode_smart_fill": "Fill"
+  ,"screen.rtsbuilding.quick_build.smart_fill.detail": "Detect and fill a bounded hole."
+  ,"screen.rtsbuilding.quick_build.smart_fill.max_blocks": "Maximum blocks"
+  ,"screen.rtsbuilding.quick_build.smart_fill.diameter": "Detection diameter"
+  ,"screen.rtsbuilding.quick_build.smart_fill.diameter_status": "Detection diameter: %s"
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_aim": "Aim at a bounded hole."
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_ready": "Click to lock the preview."
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_partial": "Limit reached; click to lock."
+  ,"screen.rtsbuilding.quick_build.smart_fill.hint_confirm": "Fill; L/Esc stop."
+  ,"message.rtsbuilding.smart_fill.select_material": "Select a placeable block first."
+  ,"message.rtsbuilding.smart_fill.queued": "Queued smart fill for %s blocks."
+  ,"message.rtsbuilding.smart_fill.queued_partial": "Queued partial smart fill for %s blocks."
+  ,"message.rtsbuilding.smart_fill.unloaded": "Smart fill stopped at an unloaded chunk boundary."
+  ,"message.rtsbuilding.smart_fill.too_large": "This hole exceeds the smart-fill safety limit."
+  ,"message.rtsbuilding.smart_fill.invalid": "This smart-fill target is no longer valid."
+  ,"message.rtsbuilding.smart_fill.no_target": "No safely bounded hole was found here."
+  ,"screen.rtsbuilding.settings.ui_theme": "Global UI theme"
+  ,"screen.rtsbuilding.settings.ui_theme.hint": "Choose colors and texture rendering mode."
+  ,"screen.rtsbuilding.theme.title": "UI Theme"
+  ,"screen.rtsbuilding.theme.open": "Configure"
+  ,"screen.rtsbuilding.theme.legacy": "Legacy / Resource Pack"
+  ,"screen.rtsbuilding.theme.calibrated": "Calibrated RTS Dark"
+  ,"screen.rtsbuilding.theme.nord": "Nord Command"
+  ,"screen.rtsbuilding.theme.carbon": "Carbon Operations"
+  ,"screen.rtsbuilding.theme.material": "Material Field"
+  ,"screen.rtsbuilding.theme.mode.legacy": "Resource-pack textures"
+  ,"screen.rtsbuilding.theme.mode.palette": "Palette-rendered"
+  ,"screen.rtsbuilding.theme.preview": "Live style preview"
+  ,"screen.rtsbuilding.theme.sample.idle": "Idle"
+  ,"screen.rtsbuilding.theme.sample.hover": "Hover"
+  ,"screen.rtsbuilding.theme.sample.active": "Active"
+  ,"screen.rtsbuilding.theme.sample.primary": "Crafting terminal and panel text"
+  ,"screen.rtsbuilding.theme.sample.secondary": "Secondary description and storage status"
+  ,"screen.rtsbuilding.theme.reload": "Reload"
+  ,"screen.rtsbuilding.theme.import": "Import"
+  ,"screen.rtsbuilding.theme.folder": "Folder"
+  ,"screen.rtsbuilding.theme.export": "Export"
+  ,"screen.rtsbuilding.theme.apply": "Apply"
+  ,"screen.rtsbuilding.theme.status.ready": "Select a theme to preview it."
+  ,"screen.rtsbuilding.theme.status.draft": "Preview only; Apply to save."
+  ,"screen.rtsbuilding.theme.status.reloaded": "Theme folder reloaded."
+  ,"screen.rtsbuilding.theme.status.reload_error": "Some theme files were rejected; see the log."
+  ,"screen.rtsbuilding.theme.status.exported": "Theme JSON exported to the theme folder."
+  ,"screen.rtsbuilding.theme.status.export_error": "Theme export failed; see the log."
+  ,"screen.rtsbuilding.theme.status.applied": "Theme applied and saved."
+  ,"screen.rtsbuilding.theme.status.apply_error": "Theme was not saved; see the log."
+  ,"screen.rtsbuilding.theme.status.contrast_error": "This color would make important text unreadable."
+  ,"screen.rtsbuilding.theme.status.imported": "Theme imported; press Apply to use it."
+  ,"screen.rtsbuilding.theme.status.import_cancelled": "Theme import cancelled."
+  ,"screen.rtsbuilding.theme.status.import_error": "Theme import failed; see the log."
+  ,"screen.rtsbuilding.theme.editor": "Palette editor"
+  ,"screen.rtsbuilding.theme.editor.legacy": "Legacy is supplied by the active resource pack and cannot be recolored here."
+  ,"screen.rtsbuilding.theme.editor.drag_hint": "Drag the wheel and value bar."
+  ,"screen.rtsbuilding.theme.token.canvas": "Canvas"
+  ,"screen.rtsbuilding.theme.token.top_bar": "Top bar"
+  ,"screen.rtsbuilding.theme.token.bottom_bar": "Bottom bar"
+  ,"screen.rtsbuilding.theme.token.surface": "Surface"
+  ,"screen.rtsbuilding.theme.token.surface_raised": "Raised surface"
+  ,"screen.rtsbuilding.theme.token.surface_sunken": "Sunken surface"
+  ,"screen.rtsbuilding.theme.token.border_strong": "Strong border"
+  ,"screen.rtsbuilding.theme.token.border_soft": "Soft border"
+  ,"screen.rtsbuilding.theme.token.divider": "Divider"
+  ,"screen.rtsbuilding.theme.token.focus_ring": "Focus ring"
+  ,"screen.rtsbuilding.theme.token.text_primary": "Primary text"
+  ,"screen.rtsbuilding.theme.token.text_secondary": "Secondary text"
+  ,"screen.rtsbuilding.theme.token.text_muted": "Muted text"
+  ,"screen.rtsbuilding.theme.token.text_on_accent": "Text on accent"
+  ,"screen.rtsbuilding.theme.token.control_idle": "Idle control"
+  ,"screen.rtsbuilding.theme.token.control_hover": "Hovered control"
+  ,"screen.rtsbuilding.theme.token.control_pressed": "Pressed control"
+  ,"screen.rtsbuilding.theme.token.control_selected": "Selected control"
+  ,"screen.rtsbuilding.theme.token.control_disabled": "Disabled control"
+  ,"screen.rtsbuilding.theme.token.switch_thumb": "Switch thumb"
+  ,"screen.rtsbuilding.theme.token.icon_primary": "Primary icon"
+  ,"screen.rtsbuilding.theme.token.icon_muted": "Muted icon"
+  ,"screen.rtsbuilding.theme.token.icon_on_accent": "Icon on accent"
+  ,"screen.rtsbuilding.theme.token.accent_primary": "Primary accent"
+  ,"screen.rtsbuilding.theme.token.accent_secondary": "Secondary accent"
+  ,"screen.rtsbuilding.theme.token.success": "Success"
+  ,"screen.rtsbuilding.theme.token.warning": "Warning"
+  ,"screen.rtsbuilding.theme.token.error": "Error"
+  ,"screen.rtsbuilding.theme.token.destructive": "Destructive"
+  ,"screen.rtsbuilding.theme.token.slot_idle": "Idle slot"
+  ,"screen.rtsbuilding.theme.token.slot_hover": "Hovered slot"
+  ,"screen.rtsbuilding.theme.token.slot_selected": "Selected slot"
+  ,"screen.rtsbuilding.theme.token.slot_missing": "Missing slot"
+  ,"screen.rtsbuilding.theme.token.scrollbar_track": "Scrollbar track"
+  ,"screen.rtsbuilding.theme.token.scrollbar_thumb": "Scrollbar thumb"
+  ,"screen.rtsbuilding.theme.token.scrollbar_thumb_hover": "Hovered scrollbar"
+  ,"screen.rtsbuilding.theme.token.world_selection": "World selection"
+  ,"screen.rtsbuilding.theme.token.world_selection_fill": "Selection fill"
+  ,"screen.rtsbuilding.theme.token.world_link_endpoint": "Storage link"
+  ,"screen.rtsbuilding.theme.token.world_invalid": "Invalid target"
+  ,"screen.rtsbuilding.theme.token.world_ghost_valid": "Valid ghost"
+  ,"screen.rtsbuilding.theme.token.world_ghost_invalid": "Invalid ghost"
+  ,"screen.rtsbuilding.theme.token.world_axis_x": "World X axis"
+  ,"screen.rtsbuilding.theme.token.world_axis_y": "World Y axis"
+  ,"screen.rtsbuilding.theme.token.world_axis_z": "World Z axis"
+  ,"screen.rtsbuilding.theme.token.world_handle_active": "Active world handle"
+  ,"message.rtsbuilding.storage_batch.entered": "Range binding: select the first corner. Ctrl exits."
+  ,"message.rtsbuilding.storage_batch.first_selected": "First corner selected. Select the opposite corner."
+  ,"message.rtsbuilding.storage_batch.ready": "Selection ready. Scroll adjusts height; Enter or click confirms."
+  ,"message.rtsbuilding.storage_batch.submitted": "Range binding submitted. Select another area or press Ctrl to exit."
+  ,"message.rtsbuilding.storage_batch.no_target": "No block is under the cursor."
+  ,"message.rtsbuilding.storage_batch.too_large": "Selection is too large (maximum 64 x 64 x 64)."
+  ,"message.rtsbuilding.storage_batch.selection_cleared": "Selection cleared. Select the first corner again."
+  ,"message.rtsbuilding.storage_batch.exited": "Range binding exited."
 }

@@ -1,5 +1,10 @@
 package com.rtsbuilding.rtsbuilding.client.widget;
 
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.WindowTextBoxChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.WindowTextBoxLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.WindowTextBoxStyle;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -19,14 +24,6 @@ import java.util.function.Predicate;
  * the RTS camera.
  */
 public class WindowTextBox extends EditBox {
-    private static final int TEXT_COLOR = 0xFFEAF2FF;
-    private static final int TEXT_COLOR_UNEDITABLE = 0xFF777F8B;
-    private static final int BG_COLOR = 0xFF202832;
-    private static final int BORDER_COLOR = 0xFF3A4555;
-    private static final int BORDER_COLOR_FOCUSED = 0xFF6D7C90;
-    private static final int PLACEHOLDER_COLOR = 0xFF68778A;
-    private static final int TEXT_PADDING_X = 4;
-
     private String placeholder = "";
     private boolean autoScrollToEnd = true;
     private boolean centeredText = false;
@@ -44,8 +41,8 @@ public class WindowTextBox extends EditBox {
     public WindowTextBox(Font font, int x, int y, int width, int height) {
         super(resolveFont(font), x, y, width, height, Component.empty());
         setBordered(false);
-        setTextColor(TEXT_COLOR);
-        setTextColorUneditable(TEXT_COLOR_UNEDITABLE);
+        setTextColor(WindowTextBoxStyle.TEXT.toArgb());
+        setTextColorUneditable(WindowTextBoxStyle.TEXT_UNEDITABLE.toArgb());
         setCanLoseFocus(true);
     }
 
@@ -92,38 +89,36 @@ public class WindowTextBox extends EditBox {
         }
         int x = getX();
         int y = getY();
-        int borderColor = isFocused() ? BORDER_COLOR_FOCUSED : BORDER_COLOR;
-        g.fill(x, y, x + this.width, y + this.height, BG_COLOR);
-        g.fill(x, y, x + this.width, y + 1, borderColor);
-        g.fill(x, y + this.height - 1, x + this.width, y + this.height, borderColor);
-        g.fill(x, y, x + 1, y + this.height, borderColor);
-        g.fill(x + this.width - 1, y, x + this.width, y + this.height, borderColor);
+        Font font = Minecraft.getInstance().font;
+        UiRect bounds = new UiRect(x, y, this.width, this.height);
+        WindowTextBoxLayout.Geometry geometry = WindowTextBoxLayout.geometry(
+                bounds, font.lineHeight, font.width(getValue()),
+                this.centeredText, !getValue().isEmpty());
+        WindowTextBoxChromeRenderer.render(
+                new MinecraftUiCanvas(g, font), geometry, isFocused());
 
         if (getValue().isEmpty() && !isFocused() && !this.placeholder.isEmpty()) {
-            Font font = Minecraft.getInstance().font;
-            int textY = y + (this.height - font.lineHeight) / 2;
-            int textX = this.centeredText
-                    ? x + Math.max(TEXT_PADDING_X, (this.width - font.width(this.placeholder)) / 2)
-                    : x + TEXT_PADDING_X;
-            g .text(font, this.placeholder, textX, textY, PLACEHOLDER_COLOR, false);
+            WindowTextBoxLayout.Geometry placeholderGeometry =
+                    WindowTextBoxLayout.geometry(
+                            bounds, font.lineHeight, font.width(this.placeholder),
+                            this.centeredText, false);
+            g.text(font, this.placeholder,
+                    (int) placeholderGeometry.placeholderX,
+                    (int) placeholderGeometry.textY,
+                    WindowTextBoxStyle.PLACEHOLDER.toArgb(), false);
         }
-        renderInnerEditBox(g, mouseX, mouseY, partialTick, x, y);
+        renderInnerEditBox(g, mouseX, mouseY, partialTick, x, y, geometry);
     }
 
-    private void renderInnerEditBox(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick, int outerX, int outerY) {
+    private void renderInnerEditBox(
+            GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTick,
+            int outerX, int outerY, WindowTextBoxLayout.Geometry geometry) {
         int oldWidth = this.width;
         int oldHeight = this.height;
-        int innerWidth = Math.max(1, oldWidth - TEXT_PADDING_X * 2);
-        int innerX = outerX + TEXT_PADDING_X;
-        int innerHeight = Math.max(8, Math.min(20, oldHeight - 2));
-        int innerY = outerY + Math.max(1, (oldHeight - innerHeight) / 2);
-        if (this.centeredText && !getValue().isEmpty()) {
-            Font font = Minecraft.getInstance().font;
-            int textWidth = font.width(getValue());
-            if (textWidth < innerWidth) {
-                innerX += (innerWidth - textWidth) / 2;
-            }
-        }
+        int innerWidth = (int) geometry.inner.getWidth();
+        int innerX = (int) geometry.inner.getX();
+        int innerHeight = (int) geometry.inner.getHeight();
+        int innerY = (int) geometry.inner.getY();
         setX(innerX);
         setY(innerY);
         this.width = innerWidth;
@@ -167,9 +162,10 @@ public class WindowTextBox extends EditBox {
     }
 
     public static WindowTextBox createDefault(int x, int y, int width) {
-        WindowTextBox textBox = new WindowTextBox(x, y, width, 20);
+        WindowTextBox textBox = new WindowTextBox(
+                x, y, width, WindowTextBoxLayout.DEFAULT_H);
         textBox.setPlaceholder("Search");
-        textBox.setMaxLength(256);
+        textBox.setMaxLength(WindowTextBoxLayout.DEFAULT_MAX_LENGTH);
         return textBox;
     }
 }

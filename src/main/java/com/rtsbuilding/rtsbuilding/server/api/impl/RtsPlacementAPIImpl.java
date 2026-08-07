@@ -25,7 +25,7 @@ public final class RtsPlacementAPIImpl implements RtsPlacementAPI {
                               double rayDirX, double rayDirY, double rayDirZ,
                               boolean quickBuild, boolean forceEmptyHand) {
         REGISTRY.placement().placeSelected(player, (BlockPos) clickedPos, face,
-                hitX, hitY, hitZ, rotateSteps, forcePlace, skipIfOccupied,
+                hitX, hitY, hitZ, rotateSteps, "", forcePlace, skipIfOccupied,
                 itemId, itemPrototype, rayOriginX, rayOriginY, rayOriginZ,
                 rayDirX, rayDirY, rayDirZ, quickBuild, forceEmptyHand);
     }
@@ -39,7 +39,7 @@ public final class RtsPlacementAPIImpl implements RtsPlacementAPI {
                              double rayDirX, double rayDirY, double rayDirZ) {
         List<BlockPos> positions = clickedPositions.stream().map(p -> (BlockPos) p).toList();
         REGISTRY.placement().enqueuePlaceBatch(player, positions, face,
-                hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps,
+                hitOffsetX, hitOffsetY, hitOffsetZ, rotateSteps, "",
                 forcePlace, skipIfOccupied, itemId, itemPrototype,
                 rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ);
     }

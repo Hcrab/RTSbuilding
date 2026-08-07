@@ -82,7 +82,7 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
             return true;
         }
         if (keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-            BlueprintPanel.keyPressedNameDialog(keyCode);
+            BlueprintPanel.handleNameWindowKey(keyCode);
             return true;
         }
         return true;
@@ -90,7 +90,7 @@ public final class BlueprintNameWindowPanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleWindowCharTyped(char codePoint, int modifiers) {
-        return BlueprintPanel.charTypedNameDialog(codePoint);
+        return BlueprintPanel.appendNameWindowCharacter(codePoint);
     }
 
     @Override

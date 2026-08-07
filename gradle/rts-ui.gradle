@@ -14,7 +14,8 @@ sourceSets {
     }
     uiPreview {
         java.srcDir 'src/uiPreview/java'
-        resources.setSrcDirs([])
+        // 世界截图仅供离屏审图；保持在 Preview source set，绝不进入模组发布资源。
+        resources.setSrcDirs(['src/uiPreview/resources'])
         compileClasspath += sourceSets.uiCore.output + sourceSets.uiKit.output
         runtimeClasspath += output + compileClasspath
     }
@@ -118,6 +119,8 @@ tasks.register('uiCoreTest', Test) {
             fileTree('src/uiKit/java') { include '**/*.java' })
     testClassesDirs = sourceSets.uiCoreTest.output.classesDirs
     classpath = sourceSets.uiCoreTest.runtimeClasspath
+    // 契约测试会读取源码；固定到当前工作树，避免从启动 Gradle 的父目录误读另一条版本线。
+    workingDir layout.projectDirectory.asFile
     useJUnitPlatform()
     testLogging {
         events 'passed', 'skipped', 'failed'
@@ -132,6 +135,7 @@ tasks.register('uiKitTest', Test) {
     dependsOn tasks.named('verifyUiKitIsolation')
     testClassesDirs = sourceSets.uiKitTest.output.classesDirs
     classpath = sourceSets.uiKitTest.runtimeClasspath
+    workingDir layout.projectDirectory.asFile
     useJUnitPlatform()
     testLogging {
         events 'passed', 'skipped', 'failed'
@@ -142,6 +146,19 @@ tasks.register('uiKitTest', Test) {
 def uiPreviewOutput = layout.buildDirectory.dir('reports/ui-preview')
 def uiSnapshotBaselines = layout.projectDirectory.dir('src/uiPreviewSnapshots')
 
+// 审图既可默认使用 Modern UI，也可由本地缓存的 Minecraft 客户端与 Unihex 字体复现游戏字形。
+// 路径只作为 Gradle 运行参数，不写入仓库或产物。
+def configureUiPreviewEnvironment = { task ->
+    task.systemProperty 'rts.ui.preview.fontMode',
+            providers.gradleProperty('uiPreviewFontMode').getOrElse('modern_ui')
+    task.systemProperty 'rts.ui.preview.minecraftClientJar',
+            providers.gradleProperty('uiPreviewMinecraftClientJar').getOrElse('')
+    task.systemProperty 'rts.ui.preview.unifontZip',
+            providers.gradleProperty('uiPreviewUnifontZip').getOrElse('')
+    task.systemProperty 'rts.ui.preview.worldTime',
+            providers.gradleProperty('uiPreviewWorldTime').getOrElse('noon')
+}
+
 tasks.register('runUiPreview', JavaExec) {
     group = 'ui preview'
     description = '以 headless 模式渲染 UI 预览；当前阶段不会打开桌面窗口。'
@@ -149,6 +166,7 @@ tasks.register('runUiPreview', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewMain'
     systemProperty 'java.awt.headless', 'true'
+    configureUiPreviewEnvironment(delegate)
     args uiPreviewOutput.get().asFile.absolutePath
     outputs.dir uiPreviewOutput
 }
@@ -160,6 +178,7 @@ tasks.register('renderUiSnapshots', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewMain'
     systemProperty 'java.awt.headless', 'true'
+    configureUiPreviewEnvironment(delegate)
     args uiPreviewOutput.get().asFile.absolutePath
     outputs.dir uiPreviewOutput
 }
@@ -189,6 +208,7 @@ tasks.register('verifyUiSnapshots', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiPreviewVerifier'
     systemProperty 'java.awt.headless', 'true'
+    configureUiPreviewEnvironment(delegate)
     args uiPreviewOutput.get().asFile.absolutePath
     args uiSnapshotBaselines.asFile.absolutePath
     outputs.dir uiPreviewOutput
@@ -201,6 +221,7 @@ tasks.register('updateUiSnapshots', JavaExec) {
     classpath = sourceSets.uiPreview.runtimeClasspath
     mainClass = 'com.rtsbuilding.rtsbuilding.uipreview.UiSnapshotUpdater'
     systemProperty 'java.awt.headless', 'true'
+    configureUiPreviewEnvironment(delegate)
     systemProperty 'rts.ui.snapshots.approved',
             providers.gradleProperty('approveUiSnapshots').getOrElse('false')
     args uiSnapshotBaselines.asFile.absolutePath

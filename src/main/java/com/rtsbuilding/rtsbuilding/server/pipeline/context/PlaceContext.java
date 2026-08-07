@@ -117,6 +117,12 @@ public class PlaceContext extends PipelineContext {
         return val != null ? val.byteValue() : (byte) 0;
     }
 
+    /** 返回服务端仍会再次净化的放置状态预设。 */
+    public String getStatePreset() {
+        String value = getArg(PlacementExecutePipe.ARG_STATE_PRESET);
+        return value == null ? "" : value;
+    }
+
     /**
      * 返回是否启用了强制放置。
      * 如果参数不存在则默认为 {@code false}。
@@ -267,6 +273,12 @@ public class PlaceContext extends PipelineContext {
         /** 旋转步数。 */
         public Builder rotateSteps(byte rotateSteps) {
             args.put(PlacementExecutePipe.ARG_ROTATE_STEPS.name(), (int) rotateSteps);
+            return this;
+        }
+
+        public Builder statePreset(String statePreset) {
+            args.put(PlacementExecutePipe.ARG_STATE_PRESET.name(),
+                    statePreset == null ? "" : statePreset);
             return this;
         }
 

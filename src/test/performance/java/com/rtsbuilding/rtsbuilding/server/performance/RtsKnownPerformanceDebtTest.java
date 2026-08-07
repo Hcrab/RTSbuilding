@@ -23,9 +23,11 @@ class RtsKnownPerformanceDebtTest {
     void batchProgressMustCoalesceStorageRefreshInsteadOfForcingFullRefreshPerJob() throws Exception {
         String batchOps = readIfPresent("src/main/java/com/rtsbuilding/rtsbuilding/server/service/RtsBatchJobTickOps.java");
         String placement = readIfPresent("src/main/java/com/rtsbuilding/rtsbuilding/server/service/placement/RtsPlacementBatch.java");
-        String combined = batchOps + placement;
+        String destruction = readIfPresent("src/main/java/com/rtsbuilding/rtsbuilding/server/service/destruction/RtsDestructionBatch.java");
+        String combined = batchOps + placement + destruction;
 
-        boolean usesDeferredRefresh = combined.contains("markDirtyDeferred");
+        boolean usesDeferredRefresh = combined.contains("markDirtyDeferred")
+                || combined.contains("markStorageViewDirty");
         boolean forcesRefreshInProgressPath = batchOps.contains("serviceOp().markDirty(player, session)")
                 || placement.contains("RtsStorageTickService.INSTANCE.forceRefresh(player)");
         System.out.printf("[已知性能债][存储] deferred=%s, synchronousRefresh=%s%n",

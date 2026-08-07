@@ -142,4 +142,10 @@ public final class RtsCraftingServiceImpl implements CraftingService {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
         return session == null ? List.of() : List.copyOf(session.browser.craftLocalizedSearchMatches);
     }
+
+    @Override
+    public void clearCraftingGrid(ServerPlayer player, boolean toPlayerInventory) {
+        RtsStorageCrafting.clearCraftingGrid(
+                player, registry.session().getIfPresent(player), toPlayerInventory);
+    }
 }

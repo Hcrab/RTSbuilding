@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
+import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -48,7 +49,9 @@ public final class BuildGhostBlockStateResolver {
             return null;
         }
         if (targetPos == null) {
-            return blockItem.getBlock().defaultBlockState();
+            return PlacementStatePreset.apply(
+                    blockItem.getBlock().defaultBlockState(),
+                    controller.getPlacementStatePreset());
         }
         BlockState state = resolveStateWithCamera(minecraft, blockItem, itemStack, targetPos);
         if (state == null) return null;
@@ -56,7 +59,8 @@ public final class BuildGhostBlockStateResolver {
         if (rotateDegrees != 0) {
             state = applyRotation(state, rotateDegrees, minecraft.level, targetPos);
         }
-        return state;
+        return PlacementStatePreset.apply(
+                state, controller.getPlacementStatePreset());
     }
 
     /**

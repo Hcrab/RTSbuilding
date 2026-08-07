@@ -79,7 +79,7 @@ public class RtsPluginItem extends Item {
     private static List<String> dependenciesFor(String pluginPath) {
         return switch (pluginPath) {
             case "chain_break_plugin", "area_destroy_plugin", "blueprint_plugin" -> List.of(REMOTE_CONTROL_PLUGIN);
-            case "craft_terminal_plugin" -> List.of(STORAGE_INTEGRATION_PLUGIN);
+            case "craft_terminal_plugin", "cross_dimension_storage_plugin" -> List.of(STORAGE_INTEGRATION_PLUGIN);
             default -> List.of();
         };
     }
@@ -98,15 +98,17 @@ public class RtsPluginItem extends Item {
     }
 
     private static boolean isControlDown() {
-        return FMLEnvironment.getDist() == Dist.CLIENT && ClientKeyState.isControlDown();
-    }
-
-    private static final class ClientKeyState {
-        private ClientKeyState() {
+        if (FMLEnvironment.getDist() != Dist.CLIENT) {
+            return false;
         }
-
-        private static boolean isControlDown() {
-            return com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys.isControlDown();
+        // 仅在客户端运行时通过名称反射读取修饰键，避免服务端解析客户端类。
+        try {
+            Class<?> modifierKeys = Class.forName(
+                    "com.rtsbuilding.rtsbuilding.client.input.RtsModifierKeys");
+            Object value = modifierKeys.getMethod("isControlDown").invoke(null);
+            return Boolean.TRUE.equals(value);
+        } catch (ReflectiveOperationException | LinkageError | RuntimeException ignored) {
+            return false;
         }
     }
 }

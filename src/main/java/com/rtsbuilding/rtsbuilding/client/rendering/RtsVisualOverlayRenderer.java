@@ -13,6 +13,8 @@ import com.rtsbuilding.rtsbuilding.client.rendering.overlay.ChunkGuideRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.InteractionTargetRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.PlayerMoveTargetRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.overlay.StorageRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.selection.PlacedBlockRotationHandleRenderer;
+import com.rtsbuilding.rtsbuilding.client.rendering.storage.StorageBatchSelectionRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.state.RtsRecordedGeometry;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
@@ -67,10 +69,13 @@ public final class RtsVisualOverlayRenderer {
                 ay,
                 minecraft.level);
         StorageRenderer.renderLinkedStorages(minecraft, controller, poseStack, brackets);
+        StorageBatchSelectionRenderer.render(minecraft, poseStack, brackets, targetNoDepth, fill);
         InteractionTargetRenderer.renderHoveredInteractionTarget(
                 minecraft, controller, poseStack, brackets, targetNoDepth);
         PlayerMoveTargetRenderer.render(minecraft, poseStack, brackets, targetNoDepth);
         ShapeGhostRenderer.renderShapeGhostPreview(minecraft, poseStack, lines, fill);
+        PlacedBlockRotationHandleRenderer.render(
+                minecraft, poseStack, handleLines, handleFill);
         AdvancedShapeSelectionBoxRenderer.render(minecraft, poseStack, handleLines, handleFill);
         RtsCullingRenderer.render(poseStack, lines, fill, handleLines, handleFill);
         BlueprintCaptureRenderer.renderBlueprintCaptureBox(

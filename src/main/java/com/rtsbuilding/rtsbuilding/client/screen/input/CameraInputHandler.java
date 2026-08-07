@@ -164,6 +164,21 @@ public final class CameraInputHandler {
         return this.middlePressButton;
     }
 
+    /** 清除尚未完成的鼠标点击与拖动判定，避免模态窗口关闭后泄漏一次世界操作。 */
+    public void cancelPointerGestures() {
+        this.rightPressActive = false;
+        this.rightPressButton = -1;
+        this.rightPressCanPrimary = false;
+        this.rightPressCanRotate = false;
+        this.rightDragRotated = false;
+        this.rightDragDistance = 0.0D;
+        this.middlePressActive = false;
+        this.middlePressButton = -1;
+        this.middlePressCanPan = false;
+        this.middlePressCanPick = false;
+        this.middleDragDistance = 0.0D;
+    }
+
     public boolean isMiddlePressCanPick() {
         return this.middlePressCanPick;
     }
@@ -362,6 +377,9 @@ public final class CameraInputHandler {
                 || this.controller.getMode() == BuilderMode.FUNNEL) {
             return false;
         }
+        if (screen.isQuickBuildSmartFillMode()) {
+            return screen.handleQuickBuildSmartFillClick();
+        }
         if (screen.isQuickBuildRangeDestroyMode() && !screen.isQuickBuildRangeDestroyChainMode()) {
             return screen.handleQuickBuildRangeDestroyClick(mouseX, mouseY);
         }
@@ -409,7 +427,8 @@ public final class CameraInputHandler {
                 // 记录普通挖掘操作到撤回栈（等待服务端确认）
                 screen.getShapeController().recordPendingBreakForUndo(
                         List.of(hit.getBlockPos().immutable()), hit.getDirection(), screen.getSelectedToolSlot());
-                this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
+                this.controller.startMining(hit, screen.getSelectedToolSlot(),
+                        screen.currentRayOrigin(), screen.computeCursorRayDirection(), false);
             }
         }
         this.leftMiningActive = true;
@@ -419,13 +438,17 @@ public final class CameraInputHandler {
     }
 
     public void stopActiveMining() {
+        stopActiveMining(com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin.NONE);
+    }
+
+    public void stopActiveMining(com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin origin) {
         if (!this.leftMiningActive && this.activeMiningMouseButton < 0 && !this.activeMiningKeyboard) {
             return;
         }
         this.leftMiningActive = false;
         this.activeMiningMouseButton = -1;
         this.activeMiningKeyboard = false;
-        this.controller.abortMining(screen.getSelectedToolSlot());
+        this.controller.abortMining(screen.getSelectedToolSlot(), origin);
     }
 
     public boolean isKeyboardMining() {

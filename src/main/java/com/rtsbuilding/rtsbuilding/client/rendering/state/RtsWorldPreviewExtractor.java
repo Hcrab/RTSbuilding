@@ -5,8 +5,8 @@ import com.rtsbuilding.rtsbuilding.client.rendering.RtsVisualOverlayRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.blueprint.BlueprintGhostBoundsFilter;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.BuildGhostBlockStateResolver;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
-import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
@@ -83,7 +83,7 @@ public final class RtsWorldPreviewExtractor {
         if (preview.blocks().isEmpty()) {
             return;
         }
-        for (BlueprintPanel.BlueprintGhostBlock block
+        for (BlueprintGhostBlock block
                 : BlueprintGhostBoundsFilter.filter(preview.blocks())) {
             if (!block.missing()) {
                 addModelGhost(minecraft, out, block.state(), block.pos(), BLUEPRINT_ALPHA);

@@ -1,7 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
-import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -9,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.service.QuestService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.OverflowOutcome;
+import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
@@ -23,8 +25,6 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.Vec3;
-import com.rtsbuilding.rtsbuilding.server.storage.port.RtsItemStorage;
-
 import java.util.List;
 
 /**
@@ -67,7 +67,112 @@ public final class RtsTransferPlayerIntegration {
     private RtsTransferPlayerIntegration() {
     }
 
-    public static void returnCarriedToLinked(ServerPlayer player, RtsStorageSession session, String itemId, int amount) {
+    /**
+     * 合成终端批量存取入口。数量与背包容量都由服务端重新限制，客户端原型只作精确筛选。
+     */
+    public static void bulkStorageOperation(
+            ServerPlayer player,
+            RtsStorageSession session,
+            byte action,
+            ItemStack prototype,
+            int requestedAmount) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)
+                || session == null
+                || !(player.containerMenu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu)) {
+            return;
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        if (linked.isEmpty()) {
+            return;
+        }
+        List<RtsItemStorage> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(linked);
+        List<RtsItemStorage> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+        boolean changed = switch (action) {
+            case C2SRtsBulkStorageOpPayload.WITHDRAW -> bulkWithdrawToInventory(
+                    player, extractHandlers, insertHandlers, prototype, requestedAmount);
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_INVENTORY ->
+                    depositPlayerSlots(player, insertHandlers, 9, 36);
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_HOTBAR ->
+                    depositPlayerSlots(player, insertHandlers, 0, 9);
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_ALL ->
+                    depositPlayerSlots(player, insertHandlers, 0, 36);
+            default -> false;
+        };
+        if (changed) {
+            player.containerMenu.broadcastChanges();
+            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+            QuestService.runQuestDetect(player, session, false);
+        }
+    }
+
+    private static boolean bulkWithdrawToInventory(
+            ServerPlayer player,
+            List<RtsItemStorage> extractHandlers,
+            List<RtsItemStorage> insertHandlers,
+            ItemStack prototype,
+            int requestedAmount) {
+        if (prototype == null || prototype.isEmpty() || requestedAmount <= 0) {
+            return false;
+        }
+        ItemStack exactPrototype = prototype.copyWithCount(1);
+        int maxPerStack = Math.max(1, exactPrototype.getMaxStackSize());
+        int remaining = Math.min(requestedAmount, 36 * maxPerStack);
+        boolean changed = false;
+        while (remaining > 0) {
+            int batch = Math.min(maxPerStack, remaining);
+            ItemStack extracted = RtsTransferExtractor.extractMatchingFromLinked(
+                    extractHandlers, exactPrototype.getItem(), exactPrototype, batch);
+            if (extracted.isEmpty()) {
+                break;
+            }
+            int extractedCount = extracted.getCount();
+            ItemStack leftover = RtsTransferInserter.moveToPlayerInventoryOnly(player, extracted);
+            int moved = extractedCount - leftover.getCount();
+            if (!leftover.isEmpty()) {
+                RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(
+                        insertHandlers, player, leftover);
+            }
+            if (moved <= 0) {
+                break;
+            }
+            changed = true;
+            remaining -= moved;
+            if (moved < extractedCount) {
+                break;
+            }
+        }
+        return changed;
+    }
+
+    private static boolean depositPlayerSlots(
+            ServerPlayer player,
+            List<RtsItemStorage> insertHandlers,
+            int startInclusive,
+            int endExclusive) {
+        boolean changed = false;
+        int start = Math.max(0, startInclusive);
+        int end = Math.min(player.getInventory().getContainerSize(), endExclusive);
+        for (int slot = start; slot < end; slot++) {
+            ItemStack actual = player.getInventory().getItem(slot);
+            if (actual.isEmpty()) {
+                continue;
+            }
+            ItemStack remainder =
+                    RtsTransferInserter.storeToLinkedOnlyPreferExisting(insertHandlers, actual);
+            int inserted = actual.getCount() - remainder.getCount();
+            if (inserted <= 0) {
+                continue;
+            }
+            actual.shrink(inserted);
+            player.getInventory().setItem(slot, actual.isEmpty() ? ItemStack.EMPTY : actual);
+            changed = true;
+        }
+        return changed;
+    }
+
+    public static void returnCarriedToLinked(
+            ServerPlayer player, RtsStorageSession session, String itemId, int amount) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.STORAGE_BROWSER)) {
             return;
         }
@@ -101,7 +206,8 @@ public final class RtsTransferPlayerIntegration {
         }
         ItemStack toStore = carried.split(returned);
         player.containerMenu.setCarried(carried);
-        OverflowOutcome overflow = RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(insertHandlers, player, toStore);
+        OverflowOutcome overflow = RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(
+                insertHandlers, player, toStore);
         if (overflow.hasOverflow()) {
             RtsTransferInserter.sendStorageOverflowHint(player, "Import", overflow);
         }
@@ -141,9 +247,10 @@ public final class RtsTransferPlayerIntegration {
         }
         Vec3 dropPos = new Vec3(dropX, dropY, dropZ);
         BlockPos dropBlock = BlockPos.containing(dropPos);
+        // 远程丢物遵守玩家配置的 RTS 操作范围，但不再叠加旧 Home Radius；
+        // 失败时必须把已经提取的真实物品完整退回原存储链。
         if (!player.level().hasChunkAt(dropBlock)
-                || !RtsCameraManager.isWithinActionRange(player, dropBlock)
-                || !RtsProgressionManager.canAccessHomeRadius(player, dropBlock)) {
+                || !RtsCameraManager.isWithinActionRange(player, dropBlock)) {
             RtsTransferInserter.refundToLinked(insertHandlers, player, extracted);
             ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             return;

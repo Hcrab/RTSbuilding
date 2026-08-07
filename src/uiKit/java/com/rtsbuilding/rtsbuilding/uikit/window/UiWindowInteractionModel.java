@@ -16,6 +16,8 @@ public final class UiWindowInteractionModel {
     private final UiRect screen;
     private final double minimumWidth;
     private final double minimumHeight;
+    private final double maximumWidth;
+    private final double maximumHeight;
     private UiRect bounds;
     private boolean dragging;
     private double dragOffsetX;
@@ -27,12 +29,25 @@ public final class UiWindowInteractionModel {
 
     public UiWindowInteractionModel(UiRect screen, UiRect initialBounds,
                                     double minimumWidth, double minimumHeight) {
+        this(screen, initialBounds, minimumWidth, minimumHeight,
+                screen == null ? 0.0D : screen.getWidth(),
+                screen == null ? 0.0D : screen.getHeight());
+    }
+
+    public UiWindowInteractionModel(UiRect screen, UiRect initialBounds,
+                                    double minimumWidth, double minimumHeight,
+                                    double maximumWidth, double maximumHeight) {
         if (screen == null || initialBounds == null || minimumWidth <= 0.0D || minimumHeight <= 0.0D) {
             throw new IllegalArgumentException("screen, bounds and minimum sizes must be valid");
+        }
+        if (maximumWidth < minimumWidth || maximumHeight < minimumHeight) {
+            throw new IllegalArgumentException("maximum sizes must contain minimum sizes");
         }
         this.screen = screen;
         this.minimumWidth = minimumWidth;
         this.minimumHeight = minimumHeight;
+        this.maximumWidth = Math.min(screen.getWidth(), maximumWidth);
+        this.maximumHeight = Math.min(screen.getHeight(), maximumHeight);
         this.bounds = normalize(initialBounds);
     }
 
@@ -101,9 +116,23 @@ public final class UiWindowInteractionModel {
         return dragging || resizeEdge != ResizeEdge.NONE;
     }
 
+    public boolean isDragging() {
+        return dragging;
+    }
+
+    public boolean isResizing() {
+        return resizeEdge != ResizeEdge.NONE;
+    }
+
+    public ResizeEdge resizeEdge() {
+        return resizeEdge;
+    }
+
     private UiRect normalize(UiRect candidate) {
-        double width = Math.max(minimumWidth, candidate.getWidth());
-        double height = Math.max(minimumHeight, candidate.getHeight());
+        double width = Math.min(maximumWidth,
+                Math.max(minimumWidth, candidate.getWidth()));
+        double height = Math.min(maximumHeight,
+                Math.max(minimumHeight, candidate.getHeight()));
         return new UiRect(candidate.getX(), candidate.getY(), width, height).clampWithin(screen);
     }
 

@@ -1,5 +1,8 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
+import com.rtsbuilding.rtsbuilding.uikit.layout.RtsMainlineLayout;
+
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -13,10 +16,10 @@ public final class RtsClientUiUtil {
 
     public static void drawPanelFrame(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int fillColor, int light, int dark) {
         guiGraphics.fill(x, y, x + w, y + h, fillColor);
-        guiGraphics.fill(x, y, x + w, y + 1, light);
-        guiGraphics.fill(x, y + h - 1, x + w, y + h, dark);
-        guiGraphics.fill(x, y, x + 1, y + h, light);
-        guiGraphics.fill(x + w - 1, y, x + w, y + h, dark);
+        guiGraphics.fill(x, y, x + w, y + RtsMainlineLayout.D1, light);
+        guiGraphics.fill(x, y + h - RtsMainlineLayout.D1, x + w, y + h, dark);
+        guiGraphics.fill(x, y, x + RtsMainlineLayout.D1, y + h, light);
+        guiGraphics.fill(x + w - RtsMainlineLayout.D1, y, x + w, y + h, dark);
     }
 
     public static String trimToWidth(Font font, String text, int maxWidth) {
@@ -95,13 +98,15 @@ public final class RtsClientUiUtil {
         }
 
         guiGraphics.pose().pushMatrix();
-        guiGraphics.fill(slotX + 1, slotY + slotSize - 7, slotX + slotSize - 1, slotY + slotSize - 1, 0xB0000000);
+        guiGraphics.fill(slotX + 1, slotY + slotSize - 7, slotX + slotSize - 1, slotY + slotSize - 1,
+                RtsMainlineTheme.SLOT_COUNT_BACKGROUND.toArgb());
         guiGraphics.pose().scale(SLOT_COUNT_SCALE, SLOT_COUNT_SCALE);
 
         int scaledX = Math.round((slotX + slotSize - 2) / SLOT_COUNT_SCALE);
         int scaledY = Math.round((slotY + slotSize - 7) / SLOT_COUNT_SCALE);
         int textWidth = font.width(countText);
-        guiGraphics .text(font, countText, scaledX - textWidth, scaledY, color, true);
+        // 数量文本位于半透明窗口之上时必须关闭阴影，避免阴影批次穿过后绘制的面板。
+        guiGraphics.text(font, countText, scaledX - textWidth, scaledY, color, false);
         guiGraphics.pose().popMatrix();
     }
 }

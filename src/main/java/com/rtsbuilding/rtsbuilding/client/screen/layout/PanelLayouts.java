@@ -12,6 +12,9 @@ import static com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen
  */
 public final class PanelLayouts {
 
+    private static final int CRAFT_DOCK_C_SIZE = 18;
+    private static final int CRAFT_DOCK_GAP = 4;
+
     /**
      * Craft-dock layout (the grid of 8 surrounding slots).
      * <p>

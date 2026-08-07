@@ -1,5 +1,9 @@
 package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
+import com.rtsbuilding.rtsbuilding.client.util.RtsUiFrameRenderer;
+
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -12,9 +16,9 @@ import net.minecraft.network.chat.Component;
  * 这样玩家看着盒子就能调整剔除范围，面板不会再用大面积空白打断视线。</p>
  */
 public final class RtsCullingPanel extends RtsWindowPanel {
-    private static final int TEXT = 0xFFE7F2FF;
-    private static final int MUTED = 0xFF9FB2C4;
-    private static final int ACCENT = 0xFF8EC8FF;
+    private static final int TEXT = RtsMainlineTheme.LEGACY_FFE7F2FF.toArgb();
+    private static final int MUTED = RtsMainlineTheme.LEGACY_FF9FB2C4.toArgb();
+    private static final int ACCENT = RtsMainlineTheme.LEGACY_FF8EC8FF.toArgb();
     private static final RtsCullingPanelLayout LAYOUT = new RtsCullingPanelLayout();
 
     private final RtsCullingManager manager;
@@ -58,11 +62,11 @@ public final class RtsCullingPanel extends RtsWindowPanel {
     }
 
     private void drawWideButton(GuiGraphicsExtractor g, int x, int y, String label, boolean hovered) {
-        RtsClientUiUtil.drawPanelFrame(g, x, LAYOUT.buttonTop(y),
+        RtsUiFrameRenderer.frame(g, x, LAYOUT.buttonTop(y),
                 RtsCullingPanelLayout.DELETE_BUTTON_WIDTH, LAYOUT.buttonHeight(),
-                hovered ? 0xFF9A3340 : 0xFF742833,
-                hovered ? 0xFFFFD1D7 : 0xFFFFA2AE,
-                0xFF0B1017);
+                hovered ? RtsMainlineTheme.LEGACY_FF9A3340.toArgb() : RtsMainlineTheme.LEGACY_FF742833.toArgb(),
+                hovered ? RtsMainlineTheme.LEGACY_FFFFD1D7.toArgb() : RtsMainlineTheme.LEGACY_FFFFA2AE.toArgb(),
+                RtsMainlineTheme.LEGACY_FF0B1017.toArgb());
         RtsClientUiUtil.drawCenteredStringNoShadow(g, screen.font(),
                 screen.trimToWidth(label, LAYOUT.deleteButtonTextWidth()),
                 x + RtsCullingPanelLayout.DELETE_BUTTON_WIDTH / 2, LAYOUT.buttonTextY(y), TEXT);

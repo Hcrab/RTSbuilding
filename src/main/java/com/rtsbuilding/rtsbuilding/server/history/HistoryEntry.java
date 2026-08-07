@@ -1,11 +1,12 @@
 package com.rtsbuilding.rtsbuilding.server.history;
 
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -25,22 +26,23 @@ public class HistoryEntry {
 
     private final UUID entryId;
     private final long timestamp;
-    private final boolean isDestructive;
+    private final HistoryOperation operation;
     private final List<HistoryBlockRecord> blocks;
     private final Direction face;
     /** 操作所属维度，用于防止跨维度误操作 */
     private final ResourceKey<Level> dimension;
 
     /**
-     * @param isDestructive true=破坏操作（撤回=重新放置），false=放置操作（撤回=破坏方块）
+     * @param operation     操作类型，同时冻结记录产生时的创造/生存模式
      * @param blocks       每个方块的位置和操作前的完整状态
      * @param face         所有位置的公共操作面
      * @param dimension    操作发生时的维度，用于执行时校验
      */
-    public HistoryEntry(boolean isDestructive, List<HistoryBlockRecord> blocks, Direction face, ResourceKey<Level> dimension) {
+    public HistoryEntry(HistoryOperation operation, List<HistoryBlockRecord> blocks,
+            Direction face, ResourceKey<Level> dimension) {
         this.entryId = UUID.randomUUID();
         this.timestamp = System.currentTimeMillis();
-        this.isDestructive = isDestructive;
+        this.operation = operation;
         this.blocks = List.copyOf(blocks);
         this.face = face;
         this.dimension = dimension;
@@ -57,7 +59,11 @@ public class HistoryEntry {
     }
 
     public boolean isDestructive() {
-        return isDestructive;
+        return operation.destructive();
+    }
+
+    public HistoryOperation getOperation() {
+        return operation;
     }
 
     public List<HistoryBlockRecord> getBlocks() {
@@ -94,11 +100,23 @@ public class HistoryEntry {
      * @param restoredCount 已成功恢复/撤销的方块数量
      * @return 剩余方块的记录；如果全部完成则返回 null
      */
-    public HistoryEntry removeRestored(int restoredCount) {
-        if (restoredCount >= blocks.size()) {
+    public HistoryEntry remainingAfter(Set<BlockPos> completedPositions) {
+        if (completedPositions == null || completedPositions.isEmpty()) {
+            return this;
+        }
+        List<HistoryBlockRecord> remaining = blocks.stream()
+                .filter(record -> !completedPositions.contains(record.pos()))
+                .toList();
+        return remaining.isEmpty() ? null : new HistoryEntry(operation, remaining, face, dimension);
+    }
+
+    public HistoryEntry completedOnly(Set<BlockPos> completedPositions) {
+        if (completedPositions == null || completedPositions.isEmpty()) {
             return null;
         }
-        List<HistoryBlockRecord> remaining = new ArrayList<>(blocks.subList(restoredCount, blocks.size()));
-        return new HistoryEntry(isDestructive, remaining, face, dimension);
+        List<HistoryBlockRecord> completed = blocks.stream()
+                .filter(record -> completedPositions.contains(record.pos()))
+                .toList();
+        return completed.isEmpty() ? null : new HistoryEntry(operation, completed, face, dimension);
     }
 }
