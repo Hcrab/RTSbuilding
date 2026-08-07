@@ -8,6 +8,7 @@
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
     "EmbeddiumWorldSliceMixin",
+    "FlywheelBlockEntityStorageMixin",
     "GameRendererLifecycleMixin",
     "GuiChatPositionMixin",
     "GuiHudMixin",
@@ -27,7 +28,8 @@
     "GeneratorGaloreRemoteStillValidMixin",
     "IronFurnacesRemoteStillValidMixin",
     "SophisticatedBackpacksRemoteStillValidMixin",
-    "SophisticatedStorageRemoteStillValidMixin"
+    "SophisticatedStorageRemoteStillValidMixin",
+    "ServerPlayerRemoteMenuMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -19,7 +19,7 @@ class RtsRightClickPriorityRoutingTest {
                         + "BuilderScreenItemActionHandler.java"));
         String routeBody = methodBody(
                 router, "boolean run(double mouseX, double mouseY, int mouseButton)");
-        String body = methodBody(handler, "boolean runSelectedItem(");
+        String body = compact(methodBody(handler, "boolean runSelectedItem("));
 
         int selectedItemBranch = routeBody.indexOf(
                 "if (this.controller.hasSelectedItem())");
@@ -56,7 +56,7 @@ class RtsRightClickPriorityRoutingTest {
                         + "BuilderScreenItemActionHandler.java"));
         String routeBody = methodBody(
                 router, "boolean run(double mouseX, double mouseY, int mouseButton)");
-        String body = methodBody(handler, "boolean runSelectedItem(");
+        String body = compact(methodBody(handler, "boolean runSelectedItem("));
 
         int selectedItemBranch = routeBody.indexOf(
                 "if (this.controller.hasSelectedItem())");
@@ -80,7 +80,7 @@ class RtsRightClickPriorityRoutingTest {
                 + Files.readString(Path.of(
                 "src/client/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
                         + "BuilderScreenItemActionHandler.java"));
-        String body = methodBody(source, "boolean runToolOrEmptyHand(");
+        String body = compact(methodBody(source, "boolean runToolOrEmptyHand("));
 
         int toolSlotInteract = body.indexOf("this.controller.interactBlockWithToolSlot");
         assertTrue(toolSlotInteract >= 0, "normal main-hand right-click should send tool-slot interaction");
@@ -95,6 +95,10 @@ class RtsRightClickPriorityRoutingTest {
                 "手持方块的 R preset 也必须让右键走放置包，而不是不携带 preset 的自然交互包");
         assertTrue(shiftPlace > forceGuard,
                 "Shift right-click should run placeSelected before the normal interaction fallback");
+    }
+
+    private static String compact(String source) {
+        return source.replaceAll("\\s+", " ");
     }
 
     private static String methodBody(String source, String signatureStart) {

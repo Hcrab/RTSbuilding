@@ -1,381 +1,466 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
-
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
-import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.*;
-import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsHomeScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
-import com.rtsbuilding.rtsbuilding.client.service.BuildPlacementService;
-import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
-import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
-import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
-import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
-import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
-import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
-import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsQuestDetectStatusPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
-import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
-import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
+import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
-
-import java.util.List;
 
 final class ClientRtsInteractionOwner {
-    private final ClientRtsController controller;
+  private final ClientRtsController controller;
 
-    ClientRtsInteractionOwner(ClientRtsController controller) {
-        this.controller = controller;
+  ClientRtsInteractionOwner(ClientRtsController controller) {
+    this.controller = controller;
+  }
+
+  void selectStorageEntry(int index) {
+    controller.buildPlacementService.selectStorageEntry(
+        index,
+        controller.storageStateManager.getStorageEntries(),
+        () -> controller.setMode(BuilderMode.INTERACT));
+  }
+
+  void selectFluidEntry(int index) {
+    controller.buildPlacementService.selectFluidEntry(
+        index,
+        controller.storageStateManager.getFluidEntries(),
+        () -> controller.setMode(BuilderMode.INTERACT));
+  }
+
+  void clearSelectedItem() {
+    controller.buildPlacementService.clearSelectedItem(
+        () -> controller.setMode(BuilderMode.INTERACT));
+  }
+
+  void clearPlacementSelectionPreserveMode() {
+    controller.buildPlacementService.clearPlacementSelectionPreserveMode();
+  }
+
+  void selectEmptyHand() {
+    controller.buildPlacementService.selectEmptyHand(
+        () -> controller.setMode(BuilderMode.INTERACT));
+  }
+
+  void selectRecentEntry(int index) {
+    controller.buildPlacementService.selectRecentEntry(
+        index,
+        controller.storageStateManager.getRecentEntries(),
+        () -> controller.setMode(BuilderMode.INTERACT));
+  }
+
+  void assignQuickSlotFromSelected(int index) {
+    controller.storageStateManager.assignQuickSlotFromSelected(
+        index,
+        controller.buildPlacementService.getSelectedItemId(),
+        controller.buildPlacementService.getSelectedItemPreview());
+  }
+
+  void assignQuickSlotFromToolItem(int index, ItemStack stack) {
+    controller.storageStateManager.assignQuickSlotFromToolItem(index, stack);
+  }
+
+  void clearQuickSlot(int index) {
+    controller.storageStateManager.clearQuickSlot(index);
+  }
+
+  void selectQuickSlot(int index) {
+    if (index < 0 || index >= StorageStateManager.QUICK_SLOT_COUNT) {
+      return;
     }
+    controller.buildPlacementService.selectQuickSlot(
+        index,
+        controller.storageStateManager.getQuickSlotItemId(index),
+        controller.storageStateManager.getQuickSlotPreview(index),
+        controller.storageStateManager.getQuickSlotLabel(index),
+        () -> controller.setMode(BuilderMode.INTERACT));
+  }
 
-    void selectStorageEntry(int index) {
-            controller.buildPlacementService.selectStorageEntry(index, controller.storageStateManager.getStorageEntries(),
-                    () -> controller.setMode(BuilderMode.INTERACT));
-        }
+  void selectItemForPlacement(String itemId, String label, ItemStack preview) {
+    controller.buildPlacementService.selectItemForPlacement(
+        itemId, label, preview, () -> controller.setMode(BuilderMode.INTERACT));
+  }
 
-    void selectFluidEntry(int index) {
-            controller.buildPlacementService.selectFluidEntry(index, controller.storageStateManager.getFluidEntries(),
-                    () -> controller.setMode(BuilderMode.INTERACT));
-        }
+  void setGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
+    controller.storageStateManager.setGuiBinding(index, pos, face, itemIdHint);
+  }
 
-    void clearSelectedItem() {
-            controller.buildPlacementService.clearSelectedItem(() -> controller.setMode(BuilderMode.INTERACT));
-        }
+  void clearGuiBinding(int index) {
+    controller.storageStateManager.clearGuiBinding(index);
+  }
 
-    void clearPlacementSelectionPreserveMode() {
-            controller.buildPlacementService.clearPlacementSelectionPreserveMode();
-        }
+  void openGuiBinding(int index) {
+    controller.storageStateManager.openGuiBinding(index);
+  }
 
-    void selectEmptyHand() {
-            controller.buildPlacementService.selectEmptyHand(() -> controller.setMode(BuilderMode.INTERACT));
-        }
+  void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
+    controller.placeSelected(hit, forcePlace, rayOrigin, rayDir, false, false);
+  }
 
-    void selectRecentEntry(int index) {
-            controller.buildPlacementService.selectRecentEntry(index, controller.storageStateManager.getRecentEntries(),
-                    () -> controller.setMode(BuilderMode.INTERACT));
-        }
+  void placeSelected(
+      BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
+    controller.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied, false);
+  }
 
-    void assignQuickSlotFromSelected(int index) {
-            controller.storageStateManager.assignQuickSlotFromSelected(index,
-                    controller.buildPlacementService.getSelectedItemId(),
-                    controller.buildPlacementService.getSelectedItemPreview());
-        }
+  void placeSelected(
+      BlockHitResult hit,
+      boolean forcePlace,
+      Vec3 rayOrigin,
+      Vec3 rayDir,
+      boolean skipIfOccupied,
+      boolean quickBuild) {
+    String itemId = controller.buildPlacementService.getSelectedItemId();
+    controller.buildPlacementService.placeSelected(
+        hit,
+        forcePlace,
+        rayOrigin,
+        rayDir,
+        skipIfOccupied,
+        quickBuild,
+        controller::beginRemoteMenuOpenGrace,
+        () -> {
+          if (controller.isLocalPlayerCreative()) return false;
+          ItemStack preview = controller.buildPlacementService.getSelectedItemPreview();
+          return preview != null
+              && !preview.isEmpty()
+              && preview.getItem() instanceof BlockItem
+              && controller.storageStateManager.hasStoragePageSnapshot()
+              && controller.storageStateManager.getStorageTotalCount(itemId) <= 0L;
+        },
+        () -> controller.requestStoragePage(controller.storageStateManager.getStoragePage()),
+        controller.isLocalPlayerCreative(),
+        controller.storageStateManager.getStorageTotalCount(itemId),
+        controller.storageStateManager.hasStoragePageSnapshot());
+  }
 
-    void assignQuickSlotFromToolItem(int index, ItemStack stack) {
-            controller.storageStateManager.assignQuickSlotFromToolItem(index, stack);
-        }
+  void placeSelectedBatch(
+      List<BlockHitResult> hits,
+      boolean forcePlace,
+      Vec3 rayOrigin,
+      Vec3 rayDir,
+      boolean skipIfOccupied) {
+    controller.placeSelectedBatch(
+        hits,
+        hits == null || hits.isEmpty() ? null : hits.get(0),
+        forcePlace,
+        rayOrigin,
+        rayDir,
+        skipIfOccupied);
+  }
 
-    void clearQuickSlot(int index) {
-            controller.storageStateManager.clearQuickSlot(index);
-        }
+  void placeSelectedBatch(
+      List<BlockHitResult> hits,
+      BlockHitResult templateHit,
+      boolean forcePlace,
+      Vec3 rayOrigin,
+      Vec3 rayDir,
+      boolean skipIfOccupied) {
+    controller.placeSelectedBatch(
+        hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, false);
+  }
 
-    void selectQuickSlot(int index) {
-            if (index < 0 || index >= StorageStateManager.QUICK_SLOT_COUNT) {
-                return;
-            }
-            controller.buildPlacementService.selectQuickSlot(index,
-                    controller.storageStateManager.getQuickSlotItemId(index),
-                    controller.storageStateManager.getQuickSlotPreview(index),
-                    controller.storageStateManager.getQuickSlotLabel(index),
-                    () -> controller.setMode(BuilderMode.INTERACT));
-        }
+  void placeSelectedBatch(
+      List<BlockHitResult> hits,
+      BlockHitResult templateHit,
+      boolean forcePlace,
+      Vec3 rayOrigin,
+      Vec3 rayDir,
+      boolean skipIfOccupied,
+      boolean overwriteExisting) {
+    String itemId = controller.buildPlacementService.getSelectedItemId();
+    controller.buildPlacementService.placeSelectedBatch(
+        hits,
+        templateHit,
+        forcePlace,
+        rayOrigin,
+        rayDir,
+        skipIfOccupied,
+        overwriteExisting,
+        controller::beginRemoteMenuOpenGrace,
+        () -> {
+          if (controller.isLocalPlayerCreative()) return false;
+          ItemStack preview = controller.buildPlacementService.getSelectedItemPreview();
+          return preview != null
+              && !preview.isEmpty()
+              && preview.getItem() instanceof BlockItem
+              && controller.storageStateManager.hasStoragePageSnapshot()
+              && controller.storageStateManager.getStorageTotalCount(itemId) <= 0L;
+        },
+        () -> controller.requestStoragePage(controller.storageStateManager.getStoragePage()),
+        controller.isLocalPlayerCreative(),
+        controller.storageStateManager.getStorageTotalCount(itemId),
+        controller.storageStateManager.hasStoragePageSnapshot());
+  }
 
-    void selectItemForPlacement(String itemId, String label, ItemStack preview) {
-            controller.buildPlacementService.selectItemForPlacement(itemId, label, preview,
-                    () -> controller.setMode(BuilderMode.INTERACT));
-        }
+  void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
+    controller.buildPlacementService.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
+  }
 
-    void setGuiBinding(int index, BlockPos pos, Direction face, String itemIdHint) {
-            controller.storageStateManager.setGuiBinding(index, pos, face, itemIdHint);
-        }
+  void confirmSmartFill(
+      BlockHitResult hit, int maxBlocks, int detectionDiameter, Vec3 rayOrigin, Vec3 rayDirection) {
+    controller.buildPlacementService.confirmSmartFill(
+        hit, maxBlocks, detectionDiameter, rayOrigin, rayDirection);
+  }
 
-    void clearGuiBinding(int index) {
-            controller.storageStateManager.clearGuiBinding(index);
-        }
+  void storeFluidFromStorageItem(String itemId) {
+    controller.buildPlacementService.storeFluidFromStorageItem(itemId);
+  }
 
-    void openGuiBinding(int index) {
-            controller.storageStateManager.openGuiBinding(index);
-        }
+  void storeFluidFromPinnedItem(String itemId) {
+    controller.buildPlacementService.storeFluidFromPinnedItem(itemId);
+  }
 
-    void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.placeSelected(hit, forcePlace, rayOrigin, rayDir, false, false);
-        }
+  void storeFluidFromToolSlot(int toolSlot) {
+    controller.buildPlacementService.storeFluidFromToolSlot(toolSlot);
+  }
 
-    void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
-            controller.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied, false);
-        }
+  void interactEmpty(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
+    controller.buildPlacementService.interactEmpty(
+        hit, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
+  }
 
-    void placeSelected(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied,
-                boolean quickBuild) {
-            String itemId = controller.buildPlacementService.getSelectedItemId();
-            controller.buildPlacementService.placeSelected(hit, forcePlace, rayOrigin, rayDir, skipIfOccupied, quickBuild,
-                    controller::beginRemoteMenuOpenGrace,
-                    () -> {
-                        if (controller.isLocalPlayerCreative()) return false;
-                        ItemStack preview = controller.buildPlacementService.getSelectedItemPreview();
-                        return preview != null && !preview.isEmpty()
-                                && preview.getItem() instanceof BlockItem
-                                && controller.storageStateManager.hasStoragePageSnapshot()
-                                && controller.storageStateManager.getStorageTotalCount(itemId) <= 0L;
-                    },
-                    () -> controller.requestStoragePage(controller.storageStateManager.getStoragePage()),
-                    controller.isLocalPlayerCreative(),
-                    controller.storageStateManager.getStorageTotalCount(itemId),
-                    controller.storageStateManager.hasStoragePageSnapshot());
-        }
+  void interactEntityEmpty(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir) {
+    controller.buildPlacementService.interactEntityEmpty(
+        entityId, hitLocation, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
+  }
 
-    void placeSelectedBatch(List<BlockHitResult> hits, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
-                boolean skipIfOccupied) {
-            controller.placeSelectedBatch(hits, hits == null || hits.isEmpty() ? null : hits.get(0), forcePlace, rayOrigin, rayDir,
-                    skipIfOccupied);
-        }
+  void interactBlockWithToolSlot(
+      BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean localScreenOpened) {
+    controller.buildPlacementService.interactBlockWithToolSlot(
+        hit, toolSlot, rayOrigin, rayDir, localScreenOpened, controller::beginRemoteMenuOpenGrace);
+  }
 
-    void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
-                Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied) {
-            controller.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied, false);
-        }
+  void useItemInAirWithToolSlot(
+      BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean localScreenOpened) {
+    controller.buildPlacementService.useItemInAirWithToolSlot(
+        hit, toolSlot, rayOrigin, rayDir, localScreenOpened, controller::beginRemoteMenuOpenGrace);
+  }
 
-    void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit, boolean forcePlace,
-                Vec3 rayOrigin, Vec3 rayDir, boolean skipIfOccupied, boolean overwriteExisting) {
-            String itemId = controller.buildPlacementService.getSelectedItemId();
-            controller.buildPlacementService.placeSelectedBatch(hits, templateHit, forcePlace, rayOrigin, rayDir, skipIfOccupied,
-                    overwriteExisting,
-                    controller::beginRemoteMenuOpenGrace,
-                    () -> {
-                        if (controller.isLocalPlayerCreative()) return false;
-                        ItemStack preview = controller.buildPlacementService.getSelectedItemPreview();
-                        return preview != null && !preview.isEmpty()
-                                && preview.getItem() instanceof BlockItem
-                                && controller.storageStateManager.hasStoragePageSnapshot()
-                                && controller.storageStateManager.getStorageTotalCount(itemId) <= 0L;
-                    },
-                    () -> controller.requestStoragePage(controller.storageStateManager.getStoragePage()),
-                    controller.isLocalPlayerCreative(),
-                    controller.storageStateManager.getStorageTotalCount(itemId),
-                    controller.storageStateManager.hasStoragePageSnapshot());
-        }
+  void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
+    controller.buildPlacementService.interactBlockWithPinnedItem(
+        hit, itemId, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
+  }
 
-    void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.placeSelectedFluid(hit, forcePlace, rayOrigin, rayDir);
-        }
+  void interactEntityWithToolSlot(
+      int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
+    controller.buildPlacementService.interactEntityWithToolSlot(
+        entityId, hitLocation, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
+  }
 
-    void confirmSmartFill(
-            BlockHitResult hit,
-            int maxBlocks,
-            int detectionDiameter,
-            Vec3 rayOrigin,
-            Vec3 rayDirection) {
-        controller.buildPlacementService.confirmSmartFill(
-                hit, maxBlocks, detectionDiameter, rayOrigin, rayDirection);
-    }
+  void interactEntityWithPinnedItem(
+      int entityId, Vec3 hitLocation, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
+    controller.buildPlacementService.interactEntityWithPinnedItem(
+        entityId, hitLocation, itemId, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
+  }
 
-    void storeFluidFromStorageItem(String itemId) {
-            controller.buildPlacementService.storeFluidFromStorageItem(itemId);
-        }
+  void breakPlaced(BlockPos pos) {
+    controller.buildPlacementService.breakPlaced(pos, Direction.UP, false);
+  }
 
-    void storeFluidFromPinnedItem(String itemId) {
-            controller.buildPlacementService.storeFluidFromPinnedItem(itemId);
-        }
+  void breakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) {
+    controller.buildPlacementService.breakPlaced(pos, face, allowAdjacentFallback);
+  }
 
-    void storeFluidFromToolSlot(int toolSlot) {
-            controller.buildPlacementService.storeFluidFromToolSlot(toolSlot);
-        }
+  void startMining(BlockPos pos, int face, int toolSlot) {
+    startMining(pos, face, toolSlot, RtsTraceInputKind.UNKNOWN);
+  }
 
-    void interactEmpty(BlockHitResult hit, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.interactEmpty(hit, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
-        }
+  void startMining(BlockPos pos, int face, int toolSlot, RtsTraceInputKind inputKind) {
+    controller.miningOperationService.startMining(
+        pos,
+        face,
+        toolSlot,
+        controller.buildPlacementService.getSelectedItemId(),
+        controller.buildPlacementService.getSelectedItemPreview(),
+        controller.isAllowPlacedBlockRecovery(),
+        controller.isToolProtectionEnabled(),
+        inputKind,
+        inputKind == RtsTraceInputKind.KEYBOARD ? "KEY_PRESS" : "POINTER_PRESS");
+  }
 
-    void interactEntityEmpty(int entityId, Vec3 hitLocation, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.interactEntityEmpty(entityId, hitLocation, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
-        }
+  void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode) {
+    startUltimine(pos, face, toolSlot, limit, mode, RtsTraceInputKind.UNKNOWN);
+  }
 
-    void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.interactBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
-        }
+  void startUltimine(
+      BlockPos pos, int face, int toolSlot, int limit, byte mode, RtsTraceInputKind inputKind) {
+    controller.miningOperationService.startUltimine(
+        pos,
+        face,
+        toolSlot,
+        limit,
+        mode,
+        controller.buildPlacementService.getSelectedItemId(),
+        controller.buildPlacementService.getSelectedItemPreview(),
+        controller.isToolProtectionEnabled(),
+        inputKind,
+        inputKind == RtsTraceInputKind.KEYBOARD ? "KEY_PRESS" : "POINTER_PRESS");
+  }
 
-    void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.useItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
-        }
+  void continueMining(int toolSlot) {
+    controller.miningOperationService.continueMining(toolSlot);
+  }
 
-    void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.interactBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
-        }
+  int getAreaMinePhase() {
+    return controller.miningOperationService.getAreaMinePhase();
+  }
 
-    void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.interactEntityWithToolSlot(entityId, hitLocation, toolSlot, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
-        }
+  BlockPos getAreaMinePointA() {
+    return controller.miningOperationService.getAreaMinePointA();
+  }
 
-    void interactEntityWithPinnedItem(int entityId, Vec3 hitLocation, String itemId, Vec3 rayOrigin, Vec3 rayDir) {
-            controller.buildPlacementService.interactEntityWithPinnedItem(entityId, hitLocation, itemId, rayOrigin, rayDir, controller::beginRemoteMenuOpenGrace);
-        }
+  BlockPos getAreaMinePointB() {
+    return controller.miningOperationService.getAreaMinePointB();
+  }
 
-    void breakPlaced(BlockPos pos) {
-            controller.buildPlacementService.breakPlaced(pos, Direction.UP, false);
-        }
+  int getAreaMineHeightOffset() {
+    return controller.miningOperationService.getAreaMineHeightOffset();
+  }
 
-    void breakPlaced(BlockPos pos, Direction face, boolean allowAdjacentFallback) {
-            controller.buildPlacementService.breakPlaced(pos, face, allowAdjacentFallback);
-        }
+  void setAreaMineHeightOffset(int offset) {
+    controller.miningOperationService.setAreaMineHeightOffset(offset);
+  }
 
-    void startMining(BlockPos pos, int face, int toolSlot) {
-            controller.miningOperationService.startMining(pos, face, toolSlot,
-                    controller.buildPlacementService.getSelectedItemId(),
-                    controller.buildPlacementService.getSelectedItemPreview(),
-                    controller.isAllowPlacedBlockRecovery(), controller.isToolProtectionEnabled());
-        }
+  void adjustAreaMineHeightOffset(int delta) {
+    controller.miningOperationService.adjustAreaMineHeightOffset(delta);
+  }
 
-    void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode) {
-            controller.miningOperationService.startUltimine(pos, face, toolSlot, limit, mode,
-                    controller.buildPlacementService.getSelectedItemId(),
-                    controller.buildPlacementService.getSelectedItemPreview(),
-                    controller.isToolProtectionEnabled());
-        }
+  void setAreaMinePointA(BlockPos pos) {
+    controller.miningOperationService.setAreaMinePointA(
+        pos, controller.anchorX, controller.anchorZ, controller.maxRadius, controller.hasBounds());
+  }
 
-    void continueMining(int toolSlot) {
-            controller.miningOperationService.continueMining(toolSlot);
-        }
+  void setAreaMinePointB(BlockPos pos) {
+    controller.miningOperationService.setAreaMinePointB(
+        pos, controller.anchorX, controller.anchorZ, controller.maxRadius, controller.hasBounds());
+  }
 
-    int getAreaMinePhase() {
-            return controller.miningOperationService.getAreaMinePhase();
-        }
+  void clearAreaMineSession() {
+    controller.miningOperationService.clearAreaMineSession();
+  }
 
-    BlockPos getAreaMinePointA() {
-            return controller.miningOperationService.getAreaMinePointA();
-        }
+  void confirmAreaMine(int toolSlot, ShapeFillMode fillMode) {
+    confirmAreaMine(toolSlot, fillMode, RtsTraceInputKind.UNKNOWN);
+  }
 
-    BlockPos getAreaMinePointB() {
-            return controller.miningOperationService.getAreaMinePointB();
-        }
+  void confirmAreaMine(int toolSlot, ShapeFillMode fillMode, RtsTraceInputKind inputKind) {
+    controller.miningOperationService.confirmAreaMine(
+        toolSlot,
+        fillMode,
+        controller.buildPlacementService.getSelectedItemId(),
+        controller.buildPlacementService.getSelectedItemPreview(),
+        controller.isToolProtectionEnabled(),
+        inputKind);
+  }
 
-    int getAreaMineHeightOffset() {
-            return controller.miningOperationService.getAreaMineHeightOffset();
-        }
+  void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) {
+    confirmShapeAreaDestroy(targets, toolSlot, RtsTraceInputKind.UNKNOWN);
+  }
 
-    void setAreaMineHeightOffset(int offset) {
-            controller.miningOperationService.setAreaMineHeightOffset(offset);
-        }
+  void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot, RtsTraceInputKind inputKind) {
+    controller.miningOperationService.confirmShapeAreaDestroy(
+        targets,
+        toolSlot,
+        controller.buildPlacementService.getSelectedItemId(),
+        controller.buildPlacementService.getSelectedItemPreview(),
+        controller.isToolProtectionEnabled(),
+        inputKind);
+  }
 
-    void adjustAreaMineHeightOffset(int delta) {
-            controller.miningOperationService.adjustAreaMineHeightOffset(delta);
-        }
+  void confirmConvenienceDestroy(
+      com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode mode,
+      BlockHitResult hit,
+      com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings settings,
+      int toolSlot) {
+    confirmConvenienceDestroy(mode, hit, settings, toolSlot, RtsTraceInputKind.UNKNOWN);
+  }
 
-    void setAreaMinePointA(BlockPos pos) {
-            controller.miningOperationService.setAreaMinePointA(pos, controller.anchorX, controller.anchorZ, controller.maxRadius, controller.hasBounds());
-        }
+  void confirmConvenienceDestroy(
+      com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode mode,
+      BlockHitResult hit,
+      com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings settings,
+      int toolSlot,
+      RtsTraceInputKind inputKind) {
+    controller.miningOperationService.confirmConvenienceDestroy(
+        mode,
+        hit,
+        settings,
+        toolSlot,
+        controller.buildPlacementService.getSelectedItemId(),
+        controller.buildPlacementService.getSelectedItemPreview(),
+        controller.isToolProtectionEnabled(),
+        inputKind);
+  }
 
-    void setAreaMinePointB(BlockPos pos) {
-            controller.miningOperationService.setAreaMinePointB(pos, controller.anchorX, controller.anchorZ, controller.maxRadius, controller.hasBounds());
-        }
+  void abortMining(int toolSlot) {
+    abortMining(toolSlot, RtsMiningStopOrigin.EXPLICIT_CANCEL);
+  }
 
-    void clearAreaMineSession() {
-            controller.miningOperationService.clearAreaMineSession();
-        }
+  void abortMining(int toolSlot, RtsMiningStopOrigin stopOrigin) {
+    controller.miningOperationService.abortMining(toolSlot, stopOrigin);
+  }
 
-    void confirmAreaMine(int toolSlot, ShapeFillMode fillMode) {
-            controller.miningOperationService.confirmAreaMine(toolSlot, fillMode,
-                    controller.buildPlacementService.getSelectedItemId(),
-                    controller.buildPlacementService.getSelectedItemPreview(),
-                    controller.isToolProtectionEnabled());
-        }
+  int getMineProgressStage() {
+    return controller.miningOperationService.getMineProgressStage();
+  }
 
-    void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot) {
-            controller.miningOperationService.confirmShapeAreaDestroy(targets, toolSlot,
-                    controller.buildPlacementService.getSelectedItemId(),
-                    controller.buildPlacementService.getSelectedItemPreview(),
-                    controller.isToolProtectionEnabled());
-    }
+  BlockPos getMineProgressPos() {
+    return controller.miningOperationService.getMineProgressPos();
+  }
 
-    void confirmConvenienceDestroy(
-            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode mode,
-            BlockHitResult hit,
-            com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings settings,
-            int toolSlot) {
-        controller.miningOperationService.confirmConvenienceDestroy(
-                mode, hit, settings, toolSlot,
-                controller.buildPlacementService.getSelectedItemId(),
-                controller.buildPlacementService.getSelectedItemPreview(),
-                controller.isToolProtectionEnabled());
-    }
+  BlockPos getMineProgressCompletedPos() {
+    return controller.miningOperationService.getMineProgressCompletedPos();
+  }
 
-    void abortMining(int toolSlot) {
-            controller.miningOperationService.abortMining(toolSlot);
-        }
+  long getMineProgressCompletedAtMs() {
+    return controller.miningOperationService.getMineProgressCompletedAtMs();
+  }
 
-    int getMineProgressStage() {
-            return controller.miningOperationService.getMineProgressStage();
-        }
+  int getUltimineProgressProcessed() {
+    return controller.miningOperationService.getUltimineProgressProcessed();
+  }
 
-    BlockPos getMineProgressPos() {
-            return controller.miningOperationService.getMineProgressPos();
-        }
+  int getUltimineProgressTotal() {
+    return controller.miningOperationService.getUltimineProgressTotal();
+  }
 
-    BlockPos getMineProgressCompletedPos() {
-            return controller.miningOperationService.getMineProgressCompletedPos();
-        }
+  void applyUltimineProgress(S2CRtsUltimineProgressPayload payload) {
+    controller.miningOperationService.applyUltimineProgress(payload.processed(), payload.total());
+  }
 
-    long getMineProgressCompletedAtMs() {
-            return controller.miningOperationService.getMineProgressCompletedAtMs();
-        }
+  void rotatePlacementClockwise() {
+    controller.buildPlacementService.rotatePlacementClockwise();
+  }
 
-    int getUltimineProgressProcessed() {
-            return controller.miningOperationService.getUltimineProgressProcessed();
-        }
+  void rotatePlacementCounterClockwise() {
+    controller.buildPlacementService.rotatePlacementCounterClockwise();
+  }
 
-    int getUltimineProgressTotal() {
-            return controller.miningOperationService.getUltimineProgressTotal();
-        }
+  void setPlacementStateProperty(String propertyName, String valueName) {
+    controller.buildPlacementService.setPlacementStateProperty(propertyName, valueName);
+  }
 
-    void applyUltimineProgress(S2CRtsUltimineProgressPayload payload) {
-            controller.miningOperationService.applyUltimineProgress(payload.processed(), payload.total());
-        }
+  void copyPlacementState(BlockState state) {
+    controller.buildPlacementService.copyPlacementState(state);
+  }
 
-    void rotatePlacementClockwise() {
-            controller.buildPlacementService.rotatePlacementClockwise();
-        }
-
-    void rotatePlacementCounterClockwise() {
-            controller.buildPlacementService.rotatePlacementCounterClockwise();
-        }
-
-    void setPlacementStateProperty(String propertyName, String valueName) {
-            controller.buildPlacementService.setPlacementStateProperty(propertyName, valueName);
-        }
-
-    void copyPlacementState(BlockState state) {
-            controller.buildPlacementService.copyPlacementState(state);
-        }
-
-    void syncVisualCameraFrame() {
-            Minecraft minecraft = Minecraft.getInstance();
-            controller.cameraOrbitService.syncVisualCameraFrame(minecraft, controller.anchorX, controller.anchorY, controller.anchorZ, controller.maxRadius, controller.enabled);
-        }
-
+  void syncVisualCameraFrame() {
+    Minecraft minecraft = Minecraft.getInstance();
+    controller.cameraOrbitService.syncVisualCameraFrame(
+        minecraft,
+        controller.anchorX,
+        controller.anchorY,
+        controller.anchorZ,
+        controller.maxRadius,
+        controller.enabled);
+  }
 }

@@ -217,6 +217,10 @@ final class ClientRtsStateQueryOwner {
             return controller.storageStateManager.getStorageTotalEntries();
         }
 
+    int getStoragePageSize() {
+            return controller.storageStateManager.getStoragePageSize();
+        }
+
     int getStorageRevision() {
             return controller.storageStateManager.getStorageRevision();
         }

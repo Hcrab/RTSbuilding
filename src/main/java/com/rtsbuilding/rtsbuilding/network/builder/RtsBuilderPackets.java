@@ -1,202 +1,223 @@
 package com.rtsbuilding.rtsbuilding.network.builder;
 
 import com.rtsbuilding.rtsbuilding.network.ClientPayloadDispatcher;
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsInteractionHandlers;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsMiningHandlers;
 import com.rtsbuilding.rtsbuilding.network.builder.handler.RtsPlaceHandlers;
-import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 
 /**
  * Registers RTS placement, mining, interaction, and quick-drop packets.
  *
- * This class groups packet registration only; payload ids, codecs, and packet
- * directions stay in the payload records.
+ * <p>This class groups packet registration only; payload ids, codecs, and packet directions stay in
+ * the payload records.
  */
 public final class RtsBuilderPackets {
-    private RtsBuilderPackets() {
-    }
+  private RtsBuilderPackets() {}
 
-    public static void register(RtsPayloadRegistrar registrar) {
-        registrar.playToServer(
-                C2SRtsSetModePayload.TYPE,
-                C2SRtsSetModePayload.STREAM_CODEC,
-                RtsPlaceHandlers::handleSetMode);
+  public static void register(RtsPayloadRegistrar registrar) {
+    registrar.playToServer(
+        C2SRtsSetModePayload.TYPE,
+        C2SRtsSetModePayload.STREAM_CODEC,
+        RtsPlaceHandlers::handleSetMode);
 
-        registrar.playToServer(
-                C2SRtsRotateBlockPayload.TYPE,
-                C2SRtsRotateBlockPayload.STREAM_CODEC,
-                RtsPlaceHandlers::handleRotateBlock);
+    registrar.playToServer(
+        C2SRtsRotateBlockPayload.TYPE,
+        C2SRtsRotateBlockPayload.STREAM_CODEC,
+        RtsPlaceHandlers::handleRotateBlock);
 
-        registrar.playToServer(
-                C2SRtsOrientBlockPayload.TYPE,
-                C2SRtsOrientBlockPayload.STREAM_CODEC,
-                RtsPlaceHandlers::handleOrientBlock);
+    registrar.playToServer(
+        C2SRtsOrientBlockPayload.TYPE,
+        C2SRtsOrientBlockPayload.STREAM_CODEC,
+        RtsPlaceHandlers::handleOrientBlock);
 
-        registrar.playToServer(
-                C2SRtsPlacePayload.TYPE,
-                C2SRtsPlacePayload.STREAM_CODEC,
-                RtsPlaceHandlers::handlePlace);
+    registrar.playToServer(
+        C2SRtsPlacePayload.TYPE, C2SRtsPlacePayload.STREAM_CODEC, RtsPlaceHandlers::handlePlace);
 
-        registrar.playToServer(
-                C2SRtsPlaceBatchPayload.TYPE,
-                C2SRtsPlaceBatchPayload.STREAM_CODEC,
-                RtsPlaceHandlers::handlePlaceBatch);
+    registrar.playToServer(
+        C2SRtsPlaceBatchPayload.TYPE,
+        C2SRtsPlaceBatchPayload.STREAM_CODEC,
+        RtsPlaceHandlers::handlePlaceBatch);
 
-        registrar.playToServer(
-                C2SRtsConfirmSmartFillPayload.TYPE,
-                C2SRtsConfirmSmartFillPayload.STREAM_CODEC,
-                RtsPlaceHandlers::handleConfirmSmartFill);
+    registrar.playToServer(
+        C2SRtsConfirmSmartFillPayload.TYPE,
+        C2SRtsConfirmSmartFillPayload.STREAM_CODEC,
+        RtsPlaceHandlers::handleConfirmSmartFill);
 
-        registrar.playToServer(
-                C2SRtsPlaceFluidPayload.TYPE,
-                C2SRtsPlaceFluidPayload.STREAM_CODEC,
-                RtsPlaceHandlers::handlePlaceFluid);
+    registrar.playToServer(
+        C2SRtsPlaceFluidPayload.TYPE,
+        C2SRtsPlaceFluidPayload.STREAM_CODEC,
+        RtsPlaceHandlers::handlePlaceFluid);
 
-        registrar.playToServer(
-                C2SRtsStoreFluidPayload.TYPE,
-                C2SRtsStoreFluidPayload.STREAM_CODEC,
-                RtsPlaceHandlers::handleStoreFluid);
+    registrar.playToServer(
+        C2SRtsStoreFluidPayload.TYPE,
+        C2SRtsStoreFluidPayload.STREAM_CODEC,
+        RtsPlaceHandlers::handleStoreFluid);
 
-        registrar.playToServer(
-                C2SRtsInteractPayload.TYPE,
-                C2SRtsInteractPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleInteract);
+    registrar.playToServer(
+        C2SRtsInteractPayload.TYPE,
+        C2SRtsInteractPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleInteract);
 
-        registrar.playToServer(
-                C2SRtsQuickDropPayload.TYPE,
-                C2SRtsQuickDropPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleQuickDrop);
+    registrar.playToServer(
+        C2SRtsQuickDropPayload.TYPE,
+        C2SRtsQuickDropPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleQuickDrop);
 
-        registrar.playToServer(
-                C2SRtsBreakPayload.TYPE,
-                C2SRtsBreakPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleBreak);
+    registrar.playToServer(
+        C2SRtsBreakPayload.TYPE,
+        C2SRtsBreakPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleBreak);
 
-        registrar.playToServer(
-                C2SRtsMinePayload.TYPE,
-                C2SRtsMinePayload.STREAM_CODEC,
-                RtsMiningHandlers::handleMine);
+    registrar.playToServer(
+        C2SRtsMinePayload.TYPE, C2SRtsMinePayload.STREAM_CODEC, RtsMiningHandlers::handleMine);
 
-        registrar.playToServer(
-                C2SRtsUltiminePayload.TYPE,
-                C2SRtsUltiminePayload.STREAM_CODEC,
-                RtsMiningHandlers::handleUltimine);
+    registrar.playToServer(
+        C2SRtsMineTracePayload.TYPE,
+        C2SRtsMineTracePayload.STREAM_CODEC,
+        RtsMiningHandlers::handleMineTrace);
 
-        registrar.playToServer(
-                C2SRtsAreaMinePayload.TYPE,
-                C2SRtsAreaMinePayload.STREAM_CODEC,
-                RtsMiningHandlers::handleAreaMine);
+    registrar.playToServer(
+        C2SRtsUltiminePayload.TYPE,
+        C2SRtsUltiminePayload.STREAM_CODEC,
+        RtsMiningHandlers::handleUltimine);
 
-        registrar.playToServer(
-                C2SRtsAreaDestroyPayload.TYPE,
-                C2SRtsAreaDestroyPayload.STREAM_CODEC,
-                RtsMiningHandlers::handleAreaDestroy);
+    registrar.playToServer(
+        C2SRtsUltimineTracePayload.TYPE,
+        C2SRtsUltimineTracePayload.STREAM_CODEC,
+        RtsMiningHandlers::handleUltimineTrace);
 
-        registrar.playToServer(
-                C2SRtsConvenienceDestroyPayload.TYPE,
-                C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
-                RtsMiningHandlers::handleConvenienceDestroy);
+    registrar.playToServer(
+        C2SRtsAreaMinePayload.TYPE,
+        C2SRtsAreaMinePayload.STREAM_CODEC,
+        RtsMiningHandlers::handleAreaMine);
 
-        registrar.playToClient(
-                S2CRtsMineProgressPayload.TYPE,
-                S2CRtsMineProgressPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsAreaMineTracePayload.TYPE,
+        C2SRtsAreaMineTracePayload.STREAM_CODEC,
+        RtsMiningHandlers::handleAreaMineTrace);
 
-        registrar.playToClient(
-                S2CRtsPlaceAnimationPayload.TYPE,
-                S2CRtsPlaceAnimationPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsAreaDestroyPayload.TYPE,
+        C2SRtsAreaDestroyPayload.STREAM_CODEC,
+        RtsMiningHandlers::handleAreaDestroy);
 
-        registrar.playToClient(
-                S2CRtsBreakAnimationPayload.TYPE,
-                S2CRtsBreakAnimationPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsAreaDestroyTracePayload.TYPE,
+        C2SRtsAreaDestroyTracePayload.STREAM_CODEC,
+        RtsMiningHandlers::handleAreaDestroyTrace);
 
-        registrar.playToClient(
-                S2CRtsBlockActionSoundPayload.TYPE,
-                S2CRtsBlockActionSoundPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsConvenienceDestroyPayload.TYPE,
+        C2SRtsConvenienceDestroyPayload.STREAM_CODEC,
+        RtsMiningHandlers::handleConvenienceDestroy);
 
-        registrar.playToClient(
-                S2CRtsUltimineProgressPayload.TYPE,
-                S2CRtsUltimineProgressPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsConvenienceDestroyTracePayload.TYPE,
+        C2SRtsConvenienceDestroyTracePayload.STREAM_CODEC,
+        RtsMiningHandlers::handleConvenienceDestroyTrace);
 
-        registrar.playToClient(
-                S2CRtsHarvestTierSkippedPayload.TYPE,
-                S2CRtsHarvestTierSkippedPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToClient(
+        S2CRtsMineProgressPayload.TYPE,
+        S2CRtsMineProgressPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
 
-        // ===== Undo =====
+    registrar.playToClient(
+        S2CRtsOperationTerminalPayload.TYPE,
+        S2CRtsOperationTerminalPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
 
-        registrar.playToServer(
-                C2SRtsUndoPayload.TYPE,
-                C2SRtsUndoPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleUndo);
+    registrar.playToClient(
+        S2CRtsPlaceAnimationPayload.TYPE,
+        S2CRtsPlaceAnimationPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
 
-        registrar.playToServer(
-                C2SRtsRedoPayload.TYPE,
-                C2SRtsRedoPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleRedo);
+    registrar.playToClient(
+        S2CRtsBreakAnimationPayload.TYPE,
+        S2CRtsBreakAnimationPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
 
-        registrar.playToServer(
-                C2SRtsSubmitPendingPayload.TYPE,
-                C2SRtsSubmitPendingPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleSubmitPending);
+    registrar.playToClient(
+        S2CRtsBlockActionSoundPayload.TYPE,
+        S2CRtsBlockActionSoundPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
 
-        registrar.playToServer(
-                C2SRtsDeleteWorkflowPayload.TYPE,
-                C2SRtsDeleteWorkflowPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleDeleteWorkflow);
+    registrar.playToClient(
+        S2CRtsUltimineProgressPayload.TYPE,
+        S2CRtsUltimineProgressPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
 
-        registrar.playToServer(
-                C2SRtsSetWorkflowProtectedPayload.TYPE,
-                C2SRtsSetWorkflowProtectedPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleSetWorkflowProtected);
+    registrar.playToClient(
+        S2CRtsHarvestTierSkippedPayload.TYPE,
+        S2CRtsHarvestTierSkippedPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
 
-        registrar.playToServer(
-                C2SRtsScanResumePlacementPayload.TYPE,
-                C2SRtsScanResumePlacementPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleScanResumePlacement);
+    // ===== Undo =====
 
-        registrar.playToServer(
-                C2SRtsResumePlacementActionPayload.TYPE,
-                C2SRtsResumePlacementActionPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleResumePlacementAction);
+    registrar.playToServer(
+        C2SRtsUndoPayload.TYPE, C2SRtsUndoPayload.STREAM_CODEC, RtsInteractionHandlers::handleUndo);
 
-        registrar.playToServer(
-                C2SRtsPauseWorkflowPayload.TYPE,
-                C2SRtsPauseWorkflowPayload.STREAM_CODEC,
-                RtsInteractionHandlers::handlePauseWorkflow);
+    registrar.playToServer(
+        C2SRtsRedoPayload.TYPE, C2SRtsRedoPayload.STREAM_CODEC, RtsInteractionHandlers::handleRedo);
 
-        registrar.playToServer(
-                C2SRtsScanBlueprintResumePayload.TYPE,
-                C2SRtsScanBlueprintResumePayload.STREAM_CODEC,
-                RtsInteractionHandlers::handleScanBlueprintResume);
+    registrar.playToServer(
+        C2SRtsSubmitPendingPayload.TYPE,
+        C2SRtsSubmitPendingPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleSubmitPending);
 
-        registrar.playToClient(
-                S2CRtsHistorySyncPayload.TYPE,
-                S2CRtsHistorySyncPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsDeleteWorkflowPayload.TYPE,
+        C2SRtsDeleteWorkflowPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleDeleteWorkflow);
 
-        registrar.playToClient(
-                S2CRtsWorkflowProgressPayload.TYPE,
-                S2CRtsWorkflowProgressPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsSetWorkflowProtectedPayload.TYPE,
+        C2SRtsSetWorkflowProtectedPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleSetWorkflowProtected);
 
-        registrar.playToClient(
-                S2CRtsWorkflowProgressBatchPayload.TYPE,
-                S2CRtsWorkflowProgressBatchPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsScanResumePlacementPayload.TYPE,
+        C2SRtsScanResumePlacementPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleScanResumePlacement);
 
-        registrar.playToClient(
-                S2CRtsResumePlacementScanPayload.TYPE,
-                S2CRtsResumePlacementScanPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
+    registrar.playToServer(
+        C2SRtsResumePlacementActionPayload.TYPE,
+        C2SRtsResumePlacementActionPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleResumePlacementAction);
 
-        registrar.playToClient(
-                S2CRtsBlueprintResumeScanPayload.TYPE,
-                S2CRtsBlueprintResumeScanPayload.STREAM_CODEC,
-                ClientPayloadDispatcher::dispatchBuilder);
-    }
+    registrar.playToServer(
+        C2SRtsPauseWorkflowPayload.TYPE,
+        C2SRtsPauseWorkflowPayload.STREAM_CODEC,
+        RtsInteractionHandlers::handlePauseWorkflow);
+
+    registrar.playToServer(
+        C2SRtsScanBlueprintResumePayload.TYPE,
+        C2SRtsScanBlueprintResumePayload.STREAM_CODEC,
+        RtsInteractionHandlers::handleScanBlueprintResume);
+
+    registrar.playToClient(
+        S2CRtsHistorySyncPayload.TYPE,
+        S2CRtsHistorySyncPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
+
+    registrar.playToClient(
+        S2CRtsWorkflowProgressPayload.TYPE,
+        S2CRtsWorkflowProgressPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
+
+    registrar.playToClient(
+        S2CRtsWorkflowProgressBatchPayload.TYPE,
+        S2CRtsWorkflowProgressBatchPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
+
+    registrar.playToClient(
+        S2CRtsResumePlacementScanPayload.TYPE,
+        S2CRtsResumePlacementScanPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
+
+    registrar.playToClient(
+        S2CRtsBlueprintResumeScanPayload.TYPE,
+        S2CRtsBlueprintResumeScanPayload.STREAM_CODEC,
+        ClientPayloadDispatcher::dispatchBuilder);
+  }
 }

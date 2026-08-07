@@ -1,74 +1,102 @@
 package com.rtsbuilding.rtsbuilding.network.craft.handler;
 
+import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 import com.rtsbuilding.rtsbuilding.network.craft.*;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import net.minecraft.server.level.ServerPlayer;
-import com.rtsbuilding.rtsbuilding.network.RtsPayloadContext;
 
 /**
  * Server-side C2S adapter for RTS crafting actions.
  *
- * Keep recipe scanning, grid refill, JEI transfer, and output insertion in
- * RtsStorageManager; this layer should only unwrap payloads and enqueue work on
- * the server thread.
+ * <p>Keep recipe scanning, grid refill, JEI transfer, and output insertion in RtsStorageManager;
+ * this layer should only unwrap payloads and enqueue work on the server thread.
  */
 public final class RtsCraftNetworkHandlers {
-    private RtsCraftNetworkHandlers() {
-    }
+  private RtsCraftNetworkHandlers() {}
 
-    public static void handleRequestCraftables(C2SRtsRequestCraftablesPayload payload, RtsPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().requestCraftables(
-                        serverPlayer,
-                        payload.search(),
-                        payload.showUnavailable(),
-                        payload.offset(),
-                        payload.limit(),
-                        payload.pinyinSearchEnabled(),
-                        payload.localizedSearchMatches());
-            }
+  public static void handleRequestCraftables(
+      C2SRtsRequestCraftablesPayload payload, RtsPayloadContext context) {
+    context.enqueueWork(
+        () -> {
+          if (context.player() instanceof ServerPlayer serverPlayer) {
+            ServiceRegistry.getInstance()
+                .crafting()
+                .requestCraftables(
+                    serverPlayer,
+                    payload.search(),
+                    payload.showUnavailable(),
+                    payload.offset(),
+                    payload.limit(),
+                    payload.pinyinSearchEnabled(),
+                    payload.localizedSearchMatches());
+          }
         });
-    }
+  }
 
-    public static void handleOpenCraftTerminal(C2SRtsOpenCraftTerminalPayload payload, RtsPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().openCraftTerminal(serverPlayer);
-            }
+  public static void handleOpenCraftTerminal(
+      C2SRtsOpenCraftTerminalPayload payload, RtsPayloadContext context) {
+    context.enqueueWork(
+        () -> {
+          if (context.player() instanceof ServerPlayer serverPlayer) {
+            ServiceRegistry.getInstance().crafting().openCraftTerminal(serverPlayer);
+          }
         });
-    }
+  }
 
-    public static void handleCraftRefill(C2SRtsCraftRefillPayload payload, RtsPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().refillCurrentCraftGridFromBlueprintStacks(
-                        serverPlayer,
-                        payload.blueprintStacks(),
-                        payload.craftedItemId(),
-                        payload.craftedCount());
-            }
+  public static void handleCraftRefill(
+      C2SRtsCraftRefillPayload payload, RtsPayloadContext context) {
+    context.enqueueWork(
+        () -> {
+          if (context.player() instanceof ServerPlayer serverPlayer) {
+            ServiceRegistry.getInstance()
+                .crafting()
+                .refillCurrentCraftGridFromBlueprintStacks(
+                    serverPlayer,
+                    payload.blueprintStacks(),
+                    payload.craftedItemId(),
+                    payload.craftedCount());
+          }
         });
-    }
+  }
 
-    public static void handleCraftRecipe(C2SRtsCraftRecipePayload payload, RtsPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().craftRecipeToLinked(serverPlayer, payload.recipeId(), payload.craftCount());
-            }
+  public static void handleCraftRecipe(
+      C2SRtsCraftRecipePayload payload, RtsPayloadContext context) {
+    context.enqueueWork(
+        () -> {
+          if (context.player() instanceof ServerPlayer serverPlayer) {
+            ServiceRegistry.getInstance()
+                .crafting()
+                .craftRecipeToLinked(serverPlayer, payload.recipeId(), payload.craftCount());
+          }
         });
-    }
+  }
 
-    public static void handleJeiTransfer(C2SRtsJeiTransferPayload payload, RtsPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().crafting().applyJeiTransfer(
-                        serverPlayer,
-                        payload.recipeId(),
-                        payload.ingredientPrototypes(),
-                        payload.maxTransfer(),
-                        payload.clearGridFirst());
-            }
+  public static void handleJeiTransfer(
+      C2SRtsJeiTransferPayload payload, RtsPayloadContext context) {
+    context.enqueueWork(
+        () -> {
+          if (context.player() instanceof ServerPlayer serverPlayer) {
+            ServiceRegistry.getInstance()
+                .crafting()
+                .applyJeiTransfer(
+                    serverPlayer,
+                    payload.recipeId(),
+                    payload.ingredientPrototypes(),
+                    payload.maxTransfer(),
+                    payload.clearGridFirst());
+          }
         });
-    }
+  }
+
+  public static void handleClearCraftingGrid(
+      C2SRtsClearCraftingGridPayload payload, RtsPayloadContext context) {
+    context.enqueueWork(
+        () -> {
+          if (context.player() instanceof ServerPlayer serverPlayer) {
+            ServiceRegistry.getInstance()
+                .crafting()
+                .clearCraftingGrid(serverPlayer, payload.toPlayerInventory());
+          }
+        });
+  }
 }

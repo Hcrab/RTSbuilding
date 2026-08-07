@@ -62,7 +62,7 @@ class RtsModeWheelRoutingContractTest {
                 "boolean handleWorldClickActions(double mouseX, double mouseY, int button)");
         String rightDrag = methodBody(
                 cameraInput,
-                "public boolean handleRightDrag(double mouseX, double mouseY, int button, double dragX, double dragY)");
+                "public boolean handleRightDrag(");
 
         assertTrue(mouseDown.contains("screen.cameraInput.beginRightPress("),
                 "世界右键必须先进入点击/拖动仲裁");

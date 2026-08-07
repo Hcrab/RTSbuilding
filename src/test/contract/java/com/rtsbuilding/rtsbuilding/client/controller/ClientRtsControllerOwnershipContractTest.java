@@ -28,7 +28,7 @@ class ClientRtsControllerOwnershipContractTest {
         assertLineLimit("ClientRtsLifecycleOwner.java", 500);
         assertLineLimit("ClientRtsCommandOwner.java", 500);
         assertLineLimit("ClientRtsInteractionOwner.java", 500);
-        assertLineLimit("ClientRtsController.java", 800);
+        assertMethodLimit("ClientRtsController.java", 250);
 
         assertFalse(controller.contains("private boolean damageSoundEnabled"));
         assertFalse(controller.contains("public void applyWorkflowProgress("));
@@ -61,5 +61,16 @@ class ClientRtsControllerOwnershipContractTest {
             lines = source.count();
         }
         assertTrue(lines <= maximum, name + " 超过 owner 门禁：" + lines + " > " + maximum);
+    }
+
+    private static void assertMethodLimit(String name, int maximum) throws Exception {
+        String source = source(name);
+        long methods = java.util.regex.Pattern.compile(
+                        "(?m)^\\s*(?:public|protected|private)\\s+(?:static\\s+)?(?:final\\s+)?"
+                                + "(?:<[^>]+>\\s+)?[\\w<>?,.\\[\\]]+\\s+\\w+\\s*\\(")
+                .matcher(source)
+                .results()
+                .count();
+        assertTrue(methods <= maximum, name + " 超过职责方法门禁：" + methods + " > " + maximum);
     }
 }

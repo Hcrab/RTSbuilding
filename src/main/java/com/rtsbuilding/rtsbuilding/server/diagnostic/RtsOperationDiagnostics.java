@@ -1,208 +1,362 @@
 package com.rtsbuilding.rtsbuilding.server.diagnostic;
 
+import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsDiagnosticLevel;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsStructuredDiagnostics;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceIds;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.TypedKey;
+import com.rtsbuilding.rtsbuilding.server.pipeline.mining.UltimineExecutePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEvent;
 import com.rtsbuilding.rtsbuilding.server.workflow.event.WorkflowEventType;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
+import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.server.level.ServerPlayer;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
-
-/**
- * RTS 服务端操作的集中式结构化诊断出口。
- *
- * <p>本类只观察 Pipeline 和 Workflow 的统一边界，不参与校验、任务调度或状态迁移。
- * 日志使用稳定字段与原因代码，使 latest.log 能回答“请求是否到达、在哪一阶段退出、
- * 对应哪个工作流以及最终处理了多少目标”。严禁从每 Tick 或每方块路径调用本类。</p>
- */
+/** 集中式 schema-2 服务端诊断出口；只观察网络、Pipeline 与 Workflow 边界。 */
 public final class RtsOperationDiagnostics {
-    public static final TypedKey<Long> KEY_OPERATION_ID =
-            new TypedKey<>("diagnosticOperationId", Long.class);
+  public static final TypedKey<Long> KEY_OPERATION_ID =
+      new TypedKey<>("diagnosticOperationId", Long.class);
+  public static final TypedKey<RtsOperationTraceContext> KEY_EFFECTIVE_TRACE =
+      new TypedKey<>("diagnosticTraceContext", RtsOperationTraceContext.class);
+  private static final AtomicBoolean INSTALLED = new AtomicBoolean();
 
-    private static final AtomicLong NEXT_OPERATION_ID = new AtomicLong();
-    private static final AtomicBoolean INSTALLED = new AtomicBoolean();
+  private RtsOperationDiagnostics() {}
 
-    private RtsOperationDiagnostics() {
+  public static void install() {
+    if (INSTALLED.compareAndSet(false, true))
+      RtsWorkflowEngine.getInstance().addListener(RtsOperationDiagnostics::onWorkflowEvent);
+  }
+
+  /** Pipeline 入口保留网络层 op；内部或旧请求在此补一个 op。 */
+  public static long begin(RtsWorkflowType type, PipelineContext context) {
+    RtsOperationTraceContext trace = context.operationTrace();
+    long operationId =
+        trace.operationId() >= 0L
+            ? trace.operationId()
+            : RtsServerTraceRegistry.allocateOperationId();
+    long serverTick = context.player().serverLevel().getGameTime();
+    RtsOperationTraceContext effective =
+        trace.operationId() == operationId ? trace : trace.withOperation(operationId, serverTick);
+    context.setData(KEY_OPERATION_ID, operationId);
+    context.setData(KEY_EFFECTIVE_TRACE, effective);
+    log(
+        "BEGIN",
+        type,
+        context,
+        effective,
+        -1,
+        "-",
+        "targets",
+        targetCount(context),
+        "outcome",
+        "RECEIVED",
+        "reason",
+        "NONE",
+        "stage",
+        "PIPELINE",
+        "server_tick",
+        serverTick);
+    return operationId;
+  }
+
+  /** Workflow 创建后立即关联，即使同步快速完成也不会丢失 trace。 */
+  public static void workflowCreated(
+      RtsWorkflowType type, PipelineContext context, int workflowId) {
+    RtsServerTraceRegistry.bindWorkflow(
+        context.player(), effectiveTrace(context), type, workflowId, targetCount(context));
+  }
+
+  public static void pipelineResult(
+      RtsWorkflowType type,
+      PipelineContext context,
+      String stage,
+      PipelineResult result,
+      boolean exception) {
+    RtsOperationTraceContext trace = effectiveTrace(context);
+    int workflowId = workflowId(context);
+    if (workflowId >= 0)
+      RtsServerTraceRegistry.bindWorkflow(
+          context.player(), trace, type, workflowId, targetCount(context));
+    String taskId = "-";
+    if (workflowId >= 0) {
+      var task = RtsTaskEngine.INSTANCE.diagnosticTaskSnapshot(context.player(), workflowId);
+      if (task.isPresent()) {
+        RtsServerTraceRegistry.bindTask(task.get());
+        taskId = task.get().id().toString();
+      }
     }
-
-    /** 幂等安装工作流终态监听器；应在服务端管线注册完成后调用一次。 */
-    public static void install() {
-        if (INSTALLED.compareAndSet(false, true)) {
-            RtsWorkflowEngine.getInstance().addListener(RtsOperationDiagnostics::onWorkflowEvent);
-        }
+    if (result instanceof PipelineResult.Success) {
+      String accepted = !"-".equals(taskId) ? "TASK" : workflowId >= 0 ? "WORKFLOW" : "PIPELINE";
+      log(
+          "RESULT",
+          type,
+          context,
+          trace,
+          workflowId,
+          taskId,
+          "targets",
+          targetCount(context),
+          "outcome",
+          "ACCEPTED",
+          "reason",
+          "NONE",
+          "stage",
+          stage,
+          "accepted_level",
+          accepted,
+          "server_tick",
+          context.player().serverLevel().getGameTime());
+      if (workflowId < 0)
+        RtsServerTraceRegistry.terminalWithoutWorkflow(
+            context.player(), trace, type, "COMPLETED", "NO_ASYNC_WORK");
+      return;
     }
+    boolean skipped = result instanceof PipelineResult.Skip;
+    String detail =
+        result instanceof PipelineResult.Failure failure
+            ? failure.message()
+            : ((PipelineResult.Skip) result).reason();
+    RtsDiagnosticReason reason = RtsDiagnosticReason.classify(stage, detail, skipped, exception);
+    String outcome = skipped ? "SKIPPED" : "REJECTED";
+    log(
+        "RESULT",
+        type,
+        context,
+        trace,
+        workflowId,
+        taskId,
+        "targets",
+        targetCount(context),
+        "outcome",
+        outcome,
+        "reason",
+        reason,
+        "stage",
+        stage,
+        "detail",
+        safeDetail(detail),
+        "server_tick",
+        context.player().serverLevel().getGameTime());
+    if (workflowId >= 0)
+      RtsServerTraceRegistry.workflowTerminal(
+          context.player().getUUID(), workflowId, outcome, reason.name(), 0, 0);
+    else
+      RtsServerTraceRegistry.terminalWithoutWorkflow(
+          context.player(), trace, type, outcome, reason.name());
+  }
 
-    /** 在统一 Pipeline 入口为一次真实服务端请求分配短操作编号。 */
-    public static long begin(RtsWorkflowType type, PipelineContext context) {
-        long operationId = NEXT_OPERATION_ID.incrementAndGet();
-        context.setData(KEY_OPERATION_ID, operationId);
-        int targets = targetCount(context);
-        if (isKeyOperation(type, targets)) {
-            RtsbuildingMod.LOGGER.info(
-                    "[RTS-DIAG] event=BEGIN op={} workflow=- player={} mode={} type={} targets={}",
-                    operationId,
-                    context.player().getGameProfile().getName(),
-                    sessionMode(context),
-                    type,
-                    targets);
-        } else {
-            RtsbuildingMod.LOGGER.debug(
-                    "[RTS-DIAG] event=BEGIN op={} workflow=- player={} mode={} type={} targets={}",
-                    operationId,
-                    context.player().getGameProfile().getName(),
-                    sessionMode(context),
-                    type,
-                    targets);
-        }
-        return operationId;
+  public static void filteredTargets(
+      ServerPlayer player,
+      int workflowId,
+      String mode,
+      RtsWorkflowType type,
+      RtsDiagnosticReason reason,
+      int rejectedTargets) {
+    filteredTargets(
+        player,
+        RtsServerTraceRegistry.traceForWorkflow(player, workflowId),
+        workflowId,
+        mode,
+        type,
+        reason,
+        rejectedTargets);
+  }
+
+  /** 批量目标筛选只在聚合计数后调用一次，绝不从逐方块循环调用。 */
+  public static void filteredTargets(
+      ServerPlayer player,
+      RtsOperationTraceContext trace,
+      int workflowId,
+      String mode,
+      RtsWorkflowType type,
+      RtsDiagnosticReason reason,
+      int rejectedTargets) {
+    if (player == null || rejectedTargets <= 0 || level() == RtsDiagnosticLevel.OFF) return;
+    RtsOperationTraceContext effective =
+        trace == null ? RtsOperationTraceContext.legacy("TARGET_FILTER") : trace;
+    long tick = player.serverLevel().getGameTime();
+    RtsbuildingMod.LOGGER.warn(
+        "[RTS-DIAG] schema=2 side=S run={} event=FILTER trace={} seq={} op={} workflow={} task=-"
+            + " player={} mode={} type={} targets={} outcome=REJECTED reason={} stage=TARGET_FILTER"
+            + " server_tick={}",
+        RtsTraceIds.runId(),
+        RtsTraceIds.format(effective.traceId()),
+        effective.sequence(),
+        operationValue(effective.operationId()),
+        workflowValue(workflowId),
+        player.getGameProfile().getName(),
+        safeToken(mode),
+        type == null ? "-" : type,
+        rejectedTargets,
+        reason,
+        tick);
+    RtsStructuredDiagnostics.appendServer(
+        "FILTER",
+        "run",
+        RtsTraceIds.runId(),
+        "trace",
+        RtsTraceIds.format(effective.traceId()),
+        "seq",
+        effective.sequence(),
+        "op",
+        effective.operationId(),
+        "workflow",
+        workflowId,
+        "task",
+        "-",
+        "player",
+        player.getGameProfile().getName(),
+        "mode",
+        safeToken(mode),
+        "type",
+        type == null ? "-" : type.name(),
+        "targets",
+        rejectedTargets,
+        "outcome",
+        "REJECTED",
+        "reason",
+        reason == null ? "UNKNOWN" : reason.name(),
+        "stage",
+        "TARGET_FILTER",
+        "server_tick",
+        tick);
+  }
+
+  public static RtsOperationTraceContext effectiveTrace(PipelineContext context) {
+    RtsOperationTraceContext value = context.getData(KEY_EFFECTIVE_TRACE);
+    return value == null ? context.operationTrace() : value;
+  }
+
+  private static void onWorkflowEvent(WorkflowEvent event) {
+    if (event == null || event.status() == null) return;
+    String outcome;
+    String reason;
+    if (event.type() == WorkflowEventType.COMPLETED) {
+      outcome = event.status().failedBlocks() > 0 ? "PARTIAL" : "COMPLETED";
+      reason = event.status().failedBlocks() > 0 ? "PARTIAL_FAILURE" : "NONE";
+    } else if (event.type() == WorkflowEventType.CANCELLED) {
+      outcome = "CANCELLED";
+      reason = "INTERNAL_FAILURE";
+    } else if (event.type() == WorkflowEventType.TIMEOUT) {
+      outcome = "TIMED_OUT";
+      reason = "TIMEOUT";
+    } else return;
+    RtsServerTraceRegistry.workflowTerminal(
+        event.playerId(),
+        event.entryId(),
+        outcome,
+        reason,
+        event.status().completedBlocks(),
+        event.status().failedBlocks());
+  }
+
+  private static void log(
+      String event,
+      RtsWorkflowType type,
+      PipelineContext context,
+      RtsOperationTraceContext trace,
+      int workflowId,
+      String taskId,
+      Object... fields) {
+    if (level() == RtsDiagnosticLevel.OFF) return;
+    StringBuilder suffix = new StringBuilder();
+    for (int i = 0; fields != null && i + 1 < fields.length; i += 2)
+      suffix.append(' ').append(fields[i]).append('=').append(safeToken(fields[i + 1]));
+    RtsbuildingMod.LOGGER.info(
+        "[RTS-DIAG] schema=2 side=S run={} event={} trace={} seq={} op={} workflow={} task={}"
+            + " player={} mode={} type={}{}",
+        RtsTraceIds.runId(),
+        event,
+        RtsTraceIds.format(trace.traceId()),
+        trace.sequence(),
+        operationValue(trace.operationId()),
+        workflowValue(workflowId),
+        taskId,
+        context.player().getGameProfile().getName(),
+        sessionMode(context),
+        type,
+        suffix);
+    Object[] base = {
+      "run",
+      RtsTraceIds.runId(),
+      "trace",
+      RtsTraceIds.format(trace.traceId()),
+      "seq",
+      trace.sequence(),
+      "op",
+      trace.operationId(),
+      "workflow",
+      workflowId,
+      "task",
+      taskId,
+      "mode",
+      sessionMode(context),
+      "type",
+      type == null ? "-" : type.name()
+    };
+    RtsStructuredDiagnostics.appendServer("PIPELINE_" + event, concat(base, fields));
+  }
+
+  private static int workflowId(PipelineContext context) {
+    Integer value = context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
+    return value == null ? -1 : value;
+  }
+
+  private static int targetCount(PipelineContext context) {
+    Integer value = context.getArg(WorkflowStartPipe.ARG_TOTAL_BLOCKS);
+    if (value != null) return Math.max(0, value);
+    var positions = context.getArg(UltimineExecutePipe.ARG_POSITIONS);
+    return positions == null ? 0 : positions.size();
+  }
+
+  private static String sessionMode(PipelineContext context) {
+    return context.session() == null ? "-" : context.session().mode.name();
+  }
+
+  private static String workflowValue(int workflowId) {
+    return workflowId < 0 ? "-" : Integer.toString(workflowId);
+  }
+
+  private static String operationValue(long operationId) {
+    return operationId < 0L ? "-" : Long.toString(operationId);
+  }
+
+  private static String safeDetail(String value) {
+    return value == null || value.isBlank()
+        ? "-"
+        : value.replace('\r', ' ').replace('\n', ' ').replace('"', '\'');
+  }
+
+  private static String safeToken(Object value) {
+    return value == null || String.valueOf(value).trim().isEmpty()
+        ? "-"
+        : String.valueOf(value)
+            .trim()
+            .replace('\r', ' ')
+            .replace('\n', ' ')
+            .replace('"', '\'')
+            .replace(' ', '_');
+  }
+
+  private static Object[] concat(Object[] first, Object[] second) {
+    Object[] result = new Object[first.length + (second == null ? 0 : second.length)];
+    System.arraycopy(first, 0, result, 0, first.length);
+    if (second != null) System.arraycopy(second, 0, result, first.length, second.length);
+    return result;
+  }
+
+  private static RtsDiagnosticLevel level() {
+    try {
+      return Config.SERVER_DIAGNOSTIC_LEVEL.get();
+    } catch (IllegalStateException ignored) {
+      return RtsDiagnosticLevel.BASIC;
     }
-
-    /** 记录同步 Pipeline 的接纳、拒绝或有意提前退出。 */
-    public static void pipelineResult(
-            RtsWorkflowType type,
-            PipelineContext context,
-            String stage,
-            PipelineResult result,
-            boolean exception) {
-        long operationId = operationId(context);
-        int workflowId = workflowId(context);
-        int targets = targetCount(context);
-
-        if (result instanceof PipelineResult.Success) {
-            if (isKeyOperation(type, targets)) {
-                RtsbuildingMod.LOGGER.info(
-                        "[RTS-DIAG] event=RESULT op={} workflow={} player={} mode={} type={} targets={} "
-                                + "outcome=ACCEPTED reason=NONE stage={}",
-                        operationId, workflowValue(workflowId),
-                        context.player().getGameProfile().getName(), sessionMode(context),
-                        type, targets, stage);
-            } else {
-                RtsbuildingMod.LOGGER.debug(
-                        "[RTS-DIAG] event=RESULT op={} workflow={} player={} mode={} type={} targets={} "
-                                + "outcome=ACCEPTED reason=NONE stage={}",
-                        operationId, workflowValue(workflowId),
-                        context.player().getGameProfile().getName(), sessionMode(context),
-                        type, targets, stage);
-            }
-            return;
-        }
-
-        boolean skipped = result instanceof PipelineResult.Skip;
-        String detail = result instanceof PipelineResult.Failure failure
-                ? failure.message()
-                : ((PipelineResult.Skip) result).reason();
-        RtsDiagnosticReason reason =
-                RtsDiagnosticReason.classify(stage, detail, skipped, exception);
-        String outcome = skipped ? "SKIPPED" : "REJECTED";
-        if (skipped) {
-            RtsbuildingMod.LOGGER.info(
-                    "[RTS-DIAG] event=RESULT op={} workflow={} player={} mode={} type={} targets={} "
-                            + "outcome={} reason={} stage={} detail=\"{}\"",
-                    operationId, workflowValue(workflowId),
-                    context.player().getGameProfile().getName(), sessionMode(context), type, targets,
-                    outcome, reason, stage, safeDetail(detail));
-        } else {
-            RtsbuildingMod.LOGGER.warn(
-                    "[RTS-DIAG] event=RESULT op={} workflow={} player={} mode={} type={} targets={} "
-                            + "outcome={} reason={} stage={} detail=\"{}\"",
-                    operationId, workflowValue(workflowId),
-                    context.player().getGameProfile().getName(), sessionMode(context), type, targets,
-                    outcome, reason, stage, safeDetail(detail));
-        }
-    }
-
-    /**
-     * 记录批量目标筛选中的聚合拒绝。调用方必须先聚合数量；本方法不得从逐方块循环调用。
-     */
-    public static void filteredTargets(
-            ServerPlayer player,
-            int workflowId,
-            String mode,
-            RtsWorkflowType type,
-            RtsDiagnosticReason reason,
-            int rejectedTargets) {
-        if (player == null || rejectedTargets <= 0) return;
-        RtsbuildingMod.LOGGER.warn(
-                "[RTS-DIAG] event=FILTER op=- workflow={} player={} mode={} type={} targets={} "
-                        + "outcome=REJECTED reason={} stage=TARGET_FILTER",
-                workflowValue(workflowId),
-                player.getGameProfile().getName(),
-                mode == null || mode.isBlank() ? "-" : mode,
-                type == null ? "-" : type,
-                rejectedTargets,
-                reason);
-    }
-
-    private static void onWorkflowEvent(WorkflowEvent event) {
-        if (event == null || event.status() == null) return;
-        String outcome;
-        RtsDiagnosticReason reason;
-        if (event.type() == WorkflowEventType.COMPLETED) {
-            outcome = event.status().failedBlocks() > 0 ? "PARTIAL" : "COMPLETED";
-            reason = event.status().failedBlocks() > 0
-                    ? RtsDiagnosticReason.PARTIAL_FAILURE
-                    : RtsDiagnosticReason.NONE;
-        } else if (event.type() == WorkflowEventType.CANCELLED) {
-            outcome = "CANCELLED";
-            reason = RtsDiagnosticReason.CANCELLED;
-        } else if (event.type() == WorkflowEventType.TIMEOUT) {
-            outcome = "TIMED_OUT";
-            reason = RtsDiagnosticReason.TIMED_OUT;
-        } else {
-            return;
-        }
-
-        RtsbuildingMod.LOGGER.info(
-                "[RTS-DIAG] event=TERMINAL op=- workflow={} player={} mode=- type={} targets={} "
-                        + "outcome={} reason={} completed={} failed={}",
-                event.entryId(), event.playerId(), event.status().type(),
-                event.status().totalBlocks(), outcome, reason,
-                event.status().completedBlocks(), event.status().failedBlocks());
-    }
-
-    private static long operationId(PipelineContext context) {
-        Long value = context.getData(KEY_OPERATION_ID);
-        return value == null ? -1L : value;
-    }
-
-    private static int workflowId(PipelineContext context) {
-        Integer value = context.getData(PipelineContext.KEY_WORKFLOW_ENTRY_ID);
-        return value == null ? -1 : value;
-    }
-
-    private static int targetCount(PipelineContext context) {
-        Integer value = context.getArg(WorkflowStartPipe.ARG_TOTAL_BLOCKS);
-        return value == null ? 0 : Math.max(0, value);
-    }
-
-    private static String sessionMode(PipelineContext context) {
-        return context.session() == null ? "-" : context.session().mode.name();
-    }
-
-    private static boolean isKeyOperation(RtsWorkflowType type, int targets) {
-        if (targets > 1) return true;
-        return switch (type) {
-            case ULTIMINE, AREA_MINE, AREA_DESTROY, PLACE_BATCH,
-                    QUICK_BUILD, BLUEPRINT_BUILD -> true;
-            case MINE_SINGLE, PLACE_SINGLE, STOP_MINING -> false;
-        };
-    }
-
-    private static String workflowValue(int workflowId) {
-        return workflowId < 0 ? "-" : Integer.toString(workflowId);
-    }
-
-    /** 保持结构化日志单行，避免外部文本破坏字段边界。 */
-    private static String safeDetail(String detail) {
-        if (detail == null || detail.isBlank()) return "-";
-        return detail.replace('\r', ' ')
-                .replace('\n', ' ')
-                .replace('"', '\'');
-    }
+  }
 }

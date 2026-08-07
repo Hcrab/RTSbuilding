@@ -92,7 +92,7 @@ class RtsRemoteBlockSoundContractTest {
                 "相对方块声音必须注册为 S2C 数据包。");
         assertTrue(dispatcher.contains("ClientSink") && dispatcher.contains("dispatchBuilder"),
                 "公共网络层应仅转交给客户端安装的 sink，避免专用服务端加载客户端类。");
-        assertTrue(clientSink.contains(
+        assertTrue(clientSink.replaceAll("\\s+", " ").contains(
                         "case S2CRtsBlockActionSoundPayload value -> RtsClientNetworkHandlers.handleBlockActionSound(value, context);"),
                 "专用服务端也必须能安全分发声音包，而不直接加载客户端类。");
     }

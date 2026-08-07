@@ -17,7 +17,7 @@ import net.fabricmc.loader.api.FabricLoader;
 
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
-    private static final String STABLE_VERSION = "1.1.7";
+    private static final String STABLE_VERSION = "1.1.6-patch2-fabric-alpha.1";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean shownThisConnection;

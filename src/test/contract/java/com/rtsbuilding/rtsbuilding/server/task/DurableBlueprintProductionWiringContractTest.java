@@ -33,15 +33,15 @@ class DurableBlueprintProductionWiringContractTest {
 
     @Test
     void identityProgressTerminalAndStopUseOneDurableAuthority() throws IOException {
-        String bridge = read("server/task/DurableBlueprintTaskBridge.java");
-        String engine = read("server/task/RtsTaskEngine.java");
+        String bridge = compact(read("server/task/DurableBlueprintTaskBridge.java"));
+        String engine = compact(read("server/task/RtsTaskEngine.java"));
         String mod = read("RtsbuildingMod.java");
         String scheduler = read("server/task/TaskScheduler.java");
         String stopping = between(mod, "private static void onServerStopping(", "private static void onServerStopped(");
         String stopped = mod.substring(mod.indexOf("private static void onServerStopped("));
 
         assertTrue(bridge.contains("TaskId.fromSubmission(player.getUUID(), submissionId)"));
-        assertTrue(engine.contains("new TaskRecord(taskId.value()"));
+        assertTrue(engine.contains("new TaskRecord( taskId.value()"));
         assertTrue(bridge.contains("persistence.coordinator().replace(next)"));
         assertTrue(bridge.contains("requestTombstone(entry.getKey(), gameTime)"));
         assertTrue(stopping.contains("checkpointAllDurableExecutions(server)"));
@@ -105,6 +105,10 @@ class DurableBlueprintProductionWiringContractTest {
 
     private static String read(String relative) throws IOException {
         return Files.readString(MAIN.resolve(relative));
+    }
+
+    private static String compact(String source) {
+        return source.replaceAll("\\s+", " ");
     }
 
     private static String between(String source, String start, String end) {

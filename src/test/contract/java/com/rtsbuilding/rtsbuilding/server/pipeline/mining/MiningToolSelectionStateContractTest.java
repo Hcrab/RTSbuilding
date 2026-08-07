@@ -17,7 +17,7 @@ class MiningToolSelectionStateContractTest {
     @Test
     void nonQueuedRequestsReplaceTheWholeToolSelectionSnapshot() throws IOException {
         String single = source("MiningExecutePipe.java");
-        String batch = source("UltimineExecutePipe.java");
+        String batch = compact(source("UltimineExecutePipe.java"));
 
         assertTrue(single.contains(
                 "session.mining.miningSelectedToolRequested = mctx.isSelectedToolRequested();"));
@@ -31,10 +31,14 @@ class MiningToolSelectionStateContractTest {
 
     @Test
     void emptyNonQueuedBatchAlsoClearsStaleToolSelection() throws IOException {
-        String batch = source("UltimineExecutePipe.java");
+        String batch = compact(source("UltimineExecutePipe.java"));
         assertTrue(batch.contains("completeWithoutTask(mctx, session, queueMode)"));
-        assertTrue(batch.contains("if (queueMode) {\n            return;\n        }"));
+        assertTrue(batch.contains("if (queueMode) { return; }"));
         assertTrue(batch.contains("session.mining.miningSelectedToolRequested = false;"));
+    }
+
+    private static String compact(String source) {
+        return source.replaceAll("\\s+", " ");
     }
 
     private static String source(String name) throws IOException {

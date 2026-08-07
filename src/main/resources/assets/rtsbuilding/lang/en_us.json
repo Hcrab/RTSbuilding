@@ -29,7 +29,7 @@
   "screen.rtsbuilding.quick_build.destroy_hint_auto": "Left-click to set points and use the wheel for height; the final point destroys immediately.",
   "screen.rtsbuilding.quick_build.destroy_advanced_box_hint_auto": "Left-click to set A/B, then adjust with the arrows; finishing the selection destroys immediately.",
   "screen.rtsbuilding.guide.top.mode.title": "Mode Wheel & Shortcuts",
-  "screen.rtsbuilding.guide.top.mode.1": "Hold Alt to open the mode wheel near the pointer. Move toward Interact, Storage Link, Funnel, or Rotate, then left-click to select it.",
+  "screen.rtsbuilding.guide.top.mode.1": "Hold Alt to open the mode wheel near the pointer. Move toward Interact, Storage binding, Funnel, or Rotate, then left-click to select it.",
   "screen.rtsbuilding.guide.top.mode.2": "Press I, L, or R to switch directly. Hold F for a temporary Funnel and release it to return to the previous mode.",
   "screen.rtsbuilding.guide.top.quest.title": "FTB Quest Scan",
   "screen.rtsbuilding.guide.top.quest.1": "With FTB Quests and FTB Teams installed, the top-bar quest button scans inventory and linked storage to update item tasks that neither consume items nor require crafting.",
@@ -50,7 +50,7 @@
   "key.rtsbuilding.decrease_sensitivity": "Decrease RTS Sensitivity",
   "key.rtsbuilding.increase_sensitivity": "Increase RTS Sensitivity",
   "key.rtsbuilding.mode_interact": "RTS Mode: Interact",
-  "key.rtsbuilding.mode_link_storage": "RTS Mode: Storage Link",
+  "key.rtsbuilding.mode_link_storage": "RTS Mode: Storage binding",
   "key.rtsbuilding.mode_rotate": "RTS Mode: Rotate",
   "key.rtsbuilding.mode_funnel": "RTS Mode: Funnel",
   "key.rtsbuilding.action_primary": "RTS Action: Interact / Place",
@@ -147,7 +147,7 @@
   "message.rtsbuilding.plugin.uninstalled": "Plugin removed.",
   "message.rtsbuilding.plugin.not_installed": "That plugin is not installed.",
   "screen.rtsbuilding.mode.interact": "Interact",
-  "screen.rtsbuilding.mode.link_storage": "Storage Link",
+  "screen.rtsbuilding.mode.link_storage": "Storage binding",
   "screen.rtsbuilding.mode.funnel": "Funnel",
   "screen.rtsbuilding.mode.camera": "Camera",
   "screen.rtsbuilding.mode.rotate": "Rotate",
@@ -367,7 +367,7 @@
   "screen.rtsbuilding.topbar.tooltip.developer": "Open developer scenarios",
   "screen.rtsbuilding.topbar.tooltip.gear": "Open RTS settings",
   "chat.rtsbuilding.intro.rts_key": "Press %s to open RTS Build/Storage mode.",
-  "chat.rtsbuilding.intro.version_warning": "Current RTS Building test version: %1$s; stable version: %2$s. Detailed guide: %3$s. If this build is unstable in your modpack, return to the stable version.",
+  "chat.rtsbuilding.intro.version_warning": "Current RTS Building test version: %1$s; latest release for this line: %2$s. Detailed guide: %3$s. If this build is unstable in your modpack, return to the latest release for this line.",
   "chat.rtsbuilding.intro.feedback": "Feedback links: Discord %s | GitHub %s | QQ group %s. If RTSBuilding helps you, a GitHub star would mean a lot.",
   "chat.rtsbuilding.intro.config_hint": "Small i buttons open tutorials for panels and overlays.",
   "chat.rtsbuilding.intro.dismiss": "[Don't remind me again]",
@@ -711,7 +711,7 @@
   "screen.rtsbuilding.storage_links.title": "Linked Storage",
   "screen.rtsbuilding.storage_links.header": "Bound blocks",
   "screen.rtsbuilding.storage_links.empty": "No linked storage",
-  "screen.rtsbuilding.storage_links.empty_detail": "Use Storage Link, then left-click a storage block.",
+  "screen.rtsbuilding.storage_links.empty_detail": "Use Storage binding, then left-click a storage block.",
   "screen.rtsbuilding.storage_links.loading": "Reading linked storage...",
   "screen.rtsbuilding.storage_links.failed": "Could not read linked storage. Reopen this window to retry.",
   "screen.rtsbuilding.storage_links.priority": "Priority",
@@ -796,7 +796,7 @@
   "screen.rtsbuilding.guide.top.4": "4. If the target has a valid interaction, normal right-click uses it first; otherwise it tries placement. Hold Shift while right-clicking to prioritize item use or placement.",
   "screen.rtsbuilding.guide.top.5": "5. Hold Shift and right-click when you specifically want to force item use or placement on an interactable block.",
   "screen.rtsbuilding.guide.top.6": "6. Hold Alt to open the mode wheel, move toward a mode, then left-click to select it. The matching top-bar button stays highlighted.",
-  "screen.rtsbuilding.guide.top.7": "7. In Storage Link mode, left-click binds storage + extraction. Short right-click binds extract-only; right-drag still rotates the camera.",
+  "screen.rtsbuilding.guide.top.7": "7. In Storage binding mode, left-click binds storage + extraction. Short right-click binds extract-only; right-drag still rotates the camera.",
   "screen.rtsbuilding.guide.top.8": "8. Funnel mode waits without absorbing. Hold right-click to collect at the cursor, or hold F for a temporary quick funnel.",
   "screen.rtsbuilding.guide.top.9": "9. In Rotate mode, left-click a placed block, then left-click an arc around it to rotate horizontally or flip vertically. Right mouse still drags the camera.",
   "screen.rtsbuilding.guide.top.10": "10. Quick Build appears after Remote Place is unlocked. Pick a shape, choose Fill/Hollow/Skeleton where available, then place staged points.",
@@ -840,7 +840,7 @@
   "screen.rtsbuilding.guide.top.camera.2": "Hold Rotate Drag, default right mouse, and drag to rotate. If Interact / Place shares that key, release without dragging to interact/place.",
   "screen.rtsbuilding.guide.top.camera.3": "Hold Pan Drag, default middle mouse, and drag to pan. If Pick Block shares that key, a short click picks the targeted block.",
   "screen.rtsbuilding.guide.top.camera.4": "W/A/S/D pan the camera, Space raises it, and left Shift lowers it. Hold the sprint key to move faster.",
-  "screen.rtsbuilding.guide.top.link.title": "Storage Link",
+  "screen.rtsbuilding.guide.top.link.title": "Storage binding",
   "screen.rtsbuilding.guide.top.link.1": "Left-click a chest, barrel, controller, or storage block to bind it for storage + extraction.",
   "screen.rtsbuilding.guide.top.link.2": "Short right-click binds extract-only; right-drag rotates the camera. Use extract-only when RTS may take from that block but should not store into it.",
   "screen.rtsbuilding.guide.top.funnel.title": "Funnel",
@@ -903,7 +903,7 @@
   "rtsbuilding.progression.radius_3.desc": "Increase RTS action radius.",
   "rtsbuilding.progression.radius_max": "Radius Max",
   "rtsbuilding.progression.radius_max.desc": "Use the configured maximum RTS action radius.",
-  "rtsbuilding.progression.storage_link": "Storage Link",
+  "rtsbuilding.progression.storage_link": "Storage binding",
   "rtsbuilding.progression.storage_link.desc": "Link storage to RTS mode.",
   "rtsbuilding.progression.remote_place": "Remote Place",
   "rtsbuilding.progression.remote_place.desc": "Place blocks remotely.",
@@ -1164,12 +1164,12 @@
   ,"screen.rtsbuilding.theme.token.world_axis_y": "World Y axis"
   ,"screen.rtsbuilding.theme.token.world_axis_z": "World Z axis"
   ,"screen.rtsbuilding.theme.token.world_handle_active": "Active world handle"
-  ,"message.rtsbuilding.storage_batch.entered": "Batch storage link: select the first corner. Ctrl exits."
+  ,"message.rtsbuilding.storage_batch.entered": "Range binding: select the first corner. Ctrl exits."
   ,"message.rtsbuilding.storage_batch.first_selected": "First corner selected. Select the opposite corner."
   ,"message.rtsbuilding.storage_batch.ready": "Selection ready. Scroll adjusts height; Enter or click confirms."
-  ,"message.rtsbuilding.storage_batch.submitted": "Batch storage link submitted. Select another area or press Ctrl to exit."
+  ,"message.rtsbuilding.storage_batch.submitted": "Range binding submitted. Select another area or press Ctrl to exit."
   ,"message.rtsbuilding.storage_batch.no_target": "No block is under the cursor."
   ,"message.rtsbuilding.storage_batch.too_large": "Selection is too large (maximum 64 x 64 x 64)."
   ,"message.rtsbuilding.storage_batch.selection_cleared": "Selection cleared. Select the first corner again."
-  ,"message.rtsbuilding.storage_batch.exited": "Batch storage link exited."
+  ,"message.rtsbuilding.storage_batch.exited": "Range binding exited."
 }

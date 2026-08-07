@@ -2,6 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.screen.culling;
 
 import com.rtsbuilding.rtsbuilding.client.rendering.culling.RtsCullingRenderInvalidator;
 import com.rtsbuilding.rtsbuilding.client.screen.selection.RtsSelectionBoxAnimator;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.util.Mth;
@@ -11,544 +17,557 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
-
 /**
  * 范围剔除编辑器的状态机。
  *
- * <p>职责边界：这里管理盒子列表、编辑阶段、选中/悬停和渲染刷新；不负责
- * 绘制按钮，也不直接发送服务器包。第一版只做客户端视觉和射线穿透，后续如需
- * 存档或多人同步，可以在这里增加明确的数据出口。
+ * <p>职责边界：这里管理盒子列表、编辑阶段、选中/悬停和渲染刷新；不负责 绘制按钮，也不直接发送服务器包。第一版只做客户端视觉和射线穿透，后续如需 存档或多人同步，可以在这里增加明确的数据出口。
  */
 public final class RtsCullingManager {
-    private static final double RAY_DISTANCE = 128.0D;
-    private static final double RAY_SKIP_EPSILON = 0.05D;
-    private static final int DEFAULT_HEIGHT = 0;
-    private static final int FAST_SCROLL_STEP = 4;
-    private static final int MAX_HEIGHT_OFFSET = 255;
+  private static final double RAY_DISTANCE = 128.0D;
+  private static final double RAY_SKIP_EPSILON = 0.05D;
+  private static final int DEFAULT_HEIGHT = 0;
+  private static final int FAST_SCROLL_STEP = 4;
+  private static final int MAX_HEIGHT_OFFSET = 255;
 
-    private final RtsBoxHandleInteraction handleInteraction = new RtsBoxHandleInteraction();
-    private final RtsSelectionBoxAnimator boxAnimator = new RtsSelectionBoxAnimator();
-    private final List<RtsCullingBox> boxes = new CopyOnWriteArrayList<>();
-    private final Set<BlockPos> revealedBlocks = ConcurrentHashMap.newKeySet();
-    private boolean managementMode;
-    private int nextId = 1;
-    private int selectedId = -1;
-    private int hoveredId = -1;
-    private BlockPos firstCorner;
-    private BlockPos secondCorner;
-    private int previewHeight = DEFAULT_HEIGHT;
-    private Phase phase = Phase.IDLE;
-    private Runnable stateChangeListener = () -> { };
+  private final RtsBoxHandleInteraction handleInteraction = new RtsBoxHandleInteraction();
+  private final RtsSelectionBoxAnimator boxAnimator = new RtsSelectionBoxAnimator();
+  private final List<RtsCullingBox> boxes = new CopyOnWriteArrayList<>();
+  private final Set<BlockPos> revealedBlocks = ConcurrentHashMap.newKeySet();
+  private boolean managementMode;
+  private int nextId = 1;
+  private int selectedId = -1;
+  private int hoveredId = -1;
+  private BlockPos firstCorner;
+  private BlockPos secondCorner;
+  private int previewHeight = DEFAULT_HEIGHT;
+  private Phase phase = Phase.IDLE;
+  private Runnable stateChangeListener = () -> {};
 
-    public boolean isManagementMode() {
-        return managementMode;
+  public boolean isManagementMode() {
+    return managementMode;
+  }
+
+  public boolean hasWorldCullBoxes() {
+    return !boxes.isEmpty();
+  }
+
+  public List<RtsCullingBox> boxes() {
+    return List.copyOf(boxes);
+  }
+
+  public List<BlockPos> revealedBlocks() {
+    return List.copyOf(revealedBlocks);
+  }
+
+  /** 设置正式剔除状态变化后的持久化回调；草稿移动不会触发保存。 */
+  public void setStateChangeListener(Runnable listener) {
+    this.stateChangeListener = listener == null ? () -> {} : listener;
+  }
+
+  public Optional<RtsCullingBox> selectedBox() {
+    return boxById(selectedId);
+  }
+
+  public int selectedId() {
+    return selectedId;
+  }
+
+  public int hoveredId() {
+    return hoveredId;
+  }
+
+  public Direction hoveredHandleDirection() {
+    return handleInteraction.hoveredDirection();
+  }
+
+  public Direction activeHandleDirection() {
+    return handleInteraction.activeDirection();
+  }
+
+  public Phase phase() {
+    return phase;
+  }
+
+  public int previewHeight() {
+    return previewHeight;
+  }
+
+  public RtsCullingBox previewBox() {
+    if (firstCorner == null) {
+      return null;
     }
+    BlockPos second = secondCorner == null ? firstCorner : secondCorner;
+    return RtsCullingBox.fromDiagonal(0, firstCorner, second, previewHeight);
+  }
 
-    public boolean hasWorldCullBoxes() {
-        return !boxes.isEmpty();
+  public AABB renderAabb(RtsCullingBox box) {
+    return boxAnimator.renderAabb(box);
+  }
+
+  public void toggleManagementMode() {
+    if (managementMode) {
+      closeManagementMode();
+    } else {
+      setManagementMode(true);
     }
+  }
 
-    public List<RtsCullingBox> boxes() {
-        return List.copyOf(boxes);
+  /**
+   * 关闭剔除管理页。
+   *
+   * <p>如果玩家已经完成“两点 + 高度”的完整草稿，关闭管理页等同于把它落成正式剔除盒； 未完成的半截草稿仍然会被取消。这样不会改变 Enter 的明确确认语义，但能避免玩家框好区域后
+   * 点顶部栏关闭时把完整区域静默丢掉。
+   */
+  public void closeManagementMode() {
+    if (!managementMode) {
+      return;
     }
-
-    public List<BlockPos> revealedBlocks() {
-        return List.copyOf(revealedBlocks);
+    if (hasCompleteDraft()) {
+      confirmDraft();
     }
+    setManagementMode(false);
+  }
 
-    /** 设置正式剔除状态变化后的持久化回调；草稿移动不会触发保存。 */
-    public void setStateChangeListener(Runnable listener) {
-        this.stateChangeListener = listener == null ? () -> { } : listener;
+  public void setManagementMode(boolean active) {
+    if (this.managementMode == active) {
+      return;
     }
+    this.managementMode = active;
+    this.hoveredId = -1;
+    this.handleInteraction.clear();
+    this.boxAnimator.clear();
+    cancelDraft();
+    markAllBoxesDirty();
+  }
 
-    public Optional<RtsCullingBox> selectedBox() {
-        return boxById(selectedId);
+  public void updateHover(Vec3 origin, Vec3 direction) {
+    if (!managementMode) {
+      this.hoveredId = -1;
+      this.handleInteraction.clear();
+      return;
     }
-
-    public int selectedId() {
-        return selectedId;
+    RtsCullingBox selected = selectedBox().orElse(null);
+    this.handleInteraction.updateHover(selected, origin, direction, phase == Phase.IDLE);
+    if (phase == Phase.IDLE
+        && selected != null
+        && (this.handleInteraction.hoveredDirection() != null
+            || this.handleInteraction.activeDirection() != null)) {
+      this.hoveredId = selectedId;
+      return;
     }
+    this.hoveredId = nearestHit(origin, direction).map(hit -> hit.box().id()).orElse(-1);
+  }
 
-    public int hoveredId() {
-        return hoveredId;
+  public boolean handleWorldAction(BlockHitResult hit, Vec3 origin, Vec3 direction) {
+    if (!managementMode) {
+      return false;
     }
-
-    public Direction hoveredHandleDirection() {
-        return handleInteraction.hoveredDirection();
+    if (phase == Phase.IDLE) {
+      Optional<RtsCullingBox> selected = selectedBox();
+      if (selected.isPresent()) {
+        RtsBoxHandleInteraction.ClickResult handleClick =
+            this.handleInteraction.clickHandle(selected.get(), origin, direction);
+        if (handleClick.handled()) {
+          this.hoveredId = selectedId;
+          return true;
+        }
+      }
     }
-
-    public Direction activeHandleDirection() {
-        return handleInteraction.activeDirection();
+    Optional<RtsCullingBox.RayHit> boxHit = nearestHit(origin, direction);
+    if (boxHit.isPresent() && phase == Phase.IDLE) {
+      this.selectedId = boxHit.get().box().id();
+      this.handleInteraction.clear();
+      return true;
     }
-
-    public Phase phase() {
-        return phase;
+    if (phase == Phase.IDLE && selectHoveredBoxIfPresent()) {
+      return true;
     }
-
-    public int previewHeight() {
-        return previewHeight;
+    if (hit == null || hit.getType() != HitResult.Type.BLOCK) {
+      return true;
     }
-
-    public RtsCullingBox previewBox() {
-        if (firstCorner == null) {
-            return null;
-        }
-        BlockPos second = secondCorner == null ? firstCorner : secondCorner;
-        return RtsCullingBox.fromDiagonal(0, firstCorner, second, previewHeight);
-    }
-
-    public AABB renderAabb(RtsCullingBox box) {
-        return boxAnimator.renderAabb(box);
-    }
-
-    public void toggleManagementMode() {
-        if (managementMode) {
-            closeManagementMode();
-        } else {
-            setManagementMode(true);
-        }
-    }
-
-    /**
-     * 关闭剔除管理页。
-     *
-     * <p>如果玩家已经完成“两点 + 高度”的完整草稿，关闭管理页等同于把它落成正式剔除盒；
-     * 未完成的半截草稿仍然会被取消。这样不会改变 Enter 的明确确认语义，但能避免玩家框好区域后
-     * 点顶部栏关闭时把完整区域静默丢掉。
-     */
-    public void closeManagementMode() {
-        if (!managementMode) {
-            return;
-        }
-        if (hasCompleteDraft()) {
-            confirmDraft();
-        }
-        setManagementMode(false);
-    }
-
-    public void setManagementMode(boolean active) {
-        if (this.managementMode == active) {
-            return;
-        }
-        this.managementMode = active;
-        this.hoveredId = -1;
-        this.handleInteraction.clear();
-        this.boxAnimator.clear();
-        cancelDraft();
-        markAllBoxesDirty();
-    }
-
-    public void updateHover(Vec3 origin, Vec3 direction) {
-        if (!managementMode) {
-            this.hoveredId = -1;
-            this.handleInteraction.clear();
-            return;
-        }
-        RtsCullingBox selected = selectedBox().orElse(null);
-        this.handleInteraction.updateHover(selected, origin, direction, phase == Phase.IDLE);
-        if (phase == Phase.IDLE
-                && selected != null
-                && (this.handleInteraction.hoveredDirection() != null || this.handleInteraction.activeDirection() != null)) {
-            this.hoveredId = selectedId;
-            return;
-        }
-        this.hoveredId = nearestHit(origin, direction)
-                .map(hit -> hit.box().id())
-                .orElse(-1);
-    }
-
-    public boolean handleWorldAction(BlockHitResult hit, Vec3 origin, Vec3 direction) {
-        if (!managementMode) {
-            return false;
-        }
-        if (phase == Phase.IDLE) {
-            Optional<RtsCullingBox> selected = selectedBox();
-            if (selected.isPresent()) {
-                RtsBoxHandleInteraction.ClickResult handleClick =
-                        this.handleInteraction.clickHandle(selected.get(), origin, direction);
-                if (handleClick.handled()) {
-                    this.hoveredId = selectedId;
-                    return true;
-                }
-            }
-        }
-        Optional<RtsCullingBox.RayHit> boxHit = nearestHit(origin, direction);
-        if (boxHit.isPresent() && phase == Phase.IDLE) {
-            this.selectedId = boxHit.get().box().id();
-            this.handleInteraction.clear();
-            return true;
-        }
-        if (phase == Phase.IDLE && selectHoveredBoxIfPresent()) {
-            return true;
-        }
-        if (hit == null || hit.getType() != HitResult.Type.BLOCK) {
-            return true;
-        }
-        RtsCullingBox oldPreview = previewBox();
-        BlockPos pos = hit.getBlockPos();
-        switch (phase) {
-            case IDLE -> {
-                this.firstCorner = pos;
-                this.secondCorner = null;
-                this.previewHeight = DEFAULT_HEIGHT;
-                this.selectedId = -1;
-                this.handleInteraction.clear();
-                this.phase = Phase.NEED_SECOND;
-            }
-            case NEED_SECOND -> {
-                this.secondCorner = new BlockPos(pos.getX(), firstCorner.getY(), pos.getZ());
-                this.phase = Phase.NEED_HEIGHT;
-                markBoxDirty(oldPreview);
-                markBoxDirty(previewBox());
-            }
-            case NEED_HEIGHT -> {
-                this.secondCorner = new BlockPos(pos.getX(), firstCorner.getY(), pos.getZ());
-                markBoxDirty(oldPreview);
-                markBoxDirty(previewBox());
-            }
-        }
-        return true;
-    }
-
-    public boolean handleScroll(double scrollY, boolean fast) {
-        if (!managementMode) {
-            return false;
-        }
-        if (phase == Phase.IDLE) {
-            return this.handleInteraction.handleScroll(scrollY, fast, this::adjustSelectedFromHandle);
-        }
-        int delta = scrollY > 0.0D ? 1 : -1;
-        if (fast) {
-            delta *= FAST_SCROLL_STEP;
-        }
-        RtsCullingBox oldPreview = previewBox();
-        this.previewHeight = Mth.clamp(this.previewHeight + delta, -MAX_HEIGHT_OFFSET, MAX_HEIGHT_OFFSET);
-        markBoxDirty(oldPreview);
-        markBoxDirty(previewBox());
-        return true;
-    }
-
-    public boolean handleActiveHandleDrag(double dragX, double dragY, double axisX, double axisY) {
-        if (!managementMode || phase != Phase.IDLE) {
-            return false;
-        }
-        return this.handleInteraction.handleDrag(dragX, dragY, axisX, axisY, this::adjustSelectedFromHandle);
-    }
-
-    public boolean releaseActiveHandleIfDragged() {
-        return this.handleInteraction.releaseActiveHandleIfDragged();
-    }
-
-    public boolean cancelDraftIfActive() {
-        if (!managementMode || phase == Phase.IDLE) {
-            return false;
-        }
-        cancelDraft();
-        return true;
-    }
-
-    public boolean hasCompleteDraft() {
-        return phase == Phase.NEED_HEIGHT && firstCorner != null && secondCorner != null;
-    }
-
-    public boolean handleKey(int keyCode, int scanCode, int modifiers) {
-        if (!managementMode) {
-            return false;
-        }
-        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            return confirmDraft();
-        }
-        if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
-            return deleteSelected();
-        }
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            if (this.handleInteraction.releaseActiveHandle()) {
-                return true;
-            } else if (phase != Phase.IDLE) {
-                cancelDraft();
-            } else {
-                setManagementMode(false);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    public boolean confirmDraft() {
-        if (phase == Phase.IDLE || firstCorner == null) {
-            return true;
-        }
-        BlockPos second = secondCorner == null ? firstCorner : secondCorner;
-        RtsCullingBox box = RtsCullingBox.fromDiagonal(nextId++, firstCorner, second, previewHeight);
-        this.boxes.add(box);
-        this.selectedId = box.id();
-        cancelDraft();
-        markBoxDirty(box);
-        notifyStateChanged();
-        return true;
-    }
-
-    public boolean deleteSelected() {
-        if (selectedId < 0) {
-            return true;
-        }
-        int deleting = selectedId;
-        Optional<RtsCullingBox> removed = boxById(deleting);
-        boxes.removeIf(box -> box.id() == deleting);
-        selectedId = -1;
-        hoveredId = -1;
-        handleInteraction.clear();
-        boxAnimator.clearIfBox(deleting);
-        removed.ifPresent(this::markBoxDirty);
-        notifyStateChanged();
-        return true;
-    }
-
-    public void adjustSelectedDimension(Direction.Axis axis, int delta) {
-        if (selectedId < 0 || delta == 0) {
-            return;
-        }
-        for (int i = 0; i < boxes.size(); i++) {
-            RtsCullingBox box = boxes.get(i);
-            if (box.id() != selectedId) {
-                continue;
-            }
-            RtsCullingBox resized = box.resize(axis, delta);
-            boxAnimator.animate(box, resized);
-            boxes.set(i, resized);
-            markBoxDirty(box);
-            markBoxDirty(resized);
-            notifyStateChanged();
-            return;
-        }
-    }
-
-    public boolean adjustSelectedFromHandle(Direction direction, int delta) {
-        if (selectedId < 0 || direction == null || delta == 0) {
-            return false;
-        }
-        for (int i = 0; i < boxes.size(); i++) {
-            RtsCullingBox box = boxes.get(i);
-            if (box.id() != selectedId) {
-                continue;
-            }
-            RtsCullingBox resized = box.resizeFromHandle(direction, delta);
-            boxAnimator.animate(box, resized);
-            boxes.set(i, resized);
-            markBoxDirty(box);
-            markBoxDirty(resized);
-            notifyStateChanged();
-            return true;
-        }
-        return false;
-    }
-
-    public boolean nudgeSelectedBox(int dx, int dy, int dz) {
-        if (selectedId < 0 || (dx == 0 && dy == 0 && dz == 0)) {
-            return false;
-        }
-        for (int i = 0; i < boxes.size(); i++) {
-            RtsCullingBox box = boxes.get(i);
-            if (box.id() != selectedId) {
-                continue;
-            }
-            RtsCullingBox moved = new RtsCullingBox(
-                    box.id(),
-                    box.min().offset(dx, dy, dz),
-                    box.max().offset(dx, dy, dz));
-            boxAnimator.animate(box, moved);
-            boxes.set(i, moved);
-            markBoxDirty(box);
-            markBoxDirty(moved);
-            notifyStateChanged();
-            return true;
-        }
-        return false;
-    }
-
-    public boolean shouldCullWorldBlock(BlockPos pos) {
-        RtsCullingBox preview = activePreviewBox();
-        if ((!hasWorldCullBoxes() && preview == null) || pos == null) {
-            return false;
-        }
-        BlockPos immutable = pos.immutable();
-        if (revealedBlocks.contains(immutable)) {
-            return false;
-        }
-        if (boxes.stream().anyMatch(box -> box.contains(immutable))) {
-            return true;
-        }
-        return preview != null && preview.contains(immutable);
-    }
-
-    public double distanceAfterCulledBlock(Vec3 origin, Vec3 direction, BlockPos pos, double maxDistance) {
-        RtsCullingBox preview = activePreviewBox();
-        if ((!hasWorldCullBoxes() && preview == null) || origin == null || direction == null || pos == null) {
-            return -1.0D;
-        }
-        double best = distanceAfterCulledBlockIn(boxes, origin, direction, pos, maxDistance);
-        if (preview != null && preview.contains(pos)) {
-            RtsCullingBox.RayHit previewHit = preview.rayHit(origin, direction, maxDistance);
-            if (previewHit != null) {
-                double previewDistance = Mth.clamp(previewHit.exitDistance() + RAY_SKIP_EPSILON, 0.0D, maxDistance);
-                best = best < 0.0D ? previewDistance : Math.min(best, previewDistance);
-            }
-        }
-        return best;
-    }
-
-    public void revealWorldBlock(BlockPos pos) {
-        if (pos == null) {
-            return;
-        }
-        BlockPos immutable = pos.immutable();
-        if (!isInsideAnyCullVolume(immutable)) {
-            return;
-        }
-        if (revealedBlocks.add(immutable)) {
-            markBlockDirty(immutable);
-            notifyStateChanged();
-        }
-    }
-
-    public void refreshWorldCullRendering() {
-        markAllBoxesDirty();
-        markBoxDirty(activePreviewBox());
-        revealedBlocks.forEach(this::markBlockDirty);
-    }
-
-    /**
-     * 离开当前世界时彻底丢弃只属于该世界的剔除编辑状态。
-     *
-     * <p>范围剔除盒使用世界坐标，不能跨服务器、存档或维度复用。这里不请求旧世界重建网格，
-     * 因为调用时客户端正在卸载旧世界；新世界会用空状态正常编译区块。</p>
-     */
-    public void clearWorldState() {
-        this.managementMode = false;
-        this.boxes.clear();
-        this.revealedBlocks.clear();
-        this.nextId = 1;
-        this.selectedId = -1;
-        this.hoveredId = -1;
-        this.handleInteraction.clear();
-        this.boxAnimator.clear();
-        cancelDraft();
-    }
-
-    /** 用当前存档、当前维度从服务端恢复的快照替换内存状态。 */
-    public void replaceWorldState(List<RtsCullingBox> restoredBoxes, List<BlockPos> restoredRevealedBlocks) {
-        clearWorldState();
-        if (restoredBoxes != null) {
-            for (RtsCullingBox box : restoredBoxes) {
-                if (box == null) {
-                    continue;
-                }
-                RtsCullingBox normalized = new RtsCullingBox(nextId++, box.min(), box.max());
-                this.boxes.add(normalized);
-            }
-        }
-        if (restoredRevealedBlocks != null) {
-            restoredRevealedBlocks.stream()
-                    .filter(java.util.Objects::nonNull)
-                    .map(BlockPos::immutable)
-                    .forEach(this.revealedBlocks::add);
-        }
-        refreshWorldCullRendering();
-    }
-
-    private void notifyStateChanged() {
-        stateChangeListener.run();
-    }
-
-    private double distanceAfterCulledBlockIn(List<RtsCullingBox> candidates, Vec3 origin, Vec3 direction,
-            BlockPos pos, double maxDistance) {
-        return candidates.stream()
-                .filter(box -> box.contains(pos))
-                .map(box -> box.rayHit(origin, direction, maxDistance))
-                .filter(hit -> hit != null)
-                .map(hit -> Mth.clamp(hit.exitDistance() + RAY_SKIP_EPSILON, 0.0D, maxDistance))
-                .min(Double::compareTo)
-                .orElse(-1.0D);
-    }
-
-    private boolean isInsideAnyCullVolume(BlockPos pos) {
-        if (pos == null) {
-            return false;
-        }
-        if (boxes.stream().anyMatch(box -> box.contains(pos))) {
-            return true;
-        }
-        RtsCullingBox preview = activePreviewBox();
-        return preview != null && preview.contains(pos);
-    }
-
-    private RtsCullingBox activePreviewBox() {
-        return managementMode && hasCompleteDraft() ? previewBox() : null;
-    }
-
-    private Optional<RtsCullingBox> boxById(int id) {
-        return boxes.stream().filter(box -> box.id() == id).findFirst();
-    }
-
-    private Optional<RtsCullingBox.RayHit> nearestHit(Vec3 origin, Vec3 direction) {
-        if (origin == null || direction == null) {
-            return Optional.empty();
-        }
-        return boxes.stream()
-                .map(box -> box.rayHit(origin, direction, RAY_DISTANCE))
-                .filter(hit -> hit != null)
-                .min(Comparator.comparingDouble(RtsCullingBox.RayHit::enterDistance));
-    }
-
-    private boolean selectHoveredBoxIfPresent() {
-        if (hoveredId < 0) {
-            return false;
-        }
-        Optional<RtsCullingBox> hovered = boxById(hoveredId);
-        if (hovered.isEmpty()) {
-            hoveredId = -1;
-            return false;
-        }
-        selectedId = hovered.get().id();
-        handleInteraction.clear();
-        return true;
-    }
-
-    private void cancelDraft() {
-        this.firstCorner = null;
+    RtsCullingBox oldPreview = previewBox();
+    BlockPos pos = hit.getBlockPos();
+    switch (phase) {
+      case IDLE -> {
+        this.firstCorner = pos;
         this.secondCorner = null;
         this.previewHeight = DEFAULT_HEIGHT;
-        this.phase = Phase.IDLE;
+        this.selectedId = -1;
         this.handleInteraction.clear();
+        this.phase = Phase.NEED_SECOND;
+      }
+      case NEED_SECOND -> {
+        this.secondCorner = new BlockPos(pos.getX(), firstCorner.getY(), pos.getZ());
+        this.phase = Phase.NEED_HEIGHT;
+        markBoxDirty(oldPreview);
+        markBoxDirty(previewBox());
+      }
+      case NEED_HEIGHT -> {
+        this.secondCorner = new BlockPos(pos.getX(), firstCorner.getY(), pos.getZ());
+        markBoxDirty(oldPreview);
+        markBoxDirty(previewBox());
+      }
     }
+    return true;
+  }
 
-    private void markAllBoxesDirty() {
-        boxes.forEach(this::markBoxDirty);
+  public boolean handleScroll(double scrollY, boolean fast) {
+    if (!managementMode) {
+      return false;
     }
+    if (phase == Phase.IDLE) {
+      return this.handleInteraction.handleScroll(scrollY, fast, this::adjustSelectedFromHandle);
+    }
+    int delta = scrollY > 0.0D ? 1 : -1;
+    if (fast) {
+      delta *= FAST_SCROLL_STEP;
+    }
+    RtsCullingBox oldPreview = previewBox();
+    this.previewHeight =
+        Mth.clamp(this.previewHeight + delta, -MAX_HEIGHT_OFFSET, MAX_HEIGHT_OFFSET);
+    markBoxDirty(oldPreview);
+    markBoxDirty(previewBox());
+    return true;
+  }
 
-    private void markBoxDirty(RtsCullingBox box) {
+  public boolean handleActiveHandleDrag(double dragX, double dragY, double axisX, double axisY) {
+    if (!managementMode || phase != Phase.IDLE) {
+      return false;
+    }
+    return this.handleInteraction.handleDrag(
+        dragX, dragY, axisX, axisY, this::adjustSelectedFromHandle);
+  }
+
+  public boolean releaseActiveHandleIfDragged() {
+    return this.handleInteraction.releaseActiveHandleIfDragged();
+  }
+
+  public boolean cancelDraftIfActive() {
+    if (!managementMode || phase == Phase.IDLE) {
+      return false;
+    }
+    cancelDraft();
+    return true;
+  }
+
+  public boolean hasCompleteDraft() {
+    return phase == Phase.NEED_HEIGHT && firstCorner != null && secondCorner != null;
+  }
+
+  public boolean handleKey(int keyCode, int scanCode, int modifiers) {
+    if (!managementMode) {
+      return false;
+    }
+    if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+      return confirmDraft();
+    }
+    if (keyCode == GLFW.GLFW_KEY_DELETE || keyCode == GLFW.GLFW_KEY_BACKSPACE) {
+      return deleteSelected();
+    }
+    if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+      if (this.handleInteraction.releaseActiveHandle()) {
+        return true;
+      } else if (phase != Phase.IDLE) {
+        cancelDraft();
+      } else {
+        setManagementMode(false);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  public boolean confirmDraft() {
+    if (phase == Phase.IDLE || firstCorner == null) {
+      return true;
+    }
+    BlockPos second = secondCorner == null ? firstCorner : secondCorner;
+    RtsCullingBox box = RtsCullingBox.fromDiagonal(nextId++, firstCorner, second, previewHeight);
+    this.boxes.add(box);
+    this.selectedId = box.id();
+    cancelDraft();
+    markBoxDirty(box);
+    notifyStateChanged();
+    return true;
+  }
+
+  public boolean deleteSelected() {
+    if (selectedId < 0) {
+      return true;
+    }
+    int deleting = selectedId;
+    Optional<RtsCullingBox> removed = boxById(deleting);
+    boxes.removeIf(box -> box.id() == deleting);
+    selectedId = -1;
+    hoveredId = -1;
+    handleInteraction.clear();
+    boxAnimator.clearIfBox(deleting);
+    removed.ifPresent(this::markBoxDirty);
+    notifyStateChanged();
+    return true;
+  }
+
+  public void adjustSelectedDimension(Direction.Axis axis, int delta) {
+    if (selectedId < 0 || delta == 0) {
+      return;
+    }
+    for (int i = 0; i < boxes.size(); i++) {
+      RtsCullingBox box = boxes.get(i);
+      if (box.id() != selectedId) {
+        continue;
+      }
+      RtsCullingBox resized = box.resize(axis, delta);
+      boxAnimator.animate(box, resized);
+      boxes.set(i, resized);
+      markBoxDirty(box);
+      markBoxDirty(resized);
+      notifyStateChanged();
+      return;
+    }
+  }
+
+  public boolean adjustSelectedFromHandle(Direction direction, int delta) {
+    if (selectedId < 0 || direction == null || delta == 0) {
+      return false;
+    }
+    for (int i = 0; i < boxes.size(); i++) {
+      RtsCullingBox box = boxes.get(i);
+      if (box.id() != selectedId) {
+        continue;
+      }
+      RtsCullingBox resized = box.resizeFromHandle(direction, delta);
+      boxAnimator.animate(box, resized);
+      boxes.set(i, resized);
+      markBoxDirty(box);
+      markBoxDirty(resized);
+      notifyStateChanged();
+      return true;
+    }
+    return false;
+  }
+
+  public boolean nudgeSelectedBox(int dx, int dy, int dz) {
+    if (selectedId < 0 || (dx == 0 && dy == 0 && dz == 0)) {
+      return false;
+    }
+    for (int i = 0; i < boxes.size(); i++) {
+      RtsCullingBox box = boxes.get(i);
+      if (box.id() != selectedId) {
+        continue;
+      }
+      RtsCullingBox moved =
+          new RtsCullingBox(box.id(), box.min().offset(dx, dy, dz), box.max().offset(dx, dy, dz));
+      boxAnimator.animate(box, moved);
+      boxes.set(i, moved);
+      markBoxDirty(box);
+      markBoxDirty(moved);
+      notifyStateChanged();
+      return true;
+    }
+    return false;
+  }
+
+  public boolean shouldCullWorldBlock(BlockPos pos) {
+    RtsCullingBox preview = activePreviewBox();
+    if ((!hasWorldCullBoxes() && preview == null) || pos == null) {
+      return false;
+    }
+    BlockPos immutable = pos.immutable();
+    if (revealedBlocks.contains(immutable)) {
+      return false;
+    }
+    if (boxes.stream().anyMatch(box -> box.contains(immutable))) {
+      return true;
+    }
+    return preview != null && preview.contains(immutable);
+  }
+
+  public double distanceAfterCulledBlock(
+      Vec3 origin, Vec3 direction, BlockPos pos, double maxDistance) {
+    RtsCullingBox preview = activePreviewBox();
+    if ((!hasWorldCullBoxes() && preview == null)
+        || origin == null
+        || direction == null
+        || pos == null) {
+      return -1.0D;
+    }
+    double best = distanceAfterCulledBlockIn(boxes, origin, direction, pos, maxDistance);
+    if (preview != null && preview.contains(pos)) {
+      RtsCullingBox.RayHit previewHit = preview.rayHit(origin, direction, maxDistance);
+      if (previewHit != null) {
+        double previewDistance =
+            Mth.clamp(previewHit.exitDistance() + RAY_SKIP_EPSILON, 0.0D, maxDistance);
+        best = best < 0.0D ? previewDistance : Math.min(best, previewDistance);
+      }
+    }
+    return best;
+  }
+
+  public void revealWorldBlock(BlockPos pos) {
+    if (pos == null) {
+      return;
+    }
+    BlockPos immutable = pos.immutable();
+    if (!isInsideAnyCullVolume(immutable)) {
+      return;
+    }
+    if (revealedBlocks.add(immutable)) {
+      markBlockDirty(immutable);
+      notifyStateChanged();
+    }
+  }
+
+  public void refreshWorldCullRendering() {
+    markAllBoxesDirty();
+    markBoxDirty(activePreviewBox());
+    revealedBlocks.forEach(this::markBlockDirty);
+  }
+
+  /**
+   * 离开当前世界时彻底丢弃只属于该世界的剔除编辑状态。
+   *
+   * <p>范围剔除盒使用世界坐标，不能跨服务器、存档或维度复用。这里不请求旧世界重建网格， 因为调用时客户端正在卸载旧世界；新世界会用空状态正常编译区块。
+   */
+  public void clearWorldState() {
+    this.managementMode = false;
+    this.boxes.clear();
+    this.revealedBlocks.clear();
+    this.nextId = 1;
+    this.selectedId = -1;
+    this.hoveredId = -1;
+    this.handleInteraction.clear();
+    this.boxAnimator.clear();
+    clearDraftState();
+  }
+
+  /** 用当前存档、当前维度从服务端恢复的快照替换内存状态。 */
+  public void replaceWorldState(
+      List<RtsCullingBox> restoredBoxes, List<BlockPos> restoredRevealedBlocks) {
+    List<RtsCullingBox> previousBoxes = List.copyOf(this.boxes);
+    RtsCullingBox previousPreview = activePreviewBox();
+    clearWorldState();
+    if (restoredBoxes != null) {
+      for (RtsCullingBox box : restoredBoxes) {
         if (box == null) {
-            return;
+          continue;
         }
-        RtsCullingRenderInvalidator.markBlocksDirty(box.min(), box.max());
+        RtsCullingBox normalized = new RtsCullingBox(nextId++, box.min(), box.max());
+        this.boxes.add(normalized);
+      }
     }
+    if (restoredRevealedBlocks != null) {
+      restoredRevealedBlocks.stream()
+          .filter(java.util.Objects::nonNull)
+          .map(BlockPos::immutable)
+          .forEach(this.revealedBlocks::add);
+    }
+    // 新状态就绪后再同步旧区域：仍被新盒覆盖的 Visual 保持移除，其余 Visual 会恢复。
+    previousBoxes.forEach(this::markBoxDirty);
+    markBoxDirty(previousPreview);
+    refreshWorldCullRendering();
+  }
 
-    private void markBlockDirty(BlockPos pos) {
-        if (pos == null) {
-            return;
-        }
-        RtsCullingRenderInvalidator.markBlocksDirty(pos, pos);
-    }
+  private void notifyStateChanged() {
+    stateChangeListener.run();
+  }
 
-    public enum Phase {
-        IDLE,
-        NEED_SECOND,
-        NEED_HEIGHT
+  private double distanceAfterCulledBlockIn(
+      List<RtsCullingBox> candidates,
+      Vec3 origin,
+      Vec3 direction,
+      BlockPos pos,
+      double maxDistance) {
+    return candidates.stream()
+        .filter(box -> box.contains(pos))
+        .map(box -> box.rayHit(origin, direction, maxDistance))
+        .filter(hit -> hit != null)
+        .map(hit -> Mth.clamp(hit.exitDistance() + RAY_SKIP_EPSILON, 0.0D, maxDistance))
+        .min(Double::compareTo)
+        .orElse(-1.0D);
+  }
+
+  private boolean isInsideAnyCullVolume(BlockPos pos) {
+    if (pos == null) {
+      return false;
     }
+    if (boxes.stream().anyMatch(box -> box.contains(pos))) {
+      return true;
+    }
+    RtsCullingBox preview = activePreviewBox();
+    return preview != null && preview.contains(pos);
+  }
+
+  private RtsCullingBox activePreviewBox() {
+    return managementMode && hasCompleteDraft() ? previewBox() : null;
+  }
+
+  private Optional<RtsCullingBox> boxById(int id) {
+    return boxes.stream().filter(box -> box.id() == id).findFirst();
+  }
+
+  private Optional<RtsCullingBox.RayHit> nearestHit(Vec3 origin, Vec3 direction) {
+    if (origin == null || direction == null) {
+      return Optional.empty();
+    }
+    return boxes.stream()
+        .map(box -> box.rayHit(origin, direction, RAY_DISTANCE))
+        .filter(hit -> hit != null)
+        .min(Comparator.comparingDouble(RtsCullingBox.RayHit::enterDistance));
+  }
+
+  private boolean selectHoveredBoxIfPresent() {
+    if (hoveredId < 0) {
+      return false;
+    }
+    Optional<RtsCullingBox> hovered = boxById(hoveredId);
+    if (hovered.isEmpty()) {
+      hoveredId = -1;
+      return false;
+    }
+    selectedId = hovered.get().id();
+    handleInteraction.clear();
+    return true;
+  }
+
+  private void cancelDraft() {
+    RtsCullingBox cancelledPreview = activePreviewBox();
+    clearDraftState();
+    // 草稿状态已经清空后再刷新，Flywheel 才会把此前隐藏的 Visual 恢复，而不是再次移除。
+    markBoxDirty(cancelledPreview);
+  }
+
+  /** 世界切换只清坐标状态；普通取消则由 {@link #cancelDraft()} 恢复旧预览范围。 */
+  private void clearDraftState() {
+    this.firstCorner = null;
+    this.secondCorner = null;
+    this.previewHeight = DEFAULT_HEIGHT;
+    this.phase = Phase.IDLE;
+    this.handleInteraction.clear();
+  }
+
+  private void markAllBoxesDirty() {
+    boxes.forEach(this::markBoxDirty);
+  }
+
+  private void markBoxDirty(RtsCullingBox box) {
+    if (box == null) {
+      return;
+    }
+    RtsCullingRenderInvalidator.markBlocksDirty(box.min(), box.max());
+    RtsFlywheelCullingCompat.syncBox(box);
+  }
+
+  private void markBlockDirty(BlockPos pos) {
+    if (pos == null) {
+      return;
+    }
+    RtsCullingRenderInvalidator.markBlocksDirty(pos, pos);
+    RtsFlywheelCullingCompat.syncBlock(pos);
+  }
+
+  public enum Phase {
+    IDLE,
+    NEED_SECOND,
+    NEED_HEIGHT
+  }
 }

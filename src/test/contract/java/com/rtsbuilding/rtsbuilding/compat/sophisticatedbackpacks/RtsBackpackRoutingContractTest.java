@@ -27,8 +27,9 @@ class RtsBackpackRoutingContractTest {
         assertTrue(compat.contains("PlayerInventoryProvider$BackpackInventorySlotConsumer")
                         && compat.contains("findCarriedBackpack(player, uuid)"),
                 "UUID resolution must cover Sophisticated Backpacks' carried and accessory slots.");
-        assertTrue(itemActions.contains("forcePlace || forceBackpackPlacement")
-                        && itemActions.contains(
+        String compactItemActions = itemActions.replaceAll("\\s+", " ");
+        assertTrue(compactItemActions.contains("forcePlace || forceBackpackPlacement")
+                        && compactItemActions.contains(
                         "!forceBackpackPlacement && !forcePlace"),
                 "Right-clicking a backpack must bypass interaction and enter placement.");
         assertTrue(placement.contains("forcePlace || sophisticatedBackpackPlacementOnly")

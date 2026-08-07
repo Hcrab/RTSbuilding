@@ -22,6 +22,11 @@
     ],
     "fabric-gametest": [
       "com.rtsbuilding.rtsbuilding.gametest.RtsServerGameTests",
+      "com.rtsbuilding.rtsbuilding.gametest.RtsBatchStorageGameTests",
+      "com.rtsbuilding.rtsbuilding.gametest.RtsConvenienceDestroyGameTests",
+      "com.rtsbuilding.rtsbuilding.gametest.RtsCrossDimensionStorageGameTests",
+      "com.rtsbuilding.rtsbuilding.gametest.RtsRemoteMenuGameTests",
+      "com.rtsbuilding.rtsbuilding.gametest.RtsSmartFillGameTests",
       "com.rtsbuilding.rtsbuilding.gametest.RtsOptimizationSuiteGameTests",
       "com.rtsbuilding.rtsbuilding.gametest.CreateBlueprintCompatibilityGameTests",
       "com.rtsbuilding.rtsbuilding.gametest.MekanismToolsCompatibilityGameTests"

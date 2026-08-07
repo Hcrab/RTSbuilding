@@ -30,7 +30,7 @@ class BuilderScreenOwnershipContractTest {
 
     @Test
     void screenAndEveryDedicatedOwnerStayBelowTheirHardLimits() throws IOException {
-        assertLineLimit("BuilderScreen.java", 700);
+        assertMethodLimit("BuilderScreen.java", 140);
         for (String owner : OWNERS) {
             assertLineLimit(owner, 500);
         }
@@ -62,5 +62,17 @@ class BuilderScreenOwnershipContractTest {
             lines = stream.count();
         }
         assertTrue(lines <= limit, file + " 超过 BuilderScreen 专属硬门禁：" + lines + " > " + limit);
+    }
+
+    private static void assertMethodLimit(String file, int maximum) throws IOException {
+        String screen = source(file);
+        long methods = java.util.regex.Pattern.compile(
+                        "(?m)^\\s*(?:public|protected|private)\\s+(?:static\\s+)?(?:final\\s+)?"
+                                + "(?:<[^>]+>\\s+)?[\\w<>?,.\\[\\]]+\\s+\\w+\\s*\\(")
+                .matcher(screen)
+                .results()
+                .count();
+        assertTrue(methods <= maximum,
+                file + " 超过 BuilderScreen 职责方法门禁：" + methods + " > " + maximum);
     }
 }

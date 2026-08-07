@@ -121,6 +121,8 @@ dependencies {
     // 可选客户端兼容只进入编译类路径；发布 JAR 不捆绑，也不强制玩家安装。
     modCompileOnly "mezz.jei:jei-${minecraft_version}-fabric-api:${jei_version}"
     modCompileOnly "maven.modrinth:jade:${jade_version}"
+    // Flywheel 在 Fabric 1.21.1 提供稳定的可视化 API；仅编译引用，运行时仍完全可选。
+    modCompileOnly "dev.engine-room.flywheel:flywheel-fabric-api-${minecraft_version}:${flywheel_version}"
 
     // 可选兼容依赖会在核心地基稳定后逐项接回；源码始终保留在完整错误账本中。
     if (providers.gradleProperty('rts_create_gametest_jar').isPresent()) {
