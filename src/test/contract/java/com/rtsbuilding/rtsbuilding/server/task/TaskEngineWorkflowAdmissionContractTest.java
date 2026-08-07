@@ -23,6 +23,8 @@ class TaskEngineWorkflowAdmissionContractTest {
         assertTrue(source.contains("TaskLifecycleState.CANCELLED"));
         assertTrue(source.contains("reconcileHiddenDurableWorkflows(player, coordinator)"));
         assertTrue(source.contains("TaskType.DESTRUCTION,"));
+        assertTrue(source.contains("snapshot.type() == TaskType.MINING"));
+        assertTrue(source.contains("snapshot.type() == TaskType.DESTRUCTION"));
         assertTrue(source.contains("已终止无法恢复可见投影的隐藏任务"));
         assertTrue(source.contains("已终止没有合法工作流 ID 的隐藏任务"));
         assertTrue(source.contains("已终止缺失可见工作流投影的蓝图任务"));
