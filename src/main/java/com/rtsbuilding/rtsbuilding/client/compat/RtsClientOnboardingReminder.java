@@ -23,6 +23,7 @@ import net.minecraftforge.fml.common.Mod;
 @Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Dist.CLIENT, bus = Mod.EventBusSubscriber.Bus.FORGE)
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
+    private static final String STABLE_VERSION = "1.1.6-patch2";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean shownThisConnection;
@@ -92,6 +93,7 @@ public final class RtsClientOnboardingReminder {
         minecraft.player.displayClientMessage(Component.translatable(
                 "chat.rtsbuilding.intro.version_warning",
                 Component.literal(currentModVersion()),
+                Component.literal(STABLE_VERSION),
                 websiteComponent())
                 .withStyle(ChatFormatting.GOLD), false);
         minecraft.player.displayClientMessage(Component.translatable(

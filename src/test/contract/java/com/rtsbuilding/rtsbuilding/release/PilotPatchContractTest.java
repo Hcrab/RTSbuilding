@@ -10,8 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Forge 发布线的版本与玩家提示契约。
  *
- * <p>1.20.1 与 1.21.1 可以同时维护不同补丁号，因此语言文件不硬编码版本；
- * 入门提醒必须从 Forge ModContainer 读取实际版本，并把版本与官网作为两个参数传入。</p>
+ * <p>1.20.1 与 1.21.1 可以同时维护不同补丁号，因此语言文件不硬编码当前版本；
+ * 入门提醒必须从 Forge ModContainer 读取实际版本，并把回退版本与官网作为参数传入。</p>
  */
 class PilotPatchContractTest {
     @Test
@@ -26,7 +26,7 @@ class PilotPatchContractTest {
         String zhCn = Files.readString(Path.of(
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.json"));
 
-        assertTrue(properties.lines().anyMatch("mod_version=1.1.7"::equals),
+        assertTrue(properties.lines().anyMatch("mod_version=1.1.7-beta1"::equals),
                 "Forge 构建必须声明精确发布版本");
         assertTrue(config.contains(".define(\"useBlockGhostPreview\", false)"));
         assertTrue(camera.contains("\"message.rtsbuilding.camera_locked\""));
@@ -37,10 +37,12 @@ class PilotPatchContractTest {
         assertTrue(onboarding.contains("ModList.get()")
                         && onboarding.contains("getModContainerById(RtsbuildingMod.MODID)")
                         && onboarding.contains("Component.literal(currentModVersion())")
+                        && onboarding.contains("STABLE_VERSION = \"1.1.6-patch2\"")
+                        && onboarding.contains("Component.literal(STABLE_VERSION)")
                         && onboarding.contains("websiteComponent()"),
-                "入门提醒必须从运行中的 Forge ModContainer 读取实际版本，并传入官网链接");
-        assertTrue(zhCn.contains("%1$s") && zhCn.contains("%2$s"),
-                "入门提醒翻译必须为实际版本和官网保留两个占位符");
+                "入门提醒必须读取实际版本，并传入回退版本和官网链接");
+        assertTrue(zhCn.contains("%1$s") && zhCn.contains("%2$s") && zhCn.contains("%3$s"),
+                "入门提醒翻译必须为当前版本、回退版本和官网保留三个占位符");
         assertFalse(zhCn.contains("1.1.6-pilot") || zhCn.contains("1.1.5-patch4"),
                 "语言资源不能硬编码任一发布线版本号");
     }
