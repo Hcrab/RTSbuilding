@@ -34,5 +34,7 @@ public final class RtsBuilderSyncPackets1122 {
                 S2CRtsWorkflowProgressPayload.class, Side.CLIENT);
         RtsPayloadRegistrar.registerMessage(27, ClientPayloadDispatcher.ResumePlacementScanHandler.class,
                 S2CRtsResumePlacementScanPayload.class, Side.CLIENT);
+        RtsPayloadRegistrar.registerMessage(28, ClientPayloadDispatcher.OperationTerminalHandler.class,
+                S2CRtsOperationTerminalPayload.class, Side.CLIENT);
     }
 }

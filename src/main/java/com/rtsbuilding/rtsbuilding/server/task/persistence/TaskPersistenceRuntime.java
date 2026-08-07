@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.task.persistence;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsPersistenceDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.data.RtsStrictAtomicNbtStore;
 import com.rtsbuilding.rtsbuilding.server.task.identity.TaskId;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.asset.TaskAssetMetadata;
@@ -65,6 +66,7 @@ public final class TaskPersistenceRuntime {
     private TaskPersistenceCoordinator coordinator;
     private ExecutorService writer;
     private CompletableFuture<TaskRepository.WriteCompletion> inFlight;
+    private long inFlightScheduledNanos;
     private Throwable fatalFailure;
     private Thread serverThread;
     private MinecraftServer server;
@@ -97,14 +99,30 @@ public final class TaskPersistenceRuntime {
      */
     public void start(MinecraftServer server) {
         Objects.requireNonNull(server, "server");
+        long loadStartedNanos = System.nanoTime();
+        RtsPersistenceDiagnostics.loadBegin();
         TaskCodec codec = new TaskCodec();
         BlueprintBlobCodec blobCodec = new BlueprintBlobCodec();
         AtomicBlueprintBlobRepository blobs = new AtomicBlueprintBlobRepository(server, blobCodec);
-        TaskPersistenceCoordinator opened = openAndVerify(
-                new AtomicNbtTaskRepository(
-                        new RtsStrictAtomicNbtStore(server, "rtsbuilding", "durable_tasks.dat"), codec),
-                codec, blobs, blobCodec);
-        start(server, opened, blobs);
+        TaskPersistenceCoordinator opened;
+        try {
+            opened = openAndVerify(
+                    new AtomicNbtTaskRepository(
+                            new RtsStrictAtomicNbtStore(
+                                    server, "rtsbuilding", "durable_tasks.dat"), codec),
+                    codec, blobs, blobCodec);
+            start(server, opened, blobs);
+        } catch (RuntimeException failure) {
+            RtsPersistenceDiagnostics.loadFailed(failure, elapsedMs(loadStartedNanos));
+            throw failure;
+        }
+        List<TaskSnapshot> restored = opened.query().snapshots();
+        int terminal = 0;
+        for (TaskSnapshot snapshot : restored) {
+            if (snapshot.state().terminal()) terminal++;
+        }
+        RtsPersistenceDiagnostics.loadResult(
+                restored.size(), restored.size() - terminal, terminal, elapsedMs(loadStartedNanos));
         BlueprintAssetMaintenance maintenance = new BlueprintAssetMaintenance();
         this.assetMaintenance = maintenance;
         try {
@@ -433,6 +451,7 @@ public final class TaskPersistenceRuntime {
      */
     public void stop() {
         requireServerThread();
+        long stopStartedNanos = System.nanoTime();
         RuntimeException flushFailure = null;
         boolean writerTerminated = false;
         boolean maintenanceTerminated = true;
@@ -492,6 +511,7 @@ public final class TaskPersistenceRuntime {
                 coordinator = null;
                 writer = null;
                 inFlight = null;
+                inFlightScheduledNanos = 0L;
                 fatalFailure = null;
                 serverThread = null;
                 server = null;
@@ -509,6 +529,11 @@ public final class TaskPersistenceRuntime {
                         : flushFailure;
             }
         }
+        RtsPersistenceDiagnostics.stopResult(
+                flushFailure == null,
+                coordinator == null ? 0 : coordinator.dirtyCount(),
+                elapsedMs(stopStartedNanos),
+                flushFailure);
         if (flushFailure != null) throw flushFailure;
     }
 
@@ -519,6 +544,41 @@ public final class TaskPersistenceRuntime {
     /** 启动早期的 ChunkEvent 等观察型事件可用此门禁跳过尚未就绪的恢复索引。 */
     public boolean isStarted() {
         return started();
+    }
+
+    /** 健康诊断使用的聚合状态；不暴露任务内容、路径或可变仓库。 */
+    public Diagnostics diagnostics() {
+        TaskPersistenceCoordinator current = coordinator;
+        return current == null
+                ? new Diagnostics(0, false, 0)
+                : new Diagnostics(
+                        current.dirtyCount(),
+                        inFlight != null,
+                        blueprintAdmissionQueue == null ? 0 : blueprintAdmissionQueue.pendingCount());
+    }
+
+    public static final class Diagnostics {
+        private final int dirty;
+        private final boolean inFlight;
+        private final int pendingAssetAdmissions;
+
+        public Diagnostics(int dirty, boolean inFlight, int pendingAssetAdmissions) {
+            this.dirty = Math.max(0, dirty);
+            this.inFlight = inFlight;
+            this.pendingAssetAdmissions = Math.max(0, pendingAssetAdmissions);
+        }
+
+        public int dirty() {
+            return dirty;
+        }
+
+        public boolean inFlight() {
+            return inFlight;
+        }
+
+        public int pendingAssetAdmissions() {
+            return pendingAssetAdmissions;
+        }
     }
 
     private static void verifyManifestAssets(TaskPersistenceCoordinator coordinator,
@@ -725,6 +785,13 @@ public final class TaskPersistenceRuntime {
                 TaskRepository.PreparedCommit prepared = preparation.preparedCommit();
                 inFlight = CompletableFuture.supplyAsync(
                         () -> coordinator.writePrepared(prepared), writer);
+                inFlightScheduledNanos = System.nanoTime();
+                RtsPersistenceDiagnostics.saveScheduled(
+                        prepared.ticketId().toString(),
+                        prepared.recordCount(),
+                        preparation.estimatedBytes(),
+                        preparation.deferredTaskIds().size(),
+                        coordinator.dirtyCount());
                 return;
             case BUDGET_BLOCKED:
             case FAILED:
@@ -747,11 +814,16 @@ public final class TaskPersistenceRuntime {
         try {
             completion = joinCompletion(inFlight);
         } catch (RuntimeException failure) {
+            RtsPersistenceDiagnostics.writerFailed(
+                    failure, elapsedMs(inFlightScheduledNanos), coordinator.dirtyCount());
             fatalFailure = failure;
             throw failure;
         }
         inFlight = null;
         TaskPersistenceCoordinator.CommitAckResult ack = coordinator.acceptCompletion(completion);
+        RtsPersistenceDiagnostics.saveAck(
+                ack, elapsedMs(inFlightScheduledNanos), coordinator.dirtyCount());
+        inFlightScheduledNanos = 0L;
         handleAssetAdmissionAck(ack);
         if (ack.outcome() == TaskPersistenceCoordinator.AckOutcome.REJECTED) {
             fatalFailure = ack.failure() == null
@@ -773,15 +845,24 @@ public final class TaskPersistenceRuntime {
             completion = inFlight.get(remaining, TimeUnit.NANOSECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+            RtsPersistenceDiagnostics.writerFailed(
+                    e, elapsedMs(inFlightScheduledNanos), coordinator.dirtyCount());
             throw new IllegalStateException("等待 durable task 写盘时被中断", e);
         } catch (ExecutionException e) {
+            RtsPersistenceDiagnostics.writerFailed(
+                    e.getCause(), elapsedMs(inFlightScheduledNanos), coordinator.dirtyCount());
             fatalFailure = e.getCause();
             throw new IllegalStateException("durable task writer 异常退出，运行时已 fail-closed", e.getCause());
         } catch (TimeoutException e) {
+            RtsPersistenceDiagnostics.writerFailed(
+                    e, elapsedMs(inFlightScheduledNanos), coordinator.dirtyCount());
             throw new IllegalStateException("等待 durable task 写盘超时，dirty 已保留", e);
         }
         inFlight = null;
         TaskPersistenceCoordinator.CommitAckResult ack = coordinator.acceptCompletion(completion);
+        RtsPersistenceDiagnostics.saveAck(
+                ack, elapsedMs(inFlightScheduledNanos), coordinator.dirtyCount());
+        inFlightScheduledNanos = 0L;
         handleAssetAdmissionAck(ack);
         if (ack.outcome() == TaskPersistenceCoordinator.AckOutcome.REJECTED) {
             fatalFailure = ack.failure() == null
@@ -846,6 +927,11 @@ public final class TaskPersistenceRuntime {
         } catch (RuntimeException failure) {
             throw new IllegalStateException("durable task writer completion 异常", failure);
         }
+    }
+
+    private static long elapsedMs(long startedNanos) {
+        if (startedNanos <= 0L) return 0L;
+        return Math.max(0L, (System.nanoTime() - startedNanos) / 1_000_000L);
     }
 
     private static void logPreparationFailure(TaskPersistenceCoordinator.PreparationResult result) {

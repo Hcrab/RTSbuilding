@@ -23,11 +23,12 @@ public class HistoryEntry {
 
     private final UUID entryId;
     private final long timestamp;
-    private final boolean isDestructive;
+    private final HistoryOperation operation;
     private final List<HistoryBlockRecord> blocks;
     private final EnumFacing face;
     /** 操作所属维度，用于防止跨维度误操作 */
     private final int dimension;
+    private final int sourceSlot;
 
     /**
      * @param isDestructive true=破坏操作（撤回=重新放置），false=放置操作（撤回=破坏方块）
@@ -36,12 +37,19 @@ public class HistoryEntry {
      * @param dimension    操作发生时的维度，用于执行时校验
      */
     public HistoryEntry(boolean isDestructive, List<HistoryBlockRecord> blocks, EnumFacing face, int dimension) {
+        this(isDestructive ? HistoryOperation.CREATIVE_BREAK : HistoryOperation.CREATIVE_PLACEMENT,
+                blocks, face, dimension, -1);
+    }
+
+    public HistoryEntry(HistoryOperation operation, List<HistoryBlockRecord> blocks,
+            EnumFacing face, int dimension, int sourceSlot) {
         this.entryId = UUID.randomUUID();
         this.timestamp = System.currentTimeMillis();
-        this.isDestructive = isDestructive;
+        this.operation = operation;
         this.blocks = com.rtsbuilding.rtsbuilding.server.task.Java8Collections.copyList(blocks);
         this.face = face;
         this.dimension = dimension;
+        this.sourceSlot = sourceSlot;
     }
 
     // ===== 获取器 =====
@@ -55,8 +63,10 @@ public class HistoryEntry {
     }
 
     public boolean isDestructive() {
-        return isDestructive;
+        return operation.destructive();
     }
+
+    public HistoryOperation getOperation() { return operation; }
 
     public List<HistoryBlockRecord> getBlocks() {
         return blocks;
@@ -69,6 +79,8 @@ public class HistoryEntry {
     public int getDimension() {
         return dimension;
     }
+
+    public int getSourceSlot() { return sourceSlot; }
 
     public int getBlockCount() {
         return blocks.size();
@@ -92,11 +104,24 @@ public class HistoryEntry {
      * @param restoredCount 已成功恢复/撤销的方块数量
      * @return 剩余方块的记录；如果全部完成则返回 null
      */
-    public HistoryEntry removeRestored(int restoredCount) {
-        if (restoredCount >= blocks.size()) {
-            return null;
+    public HistoryEntry remainingAfter(java.util.Set<net.minecraft.util.math.BlockPos> completedPositions) {
+        if (completedPositions == null || completedPositions.isEmpty()) return this;
+        List<HistoryBlockRecord> remaining = new ArrayList<HistoryBlockRecord>();
+        for (HistoryBlockRecord record : blocks) {
+            if (!completedPositions.contains(record.pos())) remaining.add(record);
         }
-        List<HistoryBlockRecord> remaining = new ArrayList<>(blocks.subList(restoredCount, blocks.size()));
-        return new HistoryEntry(isDestructive, remaining, face, dimension);
+        return remaining.isEmpty() ? null
+                : new HistoryEntry(operation, remaining, face, dimension, sourceSlot);
+    }
+
+    /** 只保留本次真正执行成功的位置，用于迁移到相反方向的历史栈。 */
+    public HistoryEntry completedOnly(java.util.Set<net.minecraft.util.math.BlockPos> completedPositions) {
+        if (completedPositions == null || completedPositions.isEmpty()) return null;
+        List<HistoryBlockRecord> completed = new ArrayList<HistoryBlockRecord>();
+        for (HistoryBlockRecord record : blocks) {
+            if (completedPositions.contains(record.pos())) completed.add(record);
+        }
+        return completed.isEmpty() ? null
+                : new HistoryEntry(operation, completed, face, dimension, sourceSlot);
     }
 }

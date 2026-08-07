@@ -31,5 +31,7 @@ public final class RtsStorageTransferPackets1122 {
                 C2SRtsSetQuickSlotPayload.class, Side.SERVER);
         RtsPayloadRegistrar.registerMessage(45, RtsBindingHandlers.StoreHotbarSlot.class,
                 C2SRtsStoreHotbarSlotPayload.class, Side.SERVER);
+        RtsPayloadRegistrar.registerMessage(47, RtsTransferHandlers.BulkStorageOperation.class,
+                C2SRtsBulkStorageOpPayload.class, Side.SERVER);
     }
 }

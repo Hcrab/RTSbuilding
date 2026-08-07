@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.server.task;
 
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceCoordinator;
 import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot;
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 
 import java.util.ArrayDeque;
 import java.util.Collection;
@@ -57,6 +59,7 @@ public final class DurableTaskScheduler {
         while (!queue.isEmpty() && processed < maxUnits && nanoClock.getAsLong() < deadline) {
             TaskSnapshot before = queue.removeFirst();
             int allowance = Math.min(maxUnitsPerSlice, maxUnits - processed);
+            long sliceStarted = nanoClock.getAsLong();
             SliceResult result = executors.get(before.type()).execute(before,
                     new TaskBudget(allowance, deadline, nanoClock));
             TaskSnapshot after = Objects.requireNonNull(result.snapshot(), "executor snapshot");
@@ -74,6 +77,13 @@ public final class DurableTaskScheduler {
                 }
             } else {
                 throw new IllegalStateException("durable executor 必须保持 revision 或严格递增一版");
+            }
+            long sliceNanos = Math.max(0L, nanoClock.getAsLong() - sliceStarted);
+            try {
+                RtsServerTraceRegistry.onTaskSlice(
+                        before, after, result.processedUnits(), sliceNanos, allowance, maxNanos);
+            } catch (RuntimeException diagnosticFailure) {
+                RtsbuildingMod.LOGGER.debug("RTS task diagnostic observer failed", diagnosticFailure);
             }
             slices++;
             processed += Math.max(0, result.processedUnits());

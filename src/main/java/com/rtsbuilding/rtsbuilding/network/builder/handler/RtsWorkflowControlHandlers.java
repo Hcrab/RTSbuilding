@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.network.builder.handler;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsDeleteWorkflowPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsSetWorkflowProtectedPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUndoPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsRedoPayload;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
@@ -76,6 +77,22 @@ public final class RtsWorkflowControlHandlers {
                     if (invokeStaticBoolean(CAMERA_MANAGER_CLASS, "isActive",
                             new Class<?>[]{EntityPlayerMP.class}, player)) {
                         ServerHistoryManager.executeUndo(player);
+                    }
+                }
+            });
+            return null;
+        }
+    }
+
+    public static final class RedoHandler implements IMessageHandler<C2SRtsRedoPayload, IMessage> {
+        @Override
+        public IMessage onMessage(C2SRtsRedoPayload message, MessageContext context) {
+            final EntityPlayerMP player = context.getServerHandler().player;
+            player.getServerWorld().addScheduledTask(new Runnable() {
+                @Override public void run() {
+                    if (invokeStaticBoolean(CAMERA_MANAGER_CLASS, "isActive",
+                            new Class<?>[]{EntityPlayerMP.class}, player)) {
+                        ServerHistoryManager.executeRedo(player);
                     }
                 }
             });

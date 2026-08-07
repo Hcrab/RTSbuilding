@@ -145,6 +145,12 @@ public final class RtsCraftingServiceImpl implements CraftingService {
         RtsStorageCrafting.recordCraftedOutput(player, registry.session().getIfPresent(player), crafted);
     }
 
+    @Override
+    public void clearCraftingGrid(EntityPlayerMP player, boolean toPlayerInventory) {
+        RtsStorageCrafting.clearCraftingGrid(
+                player, registry.session().getIfPresent(player), toPlayerInventory);
+    }
+
     // ────────────────────────────────────────────────────────────────
     //  Internal helpers
     // ────────────────────────────────────────────────────────────────

@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
@@ -193,6 +194,8 @@ public final class RtsbuildingMod {
             RtsEffectAccumulator.INSTANCE.clearAll();
             RtsDeveloperMetrics.clearAll();
             RtsPositionBatchAssembler1122.clearAll();
+            RtsServerTraceRegistry.reset();
+            com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerHealthDiagnostics.reset();
             RtsCrossDimensionStorageWakeService.INSTANCE.clear();
         } finally {
             activeServer = null;

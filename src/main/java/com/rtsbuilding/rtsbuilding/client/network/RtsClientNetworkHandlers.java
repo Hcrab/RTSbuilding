@@ -136,7 +136,7 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload) {
-        schedule(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize()));
+        schedule(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize(), payload.redoSize()));
     }
 
     public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload) {

@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.List;
 
 /** 允许大范围破坏、但保证每个 Forge 1.12 自定义包低于 32 KiB 的分片消息。 */
-public final class C2SRtsAreaDestroyPayload implements IMessage {
+public final class C2SRtsAreaDestroyPayload implements IMessage, com.rtsbuilding.rtsbuilding.network.RtsTracedPayload {
     public static final int MAX_POSITIONS = RtsProtocolLimits.AREA_DESTROY_MAX_POSITIONS;
     public static final int MAX_POSITIONS_PER_PACKET = 2048;
 
@@ -25,6 +25,10 @@ public final class C2SRtsAreaDestroyPayload implements IMessage {
     private String toolItemId = "";
     private ItemStack toolPrototype = ItemStack.EMPTY;
     private boolean toolProtectionEnabled;
+    private long traceId;
+    private int sequence;
+    private long clientTick = -1L;
+    private byte inputKind;
 
     public C2SRtsAreaDestroyPayload() {
     }
@@ -49,6 +53,18 @@ public final class C2SRtsAreaDestroyPayload implements IMessage {
         this.toolProtectionEnabled = toolProtectionEnabled;
     }
 
+    public C2SRtsAreaDestroyPayload(int submissionId, int chunkIndex, int chunkCount,
+            int totalPositions, List<BlockPos> positions, byte toolSlot, String toolItemId,
+            ItemStack toolPrototype, boolean toolProtectionEnabled, long traceId, int sequence,
+            long clientTick, byte inputKind) {
+        this(submissionId, chunkIndex, chunkCount, totalPositions, positions, toolSlot,
+                toolItemId, toolPrototype, toolProtectionEnabled);
+        this.traceId = traceId;
+        this.sequence = Math.max(0, sequence);
+        this.clientTick = clientTick;
+        this.inputKind = inputKind;
+    }
+
     @Override
     public void fromBytes(ByteBuf buffer) {
         submissionId = buffer.readInt();
@@ -64,6 +80,10 @@ public final class C2SRtsAreaDestroyPayload implements IMessage {
         toolItemId = RtsPacketBuffer.readString(buffer, 256, "tool id");
         toolPrototype = RtsPacketBuffer.readItemStack(buffer);
         toolProtectionEnabled = buffer.readBoolean();
+        traceId = buffer.readLong();
+        sequence = RtsPacketBuffer.readVarInt(buffer);
+        clientTick = buffer.readLong();
+        inputKind = buffer.readByte();
         if (!isValid()) throw new IllegalArgumentException("invalid area destroy chunk");
     }
 
@@ -80,12 +100,16 @@ public final class C2SRtsAreaDestroyPayload implements IMessage {
         RtsPacketBuffer.writeString(buffer, toolItemId, 256, "tool id");
         RtsPacketBuffer.writeItemStack(buffer, toolPrototype);
         buffer.writeBoolean(toolProtectionEnabled);
+        buffer.writeLong(traceId);
+        RtsPacketBuffer.writeVarInt(buffer, sequence);
+        buffer.writeLong(clientTick);
+        buffer.writeByte(inputKind);
     }
 
     public boolean isValid() {
         if (!validChunkShape(totalPositions, chunkIndex, chunkCount, positions)
                 || totalPositions > MAX_POSITIONS || toolSlot < 0 || toolSlot > 8
-                || toolItemId == null || toolItemId.length() > 256) return false;
+                || toolItemId == null || toolItemId.length() > 256 || sequence < 0) return false;
         for (BlockPos pos : positions) if (pos == null) return false;
         return true;
     }
@@ -114,9 +138,13 @@ public final class C2SRtsAreaDestroyPayload implements IMessage {
     public String toolItemId() { return toolItemId; }
     public ItemStack toolPrototype() { return toolPrototype; }
     public boolean toolProtectionEnabled() { return toolProtectionEnabled; }
+    @Override public long traceId() { return traceId; }
+    public int sequence() { return sequence; }
+    public long clientTick() { return clientTick; }
+    public byte inputKind() { return inputKind; }
 
     public String metadataSignature() {
-        return toolSlot + "|" + toolItemId + "|" + toolProtectionEnabled + "|"
+        return toolSlot + "|" + toolItemId + "|" + toolProtectionEnabled + "|" + traceId + "|"
                 + toolPrototype.toString() + "|" + String.valueOf(toolPrototype.getTagCompound());
     }
 }

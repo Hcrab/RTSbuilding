@@ -35,7 +35,8 @@ import java.util.BitSet;
  * 已发布编号。</p>
  */
 public final class RtsPayloadRegistrar {
-    public static final String PROTOCOL_VERSION = "1";
+    /** v2 为挖掘请求增加 trace/输入上下文，并增加服务端终态回执。 */
+    public static final String PROTOCOL_VERSION = "2";
     private static final String CHANNEL_NAME = RtsbuildingMod.MODID;
     private static final SimpleNetworkWrapper CHANNEL = NetworkRegistry.INSTANCE.newSimpleChannel(CHANNEL_NAME);
     private static final BitSet REGISTERED_IDS = new BitSet(256);

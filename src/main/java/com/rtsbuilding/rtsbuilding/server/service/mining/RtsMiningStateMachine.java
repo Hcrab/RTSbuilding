@@ -463,7 +463,8 @@ public final class RtsMiningStateMachine {
         else if (deferUntilNextTick) outcome = MiningSliceResult.Outcome.NEXT_TICK;
         else outcome = MiningSliceResult.Outcome.CONTINUE;
         if (outcome == MiningSliceResult.Outcome.COMPLETE) {
-            finalizeDetachedMining(player, session, decodeDetachedHistory(player, history), state.face());
+            finalizeDetachedMining(player, session, decodeDetachedHistory(player, history),
+                    state.face(), state.toolSlot());
         }
         return new MiningSliceResult(next, processed, processed, succeeded, failed, outcome, waitHint);
     }
@@ -501,8 +502,10 @@ public final class RtsMiningStateMachine {
 
     private static void finalizeDetachedMining(
             EntityPlayerMP player, RtsStorageSession session,
-            List<HistoryBlockRecord> history, EnumFacing face) {
-        if (!history.isEmpty()) ServerHistoryManager.recordBreakWithRecords(player, history, face);
+            List<HistoryBlockRecord> history, EnumFacing face, int toolSlot) {
+        if (!history.isEmpty()) {
+            ServerHistoryManager.recordBreakWithRecords(player, history, face, toolSlot);
+        }
         if (session.mining.miningToolLease != null && !session.mining.miningToolLease.isEmpty()) {
             RtsToolLeaseManager.returnMiningTool(player, session, session.mining.miningToolLease);
             session.mining.miningToolLease = RtsToolLease.empty();
@@ -527,7 +530,7 @@ public final class RtsMiningStateMachine {
             clearDetachedProgress(player, state.remainingTargets().get(0));
         }
         List<HistoryBlockRecord> history = decodeDetachedHistory(player, state.historyRecords());
-        finalizeDetachedMining(player, session, history, state.face());
+        finalizeDetachedMining(player, session, history, state.face(), state.toolSlot());
     }
 
     /** 将真实成功/失败投影到工作流，网络发送由 Tick 末合并。 */
@@ -629,7 +632,8 @@ public final class RtsMiningStateMachine {
             }
             List<HistoryBlockRecord> records = new ArrayList<HistoryBlockRecord>(session.mining.ultimineProcessedPositions);
             if (!records.isEmpty()) {
-                ServerHistoryManager.recordBreakWithRecords(player, records, session.mining.miningFace);
+                ServerHistoryManager.recordBreakWithRecords(player, records,
+                        session.mining.miningFace, session.mining.miningToolSlot);
             }
             session.mining.workflowEntryId = -1;
             if (session.mining.miningToolLease != null
@@ -855,6 +859,7 @@ public final class RtsMiningStateMachine {
         if (!records.isEmpty()) {
             ctx.setData(HistoryRecordPipe.ARG_HISTORY_RECORDS, records);
             ctx.setData(HistoryRecordPipe.ARG_HISTORY_FACE, face != null ? face : EnumFacing.DOWN);
+            ctx.setData(HistoryRecordPipe.ARG_HISTORY_SOURCE_SLOT, session.mining.miningToolSlot);
         }
 
         // ── Execute cleanup sequence via WorkflowPipeline ───────────

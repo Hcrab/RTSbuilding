@@ -1,17 +1,22 @@
 package com.rtsbuilding.rtsbuilding.client.diagnostic;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsDiagnosticLevel;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsStructuredDiagnostics;
 import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsRemoteMenuResultPayload;
 import net.minecraft.util.math.BlockPos;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 客户端请求 trace 的有界状态表。
  *
- * <p>本轮先完整覆盖远程交互/GUI。它只记录状态转换，不在渲染或 tick 热路径逐帧写日志；
+ * <p>本类负责远程交互/GUI 的细粒度界面阶段；操作级终态同时登记到统一诊断器。
+ * 它只记录状态转换，不在渲染或 tick 热路径逐帧写日志；
  * 旧提示包的 traceId 为零，仍可触发兼容预放宽，但不会进入等待表或制造假超时。</p>
  */
 public final class RtsClientTraceTracker {
@@ -19,6 +24,7 @@ public final class RtsClientTraceTracker {
     private static final int MAX_RECENT = 256;
     private static final Map<Long, TraceState> ACTIVE = new LinkedHashMap<Long, TraceState>();
     private static final Map<Long, TraceState> RECENT = new LinkedHashMap<Long, TraceState>();
+    private static final AtomicLong NEXT_SEQUENCE = new AtomicLong();
 
     private static long currentRemoteTraceId;
 
@@ -32,9 +38,12 @@ public final class RtsClientTraceTracker {
         ACTIVE.put(traceId, state);
         trim(ACTIVE, MAX_ACTIVE);
         currentRemoteTraceId = traceId;
+        RtsClientOperationDiagnostics.registerExisting(traceId, "REMOTE_GUI");
         RtsbuildingMod.LOGGER.info(
                 "[RTS-TRACE] side=C event=INTERACT_SENT trace={} kind=REMOTE_GUI source={} target={} entity={} face={} distance={}",
                 RtsTraceIds.format(traceId), source, target, entityId, face, distance);
+        structured("INTERACT_SENT", state, "source", source, "target", target,
+                "entity", entityId, "face", face, "distance", distance);
         return traceId;
     }
 
@@ -59,6 +68,8 @@ public final class RtsClientTraceTracker {
                 "[RTS-TRACE] side=C event=RESULT_RECEIVED trace={} kind=REMOTE_GUI outcome={} reason={} window={} elapsedMs={}",
                 RtsTraceIds.format(payload.traceId()), state.outcome, state.reason,
                 payload.windowId(), state.elapsedMillis());
+        structured("RESULT_RECEIVED", state, "outcome", state.outcome,
+                "reason", state.reason, "window", payload.windowId());
         if (payload.outcome() == S2CRtsRemoteMenuResultPayload.MENU_OPENED) {
             currentRemoteTraceId = payload.traceId();
         } else {
@@ -108,6 +119,8 @@ public final class RtsClientTraceTracker {
                 "[RTS-TRACE] side=C event=HINT_TIMEOUT trace={} kind=REMOTE_GUI lastStage={} menu={} screen={} expectedWindow={} elapsedMs={}",
                 RtsTraceIds.format(state.traceId), state.lastStage, menuClass, screenClass,
                 state.expectedWindowId, state.elapsedMillis());
+        structured("HINT_TIMEOUT", state, "outcome", state.outcome,
+                "reason", state.reason, "menu", menuClass, "screen", screenClass);
         finish(state, "CLIENT_TIMEOUT");
     }
 
@@ -203,6 +216,21 @@ public final class RtsClientTraceTracker {
         }
     }
 
+    private static void structured(String event, TraceState state, Object... fields) {
+        if (state == null || level() == RtsDiagnosticLevel.OFF) return;
+        Object[] values = new Object[12 + (fields == null ? 0 : fields.length)];
+        Object[] base = {"trace", RtsTraceIds.format(state.traceId), "seq", state.sequence,
+                "op", -1, "workflow", -1, "task", "-", "kind", "REMOTE_GUI"};
+        System.arraycopy(base, 0, values, 0, base.length);
+        if (fields != null) System.arraycopy(fields, 0, values, base.length, fields.length);
+        RtsStructuredDiagnostics.appendClient(event, values);
+    }
+
+    private static RtsDiagnosticLevel level() {
+        try { return Config.CLIENT_DIAGNOSTIC_LEVEL.get(); }
+        catch (IllegalStateException ignored) { return RtsDiagnosticLevel.BASIC; }
+    }
+
     private static void trim(Map<Long, TraceState> values, int limit) {
         while (values.size() > limit) {
             Long oldest = values.keySet().iterator().next();
@@ -212,6 +240,7 @@ public final class RtsClientTraceTracker {
 
     private static final class TraceState {
         private final long traceId;
+        private final long sequence;
         private final long createdAtNanos = System.nanoTime();
         @SuppressWarnings("unused") private final String source;
         @SuppressWarnings("unused") private final BlockPos target;
@@ -225,6 +254,7 @@ public final class RtsClientTraceTracker {
 
         private TraceState(long traceId, String source, BlockPos target, int entityId, long distance) {
             this.traceId = traceId;
+            this.sequence = NEXT_SEQUENCE.incrementAndGet();
             this.source = source;
             this.target = target;
             this.entityId = entityId;

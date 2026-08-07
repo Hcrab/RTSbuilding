@@ -11,6 +11,8 @@ import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationTraceScope;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
@@ -62,6 +64,11 @@ public final class RtsMiningServiceImpl implements MiningService {
         if (session != null && !committedBatch) {
             PipelineRegistry.execute(RtsWorkflowType.STOP_MINING,
                     MiningContext.builder(player).build());
+        } else {
+            RtsServerTraceRegistry.terminalWithoutWorkflow(player,
+                    RtsOperationTraceScope.currentOrLegacy("C2S_MINE_STOP"),
+                    RtsWorkflowType.STOP_MINING, "COMPLETED",
+                    committedBatch ? "BATCH_ALREADY_COMMITTED" : "NO_ACTIVE_SESSION");
         }
     }
 

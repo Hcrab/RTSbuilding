@@ -1,6 +1,8 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.core;
 
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationTraceScope;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.entity.player.EntityPlayerMP;
 
@@ -37,6 +39,7 @@ public class PipelineContext {
 
     private final EntityPlayerMP player;
     private final Map<String, Object> args;
+    private final RtsOperationTraceContext operationTrace;
 
     // ──────────────────────────────────────────────────────────────────
     //  可变共享数据
@@ -56,8 +59,16 @@ public class PipelineContext {
      * @param args   不可变输入参数（会创建防御性副本）
      */
     public PipelineContext(EntityPlayerMP player, Map<String, Object> args) {
+        this(player, args, RtsOperationTraceScope.currentOrLegacy("INTERNAL_PIPELINE"));
+    }
+
+    /** 创建带网络因果身份的管道上下文；诊断字段不得参与业务校验。 */
+    public PipelineContext(EntityPlayerMP player, Map<String, Object> args,
+            RtsOperationTraceContext operationTrace) {
         this.player = Objects.requireNonNull(player, "player");
         this.args = Collections.unmodifiableMap(new HashMap<>(args));
+        this.operationTrace = operationTrace == null
+                ? RtsOperationTraceContext.legacy("INTERNAL_PIPELINE") : operationTrace;
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -68,6 +79,9 @@ public class PipelineContext {
     public EntityPlayerMP player() {
         return player;
     }
+
+    /** 返回创建本 Pipeline 的网络诊断上下文；无网络来源时返回明确 legacy 值。 */
+    public RtsOperationTraceContext operationTrace() { return operationTrace; }
 
     /**
      * 从共享数据中返回玩家的存储会话，如果 {@link SessionValidatePipe}

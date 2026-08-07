@@ -2,6 +2,10 @@ package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.trace.RtsTraceIds;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsStructuredDiagnostics;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.compat.RtsGuiCompatMatrixSync;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
@@ -11,6 +15,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlacePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsRemoteMenuResultPayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.service.RtsRemoteInteractionResult;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.Entity;
@@ -119,9 +124,13 @@ public final class RtsPlacementActionHandlers1122 {
             player.getServerWorld().addScheduledTask(new Runnable() {
                 @Override public void run() {
                     // 不在 Netty 线程读取世界状态；诊断上下文和交互都在服务端计划任务中处理。
-                    logReceived(player, message);
+                    RtsOperationTraceContext trace = RtsServerTraceRegistry.acceptNetwork(
+                            player, message.traceId(), 0, -1L, 0,
+                            RtsTraceInputKind.MOUSE.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                            "C2S_REMOTE_INTERACT", System.nanoTime());
+                    logReceived(player, message, trace);
                     if (!cameraBoolean("isActive", new Class<?>[]{EntityPlayerMP.class}, player)) {
-                        sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.rejected(
+                        sendTerminal(player, trace, RtsRemoteInteractionResult.rejected(
                                 S2CRtsRemoteMenuResultPayload.REASON_RTS_INACTIVE));
                         return;
                     }
@@ -129,14 +138,14 @@ public final class RtsPlacementActionHandlers1122 {
                     if (message.entityId() >= 0) {
                         Entity entity = player.getServerWorld().getEntityByID(message.entityId());
                         if (entity == null) {
-                            sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.rejected(
+                            sendTerminal(player, trace, RtsRemoteInteractionResult.rejected(
                                     S2CRtsRemoteMenuResultPayload.REASON_TARGET_MISSING));
                             return;
                         }
                         authorityTarget = entity.getPosition();
                     }
                     if (!inRange(player, authorityTarget)) {
-                        sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.rejected(
+                        sendTerminal(player, trace, RtsRemoteInteractionResult.rejected(
                                 S2CRtsRemoteMenuResultPayload.REASON_OUT_OF_RANGE));
                         return;
                     }
@@ -153,7 +162,7 @@ public final class RtsPlacementActionHandlers1122 {
                                 message.hitZ(), message.sourceType(), message.toolSlot(), message.itemId(),
                                 message.rayOriginX(), message.rayOriginY(), message.rayOriginZ(),
                                 message.rayDirX(), message.rayDirY(), message.rayDirZ(), message.traceId());
-                        sendTerminal(player, message.traceId(), result);
+                        sendTerminal(player, trace, result);
                         if (result == null || result.outcome() != S2CRtsRemoteMenuResultPayload.MENU_OPENED) {
                             RtsRemoteMenuCompat.cancelServerRemoteMenuOpen(player, message.traceId(), "NO_MENU");
                         }
@@ -162,7 +171,7 @@ public final class RtsPlacementActionHandlers1122 {
                         RtsbuildingMod.LOGGER.error(
                                 "[RTS-TRACE] side=S event=RESULT trace={} kind=REMOTE_GUI outcome=FAILED reason=EXCEPTION failure={}",
                                 RtsTraceIds.format(message.traceId()), failure.getClass().getName(), failure);
-                        sendTerminal(player, message.traceId(), RtsRemoteInteractionResult.failed());
+                        sendTerminal(player, trace, RtsRemoteInteractionResult.failed());
                         RtsRemoteMenuCompat.cancelServerRemoteMenuOpen(player, message.traceId(), "EXCEPTION");
                         // 真实矩阵会故意激活缺少结构或物品前置的孤立方块。仅在探针模式下把第三方异常
                         // 变成可报告 ACK；普通玩家路径仍按原语义抛出，避免吞掉实际服务端故障。
@@ -174,7 +183,8 @@ public final class RtsPlacementActionHandlers1122 {
             return null;
         }
 
-        private static void logReceived(EntityPlayerMP player, C2SRtsInteractPayload message) {
+        private static void logReceived(EntityPlayerMP player, C2SRtsInteractPayload message,
+                RtsOperationTraceContext trace) {
             BlockPos pos = message.clickedPos();
             boolean loaded = pos != null && player.getServerWorld().isBlockLoaded(pos);
             String blockId = "unloaded";
@@ -186,23 +196,43 @@ public final class RtsPlacementActionHandlers1122 {
             long distance = pos == null ? -1L
                     : Math.round(Math.sqrt(player.getDistanceSqToCenter(pos)));
             RtsbuildingMod.LOGGER.info(
-                    "[RTS-TRACE] side=S event=C2S_RECEIVED trace={} kind=REMOTE_GUI player={} target={} entity={} source={} distance={} loadedBefore={} block={}",
+                    "[RTS-TRACE] side=S event=C2S_RECEIVED trace={} kind=REMOTE_GUI "
+                            + "player={} target={} entity={} source={} distance={} "
+                            + "loadedBefore={} block={}",
                     RtsTraceIds.format(message.traceId()), player.getName(), pos, message.entityId(),
                     sourceName(message.sourceType()), distance, loaded, blockId);
+            RtsStructuredDiagnostics.appendServer("REMOTE_GUI_RECEIVED",
+                    "trace", RtsTraceIds.format(message.traceId()), "seq", trace.sequence(),
+                    "op", trace.operationId(),
+                    "workflow", -1, "task", "-", "player", player.getUniqueID().toString(),
+                    "target", pos, "entity", message.entityId(), "source", sourceName(message.sourceType()),
+                    "distance", distance, "loaded", loaded, "block", blockId);
         }
 
         private static void sendTerminal(
-                EntityPlayerMP player, long traceId, RtsRemoteInteractionResult result) {
+                EntityPlayerMP player, RtsOperationTraceContext trace,
+                RtsRemoteInteractionResult result) {
             if (result == null) result = RtsRemoteInteractionResult.failed();
+            long traceId = trace.traceId();
             RtsbuildingMod.LOGGER.info(
                     "[RTS-TRACE] side=S event=RESULT trace={} kind=REMOTE_GUI outcome={} reason={} window={}",
                     RtsTraceIds.format(traceId),
                     S2CRtsRemoteMenuResultPayload.outcomeName(result.outcome()),
                     S2CRtsRemoteMenuResultPayload.reasonName(result.reason()), result.windowId());
+            RtsStructuredDiagnostics.appendServer("REMOTE_GUI_RESULT",
+                    "trace", RtsTraceIds.format(traceId), "seq", trace.sequence(),
+                    "op", trace.operationId(),
+                    "workflow", -1, "task", "-", "player", player.getUniqueID().toString(),
+                    "outcome", S2CRtsRemoteMenuResultPayload.outcomeName(result.outcome()),
+                    "reason", S2CRtsRemoteMenuResultPayload.reasonName(result.reason()),
+                    "window", result.windowId());
             if (RtsTraceIds.isPresent(traceId)) {
                 RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuResultPayload(
                         traceId, result.outcome(), result.reason(), result.windowId()));
             }
+            RtsServerTraceRegistry.terminalWithoutWorkflow(player, trace, null,
+                    S2CRtsRemoteMenuResultPayload.outcomeName(result.outcome()),
+                    S2CRtsRemoteMenuResultPayload.reasonName(result.reason()));
         }
 
         private static String sourceName(byte source) {

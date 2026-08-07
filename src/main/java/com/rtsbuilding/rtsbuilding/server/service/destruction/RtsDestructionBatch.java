@@ -259,7 +259,8 @@ public final class RtsDestructionBatch {
         for (NBTTagCompound encoded : state.historyRecords()) {
             records.add(decodeHistoryRecord(player, encoded));
         }
-        ServerHistoryManager.recordBreakWithRecords(player, records, EnumFacing.DOWN);
+        ServerHistoryManager.recordBreakWithRecords(
+                player, records, EnumFacing.DOWN, state.toolSlot());
     }
 
     /**

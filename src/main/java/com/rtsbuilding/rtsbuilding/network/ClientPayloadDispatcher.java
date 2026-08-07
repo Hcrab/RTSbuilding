@@ -13,6 +13,7 @@ import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsResumePlacementScanPayl
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressBatchPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsWorkflowProgressPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsOperationTerminalPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
@@ -46,6 +47,8 @@ public final class ClientPayloadDispatcher {
             "com.rtsbuilding.rtsbuilding.client.sound.RtsBlockActionSoundPlayer";
     private static final String CLIENT_NETWORK_HANDLERS =
             "com.rtsbuilding.rtsbuilding.client.network.RtsClientNetworkHandlers";
+    private static final String CLIENT_OPERATION_DIAGNOSTICS =
+            "com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics";
 
     private ClientPayloadDispatcher() {
     }
@@ -230,6 +233,21 @@ public final class ClientPayloadDispatcher {
         @Override public IMessage onMessage(final S2CRtsResumePlacementScanPayload message, MessageContext context) {
             dispatchClientNetwork(context, "handleResumePlacementScan", S2CRtsResumePlacementScanPayload.class,
                     message);
+            return null;
+        }
+    }
+
+    /** traced 操作的终态回执只进入客户端诊断器，不改变任何 UI 或操作状态。 */
+    public static final class OperationTerminalHandler
+            implements IMessageHandler<S2CRtsOperationTerminalPayload, IMessage> {
+        @Override public IMessage onMessage(final S2CRtsOperationTerminalPayload message,
+                MessageContext context) {
+            schedule(context, new Runnable() {
+                @Override public void run() {
+                    invokeStatic(CLIENT_OPERATION_DIAGNOSTICS, "terminal",
+                            new Class<?>[]{S2CRtsOperationTerminalPayload.class}, message);
+                }
+            });
             return null;
         }
     }

@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedQuickMovePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.inventory.Container;
 import net.minecraft.item.ItemStack;
@@ -75,6 +76,22 @@ public final class RtsTransferHandlers {
                 callTransfer("importMenuSlotToLinked", new Class<?>[]{EntityPlayerMP.class, int.class},
                         player, message.menuSlot());
             }}); return null;
+        }
+    }
+
+    public static final class BulkStorageOperation
+            implements IMessageHandler<C2SRtsBulkStorageOpPayload, IMessage> {
+        @Override public IMessage onMessage(final C2SRtsBulkStorageOpPayload message,
+                MessageContext context) {
+            if (!message.isValid()) return null;
+            schedule(context, new Action() {
+                @Override public void run(EntityPlayerMP player) {
+                    callTransfer("bulkStorageOperation",
+                            new Class<?>[]{EntityPlayerMP.class, byte.class, ItemStack.class, int.class},
+                            player, message.action(), message.prototype().copy(), message.amount());
+                }
+            });
+            return null;
         }
     }
 

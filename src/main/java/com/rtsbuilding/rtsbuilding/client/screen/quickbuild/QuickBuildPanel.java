@@ -73,8 +73,9 @@ public final class QuickBuildPanel extends RtsWindowPanel {
     @Override
     public void init(BuilderScreen screen, ClientRtsController controller) {
         super.init(screen, controller);
-        // 必须走统一生命周期；直接写 open 会绕过淡入状态机，导致首次打开的内容透明。
-        setOpen(true);
+        // 先记录逻辑打开，等 BuilderScreen 尺寸和 BottomPanel 布局就绪后再揭示视觉窗口。
+        // 构造阶段不能定位窗口；逻辑打开与布局就绪后的渐显必须分成两个阶段。
+        requestInitialOpen();
         this.resizable = false;
         this.preferences.buildShape(controller.getBuildShape());
         AreaMineShape storedDestroyShape = controller.getAreaMineShape();

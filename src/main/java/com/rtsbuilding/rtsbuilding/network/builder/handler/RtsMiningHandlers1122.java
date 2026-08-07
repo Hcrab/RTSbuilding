@@ -4,6 +4,12 @@ import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaDestroyPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsAreaMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsMinePayload;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsUltiminePayload;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationTraceScope;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsNativeLeftClickBridge;
+import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
@@ -13,7 +19,6 @@ import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
 import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
 import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.List;
 
 /**
@@ -37,13 +42,28 @@ public final class RtsMiningHandlers1122 {
             if (!message.isValid()) return null;
             schedule(context, new ServerAction() {
                 @Override public void run(EntityPlayerMP player) {
-                    if (!inRange(player, message.pos())) return;
-                    invokeMining("mine", new Class<?>[]{
+                    final RtsOperationTraceContext trace = RtsServerTraceRegistry.acceptNetwork(
+                            player, message.traceId(), message.sequence(), message.clientTick(),
+                            message.heldMs(), message.inputKind(), message.stopOrigin(),
+                            "C2S_MINE", System.nanoTime());
+                    RtsWorkflowType type = message.start()
+                            ? RtsWorkflowType.MINE_SINGLE : RtsWorkflowType.STOP_MINING;
+                    if (!requireActive(player, trace, type)) return;
+                    if (message.start() && RtsNativeLeftClickBridge.interceptMiningStart(player, message)) {
+                        RtsServerTraceRegistry.terminalWithoutWorkflow(player, trace, type,
+                                "COMPLETED", "NATIVE_LEFT_CLICK_CONSUMED");
+                        return;
+                    }
+                    RtsOperationTraceScope.run(trace, new Runnable() {
+                        @Override public void run() {
+                            invokeMining("mine", new Class<?>[]{
                                     EntityPlayerMP.class, BlockPos.class, EnumFacing.class, boolean.class,
                                     byte.class, String.class, ItemStack.class, boolean.class, boolean.class},
                             player, message.pos(), EnumFacing.byIndex(message.face()), message.start(),
                             message.toolSlot(), message.toolItemId(), message.toolPrototype().copy(),
                             message.allowPlacedBlockRecovery(), message.toolProtectionEnabled());
+                        }
+                    });
                 }
             });
             return null;
@@ -56,13 +76,21 @@ public final class RtsMiningHandlers1122 {
             if (!message.isValid()) return null;
             schedule(context, new ServerAction() {
                 @Override public void run(EntityPlayerMP player) {
-                    if (!inRange(player, message.pos())) return;
-                    invokeMining("startUltimine", new Class<?>[]{
+                    final RtsOperationTraceContext trace = RtsServerTraceRegistry.acceptNetwork(
+                            player, message.traceId(), message.sequence(), message.clientTick(), 0,
+                            message.inputKind(), RtsMiningStopOrigin.NONE.wireId(),
+                            "C2S_ULTIMINE", System.nanoTime());
+                    if (!requireActive(player, trace, RtsWorkflowType.ULTIMINE)) return;
+                    RtsOperationTraceScope.run(trace, new Runnable() {
+                        @Override public void run() {
+                            invokeMining("startUltimine", new Class<?>[]{
                                     EntityPlayerMP.class, BlockPos.class, EnumFacing.class, byte.class,
                                     String.class, ItemStack.class, int.class, byte.class, boolean.class},
                             player, message.pos(), EnumFacing.byIndex(message.face()), message.toolSlot(),
                             message.toolItemId(), message.toolPrototype().copy(), message.limit(),
                             message.mode(), message.toolProtectionEnabled());
+                        }
+                    });
                 }
             });
             return null;
@@ -75,8 +103,18 @@ public final class RtsMiningHandlers1122 {
             if (!message.isValid()) return null;
             schedule(context, new ServerAction() {
                 @Override public void run(EntityPlayerMP player) {
-                    if (!allBoxCornersInRange(player, message)) return;
-                    invokeMining("areaMine", new Class<?>[]{
+                    final RtsOperationTraceContext trace = RtsServerTraceRegistry.acceptNetwork(
+                            player, message.traceId(), message.sequence(), message.clientTick(), 0,
+                            message.inputKind(), RtsMiningStopOrigin.NONE.wireId(),
+                            "C2S_AREA_MINE", System.nanoTime());
+                    if (!cameraBoolean("isActive", new Class<?>[]{EntityPlayerMP.class}, player)) {
+                        RtsServerTraceRegistry.terminalWithoutWorkflow(player, trace, RtsWorkflowType.AREA_MINE,
+                                "REJECTED", "RTS_INACTIVE");
+                        return;
+                    }
+                    RtsOperationTraceScope.run(trace, new Runnable() {
+                        @Override public void run() {
+                            invokeMining("areaMine", new Class<?>[]{
                                     EntityPlayerMP.class, int.class, int.class, int.class, int.class,
                                     int.class, int.class, byte.class, String.class, ItemStack.class,
                                     byte.class, byte.class, boolean.class},
@@ -84,6 +122,8 @@ public final class RtsMiningHandlers1122 {
                             message.minZ(), message.maxZ(), message.toolSlot(), message.toolItemId(),
                             message.toolPrototype().copy(), message.shapeType(), message.fillType(),
                             message.toolProtectionEnabled());
+                        }
+                    });
                 }
             });
             return null;
@@ -96,17 +136,31 @@ public final class RtsMiningHandlers1122 {
             if (!message.isValid()) return null;
             schedule(context, new ServerAction() {
                 @Override public void run(EntityPlayerMP player) {
+                    final RtsOperationTraceContext trace = RtsServerTraceRegistry.acceptNetwork(
+                            player, message.traceId(), message.sequence(), message.clientTick(), 0,
+                            message.inputKind(), RtsMiningStopOrigin.NONE.wireId(),
+                            "C2S_AREA_DESTROY_CHUNK", System.nanoTime());
                     List<BlockPos> positions = RtsPositionBatchAssembler1122.accept(
                             player.getUniqueID(), "area_destroy", message.submissionId(),
                             message.chunkIndex(), message.chunkCount(), message.totalPositions(),
                             C2SRtsAreaDestroyPayload.MAX_POSITIONS, message.metadataSignature(),
                             message.positions());
-                    if (positions == null || !allPositionsInRange(player, positions)) return;
-                    invokeMining("areaDestroy", new Class<?>[]{
+                    if (positions == null) return;
+                    if (!cameraBoolean("isActive", new Class<?>[]{EntityPlayerMP.class}, player)) {
+                        RtsServerTraceRegistry.terminalWithoutWorkflow(player, trace,
+                                RtsWorkflowType.AREA_DESTROY, "REJECTED", "RTS_INACTIVE");
+                        return;
+                    }
+                    final List<BlockPos> accepted = positions;
+                    RtsOperationTraceScope.run(trace, new Runnable() {
+                        @Override public void run() {
+                            invokeMining("areaDestroy", new Class<?>[]{
                                     EntityPlayerMP.class, List.class, byte.class, String.class,
                                     ItemStack.class, boolean.class},
-                            player, positions, message.toolSlot(), message.toolItemId(),
+                            player, accepted, message.toolSlot(), message.toolItemId(),
                             message.toolPrototype().copy(), message.toolProtectionEnabled());
+                        }
+                    });
                 }
             });
             return null;
@@ -121,41 +175,19 @@ public final class RtsMiningHandlers1122 {
         final EntityPlayerMP player = context.getServerHandler().player;
         player.getServerWorld().addScheduledTask(new Runnable() {
             @Override public void run() {
-                if (cameraBoolean("isActive", new Class<?>[]{EntityPlayerMP.class}, player)) {
-                    action.run(player);
-                }
+                action.run(player);
             }
         });
     }
 
-    private static boolean inRange(EntityPlayerMP player, BlockPos pos) {
-        return cameraBoolean("isWithinActionRange",
-                new Class<?>[]{EntityPlayerMP.class, BlockPos.class}, player, pos);
-    }
-
-    private static boolean allBoxCornersInRange(EntityPlayerMP player, C2SRtsAreaMinePayload message) {
-        int[] xs = {message.minX(), message.maxX()};
-        int[] ys = {message.minY(), message.maxY()};
-        int[] zs = {message.minZ(), message.maxZ()};
-        for (int x : xs) for (int y : ys) for (int z : zs) {
-            if (!inRange(player, new BlockPos(x, y, z))) return false;
+    private static boolean requireActive(EntityPlayerMP player,
+            RtsOperationTraceContext trace, RtsWorkflowType type) {
+        if (!cameraBoolean("isActive", new Class<?>[]{EntityPlayerMP.class}, player)) {
+            RtsServerTraceRegistry.terminalWithoutWorkflow(
+                    player, trace, type, "REJECTED", "RTS_INACTIVE");
+            return false;
         }
         return true;
-    }
-
-    private static boolean allPositionsInRange(EntityPlayerMP player, List<BlockPos> positions) {
-        try {
-            Class<?> camera = Class.forName(CAMERA_MANAGER);
-            Method method = camera.getMethod("isWithinActionRange", EntityPlayerMP.class, BlockPos.class);
-            for (BlockPos pos : positions) {
-                if (!Boolean.TRUE.equals(method.invoke(null, player, pos))) return false;
-            }
-            return true;
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException exception) {
-            throw new IllegalStateException("1.12.2 camera range adapter is unavailable", exception);
-        } catch (InvocationTargetException exception) {
-            throw propagate("Camera range validation failed", exception);
-        }
     }
 
     private static boolean cameraBoolean(String methodName, Class<?>[] types, Object... arguments) {

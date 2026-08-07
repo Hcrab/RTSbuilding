@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.history;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
 import javax.annotation.Nullable;
 
 import java.util.Objects;
@@ -22,13 +23,24 @@ public final class HistoryBlockRecord {
     private final IBlockState state;
     @Nullable
     private final NBTTagCompound blockEntityData;
+    private final IBlockState afterState;
+    @Nullable
+    private final NBTTagCompound afterBlockEntityData;
 
     public HistoryBlockRecord(BlockPos pos, IBlockState state,
             @Nullable NBTTagCompound blockEntityData) {
+        this(pos, state, blockEntityData, Blocks.AIR.getDefaultState(), null);
+    }
+
+    public HistoryBlockRecord(BlockPos pos, IBlockState state,
+            @Nullable NBTTagCompound blockEntityData, IBlockState afterState,
+            @Nullable NBTTagCompound afterBlockEntityData) {
         BlockPos sourcePos = Objects.requireNonNull(pos, "pos");
         this.pos = new BlockPos(sourcePos.getX(), sourcePos.getY(), sourcePos.getZ());
         this.state = Objects.requireNonNull(state, "state");
         this.blockEntityData = blockEntityData == null ? null : blockEntityData.copy();
+        this.afterState = Objects.requireNonNull(afterState, "afterState");
+        this.afterBlockEntityData = afterBlockEntityData == null ? null : afterBlockEntityData.copy();
     }
 
     public BlockPos pos() { return pos; }
@@ -36,6 +48,19 @@ public final class HistoryBlockRecord {
     @Nullable
     public NBTTagCompound blockEntityData() {
         return blockEntityData == null ? null : blockEntityData.copy();
+    }
+    public IBlockState afterState() { return afterState; }
+    @Nullable
+    public NBTTagCompound afterBlockEntityData() {
+        return afterBlockEntityData == null ? null : afterBlockEntityData.copy();
+    }
+
+    /** 建造历史同时冻结操作前后状态，供撤销和重做双向校验。 */
+    public static HistoryBlockRecord placement(BlockPos pos, IBlockState beforeState,
+            @Nullable NBTTagCompound beforeBlockEntityData, IBlockState afterState,
+            @Nullable NBTTagCompound afterBlockEntityData) {
+        return new HistoryBlockRecord(pos, beforeState, beforeBlockEntityData,
+                afterState, afterBlockEntityData);
     }
 
     /**

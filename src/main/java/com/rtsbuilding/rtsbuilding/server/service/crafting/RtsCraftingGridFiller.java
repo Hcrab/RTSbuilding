@@ -381,6 +381,44 @@ public final class RtsCraftingGridFiller {
                 : RtsTransferExtractor.extractOneMatchingPrototypeFromLinked(handlers, preferred);
     }
 
+    /**
+     * 安全清空终端合成格。首选目标放不下时尝试另一个目标；两边都满的剩余物
+     * 会原样留在槽中，因此不会因客户端预测或静默丢弃造成物品损失。
+     */
+    public static void clearCraftingGrid(
+            EntityPlayerMP player, RtsStorageSession session, boolean toPlayerInventory) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)
+                || session == null || !(player.openContainer instanceof ContainerWorkbench)) return;
+        ContainerWorkbench menu = (ContainerWorkbench) player.openContainer;
+        List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+        boolean changed = false;
+        for (int i = 0; i < 9; i++) {
+            Slot grid = menu.getSlot(1 + i);
+            ItemStack source = grid.getStack();
+            if (source.isEmpty()) continue;
+            ItemStack remain = source.copy();
+            grid.putStack(ItemStack.EMPTY);
+            if (toPlayerInventory) {
+                remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
+                if (!remain.isEmpty()) remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(
+                        insertHandlers, remain);
+            } else {
+                remain = RtsTransferInserter.storeToLinkedOnlyPreferExisting(insertHandlers, remain);
+                if (!remain.isEmpty()) remain = RtsTransferInserter.moveToPlayerInventoryOnly(player, remain);
+            }
+            if (!remain.isEmpty()) grid.putStack(remain);
+            grid.onSlotChanged();
+            changed = true;
+        }
+        if (changed) {
+            RtsCraftingUtils.refreshCraftingResult(menu);
+            menu.detectAndSendChanges();
+            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+            QuestService.runQuestDetect(player, session, false);
+        }
+    }
+
     // ---- JEI helper --------------------------------------------------------------
 
     private static ItemStack[] sanitizeIngredientPrototypes(Ingredient[] required, List<ItemStack> prototypes) {

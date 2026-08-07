@@ -168,4 +168,7 @@ public interface CraftingService {
      * @param crafted 已合成的产物物品栈
      */
     void recordCraftedOutput(EntityPlayerMP player, ItemStack crafted);
+
+    /** 安全清空当前 RTS 合成终端；放不下的物品必须原样留在槽中。 */
+    void clearCraftingGrid(EntityPlayerMP player, boolean toPlayerInventory);
 }

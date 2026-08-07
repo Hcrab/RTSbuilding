@@ -92,6 +92,11 @@ public final class RtsStorageCrafting {
                 player, session, recipeId, ingredientPrototypes, maxTransfer, clearGridFirst);
     }
 
+    public static void clearCraftingGrid(
+            EntityPlayerMP player, RtsStorageSession session, boolean toPlayerInventory) {
+        RtsCraftingGridFiller.clearCraftingGrid(player, session, toPlayerInventory);
+    }
+
     public static ItemStack[] snapshotCraftGridBlueprint(ContainerWorkbench menu) {
         return RtsCraftingExecutor.snapshotCraftGridBlueprint(menu);
     }

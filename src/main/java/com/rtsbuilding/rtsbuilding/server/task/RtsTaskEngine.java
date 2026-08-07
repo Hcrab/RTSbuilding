@@ -135,6 +135,37 @@ public final class RtsTaskEngine {
         return new TaskDiagnostics(active, waiting);
     }
 
+    /** 诊断层按玩家/工作流读取稳定 TaskSnapshot；不得据此改变业务决策。 */
+    public java.util.Optional<com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot>
+            diagnosticTaskSnapshot(net.minecraft.entity.player.EntityPlayerMP player, int workflowEntryId) {
+        if (player == null || workflowEntryId < 0
+                || !com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE.isStarted()) {
+            return java.util.Optional.empty();
+        }
+        return com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE
+                .coordinator().query().findByWorkflow(
+                        player.getUniqueID(), dimensionId(player.dimension), workflowEntryId);
+    }
+
+    /** 健康诊断读取的全局队列计数；只聚合状态，不暴露任务内容。 */
+    public QueueDiagnostics queueDiagnostics() {
+        int runnable = 0;
+        int waiting = 0;
+        com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime persistence =
+                com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime.INSTANCE;
+        if (persistence.isStarted()) {
+            for (com.rtsbuilding.rtsbuilding.server.task.persistence.TaskSnapshot snapshot
+                    : persistence.coordinator().query().snapshots()) {
+                if (snapshot.state().runnable()) {
+                    runnable++;
+                } else if (snapshot.state().waiting()) {
+                    waiting++;
+                }
+            }
+        }
+        return new QueueDiagnostics(runnable + scheduler.activeTaskCount(), waiting);
+    }
+
     public void detachPlayer(UUID playerId) {
         // 必须在移除 scheduler lane 前把 durable cursor 冻结，并释放 Context→EntityPlayerMP 强引用。
         durableBlueprintBridge.detachOwner(playerId);
@@ -1363,6 +1394,25 @@ public final class RtsTaskEngine {
         @Override public int hashCode() { return java.util.Objects.hash(activeByType, waitingByType); }
         @Override public String toString() {
             return "TaskDiagnostics[activeByType=" + activeByType + ", waitingByType=" + waitingByType + "]";
+        }
+    }
+
+    /** 全局可运行/等待任务数量，不包含任何玩家或任务载荷。 */
+    public static final class QueueDiagnostics {
+        private final int runnable;
+        private final int waiting;
+
+        public QueueDiagnostics(int runnable, int waiting) {
+            this.runnable = Math.max(0, runnable);
+            this.waiting = Math.max(0, waiting);
+        }
+
+        public int runnable() {
+            return runnable;
+        }
+
+        public int waiting() {
+            return waiting;
         }
     }
 

@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowToken;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 
 /**
  * 在引擎中启动一个新的工作流条目，并将条目 ID 存储在
@@ -72,6 +73,7 @@ public final class WorkflowStartPipe implements PipelinePipe<PipelineContext> {
         }
 
         ctx.setData(KEY_WORKFLOW_ENTRY_ID, token.entryId());
+        RtsOperationDiagnostics.workflowCreated(type, ctx, token.entryId());
         return PipelineResult.success();
     }
 }

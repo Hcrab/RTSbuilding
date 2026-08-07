@@ -42,6 +42,16 @@ public final class RtsTraceIds {
         return padded.append(raw).toString();
     }
 
+    /** 当前 JVM 启动周期的短标识；仅用于把不同诊断事件归入同一次运行。 */
+    public static String runId() {
+        String raw = Long.toHexString(SESSION_NONCE >>> 32);
+        StringBuilder padded = new StringBuilder(8);
+        for (int i = raw.length(); i < 8; i++) {
+            padded.append('0');
+        }
+        return padded.append(raw).toString();
+    }
+
     private static long createSessionNonce() {
         long mixed = System.currentTimeMillis()
                 ^ System.nanoTime()

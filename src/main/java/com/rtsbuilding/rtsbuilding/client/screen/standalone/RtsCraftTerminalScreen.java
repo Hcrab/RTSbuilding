@@ -10,6 +10,8 @@ import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsClearCraftingGridPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
 import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
@@ -51,6 +53,7 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
     private static final int BUTTON_ROW_Y_OFF = 7, CARRIED_IMPORT_W = 48, CARRIED_IMPORT_H = 12;
     private static final int CARRIED_IMPORT_X_OFF = LINK_PANEL_W - CARRIED_IMPORT_W - 8;
     private static final int CARRIED_IMPORT_Y_OFF = LINK_PANEL_H - CARRIED_IMPORT_H - 7;
+    private static final int CLEAR_GRID_X_OFF = 8;
 
     private final ContainerWorkbench workbench;
     private final ITextComponent terminalTitle;
@@ -184,6 +187,10 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         ItemStack carried = carried();
         drawSmallButton(g, panelX + CARRIED_IMPORT_X_OFF, panelY + CARRIED_IMPORT_Y_OFF,
                 CARRIED_IMPORT_W, CARRIED_IMPORT_H, "STORE", CraftTerminalStyle.importBackground(!carried.isEmpty()));
+        drawSmallButton(g, panelX + CLEAR_GRID_X_OFF, panelY + CARRIED_IMPORT_Y_OFF,
+                CARRIED_IMPORT_W, CARRIED_IMPORT_H,
+                GuiScreen.isShiftKeyDown() ? "DEPOSIT" : "CLEAR",
+                CraftTerminalStyle.MINI_BUTTON_BACKGROUND);
 
         int searchX = panelX + LINK_SEARCH_X_OFF, searchY = panelY + LINK_SEARCH_Y_OFF;
         drawPanelFrame(g, searchX, searchY, LINK_GRID_W, LINK_SEARCH_H, CraftTerminalStyle.SEARCH_BACKGROUND,
@@ -234,12 +241,38 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
         if (UiRect.contains(panelX + PAGE_NEXT_X_OFF, rowY, MINI_BUTTON_W, MINI_BUTTON_H, mouseX, mouseY)) { controller.nextPage(); return true; }
         if (UiRect.contains(panelX + CARRIED_IMPORT_X_OFF, panelY + CARRIED_IMPORT_Y_OFF,
                 CARRIED_IMPORT_W, CARRIED_IMPORT_H, mouseX, mouseY)) return returnCarriedToLinked(button == 1 ? 1 : Integer.MAX_VALUE);
+        if (UiRect.contains(panelX + CLEAR_GRID_X_OFF, panelY + CARRIED_IMPORT_Y_OFF,
+                CARRIED_IMPORT_W, CARRIED_IMPORT_H, mouseX, mouseY)) {
+            if (GuiScreen.isShiftKeyDown()) {
+                RtsPayloadRegistrar.sendToServer(new C2SRtsBulkStorageOpPayload(
+                        button == 1 ? C2SRtsBulkStorageOpPayload.DEPOSIT_HOTBAR
+                                : C2SRtsBulkStorageOpPayload.DEPOSIT_ALL,
+                        ItemStack.EMPTY, 0));
+            } else {
+                RtsPayloadRegistrar.sendToServer(new C2SRtsClearCraftingGridPayload(button == 1));
+            }
+            return true;
+        }
         if (!carried().isEmpty() && isInsideLinkedGrid(mouseX, mouseY))
             return returnCarriedToLinked(button == 1 ? 1 : Integer.MAX_VALUE);
         int linked = resolveLinkedSlotIndex(mouseX, mouseY);
         if (linked >= 0) {
             List<StorageEntry> entries = controller.getStorageEntries();
-            return linked >= entries.size() || pickupFromLinked(entries.get(linked), button == 1 ? 1 : Integer.MAX_VALUE);
+            if (linked >= entries.size()) return true;
+            StorageEntry entry = entries.get(linked);
+            boolean spaceDown = Keyboard.isKeyDown(Keyboard.KEY_SPACE);
+            if (carried().isEmpty() && button == 0 && (GuiScreen.isShiftKeyDown() || spaceDown)) {
+                int requested = spaceDown
+                        ? (int) Math.min(Integer.MAX_VALUE, entry.count())
+                        : Math.min(entry.stack().getMaxStackSize(),
+                                (int) Math.min(Integer.MAX_VALUE, entry.count()));
+                ItemStack prototype = entry.stack().copy();
+                prototype.setCount(1);
+                RtsPayloadRegistrar.sendToServer(new C2SRtsBulkStorageOpPayload(
+                        C2SRtsBulkStorageOpPayload.WITHDRAW, prototype, requested));
+                return true;
+            }
+            return pickupFromLinked(entry, button == 1 ? 1 : Integer.MAX_VALUE);
         }
         return UiRect.contains(panelX, panelY, LINK_PANEL_W, LINK_PANEL_H, mouseX, mouseY);
     }
@@ -327,13 +360,30 @@ public final class RtsCraftTerminalScreen extends GuiContainer {
                 g, fontRenderer, x, y, LINK_SLOT_SIZE, count,
                 CraftTerminalStyle.COUNT_TEXT.toArgb());
     }
-    private void drawMiniButton(LegacyGuiGraphics g, int x, int y, String label) { drawSmallButton(g, x, y, MINI_BUTTON_W, MINI_BUTTON_H, label, CraftTerminalStyle.MINI_BUTTON_BACKGROUND); }
-    private void drawSmallButton(LegacyGuiGraphics g, int x, int y, int w, int h, String label, UiColor fill) {
-        drawPanelFrame(g, x, y, w, h, fill, CraftTerminalStyle.BUTTON_BORDER_LIGHT, CraftTerminalStyle.BUTTON_BORDER_DARK);
-        g.drawCenteredString(fontRenderer, label, x + w / 2, y + 2, CraftTerminalStyle.BUTTON_TEXT.toArgb());
+    private void drawMiniButton(LegacyGuiGraphics g, int x, int y, String label) {
+        drawSmallButton(
+                g, x, y, MINI_BUTTON_W, MINI_BUTTON_H, label,
+                CraftTerminalStyle.MINI_BUTTON_BACKGROUND);
     }
+
+    private void drawSmallButton(LegacyGuiGraphics g, int x, int y, int w, int h, String label, UiColor fill) {
+        drawPanelFrame(
+                g, x, y, w, h, fill,
+                CraftTerminalStyle.BUTTON_BORDER_LIGHT,
+                CraftTerminalStyle.BUTTON_BORDER_DARK);
+        g.drawCenteredString(
+                fontRenderer, label, x + w / 2, y + 2,
+                CraftTerminalStyle.BUTTON_TEXT.toArgb());
+    }
+
     private static String sortShort(RtsStorageSort sort) {
-        if (sort == RtsStorageSort.QUANTITY) return "Q"; if (sort == RtsStorageSort.MOD) return "M"; return "N";
+        if (sort == RtsStorageSort.QUANTITY) {
+            return "Q";
+        }
+        if (sort == RtsStorageSort.MOD) {
+            return "M";
+        }
+        return "N";
     }
     private void drawPanelFrame(LegacyGuiGraphics g, int x, int y, int w, int h, UiColor fill, UiColor light, UiColor dark) {
         UiChromeRenderer.frame(new MinecraftUiCanvas(g, fontRenderer), new UiRect(x, y, w, h), 1D, fill, light, dark);

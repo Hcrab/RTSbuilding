@@ -87,8 +87,8 @@ point I already cannot play without it.
 - Tested in a clean development client and in the Multiblock Madness modpack.
 - Includes dedicated compatibility work for remote menus, legacy rendering,
   container overlays, JEI recipe transfer, and far-distance mining drops.
-- This first public port is a beta: keep a backup and report compatibility
-  failures with `logs/latest.log`.
+- This 1.12.2 port remains an Alpha line. Keep a backup and report
+  compatibility failures with `logs/latest.log`.
 
 ### Contributors and credits
 
@@ -199,7 +199,7 @@ On Windows:
 - 已在纯净开发客户端与 Multiblock Madness 整合包中进行实际测试。
 - 针对远程 GUI、旧版渲染、容器 Overlay、JEI 配方填充和远距离挖掘掉落做了
   专门兼容处理。
-- 首个公开移植版仍为 Beta；请先备份存档，并在报告兼容问题时附上
+- 该 1.12.2 移植版本仍属于 Alpha；请先备份存档，并在报告兼容问题时附上
   `logs/latest.log`。
 
 ### 贡献者与鸣谢

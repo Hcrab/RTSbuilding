@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.transfer;
 
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
+import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -398,6 +399,95 @@ public final class RtsTransferPlayerIntegration {
         } else if (inventoryFull) {
             player.sendStatusMessage(new TextComponentString("Inventory is full."), true);
         }
+    }
+
+    /**
+     * 合成终端批量存取。客户端原型只用于精确筛选；服务端始终移动真实储存栈或背包栈。
+     */
+    public static void bulkStorageOperation(EntityPlayerMP player, RtsStorageSession session,
+            byte action, ItemStack prototype, int requestedAmount) {
+        if (!RtsProgressionManager.canUse(player, RtsFeature.CRAFT_TERMINAL)
+                || session == null || !(player.openContainer instanceof ContainerWorkbench)) {
+            return;
+        }
+        RtsLinkedStorageResolver.sanitizeSessionDimension(player, session);
+        List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+        if (linked.isEmpty()) return;
+        List<IItemHandler> extractHandlers = RtsLinkedStorageResolver.itemHandlersForExtract(linked);
+        List<IItemHandler> insertHandlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+
+        boolean changed;
+        switch (action) {
+            case C2SRtsBulkStorageOpPayload.WITHDRAW:
+                changed = bulkWithdrawToInventory(
+                        player, extractHandlers, insertHandlers, prototype, requestedAmount);
+                break;
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_INVENTORY:
+                changed = depositPlayerSlots(player, insertHandlers, 9, 36);
+                break;
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_HOTBAR:
+                changed = depositPlayerSlots(player, insertHandlers, 0, 9);
+                break;
+            case C2SRtsBulkStorageOpPayload.DEPOSIT_ALL:
+                changed = depositPlayerSlots(player, insertHandlers, 0, 36);
+                break;
+            default:
+                changed = false;
+        }
+        if (changed) {
+            player.openContainer.detectAndSendChanges();
+            ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+            QuestService.runQuestDetect(player, session, false);
+        }
+    }
+
+    private static boolean bulkWithdrawToInventory(EntityPlayerMP player,
+            List<IItemHandler> extractHandlers, List<IItemHandler> insertHandlers,
+            ItemStack prototype, int requestedAmount) {
+        if (prototype == null || prototype.isEmpty() || requestedAmount <= 0) return false;
+        ItemStack exactPrototype = prototype.copy();
+        exactPrototype.setCount(1);
+        int maxPerStack = Math.max(1, exactPrototype.getMaxStackSize());
+        int remaining = Math.min(requestedAmount, 36 * maxPerStack);
+        boolean changed = false;
+        while (remaining > 0) {
+            int batch = Math.min(maxPerStack, remaining);
+            ItemStack extracted = RtsTransferExtractor.extractMatchingFromLinked(
+                    extractHandlers, exactPrototype.getItem(), exactPrototype, batch);
+            if (extracted.isEmpty()) break;
+            int extractedCount = extracted.getCount();
+            ItemStack leftover = RtsTransferInserter.moveToPlayerInventoryOnly(player, extracted);
+            int moved = extractedCount - leftover.getCount();
+            if (!leftover.isEmpty()) {
+                RtsTransferInserter.storeToLinkedWithFallbackPreferExisting(
+                        insertHandlers, player, leftover);
+            }
+            if (moved <= 0) break;
+            changed = true;
+            remaining -= moved;
+            if (moved < extractedCount) break;
+        }
+        return changed;
+    }
+
+    private static boolean depositPlayerSlots(EntityPlayerMP player,
+            List<IItemHandler> insertHandlers, int startInclusive, int endExclusive) {
+        boolean changed = false;
+        int start = Math.max(0, startInclusive);
+        int end = Math.min(player.inventory.mainInventory.size(), endExclusive);
+        for (int slot = start; slot < end; slot++) {
+            ItemStack actual = player.inventory.getStackInSlot(slot);
+            if (actual.isEmpty()) continue;
+            ItemStack remainder = RtsTransferInserter.storeToLinkedOnlyPreferExisting(
+                    insertHandlers, actual);
+            int inserted = actual.getCount() - remainder.getCount();
+            if (inserted <= 0) continue;
+            actual.shrink(inserted);
+            player.inventory.setInventorySlotContents(
+                    slot, actual.isEmpty() ? ItemStack.EMPTY : actual);
+            changed = true;
+        }
+        return changed;
     }
 
     private static ResourceLocation parseId(String value) {

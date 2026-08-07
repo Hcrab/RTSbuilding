@@ -16,5 +16,7 @@ public final class RtsWorkflowControlPackets {
                 C2SRtsSetWorkflowProtectedPayload.class, Side.SERVER);
         RtsPayloadRegistrar.registerMessage(34, RtsWorkflowControlHandlers.UndoHandler.class,
                 C2SRtsUndoPayload.class, Side.SERVER);
+        RtsPayloadRegistrar.registerMessage(46, RtsWorkflowControlHandlers.RedoHandler.class,
+                C2SRtsRedoPayload.class, Side.SERVER);
     }
 }

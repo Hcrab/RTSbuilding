@@ -88,4 +88,10 @@ public final class RtsTransferServiceImpl implements TransferService {
     public void fillPlayerInventoryFromLinked(EntityPlayerMP player) {
         RtsTransferPlayerIntegration.fillPlayerInventoryFromLinked(player, registry.session().getIfPresent(player));
     }
+
+    @Override
+    public void bulkStorageOperation(EntityPlayerMP player, byte action, ItemStack prototype, int amount) {
+        RtsTransferPlayerIntegration.bulkStorageOperation(
+                player, registry.session().getIfPresent(player), action, prototype, amount);
+    }
 }

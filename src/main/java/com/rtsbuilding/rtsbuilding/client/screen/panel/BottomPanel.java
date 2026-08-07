@@ -85,6 +85,14 @@ public final class BottomPanel {
         this.controller = controller;
     }
 
+    /**
+     * 判断底部栏是否已经绑定到完整的 BuilderScreen。
+     * 范围窗口的首次定位依赖底部栏布局，不能在构造阶段读取尚未绑定的 screen。
+     */
+    public boolean isLayoutReady() {
+        return this.screen != null && this.controller != null;
+    }
+
     // ── Rendering ──
 
     public void render(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {

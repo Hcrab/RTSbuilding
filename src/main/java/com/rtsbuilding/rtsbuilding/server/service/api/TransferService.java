@@ -78,4 +78,7 @@ public interface TransferService {
      * @param player 目标玩家
      */
     void fillPlayerInventoryFromLinked(EntityPlayerMP player);
+
+    /** 合成终端的一键提取或背包批量存入。 */
+    void bulkStorageOperation(EntityPlayerMP player, byte action, ItemStack prototype, int amount);
 }

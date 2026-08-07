@@ -88,6 +88,9 @@ final class BuilderScreenKeyboardActionOwner {
         if (GuiScreen.isCtrlKeyDown() && keyCode == Keyboard.KEY_Z) {
                 return screen.shapeController.undoLastPlacementBatch();
             }
+        if (GuiScreen.isCtrlKeyDown() && keyCode == Keyboard.KEY_Y) {
+                return screen.shapeController.redoLastPlacementBatch();
+            }
             // Alt+Space: toggle creative flight for the player entity in RTS mode
         if (!screen.isSearchFocused() && screen.isAltDownForInput() && keyCode == Keyboard.KEY_SPACE) {
                 if (screen.rtsFlightToggleCooldownTicks <= 0) {

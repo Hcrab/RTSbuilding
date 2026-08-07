@@ -132,6 +132,8 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
         return this.placementHistory.getUndoSize();
     }
 
+    public int getShapeRedoSize() { return this.placementHistory.getRedoSize(); }
+
     // ===== Shape session management =====
 
     public void clearShapeBuildSession() {
@@ -529,6 +531,8 @@ public final class ScreenShapeController implements ShapeGhostPreviewProvider.Ru
     public boolean undoLastPlacementBatch() {
         return this.placementHistory.undo();
     }
+
+    public boolean redoLastPlacementBatch() { return this.placementHistory.redo(); }
 
     public void recordSinglePlacementForUndo(RayTraceResult hit, InteractionTypes.PlacementReplayKind replayKind, String itemId, int toolSlot) {
     }

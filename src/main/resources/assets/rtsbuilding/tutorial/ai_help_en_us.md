@@ -6,21 +6,21 @@ Press `G` to open RTSBuilding and enter the overhead building view. Press `G` ag
 
 The interface has three main areas:
 
-- Top bar: switch between Interact, Storage Link, Funnel, and Rotate; open Quick Build, Range Culling, Settings, and Help.
+- Top bar: switch between Interact, Storage binding, Funnel, and Rotate; open Quick Build, Range Culling, Settings, and Help.
 - Bottom bar: browse storage, select blocks and tools, use blueprints, craft remotely, and manage plugins.
 - Side overlay: appears beside inventories and machines, letting you move items between containers, your inventory, and RTS storage.
 
 Use `W` / `A` / `S` / `D` to pan the camera, `Space` to rise, and left `Shift` to descend. Hold the sprint key to move faster. Hold and drag right mouse to rotate, hold and drag middle mouse to pan, and use the wheel to zoom. A short middle click picks the block under the crosshair.
 
-Hold `Alt` to open the mode wheel near the pointer. Move toward Interact, Storage Link, Funnel, or Rotate, then left click to select it.
+Hold `Alt` to open the mode wheel near the pointer. Move toward Interact, Storage binding, Funnel, or Rotate, then left click to select it.
 
-You can also press `I` for Interact, `L` for Storage Link, or `R` for Rotate. `F` is quick Funnel: hold it to collect and release it to return to the previous mode.
+You can also press `I` for Interact, `L` for Storage binding, or `R` for Rotate. `F` is quick Funnel: hold it to collect and release it to return to the previous mode.
 
 `Ctrl + right-click` sends the player toward the target. Double-click quickly to try to land precisely above the target block. Press `Q` to drop one selected item at the pointer target. The top status line shows the current mode and the next action.
 
 ## Your first remote build
 
-1. Select Storage Link on the top bar.
+1. Select Storage binding on the top bar.
 2. Point at a chest. Left click for read/write access; right click for extract-only access.
 3. Open Storage on the bottom bar and click a block to select it.
 4. Return to Interact mode, point at a block face, and right click to place.
@@ -28,15 +28,33 @@ You can also press `I` for Interact, `L` for Storage Link, or `R` for Rotate. `F
 
 Use the empty-hand slot to clear the selected item. Press `Ctrl + Z` to undo a recently placed group.
 
+## Storage binding
+
+The in-game “Storage binding” action is the Storage Link mode on the top bar. Press `L`, or choose it from the `Alt` mode wheel, then point at a chest, machine, AE terminal, or another supported storage block. Left click binds read/write access; right click binds extract-only access. Read/write storage can provide materials for building/crafting and receive auto-stored mining drops. Extract-only storage can provide materials but never receives drops.
+
+Hover the Storage binding button and open link details to refresh, change priority, switch access mode, or unlink an endpoint. If items are missing, verify the Storage Integration plugin, that the target storage is loaded and that the current session has access, then refresh the details. AE2/RS network storage updates through network snapshots, so waiting or refreshing shows the latest state.
+
+### Range binding
+
+Range binding scans storage endpoints in one loaded area. Switch to Storage binding, hold Ctrl to enter range binding, left-click the first corner, then left-click the opposite corner. When the box is ready, scroll to adjust height; hold Alt for faster height changes; press Enter or click again to submit. The mode stays active for another selection; Esc clears the current box first and exits on the next Esc. The current implementation submits read/write binding, accepts up to 64 × 64 × 64, scans loaded chunks only, and deduplicates AE2/Refined Storage networks to one representative endpoint. Oversized, unloaded, or unauthorized targets are filtered by the server.
+
 ## Top bar modes
 
 ### Interact
 
 Interact is the default mode. Right click uses blocks, machines, chests, doors, and entities first; if there is no valid interaction, it places the selected item. Left click mines with the selected real tool. `Shift + right click` prioritizes the natural placement path.
 
-### Storage Link
+### Storage binding
 
 Left click links read/write storage. Right click links extract-only storage. Hover over the Storage Link button to open link details, refresh state, or change access mode.
+
+After switching the top bar to Storage binding, point at a chest, barrel, machine, AE terminal, or another supported storage endpoint:
+
+- Left click is read/write: building, crafting, and mining can take materials from it, and auto-store can put mining drops back.
+- Right click is extract-only: RTS may take materials but will not insert drops; use it for a dedicated source endpoint.
+- Hover the top-bar button and open View Links to refresh, inspect dimension/position, change priority/access, or unlink. If the storage page is temporarily empty, refresh and check that the target and its Storage Integration/network are available before assuming data was lost.
+
+Range binding is inside Storage binding: hold Ctrl, click the first corner and the opposite corner, scroll to adjust height, hold Alt for faster changes, then press Enter or click again to submit. The mode stays active for another selection; Esc clears the current box first and exits on the next Esc. It currently submits read/write links, accepts up to 64 × 64 × 64, scans loaded chunks only, and deduplicates AE2/Refined Storage networks to one representative endpoint.
 
 ### Funnel
 
@@ -56,7 +74,29 @@ Lines, squares, circles, and balls use A/B points. Lines and circles can be hori
 
 Chain is a Range Destroy shape. Left click the starting block to find connected blocks of the same type. The Limit control caps the block count. With Survival Balance enabled, Chain is unlocked independently by the Chain Break Plugin. Soft blocks such as dirt, snow, and sand need no harvest-tier plugin; stone and harder blocks still require the matching tier plugin and a usable real tool. Placement and destruction wireframes, ghosts, and animations can be toggled separately in Settings.
 
-Creative Range Build also shows Overwrite. When enabled, the submitted shape directly replaces existing blocks at its targets and ignores entity obstruction. Survival players neither see nor can request this capability.
+Creative Range Build also shows Overwrite. When enabled, the submitted shape directly replaces existing blocks at its targets and ignores entity obstruction. Survival uses the normal material and placement rules.
+
+#### Smart Build: Fill
+
+Fill is located at Quick Build → Range Build → Tools. It creates a preview for the bounded cavity under the crosshair. Use it like this:
+
+1. Open Quick Build, choose Range Build, open Tools, and select Fill.
+2. Select the block to place from the bottom bar.
+3. Adjust Maximum blocks and Detection diameter. The defaults are 512 blocks and diameter 16.
+4. Aim at the cavity opening and left click to lock the preview; left click again to submit the fill.
+5. Press `Esc` during the preview to clear the selection, and supply more of the selected block when the material count is low.
+
+Fill is suited to enclosed caves, wall gaps, and underground cavities. The preview shows the build targets; `Enter` also submits with the default confirm key.
+
+#### Smart Destroy tools
+
+Quick Build → Range Destroy → Tools provides three quick tools. Select a tool, aim at a target, and left click to preview and submit:
+
+- **Range Quarry**: repeats a saved X/Y/Z box at each target, useful for clearing ground, opening tunnels, and repeating holes.
+- **Chunk Quarry**: mines the chunk under the crosshair; adjust the upward and downward height in the panel to clear a vertical slice.
+- **One-click Tree Fell**: starts at a log, natural leaf, or giant mushroom under the crosshair and processes connected tree blocks; Maximum blocks controls the operation size.
+
+Each tool shows its block preview first. Chunk Quarry and Range Quarry use loaded target chunks; One-click Tree Fell scans the connected tree before submitting. After changing a parameter, aim at the next target to run the tool again.
 
 ### Range Culling
 
@@ -85,6 +125,12 @@ Creative players also get a Creative tab. It groups items by vanilla and mod cre
 - Right click a bucket or supported fluid container to move one bucket into linked fluid storage.
 
 With Auto-store enabled, mined drops go to linked storage first. With Shift Deposit enabled, `Shift + right click` an item in an inventory, chest, or machine screen to send it to RTS storage.
+
+## Changing the UI theme
+
+Open the gear Settings button in RTS, expand the `UI / Display` category, find `Global UI Palette / UI Theme`, and click `Adjust`. Select a theme on the left, inspect the live preview, and click `Apply` in the lower-right to save it; `Cancel` discards the draft. Built-in themes include Legacy / Resource Pack, Calibrated RTS Dark, Nord Command, Carbon Operations, and Material Field.
+
+Legacy keeps the original resource-pack texture path. The other themes use an in-game semantic palette shared by windows, controls, status/workflow elements, and some world overlays. Themes are client-local: they do not change server rules, tasks, storage contents, or permissions. The theme window can import/export user themes; if validation or rendering fails, switch back to Legacy and inspect the client log.
 
 ## Crafting
 
@@ -183,14 +229,41 @@ Open RTS Settings and enable Jade Follow Mouse or Hide Jade in RTS.
 
 ### More help
 
-- Website: https://rts.ciallo.ltd
-- GitHub: https://github.com/Hcrab/RTSbuilding
-- Discord: https://discord.gg/Bz5HU9YQuj
-- QQ group: 910318076
+If you need GitHub, Discord, QQ, or another feedback channel, reply “反馈渠道”.
 
 ---
 
 # Technical Information Appendix
+
+## AI diagnostic context: client to server
+
+### Overall implementation
+
+An RTSBuilding action starts in the client UI, mode, and selection, crosses a C2S payload and the loader-specific network adapter, then reaches the server thread. The server rechecks the player, dimension, session, range, plugins, permissions, target, real tool, and storage endpoints before admitting a Workflow and durable task. The Task Engine runs tick/slice work; leases, resource waits, cursor, succeeded count, cancellation reason, and persistence are server-authoritative. S2C progress and terminal messages update the client projection only, so a disappearing UI is not proof that the real task ended.
+
+### Client, network, and server log boundaries
+
+- Client logs answer input ownership, mode/focus, selection, C2S send, S2C receive, and local workflow projection.
+- Compare the same trace across client BEGIN/send/receive and the server request. BEGIN without a server request points first to connection, registration, decoding, or thread handoff.
+- Server logs answer FILTER/validation rejection, admission, TASK_FIRST_SLICE, TASK_WAIT, tool/storage results, TERMINAL, tombstone, and restore.
+- latest.log supplies time order; diagnostics-client.jsonl and diagnostics-server.jsonl supply trace-oriented detail. Neither justifies treating the final Error as the root cause.
+
+### Task, storage, and theme boundaries
+
+A new single mine, chain mine, or other mining replacement must genuinely cancel same-player, same-dimension non-terminal MINING and area-destruction DESTRUCTION through RtsTaskEngine.cancelWorkflowTask, reaching CANCELLED, releasing leases, preserving cursor/succeeded, writing a tombstone, closing the workflow, and preventing projection restore from reviving the old area. Without a replacement action, WAITING_RESOURCE remains resumable; PLACE, QUICK_BUILD, and BLUEPRINT_BUILD are outside the scope. Storage binding left-click is read/write and right-click is extract-only; Range binding starts from the top-bar Storage binding mode with Ctrl, submits two corners, and lets the server scan loaded endpoints. AE2/RS snapshot delay is not automatically a task failure. UI themes are client-local draft/preview/validation/persistence and do not cross the network or change server tasks.
+
+### Log-analysis method
+
+1. Confirm version, loader, singleplayer/server, mode, real tool, storage type, and the shortest reproduction.
+2. Find the first abnormal event in client and server time order, then correlate trace → seq → op → workflow → task.
+3. No BEGIN points to input/ownership; BEGIN without a server request points to the network boundary; FILTER/rejection points to server validation; TASK_WAIT without a replacement is normally valid resource waiting; a terminal UI with a live or restored durable snapshot is a projection/real-task mismatch.
+4. Separate directly logged evidence, supported conclusions, and remaining inferences. Mark missing evidence unknown and ask only 1–3 discriminating questions.
+
+For ordinary controls, Storage binding, Range binding, UI themes, and building how-to questions, answer briefly from the guide without requesting logs or expanding internals. Use this appendix against recent logs only for anomalies, stalls, task resurrection, network rejection, storage failure, or crashes.
+
+### Forge 1.12.2 adapter note
+
+Use Java 8 legacy Forge events, legacy packet/menu handlers, .lang resources, and logs/latest.log; modern JSONL markers may not exist.
 
 This appendix is for maintainers, modpack authors, and AI-assisted troubleshooting. New players do not need it; player-facing guides remain the source for step-by-step instructions.
 
@@ -457,3 +530,33 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 The most useful bundle contains RTSBuilding/Minecraft/loader versions, singleplayer or server, current mode, survival progression, installed plugins, target block/item IDs, real tool, linked storage type, minimal steps from opening RTS, and `latest.log` captured during reproduction.
 
 When information is incomplete, offer safe reversible checks first, then ask for the most important 1–3 missing details. Do not demand the complete mod list immediately. If the guide cannot establish the cause, state that clearly instead of presenting inference as fact.
+
+## Version-specific technical appendix: Forge 1.12.2
+
+The release-preparation version for this line is `0.0.2`; the latest release is `1.1.6-1.12.2-port`. This is the Java 8/legacy Forge line. If the test build is unstable, return to that release and keep a world backup.
+
+### Task cancellation and diagnosis
+
+When a new single mine, chain mine, or area-destruction replacement action starts, non-terminal `MINING` and area-destruction `DESTRUCTION` tasks for the same player and dimension must use this version's real task-cancellation path to reach `CANCELLED`, release runtime state, preserve cursor/succeeded, write a tombstone, and close the workflow. Without a replacement action, `WAITING_RESOURCE` may continue waiting and resume; PLACE, QUICK_BUILD, and BLUEPRINT_BUILD are outside the scope.
+
+### Log-analysis quick reference
+
+Prefer the legacy Forge `logs/latest.log` plus the last 200 lines and latest 200 RTSBuilding records included in the prompt. Find the earliest abnormal event, correlate `trace` across `seq/op/workflow/task`, and inspect `[RTS-TRACE]`, `[RTS-DIAG]`, `BEGIN/RESULT/FILTER/TERMINAL`, and the first relevant stack trace. Separate client/network, server rejection, resource waiting, terminal state, and cascade errors; mark insufficient evidence as unknown.
+
+### Forge 1.12.2 differences
+
+This line uses legacy Forge events, Java 8, traditional `.lang` resources, and 1.12.2-specific networking/menu adapters. Class paths, text formats, and log locations differ from modern lines; similar names do not justify cross-version inference. Server task state and history are stronger evidence of cancellation than a vanished client message.
+
+### Feedback channels
+
+If you need GitHub, Discord, QQ, or another feedback channel, reply “反馈渠道”.
+
+### Smart Build and Smart Destroy implementation chain
+
+The Smart Build player entry is Fill inside Quick Build → Range Build → Tools. SmartFillClientSession uses the crosshair, selected material, Maximum blocks, and Detection diameter to create the preview; the first left click saves the anchor and the second left click sends confirmation. The C2S payload carries the clicked position, hit face, material, and parameters. RtsSmartFillService then rescans the cavity on the server with SmartFillPlanner and SmartFillCandidateClassifier, checks loaded boundaries, candidate blocks, size limits, and material, and passes accepted targets to the PLACE_BATCH workflow. A client preview is not the server plan.
+
+The Smart Destroy player entry is Quick Build → Range Destroy → Tools. QuickBuildConvenienceController maps Range Quarry, Chunk Quarry, and One-click Tree Fell to REPEAT_BOX, CHUNK_QUARRY, and TREE_FELL; RtsDestroyPreviewPlanner creates the client preview and the submission sends the anchor, hit face, and parameters. RtsConvenienceDestroyPlanner rebuilds the targets on the server: Range Quarry repeats an X/Y/Z box, Chunk Quarry covers the aimed chunk with adjustable upward/downward height, and One-click Tree Fell scans connected logs, natural leaves, and giant mushrooms through 26-neighbor traversal. Target chunks must be loaded; volume or tool limits reject the complete request, and accepted targets enter the DESTRUCTION workflow.
+
+### Quick Build first-open client lifecycle
+
+During the BuilderScreen constructor, Quick Build is bound before BottomPanel and the screen size may still be 0×0. Quick Build's default-open request records logical state first; after layout readiness it initializes default bounds and starts the first reveal animation. The first position requires real GUI dimensions and a bound BottomPanel; restored bounds remain authoritative and are not replaced by the default position. Closing before the first reveal cancels the pending reveal. For an RTS-entry crash, first check whether the stack crosses QuickBuildPanel.computeDefaultPosition, BuilderScreen.getFloatingPanelAvailableHeight, and BottomPanel.resolveBottomPanelLayout, then classify it as a client construction-time lifecycle problem.

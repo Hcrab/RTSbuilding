@@ -22,7 +22,7 @@ class PilotPatchContractTest {
                 "src/main/resources/assets/rtsbuilding/lang/zh_cn.lang"));
 
         assertTrue(properties.lines().map(String::trim)
-                .anyMatch("mod_version = 1.1.7"::equals));
+                .anyMatch("mod_version = 0.0.2"::equals));
         assertTrue(properties.lines().map(String::trim)
                 .anyMatch("mod_archive_name = rtsbuilding-forge-1.12.2"::equals));
         assertTrue(properties.lines().map(String::trim)
@@ -36,7 +36,7 @@ class PilotPatchContractTest {
         assertTrue(onboarding.contains(
                 "Loader.instance().getIndexedModList().get(RtsbuildingMod.MODID)"));
         assertTrue(onboarding.contains("new TextComponentString(currentDisplayVersion())"));
-        assertTrue(onboarding.contains("STABLE_VERSION = \"1.1.5-patch4\""));
+        assertTrue(onboarding.contains("STABLE_VERSION = \"1.1.6-1.12.2-port\""));
         assertTrue(onboarding.contains("version.indexOf('-')"));
         assertTrue(zhCn.contains("chat.rtsbuilding.intro.version_warning="));
         assertTrue(zhCn.contains("%1$s") && zhCn.contains("%2$s") && zhCn.contains("%3$s"));

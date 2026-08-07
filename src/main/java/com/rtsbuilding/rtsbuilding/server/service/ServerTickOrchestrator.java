@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerHealthDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.api.SessionService;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -48,6 +49,7 @@ public final class ServerTickOrchestrator {
     }
 
     public void tickMining(MinecraftServer server) {
+        RtsServerHealthDiagnostics.beginTick(server);
         SessionService sessionService = ServiceRegistry.getInstance().session();
         Map<UUID, Set<String>> changes = RtsStorageTickService.INSTANCE.tick();
         for (Map.Entry<UUID, Set<String>> entry : changes.entrySet()) {
@@ -65,6 +67,8 @@ public final class ServerTickOrchestrator {
         // 放置、拆除、挖掘、缓冲写回、蓝图、漏斗和已放置回收共用同一预算。
         TaskScheduler.TickStats taskStats = RtsTaskEngine.INSTANCE.tick(server);
         RtsDeveloperMetrics.recordTaskTick(server, taskStats);
+        RtsServerHealthDiagnostics.completeTick(
+                server, taskStats, RtsTaskEngine.INSTANCE.queueDiagnostics());
 
         WorldServer overworld = server.getWorld(0);
         RtsWorkflowEngine.getInstance().tickTimeoutService(

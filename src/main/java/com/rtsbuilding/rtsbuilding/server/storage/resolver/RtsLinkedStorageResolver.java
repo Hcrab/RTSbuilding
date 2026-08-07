@@ -105,7 +105,7 @@ public final class RtsLinkedStorageResolver {
 
     /**
      * 链接引用是世界目标，因此解析器拥有在解析之前使用的
-     * 共享相机会话、区块、交互权限和本次操作半径门控。
+     * 共享相机会话、区块与交互权限门控。
      * <p>
      * 同时强制基岩层边界：拒绝任何在世界最小建筑高度
      *（基岩层）或以下的坐标，防止在虚空中进行 RTS 操作。
@@ -128,7 +128,8 @@ public final class RtsLinkedStorageResolver {
         if (!level.isBlockModifiable(player, pos)) {
             return false;
         }
-        return RtsCameraManager.isWithinActionRange(player, pos);
+        // RTS 世界操作本身就是远程能力；距离不能成为额外权限门槛。
+        return true;
     }
 
     /**

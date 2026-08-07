@@ -22,10 +22,11 @@ on:
       version_type:
         description: Modrinth release channel
         required: true
+        default: alpha
         type: choice
         options:
-          - beta
           - alpha
+          - beta
       changelog_base64:
         description: UTF-8 release notes encoded as Base64
         required: true
@@ -81,7 +82,7 @@ jobs:
               echo "loader=forge" >> "$GITHUB_OUTPUT"
               echo "display_loader=Forge" >> "$GITHUB_OUTPUT"
               echo "dependencies=mixinbooter(required){modrinth:G1ckZuWK}" >> "$GITHUB_OUTPUT"
-              echo "artifact=build/libs/rtsbuilding-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
+              echo "artifact=build/libs/rtsbuilding-forge-1.12.2-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
               ;;
             1.21.1)
               echo "java_version=21" >> "$GITHUB_OUTPUT"

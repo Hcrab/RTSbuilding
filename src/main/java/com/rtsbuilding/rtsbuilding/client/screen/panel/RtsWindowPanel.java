@@ -78,6 +78,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     private WindowButton closeButton;
     private boolean boundsDirty;
     private boolean userBoundsPreference;
+    private boolean pendingInitialReveal;
+    private boolean pendingReveal;
     private final UiFloatAnimation hoverBorderAnimation =
             new UiFloatAnimation(SystemUiClock.INSTANCE, 0.0D);
     private boolean hoverBorderTarget;
@@ -154,6 +156,10 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     @Override
     public void render(LegacyGuiGraphics g, int mouseX, int mouseY, float partialTick) {
+        if (!tryStartPendingReveal()) {
+            this.mouseHovering = false;
+            return;
+        }
         if (!shouldRenderWindow()) {
             this.mouseHovering = false;
             return;
@@ -207,7 +213,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     }
 
     public boolean isVisibleWindow() {
-        return this.open && canShowWindow();
+        return this.open && !this.pendingInitialReveal && !this.pendingReveal && canShowWindow();
     }
 
     /**
@@ -219,16 +225,68 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
 
     public void setOpen(boolean open) {
         boolean wasOpen = this.open;
+        boolean hadPendingReveal = this.pendingInitialReveal || this.pendingReveal;
         if (open && !wasOpen) {
-            initializePosition();
-            visibilityAnimation.reveal(Config.isUiAnimationsEnabled());
+            // 普通手动打开仍然立即揭示；若生命周期尚未准备好，则只排队本次普通揭示。
+            this.pendingInitialReveal = false;
+            if (isLayoutReady()) {
+                initializePosition();
+                visibilityAnimation.reveal(Config.isUiAnimationsEnabled());
+            } else {
+                this.pendingReveal = true;
+            }
         }
         this.open = open;
+        if (!open) {
+            // 首次安全渲染前关闭时，取消待揭示状态，避免下一帧幽灵式重新打开。
+            this.pendingInitialReveal = false;
+            this.pendingReveal = false;
+        }
         if (!open && wasOpen) {
             this.pointerSession.cancel();
-            visibilityAnimation.dismiss(Config.isUiAnimationsEnabled());
+            if (!hadPendingReveal) {
+                visibilityAnimation.dismiss(Config.isUiAnimationsEnabled());
+            }
             onClose();
         }
+    }
+
+    /**
+     * 记录默认逻辑打开，不读取任何依赖完整屏幕布局的尺寸或位置。
+     * 首次视觉揭示由 render 生命周期在布局就绪后消费，保证渐显动画仍然存在。
+     */
+    protected final void requestInitialOpen() {
+        this.open = true;
+        this.pendingInitialReveal = true;
+        this.pendingReveal = false;
+    }
+
+    /** 返回窗口默认定位所需的屏幕和依赖面板是否已经完成绑定。 */
+    protected boolean isLayoutReady() {
+        return this.screen != null && this.screen.isRtsWindowLayoutReady();
+    }
+
+    /**
+     * 在首次安全渲染或延迟的普通打开时完成一次定位并启动渐显。
+     * 待处理标记只消费一次，因此不会在每帧重复初始化或重算位置。
+     */
+    private boolean tryStartPendingReveal() {
+        if (!this.pendingInitialReveal && !this.pendingReveal) {
+            return true;
+        }
+        if (!this.open) {
+            this.pendingInitialReveal = false;
+            this.pendingReveal = false;
+            return true;
+        }
+        if (!isLayoutReady()) {
+            return false;
+        }
+        initializePosition();
+        this.pendingInitialReveal = false;
+        this.pendingReveal = false;
+        visibilityAnimation.reveal(Config.isUiAnimationsEnabled());
+        return true;
     }
 
     public void toggleOpen() {
@@ -689,6 +747,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEven
     }
 
     private void initializePosition() {
+        if (!this.positionInitialized && !isLayoutReady()) {
+            return;
+        }
         if (!this.positionInitialized) {
             initializeDefaultBounds();
         }

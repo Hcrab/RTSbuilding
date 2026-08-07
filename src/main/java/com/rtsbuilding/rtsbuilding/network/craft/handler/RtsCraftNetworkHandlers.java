@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding.network.craft.handler;
 
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRecipePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsCraftRefillPayload;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsClearCraftingGridPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiTransferPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsJeiContainerTransferPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsOpenCraftTerminalPayload;
@@ -174,5 +175,19 @@ public final class RtsCraftNetworkHandlers {
 
     private interface ServerAction {
         void run(EntityPlayerMP player);
+    }
+
+    public static final class ClearCraftingGrid
+            implements IMessageHandler<C2SRtsClearCraftingGridPayload, IMessage> {
+        @Override public IMessage onMessage(final C2SRtsClearCraftingGridPayload message, MessageContext context) {
+            final EntityPlayerMP player = context.getServerHandler().player;
+            player.getServerWorld().addScheduledTask(new Runnable() {
+                @Override public void run() {
+                    ServiceRegistry.getInstance().crafting()
+                            .clearCraftingGrid(player, message.toPlayerInventory());
+                }
+            });
+            return null;
+        }
     }
 }

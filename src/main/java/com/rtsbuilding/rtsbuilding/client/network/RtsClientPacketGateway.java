@@ -2,6 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.network;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientTraceTracker;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.RtsPayloadRegistrar;
@@ -41,6 +44,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 @SideOnly(Side.CLIENT)
 public final class RtsClientPacketGateway {
     private static final AtomicInteger POSITION_BATCH_SEQUENCE = new AtomicInteger();
+    private static long activeMiningTraceId;
+    private static long activeMiningStartedNanos;
 
     private RtsClientPacketGateway() {
     }
@@ -653,6 +658,8 @@ public final class RtsClientPacketGateway {
             boolean toolProtectionEnabled) {
         long volume = (long) (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
         RtsDeveloperScenarioTracker.getInstance().record("mine_request", "volume=" + volume);
+        long traceId = RtsClientOperationDiagnostics.begin("AREA_MINE");
+        int sequence = RtsClientOperationDiagnostics.nextSequence(traceId, "PACKET_SEND");
         send(new C2SRtsAreaMinePayload(
                 minX, maxX, minY, maxY, minZ, maxZ,
                 (byte) MathHelper.clamp(toolSlot, 0, 8),
@@ -660,7 +667,8 @@ public final class RtsClientPacketGateway {
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                 shapeType,
                 fillType,
-                toolProtectionEnabled));
+                toolProtectionEnabled, traceId, sequence, clientTick(),
+                RtsTraceInputKind.MOUSE.wireId()));
     }
 
     public static void sendAreaDestroy(List<BlockPos> positions, int toolSlot, String toolItemId, ItemStack toolPrototype,
@@ -680,16 +688,19 @@ public final class RtsClientPacketGateway {
         int chunkSize = C2SRtsAreaDestroyPayload.MAX_POSITIONS_PER_PACKET;
         int chunkCount = (total + chunkSize - 1) / chunkSize;
         int submissionId = POSITION_BATCH_SEQUENCE.incrementAndGet();
+        long traceId = RtsClientOperationDiagnostics.begin("AREA_DESTROY");
         for (int chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
             int from = chunkIndex * chunkSize;
             int to = Math.min(total, from + chunkSize);
+            int sequence = RtsClientOperationDiagnostics.nextSequence(traceId, "CHUNK_SEND");
             send(new C2SRtsAreaDestroyPayload(
                     submissionId, chunkIndex, chunkCount, total,
                     sanitized.subList(from, to),
                     (byte) MathHelper.clamp(toolSlot, 0, 8),
                     toolItemId == null ? "" : toolItemId,
                     toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
-                    toolProtectionEnabled));
+                    toolProtectionEnabled, traceId, sequence, clientTick(),
+                    RtsTraceInputKind.MOUSE.wireId()));
         }
     }
 
@@ -714,6 +725,24 @@ public final class RtsClientPacketGateway {
     public static void sendMineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
             boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
         RtsDeveloperScenarioTracker.getInstance().record("mine_request", "kind=single");
+        long traceId = RtsClientOperationDiagnostics.begin("MINE_SINGLE");
+        activeMiningTraceId = traceId;
+        activeMiningStartedNanos = System.nanoTime();
+        int sequence = RtsClientOperationDiagnostics.nextSequence(traceId, "START_SEND");
+        Minecraft minecraft = Minecraft.getMinecraft();
+        Vec3d hit = pos == null ? Vec3d.ZERO : new Vec3d(
+                pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D);
+        if (minecraft != null && minecraft.objectMouseOver != null
+                && minecraft.objectMouseOver.typeOfHit == RayTraceResult.Type.BLOCK
+                && pos != null && pos.equals(minecraft.objectMouseOver.getBlockPos())
+                && minecraft.objectMouseOver.hitVec != null) {
+            hit = minecraft.objectMouseOver.hitVec;
+        }
+        Vec3d rayOrigin = minecraft != null && minecraft.player != null
+                ? minecraft.player.getPositionEyes(1.0F) : hit;
+        Vec3d rayDirection = hit.subtract(rayOrigin);
+        if (rayDirection.lengthSquared() < 1.0e-6D) rayDirection = new Vec3d(0.0D, 0.0D, 1.0D);
+        else rayDirection = rayDirection.normalize();
         send(new C2SRtsMinePayload(
                 pos,
                 (byte) face,
@@ -722,12 +751,20 @@ public final class RtsClientPacketGateway {
                 toolItemId == null ? "" : toolItemId,
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                 allowPlacedBlockRecovery,
-                toolProtectionEnabled));
+                toolProtectionEnabled, traceId, sequence, clientTick(), 0,
+                RtsTraceInputKind.MOUSE.wireId(), RtsMiningStopOrigin.NONE.wireId(),
+                minecraft != null && minecraft.player != null && minecraft.player.isSneaking(),
+                hit.x, hit.y, hit.z, rayOrigin.x, rayOrigin.y, rayOrigin.z,
+                rayDirection.x, rayDirection.y, rayDirection.z));
     }
 
     public static void sendUltimineStart(BlockPos pos, int face, int toolSlot, String toolItemId, ItemStack toolPrototype,
             int limit, byte mode, boolean toolProtectionEnabled) {
         RtsDeveloperScenarioTracker.getInstance().record("mine_request", "kind=ultimine;limit=" + limit);
+        long traceId = RtsClientOperationDiagnostics.begin("ULTIMINE");
+        activeMiningTraceId = traceId;
+        activeMiningStartedNanos = System.nanoTime();
+        int sequence = RtsClientOperationDiagnostics.nextSequence(traceId, "START_SEND");
         send(new C2SRtsUltiminePayload(
                 pos,
                 (byte) face,
@@ -736,11 +773,16 @@ public final class RtsClientPacketGateway {
                 toolPrototype == null ? ItemStack.EMPTY : toolPrototype,
                 (short) MathHelper.clamp(limit, 1, 256),
                 mode,
-                toolProtectionEnabled));
+                toolProtectionEnabled, traceId, sequence, clientTick(),
+                RtsTraceInputKind.MOUSE.wireId()));
     }
 
     public static void sendUndo() {
         send(new C2SRtsUndoPayload());
+    }
+
+    public static void sendRedo() {
+        send(new C2SRtsRedoPayload());
     }
 
     public static void sendPathfindingGoTo(BlockPos target) {
@@ -748,6 +790,11 @@ public final class RtsClientPacketGateway {
     }
 
     public static void sendMineAbort(BlockPos pos, int face, int toolSlot) {
+        long traceId = activeMiningTraceId;
+        if (traceId == 0L) traceId = RtsClientOperationDiagnostics.begin("STOP_MINING");
+        int sequence = RtsClientOperationDiagnostics.nextSequence(traceId, "STOP_SEND");
+        int heldMs = activeMiningStartedNanos <= 0L ? 0 : (int) Math.min(Integer.MAX_VALUE,
+                Math.max(0L, (System.nanoTime() - activeMiningStartedNanos) / 1_000_000L));
         send(new C2SRtsMinePayload(
                 pos,
                 (byte) face,
@@ -756,7 +803,17 @@ public final class RtsClientPacketGateway {
                 "",
                 ItemStack.EMPTY,
                 false,
-                false));
+                false, traceId, sequence, clientTick(), heldMs,
+                RtsTraceInputKind.MOUSE.wireId(), RtsMiningStopOrigin.EXPLICIT_CANCEL.wireId(),
+                false, Double.NaN, Double.NaN, Double.NaN,
+                Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN, Double.NaN));
+        activeMiningTraceId = 0L;
+        activeMiningStartedNanos = 0L;
+    }
+
+    private static long clientTick() {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        return minecraft == null || minecraft.world == null ? -1L : minecraft.world.getTotalWorldTime();
     }
 
     private static ItemStack copyOne(ItemStack stack) {

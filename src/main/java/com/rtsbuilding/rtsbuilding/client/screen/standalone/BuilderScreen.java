@@ -554,6 +554,13 @@ static boolean hasRecipeViewerLoaded() {
     public boolean isWorldArea(double mouseX, double mouseY) { return this.worldQueryOwner.isWorldArea(mouseX, mouseY); }
     public int getBottomY() { return this.worldQueryOwner.getBottomY(); }
     public int getFloatingPanelAvailableHeight(int panelY) { return this.worldQueryOwner.getFloatingPanelAvailableHeight(panelY); }
+    /**
+     * 判断浮动窗口是否可以读取真实 GUI 与底部栏布局。
+     * BuilderScreen 构造阶段可能仍是 0×0，且 BottomPanel 也可能尚未完成绑定。
+     */
+    public boolean isRtsWindowLayoutReady() {
+        return this.width > 0 && this.height > 0 && this.bottomPanel.isLayoutReady();
+    }
     boolean isInsideBottomPanel(double mouseX, double mouseY) { return this.worldQueryOwner.isInsideBottomPanel(mouseX, mouseY); }
     public boolean isSearchFocused() { return this.worldQueryOwner.isSearchFocused(); }
     public int getSelectedToolSlot() { return this.worldQueryOwner.getSelectedToolSlot(); }

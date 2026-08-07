@@ -2,6 +2,7 @@ package com.rtsbuilding.rtsbuilding;
 
 import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import com.rtsbuilding.rtsbuilding.network.RtsProtocolLimits;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsDiagnosticLevel;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
 import net.minecraftforge.fluids.Fluid;
@@ -81,6 +82,12 @@ public final class Config {
     public static final BooleanValue DEVELOPER_MODE = bool(Domain.CLIENT, "general", "developerMode", false,
             "Show the developer scenario task entry and write local diagnostic logs.",
             "rtsbuilding.configuration.developerMode");
+    public static final EnumValue<RtsDiagnosticLevel> CLIENT_DIAGNOSTIC_LEVEL = enumeration(Domain.CLIENT,
+            "diagnostics", "level", RtsDiagnosticLevel.BASIC,
+            "Client diagnostic detail: OFF, BASIC, or VERBOSE.", null);
+    public static final EnumValue<RtsDiagnosticLevel> SERVER_DIAGNOSTIC_LEVEL = enumeration(Domain.SERVER,
+            "diagnostics", "level", RtsDiagnosticLevel.BASIC,
+            "Server diagnostic detail: OFF, BASIC, or VERBOSE.", null);
 
     public static final IntValue ULTIMINE_MAX_BLOCKS = integer(Domain.SERVER, "mining", "ultimineMaxBlocks",
             256, 1, 4096, "Maximum blocks collected by one RTS chain mining request.",

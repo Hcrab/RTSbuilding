@@ -2,218 +2,210 @@ package com.rtsbuilding.rtsbuilding.server.history;
 
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExtractor;
 import com.rtsbuilding.rtsbuilding.server.service.transfer.RtsTransferInserter;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.world.WorldServer;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.item.ItemStack;
-import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 import net.minecraftforge.items.IItemHandler;
 
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
- * 历史记录执行器（类似 Ultimine-Rewind 的 RewindExecutor）。
- * <p>
- * 负责实际执行撤回/重做操作，包括放置和破坏方块。
- * 所有操作在服务端执行，保证数据一致性。
- * <p>
- * 设计要点（基于 Ultimine-Rewind 的经验）：
- * <ul>
- *   <li>创造模式恢复方块实体 NBT 数据</li>
- *   <li>生存模式不恢复 NBT（防刷物品漏洞）</li>
- *   <li>跳过已被占用的位置（部分恢复）</li>
- *   <li>破坏时只删除与记录类型相同的方块（防止误破坏）</li>
- * </ul>
+ * 服务端 Ctrl+Z / Ctrl+Y 执行器。
+ *
+ * <p>每个成功位置都会显式返回给历史管理器；跳过的未加载、被占用或权限拒绝位置仍留在原栈。
+ * 本类不拥有历史栈，也不改变 RTS 会话状态。</p>
  */
 public final class HistoryExecutor {
+    private HistoryExecutor() {}
 
-    private HistoryExecutor() {
-    }
-
-    /**
-     * 执行撤回操作。
-     * <p>
-     * 放置批次→破坏每个方块；破坏批次→恢复每个方块。
-     *
-     * @param player 操作的玩家
-     * @param entry  要撤回的历史记录
-     * @return 实际成功处理的方块数量（可能小于总数，如位置已被占用时跳过）
-     */
-    public static int executeUndo(EntityPlayerMP player, HistoryEntry entry) {
-        if (entry.isDestructive()) {
-            // 破坏批次→撤回=重新放置方块
-            return restoreBlocks(player, entry.getBlocks(), entry.getFace());
-        } else {
-            // 放置批次→撤回=破坏方块
-            return breakBlocks(player, entry.getBlocks());
+    public static HistoryExecutionResult executeUndo(EntityPlayerMP player, HistoryEntry entry) {
+        Set<BlockPos> completed;
+        switch (entry.getOperation()) {
+            case CREATIVE_BREAK:
+                completed = restoreBrokenBlocks(player, entry.getBlocks(), true, -1);
+                break;
+            case SURVIVAL_BREAK:
+                completed = restoreBrokenBlocks(player, entry.getBlocks(), false, entry.getSourceSlot());
+                break;
+            case CREATIVE_PLACEMENT:
+                completed = restorePlacementSnapshot(player, entry.getBlocks(), true);
+                break;
+            case SURVIVAL_PLACEMENT:
+                completed = restorePlacementSnapshot(player, entry.getBlocks(), false);
+                break;
+            default:
+                completed = new LinkedHashSet<BlockPos>();
         }
+        return new HistoryExecutionResult(completed.size(), completed);
     }
 
-    // ======================================================================
-    //  内部执行逻辑
-    // ======================================================================
+    /** 重做第一阶段只支持创造历史；生存记录绝不产生物品或世界副作用。 */
+    public static HistoryExecutionResult executeRedo(EntityPlayerMP player, HistoryEntry entry) {
+        Set<BlockPos> completed = entry.getOperation().creative()
+                ? applyAfterSnapshot(player, entry)
+                : new LinkedHashSet<BlockPos>();
+        return new HistoryExecutionResult(completed.size(), completed);
+    }
 
-    /**
-     * 恢复方块（重新放置）。
-     * <p>
-     * 仅在目标位置为空气或可替换方块时才放置。
-     * 跳过已被占用的位置。
-     * 创造模式额外恢复方块实体 NBT 数据（类似 Ultimine-Rewind 的 RewindExecutor）。
-     */
-    private static int restoreBlocks(EntityPlayerMP player, List<HistoryBlockRecord> blocks, net.minecraft.util.EnumFacing face) {
-        WorldServer level = player.getServerWorld();
-        boolean isCreative = player.capabilities.isCreativeMode;
-        int restoredCount = 0;
-
-        for (HistoryBlockRecord record : blocks) {
+    private static Set<BlockPos> restoreBrokenBlocks(
+            EntityPlayerMP player, List<HistoryBlockRecord> records, boolean creative, int sourceSlot) {
+        WorldServer world = player.getServerWorld();
+        Set<BlockPos> completed = new LinkedHashSet<BlockPos>();
+        for (HistoryBlockRecord record : records) {
             BlockPos pos = record.pos();
-            if (!level.isBlockLoaded(pos)) continue;
+            if (!world.isBlockLoaded(pos) || !RtsClaimProtectionService.canPlaceBlock(player, pos)) continue;
+            if (!world.getBlockState(pos).equals(record.afterState())) continue;
+
+            ItemStack consumed = ItemStack.EMPTY;
+            if (!creative) {
+                consumed = consumeItemForBlock(player, record.state(), sourceSlot);
+                if (consumed.isEmpty()) continue;
+            }
+            if (!world.setBlockState(pos, record.state(), 3)) {
+                if (!creative) refundItem(player, consumed, pos);
+                continue;
+            }
+            if (creative) restoreBlockEntity(world, pos, record.blockEntityData());
+            completed.add(pos);
+        }
+        if (!creative) refreshStorage(player);
+        return completed;
+    }
+
+    /** 建造撤销恢复操作前快照；生存模式移除成功后才退还对应材料。 */
+    private static Set<BlockPos> restorePlacementSnapshot(
+            EntityPlayerMP player, List<HistoryBlockRecord> records, boolean creative) {
+        WorldServer world = player.getServerWorld();
+        Set<BlockPos> completed = new LinkedHashSet<BlockPos>();
+        for (HistoryBlockRecord record : records) {
+            BlockPos pos = record.pos();
+            if (!world.isBlockLoaded(pos)) continue;
+            if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.UP)) continue;
             if (!RtsClaimProtectionService.canPlaceBlock(player, pos)) continue;
-
-            IBlockState currentState = level.getBlockState(pos);
-            if (currentState.getBlock() != Blocks.AIR
-                    && !currentState.getBlock().isReplaceable(level, pos)) {
-                continue; // 位置已被占用，跳过
+            if (!world.getBlockState(pos).equals(record.afterState())) continue;
+            if (!world.setBlockState(pos, record.state(), 3)) continue;
+            if (creative) {
+                restoreBlockEntity(world, pos, record.blockEntityData());
+            } else {
+                refundItem(player, blockItem(record.afterState()), pos);
             }
-
-            IBlockState targetState = record.state();
-
-            // 生存模式：验证并消耗物品（防止刷物品漏洞）
-            // 类似 Ultimine-Rewind 的 RewindExecutor 在恢复前检查物品
-            if (!isCreative) {
-                if (!consumeItemForBlock(player, targetState)) {
-                    continue; // 物品不足，跳过此方块
-                }
-            }
-
-            level.setBlockState(pos, targetState, 3);
-
-            // 创造模式：恢复方块实体 NBT 数据（类似 Ultimine-Rewind 的做法）
-            // 生存模式不恢复 NBT，防止刷物品漏洞
-            if (isCreative) {
-                NBTTagCompound beData = record.blockEntityData();
-                if (beData != null) {
-                    TileEntity blockEntity = level.getTileEntity(pos);
-                    if (blockEntity != null) {
-                        blockEntity.readFromNBT(beData);
-                        blockEntity.markDirty();
-                    }
-                }
-            }
-
-            restoredCount++;
+            completed.add(pos);
         }
-
-        return restoredCount;
+        if (!creative) refreshStorage(player);
+        return completed;
     }
 
-    /**
-     * 从玩家背包中消耗一个对应方块的物品（生存模式防刷物品）。
-     * <p>
-     * 类似 Ultimine-Rewind 的 RewindExecutor 消耗物品逻辑。
-     *
-     * @param player 操作的玩家
-     * @param state  要放置的方块状态
-     * @return true 如果找到了对应物品并成功消耗
-     */
-    private static boolean consumeItemForBlock(EntityPlayerMP player, IBlockState state) {
-        ItemStack required = new ItemStack(state.getBlock());
-        if (required.isEmpty()) {
-            // 没有物品形式（如空气、火、结构方块等），跳过验证
-            return true;
-        }
-        InventoryPlayer inventory = player.inventory;
-        for (int i = 0; i < inventory.getSizeInventory(); i++) {
-            ItemStack stack = inventory.getStackInSlot(i);
-            if (!stack.isEmpty() && stack.getItem() == required.getItem()) {
-                stack.shrink(1);
-                inventory.setInventorySlotContents(i, stack.isEmpty() ? ItemStack.EMPTY : stack);
-                inventory.markDirty();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 破坏方块，并将物品退还到链接储存（而非玩家背包或掉落物实体）。
-     * <p>
-     * 只破坏与记录中类型相同的方块（防止误破坏玩家后来放置的其他方块）。
-     * <p>
-     * 退还优先级：链接储存空间 → 玩家背包 → 原地掉落物。
-     * <p>
-     * <b>为什么不用 {@link net.minecraft.world.WorldServer#destroyBlock}：</b>
-     * <ul>
-     *   <li>{@code destroyBlock(pos, true, player)} 会以掉落物实体形式丢出物品</li>
-     *   <li>取而代之：移除方块后优先尝试放入链接储存空间</li>
-     *   <li>链接储存空间装满后回退到玩家背包</li>
-     *   <li>背包也满时生成掉落物作为最终回退</li>
-     * </ul>
-     */
-    private static int breakBlocks(EntityPlayerMP player, List<HistoryBlockRecord> blocks) {
-        WorldServer level = player.getServerWorld();
-        boolean isCreative = player.capabilities.isCreativeMode;
-        int brokenCount = 0;
-
-        for (HistoryBlockRecord record : blocks) {
+    /** 重做前必须仍与撤销留下的前快照一致，避免覆盖玩家撤销后的手动修改。 */
+    private static Set<BlockPos> applyAfterSnapshot(EntityPlayerMP player, HistoryEntry entry) {
+        WorldServer world = player.getServerWorld();
+        Set<BlockPos> completed = new LinkedHashSet<BlockPos>();
+        for (HistoryBlockRecord record : entry.getBlocks()) {
             BlockPos pos = record.pos();
-            if (!level.isBlockLoaded(pos)) continue;
-            if (!RtsClaimProtectionService.canBreakBlock(player, pos, net.minecraft.util.EnumFacing.UP)) continue;
-
-            IBlockState currentState = level.getBlockState(pos);
-            if (currentState.getBlock() == Blocks.AIR) continue; // 方块已不存在
-
-            IBlockState expectedState = record.state();
-            // 只破坏与记录中类型相同的方块（防止误破坏玩家后来放置的其他方块）
-            if (currentState.getBlock() != expectedState.getBlock()) continue;
-
-            // 移除方块（不生成掉落物实体）
-            level.setBlockState(pos, Blocks.AIR.getDefaultState(), 3);
-
-            // 生存模式：优先返还到链接储存空间，然后玩家背包，最后掉落物
-            if (!isCreative) {
-                ItemStack stack = new ItemStack(expectedState.getBlock());
-                if (!stack.isEmpty()) {
-                    boolean refunded = false;
-                    RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-                    if (session != null) {
-                        List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
-                        List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(activeLinked);
-                        if (!handlers.isEmpty()) {
-                            RtsTransferInserter.refundToLinked(handlers, player, stack);
-                            refunded = true;
-                        }
-                    }
-                    if (!refunded) {
-                        // 没有链接储存时，回退到玩家背包
-                        if (!player.inventory.addItemStackToInventory(stack)) {
-                            Block.spawnAsEntity(level, pos, stack);
-                        }
-                    }
-                }
+            if (!world.isBlockLoaded(pos) || !matchesSnapshot(world, pos, record.state(), record.blockEntityData())) {
+                continue;
             }
-
-            brokenCount++;
-        }
-
-        // 撤回后强制刷新 RTS 页面，确保退还到链接储存后的数量正确显示
-        if (!isCreative) {
-            RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-            if (session != null) {
-                ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+            if (entry.getOperation() == HistoryOperation.CREATIVE_BREAK) {
+                if (!RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.UP)) continue;
+            } else {
+                if (record.state().getBlock() != Blocks.AIR
+                        && !RtsClaimProtectionService.canBreakBlock(player, pos, EnumFacing.UP)) continue;
+                if (!RtsClaimProtectionService.canPlaceBlock(player, pos)) continue;
             }
+            if (!world.setBlockState(pos, record.afterState(), 3)) continue;
+            restoreBlockEntity(world, pos, record.afterBlockEntityData());
+            completed.add(pos);
         }
-
-        return brokenCount;
+        return completed;
     }
 
+    private static boolean matchesSnapshot(
+            WorldServer world, BlockPos pos, IBlockState expectedState, NBTTagCompound expectedNbt) {
+        if (!world.getBlockState(pos).equals(expectedState)) return false;
+        if (expectedNbt == null) return true;
+        TileEntity blockEntity = world.getTileEntity(pos);
+        return blockEntity != null
+                && expectedNbt.equals(blockEntity.writeToNBT(new NBTTagCompound()));
+    }
+
+    /** 返回真实抽取的一件物品，失败时返回空栈，供失败回滚保持 NBT。 */
+    private static ItemStack consumeItemForBlock(
+            EntityPlayerMP player, IBlockState state, int sourceSlot) {
+        ItemStack required = blockItem(state);
+        if (required.isEmpty()) return ItemStack.EMPTY;
+
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session != null) {
+            List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+            List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForExtract(linked);
+            ItemStack extracted = RtsPlacementExtractor.extractSelectedFromLinkedCached(
+                    player, handlers, required.getItem(), required);
+            if (!extracted.isEmpty()) return extracted;
+        }
+
+        if (sourceSlot < 0 || sourceSlot > 8) return ItemStack.EMPTY;
+        InventoryPlayer inventory = player.inventory;
+        ItemStack source = inventory.getStackInSlot(sourceSlot);
+        if (source.isEmpty() || source.getItem() != required.getItem()
+                || source.getMetadata() != required.getMetadata()) return ItemStack.EMPTY;
+        ItemStack extracted = source.copy();
+        extracted.setCount(1);
+        source.shrink(1);
+        inventory.setInventorySlotContents(
+                sourceSlot, source.isEmpty() ? ItemStack.EMPTY : source);
+        inventory.markDirty();
+        return extracted;
+    }
+
+    /** 1.12 方块物品身份包含 damage/metadata；不能退化成固定 metadata=0。 */
+    private static ItemStack blockItem(IBlockState state) {
+        Item item = Item.getItemFromBlock(state.getBlock());
+        return item == null ? ItemStack.EMPTY
+                : new ItemStack(item, 1, state.getBlock().damageDropped(state));
+    }
+
+    /** 真实栈回退顺序：linked storage → 玩家背包 → 原地掉落。 */
+    private static void refundItem(EntityPlayerMP player, ItemStack stack, BlockPos pos) {
+        if (stack == null || stack.isEmpty()) return;
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session != null) {
+            List<LinkedHandler> linked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
+            List<IItemHandler> handlers = RtsLinkedStorageResolver.itemHandlersForInsert(linked);
+            if (!handlers.isEmpty()) {
+                RtsTransferInserter.refundToLinked(handlers, player, stack);
+                return;
+            }
+        }
+        if (!player.inventory.addItemStackToInventory(stack)) {
+            Block.spawnAsEntity(player.getServerWorld(), pos, stack);
+        }
+    }
+
+    private static void restoreBlockEntity(WorldServer world, BlockPos pos, NBTTagCompound data) {
+        if (data == null) return;
+        TileEntity blockEntity = world.getTileEntity(pos);
+        if (blockEntity == null) return;
+        blockEntity.readFromNBT(data);
+        blockEntity.markDirty();
+    }
+
+    private static void refreshStorage(EntityPlayerMP player) {
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session != null) ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
+    }
 }

@@ -32,7 +32,7 @@ import net.minecraftforge.fml.relauncher.Side;
 @Mod.EventBusSubscriber(modid = RtsbuildingMod.MODID, value = Side.CLIENT)
 public final class RtsClientOnboardingReminder {
     private static final String DISMISS_COMMAND = "rtsbuilding_hide_intro";
-    private static final String STABLE_VERSION = "1.1.5-patch4";
+    private static final String STABLE_VERSION = "1.1.6-1.12.2-port";
     private static final int SHOW_DELAY_TICKS = 80;
 
     private static boolean commandRegistered;
