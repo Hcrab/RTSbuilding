@@ -8,6 +8,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsDeveloperMetrics;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageBindings;
 import com.rtsbuilding.rtsbuilding.server.storage.RtsStorageFluids;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsItemVariantKey;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
@@ -107,22 +108,39 @@ public final class RtsPageCore {
             RtsAggregateStorage aggregate = RtsStorageTickService.INSTANCE.getStorage(player);
             boolean usedCache = false;
             if (aggregate != null && !aggregate.isEmpty()) {
-                aggregate.getAvailableItems(localCounts);
-                if (!localCounts.isEmpty()) {
-                    for (var entry : localCounts.entrySet()) {
-                        String itemId = entry.getKey();
+                Map<RtsItemVariantKey, Long> localVariants = new HashMap<>();
+                aggregate.getAvailableItemVariants(localVariants);
+                if (!localVariants.isEmpty()) {
+                    for (var entry : localVariants.entrySet()) {
+                        RtsItemVariantKey variantKey = entry.getKey();
+                        String itemId = variantKey.itemId();
                         long count = entry.getValue();
                         ResourceLocation id = ResourceLocation.tryParse(itemId);
                         if (id == null) continue;
-                        ItemStack prototype = aggregate.getPrototype(itemId);
-                        if (prototype.isEmpty()) {
-                            var item = BuiltInRegistries.ITEM.get(id);
-                            prototype = new ItemStack(item);
-                        }
-                        mergeExactEntry(exactEntries, prototype, count);
+                        localCounts.merge(itemId, count, Long::sum);
+                        mergeExactEntry(exactEntries, variantKey.prototype(), count);
                         mergeCount(localNamespaceTotals, id.getNamespace(), count);
                     }
                     usedCache = true;
+                } else {
+                    // 兼容尚未建立变体索引的旧缓存实例；正常运行不会走这里。
+                    aggregate.getAvailableItems(localCounts);
+                    if (!localCounts.isEmpty()) {
+                        for (var entry : localCounts.entrySet()) {
+                            String itemId = entry.getKey();
+                            long count = entry.getValue();
+                            ResourceLocation id = ResourceLocation.tryParse(itemId);
+                            if (id == null) continue;
+                            ItemStack prototype = aggregate.getPrototype(itemId);
+                            if (prototype.isEmpty()) {
+                                var item = BuiltInRegistries.ITEM.get(id);
+                                prototype = new ItemStack(item);
+                            }
+                            mergeExactEntry(exactEntries, prototype, count);
+                            mergeCount(localNamespaceTotals, id.getNamespace(), count);
+                        }
+                        usedCache = true;
+                    }
                 }
             }
 
