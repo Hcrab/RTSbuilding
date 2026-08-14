@@ -11,11 +11,13 @@ import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftT
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.craftterminal.CraftTerminalSortControlsRenderer;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.compat.jei.RtsJeiSearchBridge;
+import com.rtsbuilding.rtsbuilding.network.craft.C2SRtsClearCraftingGridPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsImportMenuSlotPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedPickupPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsLinkedQuickMovePayload;
 import com.rtsbuilding.rtsbuilding.network.storage.C2SRtsReturnCarriedPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
+import com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu;
 import com.rtsbuilding.rtsbuilding.uicore.craftterminal.CraftTerminalUiAction;
 import com.rtsbuilding.rtsbuilding.uicore.craftterminal.CraftTerminalSortField;
 import com.rtsbuilding.rtsbuilding.uicore.control.UiControlState;
@@ -35,8 +37,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ClickType;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.inventory.TransientCraftingContainer;
 import net.minecraft.world.item.ItemStack;
@@ -57,12 +57,7 @@ import java.util.List;
  * 所有者；纯布局和跨页滚动分别交给小型辅助类，服务端物品变更全部通过权威菜单动作
  * 完成，客户端不预测生成、删除或搬动物品。</p>
  */
-public final class RtsCraftTerminalScreen extends AbstractContainerScreen<CraftingMenu> {
-    private static final int CRAFT_SLOT_START = 1;
-    private static final int CRAFT_SLOT_END = 10;
-    private static final int PLAYER_SLOT_START = 10;
-    private static final int HOTBAR_SLOT_START = 37;
-    private static final int PLAYER_SLOT_END = 46;
+public final class RtsCraftTerminalScreen extends AbstractContainerScreen<RtsCraftTerminalMenu> {
     private CraftTerminalLayout.Geometry layout = CraftTerminalLayout.geometry(
             RtsClientUiStateStore.getCraftTerminalRows());
     private final CraftTerminalScrollState scrollState = new CraftTerminalScrollState();
@@ -78,7 +73,7 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
     private final CraftTerminalSortControlsRenderer sortControls =
             new CraftTerminalSortControlsRenderer();
 
-    public RtsCraftTerminalScreen(CraftingMenu menu, Inventory inventory, Component title) {
+    public RtsCraftTerminalScreen(RtsCraftTerminalMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
         this.imageWidth = CraftTerminalLayout.WIDTH;
         this.imageHeight = CraftTerminalLayout.IMAGE_HEIGHT;
@@ -350,19 +345,26 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
             case CLEAR_TO_STORAGE:
                 if (Screen.hasShiftDown()) {
                     sendMenuSlotsToStorage(button == GLFW.GLFW_MOUSE_BUTTON_RIGHT
-                            ? HOTBAR_SLOT_START : PLAYER_SLOT_START, PLAYER_SLOT_END);
+                            ? RtsCraftTerminalMenu.HOTBAR_SLOT_START
+                            : RtsCraftTerminalMenu.INVENTORY_SLOT_START,
+                            RtsCraftTerminalMenu.HOTBAR_SLOT_END);
                 } else {
-                    sendMenuSlotsToStorage(CRAFT_SLOT_START, CRAFT_SLOT_END);
+                    PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(
+                            button == GLFW.GLFW_MOUSE_BUTTON_RIGHT));
                 }
                 return true;
             case CLEAR_TO_INVENTORY:
-                quickMoveCraftingGridToInventory();
+                PacketDistributor.sendToServer(new C2SRtsClearCraftingGridPayload(true));
                 return true;
             case DEPOSIT_ALL:
-                sendMenuSlotsToStorage(PLAYER_SLOT_START, PLAYER_SLOT_END);
+                sendMenuSlotsToStorage(
+                        RtsCraftTerminalMenu.INVENTORY_SLOT_START,
+                        RtsCraftTerminalMenu.HOTBAR_SLOT_END);
                 return true;
             case DEPOSIT_HOTBAR:
-                sendMenuSlotsToStorage(HOTBAR_SLOT_START, PLAYER_SLOT_END);
+                sendMenuSlotsToStorage(
+                        RtsCraftTerminalMenu.HOTBAR_SLOT_START,
+                        RtsCraftTerminalMenu.HOTBAR_SLOT_END);
                 return true;
             default:
                 return false;
@@ -449,20 +451,6 @@ public final class RtsCraftTerminalScreen extends AbstractContainerScreen<Crafti
         for (int slot = Math.max(0, startInclusive); slot < upper; slot++) {
             if (this.menu.getSlot(slot).hasItem()) {
                 PacketDistributor.sendToServer(new C2SRtsImportMenuSlotPayload(slot));
-            }
-        }
-    }
-
-    /** 清空到玩家背包继续走原版菜单 QUICK_MOVE，服务端仍是菜单权威。 */
-    private void quickMoveCraftingGridToInventory() {
-        Minecraft minecraft = this.minecraft;
-        if (minecraft == null || minecraft.player == null || minecraft.gameMode == null) {
-            return;
-        }
-        for (int slot = CRAFT_SLOT_START; slot < CRAFT_SLOT_END; slot++) {
-            if (this.menu.getSlot(slot).hasItem()) {
-                minecraft.gameMode.handleInventoryMouseClick(
-                        this.menu.containerId, slot, 0, ClickType.QUICK_MOVE, minecraft.player);
             }
         }
     }

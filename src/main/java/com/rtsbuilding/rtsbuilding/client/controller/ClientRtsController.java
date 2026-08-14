@@ -34,7 +34,6 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowPriority;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.inventory.CraftingScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -42,7 +41,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
@@ -1099,25 +1097,9 @@ public final class ClientRtsController {
             this.screenlessRemoteMenuTicks = 0;
         }
 
-        if (this.pendingCraftTerminalOpen
-                && minecraft.player.containerMenu instanceof CraftingMenu pendingMenu
-                && minecraft.player.containerMenu.containerId != 0
-                && !(minecraft.screen instanceof RtsCraftTerminalScreen)) {
-            Component pendingTitle = minecraft.screen != null ? minecraft.screen.getTitle() : Component.literal("RTS Craft Terminal");
-            minecraft.setScreen(new RtsCraftTerminalScreen(pendingMenu, minecraft.player.getInventory(), pendingTitle));
-            this.pendingCraftTerminalOpen = false;
-            this.pendingCraftTerminalOpenTicks = 0;
-        }
-
-        if (minecraft.screen instanceof CraftingScreen craftingScreen
-                && minecraft.player != null
-                && !(minecraft.screen instanceof RtsCraftTerminalScreen)
-                && shouldUseRtsCraftTerminalScreen(craftingScreen)) {
-            CraftingMenu craftingMenu = craftingScreen.getMenu();
-            minecraft.setScreen(new RtsCraftTerminalScreen(craftingMenu, minecraft.player.getInventory(), craftingScreen.getTitle()));
-            this.pendingCraftTerminalOpen = false;
-            this.pendingCraftTerminalOpenTicks = 0;
-        } else if (this.pendingCraftTerminalOpen) {
+        // 专用 MenuType 会直接创建新版终端屏幕；这里只保留超时收口，不再把原版
+        // CraftingScreen 二次包成 RTS 界面，否则会重新引入新旧菜单混杂和槽位错位。
+        if (this.pendingCraftTerminalOpen) {
             if (this.pendingCraftTerminalOpenTicks > 0) {
                 this.pendingCraftTerminalOpenTicks--;
             } else {
@@ -1422,14 +1404,6 @@ public final class ClientRtsController {
 
     public void updateLinkedStorageSettings(String dimensionId, BlockPos pos, boolean extractOnly, int priority) {
         RtsClientPacketGateway.sendUpdateLinkedStorage(dimensionId, pos, extractOnly, priority);
-    }
-
-    private boolean shouldUseRtsCraftTerminalScreen(CraftingScreen craftingScreen) {
-        if (this.pendingCraftTerminalOpen) {
-            return true;
-        }
-        return craftingScreen.getTitle() != null
-                && "RTS Craft Terminal".equals(craftingScreen.getTitle().getString());
     }
 
     public void quickDropSelectedItem(String itemId, int amount, Vec3 dropPos) {

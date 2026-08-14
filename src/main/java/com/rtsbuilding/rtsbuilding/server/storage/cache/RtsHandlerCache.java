@@ -30,8 +30,8 @@ public final class RtsHandlerCache {
     /** 按规范物品 ID 键化的累计计数。 */
     private final Map<String, Long> countsByItem = new HashMap<>();
 
-    /** 按物品 ID 键化的代表性堆叠（数量=1），用于精确条目构建。 */
-    private final Map<String, ItemStack> prototypeByItem = new HashMap<>();
+    /** 按完整 ItemStack/NBT 身份键化的累计计数。 */
+    private final Map<RtsItemVariantKey, Long> countsByVariant = new HashMap<>();
 
     /** 自上次清除以来缓存是否被标记为脏。 */
     private boolean dirtySinceLastRead;
@@ -44,8 +44,7 @@ public final class RtsHandlerCache {
      * 扫描处理器中的所有槽位，与上一次快照进行差异比较，
      * 并返回发生变更的物品 ID 集合。
      *
-     * <p>聚合计数（{@link #countsByItem}）和原型堆叠
-     *（{@link #prototypeByItem}）采用<b>增量</b>更新——
+     * <p>粗粒度计数与完整变体计数都采用增量更新——
      * 仅实际发生变更的槽位会影响映射。
      * 这避免了在大型 AE2 式存储系统中每次 tick 都执行完整的 O(n) 重建。
      */
@@ -72,36 +71,26 @@ public final class RtsHandlerCache {
 
         Set<String> changes = new HashSet<>();
 
-        // 对于 ReportedCountItemHandler（如 AE2），槽位堆叠是原型，
-        // 每个槽位的 NBT 不会变化，因此可以在 hasChanged() 中跳过
-        // 昂贵的 isSameItemSameComponents() 检查。
-        boolean skipNbtCompare = handler instanceof ReportedCountItemHandler;
-
         // ── 阶段一：扫描变化的槽位并应用增量变更 ──
         for (int slot = 0; slot < slots; slot++) {
             CachedSlot oldEntry = this.front[slot];
             CachedSlot newEntry = readSlot(handler, slot);
             this.front[slot] = newEntry;
 
-            if (!hasChanged(oldEntry, newEntry, skipNbtCompare)) {
+            if (!hasChanged(oldEntry, newEntry)) {
                 continue;
             }
 
             // 移除旧槽位的贡献
             if (oldEntry != null && !oldEntry.isEmpty()) {
                 changes.add(oldEntry.itemId());
-                applySlotDelta(oldEntry.itemId(), oldEntry.count, true, null);
+                applySlotDelta(oldEntry, true);
             }
 
             // 添加新槽位的贡献
             if (newEntry != null && !newEntry.isEmpty()) {
                 changes.add(newEntry.itemId());
-                // 对于 ReportedCountItemHandler（如 AE2），fullStack 已经是 count=1 的原型——
-                // 直接共享引用，避免调用 toPrototype() 创建不必要的副本。
-                ItemStack prototype = skipNbtCompare
-                        ? newEntry.fullStack
-                        : newEntry.toPrototype();
-                applySlotDelta(newEntry.itemId(), newEntry.count, false, prototype);
+                applySlotDelta(newEntry, false);
             }
         }
 
@@ -111,7 +100,7 @@ public final class RtsHandlerCache {
                 CachedSlot oldEntry = this.front[slot];
                 if (oldEntry != null && !oldEntry.isEmpty()) {
                     changes.add(oldEntry.itemId());
-                    applySlotDelta(oldEntry.itemId(), oldEntry.count, true, null);
+                    applySlotDelta(oldEntry, true);
                 }
                 this.front[slot] = null;
             }
@@ -152,8 +141,19 @@ public final class RtsHandlerCache {
      * 若未缓存则返回 {@link ItemStack#EMPTY}。
      */
     public ItemStack getPrototype(String itemId) {
-        ItemStack stack = this.prototypeByItem.get(itemId);
-        return stack != null ? stack.copy() : ItemStack.EMPTY;
+        for (var entry : this.countsByVariant.entrySet()) {
+            if (entry.getValue() > 0L && entry.getKey().itemId().equals(itemId)) {
+                return entry.getKey().prototype();
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    /** 将所有完整物品变体计数累加到输出映射。 */
+    public void getAvailableItemVariants(Map<RtsItemVariantKey, Long> out) {
+        for (var entry : this.countsByVariant.entrySet()) {
+            out.merge(entry.getKey(), entry.getValue(), Long::sum);
+        }
     }
 
     /**
@@ -192,7 +192,7 @@ public final class RtsHandlerCache {
     public void invalidate() {
         this.front = new CachedSlot[0];
         this.countsByItem.clear();
-        this.prototypeByItem.clear();
+        this.countsByVariant.clear();
         this.dirtySinceLastRead = true;
     }
 
@@ -207,7 +207,7 @@ public final class RtsHandlerCache {
     public void release() {
         this.front = new CachedSlot[0];
         this.countsByItem.clear();
-        this.prototypeByItem.clear();
+        this.countsByVariant.clear();
         this.dirtySinceLastRead = false;
     }
 
@@ -240,50 +240,51 @@ public final class RtsHandlerCache {
             ItemStack stored = (handler instanceof ReportedCountItemHandler)
                     ? stack
                     : stack.copy();
-            return new CachedSlot(id.toString(), stack.getItem(), count, stored);
+            RtsItemVariantKey variantKey = RtsItemVariantKey.of(stored);
+            return variantKey == null ? CachedSlot.EMPTY
+                    : new CachedSlot(id.toString(), stack.getItem(), count, stored, variantKey);
         } catch (Exception e) {
             return CachedSlot.EMPTY;
         }
     }
 
-    private static boolean hasChanged(CachedSlot oldEntry, CachedSlot newEntry, boolean skipNbtCompare) {
+    private static boolean hasChanged(CachedSlot oldEntry, CachedSlot newEntry) {
         if (oldEntry == null && newEntry == null) return false;
         if (oldEntry == null || newEntry == null) return true;
         if (!oldEntry.itemId.equals(newEntry.itemId)) return true;
         if (oldEntry.count != newEntry.count) return true;
-        // 对于 ReportedCountItemHandler（如 AE2 网络），显示堆叠是原型且 NBT 不随槽位变化——
-        // 跳过昂贵的 isSameItemSameComponents() 检查以避免 10000+ 次 NBT 比较。
-        if (!skipNbtCompare && oldEntry.count > 0 && newEntry.count > 0) {
-            if (!ItemStack.isSameItemSameTags(oldEntry.fullStack, newEntry.fullStack)) return true;
-        }
-        return false;
+        return !Objects.equals(oldEntry.variantKey, newEntry.variantKey);
     }
 
     /**
-     * 对 {@link #countsByItem} 应用增量变更，并更新 {@link #prototypeByItem}。
+     * 同时更新粗粒度物品总量与完整变体总量。
      *
      * @param itemId    规范物品注册 ID
      * @param count     此槽位贡献的数量
      * @param isRemoval true = 移除槽位（减法），false = 添加槽位（加法）
      * @param prototype 若为物品首次出现则注册的代表性 ItemStack；移除时可为 null
      */
-    private void applySlotDelta(String itemId, long count, boolean isRemoval, ItemStack prototype) {
-        if (isRemoval) {
-            Long current = this.countsByItem.get(itemId);
-            if (current == null) return;
-            long newCount = current - count;
-            if (newCount <= 0L) {
-                this.countsByItem.remove(itemId);
-                this.prototypeByItem.remove(itemId);
-            } else {
-                this.countsByItem.put(itemId, newCount);
-            }
-        } else {
-            this.countsByItem.merge(itemId, count, Long::sum);
-            if (prototype != null && !prototype.isEmpty()) {
-                this.prototypeByItem.putIfAbsent(itemId, prototype);
-            }
+    private void applySlotDelta(CachedSlot entry, boolean isRemoval) {
+        if (entry == null || entry.isEmpty() || entry.variantKey == null || entry.count <= 0L) {
+            return;
         }
+        String itemId = entry.itemId;
+        long count = entry.count;
+        if (isRemoval) {
+            decrement(this.countsByVariant, entry.variantKey, count);
+            decrement(this.countsByItem, itemId, count);
+        } else {
+            this.countsByVariant.merge(entry.variantKey, count, Long::sum);
+            this.countsByItem.merge(itemId, count, Long::sum);
+        }
+    }
+
+    private static <K> void decrement(Map<K, Long> values, K key, long amount) {
+        Long current = values.get(key);
+        if (current == null) return;
+        long remaining = current - amount;
+        if (remaining <= 0L) values.remove(key);
+        else values.put(key, remaining);
     }
 
     // ======================================================================
@@ -293,8 +294,9 @@ public final class RtsHandlerCache {
     /**
      * 缓存的槽位快照。同时存储逻辑数量和完整的 ItemStack，用于保持 NBT 的比较。
      */
-    public record CachedSlot(String itemId, Item item, long count, ItemStack fullStack) {
-        public static final CachedSlot EMPTY = new CachedSlot("", null, 0, ItemStack.EMPTY);
+    public record CachedSlot(String itemId, Item item, long count,
+            ItemStack fullStack, RtsItemVariantKey variantKey) {
+        public static final CachedSlot EMPTY = new CachedSlot("", null, 0, ItemStack.EMPTY, null);
 
         boolean isEmpty() {
             return this == EMPTY || itemId.isEmpty();
@@ -305,13 +307,6 @@ public final class RtsHandlerCache {
             ItemStack copy = fullStack.copy();
             copy.setCount((int) Math.min(count, Integer.MAX_VALUE));
             return copy;
-        }
-
-        ItemStack toPrototype() {
-            if (isEmpty() || item == null) return ItemStack.EMPTY;
-            ItemStack proto = fullStack.copy();
-            proto.setCount(1);
-            return proto;
         }
     }
 }

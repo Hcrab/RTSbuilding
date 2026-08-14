@@ -372,6 +372,13 @@ public final class RtsAggregateStorage {
         }
     }
 
+    /** 汇总所有处理器中的完整物品变体计数。 */
+    public void getAvailableItemVariants(Map<RtsItemVariantKey, Long> out) {
+        for (CachedHandlerSlot cs : this.flatOrdered) {
+            cs.cache.getAvailableItemVariants(out);
+        }
+    }
+
     /** Forge 1.20.1 的 Item#toString() 只返回路径，缓存键必须使用完整注册 ID。 */
     private static String itemId(Item item) {
         return BuiltInRegistries.ITEM.getKey(item).toString();

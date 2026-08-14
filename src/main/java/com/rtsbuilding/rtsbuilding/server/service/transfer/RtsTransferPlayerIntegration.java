@@ -183,8 +183,11 @@ public final class RtsTransferPlayerIntegration {
             return;
         }
         OverflowOutcome overflow = OverflowOutcome.EMPTY;
-        if (menu instanceof CraftingMenu craftingMenu && menuSlot == 0) {
-            ItemStack[] craftBlueprint = ServiceRegistry.getInstance().crafting().snapshotCraftGridBlueprint(craftingMenu);
+        if ((menu instanceof CraftingMenu
+                || menu instanceof com.rtsbuilding.rtsbuilding.server.menu.RtsCraftTerminalMenu)
+                && menuSlot == 0) {
+            ItemStack[] craftBlueprint = ServiceRegistry.getInstance().crafting()
+                    .snapshotCraftGridBlueprint(menu);
             ItemStack resultSnapshot = slot.getItem().copy();
             if (resultSnapshot.isEmpty()) {
                 return;
@@ -192,18 +195,18 @@ public final class RtsTransferPlayerIntegration {
             ItemStack resultPrototype = resultSnapshot.copyWithCount(1);
             boolean craftedAny = false;
             for (int guard = 0; guard < RtsTransferUtils.SHIFT_IMPORT_MAX_CRAFT_ITERATIONS; guard++) {
-                Slot resultSlot = craftingMenu.getSlot(0);
+                Slot resultSlot = menu.getSlot(0);
                 ItemStack currentResult = resultSlot.getItem();
                 if (currentResult.isEmpty() || !ItemStack.isSameItemSameTags(currentResult, resultPrototype)) {
                     ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
-                            craftingMenu, extractHandlers, player, craftBlueprint, false, true);
+                            menu, extractHandlers, player, craftBlueprint, false, true);
                     currentResult = resultSlot.getItem();
                     if (currentResult.isEmpty() || !ItemStack.isSameItemSameTags(currentResult, resultPrototype)) {
                         break;
                     }
                 }
                 int[] before = RtsTransferExtractor.snapshotPlayerMatchingCounts(player, resultPrototype);
-                ItemStack moved = craftingMenu.quickMoveStack(player, menuSlot);
+                ItemStack moved = menu.quickMoveStack(player, menuSlot);
                 if (moved.isEmpty()) {
                     break;
                 }
@@ -221,13 +224,13 @@ public final class RtsTransferPlayerIntegration {
                         insertHandlers, player, gained));
                 craftedAny = true;
                 ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
-                        craftingMenu, extractHandlers, player, craftBlueprint, false, true);
+                        menu, extractHandlers, player, craftBlueprint, false, true);
             }
             if (!craftedAny) {
                 return;
             }
             ServiceRegistry.getInstance().crafting().refillCraftGridFromBlueprint(
-                    craftingMenu, extractHandlers, player, craftBlueprint, true, true);
+                    menu, extractHandlers, player, craftBlueprint, true, true);
         } else {
             ItemStack inSlot = slot.getItem();
             ItemStack moved = slot.safeTake(inSlot.getCount(), inSlot.getCount(), player);

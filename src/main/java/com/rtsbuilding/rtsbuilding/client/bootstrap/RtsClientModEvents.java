@@ -4,12 +4,15 @@ package com.rtsbuilding.rtsbuilding.client.bootstrap;
 import com.rtsbuilding.rtsbuilding.client.camera.RtsCameraEntityRenderer;
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
+import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
+import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingMixinVerifier;
 import com.rtsbuilding.rtsbuilding.client.theme.UiThemeStorage;
 import com.rtsbuilding.rtsbuilding.client.theme.UiThemeTextureCache;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
 
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.MenuScreens;
 import net.minecraft.server.packs.resources.ResourceManagerReloadListener;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
@@ -28,6 +31,7 @@ public final class RtsClientModEvents {
         RtsbuildingMod.LOGGER.info("HELLO FROM CLIENT SETUP");
         RtsbuildingMod.LOGGER.info("MINECRAFT NAME >> {}", Minecraft.getInstance().getUser().getName());
         event.enqueueWork(() -> {
+            MenuScreens.register(RtsMenuTypes.RTS_CRAFT_TERMINAL.get(), RtsCraftTerminalScreen::new);
             RtsCullingMixinVerifier.verifyOptionalRendererHooks();
             for (String error : UiThemeStorage.defaultStorage().loadAll(UiThemeRuntime.registry())) {
                 RtsbuildingMod.LOGGER.warn("用户 UI 主题未加载：{}", error);

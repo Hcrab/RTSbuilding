@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.common.RtsBlocks;
 import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
+import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
 import com.rtsbuilding.rtsbuilding.network.RtsForgePayloadRegistrar;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
@@ -74,6 +75,7 @@ public final class RtsbuildingMod {
         RtsEntities.register(modEventBus);
         RtsBlocks.register(modEventBus);
         RtsItems.register(modEventBus);
+        RtsMenuTypes.register(modEventBus);
         RtsCreativeTabs.register(modEventBus);
         RtsForgePayloadRegistrar.register();
         MinecraftForge.EVENT_BUS.register(this);
