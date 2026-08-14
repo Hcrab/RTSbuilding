@@ -894,6 +894,8 @@
   "screen.rtsbuilding.blueprints.status.deleted": "Deleted blueprint %s.",
   "screen.rtsbuilding.blueprints.status.delete_failed": "Delete failed: %s",
   "screen.rtsbuilding.blueprints.status.delete_cancelled": "Delete cancelled.",
+  "screen.rtsbuilding.blueprints.status.delete_target_changed": "The blueprint changed or disappeared; nothing was deleted.",
+  "screen.rtsbuilding.blueprints.status.file_dialog_unavailable": "System file windows are unavailable in this environment.",
   "screen.rtsbuilding.quick_build.missing_blocks": "§7| §cMissing x %s",
   "message.rtsbuilding.quick_build.remote_place_locked": "Remote placement is not unlocked.",
   "screen.rtsbuilding.tooltip.shape_block": "Block",
@@ -1122,6 +1124,7 @@
   ,"screen.rtsbuilding.theme.status.contrast_error": "This color would make important text unreadable."
   ,"screen.rtsbuilding.theme.status.imported": "Theme imported; press Apply to use it."
   ,"screen.rtsbuilding.theme.status.import_cancelled": "Theme import cancelled."
+  ,"screen.rtsbuilding.theme.status.file_dialog_unavailable": "System file windows are unavailable in this environment."
   ,"screen.rtsbuilding.theme.status.import_error": "Theme import failed; see the log."
   ,"screen.rtsbuilding.theme.editor": "Palette editor"
   ,"screen.rtsbuilding.theme.editor.legacy": "Legacy is supplied by the active resource pack and cannot be recolored here."

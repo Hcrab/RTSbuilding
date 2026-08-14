@@ -975,6 +975,8 @@
   "screen.rtsbuilding.blueprints.status.deleted": "已刪除藍圖 %s。",
   "screen.rtsbuilding.blueprints.status.delete_failed": "刪除失敗：%s",
   "screen.rtsbuilding.blueprints.status.delete_cancelled": "已取消刪除。",
+  "screen.rtsbuilding.blueprints.status.delete_target_changed": "藍圖已變更或不存在，未刪除任何檔案。",
+  "screen.rtsbuilding.blueprints.status.file_dialog_unavailable": "目前執行環境不支援系統檔案視窗。",
   "screen.rtsbuilding.quick_build.missing_blocks": "| 缺少 x %s",
   "message.rtsbuilding.quick_build.remote_place_locked": "遠程放置功能尚未解鎖。",
   "message.rtsbuilding.plugin_required": "請先安裝%s以使用此功能。",
@@ -1122,6 +1124,7 @@
   ,"screen.rtsbuilding.theme.status.contrast_error": "此顏色會令重要文字難以辨認。"
   ,"screen.rtsbuilding.theme.status.imported": "主題已匯入；按下套用後啟用。"
   ,"screen.rtsbuilding.theme.status.import_cancelled": "已取消匯入主題。"
+  ,"screen.rtsbuilding.theme.status.file_dialog_unavailable": "目前執行環境不支援系統檔案視窗。"
   ,"screen.rtsbuilding.theme.status.import_error": "主題匯入失敗，請查看日誌。"
   ,"screen.rtsbuilding.theme.editor": "配色編輯器"
   ,"screen.rtsbuilding.theme.editor.legacy": "Legacy 由目前資源包完整提供，不能在此重新着色。"

@@ -121,6 +121,8 @@ final class BlueprintLibrarySession {
     boolean delete(String fileName) {
         BlueprintEntry entry = entryByFileName(fileName);
         if (entry == null) {
+            status.set(S2CBlueprintStatusPayload.ERROR,
+                    "screen.rtsbuilding.blueprints.status.delete_target_changed", "");
             return false;
         }
         applyFileOperation(BlueprintLibraryFileOperations.delete(entry));

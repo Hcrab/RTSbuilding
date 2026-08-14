@@ -697,6 +697,8 @@ class UiProductionAdapterContractTest {
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryPanelInput.java");
         String fileOperations = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryFileOperations.java");
+        String fileDialogSupport = read(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/util/TinyFileDialogSupport.java");
         String repository = read(
                 "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/blueprint/BlueprintLibraryRepository.java");
         String saveCoordinator = read(
@@ -720,7 +722,14 @@ class UiProductionAdapterContractTest {
         assertTrue(fileOperations.contains("record Result("));
         assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_openFileDialog("));
         assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_saveFileDialog("));
-        assertTrue(fileOperations.contains("TinyFileDialogs.tinyfd_messageBox("));
+        assertFalse(fileOperations.contains("TinyFileDialogs.tinyfd_messageBox("));
+        assertTrue(fileOperations.contains("TinyFileDialogSupport.canOpenFileDialog()"));
+        assertTrue(fileOperations.contains("TinyFileDialogSupport.canSaveFileDialog()"));
+        assertTrue(fileDialogSupport.contains("ntinyfd_openFileDialog("));
+        assertTrue(fileDialogSupport.contains("ntinyfd_saveFileDialog("));
+        assertTrue(fileDialogSupport.contains("return result == 1L"));
+        assertTrue(panel.contains("new ConfirmScreen("));
+        assertTrue(panel.contains("BlueprintLibraryFileOperations.delete(current)"));
         assertTrue(fileOperations.contains("BlueprintWriters.writeVanillaStructure("));
         assertTrue(repository.contains("Files.list(folder)"));
         assertTrue(repository.contains("BlueprintReaders.parse("));

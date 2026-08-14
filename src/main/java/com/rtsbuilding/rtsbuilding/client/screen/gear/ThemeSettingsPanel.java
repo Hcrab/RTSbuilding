@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.client.util.TinyFileDialogSupport;
 import com.rtsbuilding.rtsbuilding.client.theme.UiThemeStorage;
 import com.rtsbuilding.rtsbuilding.client.theme.UiThemeValidator;
 import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
@@ -239,6 +240,10 @@ public final class ThemeSettingsPanel extends RtsWindowPanel {
     }
 
     private void importTheme() {
+        if (!TinyFileDialogSupport.canOpenFileDialog()) {
+            this.statusKey = "screen.rtsbuilding.theme.status.file_dialog_unavailable";
+            return;
+        }
         java.nio.file.Path selected = ThemeFileDialogs.chooseImport();
         if (selected == null) {
             statusKey = "screen.rtsbuilding.theme.status.import_cancelled";

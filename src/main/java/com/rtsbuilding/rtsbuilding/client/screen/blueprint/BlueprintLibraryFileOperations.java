@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.screen.blueprint;
 
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
+import com.rtsbuilding.rtsbuilding.client.util.TinyFileDialogSupport;
 import net.minecraft.Util;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
@@ -85,6 +86,10 @@ final class BlueprintLibraryFileOperations {
     }
 
     static Result importFile() {
+        if (!TinyFileDialogSupport.canOpenFileDialog()) {
+            return Result.status(ERROR,
+                    "screen.rtsbuilding.blueprints.status.file_dialog_unavailable", "");
+        }
         String selected;
         try (MemoryStack stack = MemoryStack.stackPush()) {
             PointerBuffer filters = stack.mallocPointer(5);
@@ -197,6 +202,10 @@ final class BlueprintLibraryFileOperations {
             return Result.status(ERROR,
                     "screen.rtsbuilding.blueprints.status.no_selection", "");
         }
+        if (!TinyFileDialogSupport.canSaveFileDialog()) {
+            return Result.status(ERROR,
+                    "screen.rtsbuilding.blueprints.status.file_dialog_unavailable", "");
+        }
         String sourceExtension =
                 blueprintExtension(entry.fileName(), entry.format().extension());
         String defaultFileName =
@@ -285,17 +294,6 @@ final class BlueprintLibraryFileOperations {
     }
 
     static Result delete(BlueprintEntry entry) {
-        boolean confirmed = TinyFileDialogs.tinyfd_messageBox(
-                text("screen.rtsbuilding.blueprints.delete_confirm_title"),
-                text("screen.rtsbuilding.blueprints.delete_confirm_message",
-                        entry.name()),
-                "yesno",
-                "warning",
-                false);
-        if (!confirmed) {
-            return Result.status(INFO,
-                    "screen.rtsbuilding.blueprints.status.delete_cancelled", "");
-        }
         try {
             Path source = entry.path();
             if (source != null) {

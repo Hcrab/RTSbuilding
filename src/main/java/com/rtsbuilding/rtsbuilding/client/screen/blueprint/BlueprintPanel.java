@@ -17,6 +17,8 @@ import com.rtsbuilding.rtsbuilding.network.blueprint.S2CBlueprintStatusPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.ConfirmScreen;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
@@ -516,8 +518,29 @@ public final class BlueprintPanel {
 
     static boolean deleteLibraryEntry(String fileName) {
         BlueprintEntry entry = entryByFileName(fileName);
-        if (entry == null) return false;
-        applyFileOperation(BlueprintLibraryFileOperations.delete(entry));
+        Minecraft minecraft = Minecraft.getInstance();
+        Screen parent = minecraft.screen;
+        if (entry == null || parent == null) return false;
+        minecraft.setScreen(new ConfirmScreen(confirmed -> {
+            if (confirmed) {
+                // 确认发生时按稳定文件名重新查询，避免弹窗期间列表变化后删除旧对象。
+                BlueprintEntry current = entryByFileName(fileName);
+                if (current == null) {
+                    setStatus(S2CBlueprintStatusPayload.ERROR,
+                            "screen.rtsbuilding.blueprints.status.delete_target_changed", "");
+                } else {
+                    applyFileOperation(BlueprintLibraryFileOperations.delete(current));
+                }
+            } else {
+                setStatus(S2CBlueprintStatusPayload.INFO,
+                        "screen.rtsbuilding.blueprints.status.delete_cancelled", "");
+            }
+            minecraft.setScreen(parent);
+        },
+                Component.translatable(
+                        "screen.rtsbuilding.blueprints.delete_confirm_title"),
+                Component.translatable(
+                        "screen.rtsbuilding.blueprints.delete_confirm_message", entry.name())));
         return true;
     }
 

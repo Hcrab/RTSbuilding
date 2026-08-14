@@ -975,6 +975,8 @@
   "screen.rtsbuilding.blueprints.status.deleted": "已删除蓝图 %s。",
   "screen.rtsbuilding.blueprints.status.delete_failed": "删除失败：%s",
   "screen.rtsbuilding.blueprints.status.delete_cancelled": "已取消删除。",
+  "screen.rtsbuilding.blueprints.status.delete_target_changed": "蓝图已变化或不存在，未删除任何文件。",
+  "screen.rtsbuilding.blueprints.status.file_dialog_unavailable": "当前运行环境不支持系统文件窗口。",
   "screen.rtsbuilding.quick_build.missing_blocks": "§7| §c缺少 x %s",
   "message.rtsbuilding.quick_build.remote_place_locked": "远程放置功能未解锁。",
   "message.rtsbuilding.plugin_required": "请先安装%s以使用此功能。",
@@ -1122,6 +1124,7 @@
   ,"screen.rtsbuilding.theme.status.contrast_error": "该颜色会令重要文字难以辨认。"
   ,"screen.rtsbuilding.theme.status.imported": "主题已导入；点击应用后启用。"
   ,"screen.rtsbuilding.theme.status.import_cancelled": "已取消导入主题。"
+  ,"screen.rtsbuilding.theme.status.file_dialog_unavailable": "当前运行环境不支持系统文件窗口。"
   ,"screen.rtsbuilding.theme.status.import_error": "主题导入失败，请查看日志。"
   ,"screen.rtsbuilding.theme.editor": "配色编辑器"
   ,"screen.rtsbuilding.theme.editor.legacy": "Legacy 由当前材质包完整提供，不能在这里重新着色。"
