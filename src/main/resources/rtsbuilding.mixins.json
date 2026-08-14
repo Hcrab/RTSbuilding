@@ -15,7 +15,8 @@
   ],
   "mixins": [
     "ChestMenuMixin",
-    "ModdedRemoteStillValidMixin"
+    "ModdedRemoteStillValidMixin",
+    "ServerPlayerRemoteMenuMixin"
   ],
   "injectors": {
     "defaultRequire": 1

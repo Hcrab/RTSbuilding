@@ -127,6 +127,7 @@ def prepareDevRuntimeModJars = {
 def devRuntimeModJars = prepareDevRuntimeModJars()
 
 println "Java: ${System.getProperty 'java.version'}, JVM: ${System.getProperty 'java.vm.version'} (${System.getProperty 'java.vendor'}), Arch: ${System.getProperty 'os.arch'}"
+jarJar.enable()
 minecraft {
     // The mappings can be changed at any time and must be in the following format.
     // Channel:   Version:
@@ -310,6 +311,10 @@ dependencies {
 
     compileOnly "org.spongepowered:mixin:${mixin_version}"
     annotationProcessor "org.spongepowered:mixin:${mixin_version}:processor"
+    compileOnly(annotationProcessor("io.github.llamalad7:mixinextras-common:${mixinextras_version}"))
+    implementation(jarJar("io.github.llamalad7:mixinextras-forge:${mixinextras_version}")) {
+        jarJar.ranged(it, "[${mixinextras_version},)")
+    }
 
     // Example mod dependency using a mod jar from ./libs with a flat dir repository
     // This maps to ./libs/coolmod-${mc_version}-${coolmod_version}.jar
@@ -349,7 +354,7 @@ tasks.named('processResources', ProcessResources).configure {
 
 // Example for how to get properties into the manifest for reading at runtime.
 tasks.named('jar', Jar).configure {
-    archiveFileName = "${mod_archive_name}-${mod_version}.jar"
+    archiveFileName = "${mod_archive_name}-${mod_version}-slim.jar"
 
     manifest {
         attributes([
@@ -368,6 +373,11 @@ tasks.named('jar', Jar).configure {
     finalizedBy 'reobfJar'
 }
 
+// 发布物必须使用带 MixinExtras 的 Jar-in-Jar 版本；slim 包只保留给本地排障。
+tasks.named('jarJar', Jar).configure {
+    archiveFileName = "${mod_archive_name}-${mod_version}.jar"
+}
+
 // However if you are in a multi-project build, dev time needs unobfed jar files, so you can delay the obfuscation until publishing by doing:
 // tasks.named('publish').configure {
 //     dependsOn 'reobfJar'
@@ -377,7 +387,7 @@ tasks.named('jar', Jar).configure {
 publishing {
     publications {
         register('mavenJava', MavenPublication) {
-            artifact jar
+            artifact tasks.named('jarJar')
         }
     }
     repositories {

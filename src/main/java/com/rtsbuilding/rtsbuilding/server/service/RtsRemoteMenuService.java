@@ -112,11 +112,7 @@ public final class RtsRemoteMenuService {
             session.transfer.remoteMenuPos = pos == null ? null : pos.immutable();
         }
         relaxOpenedMenuValidation(remoteMenu);
-        if (session != null && RtsRemoteMenuCompat.isSupportedRemoteMenu(remoteMenu)) {
-            RtsRemoteMenuCompat.markServerRemoteMenu(player, remoteMenu);
-        } else {
-            RtsRemoteMenuCompat.clearServerRemoteMenu(player);
-        }
+        RtsRemoteMenuCompat.markServerRemoteMenuSession(player, remoteMenu);
     }
 
     public static void clearValidation(ServerPlayer player, RtsStorageSession session) {

@@ -17,7 +17,7 @@ import java.util.function.Predicate;
  */
 public final class RemoteMenuTracker {
     private final Predicate<AbstractContainerMenu> supportedMenu;
-    private final Map<UUID, Integer> serverMenuIds = new ConcurrentHashMap<>();
+    private final Map<UUID, TrackedServerMenu> serverMenus = new ConcurrentHashMap<>();
     private volatile int clientMenuId = -1;
     private volatile boolean clientMenuPending;
 
@@ -34,12 +34,26 @@ public final class RemoteMenuTracker {
             clearServer(player);
             return;
         }
-        this.serverMenuIds.put(player.getUUID(), menu.containerId);
+        markServerSession(player, menu);
+    }
+
+    /**
+     * 记录任意一次由 RTS 生产交互链打开的服务端菜单。
+     *
+     * <p>服务端公共关窗点不需要依赖第三方菜单白名单；同时校验容器编号和真实对象，
+     * 避免编号复用后把另一个本地菜单误判为远程菜单。</p>
+     */
+    public void markServerSession(ServerPlayer player, AbstractContainerMenu menu) {
+        if (player == null || menu == null) {
+            clearServer(player);
+            return;
+        }
+        this.serverMenus.put(player.getUUID(), new TrackedServerMenu(menu.containerId, menu));
     }
 
     public void clearServer(ServerPlayer player) {
         if (player != null) {
-            this.serverMenuIds.remove(player.getUUID());
+            this.serverMenus.remove(player.getUUID());
         }
     }
 
@@ -69,9 +83,22 @@ public final class RemoteMenuTracker {
             return this.clientMenuPending || menu.containerId == this.clientMenuId;
         }
         if (player instanceof ServerPlayer serverPlayer) {
-            Integer remoteMenuId = this.serverMenuIds.get(serverPlayer.getUUID());
-            return remoteMenuId != null && remoteMenuId == menu.containerId;
+            return isTrackedServerSession(menu, serverPlayer);
         }
         return false;
+    }
+
+    /** 仅供服务端统一关窗闸门查询；不依赖第三方菜单类型白名单。 */
+    public boolean isTrackedServerSession(AbstractContainerMenu menu, ServerPlayer player) {
+        if (menu == null || player == null) {
+            return false;
+        }
+        TrackedServerMenu tracked = this.serverMenus.get(player.getUUID());
+        return tracked != null
+                && tracked.containerId() == menu.containerId
+                && tracked.menu() == menu;
+    }
+
+    private record TrackedServerMenu(int containerId, AbstractContainerMenu menu) {
     }
 }
