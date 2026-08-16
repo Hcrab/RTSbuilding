@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.theme;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeBuiltins;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeDefinition;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRegistry;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
@@ -102,14 +103,26 @@ public final class UiThemeStorage {
 
     public void restoreActiveTheme() {
         Path active = directory.resolve(ACTIVE_FILE);
-        if (!Files.isRegularFile(active)) return;
+        if (!Files.isRegularFile(active)) {
+            activateProductDefault();
+            return;
+        }
         try {
             String id = readBounded(active).trim();
-            if (UiThemeRuntime.registry().contains(id)) UiThemeRuntime.manager().activate(id);
+            if (UiThemeRuntime.registry().contains(id)) {
+                UiThemeRuntime.manager().activate(id);
+            } else {
+                activateProductDefault();
+            }
         } catch (RuntimeException | IOException failure) {
             RtsbuildingMod.LOGGER.warn("读取活动 UI 主题失败，继续使用默认主题：{}", active, failure);
-            UiThemeRuntime.manager().resetToDefault();
+            activateProductDefault();
         }
+    }
+
+    /** 只在没有合法持久化选择时应用产品默认值；已有玩家选择始终优先。 */
+    private static void activateProductDefault() {
+        UiThemeRuntime.manager().activate(UiThemeBuiltins.CARBON_ID);
     }
 
     private Path themePath(String id) {

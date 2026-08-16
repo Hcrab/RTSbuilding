@@ -37,7 +37,7 @@ class BottomPanelGridStyleTest {
             assertEquals(theme.color(UiThemeToken.TEXT_PRIMARY).toArgb(),
                     BottomPanelGridStyle.STORAGE.countText.toArgb());
         } finally {
-            UiThemeRuntime.manager().resetToDefault();
+            UiThemeRuntime.manager().fallBackToLegacy();
         }
 
         assertEquals(0xAA111111, BottomPanelGridStyle.STORAGE.background.toArgb());

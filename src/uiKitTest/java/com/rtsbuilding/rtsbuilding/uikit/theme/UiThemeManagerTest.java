@@ -23,23 +23,23 @@ class UiThemeManagerTest {
                 () -> registry.registerOrReplaceUser(UiThemeBuiltins.nordCommand()));
     }
     @Test
-    void startsInConfiguredDefaultAndNotifiesOnlyForRealChanges() {
+    void startsInLegacyAndNotifiesOnlyForRealChanges() {
         UiThemeRegistry registry = UiThemeBuiltins.createRegistry();
-        UiThemeManager manager = new UiThemeManager(registry, UiThemeBuiltins.CARBON_ID);
+        UiThemeManager manager = new UiThemeManager(registry, UiThemeBuiltins.LEGACY_ID);
         AtomicInteger changes = new AtomicInteger();
         manager.addListener((previous, current) -> changes.incrementAndGet());
 
-        assertEquals(UiThemeBuiltins.CARBON_ID, manager.active().id());
-        manager.activate(UiThemeBuiltins.CARBON_ID);
+        assertEquals(UiThemeRenderMode.LEGACY_DIRECT, manager.active().renderMode());
+        manager.activate(UiThemeBuiltins.LEGACY_ID);
         assertEquals(0, changes.get());
 
         manager.activate(UiThemeBuiltins.NORD_ID);
         assertEquals(1, changes.get());
         assertEquals(UiThemeRenderMode.PALETTE, manager.active().renderMode());
 
-        manager.resetToDefault();
+        manager.fallBackToLegacy();
         assertEquals(2, changes.get());
-        assertEquals(UiThemeBuiltins.CARBON_ID, manager.active().id());
+        assertEquals(UiThemeBuiltins.LEGACY_ID, manager.active().id());
     }
 
     @Test

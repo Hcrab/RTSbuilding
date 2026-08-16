@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.client.theme;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeBuiltins;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeDefinition;
 import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRegistry;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeRuntime;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -14,6 +15,23 @@ import static org.junit.jupiter.api.Assertions.*;
 class UiThemeStorageTest {
     @TempDir
     Path temporaryDirectory;
+
+    @Test
+    void missingSelectionUsesCarbonButSavedSelectionStillWins() throws Exception {
+        UiThemeStorage storage = new UiThemeStorage(temporaryDirectory.resolve("themes"));
+        try {
+            UiThemeRuntime.manager().fallBackToLegacy();
+            storage.restoreActiveTheme();
+            assertEquals(UiThemeBuiltins.CARBON_ID, UiThemeRuntime.manager().active().id());
+
+            storage.saveActiveId(UiThemeBuiltins.NORD_ID);
+            UiThemeRuntime.manager().fallBackToLegacy();
+            storage.restoreActiveTheme();
+            assertEquals(UiThemeBuiltins.NORD_ID, UiThemeRuntime.manager().active().id());
+        } finally {
+            UiThemeRuntime.manager().fallBackToLegacy();
+        }
+    }
 
     @Test
     void exportUsesManagedDirectoryAndLoadKeepsBadFilesIsolated() throws Exception {

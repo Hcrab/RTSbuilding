@@ -40,8 +40,7 @@ public final class UiThemeManager {
         }
     }
 
-    /** 恢复构造时指定的产品默认主题，不覆盖外部持久化层保存的合法选择。 */
-    public void resetToDefault() {
+    public void fallBackToLegacy() {
         activate(fallbackId);
     }
 
