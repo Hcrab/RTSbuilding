@@ -65,7 +65,7 @@ public final class UiThemeSettingsPreviewMain {
                 }
             }
         } finally {
-            UiThemeRuntime.manager().fallBackToLegacy();
+            UiThemeRuntime.manager().resetToDefault();
         }
         System.out.println("Rendered UI theme settings preview to " + output.getAbsolutePath());
     }

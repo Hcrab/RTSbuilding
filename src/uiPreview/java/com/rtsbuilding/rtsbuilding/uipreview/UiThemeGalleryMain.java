@@ -84,7 +84,7 @@ public final class UiThemeGalleryMain {
             ImageIO.write(contactSheet(rendered, themes), "png",
                     new File(output, "00_five_theme_comparison.png"));
         } finally {
-            UiThemeRuntime.manager().fallBackToLegacy();
+            UiThemeRuntime.manager().resetToDefault();
         }
         System.out.println("Rendered five " + (renderLightStudies ? "light studies" : "built-in themes")
                 + " to " + output.getAbsolutePath());

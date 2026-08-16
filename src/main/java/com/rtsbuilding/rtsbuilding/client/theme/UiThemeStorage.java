@@ -107,8 +107,8 @@ public final class UiThemeStorage {
             String id = readBounded(active).trim();
             if (UiThemeRuntime.registry().contains(id)) UiThemeRuntime.manager().activate(id);
         } catch (RuntimeException | IOException failure) {
-            RtsbuildingMod.LOGGER.warn("读取活动 UI 主题失败，继续使用 Legacy：{}", active, failure);
-            UiThemeRuntime.manager().fallBackToLegacy();
+            RtsbuildingMod.LOGGER.warn("读取活动 UI 主题失败，继续使用默认主题：{}", active, failure);
+            UiThemeRuntime.manager().resetToDefault();
         }
     }
 

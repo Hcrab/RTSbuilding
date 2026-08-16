@@ -44,7 +44,7 @@ class UiThemeCoverageTest {
     @Test
     void existingStyleObjectsChangeInPaletteButReturnExactlyToLegacy() {
         UiThemeManager manager = UiThemeRuntime.manager();
-        manager.fallBackToLegacy();
+        manager.resetToDefault();
         int legacyWindow = RtsMainlineTheme.WINDOW_BACKGROUND.toArgb();
         int legacyTerminalSlot = CraftTerminalStyle.SLOT.toArgb();
         try {
@@ -55,7 +55,7 @@ class UiThemeCoverageTest {
                     CraftTerminalStyle.SLOT.toArgb());
             assertNotEquals(legacyWindow, RtsMainlineTheme.WINDOW_BACKGROUND.toArgb());
         } finally {
-            manager.fallBackToLegacy();
+            manager.resetToDefault();
         }
         assertEquals(legacyWindow, RtsMainlineTheme.WINDOW_BACKGROUND.toArgb());
         assertEquals(legacyTerminalSlot, CraftTerminalStyle.SLOT.toArgb());

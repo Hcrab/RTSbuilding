@@ -8,7 +8,7 @@ package com.rtsbuilding.rtsbuilding.uikit.theme;
 public final class UiThemeRuntime {
     private static final UiThemeRegistry REGISTRY = UiThemeBuiltins.createRegistry();
     private static final UiThemeManager MANAGER =
-            new UiThemeManager(REGISTRY, UiThemeBuiltins.LEGACY_ID);
+            new UiThemeManager(REGISTRY, UiThemeBuiltins.CARBON_ID);
 
     public static UiThemeRegistry registry() {
         return REGISTRY;

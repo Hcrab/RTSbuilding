@@ -128,7 +128,7 @@ With Auto-store enabled, mined drops go to linked storage first. With Shift Depo
 
 ## Changing the UI theme
 
-Open the gear Settings button in RTS, expand the `UI / Display` category, find `Global UI Palette / UI Theme`, and click `Adjust`. Select a theme on the left, inspect the live preview, and click `Apply` in the lower-right to save it; `Cancel` discards the draft. Built-in themes include Legacy / Resource Pack, Calibrated RTS Dark, Nord Command, Carbon Operations, and Material Field.
+Open the gear Settings button in RTS, expand the `UI / Display` category, find `Global UI Palette / UI Theme`, and click `Adjust`. Select a theme on the left, inspect the live preview, and click `Apply` in the lower-right to save it; `Cancel` discards the draft. New installations and clients without a valid saved theme default to Carbon Operations; upgrading does not overwrite an existing valid choice. Built-in themes include Legacy / Resource Pack, Calibrated RTS Dark, Nord Command, Carbon Operations, and Material Field.
 
 Legacy keeps the original resource-pack texture path. The other themes use an in-game semantic palette shared by windows, controls, status/workflow elements, and some world overlays. Themes are client-local: they do not change server rules, tasks, storage contents, or permissions. The theme window can import/export user themes; if validation or rendering fails, switch back to Legacy and inspect the client log.
 
