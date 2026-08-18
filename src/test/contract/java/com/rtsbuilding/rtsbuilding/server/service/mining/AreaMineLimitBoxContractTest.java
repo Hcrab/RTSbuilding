@@ -45,6 +45,7 @@ class AreaMineLimitBoxContractTest {
         assertTrue(box.maxZ() >= box.minZ());
     }
 
+    //areaMineMaxSize Deprecated
     @Test
     void queuedAreaMineUsesAxisAndVolumeLimitBox() throws IOException {
         String source = Files.readString(Path.of(

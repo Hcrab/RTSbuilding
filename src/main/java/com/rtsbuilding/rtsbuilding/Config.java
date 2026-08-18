@@ -10,27 +10,27 @@ public class Config {
     private static final ModConfigSpec.Builder CLIENT_BUILDER = new ModConfigSpec.Builder();
     private static final ModConfigSpec.Builder SERVER_BUILDER = new ModConfigSpec.Builder();
 
-    public static final ModConfigSpec.BooleanValue ENABLE_SURVIVAL_PROGRESSION = COMMON_BUILDER
+    public static final ModConfigSpec.BooleanValue ENABLE_SURVIVAL_PROGRESSION = SERVER_BUILDER
             .comment("Enable RTS Home anchors and home-radius limits.")
             .translation("rtsbuilding.configuration.enableSurvivalProgression")
             .define("enableSurvivalProgression", false);
 
-    public static final ModConfigSpec.BooleanValue SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS = COMMON_BUILDER
+    public static final ModConfigSpec.BooleanValue SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS = SERVER_BUILDER
             .comment("When RTS Home is enabled, share RTS home anchors and team plugins with the player's FTB Team, OpenPAC party, or vanilla scoreboard team.")
             .translation("rtsbuilding.configuration.shareSurvivalProgressionWithTeams")
             .define("shareSurvivalProgressionWithTeams", false);
 
-    public static final ModConfigSpec.IntValue MAX_ACTION_RADIUS_BLOCKS = COMMON_BUILDER
+    public static final ModConfigSpec.IntValue MAX_ACTION_RADIUS_BLOCKS = SERVER_BUILDER
             .comment("Maximum RTS action radius in blocks.")
             .translation("rtsbuilding.configuration.maxActionRadiusBlocks")
             .defineInRange("maxActionRadiusBlocks", 128, 48, 512);
 
-    public static final ModConfigSpec.BooleanValue ENABLE_BLUEPRINTS = COMMON_BUILDER
+    public static final ModConfigSpec.BooleanValue ENABLE_BLUEPRINTS = SERVER_BUILDER
             .comment("Enable the RTS blueprint library tab, local blueprint upload, and server-side blueprint placement.")
             .translation("rtsbuilding.configuration.enableBlueprints")
             .define("enableBlueprints", true);
 
-    public static final ModConfigSpec.IntValue MAX_BLUEPRINT_BLOCKS = COMMON_BUILDER
+    public static final ModConfigSpec.IntValue MAX_BLUEPRINT_BLOCKS = SERVER_BUILDER
             .comment("Maximum non-air blocks allowed in one RTS blueprint import, capture, or placement job.")
             .translation("rtsbuilding.configuration.maxBlueprintBlocks")
             .defineInRange("maxBlueprintBlocks", 20000, 1, 200000);
@@ -108,11 +108,6 @@ public class Config {
             .comment("Maximum blocks collected by one RTS chain mining request.")
             .translation("rtsbuilding.configuration.ultimineMaxBlocks")
             .defineInRange("mining.ultimineMaxBlocks", 256, 1, 4096);
-
-    public static final ModConfigSpec.IntValue AREA_MINE_MAX_SIZE = SERVER_BUILDER
-            .comment("Maximum block count per dimension for RTS area mining selections.")
-            .translation("rtsbuilding.configuration.areaMineMaxSize")
-            .defineInRange("mining.areaMineMaxSize", 36, 1, 64);
 
     public static final ModConfigSpec.IntValue AREA_MINE_MAX_VOLUME = SERVER_BUILDER
             .comment("Maximum covered volume, width * height * depth, accepted by one RTS area mining selection.")
@@ -244,7 +239,7 @@ public class Config {
 
     public static void setSurvivalProgressionEnabled(boolean enabled) {
         ENABLE_SURVIVAL_PROGRESSION.set(enabled);
-        SPEC.save();
+        SERVER_SPEC.save();
     }
 
     public static int maxActionRadiusBlocks() {
@@ -253,7 +248,7 @@ public class Config {
 
     public static void setMaxActionRadiusBlocks(int radiusBlocks) {
         MAX_ACTION_RADIUS_BLOCKS.set(Math.max(48, Math.min(512, radiusBlocks)));
-        SPEC.save();
+        SERVER_SPEC.save();
     }
 
     public static boolean areBlueprintsEnabled() {
@@ -264,29 +259,27 @@ public class Config {
         return MAX_BLUEPRINT_BLOCKS.getAsInt();
     }
 
-    public static void saveGeneralSettings(boolean survivalEnabled, boolean shareWithTeams, int radiusBlocks,
-            boolean blueprintsEnabled, int maxBlueprintBlocks) {
-        ENABLE_SURVIVAL_PROGRESSION.set(survivalEnabled);
-        SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareWithTeams);
-        MAX_ACTION_RADIUS_BLOCKS.set(clampInt(radiusBlocks, 48, 512));
-        ENABLE_BLUEPRINTS.set(blueprintsEnabled);
-        MAX_BLUEPRINT_BLOCKS.set(clampInt(maxBlueprintBlocks, 1, 200000));
-        SPEC.save();
+    public static void saveClientSettings(boolean inventoryRtsButtonEnabled, boolean developerModeEnabled) {
+        SHOW_INVENTORY_RTS_BUTTON.set(inventoryRtsButtonEnabled);
+        DEVELOPER_MODE.set(developerModeEnabled);
+        CLIENT_SPEC.save();
     }
 
-    public static void saveAreaMineLimitSettings(int maxWidth, int maxHeight, int maxDepth,
-            int maxVolume, int maxTargets, RangeMiningHarvestTier maxHarvestTier) {
-        int width = clampInt(maxWidth, 1, 256);
-        int height = clampInt(maxHeight, 1, 256);
-        int depth = clampInt(maxDepth, 1, 256);
-        AREA_MINE_MAX_WIDTH.set(width);
-        AREA_MINE_MAX_HEIGHT.set(height);
-        AREA_MINE_MAX_DEPTH.set(depth);
-        AREA_MINE_MAX_VOLUME.set(clampInt(maxVolume, 1, 262144));
-        AREA_DESTROY_MAX_TARGETS.set(clampInt(maxTargets, 1, 262144));
-        AREA_MINE_MAX_HARVEST_TIER.set(
-                maxHarvestTier == null ? RangeMiningHarvestTier.UNLIMITED : maxHarvestTier);
-        AREA_MINE_MAX_SIZE.set(clampInt(Math.max(width, Math.max(height, depth)), 1, 64));
+    public static void saveServerSettings(boolean enableSurvivalProgression, boolean shareSurvivalProgressionWithTeams, int maxRadiusBlocks,
+                                          boolean enableBlueprints, int maxBlueprintBlocks,
+                                          int maxWidth, int maxHeight, int maxDepth, int maxVolume,
+                                          int maxTargets, RangeMiningHarvestTier maxHarvestTier) {
+        ENABLE_SURVIVAL_PROGRESSION.set(enableSurvivalProgression);
+        SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.set(shareSurvivalProgressionWithTeams);
+        ENABLE_BLUEPRINTS.set(enableBlueprints);
+        MAX_BLUEPRINT_BLOCKS.set(maxBlueprintBlocks);
+        MAX_ACTION_RADIUS_BLOCKS.set(maxRadiusBlocks);
+        AREA_MINE_MAX_WIDTH.set(maxWidth);
+        AREA_MINE_MAX_HEIGHT.set(maxHeight);
+        AREA_MINE_MAX_DEPTH.set(maxDepth);
+        AREA_MINE_MAX_VOLUME.set(Math.min(maxVolume, maxWidth * maxHeight * maxDepth));
+        AREA_DESTROY_MAX_TARGETS.set(maxTargets);
+        AREA_MINE_MAX_HARVEST_TIER.set(maxHarvestTier);
         SERVER_SPEC.save();
     }
 
@@ -382,10 +375,6 @@ public class Config {
 
     public static int ultimineMaxBlocks() {
         return ULTIMINE_MAX_BLOCKS.getAsInt();
-    }
-
-    public static int areaMineMaxSize() {
-        return AREA_MINE_MAX_SIZE.getAsInt();
     }
 
     public static int areaMineMaxVolume() {
@@ -511,10 +500,5 @@ public class Config {
         SERVER_SPEC.save();
         return true;
     }
-
-    private static int clampInt(int value, int min, int max) {
-        return Math.max(min, Math.min(max, value));
-    }
-
 }
 

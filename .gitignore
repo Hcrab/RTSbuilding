@@ -1,1 +1,10 @@
 /benchmark-visualization/benchmark.db
+.eclipse/
+.gradle/
+.vscode/
+bin/
+build/
+run/
+run-compat-automation/
+run-gametest/
+run-server-smoke/

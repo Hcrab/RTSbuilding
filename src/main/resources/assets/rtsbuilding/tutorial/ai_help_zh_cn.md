@@ -518,7 +518,6 @@ UI Core 状态快照可能在 `BuilderScreen` 构造期间生成。此时 Screen
 | 配置键 | 默认值（允许范围） | 作用 |
 |---|---:|---|
 | `mining.ultimineMaxBlocks` | `256`（1–4096） | 单次连锁请求最多收集的目标数。 |
-| `mining.areaMineMaxSize` | `36`（1–64） | 兼容用的范围挖掘单轴总上限；游戏内保存宽/高/深时会同步为三者最大值并夹到 64。 |
 | `mining.areaMineMaxVolume` | `46656`（1–262144） | 单次范围选择的宽×高×深上限。 |
 | `mining.areaMineMaxWidth` | `36`（1–256） | X 轴宽度上限。 |
 | `mining.areaMineMaxHeight` | `36`（1–256） | Y 轴高度上限。 |

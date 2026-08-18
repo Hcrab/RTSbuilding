@@ -66,24 +66,20 @@ public final class RtsMiningValidator {
         return configIntOrDefault(Config::ultimineMaxBlocks, ULTIMINE_MAX_BLOCKS);
     }
 
-    public static int areaMineMaxSize() {
-        return configIntOrDefault(Config::areaMineMaxSize, AREA_MINE_MAX_SIZE);
-    }
-
     public static int areaMineMaxVolume() {
         return configIntOrDefault(Config::areaMineMaxVolume, AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE * AREA_MINE_MAX_SIZE);
     }
 
     public static int areaMineMaxWidth() {
-        return configIntOrDefault(Config::areaMineMaxWidth, areaMineMaxSize());
+        return configIntOrDefault(Config::areaMineMaxWidth, 36);
     }
 
     public static int areaMineMaxHeight() {
-        return configIntOrDefault(Config::areaMineMaxHeight, areaMineMaxSize());
+        return configIntOrDefault(Config::areaMineMaxHeight, 36);
     }
 
     public static int areaMineMaxDepth() {
-        return configIntOrDefault(Config::areaMineMaxDepth, areaMineMaxSize());
+        return configIntOrDefault(Config::areaMineMaxDepth, 36);
     }
 
     public static int areaDestroyMaxTargets() {

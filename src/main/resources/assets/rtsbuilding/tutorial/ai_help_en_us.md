@@ -510,7 +510,6 @@ Saving through “Mods → RTSBuilding → Config” applies to subsequent reque
 | Key | Default (range) | Effect |
 |---|---:|---|
 | `mining.ultimineMaxBlocks` | `256` (1–4096) | Maximum targets collected by one chain request. |
-| `mining.areaMineMaxSize` | `36` (1–64) | Compatibility per-axis ceiling; in-game save syncs it to max(width,height,depth), clamped to 64. |
 | `mining.areaMineMaxVolume` | `46656` (1–262144) | Width×height×depth limit. |
 | `mining.areaMineMaxWidth` | `36` (1–256) | X width limit. |
 | `mining.areaMineMaxHeight` | `36` (1–256) | Y height limit. |

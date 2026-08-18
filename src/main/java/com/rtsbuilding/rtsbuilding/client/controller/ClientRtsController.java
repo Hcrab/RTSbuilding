@@ -1,21 +1,13 @@
 package com.rtsbuilding.rtsbuilding.client.controller;
 
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
-import com.rtsbuilding.rtsbuilding.client.compat.RtsClientRemoteMenuCompat;
-import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
 import com.rtsbuilding.rtsbuilding.client.record.*;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
-import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsHomeScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.client.service.BuildPlacementService;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
-import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
-import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
@@ -29,22 +21,14 @@ import com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStorageDirtyPayload;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
-import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.util.Mth;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.CraftingMenu;
-import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
 
