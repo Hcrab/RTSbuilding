@@ -477,7 +477,48 @@ tasks.named('check').configure {
     dependsOn tasks.named('verifyUiIconResources')
 }
 
-tasks.named('jar', Jar).configure {
-    from sourceSets.uiCore.output
-    from sourceSets.uiKit.output
+// 普通 slim 包和带内嵌依赖的正式发布包必须携带同一套 UI Core/Kit。
+// jarJar 是独立的 Jar 任务，不会继承 jar 的 from 配置；漏配会让源码和开发环境正常，
+// 但玩家下载的正式包在 Forge 加载阶段因缺少 UiClock 等内部类直接崩溃。
+def rtsUiReleaseJar = tasks.named('jarJar', Jar)
+['jar', 'jarJar'].each { taskName ->
+    tasks.named(taskName, Jar).configure {
+        from sourceSets.uiCore.output
+        from sourceSets.uiKit.output
+    }
+}
+
+tasks.register('verifyReleaseJarContents') {
+    group = 'verification'
+    description = '解包核对正式 Forge 发布 JAR 的主模组、UI Core/Kit 与内嵌运行库。'
+    dependsOn tasks.named('reobfJarJar')
+    def releaseJar = rtsUiReleaseJar.flatMap { it.archiveFile }
+    inputs.file(releaseJar)
+
+    doLast {
+        File artifact = releaseJar.get().asFile
+        if (!artifact.isFile()) {
+            throw new GradleException("Missing Forge release JAR: ${artifact}")
+        }
+
+        def requiredEntries = [
+                'META-INF/mods.toml',
+                'com/rtsbuilding/rtsbuilding/RtsbuildingMod.class',
+                'com/rtsbuilding/rtsbuilding/uicore/event/UiPointerEvent.class',
+                'com/rtsbuilding/rtsbuilding/uikit/animation/UiClock.class',
+                "META-INF/jarjar/mixinextras-forge-${mixinextras_version}.jar"
+        ]
+        new java.util.zip.ZipFile(artifact).withCloseable { zip ->
+            def missing = requiredEntries.findAll { zip.getEntry(it) == null }
+            if (!missing.isEmpty()) {
+                throw new GradleException(
+                        "Forge release JAR is incomplete: ${artifact.name}, missing=${missing}")
+            }
+        }
+        println "Verified Forge release JAR contents: ${artifact.name}"
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('verifyReleaseJarContents')
 }
