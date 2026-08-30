@@ -1,9 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.page;
 
-import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.Item;
@@ -21,36 +19,32 @@ import java.util.concurrent.ConcurrentMap;
  *
  * <p><b>核心功能：</b>
  * <ul>
- *   <li>{@link #warmCreativeTabCacheMode} — 预热指定模式（普通/管理员）的标签页缓存</li>
- *   <li>{@link #ensureCreativeTabContents} — 确保缓存已预热（双重检查锁定）</li>
+ *   <li>{@link #ensureCreativeTabContents} — 从已有创造栏快照懒加载缓存（双重检查锁定）</li>
  *   <li>{@link #buildItemTabMapping} — 为给定物品计数映射构建物品→标签页和模组→标签页的映射</li>
  *   <li>{@link #clearCreativeTabCacheState} — 清除所有缓存（世界重载时调用）</li>
  * </ul>
  *
- * <p>使用两级缓存：{"normal/op|itemId" → Set<tabKey>} 的 {@link ConcurrentHashMap}，
- * 以及记录构建失败的损坏标签页集合 {@code BROKEN_CREATIVE_TAB_CACHE}。
+ * <p>使用两级缓存：{"normal/op|itemId" → Set<tabKey>} 的 {@link ConcurrentHashMap}。
  */
 public final class RtsPageCreativeTabIndexer {
 
     private static final ConcurrentMap<String, java.util.Set<String>> ITEM_CREATIVE_TAB_CACHE = new ConcurrentHashMap<>();
-    private static final java.util.Set<String> BROKEN_CREATIVE_TAB_CACHE = ConcurrentHashMap.newKeySet();
     private static volatile boolean creativeTabCacheWarmNormal;
     private static volatile boolean creativeTabCacheWarmOperator;
 
     private RtsPageCreativeTabIndexer() {
     }
 
-    public static void warmCreativeTabCacheMode(ServerLevel level, boolean operatorTabs) {
+    private static void warmCreativeTabCacheMode(boolean operatorTabs) {
         if (isCreativeTabCacheWarm(operatorTabs)) {
             return;
         }
-        rebuildCreativeTabContentsSafely(level, operatorTabs);
+        indexAvailableCreativeTabContents(operatorTabs);
         setCreativeTabCacheWarm(operatorTabs);
     }
 
     public static void clearCreativeTabCacheState() {
         ITEM_CREATIVE_TAB_CACHE.clear();
-        BROKEN_CREATIVE_TAB_CACHE.clear();
         creativeTabCacheWarmNormal = false;
         creativeTabCacheWarmOperator = false;
     }
@@ -64,7 +58,7 @@ public final class RtsPageCreativeTabIndexer {
             if (isCreativeTabCacheWarm(operatorTabs)) {
                 return true;
             }
-            warmCreativeTabCacheMode(player.serverLevel(), operatorTabs);
+            warmCreativeTabCacheMode(operatorTabs);
             return true;
         }
     }
@@ -112,35 +106,19 @@ public final class RtsPageCreativeTabIndexer {
         }
     }
 
-    private static void rebuildCreativeTabContentsSafely(ServerLevel level, boolean operatorTabs) {
-        CreativeModeTab.ItemDisplayParameters parameters = new CreativeModeTab.ItemDisplayParameters(
-                level.enabledFeatures(), operatorTabs, level.registryAccess());
-        rebuildCreativeTabContentsSafely(parameters, operatorTabs, true);
-        rebuildCreativeTabContentsSafely(parameters, operatorTabs, false);
-    }
-
-    private static void rebuildCreativeTabContentsSafely(
-            CreativeModeTab.ItemDisplayParameters parameters, boolean operatorTabs, boolean categoryTabs) {
+    /**
+     * 只索引游戏已经构建好的创造栏快照。
+     *
+     * <p>服务端主动调用 {@code buildContents} 会重新派发其他模组的客户端创造栏事件，可能读取尚未加载的
+     * 客户端配置或触发网络发送。专用服务器没有快照时允许分类为空，物品浏览和搜索仍可继续工作。
+     */
+    private static void indexAvailableCreativeTabContents(boolean operatorTabs) {
         for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
-            if (tab == null) {
-                continue;
-            }
-            boolean category = tab.getType() == CreativeModeTab.Type.CATEGORY;
-            if (category != categoryTabs) {
+            if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
                 continue;
             }
             ResourceLocation key = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
-            if (isBrokenCreativeTab(key, operatorTabs)) {
-                continue;
-            }
-            try {
-                tab.buildContents(parameters);
-                if (category) {
-                    indexCreativeTabContents(tab, key, operatorTabs);
-                }
-            } catch (RuntimeException | LinkageError ex) {
-                markBrokenCreativeTab(key, operatorTabs, ex);
-            }
+            indexCreativeTabContents(tab, key, operatorTabs);
         }
     }
 
@@ -165,29 +143,6 @@ public final class RtsPageCreativeTabIndexer {
                         return tabs;
                     });
         }
-    }
-
-    private static boolean isBrokenCreativeTab(ResourceLocation key, boolean operatorTabs) {
-        return BROKEN_CREATIVE_TAB_CACHE.contains(creativeTabModeKey(key, operatorTabs));
-    }
-
-    private static void markBrokenCreativeTab(ResourceLocation key, boolean operatorTabs, Throwable ex) {
-        String tabKey = key == null ? "unknown" : key.toString();
-        if (!BROKEN_CREATIVE_TAB_CACHE.add(creativeTabModeKey(tabKey, operatorTabs))) {
-            return;
-        }
-        RtsbuildingMod.LOGGER.warn(
-                "Skipping RTS creative tab {} for {} cache because it failed to build. "
-                        + "The RTS storage browser will continue without this tab.",
-                tabKey, operatorTabs ? "operator" : "normal", ex);
-    }
-
-    private static String creativeTabModeKey(ResourceLocation key, boolean operatorTabs) {
-        return creativeTabModeKey(key == null ? "unknown" : key.toString(), operatorTabs);
-    }
-
-    private static String creativeTabModeKey(String key, boolean operatorTabs) {
-        return (operatorTabs ? "op|" : "normal|") + key;
     }
 
     private static String creativeTabItemCacheKey(String itemId, boolean operatorTabs) {

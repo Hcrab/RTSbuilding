@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.camera;
 
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import com.rtsbuilding.rtsbuilding.common.entity.RtsCameraEntity;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
@@ -30,7 +31,9 @@ public final class RtsCameraManager {
     private static final float MAX_PITCH = 90.0F;
 
     // 旋转输入钳位值
-    private static final float ROT_INPUT_CLAMP = 20.0F;
+    // 平滑客户端会把一个 tick 内的高频鼠标事件汇总后发送。160 仍能拦截异常尖峰，
+    // 同时不会把合法的高轮询率鼠标拖拽截成每 tick 最多 4.8° 的阶梯。
+    private static final float ROT_INPUT_CLAMP = 160.0F;
     // 水平旋转增益
     private static final float ROTATE_GAIN_X = 0.24F;
     // 垂直旋转增益
@@ -79,7 +82,9 @@ public final class RtsCameraManager {
      */
     public static void start(ServerPlayer player, boolean startAtPlayerHead) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.rtsbuilding.camera_locked",
+                    net.minecraft.network.chat.Component.translatable("item.rtsbuilding.rts_control_core")), true);
             return;
         }
         if (RtsProgressionManager.shouldStartHomeSelection(player)) {
@@ -87,7 +92,15 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canStartNormalRts(player)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("Set an RTS home first."), true);
+            net.minecraft.network.chat.MutableComponent message =
+                    net.minecraft.network.chat.Component.translatable(
+                            RtsProgressionManager.hasHome(player)
+                                    ? "message.rtsbuilding.home.too_far"
+                                    : "message.rtsbuilding.home.required");
+            if (RtsProgressionManager.hasHome(player)) {
+                message.withStyle(net.minecraft.ChatFormatting.RED, net.minecraft.ChatFormatting.BOLD);
+            }
+            player.displayClientMessage(message, true);
             return;
         }
         startNormal(player, startAtPlayerHead);
@@ -145,7 +158,9 @@ public final class RtsCameraManager {
             return;
         }
         if (!RtsProgressionManager.canUse(player, RtsFeature.CAMERA)) {
-            player.displayClientMessage(net.minecraft.network.chat.Component.literal("RTS camera is not unlocked."), true);
+            player.displayClientMessage(net.minecraft.network.chat.Component.translatable(
+                    "message.rtsbuilding.camera_locked",
+                    net.minecraft.network.chat.Component.translatable("item.rtsbuilding.rts_control_core")), true);
             return;
         }
         if (!RtsProgressionManager.canChangeHome(player)) {
@@ -280,8 +295,10 @@ public final class RtsCameraManager {
             return false;
         }
 
-        double dx = (pos.getX() + 0.5D) - session.anchor().x;
-        double dz = (pos.getZ() + 0.5D) - session.anchor().z;
+        Vec3 physicalCenter = RtsSableSpatialCompat.projectLogicalToGlobal(
+                player.serverLevel(), Vec3.atCenterOf(pos));
+        double dx = physicalCenter.x - session.anchor().x;
+        double dz = physicalCenter.z - session.anchor().z;
         double halfExtent = actionHalfExtent(player, session);
         return Math.abs(dx) <= halfExtent && Math.abs(dz) <= halfExtent;
     }

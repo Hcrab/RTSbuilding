@@ -6,16 +6,25 @@ import com.rtsbuilding.rtsbuilding.common.RtsBlocks;
 import com.rtsbuilding.rtsbuilding.common.RtsCreativeTabs;
 import com.rtsbuilding.rtsbuilding.common.RtsEntities;
 import com.rtsbuilding.rtsbuilding.common.RtsItems;
+import com.rtsbuilding.rtsbuilding.common.RtsMenuTypes;
+import com.rtsbuilding.rtsbuilding.gametest.MekanismToolsCompatibilityGameTests;
 import com.rtsbuilding.rtsbuilding.server.api.impl.RtsAPIImpl;
 import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.data.SaveScheduler;
 import com.rtsbuilding.rtsbuilding.server.feedback.RtsDamageFeedbackManager;
 import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.RtsPipelineRegistration;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.service.*;
+import com.rtsbuilding.rtsbuilding.server.service.page.RtsStoragePageRequestCoalescer;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementSound;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
+import com.rtsbuilding.rtsbuilding.server.storage.wake.RtsCrossDimensionStorageWakeService;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
+import com.rtsbuilding.rtsbuilding.server.task.persistence.TaskPersistenceRuntime;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 
 import net.minecraft.server.level.ServerPlayer;
@@ -26,16 +35,21 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
+import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
+import net.neoforged.neoforge.event.RegisterGameTestsEvent;
 import net.neoforged.neoforge.event.server.ServerStartedEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.neoforge.event.tick.ServerTickEvent;
 import org.slf4j.Logger;
+
+import java.time.Duration;
 
 /**
  * RTSbuilding 模组的主入口类。
@@ -78,9 +92,13 @@ public class RtsbuildingMod {
      */
     public RtsbuildingMod(IEventBus modEventBus, ModContainer modContainer) {
         modEventBus.addListener(this::commonSetup);
+        modEventBus.addListener(this::onConfigLoading);
+        modEventBus.addListener(this::onConfigReloading);
+        modEventBus.addListener(this::registerCompatibilityGameTests);
         RtsEntities.register(modEventBus);
         RtsBlocks.register(modEventBus);
         RtsItems.register(modEventBus);
+        RtsMenuTypes.register(modEventBus);
         RtsCreativeTabs.register(modEventBus);
         NeoForge.EVENT_BUS.register(this);
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC, "rts_building/rtsbuilding-common.toml");
@@ -89,6 +107,25 @@ public class RtsbuildingMod {
             modContainer.registerConfig(ModConfig.Type.CLIENT, Config.CLIENT_SPEC, "rts_building/rtsbuilding-client.toml");
             com.rtsbuilding.rtsbuilding.client.bootstrap.RtsClientBootstrap.registerConfigUi(modContainer);
         }
+    }
+
+    private void onConfigLoading(ModConfigEvent.Loading event) {
+        migrateServerConfigIfNeeded(event.getConfig());
+    }
+
+    private void onConfigReloading(ModConfigEvent.Reloading event) {
+        migrateServerConfigIfNeeded(event.getConfig());
+    }
+
+    private void migrateServerConfigIfNeeded(ModConfig config) {
+        if (config != null && config.getSpec() == Config.SERVER_SPEC
+                && Config.migrateLegacyServerDefaults()) {
+            LOGGER.info("已迁移 RTSBuilding 旧版服务端吞吐默认值。");
+        }
+    }
+
+    private void registerCompatibilityGameTests(RegisterGameTestsEvent event) {
+        event.register(MekanismToolsCompatibilityGameTests.class);
     }
 
     /**
@@ -112,6 +149,7 @@ public class RtsbuildingMod {
 
         // 注册所有工作流管线，为蓝图放置、挖掘等操作建立处理链路
         RtsPipelineRegistration.registerAll();
+        RtsOperationDiagnostics.install();
 
         LOGGER.info("RTSBuilding 通用初始化完成");
     }
@@ -124,6 +162,13 @@ public class RtsbuildingMod {
      */
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+        try {
+            // 必须先于任何 durable task admission 读取；损坏时拒绝以空仓继续启动。
+            TaskPersistenceRuntime.INSTANCE.start(event.getServer());
+        } catch (RuntimeException failure) {
+            LOGGER.error("读取 durable task 仓库失败，服务器将 fail-closed 停止启动", failure);
+            throw failure;
+        }
         LOGGER.info("服务器正在启动……");
     }
 
@@ -172,6 +217,7 @@ public class RtsbuildingMod {
                 // 从世界存档恢复工作流，使之前的蓝图放置等任务继续执行
                 RtsWorkflowEngine.getInstance().loadPlayerFromStore(
                         serverPlayer.getServer(), serverPlayer);
+                RtsWorkflowEngine.getInstance().refreshPlayerIdleClocks(serverPlayer);
             }
         }
 
@@ -180,7 +226,6 @@ public class RtsbuildingMod {
          *
          * <p>在所有世界加载完毕后触发，此时世界数据已完整就绪：</p>
          * <ol>
-         *   <li>预热创造栏标签页的缓存，减少玩家首次打开时的延迟</li>
          *   <li>清理所有维度的孤儿相机实体（如服务端重启/崩溃后的残留）</li>
          * </ol>
          *
@@ -188,12 +233,35 @@ public class RtsbuildingMod {
          */
         @SubscribeEvent
         static void onServerStarted(ServerStartedEvent event) {
-            // 预热创造模式物品栏缓存，提升首次打开速度
-            ServerTickOrchestrator.getInstance().warmCreativeTabCaches(event.getServer());
+            RtsEffectAccumulator.INSTANCE.resetForServerStart();
             // 清理所有维度的孤儿相机实体
             RtsCameraManager.cleanupOrphanCameras(event.getServer());
             // 清理旧版全量文件（迁移完毕后删除）
             SaveScheduler.INSTANCE.cleanupLegacyFiles(event.getServer());
+            // 普通后台任务 30 秒没有任何进展时自动收口；玩家保护的任务不受影响。
+            RtsWorkflowEngine.getInstance().startTimeoutService(
+                    Duration.ofSeconds(1), Duration.ofSeconds(30));
+        }
+
+        /**
+         * 世界对象仍然有效时冻结在线执行状态。真正关闭 writer 必须等玩家登出事件全部结束，
+         * 否则停服流程随后触发的 PlayerLoggedOutEvent 会对已经关闭的 Runtime 调用 flushOwner。
+         */
+        @SubscribeEvent
+        static void onServerStopping(ServerStoppingEvent event) {
+            try {
+                for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+                    RtsTaskEngine.INSTANCE.preparePlayerDetach(player);
+                }
+                RtsTaskEngine.INSTANCE.checkpointAllDurableExecutions(event.getServer());
+                for (ServerPlayer player : event.getServer().getPlayerList().getPlayers()) {
+                    TaskPersistenceRuntime.INSTANCE.flushOwner(player.getUUID());
+                    RtsTaskEngine.INSTANCE.reconcilePlayerDetach(player);
+                }
+            } catch (RuntimeException failure) {
+                LOGGER.error("停服时 durable task 冻结失败；未确认的 dirty 不会被伪装成已落盘", failure);
+                throw failure;
+            }
         }
 
         /**
@@ -210,12 +278,34 @@ public class RtsbuildingMod {
          */
         @SubscribeEvent
         static void onServerStopped(ServerStoppedEvent event) {
+            RuntimeException durableFailure = null;
+            RtsWorkflowEngine.getInstance().stopTimeoutService();
+            RtsCrossDimensionStorageWakeService.INSTANCE.clear(event.getServer());
+            try {
+                // Minecraft 会在 ServerStopping 之后才移除在线玩家；等所有 logout flush 完成再关 writer。
+                // 启动期读取 root 失败时 ServerStopped 仍会触发；此时没有 writer 可关，不能用二次异常覆盖首因。
+                if (TaskPersistenceRuntime.INSTANCE.isStarted()) {
+                    TaskPersistenceRuntime.INSTANCE.stop();
+                }
+                RtsTaskEngine.INSTANCE.resetDurableRuntimeAfterServerStop();
+            } catch (RuntimeException failure) {
+                durableFailure = failure;
+                LOGGER.error("服务器停止后关闭 durable task writer 失败；保留故障状态以阻止静默复用", failure);
+            }
             // 先保存工作流（此时 SaveScheduler 的缓存仍有效）
             RtsWorkflowEngine.getInstance().saveAll(event.getServer());
             // 再刷新所有持久化数据并清空缓存
             SaveScheduler.INSTANCE.onServerStopped();
             // 清空引擎内存，防止切换世界时旧世界的数据残留
             RtsWorkflowEngine.getInstance().clearAllData();
+            RtsStoragePageRequestCoalescer.clearAll();
+            RtsEffectAccumulator.INSTANCE.clearAll();
+            RtsDeveloperMetrics.clearAll();
+            com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry.reset();
+            com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerHealthDiagnostics.reset();
+            com.rtsbuilding.rtsbuilding.common.diagnostics.RtsAsyncJsonlWriter
+                    .flush(java.time.Duration.ofSeconds(2));
+            if (durableFailure != null) throw durableFailure;
         }
 
         /**
@@ -238,6 +328,18 @@ public class RtsbuildingMod {
         @SubscribeEvent
         static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
             if (event.getEntity() instanceof ServerPlayer serverPlayer) {
+                try {
+                    // 先迁移 Session shadow，再冻结在线执行绑定并冲刷；顺序不可反转。
+                    RtsTaskEngine.INSTANCE.preparePlayerDetach(serverPlayer);
+                    RtsTaskEngine.INSTANCE.detachPlayer(serverPlayer.getUUID());
+                    // Session 清理前先确认该玩家的 durable task 已 ACK，避免旧权威先被删除。
+                    TaskPersistenceRuntime.INSTANCE.flushOwner(serverPlayer.getUUID());
+                    RtsTaskEngine.INSTANCE.reconcilePlayerDetach(serverPlayer);
+                } catch (RuntimeException failure) {
+                    LOGGER.error("玩家 {} 登出时 durable task 冲刷失败，已保留 dirty 并拒绝静默继续",
+                            serverPlayer.getUUID(), failure);
+                    // 登出清理必须继续；dirty 会由后续 tick/ServerStopping 重试，绝不能因此遗留离线 Player 引用。
+                }
                 // 停止相机会话并销毁服务端相机实体
                 RtsCameraManager.stopIfActive(serverPlayer);
                 // 移除该玩家的伤害反馈会话
@@ -252,8 +354,13 @@ public class RtsbuildingMod {
                 RtsPlacementSound.forgetPlayer(serverPlayer.getUUID());
                 // 清除进度刷新缓存
                 RtsProgressRefresher.clearPlayerCache(serverPlayer.getUUID());
+                RtsStoragePageRequestCoalescer.clearPlayer(serverPlayer.getUUID());
+                RtsCrossDimensionStorageWakeService.INSTANCE.releasePlayer(
+                        serverPlayer.server, serverPlayer.getUUID());
+                RtsDeveloperMetrics.clearPlayer(serverPlayer.getUUID());
                 // 同步相关玩家持久化数据
                 RtsPluginService.syncRelatedPlayers(serverPlayer);
+                RtsEffectAccumulator.INSTANCE.clearPlayer(serverPlayer.getUUID());
                 // 清空撤销历史 —— 旧世界的 BlockPos 不适用于新世界
                 ServerHistoryManager.clear(serverPlayer.getUUID());
                 // 持久化该玩家的数据
@@ -282,6 +389,19 @@ public class RtsbuildingMod {
                 ServiceRegistry.getInstance().pathfinding().cancel(serverPlayer);
                 // 取消注册旧维度的存储服务
                 RtsStorageTickService.INSTANCE.unregisterPlayer(serverPlayer);
+                // 维度变化后旧端点的 BlockEntity/AE Grid 身份不再可信；先卸载聚合缓存再释放租约。
+                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(serverPlayer.getUUID());
+                RtsEffectAccumulator.INSTANCE.clearDimension(serverPlayer.getUUID(), event.getFrom());
+            }
+        }
+
+        /** 仅唤醒等待这个 chunk 的任务，不扫描玩家或全服任务。 */
+        @SubscribeEvent
+        static void onChunkLoad(net.neoforged.neoforge.event.level.ChunkEvent.Load event) {
+            if (event.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+                RtsTaskEngine.INSTANCE.resumeLoadedChunk(level, event.getChunk().getPos());
+                RtsCrossDimensionStorageWakeService.INSTANCE.onChunkLoaded(
+                        level, event.getChunk().getPos());
             }
         }
 
@@ -319,10 +439,12 @@ public class RtsbuildingMod {
          */
         @SubscribeEvent
         static void onServerTick(ServerTickEvent.Post event) {
-            // 定期刷新持久化缓存
-            SaveScheduler.INSTANCE.onTick(event.getServer());
             // 驱动全局挖掘任务的每 Tick 消耗
             ServerTickOrchestrator.getInstance().tickMining(event.getServer());
+            // Effect Barrier 先把最新 Session/Workflow 快照放入 DataCluster，再由统一调度器决定是否刷盘。
+            SaveScheduler.INSTANCE.onTick(event.getServer());
+            // tick() 内部严格先消费主线程 ACK，再把下一批冻结快照交给唯一后台 writer。
+            TaskPersistenceRuntime.INSTANCE.tick();
         }
     }
 }

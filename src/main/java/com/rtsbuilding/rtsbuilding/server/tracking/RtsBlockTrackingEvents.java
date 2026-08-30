@@ -4,10 +4,12 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.service.RtsProgressRefresher;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningDropCapture;
 import com.rtsbuilding.rtsbuilding.server.service.resolver.RtsLinkedStorageBlockEventHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.common.util.BlockSnapshot;
@@ -39,7 +41,8 @@ public final class RtsBlockTrackingEvents {
         if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
-        PlacedBlockTrackerData.get(serverLevel).mark(event.getPos());
+        PlacedBlockTrackerData.get(serverLevel).markPlaced(
+                event.getPos(), player.getUUID(), serverLevel.getBlockState(event.getPos()));
         serverLevel.getServer().execute(() -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, event.getPos()));
         // 手动放置方块后刷新放置工作流进度（更新进度条和重启所需方块数）
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
@@ -65,7 +68,7 @@ public final class RtsBlockTrackingEvents {
         }
         PlacedBlockTrackerData tracker = PlacedBlockTrackerData.get(serverLevel);
         for (BlockSnapshot snapshot : event.getReplacedBlockSnapshots()) {
-            tracker.mark(snapshot.getPos());
+            tracker.markPlaced(snapshot.getPos(), player.getUUID(), serverLevel.getBlockState(snapshot.getPos()));
             serverLevel.getServer().execute(() -> RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockPlaced(serverLevel, snapshot.getPos()));
         }
         // 多方块放置后刷新放置工作流进度
@@ -82,20 +85,28 @@ public final class RtsBlockTrackingEvents {
      *
      * @param event 方块破坏事件
      */
-    @SubscribeEvent
+    @SubscribeEvent(priority = EventPriority.LOWEST)
     public static void onBreak(BlockEvent.BreakEvent event) {
-        if (!(event.getPlayer() instanceof ServerPlayer)) {
+        if (event.isCanceled()) {
+            return;
+        }
+        if (!(event.getPlayer() instanceof ServerPlayer player)) {
             return;
         }
         if (!(event.getLevel() instanceof ServerLevel serverLevel)) {
             return;
         }
+        // 瞬时回收的 BreakEvent 发生在实际 removeBlock 之前；由回收服务在调用返回后
+        // 按最终世界状态提交，避免失败破坏提前清 tracker 或解绑所有玩家的储存引用。
+        if (RtsMiningDropCapture.isInstantRecoveryTarget(player, serverLevel, event.getPos())) {
+            return;
+        }
         PlacedBlockTrackerData.get(serverLevel).clear(event.getPos());
         RtsLinkedStorageBlockEventHandler.onLinkedStorageBlockBroken(serverLevel, event.getPos());
         // 手动破坏方块后刷新放置工作流进度（更新进度条和重启所需方块数）
-        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent((ServerPlayer) event.getPlayer());
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
         if (session != null) {
-            RtsProgressRefresher.refreshWorkflowProgress((ServerPlayer) event.getPlayer(), session);
+            RtsProgressRefresher.refreshWorkflowProgress(player, session);
         }
     }
 }

@@ -1,5 +1,7 @@
 package com.rtsbuilding.rtsbuilding;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsDiagnosticLevel;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import net.neoforged.neoforge.common.ModConfigSpec;
 import net.neoforged.neoforge.fluids.FluidType;
 
@@ -35,10 +37,15 @@ public class Config {
 
     // ---- Rendering options ----
 
+    public static final ModConfigSpec.BooleanValue ENABLE_UI_ANIMATIONS = CLIENT_BUILDER
+            .comment("Enable short visual-only hover and selection transitions in the RTS UI.")
+            .translation("rtsbuilding.configuration.enableUiAnimations")
+            .define("enableUiAnimations", true);
+
     public static final ModConfigSpec.BooleanValue USE_BLOCK_GHOST_PREVIEW = CLIENT_BUILDER
             .comment("Render translucent block ghost models for placement previews before the player confirms placement.")
             .translation("rtsbuilding.configuration.useBlockGhostPreview")
-            .define("useBlockGhostPreview", true);
+            .define("useBlockGhostPreview", false);
 
     public static final ModConfigSpec.BooleanValue USE_PLACE_BLOCK_GHOST_ANIMATION = CLIENT_BUILDER
             .comment("Render translucent grow-in block ghosts after server-confirmed block placement.")
@@ -70,6 +77,11 @@ public class Config {
             .translation("rtsbuilding.configuration.useRangeDestroySkeleton")
             .define("useRangeDestroySkeleton", true);
 
+    public static final ModConfigSpec.BooleanValue SHOW_INVENTORY_RTS_BUTTON = CLIENT_BUILDER
+            .comment("Show the RTS plugin button on the vanilla inventory screen.")
+            .translation("rtsbuilding.configuration.showInventoryRtsButton")
+            .define("showInventoryRtsButton", true);
+
     // ---- Control options ----
 
     public static final ModConfigSpec.BooleanValue REQUIRE_KEYBOARD_BATCH_CONFIRM = CLIENT_BUILDER
@@ -77,7 +89,20 @@ public class Config {
             .translation("rtsbuilding.configuration.requireKeyboardBatchConfirm")
             .define("requireKeyboardBatchConfirm", true);
 
+    public static final ModConfigSpec.BooleanValue DEVELOPER_MODE = CLIENT_BUILDER
+            .comment("Show the developer scenario task entry and write local diagnostic logs.")
+            .translation("rtsbuilding.configuration.developerMode")
+            .define("developerMode", false);
+
+    public static final ModConfigSpec.EnumValue<RtsDiagnosticLevel> CLIENT_DIAGNOSTIC_LEVEL = CLIENT_BUILDER
+            .comment("RTS operation diagnostics. BASIC records bounded lifecycle events; VERBOSE keeps additional detail.")
+            .defineEnum("diagnostics.level", RtsDiagnosticLevel.BASIC);
+
     // ---- Server runtime limits ----
+
+    public static final ModConfigSpec.EnumValue<RtsDiagnosticLevel> SERVER_DIAGNOSTIC_LEVEL = SERVER_BUILDER
+            .comment("RTS operation diagnostics. VERBOSE adds one-second task progress samples; gameplay is unchanged.")
+            .defineEnum("diagnostics.level", RtsDiagnosticLevel.BASIC);
 
     public static final ModConfigSpec.IntValue ULTIMINE_MAX_BLOCKS = SERVER_BUILDER
             .comment("Maximum blocks collected by one RTS chain mining request.")
@@ -109,6 +134,11 @@ public class Config {
             .translation("rtsbuilding.configuration.areaMineMaxDepth")
             .defineInRange("mining.areaMineMaxDepth", 36, 1, 256);
 
+    public static final ModConfigSpec.EnumValue<RangeMiningHarvestTier> AREA_MINE_MAX_HARVEST_TIER = SERVER_BUILDER
+            .comment("Server ceiling for harvest-tier plugins used by non-chain RTS range mining.")
+            .translation("rtsbuilding.configuration.areaMineMaxHarvestTier")
+            .defineEnum("mining.areaMineMaxHarvestTier", RangeMiningHarvestTier.UNLIMITED);
+
     public static final ModConfigSpec.IntValue AE2_NETWORK_REFRESH_THROTTLE = SERVER_BUILDER
             .comment("Number of storage cache refresh cycles between expensive AE2 network snapshots.")
             .translation("rtsbuilding.configuration.ae2NetworkRefreshThrottle")
@@ -118,6 +148,21 @@ public class Config {
             .comment("Number of storage cache refresh cycles between expensive Refined Storage network snapshots.")
             .translation("rtsbuilding.configuration.refinedStorageNetworkRefreshThrottle")
             .defineInRange("storage.refinedStorageNetworkRefreshThrottle", 10, 1, 200);
+
+    public static final ModConfigSpec.IntValue MAX_LINKED_STORAGES = SERVER_BUILDER
+            .comment("Maximum linked storage endpoints retained for one player. Batch linking deduplicates endpoints from the same AE2 or Refined Storage network.")
+            .translation("rtsbuilding.configuration.maxLinkedStorages")
+            .defineInRange("storage.maxLinkedStorages", 200, 1, 4096);
+
+    public static final ModConfigSpec.BooleanValue ENABLE_CROSS_DIMENSION_STORAGE = SERVER_BUILDER
+            .comment("Allow the cross-dimension storage plugin to wake and access linked storage in other dimensions.")
+            .translation("rtsbuilding.configuration.enableCrossDimensionStorage")
+            .define("storage.enableCrossDimensionStorage", true);
+
+    public static final ModConfigSpec.IntValue MAX_CROSS_DIMENSION_AWAKE_CHUNKS = SERVER_BUILDER
+            .comment("Maximum short-lived cross-dimension storage chunk tickets retained for one player.")
+            .translation("rtsbuilding.configuration.maxCrossDimensionAwakeChunks")
+            .defineInRange("storage.maxCrossDimensionAwakeChunks", 32, 1, 256);
 
     public static final ModConfigSpec.IntValue PAGE_CACHE_MAX_PLAYERS = SERVER_BUILDER
             .comment("Maximum player count retained by the storage page LRU cache.")
@@ -140,9 +185,9 @@ public class Config {
             .defineInRange("mining.areaDestroyMaxTargets", 98304, 1, 262144);
 
     public static final ModConfigSpec.IntValue ULTIMINE_BLOCKS_PER_TICK = SERVER_BUILDER
-            .comment("Maximum queued chain mining targets processed per player per server tick.")
+            .comment("Maximum queued mining targets processed by one mining task slice.")
             .translation("rtsbuilding.configuration.ultimineBlocksPerTick")
-            .defineInRange("mining.ultimineBlocksPerTick", 8, 1, 128);
+            .defineInRange("mining.ultimineBlocksPerTick", 32, 1, 128);
 
     public static final ModConfigSpec.IntValue BUILD_BATCH_BLOCKS_PER_TICK = SERVER_BUILDER
             .comment("Maximum queued remote placement targets processed per player per server tick.")
@@ -153,6 +198,21 @@ public class Config {
             .comment("Maximum queued quick-build placement jobs per player.")
             .translation("rtsbuilding.configuration.buildBatchMaxQueuedJobs")
             .defineInRange("placement.buildBatchMaxQueuedJobs", 4, 1, 32);
+
+    public static final ModConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_TICK = SERVER_BUILDER
+            .comment("Hard global RTS work-unit limit across all players in one server tick.")
+            .translation("rtsbuilding.configuration.taskEngineMaxUnitsPerTick")
+            .defineInRange("taskEngine.maxUnitsPerTick", 256, 1, 4096);
+
+    public static final ModConfigSpec.IntValue TASK_ENGINE_MAX_UNITS_PER_SLICE = SERVER_BUILDER
+            .comment("Maximum RTS work units granted to one player before rotating to another player.")
+            .translation("rtsbuilding.configuration.taskEngineMaxUnitsPerSlice")
+            .defineInRange("taskEngine.maxUnitsPerSlice", 32, 1, 512);
+
+    public static final ModConfigSpec.LongValue TASK_ENGINE_MAX_NANOS_PER_TICK = SERVER_BUILDER
+            .comment("Cooperative RTS main-thread time budget per server tick in nanoseconds.")
+            .translation("rtsbuilding.configuration.taskEngineMaxNanosPerTick")
+            .defineInRange("taskEngine.maxNanosPerTick", 8_000_000L, 250_000L, 20_000_000L);
 
     public static final ModConfigSpec.DoubleValue REMOTE_POV_BLOCK_REACH = SERVER_BUILDER
             .comment("Temporary interaction reach used while RTSBuilding replays a remote player action.")
@@ -173,6 +233,10 @@ public class Config {
             .comment("Fallback internal fluid buffer capacity in buckets when progression data is unavailable.")
             .translation("rtsbuilding.configuration.internalFluidCapacityBuckets")
             .defineInRange("fluid.internalFluidCapacityBuckets", 100, 1, 4096);
+
+    private static final ModConfigSpec.IntValue SERVER_CONFIG_REVISION = SERVER_BUILDER
+            .comment("Internal RTSBuilding server configuration migration revision. Do not edit manually.")
+            .defineInRange("internal.configRevision", 0, 0, ServerConfigMigration.CURRENT_REVISION);
 
     public static final ModConfigSpec SPEC = COMMON_BUILDER.build();
     public static final ModConfigSpec CLIENT_SPEC = CLIENT_BUILDER.build();
@@ -211,7 +275,7 @@ public class Config {
     }
 
     public static void saveAreaMineLimitSettings(int maxWidth, int maxHeight, int maxDepth,
-            int maxVolume, int maxTargets) {
+            int maxVolume, int maxTargets, RangeMiningHarvestTier maxHarvestTier) {
         int width = clampInt(maxWidth, 1, 256);
         int height = clampInt(maxHeight, 1, 256);
         int depth = clampInt(maxDepth, 1, 256);
@@ -220,12 +284,23 @@ public class Config {
         AREA_MINE_MAX_DEPTH.set(depth);
         AREA_MINE_MAX_VOLUME.set(clampInt(maxVolume, 1, 262144));
         AREA_DESTROY_MAX_TARGETS.set(clampInt(maxTargets, 1, 262144));
+        AREA_MINE_MAX_HARVEST_TIER.set(
+                maxHarvestTier == null ? RangeMiningHarvestTier.UNLIMITED : maxHarvestTier);
         AREA_MINE_MAX_SIZE.set(clampInt(Math.max(width, Math.max(height, depth)), 1, 64));
         SERVER_SPEC.save();
     }
 
     public static boolean isPlacementBlockGhostPreviewEnabled() {
         return USE_BLOCK_GHOST_PREVIEW.getAsBoolean();
+    }
+
+    public static boolean isUiAnimationsEnabled() {
+        return ENABLE_UI_ANIMATIONS.getAsBoolean();
+    }
+
+    public static void setUiAnimationsEnabled(boolean enabled) {
+        ENABLE_UI_ANIMATIONS.set(enabled);
+        CLIENT_SPEC.save();
     }
 
     public static void setPlacementBlockGhostPreviewEnabled(boolean enabled) {
@@ -287,6 +362,15 @@ public class Config {
         CLIENT_SPEC.save();
     }
 
+    public static boolean isInventoryRtsButtonEnabled() {
+        return SHOW_INVENTORY_RTS_BUTTON.getAsBoolean();
+    }
+
+    public static void setInventoryRtsButtonEnabled(boolean enabled) {
+        SHOW_INVENTORY_RTS_BUTTON.set(enabled);
+        CLIENT_SPEC.save();
+    }
+
     public static boolean isKeyboardBatchConfirmEnabled() {
         return REQUIRE_KEYBOARD_BATCH_CONFIRM.getAsBoolean();
     }
@@ -320,12 +404,20 @@ public class Config {
         return AREA_MINE_MAX_DEPTH.getAsInt();
     }
 
+    public static RangeMiningHarvestTier areaMineMaxHarvestTier() {
+        return AREA_MINE_MAX_HARVEST_TIER.get();
+    }
+
     public static int ae2NetworkRefreshThrottle() {
         return AE2_NETWORK_REFRESH_THROTTLE.getAsInt();
     }
 
     public static int refinedStorageNetworkRefreshThrottle() {
         return REFINED_STORAGE_NETWORK_REFRESH_THROTTLE.getAsInt();
+    }
+
+    public static int maxLinkedStorages() {
+        return MAX_LINKED_STORAGES.getAsInt();
     }
 
     public static int pageCacheMaxPlayers() {
@@ -352,8 +444,28 @@ public class Config {
         return BUILD_BATCH_BLOCKS_PER_TICK.getAsInt();
     }
 
+    public static boolean isDeveloperModeEnabled() {
+        return DEVELOPER_MODE.getAsBoolean();
+    }
+
+    public static void setDeveloperModeEnabled(boolean enabled) {
+        DEVELOPER_MODE.set(enabled);
+        CLIENT_SPEC.save();
+    }
     public static int buildBatchMaxQueuedJobs() {
         return BUILD_BATCH_MAX_QUEUED_JOBS.getAsInt();
+    }
+
+    public static int taskEngineMaxUnitsPerTick() {
+        return TASK_ENGINE_MAX_UNITS_PER_TICK.getAsInt();
+    }
+
+    public static int taskEngineMaxUnitsPerSlice() {
+        return TASK_ENGINE_MAX_UNITS_PER_SLICE.getAsInt();
+    }
+
+    public static long taskEngineMaxNanosPerTick() {
+        return TASK_ENGINE_MAX_NANOS_PER_TICK.get();
     }
 
     public static double remotePovBlockReach() {
@@ -370,6 +482,34 @@ public class Config {
 
     public static long internalFluidCapacityMb() {
         return Math.max(1L, (long) INTERNAL_FLUID_CAPACITY_BUCKETS.getAsInt()) * FluidType.BUCKET_VOLUME;
+    }
+
+    public static boolean isCrossDimensionStorageEnabled() {
+        return ENABLE_CROSS_DIMENSION_STORAGE.getAsBoolean();
+    }
+
+    public static int maxCrossDimensionAwakeChunks() {
+        return MAX_CROSS_DIMENSION_AWAKE_CHUNKS.getAsInt();
+    }
+
+    /**
+     * 把旧版本真正落盘的保守默认值迁移到当前默认值，同时保留玩家主动设置的其他数值。
+     *
+     * @return 本次是否写入了新的迁移版本
+     */
+    public static boolean migrateLegacyServerDefaults() {
+        ServerConfigMigration.Values migrated = ServerConfigMigration.migrate(
+                SERVER_CONFIG_REVISION.getAsInt(),
+                ULTIMINE_BLOCKS_PER_TICK.getAsInt(),
+                TASK_ENGINE_MAX_NANOS_PER_TICK.get());
+        if (migrated.revision() == SERVER_CONFIG_REVISION.getAsInt()) {
+            return false;
+        }
+        ULTIMINE_BLOCKS_PER_TICK.set(migrated.miningSlice());
+        TASK_ENGINE_MAX_NANOS_PER_TICK.set(migrated.taskBudgetNanos());
+        SERVER_CONFIG_REVISION.set(migrated.revision());
+        SERVER_SPEC.save();
+        return true;
     }
 
     private static int clampInt(int value, int min, int max) {

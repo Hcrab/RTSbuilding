@@ -1,8 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.popup;
 
-
 import com.rtsbuilding.rtsbuilding.client.record.CraftRecipeOption;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityDialogLayout;
+import com.rtsbuilding.rtsbuilding.uikit.theme.CraftQuantityStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -13,19 +19,15 @@ import org.lwjgl.glfw.GLFW;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.rtsbuilding.rtsbuilding.uikit.layout.CraftQuantityDialogLayout.*;
+
+/**
+ * 原版容器 Overlay 使用的合成数量对话框。
+ *
+ * <p>它与 RTS 主屏浮窗入口并存：这里只拥有容器 Overlay 的键鼠生命周期和待发送请求，
+ * 不删除或替代 {@code RtsCraftQuantityWindowPanel}。几何、主题和半开命中已下沉到 Core/Kit。</p>
+ */
 public final class RtsCraftQuantityDialog {
-    private static final int PANEL_W = 238;
-    private static final int PANEL_H = 186;
-    private static final int TITLE_H = 20;
-    private static final int CLOSE_SIZE = 14;
-    private static final int OPTION_VISIBLE_ROWS = 4;
-    private static final int OPTION_ROW_H = 16;
-    private static final int INPUT_W = 42;
-    private static final int INPUT_H = 14;
-    private static final int STEP_W = 24;
-    private static final int STEP_H = 14;
-    private static final int ACTION_W = 52;
-    private static final int ACTION_H = 16;
     private static final int MAX_CRAFT_COUNT = 999;
 
     private boolean open;
@@ -83,28 +85,43 @@ public final class RtsCraftQuantityDialog {
         if (!this.open) {
             return;
         }
-        Layout layout = resolveLayout(screenWidth, screenHeight);
+        CraftQuantityDialogLayout.Layout layout = resolveLayout(screenWidth, screenHeight);
         CraftRecipeOption selected = getSelectedOption();
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
 
         g.pose().pushPose();
         g.pose().translate(0.0F, 0.0F, 680.0F);
-        g.fill(0, 0, screenWidth, screenHeight, 0x78000000);
-        drawPanelFrame(g, layout.panelX(), layout.panelY(), PANEL_W, PANEL_H, 0xEE171C24, 0xFF6C839A, 0xFF0D1117);
+        g.fill(0, 0, screenWidth, screenHeight, CraftQuantityStyle.MODAL_SCRIM.toArgb());
+        drawPanelFrame(canvas, layout.panelX(), layout.panelY(), PANEL_W, PANEL_H,
+                CraftQuantityStyle.DIALOG_BACKGROUND,
+                RtsMainlineTheme.WINDOW_BORDER_LIGHT,
+                RtsMainlineTheme.WINDOW_BORDER_DARK);
         g.fill(layout.panelX() + 1, layout.panelY() + 1,
-                layout.panelX() + PANEL_W - 1, layout.panelY() + TITLE_H, 0xCC233345);
+                layout.panelX() + PANEL_W - 1, layout.panelY() + TITLE_H,
+                RtsMainlineTheme.WINDOW_TITLE.toArgb());
 
-        g.drawString(font, "Craft Recipe", layout.panelX() + 8, layout.panelY() + 6, 0xF2F7FF, false);
-        drawSmallButton(g, font, layout.closeX(), layout.closeY(), CLOSE_SIZE, CLOSE_SIZE, "x", 0xCC2B3440);
+        g.drawString(font, "Craft Recipe", layout.panelX() + 8, layout.panelY() + 6,
+                RtsMainlineTheme.WINDOW_TITLE_TEXT.toArgb(), false);
+        drawSmallButton(g, canvas, font, layout.closeX(), layout.closeY(),
+                CLOSE_SIZE, CLOSE_SIZE, "x", CraftQuantityStyle.CLOSE_BACKGROUND);
         if (!this.preview.isEmpty()) {
             g.renderItem(this.preview, layout.panelX() + 8, layout.panelY() + 21);
         }
         String label = font.plainSubstrByWidth(this.itemLabel, PANEL_W - 42);
-        g.drawString(font, label, layout.panelX() + 30, layout.panelY() + 22, 0xE4ECF6, false);
+        g.drawString(font, label, layout.panelX() + 30, layout.panelY() + 22,
+                CraftQuantityStyle.ITEM_LABEL.toArgb(), false);
         int selectedCount = selected == null ? 1 : Math.max(1, selected.resultCount());
-        g.drawString(font, "Each craft: x" + selectedCount, layout.panelX() + 30, layout.panelY() + 34, 0xAFC0D3, false);
+        g.drawString(font, "Each craft: x" + selectedCount,
+                layout.panelX() + 30, layout.panelY() + 34,
+                CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
 
-        g.drawString(font, "Recipes", layout.panelX() + 8, layout.optionsY() - 10, 0xD8E3EE, false);
-        drawPanelFrame(g, layout.optionsX(), layout.optionsY(), layout.optionsW(), layout.optionsH(), 0xAA202833, 0xFF61758A, 0xFF11161C);
+        g.drawString(font, "Recipes", layout.panelX() + 8, layout.optionsY() - 10,
+                CraftQuantityStyle.SECTION_LABEL.toArgb(), false);
+        drawPanelFrame(canvas, layout.optionsX(), layout.optionsY(),
+                layout.optionsW(), layout.optionsH(),
+                CraftQuantityStyle.OPTIONS_BACKGROUND,
+                CraftQuantityStyle.OPTIONS_BORDER_LIGHT,
+                CraftQuantityStyle.OPTIONS_BORDER_DARK);
         int visibleRows = Math.min(OPTION_VISIBLE_ROWS, Math.max(0, this.recipeOptions.size()));
         for (int row = 0; row < visibleRows; row++) {
             int optionIndex = this.recipeScroll + row;
@@ -113,21 +130,23 @@ public final class RtsCraftQuantityDialog {
             }
             CraftRecipeOption option = this.recipeOptions.get(optionIndex);
             int rowY = layout.optionsY() + 2 + row * OPTION_ROW_H;
-            int fill = option.craftable() ? 0xAA223B2E : 0xAA402626;
-            if (optionIndex == this.selectedRecipeIndex) {
-                fill = option.craftable() ? 0xCC2E5B43 : 0xCC684040;
-            }
-            g.fill(layout.optionsX() + 2, rowY, layout.optionsX() + layout.optionsW() - 2, rowY + OPTION_ROW_H - 1, fill);
+            UiColor fill = CraftQuantityStyle.rowBackground(option.craftable(),
+                    optionIndex == this.selectedRecipeIndex);
+            g.fill(layout.optionsX() + 2, rowY,
+                    layout.optionsX() + layout.optionsW() - 2,
+                    rowY + OPTION_ROW_H - 1, fill.toArgb());
             String summary = "x" + Math.max(1, option.resultCount()) + " " + normalizeOptionSummary(option.summary());
             g.drawString(font, font.plainSubstrByWidth(summary, layout.optionsW() - 56),
-                    layout.optionsX() + 6, rowY + 4, 0xF2F7FF, false);
+                    layout.optionsX() + 6, rowY + 4,
+                    CraftQuantityStyle.ROW_TEXT.toArgb(), false);
             g.drawString(font, option.craftable() ? "MAKE" : "MISS", layout.optionsX() + layout.optionsW() - 30, rowY + 4,
-                    option.craftable() ? 0xC9F0C7 : 0xF0C4C4, false);
+                    CraftQuantityStyle.badge(option.craftable()).toArgb(), false);
         }
         if (this.recipeOptions.size() > OPTION_VISIBLE_ROWS) {
             String pageText = (this.selectedRecipeIndex + 1) + "/" + this.recipeOptions.size();
             g.drawString(font, pageText, layout.optionsX() + layout.optionsW() - font.width(pageText) - 4,
-                    layout.optionsY() - 10, 0xAFC0D3, false);
+                    layout.optionsY() - 10,
+                    CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
         }
 
         String detail = selected == null
@@ -135,21 +154,36 @@ public final class RtsCraftQuantityDialog {
                 : selected.craftable()
                         ? normalizeOptionSummary(selected.summary())
                         : normalizeOptionMissingSummary(selected.missingSummary());
-        int detailColor = selected != null && !selected.craftable() ? 0xFFD6AAAA : 0xFFBCD0E2;
         g.drawString(font, font.plainSubstrByWidth(detail, PANEL_W - 16),
-                layout.panelX() + 8, layout.detailY(), detailColor, false);
+                layout.panelX() + 8, layout.detailY(),
+                CraftQuantityStyle.detail(
+                        selected != null && !selected.craftable()).toArgb(), false);
 
-        drawSmallButton(g, font, layout.minusTenX(), layout.inputY(), STEP_W, STEP_H, "-10", 0xAA2A3340);
-        drawSmallButton(g, font, layout.minusOneX(), layout.inputY(), STEP_W, STEP_H, "-1", 0xAA2A3340);
-        drawPanelFrame(g, layout.inputX(), layout.inputY(), INPUT_W, INPUT_H, 0xFF202833, 0xFF61758A, 0xFF11161C);
+        drawSmallButton(g, canvas, font, layout.minusTenX(), layout.inputY(),
+                STEP_W, STEP_H, "-10", RtsMainlineTheme.BUTTON_BACKGROUND);
+        drawSmallButton(g, canvas, font, layout.minusOneX(), layout.inputY(),
+                STEP_W, STEP_H, "-1", RtsMainlineTheme.BUTTON_BACKGROUND);
+        drawPanelFrame(canvas, layout.inputX(), layout.inputY(), INPUT_W, INPUT_H,
+                RtsMainlineTheme.INPUT_BACKGROUND,
+                RtsMainlineTheme.INPUT_BORDER_LIGHT,
+                RtsMainlineTheme.INPUT_BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, font, this.quantityText,
-                layout.inputX() + (INPUT_W / 2), layout.inputY() + 3, 0xFFFFFF);
-        drawSmallButton(g, font, layout.plusOneX(), layout.inputY(), STEP_W, STEP_H, "+1", 0xAA2A3340);
-        drawSmallButton(g, font, layout.plusTenX(), layout.inputY(), STEP_W, STEP_H, "+10", 0xAA2A3340);
+                layout.inputX() + (INPUT_W / 2), layout.inputY() + 3,
+                RtsMainlineTheme.BUTTON_TEXT.toArgb());
+        drawSmallButton(g, canvas, font, layout.plusOneX(), layout.inputY(),
+                STEP_W, STEP_H, "+1", RtsMainlineTheme.BUTTON_BACKGROUND);
+        drawSmallButton(g, canvas, font, layout.plusTenX(), layout.inputY(),
+                STEP_W, STEP_H, "+10", RtsMainlineTheme.BUTTON_BACKGROUND);
 
-        g.drawString(font, "Click recipe, Enter confirm, Esc cancel", layout.panelX() + 8, layout.helpY(), 0xAFC0D3, false);
-        drawSmallButton(g, font, layout.cancelX(), layout.actionY(), ACTION_W, ACTION_H, "Cancel", 0xAA473030);
-        drawSmallButton(g, font, layout.confirmX(), layout.actionY(), ACTION_W, ACTION_H, "Craft", 0xAA345A38);
+        g.drawString(font, "Click recipe, Enter confirm, Esc cancel",
+                layout.panelX() + 8, layout.helpY(),
+                CraftQuantityStyle.MUTED_TEXT.toArgb(), false);
+        drawSmallButton(g, canvas, font, layout.cancelX(), layout.actionY(),
+                ACTION_W, ACTION_H, "Cancel",
+                RtsMainlineTheme.BUTTON_DESTRUCTIVE_BACKGROUND);
+        drawSmallButton(g, canvas, font, layout.confirmX(), layout.actionY(),
+                ACTION_W, ACTION_H, "Craft",
+                RtsMainlineTheme.BUTTON_PRIMARY_BACKGROUND);
         g.pose().popPose();
     }
 
@@ -157,47 +191,25 @@ public final class RtsCraftQuantityDialog {
         if (!this.open) {
             return false;
         }
-        Layout layout = resolveLayout(screenWidth, screenHeight);
+        CraftQuantityDialogLayout.Layout layout = resolveLayout(screenWidth, screenHeight);
         if (button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return true;
         }
-        if (!inside(mouseX, mouseY, layout.panelX(), layout.panelY(), PANEL_W, PANEL_H)) {
-            close();
-            return true;
-        }
-        if (inside(mouseX, mouseY, layout.closeX(), layout.closeY(), CLOSE_SIZE, CLOSE_SIZE)) {
-            close();
-            return true;
-        }
-        int optionIndex = resolveClickedOption(mouseX, mouseY, layout);
-        if (optionIndex >= 0) {
-            this.selectedRecipeIndex = optionIndex;
-            ensureSelectionVisible();
-            return true;
-        }
-        if (inside(mouseX, mouseY, layout.minusTenX(), layout.inputY(), STEP_W, STEP_H)) {
-            adjustQuantity(-10);
-            return true;
-        }
-        if (inside(mouseX, mouseY, layout.minusOneX(), layout.inputY(), STEP_W, STEP_H)) {
-            adjustQuantity(-1);
-            return true;
-        }
-        if (inside(mouseX, mouseY, layout.plusOneX(), layout.inputY(), STEP_W, STEP_H)) {
-            adjustQuantity(1);
-            return true;
-        }
-        if (inside(mouseX, mouseY, layout.plusTenX(), layout.inputY(), STEP_W, STEP_H)) {
-            adjustQuantity(10);
-            return true;
-        }
-        if (inside(mouseX, mouseY, layout.cancelX(), layout.actionY(), ACTION_W, ACTION_H)) {
-            close();
-            return true;
-        }
-        if (inside(mouseX, mouseY, layout.confirmX(), layout.actionY(), ACTION_W, ACTION_H)) {
-            confirm();
-            return true;
+        CraftQuantityDialogLayout.Hit hit = CraftQuantityDialogLayout.hitAt(
+                layout, this.recipeScroll, this.recipeOptions.size(), mouseX, mouseY);
+        switch (hit.control()) {
+            case OUTSIDE_PANEL, CLOSE, CANCEL -> close();
+            case OPTION -> {
+                this.selectedRecipeIndex = hit.optionIndex();
+                ensureSelectionVisible();
+            }
+            case MINUS_TEN -> adjustQuantity(-10);
+            case MINUS_ONE -> adjustQuantity(-1);
+            case PLUS_ONE -> adjustQuantity(1);
+            case PLUS_TEN -> adjustQuantity(10);
+            case CONFIRM -> confirm();
+            case NONE -> {
+            }
         }
         return true;
     }
@@ -316,22 +328,6 @@ public final class RtsCraftQuantityDialog {
         this.recipeScroll = Mth.clamp(this.recipeScroll, 0, maxScroll);
     }
 
-    private int resolveClickedOption(double mouseX, double mouseY, Layout layout) {
-        if (!inside(mouseX, mouseY, layout.optionsX(), layout.optionsY(), layout.optionsW(), layout.optionsH())) {
-            return -1;
-        }
-        int localY = (int) (mouseY - layout.optionsY()) - 2;
-        if (localY < 0) {
-            return -1;
-        }
-        int row = localY / OPTION_ROW_H;
-        if (row < 0 || row >= OPTION_VISIBLE_ROWS) {
-            return -1;
-        }
-        int index = this.recipeScroll + row;
-        return index < this.recipeOptions.size() ? index : -1;
-    }
-
     private void adjustQuantity(int delta) {
         this.replaceOnNextDigit = false;
         setQuantity(getQuantity() + delta);
@@ -397,83 +393,30 @@ public final class RtsCraftQuantityDialog {
         return summary == null || summary.isBlank() ? "Missing ingredients." : summary;
     }
 
-    private static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+    private static void drawSmallButton(GuiGraphics g, MinecraftUiCanvas canvas,
+                                        Font font, int x, int y, int w, int h,
+                                        String label, UiColor fill) {
+        drawPanelFrame(canvas, x, y, w, h, fill,
+                RtsMainlineTheme.BUTTON_BORDER_LIGHT,
+                RtsMainlineTheme.BUTTON_BORDER_DARK);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, label, x + (w / 2),
+                y + Math.max(2, (h - font.lineHeight) / 2),
+                RtsMainlineTheme.BUTTON_TEXT.toArgb());
     }
 
-    private static void drawSmallButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label, int fill) {
-        drawPanelFrame(g, x, y, w, h, fill, 0xFF667D95, 0xFF111821);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, label, x + (w / 2), y + Math.max(2, (h - font.lineHeight) / 2), 0xFFFFFF);
+    private static void drawPanelFrame(MinecraftUiCanvas canvas, int x, int y,
+                                       int w, int h, UiColor fillColor,
+                                       UiColor light, UiColor dark) {
+        UiChromeRenderer.frame(canvas, new UiRect(x, y, w, h), 1.0D,
+                fillColor, light, dark);
     }
 
-    private static void drawPanelFrame(GuiGraphics g, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
-    }
-
-    private static Layout resolveLayout(int screenWidth, int screenHeight) {
-        int panelX = (screenWidth - PANEL_W) / 2;
-        int panelY = (screenHeight - PANEL_H) / 2;
-        int closeX = panelX + PANEL_W - CLOSE_SIZE - 4;
-        int closeY = panelY + 3;
-        int optionsX = panelX + 8;
-        int optionsY = panelY + 50;
-        int optionsW = PANEL_W - 16;
-        int optionsH = OPTION_VISIBLE_ROWS * OPTION_ROW_H + 4;
-        int detailY = optionsY + optionsH + 8;
-        int inputY = detailY + 14;
-        int minusTenX = panelX + 8;
-        int minusOneX = minusTenX + STEP_W + 4;
-        int inputX = minusOneX + STEP_W + 6;
-        int plusOneX = inputX + INPUT_W + 6;
-        int plusTenX = plusOneX + STEP_W + 4;
-        int helpY = inputY + 20;
-        int actionY = panelY + PANEL_H - ACTION_H - 8;
-        int cancelX = panelX + PANEL_W - (ACTION_W * 2) - 12;
-        int confirmX = panelX + PANEL_W - ACTION_W - 8;
-        return new Layout(
-                panelX,
-                panelY,
-                closeX,
-                closeY,
-                optionsX,
-                optionsY,
-                optionsW,
-                optionsH,
-                detailY,
-                inputY,
-                minusTenX,
-                minusOneX,
-                inputX,
-                plusOneX,
-                plusTenX,
-                helpY,
-                actionY,
-                cancelX,
-                confirmX);
+    private static CraftQuantityDialogLayout.Layout resolveLayout(
+            int screenWidth, int screenHeight) {
+        return CraftQuantityDialogLayout.resolve(screenWidth, screenHeight);
     }
 
     public record Request(String recipeId, int craftCount) {
     }
 
-    private record Layout(
-            int panelX,
-            int panelY,
-            int closeX,
-            int closeY,
-            int optionsX,
-            int optionsY,
-            int optionsW,
-            int optionsH,
-            int detailY,
-            int inputY,
-            int minusTenX,
-            int minusOneX,
-            int inputX,
-            int plusOneX,
-            int plusTenX,
-            int helpY,
-            int actionY,
-            int cancelX,
-            int confirmX) {
-    }
 }

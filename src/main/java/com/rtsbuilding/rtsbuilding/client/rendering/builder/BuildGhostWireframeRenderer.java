@@ -2,10 +2,13 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 
 import java.util.List;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 /**
  * Wireframe renderer for single-block ghost previews.
@@ -31,22 +34,27 @@ public final class BuildGhostWireframeRenderer {
         if (blocks == null || blocks.isEmpty()) {
             return;
         }
-        float lineR = 0.30F;
-        float lineG = 0.75F;
-        float lineB = 1.00F;
+        float lineR = UiThemeWorldColors.red(UiThemeWorldColors.BUILD_PREVIEW);
+        float lineG = UiThemeWorldColors.green(UiThemeWorldColors.BUILD_PREVIEW);
+        float lineB = UiThemeWorldColors.blue(UiThemeWorldColors.BUILD_PREVIEW);
 
         for (BlockPos pos : blocks) {
-            double minX = pos.getX() + 0.03D;
-            double minY = pos.getY() + 0.03D;
-            double minZ = pos.getZ() + 0.03D;
-            double maxX = pos.getX() + 0.97D;
-            double maxY = pos.getY() + 0.97D;
-            double maxZ = pos.getZ() + 0.97D;
-            LevelRenderer.renderLineBox(
-                    poseStack, lineBuffer,
-                    minX, minY, minZ,
-                    maxX, maxY, maxZ,
-                    lineR, lineG, lineB, 0.70F);
+            poseStack.pushPose();
+            try {
+                Minecraft minecraft = Minecraft.getInstance();
+                boolean localFrame = minecraft.level != null
+                        && RtsSableClientSpatialCompat.applyBlockRenderFrame(minecraft.level, pos, poseStack);
+                double baseX = localFrame ? 0.0D : pos.getX();
+                double baseY = localFrame ? 0.0D : pos.getY();
+                double baseZ = localFrame ? 0.0D : pos.getZ();
+                LevelRenderer.renderLineBox(
+                        poseStack, lineBuffer,
+                        baseX + 0.03D, baseY + 0.03D, baseZ + 0.03D,
+                        baseX + 0.97D, baseY + 0.97D, baseZ + 0.97D,
+                        lineR, lineG, lineB, 0.70F);
+            } finally {
+                poseStack.popPose();
+            }
         }
     }
 }

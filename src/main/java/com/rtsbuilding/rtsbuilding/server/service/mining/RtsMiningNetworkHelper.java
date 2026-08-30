@@ -1,13 +1,17 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsBreakAnimationPayload;
+import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsHarvestTierSkippedPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsMineProgressPayload;
 import com.rtsbuilding.rtsbuilding.network.builder.S2CRtsUltimineProgressPayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.block.state.BlockState;
+
+import java.util.List;
 
 /**
  * 挖掘网络包发送辅助器，向客户端发送视觉反馈数据包。
@@ -25,7 +29,6 @@ import net.minecraft.world.level.block.state.BlockState;
  * </ul>
  */
 public final class RtsMiningNetworkHelper {
-
     private RtsMiningNetworkHelper() {
     }
 
@@ -48,6 +51,27 @@ public final class RtsMiningNetworkHelper {
     /** 发送连锁挖掘进度更新（已处理数/总数）。 */
     public static void sendUltimineProgress(ServerPlayer player, int processed, int total) {
         RtsClientboundPackets.sendToPlayer(player, new S2CRtsUltimineProgressPayload(processed, total));
+    }
+
+    /** 让客户端从已确认的范围破坏预览中移除采掘等级不足的方块。 */
+    public static void sendHarvestTierSkipped(ServerPlayer player, List<BlockPos> positions) {
+        if (player == null || positions == null || positions.isEmpty()) {
+            return;
+        }
+        RtsClientboundPackets.sendToPlayer(
+                player,
+                new S2CRtsHarvestTierSkippedPayload(List.copyOf(positions)));
+    }
+
+    /** 统一发送“RTS 采掘等级插件不足”的玩家反馈，并同步清理客户端预览中的被跳过方块。 */
+    public static void notifyHarvestTierLimit(ServerPlayer player, List<BlockPos> positions) {
+        if (player == null || positions == null || positions.isEmpty()) {
+            return;
+        }
+        player.displayClientMessage(
+                Component.translatable("message.rtsbuilding.plugin.harvest_tier_limited"),
+                true);
+        sendHarvestTierSkipped(player, positions);
     }
 
     /**

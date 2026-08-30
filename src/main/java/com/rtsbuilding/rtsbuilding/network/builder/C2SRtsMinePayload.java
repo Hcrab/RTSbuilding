@@ -16,7 +16,17 @@ public record C2SRtsMinePayload(
         String toolItemId,
         ItemStack toolPrototype,
         boolean allowPlacedBlockRecovery,
-        boolean toolProtectionEnabled) implements CustomPacketPayload {
+        boolean toolProtectionEnabled,
+        boolean shiftDown,
+        double hitX,
+        double hitY,
+        double hitZ,
+        double rayOriginX,
+        double rayOriginY,
+        double rayOriginZ,
+        double rayDirX,
+        double rayDirY,
+        double rayDirZ) implements CustomPacketPayload {
     public static final Type<C2SRtsMinePayload> TYPE = new Type<>(
             ResourceLocation.fromNamespaceAndPath(RtsbuildingMod.MODID, "c2s_rts_mine"));
 
@@ -34,6 +44,16 @@ public record C2SRtsMinePayload(
                 }
                 buf.writeBoolean(payload.allowPlacedBlockRecovery());
                 buf.writeBoolean(payload.toolProtectionEnabled());
+                buf.writeBoolean(payload.shiftDown());
+                buf.writeDouble(payload.hitX());
+                buf.writeDouble(payload.hitY());
+                buf.writeDouble(payload.hitZ());
+                buf.writeDouble(payload.rayOriginX());
+                buf.writeDouble(payload.rayOriginY());
+                buf.writeDouble(payload.rayOriginZ());
+                buf.writeDouble(payload.rayDirX());
+                buf.writeDouble(payload.rayDirY());
+                buf.writeDouble(payload.rayDirZ());
             },
             (buf) -> new C2SRtsMinePayload(
                     buf.readBlockPos(),
@@ -43,7 +63,17 @@ public record C2SRtsMinePayload(
                     buf.readUtf(256),
                     buf.readBoolean() ? ItemStack.STREAM_CODEC.decode(buf) : ItemStack.EMPTY,
                     buf.readBoolean(),
-                    buf.readBoolean()));
+                    buf.readBoolean(),
+                    buf.readBoolean(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readDouble(),
+                    buf.readDouble()));
 
     @Override
     public Type<? extends CustomPacketPayload> type() {

@@ -23,6 +23,8 @@ public final class CornerBracketRenderer {
      * Beyond this distance the thickness grows proportionally so brackets stay visible.
      */
     private static final double THICKNESS_SCALE_DISTANCE = 16.0D;
+    private static final double DASH_LENGTH = 0.30D;
+    private static final double GAP_LENGTH = 0.20D;
 
     /** Axis along which a bracket segment extends. Used to determine which quad faces to draw. */
     private enum Axis { X, Y, Z }
@@ -99,6 +101,96 @@ public final class CornerBracketRenderer {
         drawHorizontalRing(consumer, poseStack, minX, minZ, maxX, maxZ, maxY, r, g, b, a, halfThick);
         // Vertical edges at the four corners
         drawVerticalEdges(consumer, poseStack, minX, minZ, maxX, maxZ, minY, maxY, r, g, b, a, halfThick);
+    }
+
+    /** v2 框选视觉使用的流动虚线边框。 */
+    public static void renderDashedCornerBrackets(PoseStack poseStack, VertexConsumer consumer,
+            double minX, double minY, double minZ,
+            double maxX, double maxY, double maxZ,
+            float r, float g, float b,
+            float gapR, float gapG, float gapB,
+            float alpha, double distance, double flowOffset) {
+        double halfThick = BRACKET_THICKNESS
+                * Math.max(1.0D, distance / THICKNESS_SCALE_DISTANCE) * 0.5D;
+        drawDashedSegment(consumer, poseStack, minX, minY, minZ, maxX, minY, minZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.X);
+        drawDashedSegment(consumer, poseStack, maxX, minY, minZ, maxX, minY, maxZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.Z);
+        drawDashedSegment(consumer, poseStack, maxX, minY, maxZ, minX, minY, maxZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.X);
+        drawDashedSegment(consumer, poseStack, minX, minY, maxZ, minX, minY, minZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.Z);
+        drawDashedSegment(consumer, poseStack, minX, maxY, minZ, maxX, maxY, minZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.X);
+        drawDashedSegment(consumer, poseStack, maxX, maxY, minZ, maxX, maxY, maxZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.Z);
+        drawDashedSegment(consumer, poseStack, maxX, maxY, maxZ, minX, maxY, maxZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.X);
+        drawDashedSegment(consumer, poseStack, minX, maxY, maxZ, minX, maxY, minZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.Z);
+        drawDashedSegment(consumer, poseStack, minX, minY, minZ, minX, maxY, minZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.Y);
+        drawDashedSegment(consumer, poseStack, maxX, minY, minZ, maxX, maxY, minZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.Y);
+        drawDashedSegment(consumer, poseStack, maxX, minY, maxZ, maxX, maxY, maxZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.Y);
+        drawDashedSegment(consumer, poseStack, minX, minY, maxZ, minX, maxY, maxZ,
+                r, g, b, gapR, gapG, gapB, alpha, halfThick, flowOffset, Axis.Y);
+    }
+
+    /** 为框选中的体积绘制六个半透明面。 */
+    public static void renderFilledFaces(VertexConsumer consumer, PoseStack poseStack,
+            double minX, double minY, double minZ,
+            double maxX, double maxY, double maxZ,
+            float r, float g, float b, float a) {
+        RenderingUtil.quad(consumer, poseStack, minX, maxY, minZ, maxX, maxY, minZ,
+                maxX, maxY, maxZ, minX, maxY, maxZ, r, g, b, a);
+        RenderingUtil.quad(consumer, poseStack, minX, minY, maxZ, maxX, minY, maxZ,
+                maxX, minY, minZ, minX, minY, minZ, r, g, b, a);
+        RenderingUtil.quad(consumer, poseStack, minX, minY, maxZ, maxX, minY, maxZ,
+                maxX, maxY, maxZ, minX, maxY, maxZ, r, g, b, a);
+        RenderingUtil.quad(consumer, poseStack, maxX, minY, minZ, minX, minY, minZ,
+                minX, maxY, minZ, maxX, maxY, minZ, r, g, b, a);
+        RenderingUtil.quad(consumer, poseStack, maxX, minY, minZ, maxX, minY, maxZ,
+                maxX, maxY, maxZ, maxX, maxY, minZ, r, g, b, a);
+        RenderingUtil.quad(consumer, poseStack, minX, minY, maxZ, minX, minY, minZ,
+                minX, maxY, minZ, minX, maxY, maxZ, r, g, b, a);
+    }
+
+    private static void drawDashedSegment(VertexConsumer consumer, PoseStack poseStack,
+            double x1, double y1, double z1, double x2, double y2, double z2,
+            float r, float g, float b, float gapR, float gapG, float gapB,
+            float alpha, double thickness, double flowOffset, Axis axis) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double dz = z2 - z1;
+        double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        if (length < 0.001D) return;
+        double nx = dx / length;
+        double ny = dy / length;
+        double nz = dz / length;
+        double step = DASH_LENGTH + GAP_LENGTH;
+        for (double cursor = -flowOffset; cursor < length; cursor += step) {
+            drawDashedPart(consumer, poseStack, x1, y1, z1, nx, ny, nz,
+                    cursor, Math.min(cursor + DASH_LENGTH, length), length,
+                    r, g, b, alpha, thickness, axis);
+            drawDashedPart(consumer, poseStack, x1, y1, z1, nx, ny, nz,
+                    cursor + DASH_LENGTH, Math.min(cursor + step, length), length,
+                    gapR, gapG, gapB, alpha, thickness, axis);
+        }
+    }
+
+    private static void drawDashedPart(VertexConsumer consumer, PoseStack poseStack,
+            double x, double y, double z, double nx, double ny, double nz,
+            double start, double end, double length,
+            float r, float g, float b, float alpha, double thickness, Axis axis) {
+        double clippedStart = Math.max(0.0D, start);
+        double clippedEnd = Math.min(length, end);
+        if (clippedEnd <= clippedStart) return;
+        drawBracketSegment(consumer, poseStack,
+                x + nx * clippedStart, y + ny * clippedStart, z + nz * clippedStart,
+                x + nx * clippedEnd, y + ny * clippedEnd, z + nz * clippedEnd,
+                r, g, b, alpha, axis, thickness);
     }
 
     /**

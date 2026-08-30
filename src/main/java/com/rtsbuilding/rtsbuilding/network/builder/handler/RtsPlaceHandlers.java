@@ -1,8 +1,10 @@
 package com.rtsbuilding.rtsbuilding.network.builder.handler;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
 import com.rtsbuilding.rtsbuilding.network.builder.*;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsSmartFillService;
 import net.minecraft.core.Direction;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
@@ -39,10 +41,34 @@ public final class RtsPlaceHandlers {
         });
     }
 
+    public static void handleOrientBlock(C2SRtsOrientBlockPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer
+                    && payload.axisDirection() >= 0
+                    && payload.axisDirection() < Direction.values().length
+                    && Math.abs(payload.quarterTurns()) == 1) {
+                ServiceRegistry.getInstance().placement().rotateBlockStep(
+                        serverPlayer,
+                        payload.pos(),
+                        Direction.from3DDataValue(payload.axisDirection()),
+                        payload.quarterTurns());
+            }
+        });
+    }
+
     public static void handlePlace(C2SRtsPlacePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 Direction face = Direction.from3DDataValue(payload.face());
+                if (!payload.statePreset().isBlank()) {
+                    RtsbuildingMod.LOGGER.debug(
+                            "R placement preset receive: player={}, item={}, preset={}, quickBuild={}, clicked={}",
+                            serverPlayer.getGameProfile().getName(),
+                            payload.itemId(),
+                            payload.statePreset(),
+                            payload.quickBuild(),
+                            payload.clickedPos());
+                }
                 ServiceRegistry.getInstance().placement().placeSelected(
                         serverPlayer,
                         payload.clickedPos(),
@@ -51,6 +77,7 @@ public final class RtsPlaceHandlers {
                         payload.hitY(),
                         payload.hitZ(),
                         payload.rotateSteps(),
+                        payload.statePreset(),
                         payload.forcePlace(),
                         payload.skipIfOccupied(),
                         payload.itemId(),
@@ -79,8 +106,10 @@ public final class RtsPlaceHandlers {
                         payload.hitOffsetY(),
                         payload.hitOffsetZ(),
                         payload.rotateSteps(),
+                        payload.statePreset(),
                         payload.forcePlace(),
                         payload.skipIfOccupied(),
+                        payload.overwriteExisting(),
                         payload.itemId(),
                         payload.itemPrototype(),
                         payload.rayOriginX(),
@@ -89,6 +118,16 @@ public final class RtsPlaceHandlers {
                         payload.rayDirX(),
                         payload.rayDirY(),
                         payload.rayDirZ());
+            }
+        });
+    }
+
+    public static void handleConfirmSmartFill(
+            C2SRtsConfirmSmartFillPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                RtsSmartFillService.confirm(serverPlayer, payload);
             }
         });
     }

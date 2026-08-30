@@ -4,6 +4,10 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.panel.RtsWindowPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uikit.layout.BlueprintWindowLayout;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintMaterialUiState;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiAction;
+import com.rtsbuilding.rtsbuilding.uicore.blueprint.BlueprintUiState;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
@@ -20,8 +24,8 @@ import java.util.List;
  * routing.
  */
 public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
-    private static final int DEFAULT_W = 560;
-    private static final int DEFAULT_H = 340;
+    private static final int DEFAULT_W = BlueprintWindowLayout.MATERIAL_W;
+    private static final int DEFAULT_H = BlueprintWindowLayout.MATERIAL_H;
     private static final int MIN_W = 300;
     private static final int MIN_H = 208;
 
@@ -31,7 +35,7 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
     }
 
     public void syncWithBlueprintState() {
-        if (BlueprintPanel.isMaterialDialogOpen()) {
+        if (BlueprintUiStateAdapter.snapshot().materialWindowOpen) {
             if (!isOpen()) {
                 setOpen(true);
                 markBroughtToFront();
@@ -43,15 +47,19 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
 
     @Override
     protected void renderContent(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        BlueprintEntry entry = BlueprintPanel.materialDialogEntry();
-        if (entry == null) {
-            BlueprintPanel.closeMaterialDialog();
+        BlueprintUiState state = BlueprintUiStateAdapter.snapshot(controller);
+        if (!state.materialWindowOpen || state.materials.blueprintName.isEmpty()) {
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CLOSE_MATERIALS), controller);
             return;
         }
-        int scroll = BlueprintMaterialDialog.renderContent(g, screen.font(), entry, controller,
+        int scroll = BlueprintMaterialDialog.renderCoreContent(g, screen.font(), state.materials,
                 contentX(), contentY(), contentWidth(), contentHeight(),
-                mouseX, mouseY, BlueprintPanel.materialDialogScroll());
-        BlueprintPanel.setMaterialDialogScroll(scroll);
+                mouseX, mouseY, state.materialScroll);
+        if (scroll != state.materialScroll) {
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                    BlueprintUiAction.Type.SCROLL_MATERIALS, 0, scroll - state.materialScroll, 0), controller);
+        }
     }
 
     @Override
@@ -62,20 +70,22 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
 
     @Override
     protected boolean handleContentScroll(double mouseX, double mouseY, double scrollX, double scrollY) {
-        BlueprintEntry entry = BlueprintPanel.materialDialogEntry();
-        if (entry == null) {
-            BlueprintPanel.closeMaterialDialog();
+        BlueprintUiState state = BlueprintUiStateAdapter.snapshot(controller);
+        if (!state.materialWindowOpen) {
             return true;
         }
-        BlueprintPanel.setMaterialDialogScroll(BlueprintMaterialDialog.scrolledContent(
-                BlueprintPanel.materialDialogScroll(), scrollY, entry, controller, contentWidth(), contentHeight()));
+        int next = BlueprintMaterialDialog.scrolledCore(
+                state.materialScroll, scrollY, state.materials, contentWidth(), contentHeight());
+        BlueprintUiStateAdapter.dispatch(BlueprintUiAction.vector(
+                BlueprintUiAction.Type.SCROLL_MATERIALS, 0, next - state.materialScroll, 0), controller);
         return true;
     }
 
     @Override
     protected boolean handleWindowKeyPressed(int keyCode, int scanCode, int modifiers) {
         if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-            BlueprintPanel.closeMaterialDialog();
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CLOSE_MATERIALS), controller);
             setOpen(false);
             return true;
         }
@@ -84,8 +94,9 @@ public final class BlueprintMaterialWindowPanel extends RtsWindowPanel {
 
     @Override
     protected void onClose() {
-        if (BlueprintPanel.isMaterialDialogOpen()) {
-            BlueprintPanel.closeMaterialDialog();
+        if (BlueprintUiStateAdapter.snapshot().materialWindowOpen) {
+            BlueprintUiStateAdapter.dispatch(BlueprintUiAction.simple(
+                    BlueprintUiAction.Type.CLOSE_MATERIALS), controller);
         }
     }
 

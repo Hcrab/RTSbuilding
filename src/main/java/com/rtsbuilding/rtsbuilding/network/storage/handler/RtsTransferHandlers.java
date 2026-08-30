@@ -54,4 +54,15 @@ public final class RtsTransferHandlers {
             }
         });
     }
+
+    public static void handleBulkStorageOperation(
+            com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBulkStorageOpPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                ServiceRegistry.getInstance().transfer().bulkStorageOperation(
+                        serverPlayer, payload.action(), payload.prototype(), payload.amount());
+            }
+        });
+    }
 }

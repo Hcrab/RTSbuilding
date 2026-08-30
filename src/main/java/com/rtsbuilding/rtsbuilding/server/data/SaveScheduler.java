@@ -129,30 +129,29 @@ public enum SaveScheduler {
      * 建议在 {@code PlayerLoggedOutEvent} 中调用。
      */
     public void onPlayerLogout(ServerPlayer player) {
-        UUID playerId = player.getUUID();
+        onPlayerLogout(player.getUUID());
+    }
+
+    /** 同包生命周期测试使用 UUID 入口，避免在普通 JVM 中初始化完整 Minecraft 实体注册表。 */
+    void onPlayerLogout(UUID playerId) {
         String prefix = playerId + KEY_SEPARATOR;
-        clusters.entrySet().removeIf(entry -> {
-            if (entry.getKey().startsWith(prefix)) {
-                entry.getValue().flushAndClose();
-                return true;
-            }
-            return false;
-        });
+        closeMatching(key -> key.startsWith(prefix), "玩家登出");
     }
 
     /**
      * 服务器关闭时调用——刷所有盘并清空。
      */
     public void onServerStopped() {
-        flushAll();
-        clusters.clear();
+        closeMatching(key -> true, "服务器停止");
     }
 
     /** 立即刷新所有玩家的数据。 */
     public void flushAll() {
         for (Map.Entry<String, DataCluster> entry : clusters.entrySet()) {
             try {
-                entry.getValue().flush();
+                if (!entry.getValue().flush()) {
+                    RtsbuildingMod.LOGGER.error("保存数据失败（缓存键 {}），已保留脏状态等待重试", entry.getKey());
+                }
             } catch (Exception e) {
                 RtsbuildingMod.LOGGER.error("保存数据失败（缓存键 {}）: {}", entry.getKey(), e.getMessage());
             }
@@ -165,6 +164,28 @@ public enum SaveScheduler {
 
     private static String cacheKey(UUID playerId, String scope) {
         return playerId.toString() + KEY_SEPARATOR + scope;
+    }
+
+    /**
+     * 只移除已经成功刷盘并关闭的数据簇。
+     *
+     * <p>失败项必须留在缓存中，后续保存事件才能继续重试；无条件清缓存会把最后一份内存数据丢掉。
+     */
+    private void closeMatching(java.util.function.Predicate<String> matcher, String reason) {
+        for (Map.Entry<String, DataCluster> entry : clusters.entrySet()) {
+            if (!matcher.test(entry.getKey())) continue;
+            try {
+                if (entry.getValue().flushAndClose()) {
+                    clusters.remove(entry.getKey(), entry.getValue());
+                } else {
+                    RtsbuildingMod.LOGGER.error("{}时保存数据失败（缓存键 {}），已保留缓存等待重试",
+                            reason, entry.getKey());
+                }
+            } catch (Exception e) {
+                RtsbuildingMod.LOGGER.error("{}时保存数据异常（缓存键 {}），已保留缓存等待重试: {}",
+                        reason, entry.getKey(), e.getMessage());
+            }
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -193,7 +214,15 @@ public enum SaveScheduler {
         if (!Files.isRegularFile(path)) return;
 
         try {
-            CompoundTag root = new RtsAtomicNbtStore(server, subDir, fileName).read();
+            RtsAtomicNbtStore store = new RtsAtomicNbtStore(server, subDir, fileName);
+            RtsNbtStore.ReadResult readResult = store.readResult();
+            if (readResult instanceof RtsNbtStore.ReadResult.Failed failed) {
+                RtsbuildingMod.LOGGER.warn("[迁移] 检查 {} 文件失败，保留原文件等待人工恢复: {}",
+                        label, failed.cause().getMessage());
+                return;
+            }
+            if (readResult instanceof RtsNbtStore.ReadResult.Missing) return;
+            CompoundTag root = ((RtsNbtStore.ReadResult.Found) readResult).root();
             CompoundTag players = root.getCompound("players");
             if (players.isEmpty()) {
                 Files.delete(path);

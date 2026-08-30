@@ -2,12 +2,14 @@ package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostPreview;
-import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import net.minecraft.client.Minecraft;
 
 import java.util.List;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 /**
  * Blueprint ghost preview renderer (facade class).
@@ -51,15 +53,18 @@ public final class BlueprintGhostRenderer {
         }
 
         // 1. Filter out blocks outside RTS bounds
-        List<BlueprintPanel.BlueprintGhostBlock> filteredBlocks = BlueprintGhostBoundsFilter.filter(preview.blocks());
+        List<BlueprintGhostBlock> filteredBlocks =
+                BlueprintGhostBoundsFilter.filter(preview.blocks());
         if (filteredBlocks.isEmpty()) {
             return;
         }
 
         // 2. Choose colour based on material availability (ready: green, missing: red)
-        float lineR = preview.materialsReady() ? 0.35F : 1.00F;
-        float lineG = preview.materialsReady() ? 0.95F : 0.72F;
-        float lineB = preview.materialsReady() ? 0.72F : 0.22F;
+        UiColor ghostColor = preview.materialsReady()
+                ? UiThemeWorldColors.BLUEPRINT_VALID : UiThemeWorldColors.BLUEPRINT_INVALID;
+        float lineR = UiThemeWorldColors.red(ghostColor);
+        float lineG = UiThemeWorldColors.green(ghostColor);
+        float lineB = UiThemeWorldColors.blue(ghostColor);
 
         // 3. Initialise bounding box bounds
         int[] minX = {Integer.MAX_VALUE};

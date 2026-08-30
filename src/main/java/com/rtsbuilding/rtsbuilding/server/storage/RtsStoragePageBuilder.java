@@ -7,7 +7,6 @@ import com.rtsbuilding.rtsbuilding.server.service.page.RtsPageSharedHelpers;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedFluidHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
@@ -58,10 +57,6 @@ public final class RtsStoragePageBuilder {
 
     public static String normalizeCategory(String category) {
         return RtsPageSharedHelpers.normalizeCategory(category);
-    }
-
-    public static void warmCreativeTabCacheMode(ServerLevel level, boolean operatorTabs) {
-        RtsPageCreativeTabIndexer.warmCreativeTabCacheMode(level, operatorTabs);
     }
 
     public static void clearCreativeTabCacheState() {

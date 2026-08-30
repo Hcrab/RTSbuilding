@@ -67,6 +67,12 @@ public final class RtsMiningRules {
         if (state.is(BlockTags.NEEDS_STONE_TOOL)) {
             return 1;
         }
+        if (state.is(BlockTags.MINEABLE_WITH_PICKAXE)) {
+            // 1.21.1 原版石头、平滑石头等普通镐类方块不一定带 NEEDS_STONE_TOOL；
+            // 但对 RTS 生存平衡来说，它们仍然是“需要基础采掘插件”的对象。
+            // 泥土、沙子等非镐类方块仍保持 0 级，可以无采掘插件范围挖掘。
+            return 1;
+        }
         return 0;
     }
 

@@ -73,6 +73,9 @@ public class RtsStorageSession {
     /** 远程挖掘与连锁挖掘状态 */
     public final RtsMiningState mining = new RtsMiningState();
 
+    /** 自动存入挖掘掉落的有界中间缓存。 */
+    public final RtsMiningDropBufferState miningDropBuffer = new RtsMiningDropBufferState();
+
     // ======================================================================
     // §8  掉落物漏斗运行时状态
     // ======================================================================
@@ -104,5 +107,4 @@ public class RtsStorageSession {
      * <p>仅存储待处理的破坏作业和挂起的破坏作业，
      * 无业务逻辑。工具租赁仍使用 {@link #mining} 中的字段。
      */
-    public final RtsDestructionState destruction = new RtsDestructionState();
 }

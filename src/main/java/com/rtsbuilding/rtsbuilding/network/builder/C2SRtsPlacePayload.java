@@ -15,6 +15,7 @@ public record C2SRtsPlacePayload(
         double hitY,
         double hitZ,
         byte rotateSteps,
+        String statePreset,
         boolean forcePlace,
         boolean skipIfOccupied,
         String itemId,
@@ -38,6 +39,7 @@ public record C2SRtsPlacePayload(
                 buf.writeDouble(payload.hitY());
                 buf.writeDouble(payload.hitZ());
                 buf.writeByte(payload.rotateSteps());
+                buf.writeUtf(payload.statePreset(), 256);
                 buf.writeBoolean(payload.forcePlace());
                 buf.writeBoolean(payload.skipIfOccupied());
                 buf.writeUtf(payload.itemId(), 128);
@@ -62,6 +64,7 @@ public record C2SRtsPlacePayload(
                     buf.readDouble(),
                     buf.readDouble(),
                     buf.readByte(),
+                    buf.readUtf(256),
                     buf.readBoolean(),
                     buf.readBoolean(),
                     buf.readUtf(128),

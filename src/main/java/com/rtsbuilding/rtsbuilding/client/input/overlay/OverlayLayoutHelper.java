@@ -1,10 +1,16 @@
 package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.RtsCraftTerminalScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiCompactFrameRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -389,27 +395,41 @@ public final class OverlayLayoutHelper {
     //  Drawing helpers
     // =========================================================================
 
-    public static void drawPanelFrame(GuiGraphics g, int x, int y, int w, int h, int fillColor, int light, int dark) {
-        RtsClientUiUtil.drawPanelFrame(g, x, y, w, h, fillColor, light, dark);
+    public static void drawPanelFrame(GuiGraphics g, Font font, int x, int y, int w, int h,
+                                      UiColor fillColor, UiColor light, UiColor dark) {
+        drawPanelFrame(new MinecraftUiCanvas(g, font), x, y, w, h,
+                fillColor, light, dark);
     }
 
-    public static void drawOverlayWindowFrame(GuiGraphics g, int x, int y, int w, int h) {
-        drawPanelFrame(g, x, y, w, h, 0xF0182028, 0xFF7489A0, 0xFF0B1016);
-        g.fill(x + 1, y + 1, x + w - 1, y + OVERLAY_WINDOW_TITLE_H, 0xCC233345);
+    public static void drawPanelFrame(MinecraftUiCanvas canvas, int x, int y,
+                                      int w, int h, UiColor fillColor,
+                                      UiColor light, UiColor dark) {
+        UiCompactFrameRenderer.frame(canvas, new UiRect(x, y, w, h),
+                fillColor, light, dark);
+    }
+
+    public static void drawOverlayWindowFrame(GuiGraphics g, Font font, int x, int y, int w, int h) {
+        UiChromeRenderer.frame(new MinecraftUiCanvas(g, font), new UiRect(x, y, w, h), 1.0D,
+                ContainerOverlayStyle.WINDOW_BACKGROUND,
+                ContainerOverlayStyle.WINDOW_BORDER_LIGHT,
+                ContainerOverlayStyle.WINDOW_BORDER_DARK);
+        g.fill(x + 1, y + 1, x + w - 1, y + OVERLAY_WINDOW_TITLE_H,
+                ContainerOverlayStyle.WINDOW_TITLE.toArgb());
     }
 
     public static void drawMiniButton(GuiGraphics g, Font font, int x, int y, int w, int h, String label) {
-        g.fill(x, y, x + w, y + h, 0xAA2B3642);
-        g.hLine(x, x + w, y, 0xFF667D95);
-        g.hLine(x, x + w, y + h, 0xFF111821);
-        g.vLine(x, y, y + h, 0xFF667D95);
-        g.vLine(x + w, y, y + h, 0xFF111821);
-        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, label, x + w / 2, y + 2, 0xFFFFFF);
+        drawPanelFrame(g, font, x, y, w, h,
+                ContainerOverlayStyle.MINI_BUTTON_BACKGROUND,
+                ContainerOverlayStyle.BUTTON_BORDER_LIGHT,
+                ContainerOverlayStyle.BUTTON_BORDER_DARK);
+        RtsClientUiUtil.drawCenteredStringNoShadow(g, font, label, x + w / 2, y + 2,
+                ContainerOverlayStyle.BUTTON_TEXT.toArgb());
     }
 
     public static void drawSlotCountOverlay(GuiGraphics g, Font font, int slotX, int slotY,
-            int slotSize, String countText, int color) {
-        RtsClientUiUtil.drawSlotCountOverlay(g, font, slotX, slotY, slotSize, countText, color);
+            int slotSize, String countText, UiColor color) {
+        RtsClientUiUtil.drawSlotCountOverlay(g, font, slotX, slotY, slotSize,
+                countText, color.toArgb());
     }
 
     public static String sortShort(com.rtsbuilding.rtsbuilding.network.storage.RtsStorageSort sort) {
@@ -432,6 +452,6 @@ public final class OverlayLayoutHelper {
     }
 
     public static boolean inside(double mouseX, double mouseY, int x, int y, int w, int h) {
-        return mouseX >= x && mouseX <= x + w && mouseY >= y && mouseY <= y + h;
+        return UiRect.contains(x, y, w, h, mouseX, mouseY);
     }
 }

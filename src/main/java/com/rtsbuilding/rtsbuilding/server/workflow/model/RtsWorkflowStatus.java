@@ -116,21 +116,13 @@ public record RtsWorkflowStatus(
     }
 
     /**
-     * 返回工作流类型的显示标签，
-     * 例如 {@code "Mine"}、{@code "Ultimine"}。
+     * 返回工作流类型的翻译键。
+     *
+     * <p>工作流状态会跨网络同步，因此这里不能在服务端提前固定为某种语言；
+     * 由客户端渲染时根据玩家的语言解析。</p>
      */
-    public String typeLabel() {
-        if (type == null) return "空闲";
-        return switch (type) {
-            case MINE_SINGLE  -> "挖掘";
-            case ULTIMINE     -> "连锁挖掘";
-            case AREA_MINE    -> "区域挖掘";
-            case AREA_DESTROY -> "摧毁";
-            case PLACE_SINGLE -> "放置";
-            case PLACE_BATCH  -> "批量放置";
-            case QUICK_BUILD  -> "快速建造";
-            case BLUEPRINT_BUILD -> "蓝图建造";
-            case STOP_MINING  -> "停止挖掘";
-        };
+    public String typeTranslationKey() {
+        if (type == null) return "screen.rtsbuilding.workflow.type.idle";
+        return "screen.rtsbuilding.workflow.type." + type.name().toLowerCase(java.util.Locale.ROOT);
     }
 }

@@ -14,11 +14,21 @@ group = mod_group_id
 
 repositories {
     mavenCentral()
+    exclusiveContent {
+        forRepository {
+            maven { url = 'https://maven.ryanhcode.dev/releases' }
+        }
+        filter {
+            includeGroup 'dev.ryanhcode.sable-companion'
+        }
+    }
     maven { url = 'https://maven.blamejared.com' }
     maven { url = 'https://maven.createmod.net' }
     maven { url = 'https://maven.ithundxr.dev/snapshots' }
     maven { url = 'https://api.modrinth.com/maven' }
     maven { url = 'https://jitpack.io' }
+    maven { url = 'https://maven.izzel.io/releases' }
+    maven { url = 'https://www.cursemaven.com' }
 }
 
 base {
@@ -68,7 +78,8 @@ neoForge {
             type = "gameTestServer"
             // 基础 GameTest 使用干净目录，避免本地 run/mods 中的科技/客户端模组干扰服务器烟测。
             gameDirectory = project.file('run-gametest')
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            systemProperty 'neoforge.enabledGameTestNamespaces',
+                    providers.gradleProperty('rts_gametest_namespaces').getOrElse(project.mod_id)
         }
 
         serverSmokeGameTestServer {
@@ -126,19 +137,26 @@ tasks.named('processResources').configure {
 
 sourceSets {
     test {
-        java {
-            srcDir 'src/test/java'
-        }
         compileClasspath += sourceSets.main.compileClasspath
         runtimeClasspath += sourceSets.main.runtimeClasspath
     }
 }
 
+apply from: 'gradle/rts-test-reporting.gradle'
+
 dependencies {
+    // Sable Companion 在未安装 Sable 时提供恒等实现；安装 Sable 后由其实现接管子世界坐标转换。
+    jarJar(api("dev.ryanhcode.sable-companion:sable-companion-common-${minecraft_version}:${sable_companion_version}"))
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-common-api:${jei_version}"
     compileOnly "mezz.jei:jei-${jei_minecraft_version}-neoforge-api:${jei_version}"
     compileOnly "dev.engine-room.flywheel:flywheel-neoforge-api-${minecraft_version}:${flywheel_version}"
     compileOnly "maven.modrinth:beyonddimensions:${beyonddimensions_version}"
+    // Jade HUD 兼容仅在玩家安装 Jade 时加载。
+    compileOnly "curse.maven:jade-${jade_curseforge_project_id}:${jade_curseforge_file_id}"
+    if (providers.gradleProperty('rts_create_gametest_jar').isPresent()) {
+        // 可选 Create 回归环境：普通构建/发布不携带第三方运行时。
+        runtimeOnly files(providers.gradleProperty('rts_create_gametest_jar').get())
+    }
 
     // 鈹€鈹€ Test dependencies 鈹€鈹€
     testImplementation "org.junit.jupiter:junit-jupiter:5.11.0"
@@ -155,12 +173,16 @@ dependencies {
     testImplementation 'org.xerial:sqlite-jdbc:3.46.0.0'
 }
 
+apply from: 'gradle/rts-ui.gradle'
+
 // ======================================================================
 // Test task
 // ======================================================================
 
 tasks.named('test', Test).configure {
-    useJUnitPlatform()
+    useJUnitPlatform {
+        excludeTags 'known-performance-debt'
+    }
     // Keep release/build verification deterministic. These classes are
     // measurement harnesses, not correctness tests, and can destabilize the
     // Gradle test worker through heavy Mockito/JVM-agent usage.
@@ -173,6 +195,28 @@ tasks.named('test', Test).configure {
         events "passed", "skipped", "failed"
         showStandardStreams = true
     }
+}
+
+tasks.register('performanceDebt', Test) {
+    group = 'verification'
+    description = '运行已知性能债测试；失败会明确报告，但暂不阻断正常构建。'
+    useJUnitPlatform {
+        includeTags 'known-performance-debt'
+    }
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    ignoreFailures = true
+    outputs.upToDateWhen { false }
+    mustRunAfter tasks.named('test')
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+        exceptionFormat = 'short'
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('performanceDebt')
 }
 
 tasks.register('generateBenchmarkReport') {
@@ -231,6 +275,7 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
             minecraft_version      : minecraft_version,
             minecraft_version_range: minecraft_version_range,
             neo_version            : neo_version,
+            neo_version_range      : neo_version_range,
             loader_version_range   : loader_version_range,
             mod_id                 : mod_id,
             mod_name               : mod_name,

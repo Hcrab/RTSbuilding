@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedStorageRef;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsEndpointLeaseCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerLevel;
@@ -43,9 +44,26 @@ public final class RtsLinkedStorageBlockEventHandler {
      * 并刷新其存储页面。
      */
     public static void onLinkedStorageBlockBroken(ServerLevel level, BlockPos pos) {
+        onLinkedStorageBlockBroken(level, pos, captureBrokenIdentity(level, pos));
+    }
+
+    /**
+     * 在方块仍存在时冻结破坏身份，供需要等世界事务提交后再清理引用的调用方使用。
+     */
+    public static BrokenLinkedStorageIdentity captureBrokenIdentity(ServerLevel level, BlockPos pos) {
+        UUID backpackUuid = level == null || pos == null
+                ? null
+                : RtsBackpackCompat.getBackpackUuid(level.getBlockEntity(pos)).orElse(null);
+        return new BrokenLinkedStorageIdentity(backpackUuid);
+    }
+
+    /** 使用破坏前冻结的身份，在实际世界变化后提交所有玩家的链接清理。 */
+    public static void onLinkedStorageBlockBroken(
+            ServerLevel level, BlockPos pos, BrokenLinkedStorageIdentity identity) {
         if (level == null || pos == null || level.getServer() == null) {
             return;
         }
+        UUID breakingBackpackUuid = identity == null ? null : identity.backpackUuid();
         ResourceKey<Level> dimension = level.dimension();
         for (var entry : ServiceRegistry.getInstance().session().allSessions().entrySet()) {
             ServerPlayer player = level.getServer().getPlayerList().getPlayer(entry.getKey());
@@ -53,7 +71,8 @@ public final class RtsLinkedStorageBlockEventHandler {
                 continue;
             }
             RtsStorageSession session = entry.getValue();
-            if (markOrRemoveBrokenLinkedStorageRef(session, level, dimension, pos)) {
+            if (markOrRemoveBrokenLinkedStorageRef(session, dimension, pos, breakingBackpackUuid)) {
+                RtsEndpointLeaseCache.INSTANCE.invalidate(player.getUUID(), dimension, pos);
                 ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             }
         }
@@ -81,6 +100,7 @@ public final class RtsLinkedStorageBlockEventHandler {
             }
             RtsStorageSession session = entry.getValue();
             if (moveBackpackLinkedStorageRef(session, backpackUuid, backpackItemId, newRef, displayName)) {
+                RtsEndpointLeaseCache.INSTANCE.invalidatePlayer(player.getUUID());
                 ServiceRegistry.getInstance().serviceOp().afterModification(player, session);
             }
         }
@@ -90,8 +110,9 @@ public final class RtsLinkedStorageBlockEventHandler {
     //  Private helpers
     // ======================================================================
 
-    private static boolean markOrRemoveBrokenLinkedStorageRef(RtsStorageSession session, ServerLevel level,
-            ResourceKey<Level> dimension, BlockPos pos) {
+    private static boolean markOrRemoveBrokenLinkedStorageRef(
+            RtsStorageSession session, ResourceKey<Level> dimension,
+            BlockPos pos, UUID breakingBackpackUuid) {
         if (session == null || dimension == null || pos == null || session.linkedStorageInfo.isEmpty()) {
             return false;
         }
@@ -101,14 +122,16 @@ public final class RtsLinkedStorageBlockEventHandler {
         }
         UUID backpackUuid = session.linkedStorageInfo.getBackpackUuid(ref);
         if (backpackUuid != null) {
-            UUID breakingUuid = level == null ? null
-                    : RtsBackpackCompat.getBackpackUuid(level.getBlockEntity(pos)).orElse(null);
-            if (!backpackUuid.equals(breakingUuid)) {
+            if (!backpackUuid.equals(breakingBackpackUuid)) {
                 return false;
             }
             return session.linkedStorageInfo.markDetached(ref);
         }
         return removeLinkedStorageRef(session, dimension, pos);
+    }
+
+    /** 只冻结识别链接来源所需的最小信息，不持有方块实体或世界对象。 */
+    public record BrokenLinkedStorageIdentity(UUID backpackUuid) {
     }
 
     public static boolean moveBackpackLinkedStorageRef(RtsStorageSession session, UUID backpackUuid,

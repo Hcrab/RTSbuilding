@@ -8,6 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 /**
  * Renders the Ctrl+right-click movement destination.
@@ -18,9 +19,6 @@ import net.minecraft.world.phys.Vec3;
  * {@link RtsClientPathfinding}.</p>
  */
 public final class PlayerMoveTargetRenderer {
-    private static final float BLUE_R = 0.16F;
-    private static final float BLUE_G = 0.58F;
-    private static final float BLUE_B = 1.00F;
     private static final float ACTIVE_ALPHA = 0.95F;
     private static final float NO_DEPTH_ALPHA = 0.28F;
     private static final double INFLATE = 0.045D;
@@ -50,14 +48,20 @@ public final class PlayerMoveTargetRenderer {
                 poseStack, bracketBuffer,
                 bounds.minX, bounds.minY, bounds.minZ,
                 bounds.maxX, bounds.maxY, bounds.maxZ,
-                BLUE_R, BLUE_G, BLUE_B, activeAlpha, distance, THICKNESS_MULTIPLIER);
+                UiThemeWorldColors.red(UiThemeWorldColors.MOVE_TARGET),
+                UiThemeWorldColors.green(UiThemeWorldColors.MOVE_TARGET),
+                UiThemeWorldColors.blue(UiThemeWorldColors.MOVE_TARGET),
+                activeAlpha, distance, THICKNESS_MULTIPLIER);
 
         if (noDepthBuffer != null) {
             CornerBracketRenderer.renderCornerBrackets(
                     poseStack, noDepthBuffer,
                     bounds.minX, bounds.minY, bounds.minZ,
                     bounds.maxX, bounds.maxY, bounds.maxZ,
-                    BLUE_R, BLUE_G, BLUE_B, noDepthAlpha, distance, THICKNESS_MULTIPLIER);
+                    UiThemeWorldColors.red(UiThemeWorldColors.MOVE_TARGET),
+                    UiThemeWorldColors.green(UiThemeWorldColors.MOVE_TARGET),
+                    UiThemeWorldColors.blue(UiThemeWorldColors.MOVE_TARGET),
+                    noDepthAlpha, distance, THICKNESS_MULTIPLIER);
         }
     }
 }

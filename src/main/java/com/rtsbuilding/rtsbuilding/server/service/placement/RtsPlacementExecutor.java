@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
 import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.compat.sophisticatedbackpacks.RtsBackpackCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
@@ -14,6 +15,7 @@ import com.rtsbuilding.rtsbuilding.server.storage.RtsStoragePageBuilder;
 import com.rtsbuilding.rtsbuilding.server.storage.model.LinkedHandler;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.util.InteractionHelper;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import net.minecraft.core.BlockPos;
@@ -82,7 +84,8 @@ public final class RtsPlacementExecutor {
      * @return {@code true} 如果位置已处理且批次应继续，{@code false} 中止当前批处理作业
      */
     public static boolean placeSelectedInternal(ServerPlayer player, RtsStorageSession session, BlockPos clickedPos,
-                                                Direction face, double hitX, double hitY, double hitZ, byte rotateSteps, boolean forcePlace,
+                                                Direction face, double hitX, double hitY, double hitZ, byte rotateSteps, String statePreset,
+                                                boolean forcePlace,
                                                 boolean skipIfOccupied, String itemId, ItemStack itemPrototype, double rayOriginX, double rayOriginY,
                                                 double rayOriginZ, double rayDirX, double rayDirY, double rayDirZ, boolean quickBuild,
                                                 boolean forceEmptyHand, boolean refreshStoragePage, boolean sendRemoteHint) {
@@ -117,7 +120,7 @@ public final class RtsPlacementExecutor {
         }
 
         return placeWithStorageItem(player, session, level, clickedPos, face, hit, interactionPos, rayContext,
-                rotateSteps, skipIfOccupied, forcePlace, itemId, itemPrototype, refreshStoragePage);
+                rotateSteps, statePreset, skipIfOccupied, forcePlace, itemId, itemPrototype, refreshStoragePage);
     }
 
     private static boolean placeWithForcedEmptyHand(ServerPlayer player, RtsStorageSession session, ServerLevel level,
@@ -142,7 +145,7 @@ public final class RtsPlacementExecutor {
         }
 
         if (emptyUse.result().consumesAction()) {
-            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
             return true;
         }
 
@@ -160,7 +163,7 @@ public final class RtsPlacementExecutor {
             return false;
         }
         if (emptyFallback.result().consumesAction()) {
-            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
             return true;
         }
         return false;
@@ -208,7 +211,7 @@ public final class RtsPlacementExecutor {
         if (mainHandUse.result().consumesAction()) {
             recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
                     sourceSnapshot, sourcePlacesBlock);
-            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
             return true;
         }
 
@@ -237,7 +240,7 @@ public final class RtsPlacementExecutor {
                             1L);
                 }
             }
-            ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+            RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
             return true;
         }
 
@@ -258,7 +261,7 @@ public final class RtsPlacementExecutor {
             if (interactFallback.result().consumesAction()) {
                 recordMainHandResult(player, session, level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent,
                         sourceSnapshot, sourcePlacesBlock);
-                ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+                RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
                 return true;
             }
 
@@ -287,7 +290,7 @@ public final class RtsPlacementExecutor {
                                 1L);
                     }
                 }
-                ServiceRegistry.getInstance().session().saveToPlayerNbt(player, session);
+                RtsEffectAccumulator.INSTANCE.markPersistence(player.getUUID(), player.level().dimension());
                 return true;
             }
         }
@@ -298,7 +301,8 @@ public final class RtsPlacementExecutor {
 
     private static boolean placeWithStorageItem(ServerPlayer player, RtsStorageSession session, ServerLevel level,
             BlockPos clickedPos, Direction face, BlockHitResult hit,
-            Vec3 interactionPos, TemporaryContextSwitcher.RayContext rayContext, byte rotateSteps, boolean skipIfOccupied,
+            Vec3 interactionPos, TemporaryContextSwitcher.RayContext rayContext, byte rotateSteps, String statePreset,
+            boolean skipIfOccupied,
             boolean forcePlace, String itemId, ItemStack itemPrototype, boolean refreshStoragePage) {
         List<LinkedHandler> activeLinked = RtsLinkedStorageResolver.resolveLinkedHandlers(player, session);
         boolean includePlayerMainInventory = RtsStoragePageBuilder.shouldIncludePlayerMainInventoryInStorageView(player, session);
@@ -318,15 +322,17 @@ public final class RtsPlacementExecutor {
         Item item = BuiltInRegistries.ITEM.get(id);
         ItemStack preferredStack = RtsPlacementExtractor.sanitizePrototype(itemId, itemPrototype);
         ItemStack protectionStack = preferredStack.isEmpty() ? new ItemStack(item) : preferredStack.copyWithCount(1);
+        boolean sophisticatedBackpackItem = RtsBackpackCompat.isBackpackItem(protectionStack);
+        boolean selectedPlacesBlock = item instanceof BlockItem || sophisticatedBackpackItem;
         if (!RtsClaimProtectionService.canInteractBlock(
                 player, clickedPos, face, InteractionHand.MAIN_HAND, protectionStack)) {
             return false;
         }
-        if (item instanceof BlockItem && !RtsClaimProtectionService.canPlaceBlock(
+        if (selectedPlacesBlock && !RtsClaimProtectionService.canPlaceBlock(
                 player, placementTargetPos(level, clickedPos, face))) {
             return false;
         }
-        if (skipIfOccupied && item instanceof BlockItem) {
+        if (skipIfOccupied && selectedPlacesBlock) {
             if (!level.hasChunkAt(clickedPos) || !level.getBlockState(clickedPos).canBeReplaced()) {
                 RtsPlacementHelper.requestSessionPage(player, session, refreshStoragePage);
                 return true;
@@ -342,7 +348,8 @@ public final class RtsPlacementExecutor {
             return false;
         }
         ItemStack selectedSoundStack = extracted.copy();
-        boolean selectedPlacesBlock = item instanceof BlockItem;
+        boolean sophisticatedBackpackPlacementOnly = sophisticatedBackpackItem
+                || RtsBackpackCompat.isBackpackItem(extracted);
 
         BlockState beforeClicked = level.getBlockState(clickedPos);
         BlockPos adjacentPos = clickedPos.relative(face);
@@ -355,7 +362,8 @@ public final class RtsPlacementExecutor {
                 hit.getLocation(),
                 rayContext,
                 Config.remotePovBlockReach(),
-                () -> InteractionHelper.useItemOnWithMainHand(player, level, extracted, hit, forcePlace));
+                () -> InteractionHelper.useItemOnWithMainHand(
+                        player, level, extracted, hit, forcePlace || sophisticatedBackpackPlacementOnly));
         AbstractContainerMenu menuAfterSelectedUse = player.containerMenu;
         if (menuAfterSelectedUse != menuBeforeSelectedUse) {
             RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterSelectedUse, clickedPos);
@@ -363,7 +371,7 @@ public final class RtsPlacementExecutor {
 
         TemporaryContextSwitcher.UseOnOutcome finalOutcome = selectedOutcome;
         ItemStack lastAttemptStack = extracted.copy();
-        if (!selectedOutcome.result().consumesAction()) {
+        if (!sophisticatedBackpackPlacementOnly && !selectedOutcome.result().consumesAction()) {
             ItemStack fallbackStack = nextAttemptStack(selectedOutcome, lastAttemptStack);
             lastAttemptStack = fallbackStack.copy();
             AbstractContainerMenu menuBeforeSelectedFallback = player.containerMenu;
@@ -379,7 +387,7 @@ public final class RtsPlacementExecutor {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterSelectedFallback, clickedPos);
             }
         }
-        if (forcePlace && !finalOutcome.result().consumesAction()) {
+        if (forcePlace && !sophisticatedBackpackPlacementOnly && !finalOutcome.result().consumesAction()) {
             ItemStack storageInteractStack = nextAttemptStack(finalOutcome, lastAttemptStack);
             lastAttemptStack = storageInteractStack.copy();
             AbstractContainerMenu menuBeforeStorageInteractFallback = player.containerMenu;
@@ -395,7 +403,7 @@ public final class RtsPlacementExecutor {
                 RtsRemoteMenuService.markRemoteMenuOpen(player, session, menuAfterStorageInteractFallback, clickedPos);
             }
         }
-        if (forcePlace && !finalOutcome.result().consumesAction()) {
+        if (forcePlace && !sophisticatedBackpackPlacementOnly && !finalOutcome.result().consumesAction()) {
             ItemStack storageItemInteractStack = nextAttemptStack(finalOutcome, lastAttemptStack);
             AbstractContainerMenu menuBeforeStorageItemInteractFallback = player.containerMenu;
             finalOutcome = TemporaryContextSwitcher.withTemporaryUseItemContext(
@@ -422,7 +430,9 @@ public final class RtsPlacementExecutor {
         BlockPos placedPos = RtsPlacementHelper.detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
         if (placedPos != null) {
             RtsPlacementHelper.rotatePlacedBlock(level, placedPos, rotateSteps);
-            PlacedBlockTrackerData.get(level).mark(placedPos);
+            RtsPlacementHelper.applyPlacementStatePreset(level, placedPos, statePreset);
+            PlacedBlockTrackerData.get(level).markPlaced(
+                    placedPos, player.getUUID(), level.getBlockState(placedPos));
             if (selectedPlacesBlock) {
                 RtsPlacementSound.playRemotePlacedBlockAnimation(player, placedPos);
                 RtsPlacementSound.playRemotePlacedBlockSound(player, level, placedPos);
@@ -446,7 +456,7 @@ public final class RtsPlacementExecutor {
         return previousStack == null ? ItemStack.EMPTY : previousStack.copy();
     }
 
-    private static BlockPos placementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
+    public static BlockPos placementTargetPos(ServerLevel level, BlockPos clickedPos, Direction face) {
         if (level.hasChunkAt(clickedPos) && level.getBlockState(clickedPos).canBeReplaced()) {
             return clickedPos;
         }
@@ -458,7 +468,8 @@ public final class RtsPlacementExecutor {
             ItemStack sourceSnapshot, boolean sourcePlacesBlock) {
         BlockPos placedPos = RtsPlacementHelper.detectPlacedPos(level, clickedPos, beforeClicked, adjacentPos, beforeAdjacent);
         if (placedPos != null) {
-            PlacedBlockTrackerData.get(level).mark(placedPos);
+            PlacedBlockTrackerData.get(level).markPlaced(
+                    placedPos, player.getUUID(), level.getBlockState(placedPos));
             if (sourcePlacesBlock) {
                 RtsPlacementSound.playRemotePlacedBlockAnimation(player, placedPos);
                 RtsPlacementSound.playRemotePlacedBlockSound(player, level, placedPos);

@@ -1,11 +1,14 @@
 package com.rtsbuilding.rtsbuilding.server.service.impl;
 
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsOperationTraceContext;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsServerTraceRegistry;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.MiningContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.MiningService;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningValidator;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.util.TemporaryContextSwitcher;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
@@ -39,9 +42,19 @@ public final class RtsMiningServiceImpl implements MiningService {
     public void mine(ServerPlayer player, BlockPos pos, Direction face, boolean start, byte toolSlot,
                      String toolItemId, ItemStack toolPrototype, boolean allowPlacedBlockRecovery,
                      boolean toolProtectionEnabled) {
+        mine(player, pos, face, start, toolSlot, toolItemId, toolPrototype,
+                allowPlacedBlockRecovery, toolProtectionEnabled,
+                RtsOperationTraceContext.legacy(start ? "MINE_START" : "MINE_STOP"));
+    }
+
+    @Override
+    public void mine(ServerPlayer player, BlockPos pos, Direction face, boolean start, byte toolSlot,
+                     String toolItemId, ItemStack toolPrototype, boolean allowPlacedBlockRecovery,
+                     boolean toolProtectionEnabled, RtsOperationTraceContext trace) {
         if (start) {
             PipelineRegistry.execute(RtsWorkflowType.MINE_SINGLE,
                     MiningContext.builder(player)
+                            .operationTrace(trace)
                             .toolSlot(toolSlot)
                             .toolItemId(toolItemId)
                             .toolPrototype(toolPrototype)
@@ -55,9 +68,21 @@ public final class RtsMiningServiceImpl implements MiningService {
         }
         // 停止 — 委托给 STOP_MINING 流程
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-        if (session != null && !RtsMiningValidator.isCommittedUltimineBatch(session)) {
+        boolean committedBatch = session != null
+                && (RtsMiningValidator.isCommittedUltimineBatch(session)
+                || RtsTaskEngine.INSTANCE.hasCommittedMiningBatch(player));
+        int activeWorkflowId = RtsTaskEngine.INSTANCE.activeMiningWorkflowEntry(player);
+        if (activeWorkflowId >= 0) {
+            RtsServerTraceRegistry.markCancelOrigin(
+                    player, activeWorkflowId,
+                    trace == null ? "CLIENT_STOP_UNKNOWN" : trace.stopOrigin().name());
+        }
+        if (session != null && !committedBatch) {
             PipelineRegistry.execute(RtsWorkflowType.STOP_MINING,
-                    MiningContext.builder(player).build());
+                    MiningContext.builder(player).operationTrace(trace).build());
+        } else if (session == null) {
+            RtsServerTraceRegistry.terminalWithoutWorkflow(
+                    player, trace, RtsWorkflowType.STOP_MINING, "IGNORED", "STORAGE_SESSION_MISSING");
         }
     }
 
@@ -65,8 +90,18 @@ public final class RtsMiningServiceImpl implements MiningService {
     public void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot,
                               String toolItemId, ItemStack toolPrototype, int requestedLimit,
                               byte mode, boolean toolProtectionEnabled) {
+        startUltimine(player, pos, face, toolSlot, toolItemId, toolPrototype,
+                requestedLimit, mode, toolProtectionEnabled,
+                RtsOperationTraceContext.legacy("ULTIMINE"));
+    }
+
+    @Override
+    public void startUltimine(ServerPlayer player, BlockPos pos, Direction face, byte toolSlot,
+                              String toolItemId, ItemStack toolPrototype, int requestedLimit,
+                              byte mode, boolean toolProtectionEnabled, RtsOperationTraceContext trace) {
         PipelineRegistry.execute(RtsWorkflowType.ULTIMINE,
                 MiningContext.builder(player)
+                        .operationTrace(trace)
                         .toolSlot(toolSlot)
                         .toolItemId(toolItemId)
                         .toolPrototype(toolPrototype)
@@ -82,8 +117,19 @@ public final class RtsMiningServiceImpl implements MiningService {
     public void areaMine(ServerPlayer player, int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
                          byte toolSlot, String toolItemId, ItemStack toolPrototype,
                          byte shapeType, byte fillType, boolean toolProtectionEnabled) {
+        areaMine(player, minX, maxX, minY, maxY, minZ, maxZ, toolSlot,
+                toolItemId, toolPrototype, shapeType, fillType, toolProtectionEnabled,
+                RtsOperationTraceContext.legacy("AREA_MINE"));
+    }
+
+    @Override
+    public void areaMine(ServerPlayer player, int minX, int maxX, int minY, int maxY, int minZ, int maxZ,
+                         byte toolSlot, String toolItemId, ItemStack toolPrototype,
+                         byte shapeType, byte fillType, boolean toolProtectionEnabled,
+                         RtsOperationTraceContext trace) {
         PipelineRegistry.execute(RtsWorkflowType.AREA_MINE,
                 MiningContext.builder(player)
+                        .operationTrace(trace)
                         .toolSlot(toolSlot)
                         .toolItemId(toolItemId)
                         .toolPrototype(toolPrototype)
@@ -102,8 +148,17 @@ public final class RtsMiningServiceImpl implements MiningService {
     @Override
     public void areaDestroy(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
                             String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled) {
+        areaDestroy(player, positions, toolSlot, toolItemId, toolPrototype,
+                toolProtectionEnabled, RtsOperationTraceContext.legacy("AREA_DESTROY"));
+    }
+
+    @Override
+    public void areaDestroy(ServerPlayer player, List<BlockPos> positions, byte toolSlot,
+                            String toolItemId, ItemStack toolPrototype, boolean toolProtectionEnabled,
+                            RtsOperationTraceContext trace) {
         PipelineRegistry.execute(RtsWorkflowType.AREA_DESTROY,
                 MiningContext.builder(player)
+                        .operationTrace(trace)
                         .toolSlot(toolSlot)
                         .toolItemId(toolItemId)
                         .toolPrototype(toolPrototype)

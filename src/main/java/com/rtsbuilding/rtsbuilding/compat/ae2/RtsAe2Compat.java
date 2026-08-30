@@ -19,6 +19,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -39,11 +40,32 @@ public final class RtsAe2Compat {
         return REFLECTION != null;
     }
 
+    /**
+     * 为批量链接返回轻量的网络身份；该身份只允许在当前服务端调用期间按引用比较，不能持久化。
+     */
+    public static BatchNetworkProbe probeBatchNetwork(ServerLevel level, BlockPos pos) {
+        if (REFLECTION == null || level == null || pos == null || !level.hasChunkAt(pos)) {
+            return null;
+        }
+        Object storageService = REFLECTION.findStorageService(level, pos);
+        return storageService == null
+                ? null
+                : new BatchNetworkProbe(
+                        storageService, RtsAe2IconResolver.isTerminalPosition(level, pos));
+    }
+
+    public record BatchNetworkProbe(Object identity, boolean preferredTerminal) {
+    }
+
     public static IItemHandler createNetworkItemHandler(ServerPlayer player, BlockPos pos) {
+        return player == null ? null : createNetworkItemHandler(player, player.serverLevel(), pos);
+    }
+
+    /** 在显式世界中解析 AE2 网络，供跨维度已连接端点复用。 */
+    public static IItemHandler createNetworkItemHandler(ServerPlayer player, ServerLevel level, BlockPos pos) {
         if (player == null || pos == null || REFLECTION == null) {
             return null;
         }
-        ServerLevel level = player.serverLevel();
         if (level == null || !level.hasChunkAt(pos)) {
             return null;
         }
@@ -103,6 +125,7 @@ public final class RtsAe2Compat {
          */
         private int refreshCounter = 0;
         private boolean snapshotStale;
+        private boolean released;
 
         private Ae2NetworkItemHandler(ServerPlayer player, Object storageService, Ae2Reflection reflection) {
             this.player = player;
@@ -113,6 +136,7 @@ public final class RtsAe2Compat {
 
         @Override
         public int getSlots() {
+            if (this.released) return 0;
             // No refresh here — that is delegated to {@link #ensureFreshSnapshot()}
             // which is called once per update cycle by the cache layer.
             //
@@ -126,6 +150,7 @@ public final class RtsAe2Compat {
 
         @Override
         public void ensureFreshSnapshot() {
+            if (this.released || this.storageService == null) return;
             boolean shouldRefresh = this.snapshotStale;
             if (!shouldRefresh) {
                 this.refreshCounter++;
@@ -159,7 +184,8 @@ public final class RtsAe2Compat {
 
         @Override
         public ItemStack insertItemAnywhere(ItemStack stack, boolean simulate) {
-            if (stack == null || stack.isEmpty()) {
+            if (this.released || this.player == null || this.storageService == null
+                    || stack == null || stack.isEmpty()) {
                 return ItemStack.EMPTY;
             }
             Object key = this.reflection.toItemKey(stack);
@@ -184,7 +210,8 @@ public final class RtsAe2Compat {
 
         @Override
         public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            if (slot < 0 || slot >= this.slots.size() || amount <= 0) {
+            if (this.released || this.player == null || this.storageService == null
+                    || slot < 0 || slot >= this.slots.size() || amount <= 0) {
                 return ItemStack.EMPTY;
             }
 
@@ -209,7 +236,8 @@ public final class RtsAe2Compat {
 
         @Override
         public ItemStack extractItemAnywhere(Item targetItem, int amount, boolean simulate) {
-            if (targetItem == null || amount <= 0) {
+            if (this.released || this.player == null || this.storageService == null
+                    || targetItem == null || amount <= 0) {
                 return ItemStack.EMPTY;
             }
             // Scan internal slots directly (avoids getStackInSlot() copy overhead)
@@ -240,7 +268,8 @@ public final class RtsAe2Compat {
 
         @Override
         public boolean isItemValid(int slot, ItemStack stack) {
-            return this.reflection.toItemKey(stack) != null;
+            return !this.released && this.storageService != null
+                    && this.reflection.toItemKey(stack) != null;
         }
 
         @Override
@@ -265,6 +294,7 @@ public final class RtsAe2Compat {
          * is perfectly acceptable for a cache refresh loop.
          */
         private void refreshSnapshotCached() {
+            if (this.released || this.storageService == null) return;
             this.slots.clear();
             for (SlotView slot : this.reflection.snapshotCached(this.storageService)) {
                 if (slot != null && slot.amount() > 0L && !slot.displayStack().isEmpty()) {
@@ -276,6 +306,7 @@ public final class RtsAe2Compat {
         }
 
         private void refreshSnapshot() {
+            if (this.released || this.storageService == null) return;
             this.slots.clear();
             for (SlotView slot : this.reflection.snapshot(this.storageService)) {
                 if (slot != null && slot.amount() > 0L && !slot.displayStack().isEmpty()) {
@@ -296,6 +327,8 @@ public final class RtsAe2Compat {
          * After this call the handler must NOT be used again.
          */
         void release() {
+            if (this.released) return;
+            this.released = true;
             this.slots.clear();
             // Null out the heavy references so they can be GC'd even if
             // something accidentally retains a dangling handler reference.
@@ -520,6 +553,7 @@ public final class RtsAe2Compat {
          */
         private List<SlotView> snapshotCached(Object storageService) {
             List<SlotView> out = new ArrayList<>();
+            if (storageService == null) return out;
             Object keyCounter = invoke(this.storageServiceGetCachedInventory, storageService);
             if (keyCounter == null) {
                 // Cache not yet built — fall back to a live scan once
@@ -630,6 +664,9 @@ public final class RtsAe2Compat {
 
         private static Object invoke(Method method, Object target, Object... args) {
             if (method == null) {
+                return null;
+            }
+            if (target == null && !Modifier.isStatic(method.getModifiers())) {
                 return null;
             }
             try {

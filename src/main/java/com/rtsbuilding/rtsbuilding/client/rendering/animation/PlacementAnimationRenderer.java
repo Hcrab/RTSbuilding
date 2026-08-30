@@ -88,13 +88,13 @@ public final class PlacementAnimationRenderer {
             DestroyGhostRenderer.renderModels(minecraft, poseStack, fillBuffer);
         }
         if (previewWireframe) {
-            PendingGhostRenderer.renderWireframes(poseStack, lineBuffer);
+            PendingGhostRenderer.renderWireframes(minecraft, poseStack, lineBuffer);
         }
         if (placeWireframe) {
-            ConfirmedPlacementRenderer.renderWireframes(poseStack, lineBuffer);
+            ConfirmedPlacementRenderer.renderWireframes(minecraft, poseStack, lineBuffer);
         }
         if (destroyWireframe) {
-            DestroyGhostRenderer.renderWireframes(poseStack, lineBuffer);
+            DestroyGhostRenderer.renderWireframes(minecraft, poseStack, lineBuffer);
         }
     }
 

@@ -5,6 +5,7 @@ import com.rtsbuilding.rtsbuilding.client.record.FluidEntry;
 import com.rtsbuilding.rtsbuilding.client.record.RecentEntry;
 import com.rtsbuilding.rtsbuilding.client.record.StorageEntry;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
+import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsStoreFluidPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -14,6 +15,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -34,6 +36,8 @@ public final class BuildPlacementService {
     private ItemStack selectedFluidPreview = ItemStack.EMPTY;
     private boolean emptyHandSelected = false;
     private int placeRotateSteps;
+    private String placementStatePreset = "";
+    private String placementStateItemId = "";
 
     // =========================================================================
     //  Build shape
@@ -55,6 +59,7 @@ public final class BuildPlacementService {
     public boolean hasSelectedFluid() { return !this.selectedFluidId.isBlank(); }
     public boolean isEmptyHandSelected() { return this.emptyHandSelected; }
     public int getPlaceRotateDegrees() { return this.placeRotateSteps * 90; }
+    public String getPlacementStatePreset() { return this.placementStatePreset; }
 
     // =========================================================================
     //  Build shape access
@@ -109,6 +114,8 @@ public final class BuildPlacementService {
         clearSelectedFluid();
         this.emptyHandSelected = false;
         this.placeRotateSteps = 0;
+        this.placementStatePreset = "";
+        this.placementStateItemId = "";
     }
 
     public void selectEmptyHand(Runnable setModeInteract) {
@@ -116,6 +123,8 @@ public final class BuildPlacementService {
         clearSelectedFluid();
         this.emptyHandSelected = true;
         this.placeRotateSteps = 0;
+        this.placementStatePreset = "";
+        this.placementStateItemId = "";
         setModeInteract.run();
     }
 
@@ -206,7 +215,9 @@ public final class BuildPlacementService {
         ItemStack itemPrototype = payloadItemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview;
 
         RtsClientPacketGateway.sendPlace(hit, forcePlace, skipIfOccupied, payloadItemId, itemPrototype,
-                payloadItemId.isBlank() ? 0 : this.placeRotateSteps, rayOrigin, rayDir, quickBuild);
+                payloadItemId.isBlank() ? 0 : this.placeRotateSteps,
+                payloadItemId.isBlank() ? "" : this.placementStatePreset,
+                rayOrigin, rayDir, quickBuild);
         if (clearAfterPlace) {
             selectEmptyHandPreserveMode();
             requestStoragePage.run();
@@ -215,7 +226,7 @@ public final class BuildPlacementService {
 
     public void placeSelectedBatch(List<BlockHitResult> hits, BlockHitResult templateHit,
                                    boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir,
-                                   boolean skipIfOccupied,
+                                   boolean skipIfOccupied, boolean overwriteExisting,
                                    Runnable beginRemoteMenuOpenGrace,
                                    BooleanSupplier shouldAutoClearSelectedItemWhenUnavailable,
                                    Runnable requestStoragePage,
@@ -249,14 +260,38 @@ public final class BuildPlacementService {
             }
         }
 
-        RtsClientPacketGateway.sendPlaceBatch(hits, templateHit, forcePlace, skipIfOccupied,
+        RtsClientPacketGateway.sendPlaceBatch(hits, templateHit, forcePlace, skipIfOccupied, overwriteExisting,
                 payloadItemId,
                 payloadItemId.isBlank() ? ItemStack.EMPTY : this.selectedItemPreview,
-                payloadItemId.isBlank() ? 0 : this.placeRotateSteps, rayOrigin, rayDir);
+                payloadItemId.isBlank() ? 0 : this.placeRotateSteps,
+                payloadItemId.isBlank() ? "" : this.placementStatePreset,
+                rayOrigin, rayDir);
         if (clearAfterPlace) {
             selectEmptyHandPreserveMode();
             requestStoragePage.run();
         }
+    }
+
+    /**
+     * 提交智能填坑意图。这里解析当前 RTS 材料或快捷栏方块，但不提交客户端扫描出的坐标。
+     */
+    public void confirmSmartFill(
+            BlockHitResult hit,
+            int maxBlocks,
+            int detectionDiameter,
+            Vec3 rayOrigin,
+            Vec3 rayDirection) {
+        PlacementMaterial material = resolvePlacementMaterial();
+        RtsClientPacketGateway.sendConfirmSmartFill(
+                hit,
+                maxBlocks,
+                detectionDiameter,
+                material.itemId(),
+                material.prototype(),
+                material.itemId().isBlank() ? 0 : this.placeRotateSteps,
+                material.itemId().isBlank() ? "" : this.placementStatePreset,
+                rayOrigin,
+                rayDirection);
     }
 
     public void placeSelectedFluid(BlockHitResult hit, boolean forcePlace, Vec3 rayOrigin, Vec3 rayDir) {
@@ -301,24 +336,30 @@ public final class BuildPlacementService {
     }
 
     public void interactBlockWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+                                          boolean shiftDown, boolean localScreenOpened,
                                           Runnable beginRemoteMenuOpenGrace) {
         if (hit == null) return;
-        beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendInteractBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
+        if (!localScreenOpened) {
+            beginRemoteMenuOpenGrace.run();
+        }
+        RtsClientPacketGateway.sendInteractBlockWithToolSlot(hit, toolSlot, rayOrigin, rayDir, shiftDown);
     }
 
     public void useItemInAirWithToolSlot(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
+                                         boolean shiftDown, boolean localScreenOpened,
                                          Runnable beginRemoteMenuOpenGrace) {
         if (hit == null) return;
-        beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendUseItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir);
+        if (!localScreenOpened) {
+            beginRemoteMenuOpenGrace.run();
+        }
+        RtsClientPacketGateway.sendUseItemInAirWithToolSlot(hit, toolSlot, rayOrigin, rayDir, shiftDown);
     }
 
     public void interactBlockWithPinnedItem(BlockHitResult hit, String itemId, Vec3 rayOrigin, Vec3 rayDir,
-                                            Runnable beginRemoteMenuOpenGrace) {
+                                            boolean shiftDown, Runnable beginRemoteMenuOpenGrace) {
         if (hit == null || itemId == null || itemId.isBlank()) return;
         beginRemoteMenuOpenGrace.run();
-        RtsClientPacketGateway.sendInteractBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir);
+        RtsClientPacketGateway.sendInteractBlockWithPinnedItem(hit, itemId, rayOrigin, rayDir, shiftDown);
     }
 
     public void interactEntityWithToolSlot(int entityId, Vec3 hitLocation, int toolSlot, Vec3 rayOrigin, Vec3 rayDir,
@@ -354,12 +395,35 @@ public final class BuildPlacementService {
         RtsClientPacketGateway.sendRotateBlock(pos);
     }
 
+    public void rotateBlockStep(
+            BlockPos pos,
+            Direction axisDirection,
+            int quarterTurns) {
+        if (pos != null && axisDirection != null && quarterTurns != 0) {
+            RtsClientPacketGateway.sendRotateBlockStep(
+                    pos, axisDirection, quarterTurns);
+        }
+    }
+
     public void rotatePlacementClockwise() {
         this.placeRotateSteps = (this.placeRotateSteps + 1) & 3;
     }
 
     public void rotatePlacementCounterClockwise() {
         this.placeRotateSteps = (this.placeRotateSteps + 3) & 3;
+    }
+
+    public void setPlacementStateProperty(String propertyName, String valueName) {
+        this.placementStatePreset = PlacementStatePreset.withValue(
+                this.placementStatePreset, propertyName, valueName);
+        this.placementStateItemId = this.selectedItemId;
+    }
+
+    public void copyPlacementState(BlockState state) {
+        this.placeRotateSteps = 0;
+        this.placementStatePreset = PlacementStatePreset.fromBlockState(state);
+        ResourceLocation itemId = BuiltInRegistries.ITEM.getKey(state.getBlock().asItem());
+        this.placementStateItemId = itemId == null ? "" : itemId.toString();
     }
 
     // =========================================================================
@@ -379,6 +443,8 @@ public final class BuildPlacementService {
         clearSelectedFluid();
         this.emptyHandSelected = true;
         this.placeRotateSteps = 0;
+        this.placementStatePreset = "";
+        this.placementStateItemId = "";
     }
 
     private long getSelectedItemCountForPlacement(String itemId, boolean isLocalPlayerCreative,
@@ -388,8 +454,51 @@ public final class BuildPlacementService {
         return hasStoragePageSnapshot ? storageTotalCount : Long.MAX_VALUE;
     }
 
+    private PlacementMaterial resolvePlacementMaterial() {
+        String itemId = this.selectedItemId == null ? "" : this.selectedItemId;
+        if (!itemId.isBlank()) {
+            return new PlacementMaterial(itemId, this.selectedItemPreview);
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft == null || minecraft.player == null) {
+            return PlacementMaterial.EMPTY;
+        }
+        int slot = Mth.clamp(minecraft.player.getInventory().selected, 0, 8);
+        ItemStack stack = minecraft.player.getInventory().getItem(slot);
+        if (stack.isEmpty() || !(stack.getItem() instanceof BlockItem)) {
+            return PlacementMaterial.EMPTY;
+        }
+        ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return id == null
+                ? PlacementMaterial.EMPTY
+                : new PlacementMaterial(id.toString(), stack);
+    }
+
+    private record PlacementMaterial(String itemId, ItemStack prototype) {
+        private static final PlacementMaterial EMPTY =
+                new PlacementMaterial("", ItemStack.EMPTY);
+
+        private PlacementMaterial {
+            itemId = itemId == null ? "" : itemId;
+            prototype = prototype == null ? ItemStack.EMPTY : prototype.copy();
+            if (!prototype.isEmpty()) {
+                prototype.setCount(1);
+            }
+        }
+    }
+
     private void setSelectedItem(String itemId, String label, ItemStack preview) {
-        this.selectedItemId = itemId == null ? "" : itemId;
+        String nextItemId = itemId == null ? "" : itemId;
+        if (!nextItemId.equals(this.selectedItemId)) {
+            this.placeRotateSteps = 0;
+            // R 轮盘可在“手持方块”状态下先预选，再从 RTS 列表选择同一种物品。
+            // 只有真正换成另一种物品时才清除预选，避免选好的上半砖在放置前悄悄丢失。
+            if (!nextItemId.equals(this.placementStateItemId)) {
+                this.placementStatePreset = "";
+                this.placementStateItemId = "";
+            }
+        }
+        this.selectedItemId = nextItemId;
         this.selectedItemLabel = label == null ? "" : label;
         this.selectedItemPreview = preview == null ? ItemStack.EMPTY : preview;
         if (!this.selectedItemId.isBlank()) {

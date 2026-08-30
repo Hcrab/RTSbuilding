@@ -8,6 +8,8 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeBuildTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
@@ -87,21 +89,6 @@ public final class InteractionTargetRenderer {
     // ──────────────────────────────────────────────
     //  Constants – Colours (RGB, no alpha)
     // ──────────────────────────────────────────────
-
-    /** Colour used for entity corner brackets, modulated by the breath factor. */
-    private static final float ENTITY_COLOR_R = 0.50F;
-    private static final float ENTITY_COLOR_G = 0.80F;
-    private static final float ENTITY_COLOR_B = 1.00F;
-
-    /** Colour used for block corner brackets (orange-gold), modulated by the breath factor. */
-    private static final float BLOCK_COLOR_R = 0.965F;
-    private static final float BLOCK_COLOR_G = 0.608F;
-    private static final float BLOCK_COLOR_B = 0.192F;
-
-    /** Close-range block highlight colour: brighter yellow, matching the older skeleton read. */
-    private static final float NEAR_BLOCK_COLOR_R = 1.000F;
-    private static final float NEAR_BLOCK_COLOR_G = 0.900F;
-    private static final float NEAR_BLOCK_COLOR_B = 0.130F;
 
     /** Maximum ray-cast range for cursor-based hit-testing. */
     private static final double MAX_REACH = 128.0D;
@@ -187,17 +174,36 @@ public final class InteractionTargetRenderer {
         EntityHitResult entityHit = RaycastHelper.raycastEntityFromCursor(minecraft, camPos, rayEnd, viewDir, MAX_REACH);
 
         // ── Pick the nearest hit ──
-        double blockDistSq = blockHit != null ? camPos.distanceToSqr(blockHit.getLocation()) : Double.MAX_VALUE;
-        double entityDistSq = entityHit != null ? camPos.distanceToSqr(entityHit.getLocation()) : Double.MAX_VALUE;
+        double blockDistSq = blockHit != null
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(minecraft.level, camPos, blockHit.getLocation())
+                : Double.MAX_VALUE;
+        double entityDistSq = entityHit != null
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(minecraft.level, camPos, entityHit.getLocation())
+                : Double.MAX_VALUE;
 
         if (entityHit != null && entityDistSq <= blockDistSq) {
             // Entity is closer (or equal) – render entity highlight
             Entity entity = entityHit.getEntity();
             // Skip entity outside RTS build boundary
             if (InteractionTargetSelection.shouldRenderEntityInsteadOfBlock(
-                    entityDistSq, blockDistSq, isWithinBounds(controller, entity.blockPosition()))) {
-                double distance = camPos.distanceTo(entity.getBoundingBox().getCenter());
-                renderEntityCornerHighlight(poseStack, lineBuffer, noDepthBuffer, entity, distance, breathFactor);
+                    entityDistSq, blockDistSq,
+                    isWithinBounds(minecraft.level, controller, entity.blockPosition()))) {
+                double distance = Math.sqrt(RtsSableClientSpatialCompat.renderDistanceSquared(
+                        minecraft.level, camPos, entity.getBoundingBox().getCenter()));
+                poseStack.pushPose();
+                try {
+                    BlockPos framePos = entity.blockPosition();
+                    boolean localFrame = RtsSableClientSpatialCompat.applyBlockRenderFrame(
+                            minecraft.level, framePos, poseStack);
+                    AABB bounds = entity.getBoundingBox().inflate(INFLATE);
+                    if (localFrame) {
+                        bounds = bounds.move(-framePos.getX(), -framePos.getY(), -framePos.getZ());
+                    }
+                    renderEntityCornerHighlight(
+                            poseStack, lineBuffer, noDepthBuffer, bounds, distance, breathFactor);
+                } finally {
+                    poseStack.popPose();
+                }
                 return;
             }
         }
@@ -209,11 +215,25 @@ public final class InteractionTargetRenderer {
         // Block is the nearest target – render block highlight
         BlockPos pos = blockHit.getBlockPos();
         // Skip block outside RTS build boundary
-        if (!isWithinBounds(controller, pos)) {
+        if (!isWithinBounds(minecraft.level, controller, pos)) {
             return;
         }
-        double distance = camPos.distanceTo(Vec3.atCenterOf(pos));
-        renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, noDepthBuffer, pos, blockHit.getDirection(), distance, breathFactor);
+        double distance = Math.sqrt(RtsSableClientSpatialCompat.renderDistanceSquared(
+                minecraft.level, camPos, Vec3.atCenterOf(pos)));
+        AABB bounds = computeWorldBounds(minecraft.level, pos);
+        if (bounds == null) {
+            return;
+        }
+        poseStack.pushPose();
+        try {
+            if (RtsSableClientSpatialCompat.applyBlockRenderFrame(minecraft.level, pos, poseStack)) {
+                bounds = bounds.move(-pos.getX(), -pos.getY(), -pos.getZ());
+            }
+            renderBlockCornerHighlight(minecraft, poseStack, lineBuffer, noDepthBuffer,
+                    bounds, blockHit.getDirection(), distance, breathFactor);
+        } finally {
+            poseStack.popPose();
+        }
     }
 
     // ══════════════════════════════════════════════
@@ -233,10 +253,10 @@ public final class InteractionTargetRenderer {
             return false;
         }
 
-        // Compute GUI-space cursor coordinates
-        var mcWindow = minecraft.getWindow();
-        double mouseX = minecraft.mouseHandler.xpos() * mcWindow.getGuiScaledWidth() / (double) mcWindow.getScreenWidth();
-        double mouseY = minecraft.mouseHandler.ypos() * mcWindow.getGuiScaledHeight() / (double) mcWindow.getScreenHeight();
+        // BuilderScreen 在固定 RTS UI Scale 的 render pass 中已经把鼠标换算到自己的坐标系。
+        // 这里若再次按 Minecraft GUI Scale 换算，屏幕下半部会被误判为底部面板，目标框便会提前消失。
+        double mouseX = builderScreen.getCurrentMouseX();
+        double mouseY = builderScreen.getCurrentMouseY();
 
         // Blocked when cursor is outside the world-view area
         if (!builderScreen.isWorldArea(mouseX, mouseY)) {
@@ -250,9 +270,13 @@ public final class InteractionTargetRenderer {
             }
         }
 
-        // Blocked during shape-build confirmation phase
+        // 只有当前可见的 Quick Build 范围选择才能遮挡世界高亮。关闭面板或切回交互模式后，
+        // 残留的 READY_CONFIRM 会话不能继续制造一块看不见的全屏遮挡层。
         var shapeSession = builderScreen.getShapeController().getShapeBuildSession();
-        if (shapeSession != null && shapeSession.phase() == ShapeBuildTypes.Phase.READY_CONFIRM) {
+        if (InteractionTargetOcclusionPolicy.shapeSelectionBlocks(
+                builderScreen.isQuickBuildOpen(),
+                builderScreen.isQuickBuildRangeDestroyMode(),
+                shapeSession == null ? null : shapeSession.phase())) {
             return true;
         }
 
@@ -281,11 +305,10 @@ public final class InteractionTargetRenderer {
      * @param breathFactor current breathing animation multiplier
      */
     private static void renderEntityCornerHighlight(PoseStack poseStack, VertexConsumer lineBuffer,
-            VertexConsumer noDepthBuffer, Entity entity, double distance, float breathFactor) {
-        AABB bounds = entity.getBoundingBox().inflate(INFLATE);
-        float r = ENTITY_COLOR_R * breathFactor;
-        float g = ENTITY_COLOR_G * breathFactor;
-        float b = ENTITY_COLOR_B * breathFactor;
+            VertexConsumer noDepthBuffer, AABB bounds, double distance, float breathFactor) {
+        float r = UiThemeWorldColors.red(UiThemeWorldColors.INTERACTION_ENTITY) * breathFactor;
+        float g = UiThemeWorldColors.green(UiThemeWorldColors.INTERACTION_ENTITY) * breathFactor;
+        float b = UiThemeWorldColors.blue(UiThemeWorldColors.INTERACTION_ENTITY) * breathFactor;
 
         CornerBracketRenderer.renderCornerBrackets(
                 poseStack, lineBuffer,
@@ -313,13 +336,8 @@ public final class InteractionTargetRenderer {
      */
     private static void renderBlockCornerHighlight(Minecraft minecraft, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer noDepthBuffer,
-            BlockPos pos, Direction hitFace, double distance, float breathFactor) {
+            AABB bounds, Direction hitFace, double distance, float breathFactor) {
         if (minecraft.level == null) {
-            return;
-        }
-
-        AABB bounds = computeWorldBounds(minecraft.level, pos);
-        if (bounds == null) {
             return;
         }
 
@@ -353,9 +371,12 @@ public final class InteractionTargetRenderer {
     private static BlockHighlightVisual blockHighlightVisual(double distance, float breathFactor) {
         float nearWeight = 1.0F - smoothstep(NEAR_SKELETON_DISTANCE, FAR_COVER_DISTANCE, distance);
         float farWeight = 1.0F - nearWeight;
-        float r = (NEAR_BLOCK_COLOR_R * nearWeight + BLOCK_COLOR_R * farWeight) * breathFactor;
-        float g = (NEAR_BLOCK_COLOR_G * nearWeight + BLOCK_COLOR_G * farWeight) * breathFactor;
-        float b = (NEAR_BLOCK_COLOR_B * nearWeight + BLOCK_COLOR_B * farWeight) * breathFactor;
+        float r = (UiThemeWorldColors.red(UiThemeWorldColors.INTERACTION_NEAR) * nearWeight
+                + UiThemeWorldColors.red(UiThemeWorldColors.INTERACTION_BLOCK) * farWeight) * breathFactor;
+        float g = (UiThemeWorldColors.green(UiThemeWorldColors.INTERACTION_NEAR) * nearWeight
+                + UiThemeWorldColors.green(UiThemeWorldColors.INTERACTION_BLOCK) * farWeight) * breathFactor;
+        float b = (UiThemeWorldColors.blue(UiThemeWorldColors.INTERACTION_NEAR) * nearWeight
+                + UiThemeWorldColors.blue(UiThemeWorldColors.INTERACTION_BLOCK) * farWeight) * breathFactor;
         float faceAlpha = FACE_FOG_ALPHA_NEAR * nearWeight + FACE_FOG_ALPHA_FAR * farWeight;
         float noDepthFaceAlpha = NO_DEPTH_FACE_FOG_ALPHA_NEAR * nearWeight + NO_DEPTH_FACE_FOG_ALPHA_FAR * farWeight;
         return new BlockHighlightVisual(r, g, b, faceAlpha, noDepthFaceAlpha);
@@ -455,9 +476,10 @@ public final class InteractionTargetRenderer {
      * @param pos        the block position to test
      * @return {@code true} if the position is within the build boundary, or if no boundary is set
      */
-    private static boolean isWithinBounds(ClientRtsController controller, BlockPos pos) {
+    private static boolean isWithinBounds(Level level, ClientRtsController controller, BlockPos pos) {
         if (!controller.hasBounds()) return true;
-        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        return RtsSableClientSpatialCompat.isWithinBounds(
+                level, pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 
     /**

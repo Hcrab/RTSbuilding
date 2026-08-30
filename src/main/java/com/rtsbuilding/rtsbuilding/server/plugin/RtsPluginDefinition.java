@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.plugin;
 
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
 import net.minecraft.resources.ResourceLocation;
 
 import java.util.Collections;
@@ -21,9 +22,16 @@ public final class RtsPluginDefinition {
     private final Set<RtsFeature> features;
     private final int radiusBlocks;
     private final boolean fieldDeployment;
+    private final RangeMiningHarvestTier harvestTier;
 
     public RtsPluginDefinition(ResourceLocation id, ResourceLocation itemId, RtsPluginFamily family,
             Set<RtsFeature> features, int radiusBlocks, boolean fieldDeployment) {
+        this(id, itemId, family, features, radiusBlocks, fieldDeployment, null);
+    }
+
+    public RtsPluginDefinition(ResourceLocation id, ResourceLocation itemId, RtsPluginFamily family,
+            Set<RtsFeature> features, int radiusBlocks, boolean fieldDeployment,
+            RangeMiningHarvestTier harvestTier) {
         this.id = id;
         this.itemId = itemId;
         this.family = family == null ? RtsPluginFamily.UNIQUE : family;
@@ -32,6 +40,7 @@ public final class RtsPluginDefinition {
                 : Collections.unmodifiableSet(EnumSet.copyOf(features));
         this.radiusBlocks = Math.max(0, radiusBlocks);
         this.fieldDeployment = fieldDeployment;
+        this.harvestTier = harvestTier;
     }
 
     public ResourceLocation id() {
@@ -56,6 +65,10 @@ public final class RtsPluginDefinition {
 
     public boolean fieldDeployment() {
         return fieldDeployment;
+    }
+
+    public RangeMiningHarvestTier harvestTier() {
+        return harvestTier;
     }
 
     public boolean enables(RtsFeature feature) {

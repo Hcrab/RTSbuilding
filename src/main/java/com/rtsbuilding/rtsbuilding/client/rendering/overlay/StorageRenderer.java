@@ -15,6 +15,8 @@ import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.phys.AABB;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.world.phys.Vec3;
 
 import java.util.*;
@@ -144,12 +146,15 @@ public final class StorageRenderer {
         long now = System.currentTimeMillis();
 
         List<LinkedStorageEntry> entries = controller.getLinkedStorageEntries();
+        String currentDimension = minecraft.level.dimension().location().toString();
 
         // ── 1. Detect additions / removals ─────────────────────────────────
 
         Set<BlockPos> currPositions = new HashSet<>();
         for (LinkedStorageEntry e : entries) {
-            if (e.worldAvailable() && e.pos() != null) currPositions.add(e.pos());
+            if (e.worldAvailable() && currentDimension.equals(e.dimensionId()) && e.pos() != null) {
+                currPositions.add(e.pos());
+            }
         }
 
         if (!initialised) {
@@ -184,7 +189,7 @@ public final class StorageRenderer {
 
             // Additions → start BINDING (or restart if still UNBINDING).
             for (LinkedStorageEntry e : entries) {
-                if (!e.worldAvailable()) continue;
+                if (!e.worldAvailable() || !currentDimension.equals(e.dimensionId())) continue;
                 BlockPos p = e.pos();
                 if (p == null || prevPositions.contains(p)) continue;
                 StorageAnim existing = anims.get(p);
@@ -236,7 +241,7 @@ public final class StorageRenderer {
         // ── 3. Render currently linked entries (BINDING / BOUND) ────────────
 
         for (LinkedStorageEntry entry : entries) {
-            if (!entry.worldAvailable()) {
+            if (!entry.worldAvailable() || !currentDimension.equals(entry.dimensionId())) {
                 continue;
             }
             BlockPos pos = entry.pos();
@@ -254,9 +259,11 @@ public final class StorageRenderer {
 
             // Determine target bracket colour: pink for extract-only, blue for bidirectional.
             boolean extractOnly = entry.mode() == C2SRtsLinkStoragePayload.MODE_EXTRACT_ONLY;
-            float targetRed = extractOnly ? 1.00F : 0.24F;
-            float targetGreen = extractOnly ? 0.30F : 0.55F;
-            float targetBlue = extractOnly ? 0.82F : 1.00F;
+            UiColor targetColor = extractOnly
+                    ? UiThemeWorldColors.STORAGE_EXTRACT : UiThemeWorldColors.STORAGE_LINK;
+            float targetRed = UiThemeWorldColors.red(targetColor);
+            float targetGreen = UiThemeWorldColors.green(targetColor);
+            float targetBlue = UiThemeWorldColors.blue(targetColor);
 
             // Manage colour-transition animation when the mode switches.
             StorageAnim a = anims.get(pos);

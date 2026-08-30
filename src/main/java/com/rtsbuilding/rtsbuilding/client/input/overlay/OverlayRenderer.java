@@ -2,8 +2,17 @@ package com.rtsbuilding.rtsbuilding.client.input.overlay;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.record.CraftableEntry;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.common.persist.RtsClientUiStateStore;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiBlink;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.BottomPanelCraftStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.ContainerOverlayStyle;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -30,39 +39,55 @@ public final class OverlayRenderer {
             double mouseY,
             OverlayLayout layout,
             ClientRtsController controller) {
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         String header = layout.craftCollapsed() ? "Craft +" : "Craft -";
         g.drawString(font, trimToWidth(font, header, Math.max(8, layout.craftPanelW() - 8)),
-                layout.craftPanelX() + 5, layout.craftPanelY() + 4, 0xEAF2FF, false);
+                layout.craftPanelX() + 5, layout.craftPanelY() + 4,
+                ContainerOverlayStyle.SEARCH_TEXT.toArgb(), false);
         if (layout.craftCollapsed()) {
             return;
         }
 
-        int searchBg = overlayCraftSearchFocused ? 0xAA304153 : 0xAA202731;
-        drawPanelFrame(g, layout.craftSearchX(), layout.craftSearchY(), layout.craftSearchW(), CRAFT_SEARCH_H, searchBg, 0xFF5E738A, 0xFF111921);
+        drawPanelFrame(canvas, layout.craftSearchX(), layout.craftSearchY(),
+                layout.craftSearchW(), CRAFT_SEARCH_H,
+                ContainerOverlayStyle.searchBackground(overlayCraftSearchFocused),
+                BottomPanelCraftStyle.SEARCH_BORDER_LIGHT,
+                BottomPanelCraftStyle.SEARCH_BORDER_DARK);
         String searchText = overlayCraftSearchDraft == null ? "" : overlayCraftSearchDraft;
         String display = trimToWidth(font, searchText, Math.max(10, layout.craftSearchW() - 5));
-        g.drawString(font, display, layout.craftSearchX() + 2, layout.craftSearchY() + 2, 0xEAF2FF, false);
-        if (overlayCraftSearchFocused && (System.currentTimeMillis() / 300L) % 2L == 0L) {
+        g.drawString(font, display, layout.craftSearchX() + 2, layout.craftSearchY() + 2,
+                ContainerOverlayStyle.SEARCH_TEXT.toArgb(), false);
+        if (overlayCraftSearchFocused && UiBlink.caretVisible(SystemUiClock.INSTANCE)) {
             int caretX = layout.craftSearchX() + 2 + font.width(display) + 1;
-            g.fill(caretX, layout.craftSearchY() + 2, caretX + 1, layout.craftSearchY() + CRAFT_SEARCH_H - 2, 0xFFEAF2FF);
+            g.fill(caretX, layout.craftSearchY() + 2, caretX + 1,
+                    layout.craftSearchY() + CRAFT_SEARCH_H - 2,
+                    ContainerOverlayStyle.SEARCH_TEXT.toArgb());
         }
 
         boolean craftSearchDirty = OverlayInteraction.hasPendingOverlayCraftSearch();
-        int applyBg = craftSearchDirty ? 0xAA4C6E39 : 0xAA24303A;
-        drawPanelFrame(g, layout.craftApplyX(), layout.craftSearchY(), CRAFT_APPLY_W, CRAFT_SEARCH_H, applyBg, 0xFF6E8799, 0xFF111821);
+        drawPanelFrame(canvas, layout.craftApplyX(), layout.craftSearchY(),
+                CRAFT_APPLY_W, CRAFT_SEARCH_H,
+                BottomPanelCraftStyle.applyBackground(craftSearchDirty),
+                BottomPanelCraftStyle.BUTTON_BORDER_LIGHT,
+                BottomPanelCraftStyle.BUTTON_BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, font,
                 "OK",
                 layout.craftApplyX() + CRAFT_APPLY_W / 2,
                 layout.craftSearchY() + 2,
-                craftSearchDirty ? 0xFFFFFF : 0xFFB8C7D6);
+                (craftSearchDirty
+                        ? BottomPanelCraftStyle.BUTTON_TEXT
+                        : BottomPanelCraftStyle.BUTTON_TEXT_IDLE).toArgb());
 
-        int toggleBg = controller.isCraftablesShowUnavailable() ? 0xAA5A3D2A : 0xAA2C5A41;
-        drawPanelFrame(g, layout.craftToggleX(), layout.craftSearchY(), CRAFT_TOGGLE_W, CRAFT_SEARCH_H, toggleBg, 0xFF667D95, 0xFF111821);
+        drawPanelFrame(canvas, layout.craftToggleX(), layout.craftSearchY(),
+                CRAFT_TOGGLE_W, CRAFT_SEARCH_H,
+                BottomPanelCraftStyle.toggleBackground(controller.isCraftablesShowUnavailable()),
+                BottomPanelCraftStyle.TOGGLE_BORDER_LIGHT,
+                BottomPanelCraftStyle.BUTTON_BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, font,
                 controller.isCraftablesShowUnavailable() ? "ALL" : "MAKE",
                 layout.craftToggleX() + CRAFT_TOGGLE_W / 2,
                 layout.craftSearchY() + 2,
-                0xFFFFFF);
+                BottomPanelCraftStyle.BUTTON_TEXT.toArgb());
 
         List<CraftableEntry> entries = controller.getCraftableEntries();
         int maxScroll = OverlayInteraction.maxOverlayCraftScroll(controller, layout.craftVisibleRows());
@@ -74,11 +99,12 @@ public final class OverlayRenderer {
                 int index = startIndex + row * CRAFT_COLS + col;
                 int slotX = layout.craftPanelX() + 4 + col * CRAFT_PITCH;
                 int slotY = layout.craftGridY() + row * CRAFT_PITCH;
-                int fill = 0xAA1A212B;
-                if (index < entries.size()) {
-                    fill = entries.get(index).craftable() ? 0xAA214131 : 0xAA3F2323;
-                }
-                drawPanelFrame(g, slotX, slotY, CRAFT_SLOT, CRAFT_SLOT, fill, 0xFF596D84, 0xFF11171E);
+                boolean present = index < entries.size();
+                boolean available = present && entries.get(index).craftable();
+                drawPanelFrame(canvas, slotX, slotY, CRAFT_SLOT, CRAFT_SLOT,
+                        BottomPanelCraftStyle.slotBackground(present, available),
+                        BottomPanelCraftStyle.SLOT_BORDER_LIGHT,
+                        BottomPanelCraftStyle.SLOT_BORDER_DARK);
                 if (index >= entries.size()) {
                     continue;
                 }
@@ -86,13 +112,19 @@ public final class OverlayRenderer {
                 CraftableEntry entry = entries.get(index);
                 g.renderItem(entry.stack(), slotX + 1, slotY + 1);
                 if (entry.resultCount() > 1) {
-                    drawSlotCountOverlay(g, font, slotX, slotY, CRAFT_SLOT, RtsClientUiUtil.compactCount(entry.resultCount()), 0xFFE8F4FF);
+                    drawSlotCountOverlay(g, font, slotX, slotY, CRAFT_SLOT,
+                            RtsClientUiUtil.compactCount(entry.resultCount()),
+                            BottomPanelCraftStyle.SLOT_COUNT);
                 }
                 if (!entry.craftable()) {
-                    g.fill(slotX + 1, slotY + 1, slotX + CRAFT_SLOT - 1, slotY + CRAFT_SLOT - 1, 0x44220000);
+                    g.fill(slotX + 1, slotY + 1, slotX + CRAFT_SLOT - 1,
+                            slotY + CRAFT_SLOT - 1,
+                            BottomPanelCraftStyle.SLOT_UNAVAILABLE_OVERLAY.toArgb());
                 }
                 if (inside(mouseX, mouseY, slotX, slotY, CRAFT_SLOT, CRAFT_SLOT)) {
-                    g.fill(slotX + 1, slotY + 1, slotX + CRAFT_SLOT - 1, slotY + CRAFT_SLOT - 1, 0x22FFFFFF);
+                    g.fill(slotX + 1, slotY + 1, slotX + CRAFT_SLOT - 1,
+                            slotY + CRAFT_SLOT - 1,
+                            BottomPanelCraftStyle.SLOT_HOVER_OVERLAY.toArgb());
                 }
             }
         }
@@ -103,12 +135,16 @@ public final class OverlayRenderer {
     // =========================================================================
 
     public static void renderOverlayInfoButton(GuiGraphics g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
-        int bg = overlayInfoOpen || inside(mouseX, mouseY, layout.infoX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H)
-                ? 0xAA3E5368
-                : 0xAA24303A;
-        drawPanelFrame(g, layout.infoX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H, bg, 0xFF6E8799, 0xFF111821);
+        boolean active = overlayInfoOpen || inside(mouseX, mouseY, layout.infoX(),
+                layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H);
+        drawPanelFrame(g, font, layout.infoX(), layout.controlsY(),
+                OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H,
+                ContainerOverlayStyle.controlBackground(active),
+                ContainerOverlayStyle.BUTTON_BORDER_LIGHT,
+                ContainerOverlayStyle.BUTTON_BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "i",
-                layout.infoX() + OVERLAY_BOTTOM_SMALL_W / 2, layout.controlsY() + 2, 0xFFEAF2FF);
+                layout.infoX() + OVERLAY_BOTTOM_SMALL_W / 2, layout.controlsY() + 2,
+                ContainerOverlayStyle.SEARCH_TEXT.toArgb());
     }
 
     // =========================================================================
@@ -118,19 +154,23 @@ public final class OverlayRenderer {
     public static void renderOverlayShiftImportButton(GuiGraphics g, Font font, OverlayLayout layout, double mouseX, double mouseY) {
         boolean enabled = RtsClientUiStateStore.isOverlayShiftImportEnabled();
         boolean hovered = inside(mouseX, mouseY, layout.shiftImportX(), layout.returnY(), layout.shiftImportW(), SLOT_SIZE);
-        int bg = enabled
-                ? hovered ? 0xCC3AA156 : 0xCC2C873F
-                : hovered ? 0xAA3E5368 : 0xAA24303A;
-        int light = enabled ? 0xFF74E88C : 0xFF6E8799;
-        int dark = enabled ? 0xFF123A1D : 0xFF111821;
-        drawPanelFrame(g, layout.shiftImportX(), layout.returnY(), layout.shiftImportW(), SLOT_SIZE, bg, light, dark);
+        UiColor light = enabled
+                ? ContainerOverlayStyle.SHIFT_IMPORT_BORDER_LIGHT
+                : ContainerOverlayStyle.BUTTON_BORDER_LIGHT;
+        UiColor dark = enabled
+                ? ContainerOverlayStyle.SHIFT_IMPORT_BORDER_DARK
+                : ContainerOverlayStyle.BUTTON_BORDER_DARK;
+        drawPanelFrame(g, font, layout.shiftImportX(), layout.returnY(),
+                layout.shiftImportW(), SLOT_SIZE,
+                ContainerOverlayStyle.shiftImportBackground(enabled, hovered),
+                light, dark);
         RtsClientUiUtil.drawCenteredStringNoShadow(
                 g,
                 font,
                 Component.translatable("screen.rtsbuilding.overlay.shift_import_button").getString(),
                 layout.shiftImportX() + layout.shiftImportW() / 2,
                 layout.returnY() + 4,
-                0xFFEAF2FF);
+                ContainerOverlayStyle.SEARCH_TEXT.toArgb());
     }
 
     // =========================================================================
@@ -162,12 +202,15 @@ public final class OverlayRenderer {
             double mouseY,
             ClientRtsController controller) {
         boolean hovered = inside(mouseX, mouseY, layout.refreshX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H);
-        int bg = controller.isStorageScanRunning()
-                ? 0xAA3F627E
-                : hovered ? 0xAA3E5368 : 0xAA24303A;
-        drawPanelFrame(g, layout.refreshX(), layout.controlsY(), OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H, bg, 0xFF6E8799, 0xFF111821);
+        drawPanelFrame(g, font, layout.refreshX(), layout.controlsY(),
+                OVERLAY_BOTTOM_SMALL_W, OVERLAY_BOTTOM_BUTTON_H,
+                ContainerOverlayStyle.refreshBackground(
+                        controller.isStorageScanRunning(), hovered),
+                ContainerOverlayStyle.BUTTON_BORDER_LIGHT,
+                ContainerOverlayStyle.BUTTON_BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "R",
-                layout.refreshX() + OVERLAY_BOTTOM_SMALL_W / 2, layout.controlsY() + 2, 0xFFEAF2FF);
+                layout.refreshX() + OVERLAY_BOTTOM_SMALL_W / 2, layout.controlsY() + 2,
+                ContainerOverlayStyle.SEARCH_TEXT.toArgb());
     }
 
     // =========================================================================
@@ -215,20 +258,31 @@ public final class OverlayRenderer {
         OverlayInfoRect rect = resolveOverlayInfoRect(font, layout);
         List<Component> lines = overlayInfoLines();
 
-        drawPanelFrame(g, rect.x(), rect.y(), rect.w(), rect.h(), 0xF0182028, 0xFF7489A0, 0xFF0B1016);
+        UiChromeRenderer.frame(new MinecraftUiCanvas(g, font),
+                new UiRect(rect.x(), rect.y(), rect.w(), rect.h()), 1.0D,
+                ContainerOverlayStyle.WINDOW_BACKGROUND,
+                ContainerOverlayStyle.WINDOW_BORDER_LIGHT,
+                ContainerOverlayStyle.WINDOW_BORDER_DARK);
         g.fill(rect.x() + 1, rect.y() + 1, rect.x() + rect.w() - 1,
-                rect.y() + OVERLAY_INFO_TITLE_H, 0xCC233345);
+                rect.y() + OVERLAY_INFO_TITLE_H,
+                ContainerOverlayStyle.WINDOW_TITLE.toArgb());
         g.drawString(font, Component.translatable("screen.rtsbuilding.overlay.help.title"),
-                rect.x() + 7, rect.y() + 5, 0xF2F7FF, false);
-        drawPanelFrame(g, rect.closeX(), rect.closeY(), OVERLAY_INFO_CLOSE_SIZE, OVERLAY_INFO_CLOSE_SIZE,
-                0xCC2B3440, 0xFF7F92A8, 0xFF0D1117);
+                rect.x() + 7, rect.y() + 5,
+                ContainerOverlayStyle.WINDOW_TITLE_TEXT.toArgb(), false);
+        drawPanelFrame(g, font, rect.closeX(), rect.closeY(),
+                OVERLAY_INFO_CLOSE_SIZE, OVERLAY_INFO_CLOSE_SIZE,
+                ContainerOverlayStyle.INFO_CLOSE_BACKGROUND,
+                ContainerOverlayStyle.INFO_CLOSE_BORDER_LIGHT,
+                RtsMainlineTheme.WINDOW_BORDER_DARK);
         RtsClientUiUtil.drawCenteredStringNoShadow(g, font, "x",
-                rect.closeX() + OVERLAY_INFO_CLOSE_SIZE / 2, rect.closeY() + 2, 0xF2F7FF);
+                rect.closeX() + OVERLAY_INFO_CLOSE_SIZE / 2, rect.closeY() + 2,
+                ContainerOverlayStyle.WINDOW_TITLE_TEXT.toArgb());
 
         int textY = rect.y() + OVERLAY_INFO_TITLE_H + 5;
         for (Component line : lines) {
             for (var splitLine : font.split(line, rect.w() - 12)) {
-                g.drawString(font, splitLine, rect.x() + 6, textY, 0xFFD8E6F5, false);
+                g.drawString(font, splitLine, rect.x() + 6, textY,
+                        ContainerOverlayStyle.INFO_BODY_TEXT.toArgb(), false);
                 textY += 9;
             }
         }
@@ -240,28 +294,34 @@ public final class OverlayRenderer {
 
     public static void renderQuickbar(GuiGraphics g, Font font, int x, int y) {
         ClientRtsController controller = ClientRtsController.get();
+        MinecraftUiCanvas canvas = new MinecraftUiCanvas(g, font);
         for (int i = 0; i < QUICKBAR_SLOTS; i++) {
             int cx = x + i * SLOT_PITCH;
             int cy = y;
             ItemStack preview = controller.getQuickSlotPreview(i);
             String itemId = controller.getQuickSlotItemId(i);
             boolean filled = itemId != null && !itemId.isBlank();
-            int bg = filled ? 0xAA253043 : 0xAA1A1A1A;
-            g.fill(cx, cy, cx + SLOT_SIZE, cy + SLOT_SIZE, bg);
-            g.hLine(cx, cx + SLOT_SIZE, cy, 0xFF67758A);
-            g.hLine(cx, cx + SLOT_SIZE, cy + SLOT_SIZE, 0xFF0C0D10);
-            g.vLine(cx, cy, cy + SLOT_SIZE, 0xFF67758A);
-            g.vLine(cx + SLOT_SIZE, cy, cy + SLOT_SIZE, 0xFF0C0D10);
+            drawPanelFrame(canvas, cx, cy, SLOT_SIZE, SLOT_SIZE,
+                    filled
+                            ? ContainerOverlayStyle.QUICK_SLOT_FILLED
+                            : ContainerOverlayStyle.QUICK_SLOT_EMPTY,
+                    ContainerOverlayStyle.QUICK_SLOT_BORDER_LIGHT,
+                    ContainerOverlayStyle.QUICK_SLOT_BORDER_DARK);
 
             if (!preview.isEmpty()) {
                 g.renderItem(preview, cx + 1, cy + 1);
                 if (itemId.equals(controller.getSelectedItemId())) {
-                    g.fill(cx + 1, cy + 1, cx + SLOT_SIZE - 1, cy + SLOT_SIZE - 1, 0x3340FF80);
+                    g.fill(cx + 1, cy + 1, cx + SLOT_SIZE - 1, cy + SLOT_SIZE - 1,
+                            ContainerOverlayStyle.QUICK_SLOT_SELECTED.toArgb());
                 }
-                drawSlotCountOverlay(g, font, cx, cy, SLOT_SIZE, RtsClientUiUtil.compactCount(OverlayInteraction.resolvePinnedItemCount(itemId)), 0xFFF7E6A8);
+                drawSlotCountOverlay(g, font, cx, cy, SLOT_SIZE,
+                        RtsClientUiUtil.compactCount(
+                                OverlayInteraction.resolvePinnedItemCount(itemId)),
+                        ContainerOverlayStyle.STORAGE_COUNT);
             } else {
                 RtsClientUiUtil.drawCenteredStringNoShadow(g, font, Integer.toString(i + 1),
-                        cx + SLOT_SIZE / 2, cy + 5, 0x88D0D8E4);
+                        cx + SLOT_SIZE / 2, cy + 5,
+                        ContainerOverlayStyle.QUICK_SLOT_EMPTY_TEXT.toArgb());
             }
         }
     }

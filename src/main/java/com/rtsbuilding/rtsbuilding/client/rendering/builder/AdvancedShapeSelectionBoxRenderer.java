@@ -5,6 +5,7 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.rendering.selection.RtsBoxHandleRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingBox;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.world.phys.AABB;
@@ -30,12 +31,15 @@ public final class AdvancedShapeSelectionBoxRenderer {
         }
         if (!screen.isQuickBuildRangeDestroyMode()) {
             AABB outline = renderBox.inflate(0.015D);
+            float red = UiThemeWorldColors.red(UiThemeWorldColors.SHAPE_SELECTION);
+            float green = UiThemeWorldColors.green(UiThemeWorldColors.SHAPE_SELECTION);
+            float blue = UiThemeWorldColors.blue(UiThemeWorldColors.SHAPE_SELECTION);
             LevelRenderer.renderLineBox(
                     poseStack,
                     handleLineBuffer,
                     outline.minX, outline.minY, outline.minZ,
                     outline.maxX, outline.maxY, outline.maxZ,
-                    0.30F, 0.75F, 1.00F, 0.82F);
+                    red, green, blue, 0.82F);
         }
         if (!screen.isAdvancedShapeMode()) {
             return;

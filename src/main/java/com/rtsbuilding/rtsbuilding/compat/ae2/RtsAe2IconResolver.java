@@ -37,6 +37,38 @@ public final class RtsAe2IconResolver {
     private RtsAe2IconResolver() {
     }
 
+    /**
+     * 判断一个 AE2 网络节点位置是否包含玩家实际使用的终端部件。
+     *
+     * <p>AE2 终端通常是 cable bus 内的 part，而不是独立方块，因此不能只检查方块注册名。
+     * 这里复用 GUI 图标解析所需的最小反射边界，只检查类型和显示名，不打开菜单也不读取网络库存。</p>
+     */
+    public static boolean isTerminalPosition(Level level, BlockPos pos) {
+        if (level == null || pos == null || !ModList.get().isLoaded("ae2") || !level.hasChunkAt(pos)) {
+            return false;
+        }
+        BlockState state = level.getBlockState(pos);
+        ResourceLocation blockId = BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        if (blockId != null && looksLikeTerminal(blockId.getPath())) {
+            return true;
+        }
+
+        BlockEntity blockEntity = level.getBlockEntity(pos);
+        MenuProvider provider = state.getMenuProvider(level, pos);
+        if (provider == null && blockEntity instanceof MenuProvider menuProvider) {
+            provider = menuProvider;
+        }
+        if (looksLikeTerminal(provider) || looksLikeTerminal(blockEntity)) {
+            return true;
+        }
+        for (Direction direction : Direction.values()) {
+            if (looksLikeTerminal(resolveDirectionalPart(blockEntity, direction))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static String resolveGuiBindingIconItemId(Level level, BlockPos pos, Direction face, String labelHint) {
         if (level == null || pos == null || !ModList.get().isLoaded("ae2") || !level.hasChunkAt(pos)) {
             return "";
@@ -87,6 +119,22 @@ public final class RtsAe2IconResolver {
         }
         Method method = findMethod(blockEntity.getClass(), "getPart", Direction.class);
         return method == null ? null : invokeReflectively(method, blockEntity, face);
+    }
+
+    private static boolean looksLikeTerminal(Object candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        if (looksLikeTerminal(candidate.getClass().getName())) {
+            return true;
+        }
+        return candidate instanceof MenuProvider provider
+                && provider.getDisplayName() != null
+                && looksLikeTerminal(provider.getDisplayName().getString());
+    }
+
+    private static boolean looksLikeTerminal(String value) {
+        return value != null && value.toLowerCase(Locale.ROOT).contains("terminal");
     }
 
     private static Method findMethod(Class<?> owner, String name, Class<?>... parameterTypes) {

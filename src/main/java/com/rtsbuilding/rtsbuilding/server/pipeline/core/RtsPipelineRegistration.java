@@ -4,15 +4,12 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlueprintExecutePip
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlueprintPersistence;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlueprintTickPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.mining.*;
-import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PendingPlacementPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.placement.PlacementExecutePipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.sync.NetworkSyncPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.sync.UiRefreshPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.ProgressionGatePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionDimensionPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
-import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowProgressPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.workflow.WorkflowStartPipe;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
@@ -37,7 +34,8 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
  * <pre>{@code
  * MINE_SINGLE:
  *   ProgressionGate(REMOTE_BREAK) → SessionValidate → SessionDimension →
- *   StopPrevious → WorkflowStart → ToolBorrow → MiningExecute → UiRefresh
+ *   StopPrevious → TrackedPlacedRecovery → WorkflowStart → ToolBorrow →
+ *   MiningExecute → UiRefresh
  *   [然后异步：tickActiveMining → finalizeMiningOperation 完成工作流，
  *    归还工具，并触发 COMPLETED 事件（真正完成，条目移除）]
  *
@@ -45,7 +43,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
  *   ProgressionGate → SessionValidate → SessionDimension → StopPrevious →
  *   ToolBorrow → WorkflowStart → UltimineExecute → WorkflowProgress →
  *   NetworkSync → UiRefresh
- *   [然后可 Tick：UltimineTickPipe] // 异步逐 Tick 监控
+ *   [然后由统一 Task Engine 异步推进]
  *
  * PLACE_SINGLE / QUICK_BUILD:
  *   SessionValidate → WorkflowStart → PlacementExecute → UiRefresh
@@ -91,8 +89,8 @@ public final class RtsPipelineRegistration {
      * MINE_SINGLE —— 单方块远程挖掘。
      *
      * <p>标准管道流程：功能门控 → 会话 →
-     * 维度 → 停止前一个 → 启动工作流 → 借用工具 →
-     * 执行 → 刷新 UI。
+     * 维度 → 停止前一个 → 已追踪瞬时回收 → 启动工作流 →
+     * 借用工具 → 执行 → 刷新 UI。
      *
      * <p>工作流完成、工具归还和历史记录在方块实际被破坏后
      * <b>异步</b>发生：
@@ -109,6 +107,7 @@ public final class RtsPipelineRegistration {
                 .pipe(new SessionValidatePipe())
                 .pipe(new SessionDimensionPipe())
                 .pipe(new StopPreviousPipe(false))
+                .pipe(new TrackedPlacedRecoveryPipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.MINE_SINGLE, RtsWorkflowPriority.NORMAL))
                 .pipe(new ToolBorrowPipe())
                 .pipe(new MiningExecutePipe())
@@ -123,9 +122,9 @@ public final class RtsPipelineRegistration {
      * <p>同步阶段包括：功能门控 → 会话 → 维度 → 停止
      * 前一个 → 借用工具 → 启动工作流 → 执行（目标收集、
      * 状态设置、beginRemoteMining）。同步成功后，
-     * {@link UltimineTickPipe} 每个服务器 Tick 运行，监控批处理
+     * 统一 Task Engine 每个服务器 Tick 在全局预算内推进批处理
      * 进度并在所有目标处理完成时完成工作流。
-     * 可 Tick 管道自动注册到 {@link TickablePipelineRegistry}
+     * 任务由统一 Task Engine 持有和调度
      * 并在完成时清理。</p>
      */
     private static void registerUltimine() {
@@ -137,10 +136,8 @@ public final class RtsPipelineRegistration {
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.ULTIMINE, RtsWorkflowPriority.HIGH))
                 .pipe(new ToolBorrowPipe())
                 .pipe(new UltimineExecutePipe(RtsWorkflowType.ULTIMINE))
-                .pipe(new WorkflowProgressPipe(0))
-                .pipe(new NetworkSyncPipe())
                 .pipe(new UiRefreshPipe())
-                .tickable(new UltimineTickPipe())
+                .asyncCompletion()
                 .register();
     }
 
@@ -153,25 +150,23 @@ public final class RtsPipelineRegistration {
      */
     private static void registerAreaMine() {
         PipelineRegistry.miningPipeline(RtsWorkflowType.AREA_MINE)
-                .pipe(new ProgressionGatePipe(RtsFeature.ULTIMINE))
+                .pipe(new ProgressionGatePipe(RtsFeature.AREA_MINE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new SessionDimensionPipe())
                 .pipe(new StopPreviousPipe(true))
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.AREA_MINE, RtsWorkflowPriority.HIGH))
                 .pipe(new ToolBorrowPipe())
                 .pipe(new UltimineExecutePipe(RtsWorkflowType.AREA_MINE))
-                .pipe(new WorkflowProgressPipe(0))
-                .pipe(new NetworkSyncPipe())
                 .pipe(new UiRefreshPipe())
-                .tickable(new UltimineTickPipe())
+                .asyncCompletion()
                 .register();
     }
 
     /**
-     * AREA_DESTROY —— 从快速构建预览中破坏形状（异步队列驱动）。
+     * AREA_DESTROY —— 从快速构建预览中破坏形状（TaskStore 驱动）。
      *
-     * <p>对齐范围放置的架构：Pipeline 仅负责入队到 {@code destroyJobs} 队列，
-     * 实际破坏由 {@link RtsDestructionBatch#tickDestroyJobs} 在每 tick 中处理。
+     * <p>Pipeline 只负责校验、借用工具与提交 durable task；
+     * 实际破坏由统一任务引擎在每 tick 的双预算内处理。
      * 采用 {@code asyncCompletion} 生命周期，不再使用 tickable 监控。
      * 工具借用、工作流启动仍发生在 Pipeline 同步阶段；
      * 工作流条目的完成和工具归还在 tick 处理中异步完成。</p>
@@ -204,6 +199,7 @@ public final class RtsPipelineRegistration {
      */
     private static void registerPlaceSingle() {
         PipelineRegistry.placementPipeline(RtsWorkflowType.PLACE_SINGLE)
+                .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_PLACE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.PLACE_SINGLE, RtsWorkflowPriority.NORMAL))
                 .pipe(new PlacementExecutePipe())
@@ -215,15 +211,14 @@ public final class RtsPipelineRegistration {
     /**
      * PLACE_BATCH —— 多方块批处理放置（交互式）。
      *
-     * <p>与 PLACE_SINGLE 相同，但添加了 {@link PendingPlacementPipe}
-     * 以在新批处理入队后尝试恢复挂起的作业。</p>
+     * <p>与 PLACE_SINGLE 相同；挂起任务只在相关物品变化或玩家显式重试时恢复。</p>
      */
     private static void registerPlaceBatch() {
         PipelineRegistry.placementPipeline(RtsWorkflowType.PLACE_BATCH)
+                .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_PLACE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.PLACE_BATCH, RtsWorkflowPriority.NORMAL))
                 .pipe(new PlacementExecutePipe())
-                .pipe(new PendingPlacementPipe())
                 .pipe(new UiRefreshPipe())
                 .asyncCompletion()
                 .register();
@@ -239,6 +234,7 @@ public final class RtsPipelineRegistration {
      */
     private static void registerQuickBuild() {
         PipelineRegistry.placementPipeline(RtsWorkflowType.QUICK_BUILD)
+                .pipe(new ProgressionGatePipe(RtsFeature.REMOTE_PLACE))
                 .pipe(new SessionValidatePipe())
                 .pipe(new WorkflowStartPipe(RtsWorkflowType.QUICK_BUILD, RtsWorkflowPriority.NORMAL))
                 .pipe(new PlacementExecutePipe())
@@ -259,17 +255,15 @@ public final class RtsPipelineRegistration {
      *
      * <p>同步成功后，{@link BlueprintTickPipe} 每个服务器 Tick 运行，
      * 逐步放置蓝图中的方块，并在所有方块放置完成时完成工作流。
-     * 可 Tick 管道自动注册到 {@link TickablePipelineRegistry}
+     * 蓝图任务由统一 Task Engine 持有和调度
      * 并在完成时清理。</p>
      */
     private static void registerBlueprintBuild() {
         PipelineRegistry.register(RtsWorkflowType.BLUEPRINT_BUILD)
                 .pipe(new ProgressionGatePipe(RtsFeature.BLUEPRINTS))
                 .pipe(new SessionValidatePipe())
-                .pipe(new WorkflowStartPipe(RtsWorkflowType.BLUEPRINT_BUILD, RtsWorkflowPriority.NORMAL))
                 .pipe(new BlueprintExecutePipe())
-                .pipe(new UiRefreshPipe())
-                .tickable(new BlueprintTickPipe())
+                .asyncCompletion()
                 .register();
     }
 

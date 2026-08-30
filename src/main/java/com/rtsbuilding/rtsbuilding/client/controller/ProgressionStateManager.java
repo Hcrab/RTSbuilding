@@ -76,6 +76,7 @@ public final class ProgressionStateManager {
         }
         RtsClientPacketGateway.sendSetSurvivalProgression(enabled);
         RtsClientPacketGateway.sendRequestProgressionState();
+        RtsClientPacketGateway.sendRequestPlugins();
     }
 
     public void setHome(BlockPos pos) {

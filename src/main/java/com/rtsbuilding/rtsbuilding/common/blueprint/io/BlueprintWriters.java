@@ -199,33 +199,33 @@ public final class BlueprintWriters {
         root.put("size", sizeTag);
 
         // 构建调色板：为每种方块状态分配一个唯一整数 ID
-        Map<BlockState, Integer> paletteIds = new LinkedHashMap<>();
+        Map<PaletteKey, Integer> paletteIds = new LinkedHashMap<>();
         for (RtsBlueprintBlock block : blueprint.blocks()) {
-            if (block.isMissingBlock()) {
-                continue;
-            }
-            paletteIds.computeIfAbsent(block.state(), ignored -> paletteIds.size());
+            paletteIds.computeIfAbsent(PaletteKey.of(block), ignored -> paletteIds.size());
         }
 
         ListTag palette = new ListTag();
-        for (BlockState state : paletteIds.keySet()) {
-            palette.add(NbtUtils.writeBlockState(state));
+        for (PaletteKey key : paletteIds.keySet()) {
+            if (!key.missingBlockId().isBlank()) {
+                CompoundTag missing = new CompoundTag();
+                missing.putString("Name", key.missingBlockId());
+                palette.add(missing);
+            } else {
+                palette.add(NbtUtils.writeBlockState(key.state()));
+            }
         }
         root.put("palette", palette);
 
         // 写出每个方块的位置、调色板索引、材料和 NBT
         ListTag blocks = new ListTag();
         for (RtsBlueprintBlock block : blueprint.blocks()) {
-            if (block.isMissingBlock()) {
-                continue;
-            }
             CompoundTag blockTag = new CompoundTag();
             ListTag pos = new ListTag();
             pos.add(IntTag.valueOf(block.relativePos().getX()));
             pos.add(IntTag.valueOf(block.relativePos().getY()));
             pos.add(IntTag.valueOf(block.relativePos().getZ()));
             blockTag.put("pos", pos);
-            blockTag.putInt("state", paletteIds.getOrDefault(block.state(), 0));
+            blockTag.putInt("state", paletteIds.getOrDefault(PaletteKey.of(block), 0));
             if (block.materialItemId() != null && !block.materialItemId().isBlank()) {
                 blockTag.putString("rtsbuilding_material_item", block.materialItemId());
             }
@@ -236,6 +236,15 @@ public final class BlueprintWriters {
         }
         root.put("blocks", blocks);
         return root;
+    }
+
+    /** 缺失方块也必须保留在 durable blob 中，否则恢复后的 blockCount/游标会漂移。 */
+    private record PaletteKey(BlockState state, String missingBlockId) {
+        static PaletteKey of(RtsBlueprintBlock block) {
+            return block.isMissingBlock()
+                    ? new PaletteKey(Blocks.AIR.defaultBlockState(), block.missingBlockId())
+                    : new PaletteKey(block.state(), "");
+        }
     }
 
     /** 复制方块实体的 NBT 标签 */

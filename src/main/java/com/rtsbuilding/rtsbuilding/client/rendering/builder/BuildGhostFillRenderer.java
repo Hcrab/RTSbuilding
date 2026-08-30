@@ -2,6 +2,8 @@ package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 
@@ -37,17 +39,22 @@ public final class BuildGhostFillRenderer {
         float fillA = readyConfirm ? 0.22F : 0.16F;
 
         for (BlockPos pos : blocks) {
-            double minX = pos.getX() + 0.03D;
-            double minY = pos.getY() + 0.03D;
-            double minZ = pos.getZ() + 0.03D;
-            double maxX = pos.getX() + 0.97D;
-            double maxY = pos.getY() + 0.97D;
-            double maxZ = pos.getZ() + 0.97D;
-            LevelRenderer.addChainedFilledBoxVertices(
-                    poseStack, fillBuffer,
-                    minX, minY, minZ,
-                    maxX, maxY, maxZ,
-                    fillR, fillG, fillB, fillA);
+            poseStack.pushPose();
+            try {
+                Minecraft minecraft = Minecraft.getInstance();
+                boolean localFrame = minecraft.level != null
+                        && RtsSableClientSpatialCompat.applyBlockRenderFrame(minecraft.level, pos, poseStack);
+                double baseX = localFrame ? 0.0D : pos.getX();
+                double baseY = localFrame ? 0.0D : pos.getY();
+                double baseZ = localFrame ? 0.0D : pos.getZ();
+                LevelRenderer.addChainedFilledBoxVertices(
+                        poseStack, fillBuffer,
+                        baseX + 0.03D, baseY + 0.03D, baseZ + 0.03D,
+                        baseX + 0.97D, baseY + 0.97D, baseZ + 0.97D,
+                        fillR, fillG, fillB, fillA);
+            } finally {
+                poseStack.popPose();
+            }
         }
     }
 }

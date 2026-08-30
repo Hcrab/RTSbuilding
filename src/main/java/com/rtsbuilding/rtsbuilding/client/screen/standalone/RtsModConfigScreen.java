@@ -2,12 +2,16 @@ package com.rtsbuilding.rtsbuilding.client.screen.standalone;
 
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.server.service.mining.RangeMiningHarvestTier;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uikit.theme.StandaloneScreenStyle;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.Mth;
+import org.lwjgl.glfw.GLFW;
 
 public final class RtsModConfigScreen extends Screen {
     private static final int CONTENT_MAX_W = 720;
@@ -16,12 +20,18 @@ public final class RtsModConfigScreen extends Screen {
     private static final int OPTION_ROW_H = 38;
     private static final int SECTION_H = 18;
     private static final int SCROLL_STEP = 24;
+    private static final int DIALOG_W = 360;
+    private static final int DIALOG_H = 132;
+    private static final int DIALOG_TITLE_H = 26;
+    private static final int DIALOG_BTN_H = 20;
 
     private final Screen parent;
 
     private boolean survivalEnabled = Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean();
     private boolean shareWithTeams = Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.getAsBoolean();
     private boolean blueprintsEnabled = Config.ENABLE_BLUEPRINTS.getAsBoolean();
+    private boolean developerMode = Config.isDeveloperModeEnabled();
+    private boolean inventoryRtsButtonEnabled = Config.isInventoryRtsButtonEnabled();
     private String draftMaxRadius = Integer.toString(Config.maxActionRadiusBlocks());
     private String draftMaxBlueprintBlocks = Integer.toString(Config.maxBlueprintBlocks());
     private String draftAreaMineMaxWidth = Integer.toString(Config.areaMineMaxWidth());
@@ -29,6 +39,7 @@ public final class RtsModConfigScreen extends Screen {
     private String draftAreaMineMaxDepth = Integer.toString(Config.areaMineMaxDepth());
     private String draftAreaMineMaxVolume = Integer.toString(Config.areaMineMaxVolume());
     private String draftAreaDestroyMaxTargets = Integer.toString(Config.areaDestroyMaxTargets());
+    private RangeMiningHarvestTier areaMineMaxHarvestTier = Config.areaMineMaxHarvestTier();
     private EditBox maxRadiusBox;
     private EditBox maxBlueprintBlocksBox;
     private EditBox areaMineMaxWidthBox;
@@ -37,6 +48,7 @@ public final class RtsModConfigScreen extends Screen {
     private EditBox areaMineMaxVolumeBox;
     private EditBox areaDestroyMaxTargetsBox;
     private int scroll;
+    private boolean confirmDialog;
 
     public RtsModConfigScreen(Screen parent) {
         super(Component.translatable("config.rtsbuilding.title"));
@@ -51,10 +63,48 @@ public final class RtsModConfigScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
         renderPageBackground(g);
-        g.drawCenteredString(this.font, this.title, this.width / 2, 14, 0xFFFFFFFF);
+        g.drawCenteredString(this.font, this.title, this.width / 2, 14,
+                StandaloneScreenStyle.TITLE_TEXT.toArgb());
         drawGeneralPage(g);
         drawScrollbar(g);
         super.render(g, mouseX, mouseY, partialTick);
+        if (this.confirmDialog) {
+            renderConfirmDialog(g);
+        }
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (this.confirmDialog) {
+            if (button == 0) {
+                UiRect rect = dialogRect();
+                if (rect.contains(mouseX, mouseY)) {
+                    if (dialogButtonRect(rect, 0).contains(mouseX, mouseY)) {
+                        saveAndClose();
+                    } else if (dialogButtonRect(rect, 1).contains(mouseX, mouseY)) {
+                        this.confirmDialog = false;
+                        this.minecraft.setScreen(this.parent);
+                    } else if (dialogButtonRect(rect, 2).contains(mouseX, mouseY)) {
+                        this.confirmDialog = false;
+                    }
+                }
+            }
+            return true;
+        }
+        return super.mouseClicked(mouseX, mouseY, button);
+    }
+
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+            if (this.confirmDialog) {
+                this.confirmDialog = false;
+            } else {
+                requestClose();
+            }
+            return true;
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
@@ -152,6 +202,16 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H + 6 + SECTION_H;
 
         if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.inventoryRtsButtonEnabled
+                    ? "config.rtsbuilding.enabled"
+                    : "config.rtsbuilding.disabled"), btn -> {
+                this.inventoryRtsButtonEnabled = !this.inventoryRtsButtonEnabled;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
+        y += OPTION_ROW_H + 6 + SECTION_H;
+
+        if (fullyVisible(y, OPTION_ROW_H)) {
             this.areaMineMaxWidthBox = addIntegerBox(controlX, y, controlW,
                     Component.translatable("config.rtsbuilding.area_mine_max_width"), this.draftAreaMineMaxWidth, 3);
         }
@@ -180,14 +240,34 @@ public final class RtsModConfigScreen extends Screen {
                     Component.translatable("config.rtsbuilding.area_destroy_max_targets"),
                     this.draftAreaDestroyMaxTargets, 6);
         }
+        y += OPTION_ROW_H;
+
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(
+                    Component.translatable("config.rtsbuilding.harvest_tier."
+                            + this.areaMineMaxHarvestTier.name().toLowerCase()),
+                    btn -> {
+                        this.areaMineMaxHarvestTier = this.areaMineMaxHarvestTier.next();
+                        rebuildConfigWidgets();
+                    }).bounds(controlX, y + 9, controlW, 20).build());
+        }
+        y += OPTION_ROW_H + 6 + SECTION_H;
+
+        if (fullyVisible(y, OPTION_ROW_H)) {
+            addRenderableWidget(Button.builder(Component.translatable(this.developerMode
+                    ? "config.rtsbuilding.enabled" : "config.rtsbuilding.disabled"), btn -> {
+                this.developerMode = !this.developerMode;
+                rebuildConfigWidgets();
+            }).bounds(controlX, y + 9, controlW, 20).build());
+        }
     }
 
     private EditBox addIntegerBox(int x, int y, int width, Component label, String value, int maxLength) {
         EditBox box = new EditBox(this.font, x, y + 10, width, 18, label);
         box.setMaxLength(maxLength);
         box.setValue(value);
-        box.setTextColor(0xFFFFFFFF);
-        box.setTextColorUneditable(0xFFB8C7D6);
+        box.setTextColor(StandaloneScreenStyle.TITLE_TEXT.toArgb());
+        box.setTextColorUneditable(StandaloneScreenStyle.INFO_EMPTY.toArgb());
         addRenderableWidget(box);
         return box;
     }
@@ -199,9 +279,34 @@ public final class RtsModConfigScreen extends Screen {
         addRenderableWidget(Button.builder(Component.translatable("config.rtsbuilding.save"), btn -> saveAndClose())
                 .bounds(startX, footerY, buttonW, 20)
                 .build());
-        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> this.minecraft.setScreen(this.parent))
+        addRenderableWidget(Button.builder(Component.translatable("gui.rtsbuilding.back"), btn -> requestClose())
                 .bounds(startX + buttonW + 8, footerY, buttonW, 20)
                 .build());
+    }
+
+    private void requestClose() {
+        captureVisibleDrafts();
+        if (hasUnsavedChanges()) {
+            this.confirmDialog = true;
+        } else {
+            this.minecraft.setScreen(this.parent);
+        }
+    }
+
+    private boolean hasUnsavedChanges() {
+        return this.survivalEnabled != Config.ENABLE_SURVIVAL_PROGRESSION.getAsBoolean()
+                || this.shareWithTeams != Config.SHARE_SURVIVAL_PROGRESSION_WITH_TEAMS.getAsBoolean()
+                || this.blueprintsEnabled != Config.ENABLE_BLUEPRINTS.getAsBoolean()
+                || this.developerMode != Config.isDeveloperModeEnabled()
+                || this.inventoryRtsButtonEnabled != Config.isInventoryRtsButtonEnabled()
+                || !this.draftMaxRadius.equals(Integer.toString(Config.maxActionRadiusBlocks()))
+                || !this.draftMaxBlueprintBlocks.equals(Integer.toString(Config.maxBlueprintBlocks()))
+                || !this.draftAreaMineMaxWidth.equals(Integer.toString(Config.areaMineMaxWidth()))
+                || !this.draftAreaMineMaxHeight.equals(Integer.toString(Config.areaMineMaxHeight()))
+                || !this.draftAreaMineMaxDepth.equals(Integer.toString(Config.areaMineMaxDepth()))
+                || !this.draftAreaMineMaxVolume.equals(Integer.toString(Config.areaMineMaxVolume()))
+                || !this.draftAreaDestroyMaxTargets.equals(Integer.toString(Config.areaDestroyMaxTargets()))
+                || this.areaMineMaxHarvestTier != Config.areaMineMaxHarvestTier();
     }
 
     private void saveAndClose() {
@@ -218,7 +323,10 @@ public final class RtsModConfigScreen extends Screen {
                     parseAreaMineMaxHeight(),
                     parseAreaMineMaxDepth(),
                     parseAreaMineMaxVolume(),
-                    parseAreaDestroyMaxTargets());
+                    parseAreaDestroyMaxTargets(),
+                    this.areaMineMaxHarvestTier);
+            Config.setInventoryRtsButtonEnabled(this.inventoryRtsButtonEnabled);
+            Config.setDeveloperModeEnabled(this.developerMode);
         } catch (RuntimeException ex) {
             if (this.minecraft != null && this.minecraft.player != null) {
                 this.minecraft.player.displayClientMessage(Component.literal("RTSBuilding config save failed: " + ex.getClass().getSimpleName()), false);
@@ -315,6 +423,12 @@ public final class RtsModConfigScreen extends Screen {
                 Component.translatable("config.rtsbuilding.max_blueprint_blocks.hint"));
         y += OPTION_ROW_H + 6;
 
+        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.compat"));
+        y += SECTION_H;
+        drawOptionRow(g, x, y, width, Component.translatable("rtsbuilding.configuration.showInventoryRtsButton"),
+                Component.translatable("rtsbuilding.configuration.showInventoryRtsButton.tooltip"));
+        y += OPTION_ROW_H + 6;
+
         drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.area_mining"));
         y += SECTION_H;
         drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.area_mine_max_width"),
@@ -331,11 +445,20 @@ public final class RtsModConfigScreen extends Screen {
         y += OPTION_ROW_H;
         drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.area_destroy_max_targets"),
                 Component.translatable("config.rtsbuilding.area_destroy_max_targets.hint"));
+        y += OPTION_ROW_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.area_mine_max_harvest_tier"),
+                Component.translatable("config.rtsbuilding.area_mine_max_harvest_tier.hint"));
+        y += OPTION_ROW_H + 6;
+
+        drawSection(g, x, y, Component.translatable("config.rtsbuilding.section.developer"));
+        y += SECTION_H;
+        drawOptionRow(g, x, y, width, Component.translatable("config.rtsbuilding.option.developer_mode"),
+                Component.translatable("config.rtsbuilding.option.developer_mode.hint"));
         g.disableScissor();
     }
 
     private int contentHeight() {
-        return SECTION_H * 3 + OPTION_ROW_H * 10 + 12;
+        return SECTION_H * 5 + OPTION_ROW_H * 13 + 24;
     }
 
     private int maxScroll() {
@@ -371,31 +494,38 @@ public final class RtsModConfigScreen extends Screen {
     }
 
     private boolean insideViewport(double mouseX, double mouseY) {
-        return mouseX >= contentX() && mouseX <= contentX() + contentWidth()
-                && mouseY >= viewportTop() && mouseY <= viewportBottom();
+        return UiRect.contains(contentX(), viewportTop(), contentWidth(), viewportHeight(),
+                mouseX, mouseY);
     }
 
     private void renderPageBackground(GuiGraphics g) {
-        g.fill(0, 0, this.width, this.height, 0xFF101820);
-        g.fill(0, 0, this.width, HEADER_H, 0xFF151B23);
-        g.fill(0, this.height - FOOTER_H, this.width, this.height, 0xFF151B23);
-        g.hLine(0, this.width, HEADER_H, 0xFF273747);
-        g.hLine(0, this.width, this.height - FOOTER_H, 0xFF273747);
+        g.fill(0, 0, this.width, this.height, StandaloneScreenStyle.PAGE_BACKGROUND.toArgb());
+        g.fill(0, 0, this.width, HEADER_H, StandaloneScreenStyle.BAR_BACKGROUND.toArgb());
+        g.fill(0, this.height - FOOTER_H, this.width, this.height,
+                StandaloneScreenStyle.BAR_BACKGROUND.toArgb());
+        g.hLine(0, this.width, HEADER_H, StandaloneScreenStyle.BAR_DIVIDER.toArgb());
+        g.hLine(0, this.width, this.height - FOOTER_H,
+                StandaloneScreenStyle.BAR_DIVIDER.toArgb());
     }
 
     private void drawSection(GuiGraphics g, int x, int y, Component label) {
-        g.drawString(this.font, label, x + 2, y + 5, 0xFFF4F7FF);
-        g.hLine(x, x + contentWidth(), y + SECTION_H - 1, 0xFF263545);
+        g.drawString(this.font, label, x + 2, y + 5,
+                StandaloneScreenStyle.SECTION_TEXT.toArgb());
+        g.hLine(x, x + contentWidth(), y + SECTION_H - 1,
+                StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
     }
 
     private void drawOptionRow(GuiGraphics g, int x, int y, int width, Component label, Component hint) {
         int controlW = controlWidth(width);
         int hintW = Math.max(24, width - controlW - 34);
-        g.fill(x, y, x + width, y + OPTION_ROW_H - 2, 0xFF17202A);
-        g.hLine(x, x + width, y, 0xFF263545);
-        g.drawString(this.font, label, x + 10, y + 7, 0xFFEAF2FF);
+        g.fill(x, y, x + width, y + OPTION_ROW_H - 2,
+                StandaloneScreenStyle.INFO_ROW_BACKGROUND.toArgb());
+        g.hLine(x, x + width, y, StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
+        g.drawString(this.font, label, x + 10, y + 7,
+                StandaloneScreenStyle.INFO_VALUE.toArgb());
         String hintText = this.font.plainSubstrByWidth(hint.getString(), hintW);
-        g.drawString(this.font, Component.literal(hintText), x + 10, y + 20, 0xFFAFC2D4);
+        g.drawString(this.font, Component.literal(hintText), x + 10, y + 20,
+                StandaloneScreenStyle.INFO_LABEL.toArgb());
     }
 
     private void drawScrollbar(GuiGraphics g) {
@@ -409,7 +539,61 @@ public final class RtsModConfigScreen extends Screen {
         int y = viewportTop();
         int thumbH = Math.max(18, viewportH * viewportH / contentH);
         int thumbY = y + (viewportH - thumbH) * this.scroll / max;
-        g.fill(x, y, x + 3, y + viewportH, 0x66263545);
-        g.fill(x, thumbY, x + 3, thumbY + thumbH, 0xFFAFC2D4);
+        g.fill(x, y, x + 3, y + viewportH, StandaloneScreenStyle.SCROLLBAR_TRACK.toArgb());
+        g.fill(x, thumbY, x + 3, thumbY + thumbH,
+                StandaloneScreenStyle.INFO_LABEL.toArgb());
+    }
+
+    private void renderConfirmDialog(GuiGraphics g) {
+        g.fill(0, 0, this.width, this.height, StandaloneScreenStyle.DIALOG_SCRIM.toArgb());
+        UiRect rect = dialogRect();
+        int x = (int) rect.getX();
+        int y = (int) rect.getY();
+        int w = (int) rect.getWidth();
+        int h = (int) rect.getHeight();
+        g.fill(x, y, x + w, y + h, StandaloneScreenStyle.PAGE_BACKGROUND.toArgb());
+        g.fill(x, y, x + w, y + DIALOG_TITLE_H, StandaloneScreenStyle.BAR_BACKGROUND.toArgb());
+        g.hLine(x, x + w, y, StandaloneScreenStyle.BAR_DIVIDER.toArgb());
+        g.hLine(x, x + w, y + DIALOG_TITLE_H, StandaloneScreenStyle.BAR_DIVIDER.toArgb());
+        g.hLine(x, x + w, y + h - 1, StandaloneScreenStyle.BAR_DIVIDER.toArgb());
+        g.drawCenteredString(this.font, Component.translatable("config.rtsbuilding.dirty.title"),
+                x + w / 2, y + (DIALOG_TITLE_H - 9) / 2, StandaloneScreenStyle.TITLE_TEXT.toArgb());
+        Component prompt = Component.translatable("config.rtsbuilding.dirty.prompt");
+        var lines = this.font.split(prompt, w - 24);
+        int textY = y + DIALOG_TITLE_H + 12;
+        for (var line : lines) {
+            g.drawCenteredString(this.font, line, x + w / 2, textY,
+                    StandaloneScreenStyle.INFO_VALUE.toArgb());
+            textY += 10;
+        }
+        drawDialogButton(g, dialogButtonRect(rect, 0), Component.translatable("config.rtsbuilding.dirty.save"));
+        drawDialogButton(g, dialogButtonRect(rect, 1), Component.translatable("config.rtsbuilding.dirty.discard"));
+        drawDialogButton(g, dialogButtonRect(rect, 2), Component.translatable("config.rtsbuilding.dirty.cancel"));
+    }
+
+    private void drawDialogButton(GuiGraphics g, UiRect rect, Component label) {
+        int x = (int) rect.getX();
+        int y = (int) rect.getY();
+        int w = (int) rect.getWidth();
+        int h = (int) rect.getHeight();
+        g.fill(x, y, x + w, y + h, StandaloneScreenStyle.INFO_ROW_BACKGROUND.toArgb());
+        g.hLine(x, x + w, y, StandaloneScreenStyle.INFO_ROW_DIVIDER.toArgb());
+        g.drawCenteredString(this.font, label, x + w / 2, y + (h - 8) / 2,
+                StandaloneScreenStyle.INFO_VALUE.toArgb());
+    }
+
+    private UiRect dialogRect() {
+        int w = Math.min(DIALOG_W, this.width - 32);
+        int x = (this.width - w) / 2;
+        int y = Math.max(40, (this.height - DIALOG_H) / 2);
+        return new UiRect(x, y, w, DIALOG_H);
+    }
+
+    private UiRect dialogButtonRect(UiRect rect, int index) {
+        int w = (int) rect.getWidth();
+        int btnW = Math.max(1, (w - 32) / 3);
+        int x = (int) rect.getX() + 8 + index * (btnW + 8);
+        int y = (int) (rect.bottom() - DIALOG_BTN_H - 10);
+        return new UiRect(x, y, btnW, DIALOG_BTN_H);
     }
 }

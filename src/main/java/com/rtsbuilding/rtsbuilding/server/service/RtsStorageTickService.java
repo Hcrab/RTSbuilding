@@ -1,7 +1,5 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
-import com.rtsbuilding.rtsbuilding.compat.ae2.RtsAe2Compat;
-import com.rtsbuilding.rtsbuilding.compat.bd.RtsBdCompat;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsAggregateStorage;
 import com.rtsbuilding.rtsbuilding.server.storage.cache.RtsHandlerCache;
 import net.minecraft.server.level.ServerPlayer;
@@ -28,8 +26,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * <ul>
  *   <li>{@link #registerPlayer(ServerPlayer, List)} — 注册玩家，挂载处理器、
  *       重用现有缓存或创建新缓存、计算初始刷新率</li>
- *   <li>{@link #unregisterPlayer(ServerPlayer)} — 完全移除玩家，释放缓存数据、
- *       释放 AE2/BD 网络处理器引用以加速 GC 回收</li>
+ *   <li>{@link #unregisterPlayer(ServerPlayer)} — 完全移除玩家的聚合缓存和槽位快照，
+ *       但不销毁归端点租约所有的 AE2/BD 网络处理器</li>
  * </ul>
  *
  * <p><b>自适应 tick 方法：</b>
@@ -75,36 +73,41 @@ public final class RtsStorageTickService {
      * 如果处理器身份匹配，则重用现有缓存。
      */
     public RtsAggregateStorage registerPlayer(ServerPlayer player, List<IItemHandler> handlers) {
-        UUID uuid = player.getUUID();
+        if (player == null) return null;
+        return registerPlayer(player.getUUID(), handlers);
+    }
+
+    /** 以玩家 ID 注册处理器，供生命周期边界和无游戏运行时的回归测试复用。 */
+    public RtsAggregateStorage registerPlayer(UUID uuid, List<IItemHandler> handlers) {
+        if (uuid == null) return null;
+        List<IItemHandler> normalizedHandlers = distinctByIdentity(handlers);
         RtsAggregateStorage storage = this.playerStorage.computeIfAbsent(uuid, k -> new RtsAggregateStorage());
 
         // Unmount stale handlers
         List<HandlerCachePair> existing = this.playerHandlers.getOrDefault(uuid, List.of());
-        Set<IItemHandler> existingSet = new HashSet<>();
-        for (HandlerCachePair p : existing) {
-            existingSet.add(p.handler);
-        }
-        Set<IItemHandler> newSet = new HashSet<>(handlers);
+        Set<IItemHandler> newSet = Collections.newSetFromMap(new IdentityHashMap<>());
+        newSet.addAll(normalizedHandlers);
 
         // Unmount removed handlers
         for (HandlerCachePair p : existing) {
             if (!newSet.contains(p.handler)) {
                 storage.unmount(p.handler);
+                p.cache.release();
             }
         }
 
         // Mount new handlers (reuse existing cache if available)
-        Map<IItemHandler, RtsHandlerCache> cacheMap = new HashMap<>();
+        Map<IItemHandler, RtsHandlerCache> cacheMap = new IdentityHashMap<>();
         for (HandlerCachePair p : existing) {
             cacheMap.put(p.handler, p.cache);
         }
 
         List<HandlerCachePair> newPairs = new ArrayList<>();
-        for (int priority = 0; priority < handlers.size(); priority++) {
-            IItemHandler handler = handlers.get(priority);
+        for (int priority = 0; priority < normalizedHandlers.size(); priority++) {
+            IItemHandler handler = normalizedHandlers.get(priority);
             RtsHandlerCache cache = cacheMap.getOrDefault(handler, new RtsHandlerCache());
             if (!cacheMap.containsKey(handler)) {
-                storage.mount(handlers.size() - priority, handler, cache); // reverse priority: first = highest
+                storage.mount(normalizedHandlers.size() - priority, handler, cache); // reverse priority: first = highest
                 // Immediately populate the cache so page builds don't skip this handler
                 cache.update(handler);
             }
@@ -113,16 +116,25 @@ public final class RtsStorageTickService {
 
         this.playerHandlers.put(uuid, newPairs);
         // Initialize tracker with initial rate based on handler count
-        int initialRate = calculateInitialRate(handlers);
+        int initialRate = calculateInitialRate(normalizedHandlers);
         this.tickTrackers.computeIfAbsent(uuid, k -> new TickTracker(initialRate));
         return storage;
     }
 
     /**
-     * 完全移除玩家的存储缓存，释放所有缓存数据以便立即 GC。
+     * 完全移除玩家的聚合缓存和槽位快照。
+     *
+     * <p>这里不会销毁传入的 AE/BD Handler；处理器归端点租约所有，避免租约随后复用
+     * 一个已经被本服务提前清空的对象。</p>
      */
     public void unregisterPlayer(ServerPlayer player) {
-        UUID uuid = player.getUUID();
+        if (player == null) return;
+        unregisterPlayer(player.getUUID());
+    }
+
+    /** 仅释放本服务拥有的聚合缓存和快照，不销毁端点处理器。 */
+    public void unregisterPlayer(UUID uuid) {
+        if (uuid == null) return;
         this.playerStorage.remove(uuid);
 
         // Release cache data structures proactively so the GC can
@@ -132,17 +144,45 @@ public final class RtsStorageTickService {
         if (pairs != null) {
             for (HandlerCachePair p : pairs) {
                 p.cache.release();
-                // Release the handler's own heavy references (e.g. AE2's
-                // ServerPlayer and IStorageService references, or BD's
-                // internal caches) so the GC can reclaim them immediately
-                // instead of waiting for the handler object itself to become
-                // unreachable.
-                RtsAe2Compat.releaseNetworkHandler(p.handler);
-                RtsBdCompat.releaseNetworkHandler(p.handler);
             }
         }
 
         this.tickTrackers.remove(uuid);
+    }
+
+    /**
+     * 在端点租约销毁处理器之前，按对象身份从玩家聚合缓存中卸载该处理器。
+     *
+     * <p>此服务不拥有 AE/BD Handler 的销毁权，只拥有对应的槽位快照。返回后调用方
+     * 才可以安全地清空 Handler 内部引用。重复调用是安全的。</p>
+     */
+    public boolean detachHandler(UUID playerId, IItemHandler handler) {
+        if (playerId == null || handler == null) return false;
+        List<HandlerCachePair> existing = this.playerHandlers.get(playerId);
+        if (existing == null || existing.isEmpty()) return false;
+
+        List<HandlerCachePair> retained = new ArrayList<>(existing.size());
+        boolean detached = false;
+        RtsAggregateStorage storage = this.playerStorage.get(playerId);
+        for (HandlerCachePair pair : existing) {
+            if (pair.handler == handler) {
+                if (storage != null) storage.unmount(pair.handler);
+                pair.cache.release();
+                detached = true;
+            } else {
+                retained.add(pair);
+            }
+        }
+        if (detached) {
+            if (retained.isEmpty()) {
+                this.playerHandlers.remove(playerId);
+                this.playerStorage.remove(playerId);
+                this.tickTrackers.remove(playerId);
+            } else {
+                this.playerHandlers.put(playerId, retained);
+            }
+        }
+        return detached;
     }
 
     // ---- tick（自适应）------------------------------------------------------
@@ -213,7 +253,13 @@ public final class RtsStorageTickService {
      * 同时重置自适应定时器，以便在下一个 tick 再次运行。
      */
     public Set<String> forceRefresh(ServerPlayer player) {
-        UUID uuid = player.getUUID();
+        if (player == null) return Set.of();
+        return forceRefresh(player.getUUID());
+    }
+
+    /** 以玩家 ID 强制刷新，避免生命周期清理依赖仍存活的玩家实体。 */
+    public Set<String> forceRefresh(UUID uuid) {
+        if (uuid == null) return Set.of();
         RtsAggregateStorage storage = this.playerStorage.get(uuid);
         if (storage == null) return Set.of();
 
@@ -230,7 +276,18 @@ public final class RtsStorageTickService {
      * 返回玩家的聚合存储，如果未注册则返回 {@code null}。
      */
     public RtsAggregateStorage getStorage(ServerPlayer player) {
+        if (player == null) return null;
         return this.playerStorage.get(player.getUUID());
+    }
+
+    private static List<IItemHandler> distinctByIdentity(List<IItemHandler> handlers) {
+        if (handlers == null || handlers.isEmpty()) return List.of();
+        Set<IItemHandler> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        List<IItemHandler> result = new ArrayList<>(handlers.size());
+        for (IItemHandler handler : handlers) {
+            if (handler != null && seen.add(handler)) result.add(handler);
+        }
+        return result;
     }
 
     /**

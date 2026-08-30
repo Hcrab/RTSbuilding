@@ -7,7 +7,10 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.UUID;
+
 public record C2SBlueprintPlacePayload(
+        UUID submissionId,
         String fileName,
         byte[] data,
         BlockPos anchor,
@@ -22,6 +25,7 @@ public record C2SBlueprintPlacePayload(
 
     public static final StreamCodec<RegistryFriendlyByteBuf, C2SBlueprintPlacePayload> STREAM_CODEC = StreamCodec.of(
             (buf, payload) -> {
+                buf.writeUUID(payload.submissionId());
                 buf.writeUtf(payload.fileName() == null ? "" : payload.fileName(), MAX_FILE_NAME_CHARS);
                 buf.writeByteArray(payload.data() == null ? new byte[0] : payload.data());
                 buf.writeBlockPos(payload.anchor());
@@ -30,6 +34,7 @@ public record C2SBlueprintPlacePayload(
                 buf.writeByte(payload.zRotationSteps());
             },
             (buf) -> new C2SBlueprintPlacePayload(
+                    buf.readUUID(),
                     buf.readUtf(MAX_FILE_NAME_CHARS),
                     buf.readByteArray(MAX_FILE_BYTES),
                     buf.readBlockPos().immutable(),

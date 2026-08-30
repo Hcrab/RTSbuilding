@@ -4,6 +4,7 @@ import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.plugin.RtsPluginService;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
@@ -66,12 +67,10 @@ public final class RtsProgressionManager {
         return RtsHomeManager.getHome(player);
     }
 
-    public static boolean canAccessHomeRadius(ServerPlayer player, BlockPos pos) {
-        return RtsHomeManager.canAccessHomeRadius(player, pos);
-    }
-
     public static boolean canStartNormalRts(ServerPlayer player) {
-        return !isEnabled() || RtsHomeManager.hasHome(player);
+        return !isEnabled()
+                || (RtsHomeManager.hasHome(player)
+                && RtsHomeManager.canOpenRtsNearHome(player));
     }
 
     public static boolean shouldStartHomeSelection(ServerPlayer player) {
@@ -139,6 +138,11 @@ public final class RtsProgressionManager {
     }
 
     public static void syncToPlayer(ServerPlayer player) {
+        if (player != null) RtsEffectAccumulator.INSTANCE.markProgressionState(player.getUUID());
+    }
+
+    /** 仅由 Tick 末 Effect Committer 调用，普通业务入口只登记最新完整快照。 */
+    public static void syncToPlayerNow(ServerPlayer player) {
         if (player == null) {
             return;
         }

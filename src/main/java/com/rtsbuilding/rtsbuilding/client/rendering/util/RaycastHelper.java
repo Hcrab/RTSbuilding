@@ -124,6 +124,9 @@ public final class RaycastHelper {
      * @return Normalised ray direction vector
      */
     public static Vec3 computeCursorRayDirection(Minecraft minecraft) {
+        if (RtsPlacementRayFreeze.isFrozen()) {
+            return RtsPlacementRayFreeze.directionOr(new Vec3(0.0D, 0.0D, 1.0D));
+        }
         // Get mouse screen coordinates
         double mouseX = minecraft.mouseHandler.xpos();
         double mouseY = minecraft.mouseHandler.ypos();

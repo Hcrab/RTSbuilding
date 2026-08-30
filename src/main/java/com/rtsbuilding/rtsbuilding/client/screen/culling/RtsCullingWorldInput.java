@@ -20,7 +20,7 @@ public final class RtsCullingWorldInput {
         Vec3 origin = cursor.currentRayOrigin();
         Vec3 direction = cursor.computeCursorRayDirection();
         BlockHitResult hit = cursor.pickCullingAwareBlockHit();
-        return manager.handleWorldAction(hit, origin, direction);
+        return CullingUiAdapter.worldPrimary(manager, hit, origin, direction);
     }
 
     public interface Cursor {

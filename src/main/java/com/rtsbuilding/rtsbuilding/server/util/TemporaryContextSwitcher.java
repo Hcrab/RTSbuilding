@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.util;
 
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
@@ -55,18 +56,24 @@ public final class TemporaryContextSwitcher {
      */
     public static <T> T withTemporaryUseItemContext(ServerPlayer player, Vec3 fallbackPos, Vec3 fallbackLookAt,
             RayContext rayContext, double reach, Supplier<T> action) {
+        // 命中结果保留船内逻辑坐标给 useItemOn；虚拟玩家必须位于主世界物理位置，
+        // 之后由 Sable 的 BlockPlaceContext 只做一次主世界→船内转换。
+        Vec3 physicalFallbackPos = RtsSableSpatialCompat.projectLogicalToGlobal(
+                player.serverLevel(), fallbackPos);
+        Vec3 physicalLookAt = RtsSableSpatialCompat.projectLogicalToGlobal(
+                player.serverLevel(), fallbackLookAt);
         if (rayContext == null) {
-            return withTemporaryInteractionPosition(player, fallbackPos, fallbackLookAt, action);
+            return withTemporaryInteractionPosition(player, physicalFallbackPos, physicalLookAt, action);
         }
         Vec3 rayDir = rayContext.dir();
         if (!Double.isFinite(rayDir.x) || !Double.isFinite(rayDir.y) || !Double.isFinite(rayDir.z)
                 || rayDir.lengthSqr() < 1.0e-6D) {
-            return withTemporaryInteractionPosition(player, fallbackPos, fallbackLookAt, action);
+            return withTemporaryInteractionPosition(player, physicalFallbackPos, physicalLookAt, action);
         }
         double clampedReach = Math.max(2.0D, Math.min(8.0D, reach));
         double offset = Math.max(0.5D, clampedReach - 0.1D);
         Vec3 normalizedDir = rayDir.normalize();
-        Vec3 virtualEye = fallbackLookAt.subtract(normalizedDir.scale(offset));
+        Vec3 virtualEye = physicalLookAt.subtract(normalizedDir.scale(offset));
         double eyeHeight = player.getEyeHeight(player.getPose());
         Vec3 virtualFeet = new Vec3(virtualEye.x, virtualEye.y - eyeHeight, virtualEye.z);
         Vec3 lookAt = virtualEye.add(normalizedDir.scale(clampedReach));

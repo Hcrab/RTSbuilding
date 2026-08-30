@@ -3,6 +3,7 @@ package com.rtsbuilding.rtsbuilding.server.service.impl;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsPlaceBatchPayload;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.PlaceContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineRegistry;
+import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
@@ -10,6 +11,7 @@ import com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
 import com.rtsbuilding.rtsbuilding.server.service.api.PlacementService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -44,7 +46,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
 
     @Override
     public void placeSelected(ServerPlayer player, BlockPos clickedPos, Direction face,
-                              double hitX, double hitY, double hitZ, byte rotateSteps,
+                              double hitX, double hitY, double hitZ, byte rotateSteps, String statePreset,
                               boolean forcePlace, boolean skipIfOccupied, String itemId,
                               ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
                               double rayDirX, double rayDirY, double rayDirZ,
@@ -54,7 +56,20 @@ public final class RtsPlacementServiceImpl implements PlacementService {
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
 
-        if (player != null && session != null && !forceEmptyHand) {
+        if (forceEmptyHand) {
+            if (player == null || clickedPos == null || face == null) {
+                return;
+            }
+            // 空手右键是一次即时交互，不是可持久化放置任务；排入 TaskEngine 会因没有工作流 ID 而被拒绝。
+            RtsPlacementExecutor.placeSelectedInternal(
+                    player, session, clickedPos, face, hitX, hitY, hitZ, rotateSteps, statePreset,
+                    forcePlace, skipIfOccupied, itemId, itemPrototype,
+                    rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ,
+                    quickBuild, true, true, true);
+            return;
+        }
+
+        if (player != null && session != null) {
             PipelineRegistry.execute(quickBuild ? RtsWorkflowType.QUICK_BUILD : RtsWorkflowType.PLACE_SINGLE,
                     PlaceContext.builder(player)
                             .clickedPositions(clickedPos == null ? List.of() : List.of(clickedPos))
@@ -63,6 +78,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                             .hitOffsetY(hitOffsetY)
                             .hitOffsetZ(hitOffsetZ)
                             .rotateSteps(rotateSteps)
+                            .statePreset(statePreset)
                             .forcePlace(forcePlace)
                             .skipIfOccupied(skipIfOccupied)
                             .itemId(itemId)
@@ -90,6 +106,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 hitOffsetY,
                 hitOffsetZ,
                 rotateSteps,
+                statePreset,
                 forcePlace,
                 skipIfOccupied,
                 itemId,
@@ -107,9 +124,9 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     }
 
     @Override
-    public void enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
-                                  double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps,
-                                  boolean forcePlace, boolean skipIfOccupied, String itemId,
+    public boolean enqueuePlaceBatch(ServerPlayer player, List<BlockPos> clickedPositions, Direction face,
+                                  double hitOffsetX, double hitOffsetY, double hitOffsetZ, byte rotateSteps, String statePreset,
+                                  boolean forcePlace, boolean skipIfOccupied, boolean overwriteExisting, String itemId,
                                   ItemStack itemPrototype, double rayOriginX, double rayOriginY, double rayOriginZ,
                                   double rayDirX, double rayDirY, double rayDirZ) {
         RtsStorageSession session = player == null ? null : registry.session().getIfPresent(player);
@@ -125,7 +142,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 }
             }
 
-            PipelineRegistry.execute(RtsWorkflowType.PLACE_BATCH,
+            PipelineResult result = PipelineRegistry.execute(RtsWorkflowType.PLACE_BATCH,
                     PlaceContext.builder(player)
                             .clickedPositions(sanitized)
                             .face(face)
@@ -133,8 +150,10 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                             .hitOffsetY(hitOffsetY)
                             .hitOffsetZ(hitOffsetZ)
                             .rotateSteps(rotateSteps)
+                            .statePreset(statePreset)
                             .forcePlace(forcePlace)
                             .skipIfOccupied(skipIfOccupied)
+                            .overwriteExisting(overwriteExisting)
                             .itemId(itemId == null ? "" : itemId)
                             .itemPrototype(itemPrototype)
                             .rayOriginX(rayOriginX)
@@ -148,11 +167,11 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                             .sendRemoteHint(true)
                             .totalBlocks(sanitized.size())
                             .build());
-            return;
+            return result instanceof PipelineResult.Success;
         }
 
         // 回退：无会话或空位置 — 入队但不经过工作流
-        RtsPlacementBatch.enqueuePlaceBatch(
+        return RtsPlacementBatch.enqueuePlaceBatch(
                 player,
                 session,
                 clickedPositions,
@@ -161,8 +180,10 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 hitOffsetY,
                 hitOffsetZ,
                 rotateSteps,
+                statePreset,
                 forcePlace,
                 skipIfOccupied,
+                overwriteExisting,
                 itemId == null ? "" : itemId,
                 itemPrototype,
                 rayOriginX,
@@ -175,10 +196,6 @@ public final class RtsPlacementServiceImpl implements PlacementService {
                 false,
                 false,
                 -1);
-
-        if (player != null) {
-            RtsPendingPlacementService.tryResumeAfterStorageChange(player);
-        }
     }
 
     @Override
@@ -187,10 +204,9 @@ public final class RtsPlacementServiceImpl implements PlacementService {
             return 0;
         }
         RtsStorageSession session = registry.session().getIfPresent(player);
-        if (session == null || session.placement.pendingJobs.isEmpty()) {
-            return 0;
-        }
-        int count = RtsPendingPlacementService.resumeAllPendingJobs(player, session);
+        if (session == null) return 0;
+        int count = com.rtsbuilding.rtsbuilding.server.service.RtsPendingPlacementService
+                .resumeAllPendingJobs(player, session);
         if (count > 0) {
             player.displayClientMessage(
                     Component.literal("Resumed " + count + " pending placement job(s)."), true);
@@ -203,18 +219,48 @@ public final class RtsPlacementServiceImpl implements PlacementService {
 
     @Override
     public void rotateBlock(ServerPlayer player, BlockPos pos) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)) {
-            return;
-        }
-        RtsStorageSession session = registry.session().getIfPresent(player);
-        if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
-            return;
-        }
-        if (!RtsClaimProtectionService.canInteractBlock(
-                player, pos, Direction.UP, net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+        if (!canRotateBlock(player, pos)) {
             return;
         }
         RtsPlacementHelper.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+    }
+
+    @Override
+    public void rotateBlockStep(
+            ServerPlayer player,
+            BlockPos pos,
+            Direction axisDirection,
+            int quarterTurns) {
+        if (!canRotateBlock(player, pos)
+                || axisDirection == null
+                || Math.abs(quarterTurns) != 1) {
+            return;
+        }
+        RtsPlacementHelper.rotatePlacedBlockStep(
+                player.serverLevel(),
+                pos,
+                axisDirection,
+                quarterTurns);
+    }
+
+    private boolean canRotateBlock(ServerPlayer player, BlockPos pos) {
+        if (player == null || pos == null
+                || !RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)) {
+            return false;
+        }
+        RtsStorageSession session = registry.session().getIfPresent(player);
+        if (session == null
+                || session.mode != com.rtsbuilding.rtsbuilding.common.build.BuilderMode.ROTATE
+                || player.isSpectator()
+                || !player.mayBuild()
+                || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+            return false;
+        }
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, pos, Direction.UP, net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+            return false;
+        }
+        return true;
     }
 
     @Override
@@ -247,14 +293,7 @@ public final class RtsPlacementServiceImpl implements PlacementService {
     @Override
     public String getPlaceBatchItemId(ServerPlayer player) {
         if (player == null) return "";
-        RtsStorageSession session = registry.session().getIfPresent(player);
-        if (session == null) return "";
-        if (!session.placement.placeBatchJobs.isEmpty()) {
-            return session.placement.placeBatchJobs.peekFirst().itemId();
-        }
-        if (!session.placement.pendingJobs.isEmpty()) {
-            return session.placement.pendingJobs.peekFirst().itemId();
-        }
-        return "";
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .firstPlacementItemId(player);
     }
 }

@@ -3,10 +3,14 @@
 
 **Language / 语言:** [English](#english) | [中文](#chinese)
 
-Join the Discord to chat and provide feedback: https://discord.gg/9Pw6vZfAm
+Join the Discord to chat and provide feedback: https://discord.gg/Bz5HU9YQuj
 
-License: LGPL-3.0-only for the current source tree and releases starting with
-1.0.3-beta / 0.0.3Beta. Copyright (C) 2026 JerryLunar. Earlier public
+License: source code and non-media project files are LGPL-3.0-only. Original
+RTS Building textures and audio are All Rights Reserved under
+[LICENSE-ASSETS](LICENSE-ASSETS), with permission to redistribute the complete,
+unmodified official mod package in Minecraft modpacks and through mod hosting
+platforms. See [ASSET-LICENSES.md](ASSET-LICENSES.md) for the path-by-path
+boundary and third-party notices. Copyright (C) 2026 JerryLunar. Earlier public
 releases remain under the license terms that accompanied those releases.
 
 ---

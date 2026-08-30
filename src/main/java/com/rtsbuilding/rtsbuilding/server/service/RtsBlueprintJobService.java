@@ -5,7 +5,6 @@ import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
 import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
@@ -27,7 +26,7 @@ import java.util.*;
  * 以及手动恢复挂起的蓝图工作流。</p>
  *
  * <p>所有方法均为静态无状态方法。蓝图活跃管道状态通过
- * {@link TickablePipelineRegistry} 访问。</p>
+ * 统一 Task Engine 的蓝图索引访问。</p>
  */
 public final class RtsBlueprintJobService {
 
@@ -46,7 +45,8 @@ public final class RtsBlueprintJobService {
     public static RtsResumeScanResult scanBlueprintJob(ServerPlayer player, int workflowEntryId) {
         if (player == null) return null;
 
-        PipelineContext pipeCtx = TickablePipelineRegistry.findContextByWorkflowEntry(player, workflowEntryId);
+        PipelineContext pipeCtx = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .findBlueprintContext(player, workflowEntryId);
         if (!(pipeCtx instanceof BlueprintContext bctx)) {
             return null;
         }
@@ -121,7 +121,8 @@ public final class RtsBlueprintJobService {
     public static RtsBlueprintMaterialsScan scanBlueprintMaterials(ServerPlayer player, int workflowEntryId) {
         if (player == null) return null;
 
-        PipelineContext pipeCtx = TickablePipelineRegistry.findContextByWorkflowEntry(player, workflowEntryId);
+        PipelineContext pipeCtx = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .findBlueprintContext(player, workflowEntryId);
         if (!(pipeCtx instanceof BlueprintContext bctx)) {
             return null;
         }
@@ -192,6 +193,8 @@ public final class RtsBlueprintJobService {
             return false;
         }
         opt.get().resume();
+        com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .resumeBlueprint(player, workflowEntryId);
         RtsbuildingMod.LOGGER.info("[Blueprint] {} 手动恢复了蓝图作业 #{} (剩余 {} 方块)",
                 player.getName().getString(), workflowEntryId, status.remainingBlocks());
         return true;

@@ -1,0 +1,138 @@
+name: Publish Modrinth prerelease
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Immutable release tag to build
+        required: true
+        type: string
+      minecraft_version:
+        description: Exact Minecraft version
+        required: true
+        type: choice
+        options:
+          - 1.12.2
+          - 1.21.1
+          - 26.1.2
+      version:
+        description: Exact RTSBuilding version
+        required: true
+        type: string
+      version_type:
+        description: Modrinth release channel
+        required: true
+        type: choice
+        options:
+          - beta
+          - alpha
+      changelog_base64:
+        description: UTF-8 release notes encoded as Base64
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-modrinth-${{ inputs.minecraft_version }}-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out immutable release source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+        with:
+          ref: ${{ inputs.source_ref }}
+
+      - name: Select toolchain and artifact
+        id: release
+        shell: bash
+        env:
+          MINECRAFT_VERSION: ${{ inputs.minecraft_version }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          read_property() {
+            grep -E "^[[:space:]]*$1[[:space:]]*=" gradle.properties \
+              | tail -n 1 \
+              | cut -d= -f2- \
+              | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+          }
+          actual_minecraft="$(read_property minecraft_version)"
+          actual_version="$(read_property mod_version)"
+          test "$actual_minecraft" = "$MINECRAFT_VERSION"
+          test "$actual_version" = "$RELEASE_VERSION"
+          case "$MINECRAFT_VERSION" in
+            1.12.2)
+              echo "java_version=21" >> "$GITHUB_OUTPUT"
+              echo "java_release=8" >> "$GITHUB_OUTPUT"
+              echo "loader=forge" >> "$GITHUB_OUTPUT"
+              echo "display_loader=Forge" >> "$GITHUB_OUTPUT"
+              echo "artifact=build/libs/rtsbuilding-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
+              ;;
+            1.21.1)
+              echo "java_version=21" >> "$GITHUB_OUTPUT"
+              echo "java_release=21" >> "$GITHUB_OUTPUT"
+              echo "loader=neoforge" >> "$GITHUB_OUTPUT"
+              echo "display_loader=NeoForge" >> "$GITHUB_OUTPUT"
+              echo "artifact=build/libs/rtsbuilding-neoforge-1.21.1-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
+              ;;
+            26.1.2)
+              echo "java_version=25" >> "$GITHUB_OUTPUT"
+              echo "java_release=25" >> "$GITHUB_OUTPUT"
+              echo "loader=neoforge" >> "$GITHUB_OUTPUT"
+              echo "display_loader=NeoForge" >> "$GITHUB_OUTPUT"
+              echo "artifact=build/libs/rtsbuilding-neoforge-26.1.2-${RELEASE_VERSION}.jar" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "Unsupported Minecraft version: $MINECRAFT_VERSION" >&2
+              exit 1
+              ;;
+          esac
+
+      - name: Set up Java
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a
+        with:
+          distribution: temurin
+          java-version: ${{ steps.release.outputs.java_version }}
+          cache: gradle
+
+      - name: Build and verify exact artifact
+        shell: bash
+        env:
+          ARTIFACT: ${{ steps.release.outputs.artifact }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew build --no-daemon --no-configuration-cache
+          test -f "$ARTIFACT"
+
+      - name: Decode release notes
+        shell: bash
+        env:
+          CHANGELOG_BASE64: ${{ inputs.changelog_base64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$CHANGELOG_BASE64" | base64 --decode > release-notes.md
+          test -s release-notes.md
+
+      - name: Publish to Modrinth
+        uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075
+        with:
+          modrinth-id: 5PkY7RJI
+          modrinth-token: ${{ secrets.MODRINTH_TOKEN }}
+          files: ${{ steps.release.outputs.artifact }}
+          name: RTS Building ${{ inputs.version }} for ${{ steps.release.outputs.display_loader }} ${{ inputs.minecraft_version }}
+          version: ${{ inputs.version }}
+          version-type: ${{ inputs.version_type }}
+          changelog-file: release-notes.md
+          loaders: ${{ steps.release.outputs.loader }}
+          game-versions: ${{ inputs.minecraft_version }}
+          game-version-filter: none
+          environment: client | server
+          java: ${{ steps.release.outputs.java_release }}
+          retry-attempts: 3
+          retry-delay: 10000

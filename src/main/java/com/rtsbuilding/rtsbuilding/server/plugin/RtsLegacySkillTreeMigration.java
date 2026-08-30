@@ -28,7 +28,7 @@ import java.util.UUID;
  * 该类只处理旧数据兼容，不参与后续插件安装、卸载或功能判定。
  */
 final class RtsLegacySkillTreeMigration {
-    private static final int MIGRATION_VERSION = 1;
+    private static final int MIGRATION_VERSION = 2;
     private static final String OLD_PERSISTENT_ROOT = "rtsbuilding_progression";
     private static final String NBT_UNLOCKED_NODES = "unlocked_nodes";
     private static final String NBT_PLUGIN_MIGRATION_VERSION = "plugin_migration_version";
@@ -65,11 +65,13 @@ final class RtsLegacySkillTreeMigration {
         List<RtsPluginTeamService.StoredPlugin> installed = RtsPluginTeamService.installedPlugins(player);
         List<RtsPluginDefinition> added = new ArrayList<>();
         boolean changed = false;
+        boolean needsHarvestTierCompatibility = false;
 
         String sharedKey = RtsProgressionManager.sharedProgressionKey(player);
         if (!sharedKey.isBlank()) {
             RtsSharedProgressionData sharedData = RtsProgressionManager.sharedProgressionData(player);
             if (sharedData.pluginMigrationVersion(sharedKey) < MIGRATION_VERSION) {
+                needsHarvestTierCompatibility = true;
                 changed |= addMigratedPlugins(
                         player,
                         installed,
@@ -84,6 +86,7 @@ final class RtsLegacySkillTreeMigration {
         CompoundTag currentRoot = SaveScheduler.INSTANCE.player(player).get(PlayerComponents.PROGRESSION);
         CompoundTag oldPersistentRoot = player.getPersistentData().getCompound(OLD_PERSISTENT_ROOT);
         if (migrationVersion(currentRoot, oldPersistentRoot) < MIGRATION_VERSION) {
+            needsHarvestTierCompatibility = true;
             LinkedHashSet<ResourceLocation> personalNodes = readUnlockedNodes(currentRoot);
             personalNodes.addAll(readUnlockedNodes(oldPersistentRoot));
             changed |= addMigratedPlugins(
@@ -101,10 +104,54 @@ final class RtsLegacySkillTreeMigration {
             }
         }
 
+        if (needsHarvestTierCompatibility) {
+            changed |= addLegacyHarvestTierIfNeeded(player, installed, added);
+        }
         if (changed) {
             RtsPluginTeamService.saveInstalledPlugins(player, installed);
         }
         return List.copyOf(added);
+    }
+
+    /**
+     * 插件系统 v1 的范围破坏不需要独立采掘等级插件。
+     * 旧存档升级时补发同一贡献者名下的木级插件，避免已有能力无故消失。
+     */
+    private static boolean addLegacyHarvestTierIfNeeded(ServerPlayer player,
+            List<RtsPluginTeamService.StoredPlugin> installed,
+            List<RtsPluginDefinition> added) {
+        RtsPluginTeamService.StoredPlugin areaPlugin = null;
+        for (RtsPluginTeamService.StoredPlugin entry : installed) {
+            RtsPluginDefinition definition = RtsPluginRegistry.byId(entry.plugin().pluginId());
+            if (definition == null) {
+                continue;
+            }
+            if (definition.family() == RtsPluginFamily.HARVEST_TIER) {
+                return false;
+            }
+            if (BuiltInRtsPluginCatalog.AREA_DESTROY_PLUGIN.equals(definition.id())) {
+                areaPlugin = entry;
+            }
+        }
+        if (areaPlugin == null) {
+            return false;
+        }
+
+        RtsPluginDefinition stoneTier = RtsPluginRegistry.byId(BuiltInRtsPluginCatalog.HARVEST_TIER_STONE);
+        if (stoneTier == null) {
+            return false;
+        }
+        RtsInstalledPlugin plugin = new RtsInstalledPlugin(
+                stoneTier.id(),
+                pluginStack(stoneTier),
+                player.level().getGameTime());
+        if (!RtsPluginTeamService.canAddWithoutTeamConflict(installed, plugin)) {
+            return false;
+        }
+        installed.add(new RtsPluginTeamService.StoredPlugin(
+                plugin, areaPlugin.ownerId(), areaPlugin.ownerName()));
+        added.add(stoneTier);
+        return true;
     }
 
     private static boolean addMigratedPlugins(ServerPlayer player, List<RtsPluginTeamService.StoredPlugin> installed,

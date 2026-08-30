@@ -1,11 +1,28 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.Config;
+import com.rtsbuilding.rtsbuilding.client.screen.canvas.MinecraftUiCanvas;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.util.RtsClientUiUtil;
 import com.rtsbuilding.rtsbuilding.client.widget.WindowButton;
 import com.rtsbuilding.rtsbuilding.common.persist.BoundsProvider;
 import com.rtsbuilding.rtsbuilding.common.persist.PersistableProperty;
+import com.rtsbuilding.rtsbuilding.uicore.geometry.UiRect;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiEventReply;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiKeyEvent;
+import com.rtsbuilding.rtsbuilding.uicore.event.UiPointerEvent;
+import com.rtsbuilding.rtsbuilding.uicore.routing.UiEventTarget;
+import com.rtsbuilding.rtsbuilding.uikit.animation.SystemUiClock;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiEasing;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiFloatAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiMotionSpec;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiControlAnimationState;
+import com.rtsbuilding.rtsbuilding.uikit.animation.UiWindowVisibilityAnimation;
+import com.rtsbuilding.rtsbuilding.uikit.canvas.UiChromeRenderer;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.RtsMainlineTheme;
+import com.rtsbuilding.rtsbuilding.uikit.window.UiWindowInteractionModel;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -13,6 +30,7 @@ import net.minecraft.util.Mth;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Base class for movable RTS window panels.
@@ -23,7 +41,8 @@ import java.util.List;
  * That separation lets us migrate visible panels one at a time while the current
  * container overlay and legacy input gate continue to work unchanged.
  */
-public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
+public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider, UiEventTarget {
+    private static final AtomicLong NEXT_Z_ORDER = new AtomicLong();
     private static final int DEFAULT_TITLE_BAR_H = 20;
     private static final int DEFAULT_MIN_W = 80;
     private static final int DEFAULT_MIN_H = 60;
@@ -52,21 +71,17 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     private int defaultWidth;
     private int defaultHeight;
     private boolean positionInitialized;
-    private long lastClickTime = System.nanoTime();
-    private boolean dragging;
-    private double dragOffsetX;
-    private double dragOffsetY;
-    private boolean resizing;
-    private ResizeEdge resizeEdge = ResizeEdge.NONE;
-    private int resizeStartMouseX;
-    private int resizeStartMouseY;
-    private int resizeStartWidth;
-    private int resizeStartHeight;
-    private int resizeStartWindowX;
-    private int resizeStartWindowY;
+    private long lastClickTime = NEXT_Z_ORDER.incrementAndGet();
+    private UiWindowInteractionModel interaction;
     private WindowButton closeButton;
     private boolean boundsDirty;
     private boolean userBoundsPreference;
+    private final UiFloatAnimation hoverBorderAnimation =
+            new UiFloatAnimation(SystemUiClock.INSTANCE, 0.0D);
+    private final UiWindowVisibilityAnimation visibilityAnimation = new UiWindowVisibilityAnimation(SystemUiClock.INSTANCE, true);
+    /** 子窗口手绘按钮共用的有界视觉状态；关闭窗口时清空，业务状态不在此保存。 */
+    private final RtsPanelControlAnimations contentControlAnimations = new RtsPanelControlAnimations();
+    private boolean hoverBorderTarget;
 
     /**
      * Hysteresis flag: when true, a wider threshold (SNAP_THRESHOLD * 2) is used
@@ -151,42 +166,69 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTick) {
-        if (!this.open || !canShowWindow()) {
+        boolean interactivelyVisible = this.open && canShowWindow();
+        if (!this.visibilityAnimation.shouldRender(interactivelyVisible)) {
             this.mouseHovering = false;
+            return;
+        }
+        if (this.visibilityAnimation.finishDismissalIfNeeded(
+                Config.isUiAnimationsEnabled())) {
+            this.mouseHovering = false;
+            this.contentControlAnimations.clear();
             return;
         }
         initializePosition();
         clampWindowToScreen();
-        this.mouseHovering = !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
+        this.mouseHovering = interactivelyVisible
+                && !this.skipHoverDetection && isInsideWindow(mouseX, mouseY);
+        updateHoverBorderAnimation(this.mouseHovering);
+
+        double reveal = this.visibilityAnimation.opacity();
+        double revealOffsetY = this.visibilityAnimation.offsetY();
+        boolean visibilityTransitioning = reveal < 0.999D;
 
         // When the window is covered, globally suppress hover effects on all child buttons
         // Must be set before renderWindowFrame because the close button renders there
-        if (this.skipHoverDetection) {
+        boolean suppressChildHover = this.skipHoverDetection
+                || this.visibilityAnimation.isDismissing()
+                || visibilityTransitioning;
+        if (suppressChildHover) {
             WindowButton.setGlobalSkipHover(true);
         }
         try {
+            RtsWindowSubtreeCompositor.render(
+                    g, this.screen.width, this.screen.height,
+                    this.visibilityAnimation.subtreeTintOpacity(),
+                    () -> renderWindowSubtree(
+                            g, mouseX, mouseY, partialTick, revealOffsetY));
+        } finally {
+            if (suppressChildHover) {
+                WindowButton.setGlobalSkipHover(false);
+            }
+        }
+    }
+
+    private void renderWindowSubtree(GuiGraphics g, int mouseX, int mouseY,
+                                     float partialTick, double revealOffsetY) {
+        g.flush();
+        g.pose().pushPose();
+        g.pose().translate(0.0D, revealOffsetY, 0.0D);
+        try {
             renderWindowFrame(g, mouseX, mouseY);
-            // Flush the window frame first (no scissor) so the border is not clipped
-            // by the content scissor that follows.
-            // Must be flushed separately from content because the window border lies
-            // outside the content clipping region.
             g.flush();
 
             if (shouldClipContent()) {
-                enableContentScissor(g);
+                RtsWindowContentScissor.enable(
+                        g, this.screen, contentX(), contentY(),
+                        contentWidth(), contentHeight(), revealOffsetY);
             }
             renderContent(g, mouseX, mouseY, partialTick);
-            // Flush content while scissor is still active, so item icons (renderItem) and
-            // text batched vertices are clipped to the content region at rasterisation time,
-            // preventing visual bleed-through to adjacent panels.
             g.flush();
         } finally {
-            if (this.skipHoverDetection) {
-                WindowButton.setGlobalSkipHover(false);
-            }
             if (shouldClipContent()) {
                 g.disableScissor();
             }
+            g.pose().popPose();
         }
     }
 
@@ -206,15 +248,36 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
         boolean wasOpen = this.open;
         if (open && !wasOpen) {
             initializePosition();
+            this.visibilityAnimation.reveal(Config.isUiAnimationsEnabled());
         }
         this.open = open;
         if (!open && wasOpen) {
+            if (this.interaction != null) this.interaction.endInteraction();
+            this.interaction = null;
+            this.snapEngaged = false;
+            this.visibilityAnimation.dismiss(Config.isUiAnimationsEnabled());
+            if (!this.visibilityAnimation.isDismissing()) {
+                this.contentControlAnimations.clear();
+            }
             onClose();
         }
     }
 
     public void toggleOpen() {
         setOpen(!this.open);
+    }
+
+    /** 为子类手绘控件提供有界动画；命中和业务状态仍由子类立即处理。 */
+    protected final UiControlAnimationState.Snapshot animateContentControl(
+            String stableId,
+            boolean enabled,
+            boolean hovered,
+            boolean selected) {
+        return this.contentControlAnimations.update(
+                stableId, enabled, hovered, selected,
+                this.skipHoverDetection || this.visibilityAnimation.isDismissing()
+                        || this.visibilityAnimation.opacity() < 0.999D,
+                Config.isUiAnimationsEnabled());
     }
 
     public int getWindowX() {
@@ -238,7 +301,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     public void markBroughtToFront() {
-        this.lastClickTime = System.nanoTime();
+        // 单调序号比 nanoTime 更适合做 z-order：不会因时钟粒度产生并列窗口。
+        this.lastClickTime = NEXT_Z_ORDER.incrementAndGet();
     }
 
     public boolean hasInitializedBounds() {
@@ -344,7 +408,9 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
             return ResizeCursor.DEFAULT;
         }
         initializePosition();
-        ResizeEdge edge = this.resizing ? this.resizeEdge : getResizeEdgeAt((int) mouseX, (int) mouseY);
+        ResizeEdge edge = this.interaction != null && this.interaction.isResizing()
+                ? fromKitResizeEdge(this.interaction.resizeEdge())
+                : getResizeEdgeAt((int) mouseX, (int) mouseY);
         return switch (edge) {
             case LEFT, RIGHT -> ResizeCursor.RESIZE_EW;
             case TOP, BOTTOM -> ResizeCursor.RESIZE_NS;
@@ -377,9 +443,8 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
                 }
             }
             if (this.draggable && isInsideTitleBar(mouseX, mouseY)) {
-                this.dragging = true;
-                this.dragOffsetX = mouseX - this.windowX;
-                this.dragOffsetY = mouseY - this.windowY;
+                this.interaction = createInteractionModel();
+                this.interaction.beginDrag(mouseX, mouseY);
                 this.snapEngaged = false;
                 return true;
             }
@@ -396,7 +461,7 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
         if (!this.open || button != GLFW.GLFW_MOUSE_BUTTON_LEFT) {
             return false;
         }
-        if (this.resizing) {
+        if (this.interaction != null && this.interaction.isResizing()) {
             int beforeX = this.windowX;
             int beforeY = this.windowY;
             int beforeW = this.windowWidth;
@@ -408,12 +473,11 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
             }
             return true;
         }
-        if (this.dragging) {
+        if (this.interaction != null && this.interaction.isDragging()) {
             int beforeX = this.windowX;
             int beforeY = this.windowY;
-            this.windowX = (int) (mouseX - this.dragOffsetX);
-            this.windowY = (int) (mouseY - this.dragOffsetY);
-            clampWindowToScreen();
+            this.interaction.dragTo(mouseX, mouseY);
+            applyInteractionBounds();
             snapToNearbyPanel();
             if (beforeX != this.windowX || beforeY != this.windowY) {
                 markUserBoundsDirty();
@@ -430,17 +494,16 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
         if (!this.open) {
-            this.dragging = false;
-            this.resizing = false;
-            this.resizeEdge = ResizeEdge.NONE;
+            if (this.interaction != null) this.interaction.endInteraction();
+            this.interaction = null;
             return false;
         }
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT) {
-            boolean boundsChanged = this.dragging || this.resizing;
-            this.dragging = false;
+            boolean boundsChanged = this.interaction != null
+                    && this.interaction.isInteracting();
+            if (this.interaction != null) this.interaction.endInteraction();
+            this.interaction = null;
             this.snapEngaged = false;
-            this.resizing = false;
-            this.resizeEdge = ResizeEdge.NONE;
             if (boundsChanged) {
                 onBoundsChanged();
             }
@@ -479,6 +542,46 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     @Override
+    public UiEventReply handlePointer(UiPointerEvent event) {
+        boolean handled = switch (event.getType()) {
+            case PRESS -> mouseClicked(event.getX(), event.getY(), event.getButton());
+            case DRAG -> mouseDragged(event.getX(), event.getY(), event.getButton(),
+                    event.getDeltaX(), event.getDeltaY());
+            case RELEASE -> mouseReleased(event.getX(), event.getY(), event.getButton());
+            case SCROLL -> mouseScrolled(event.getX(), event.getY(),
+                    event.getDeltaX(), event.getDeltaY());
+            case MOVE -> false;
+        };
+        if (!handled) {
+            return UiEventReply.PASS;
+        }
+        if (event.getType() == UiPointerEvent.Type.PRESS) {
+            markBroughtToFront();
+            return UiEventReply.CAPTURE_POINTER;
+        }
+        return UiEventReply.BLOCK_WORLD;
+    }
+
+    @Override
+    public UiEventReply handleKey(UiKeyEvent event) {
+        boolean handled = switch (event.getType()) {
+            case PRESS -> keyPressed(event.getKeyCode(), event.getScanCode(), event.getModifiers());
+            case CHAR_TYPED -> charTyped(event.getCharacter(), event.getModifiers());
+            case RELEASE -> false;
+        };
+        return handled ? UiEventReply.BLOCK_WORLD : UiEventReply.PASS;
+    }
+
+    @Override
+    public boolean handleEscape() {
+        if (!isVisibleWindow() || !this.closable) {
+            return false;
+        }
+        setOpen(false);
+        return true;
+    }
+
+    @Override
     public void close() {
         setOpen(false);
     }
@@ -512,35 +615,40 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     protected int getBackgroundColor() {
-        return 0xFF161C24;
+        return RtsMainlineTheme.WINDOW_BACKGROUND.toArgb();
     }
 
     protected int getBorderLightColor() {
-        return 0xFF6C839A;
+        return RtsMainlineTheme.WINDOW_BORDER_LIGHT.toArgb();
     }
 
     protected int getBorderDarkColor() {
-        return 0xFF0D1117;
+        return RtsMainlineTheme.WINDOW_BORDER_DARK.toArgb();
     }
 
     protected int getHoverBorderLightColor() {
-        return 0xFFAAC8E8;
+        return RtsMainlineTheme.WINDOW_BORDER_HOVER_LIGHT.toArgb();
     }
 
     protected int getHoverBorderDarkColor() {
-        return 0xFF2A3A4A;
+        return RtsMainlineTheme.WINDOW_BORDER_HOVER_DARK.toArgb();
     }
 
     protected int getTitleBarColor() {
-        return 0xCC233345;
+        return RtsMainlineTheme.WINDOW_TITLE.toArgb();
     }
 
     protected int getTitleTextColor() {
-        return 0xF2F7FF;
+        return RtsMainlineTheme.WINDOW_TITLE_TEXT.toArgb();
     }
 
     protected boolean canShowWindow() {
         return true;
+    }
+
+    /** 子类仅在确实需要阻断全部背景 UI/世界输入时覆写。 */
+    protected boolean isModalWindow() {
+        return false;
     }
 
     protected boolean shouldClipContent() {
@@ -612,10 +720,16 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     private void renderWindowFrame(GuiGraphics g, int mouseX, int mouseY) {
-        int light = this.mouseHovering ? getHoverBorderLightColor() : getBorderLightColor();
-        int dark = this.mouseHovering ? getHoverBorderDarkColor() : getBorderDarkColor();
-        RtsClientUiUtil.drawPanelFrame(g, this.windowX, this.windowY, this.windowWidth, this.windowHeight,
-                getBackgroundColor(), light, dark);
+        double hoverProgress = Config.isUiAnimationsEnabled()
+                ? this.hoverBorderAnimation.value()
+                : (this.mouseHovering ? 1.0D : 0.0D);
+        int light = UiColor.interpolate(new UiColor(getBorderLightColor()),
+                new UiColor(getHoverBorderLightColor()), hoverProgress).toArgb();
+        int dark = UiColor.interpolate(new UiColor(getBorderDarkColor()),
+                new UiColor(getHoverBorderDarkColor()), hoverProgress).toArgb();
+        UiChromeRenderer.frame(new MinecraftUiCanvas(g, this.screen.font(), this.screen),
+                new UiRect(this.windowX, this.windowY, this.windowWidth, this.windowHeight), 1.0D,
+                new UiColor(getBackgroundColor()), new UiColor(light), new UiColor(dark));
         int titleH = getTitleBarHeight();
         if (titleH > 0) {
             g.fill(this.windowX + 1, this.windowY + 1, this.windowX + this.windowWidth - 1,
@@ -633,16 +747,14 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
         }
     }
 
-    private void enableContentScissor(GuiGraphics g) {
-        int x1 = contentX();
-        int y1 = contentY();
-        int x2 = x1 + contentWidth();
-        int y2 = y1 + contentHeight();
-        if (this.screen != null) {
-            this.screen.enableRtsScissor(g, x1, y1, x2, y2);
-        } else {
-            g.enableScissor(x1, y1, x2, y2);
+    /** 只在悬浮目标变化时重定向动画，避免每帧重启动导致边框永远追不上终值。 */
+    private void updateHoverBorderAnimation(boolean hovering) {
+        if (this.hoverBorderTarget == hovering) {
+            return;
         }
+        this.hoverBorderTarget = hovering;
+        this.hoverBorderAnimation.animateTo(hovering ? 1.0D : 0.0D,
+                UiMotionSpec.HOVER_MS, UiEasing.EASE_OUT_CUBIC);
     }
 
     private boolean isInsideTitleBar(double mouseX, double mouseY) {
@@ -686,61 +798,41 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
     }
 
     private void beginResize(ResizeEdge edge, double mouseX, double mouseY) {
-        this.resizing = true;
-        this.resizeEdge = edge;
-        this.resizeStartMouseX = (int) mouseX;
-        this.resizeStartMouseY = (int) mouseY;
-        this.resizeStartWidth = this.windowWidth;
-        this.resizeStartHeight = this.windowHeight;
-        this.resizeStartWindowX = this.windowX;
-        this.resizeStartWindowY = this.windowY;
+        this.interaction = createInteractionModel();
+        this.interaction.beginResize(toKitResizeEdge(edge), mouseX, mouseY);
     }
 
     private void resizeToMouse(int mouseX, int mouseY) {
-        int dx = mouseX - this.resizeStartMouseX;
-        int dy = mouseY - this.resizeStartMouseY;
-        switch (this.resizeEdge) {
-            case RIGHT -> this.windowWidth = this.resizeStartWidth + dx;
-            case BOTTOM -> this.windowHeight = this.resizeStartHeight + dy;
-            case LEFT -> adjustLeftEdge(dx);
-            case TOP -> adjustTopEdge(dy);
-            case TOP_LEFT -> {
-                adjustLeftEdge(dx);
-                adjustTopEdge(dy);
-            }
-            case TOP_RIGHT -> {
-                this.windowWidth = this.resizeStartWidth + dx;
-                adjustTopEdge(dy);
-            }
-            case BOTTOM_LEFT -> {
-                adjustLeftEdge(dx);
-                this.windowHeight = this.resizeStartHeight + dy;
-            }
-            case BOTTOM_RIGHT -> {
-                this.windowWidth = this.resizeStartWidth + dx;
-                this.windowHeight = this.resizeStartHeight + dy;
-            }
-            case NONE -> {
-            }
-        }
-        clampWindowSize();
-        clampWindowToScreen();
+        this.interaction.resizeTo(mouseX, mouseY);
+        applyInteractionBounds();
     }
 
-    private void adjustLeftEdge(int dx) {
-        int newWidth = this.resizeStartWidth - dx;
-        int maxRight = this.resizeStartWindowX + this.resizeStartWidth;
-        this.windowWidth = newWidth;
-        clampWindowSize();
-        this.windowX = maxRight - this.windowWidth;
+    private UiWindowInteractionModel createInteractionModel() {
+        UiRect viewport = new UiRect(
+                SCREEN_MARGIN,
+                SCREEN_MARGIN,
+                Math.max(1, this.screen.width - SCREEN_MARGIN * 2),
+                Math.max(1, this.screen.height - SCREEN_MARGIN * 2));
+        return new UiWindowInteractionModel(viewport,
+                new UiRect(this.windowX, this.windowY, this.windowWidth, this.windowHeight),
+                getMinWindowWidth(), getMinWindowHeight(),
+                getMaxWindowWidth(), getMaxWindowHeight());
     }
 
-    private void adjustTopEdge(int dy) {
-        int newHeight = this.resizeStartHeight - dy;
-        int maxBottom = this.resizeStartWindowY + this.resizeStartHeight;
-        this.windowHeight = newHeight;
-        clampWindowSize();
-        this.windowY = maxBottom - this.windowHeight;
+    private void applyInteractionBounds() {
+        UiRect bounds = this.interaction.getBounds();
+        this.windowX = (int) Math.round(bounds.getX());
+        this.windowY = (int) Math.round(bounds.getY());
+        this.windowWidth = (int) Math.round(bounds.getWidth());
+        this.windowHeight = (int) Math.round(bounds.getHeight());
+    }
+
+    private static UiWindowInteractionModel.ResizeEdge toKitResizeEdge(ResizeEdge edge) {
+        return UiWindowInteractionModel.ResizeEdge.valueOf(edge.name());
+    }
+
+    private static ResizeEdge fromKitResizeEdge(UiWindowInteractionModel.ResizeEdge edge) {
+        return ResizeEdge.valueOf(edge.name());
     }
 
     private void initializePosition() {
@@ -777,95 +869,19 @@ public abstract class RtsWindowPanel implements RtsPanel, BoundsProvider {
             return;
         }
         int maxX = Math.max(SCREEN_MARGIN, this.screen.width - this.windowWidth - SCREEN_MARGIN);
-        int maxY = Math.max(SCREEN_MARGIN, this.screen.height - getTitleBarHeight() - SCREEN_MARGIN);
+        int maxY = Math.max(SCREEN_MARGIN, this.screen.height - this.windowHeight - SCREEN_MARGIN);
         this.windowX = Mth.clamp(this.windowX, SCREEN_MARGIN, maxX);
         this.windowY = Mth.clamp(this.windowY, SCREEN_MARGIN, maxY);
     }
 
-    /**
-     * Snaps this panel to any nearby open panel's opposite edges if within threshold,
-     * with actual overlapping range (not just infinite extension lines).
-     *
-     * <p>This is a transient drag-time alignment — no permanent relationship is created.
-     * Each drag operation is independent; panels do not follow each other after
-     * the drag ends. This matches real-world window snapping behavior.
-     *
-     * <p>Rules:
-     * <ul>
-     *   <li>Horizontal snap (left↔right, right↔left) requires vertical overlap</li>
-     *   <li>Vertical snap (top↔bottom, bottom↔top) requires horizontal overlap</li>
-     *   <li>This panel's LEFT edge snaps to another panel's RIGHT edge</li>
-     *   <li>This panel's RIGHT edge snaps to another panel's LEFT edge</li>
-     *   <li>This panel's TOP edge snaps to another panel's BOTTOM edge</li>
-     *   <li>This panel's BOTTOM edge snaps to another panel's TOP edge</li>
-     * </ul>
-     */
     private void snapToNearbyPanel() {
         if (this.screen == null) return;
-        RtsFloatingWindowLayer layer = this.screen.getFloatingWindowLayer();
-        List<RtsWindowPanel> panels = layer.frontToBackWindows();
-
-        int preSnapX = this.windowX;
-        int preSnapY = this.windowY;
-
-        for (RtsWindowPanel other : panels) {
-            if (other == this || !other.isOpen()) continue;
-
-            // Hysteresis: once snapped, use a wider threshold to break free.
-            // This prevents small slow mouse movements from constantly re-snapping.
-            int threshold = SNAP_THRESHOLD;
-
-            boolean verticalOverlap = overlapY(this, other) > 0;
-            boolean horizontalOverlap = overlapX(this, other) > 0;
-
-            int oL = other.windowX;
-            int oR = other.windowX + other.windowWidth;
-            int oT = other.windowY;
-            int oB = other.windowY + other.windowHeight;
-
-            // Horizontal: snap opposite edges
-            if (verticalOverlap) {
-                int mL = this.windowX;
-                int mR = this.windowX + this.windowWidth;
-                if (Math.abs(mL - oR) < threshold) {
-                    this.windowX = oR + 1;
-                } else if (Math.abs(mR - oL) < threshold) {
-                    this.windowX = oL - this.windowWidth - 1;
-                }
-            }
-
-            // Vertical: snap opposite edges
-            if (horizontalOverlap) {
-                int mT = this.windowY;
-                int mB = this.windowY + this.windowHeight;
-                if (Math.abs(mT - oB) < threshold) {
-                    this.windowY = oB + 1;
-                } else if (Math.abs(mB - oT) < threshold) {
-                    this.windowY = oT - this.windowHeight - 1;
-                }
-            }
-        }
-        // Update snap engagement: if any snap alignment occurred, enable hysteresis
-        // so the next frame uses a wider threshold before releasing.
-        this.snapEngaged = this.windowX != preSnapX || this.windowY != preSnapY;
-    }
-
-    /** Returns the overlapping pixel count in the Y axis between two panels, or 0 if none. */
-    private static int overlapY(RtsWindowPanel a, RtsWindowPanel b) {
-        int aTop = a.windowY;
-        int aBot = a.windowY + a.windowHeight;
-        int bTop = b.windowY;
-        int bBot = b.windowY + b.windowHeight;
-        return Math.max(0, Math.min(aBot, bBot) - Math.max(aTop, bTop));
-    }
-
-    /** Returns the overlapping pixel count in the X axis between two panels, or 0 if none. */
-    private static int overlapX(RtsWindowPanel a, RtsWindowPanel b) {
-        int aL = a.windowX;
-        int aR = a.windowX + a.windowWidth;
-        int bL = b.windowX;
-        int bR = b.windowX + b.windowWidth;
-        return Math.max(0, Math.min(aR, bR) - Math.max(aL, bL));
+        RtsWindowSnapper.Result result = RtsWindowSnapper.snap(
+                this, this.screen.getFloatingWindowLayer().frontToBackWindows(),
+                SNAP_THRESHOLD);
+        this.windowX = result.x;
+        this.windowY = result.y;
+        this.snapEngaged = result.snapped;
     }
 
     private int closeButtonX() {

@@ -36,6 +36,9 @@ public final class RtsBlockActionSoundPlayer {
         if (!RtsClientUiStateStore.isRtsSoundsEnabled()) {
             return;
         }
+        if (!payload.breakAction() && !RtsClientUiStateStore.isRtsPlacementSoundsEnabled()) {
+            return;
+        }
         if (payload.breakAction() && !RtsClientUiStateStore.isRtsBreakSoundsEnabled()) {
             return;
         }

@@ -199,6 +199,16 @@ public final class RtsAggregateStorage {
         }
     }
 
+    /**
+     * 将所有处理器中的完整物品变体计数汇总到给定映射中。
+     * 物品 ID 相同但组件不同的堆叠会保留为不同键。
+     */
+    public void getAvailableItemVariants(Map<RtsItemVariantKey, Long> out) {
+        for (CachedHandlerSlot cs : this.flatOrdered) {
+            cs.cache.getAvailableItemVariants(out);
+        }
+    }
+
     // ---- 周期更新 -----------------------------------------------------------
 
     /**

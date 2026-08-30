@@ -4,6 +4,8 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.*;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderStateShard;
 import net.minecraft.client.renderer.RenderType;
@@ -117,9 +119,11 @@ public final class DestructiveGhostRenderer {
                 double cellMaxY = pos.getY() + 0.97D;
                 double cellMaxZ = pos.getZ() + 0.97D;
 
-                float lineR = readyConfirm ? 0.45F : 0.30F;
-                float lineG = readyConfirm ? 0.95F : 0.75F;
-                float lineB = readyConfirm ? 0.45F : 1.00F;
+                UiColor buildColor = readyConfirm
+                        ? UiThemeWorldColors.BUILD_READY : UiThemeWorldColors.BUILD_PREVIEW;
+                float lineR = UiThemeWorldColors.red(buildColor);
+                float lineG = UiThemeWorldColors.green(buildColor);
+                float lineB = UiThemeWorldColors.blue(buildColor);
                 LevelRenderer.renderLineBox(poseStack, lineBuffer,
                         cellMinX, cellMinY, cellMinZ,
                         cellMaxX, cellMaxY, cellMaxZ,
@@ -138,12 +142,18 @@ public final class DestructiveGhostRenderer {
 
         // Outer envelope (yellow → green transition) — always rendered
         if (!RenderingUtil.isEmpty(preview.blocks()) || !RenderingUtil.isEmpty(preview.emptyBlocks())) {
-            float envLineR = RenderingUtil.lerp(1.00F, 0.38F, progress);
-            float envLineG = RenderingUtil.lerp(0.86F, 1.00F, progress);
-            float envLineB = RenderingUtil.lerp(0.22F, 0.42F, progress);
-            float envFillR = RenderingUtil.lerp(1.00F, 0.30F, progress);
-            float envFillG = RenderingUtil.lerp(0.86F, 0.95F, progress);
-            float envFillB = RenderingUtil.lerp(0.18F, 0.36F, progress);
+            float envLineR = lerpColor(UiThemeWorldColors.DESTRUCTIVE_ENVELOPE_START,
+                    UiThemeWorldColors.DESTRUCTIVE_COMPLETE, progress, 0);
+            float envLineG = lerpColor(UiThemeWorldColors.DESTRUCTIVE_ENVELOPE_START,
+                    UiThemeWorldColors.DESTRUCTIVE_COMPLETE, progress, 1);
+            float envLineB = lerpColor(UiThemeWorldColors.DESTRUCTIVE_ENVELOPE_START,
+                    UiThemeWorldColors.DESTRUCTIVE_COMPLETE, progress, 2);
+            float envFillR = lerpColor(UiThemeWorldColors.DESTRUCTIVE_ENVELOPE_START_FILL,
+                    UiThemeWorldColors.DESTRUCTIVE_COMPLETE_FILL, progress, 0);
+            float envFillG = lerpColor(UiThemeWorldColors.DESTRUCTIVE_ENVELOPE_START_FILL,
+                    UiThemeWorldColors.DESTRUCTIVE_COMPLETE_FILL, progress, 1);
+            float envFillB = lerpColor(UiThemeWorldColors.DESTRUCTIVE_ENVELOPE_START_FILL,
+                    UiThemeWorldColors.DESTRUCTIVE_COMPLETE_FILL, progress, 2);
             renderGhostEnvelope(poseStack, lineBuffer, fillBuffer,
                     preview.blocks(), preview.emptyBlocks(),
                     envLineR, envLineG, envLineB, 0.78F * alpha,
@@ -167,13 +177,19 @@ public final class DestructiveGhostRenderer {
     private static void renderPerBlockCells(List<BlockPos> blocks, PoseStack poseStack,
             VertexConsumer lineBuffer, VertexConsumer fillBuffer, float progress, float alpha,
             DestructiveCellColors dcc, boolean renderFill, boolean renderLines) {
-        float lineR = RenderingUtil.lerp(dcc.lineR(), 0.38F, progress) * alpha;
-        float lineG = RenderingUtil.lerp(dcc.lineG(), 1.00F, progress);
-        float lineB = RenderingUtil.lerp(dcc.lineB(), 0.42F, progress);
+        float lineR = RenderingUtil.lerp(dcc.lineR(),
+                UiThemeWorldColors.red(UiThemeWorldColors.DESTRUCTIVE_COMPLETE), progress) * alpha;
+        float lineG = RenderingUtil.lerp(dcc.lineG(),
+                UiThemeWorldColors.green(UiThemeWorldColors.DESTRUCTIVE_COMPLETE), progress);
+        float lineB = RenderingUtil.lerp(dcc.lineB(),
+                UiThemeWorldColors.blue(UiThemeWorldColors.DESTRUCTIVE_COMPLETE), progress);
         float lineA = dcc.lineA() * alpha;
-        float fillR = RenderingUtil.lerp(dcc.fillR(), 0.30F, progress);
-        float fillG = RenderingUtil.lerp(dcc.fillG(), 0.95F, progress);
-        float fillB = RenderingUtil.lerp(dcc.fillB(), 0.36F, progress);
+        float fillR = RenderingUtil.lerp(dcc.fillR(),
+                UiThemeWorldColors.red(UiThemeWorldColors.DESTRUCTIVE_COMPLETE_FILL), progress);
+        float fillG = RenderingUtil.lerp(dcc.fillG(),
+                UiThemeWorldColors.green(UiThemeWorldColors.DESTRUCTIVE_COMPLETE_FILL), progress);
+        float fillB = RenderingUtil.lerp(dcc.fillB(),
+                UiThemeWorldColors.blue(UiThemeWorldColors.DESTRUCTIVE_COMPLETE_FILL), progress);
         float fillA = dcc.fillA() * alpha;
 
         for (BlockPos pos : blocks) {
@@ -291,16 +307,30 @@ public final class DestructiveGhostRenderer {
             float lineR, float lineG, float lineB, float lineA,
             float fillR, float fillG, float fillB, float fillA) {
         private static DestructiveCellColors forConfirmState(boolean readyConfirm) {
+            UiColor line = readyConfirm
+                    ? UiThemeWorldColors.DESTRUCTIVE_READY
+                    : UiThemeWorldColors.DESTRUCTIVE_PENDING;
+            UiColor fill = readyConfirm
+                    ? UiThemeWorldColors.DESTRUCTIVE_READY_FILL
+                    : UiThemeWorldColors.DESTRUCTIVE_PENDING_FILL;
             return new DestructiveCellColors(
-                    1.00F,
-                    readyConfirm ? 0.95F : 0.46F,
-                    readyConfirm ? 0.45F : 0.64F,
+                    UiThemeWorldColors.red(line),
+                    UiThemeWorldColors.green(line),
+                    UiThemeWorldColors.blue(line),
                     readyConfirm ? 0.95F : 0.62F,
-                    1.00F,
-                    readyConfirm ? 0.72F : 0.25F,
-                    readyConfirm ? 0.24F : 0.44F,
+                    UiThemeWorldColors.red(fill),
+                    UiThemeWorldColors.green(fill),
+                    UiThemeWorldColors.blue(fill),
                     readyConfirm ? 0.22F : 0.07F
             );
         }
+    }
+
+    private static float lerpColor(UiColor from, UiColor to, float progress, int channel) {
+        float first = channel == 0 ? UiThemeWorldColors.red(from)
+                : channel == 1 ? UiThemeWorldColors.green(from) : UiThemeWorldColors.blue(from);
+        float second = channel == 0 ? UiThemeWorldColors.red(to)
+                : channel == 1 ? UiThemeWorldColors.green(to) : UiThemeWorldColors.blue(to);
+        return RenderingUtil.lerp(first, second, progress);
     }
 }

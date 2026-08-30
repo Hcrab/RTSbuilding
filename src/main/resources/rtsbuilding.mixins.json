@@ -5,14 +5,20 @@
   "client": [
     "BlockEntityRenderDispatcherMixin",
     "BlockRenderDispatcherMixin",
+    "CreateValueSettingsScreenMixin",
+    "CreateWorldshaperRenderHandlerMixin",
     "EmbeddiumWorldSliceMixin",
+    "FlywheelBlockEntityStorageMixin",
     "SodiumLevelSliceMixin",
     "RenderChunkRegionMixin",
-    "LocalPlayerMixin"
+    "SimulatedHoneyGlueClientHandlerMixin",
+    "LocalPlayerMixin",
+    "MinecraftCameraEntityMixin"
   ],
   "mixins": [
     "ChestMenuMixin",
-    "ModdedRemoteStillValidMixin"
+    "ModdedRemoteStillValidMixin",
+    "ServerPlayerRemoteMenuMixin"
   ],
   "injectors": {
     "defaultRequire": 1

@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.common.placement.PlacementStatePreset;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsStoragePagePayload;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
@@ -91,6 +92,19 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
+        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
+        if (sourceId == null) {
+            return null;
+        }
+        BlockState frozenState = job.frozenPlacementState();
+        if (frozenState != null) {
+            if (frozenState.getBlock() != blockItem.getBlock()) {
+                return null;
+            }
+            return new StatePlacementPlan(
+                    item, templateStack, frozenState, true, sourceId.toString());
+        }
+
         BlockPos templatePos = job.templatePosition();
         if (templatePos == null || job.face() == null || !player.serverLevel().hasChunkAt(templatePos)) {
             return null;
@@ -107,14 +121,12 @@ public final class RtsPlacementQuickBuild {
             return null;
         }
 
-        ResourceLocation sourceId = BuiltInRegistries.ITEM.getKey(item);
-        if (sourceId == null) {
-            return null;
-        }
         return new StatePlacementPlan(
                 item,
                 templateStack,
-                RtsPlacementHelper.rotateState(state, job.rotateSteps()),
+                PlacementStatePreset.apply(
+                        RtsPlacementHelper.rotateState(state, job.rotateSteps()),
+                        job.statePreset()),
                 true,
                 sourceId.toString());
     }
@@ -128,6 +140,14 @@ public final class RtsPlacementQuickBuild {
      */
     public static boolean placeStateBatchEntry(ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
                                                StatePlacementPlan plan) {
+        return placeStateBatchEntry(player, session, targetPos, plan, false);
+    }
+
+    /**
+     * @param creativeOverwrite 已由服务端核验的创造覆盖标志；允许替换既有方块并忽略实体占位。
+     */
+    public static boolean placeStateBatchEntry(ServerPlayer player, RtsStorageSession session, BlockPos targetPos,
+                                               StatePlacementPlan plan, boolean creativeOverwrite) {
         if (!RtsProgressionManager.canUse(player, RtsFeature.REMOTE_PLACE)) {
             return false;
         }
@@ -143,7 +163,7 @@ public final class RtsPlacementQuickBuild {
         if (!RtsClaimProtectionService.canPlaceBlock(player, targetPos)) {
             return true;
         }
-        if (!canPlaceStateAt(level, player, targetPos, plan.state())) {
+        if (!canPlaceStateAt(level, player, targetPos, plan.state(), creativeOverwrite && player.isCreative())) {
             return true;
         }
 
@@ -187,7 +207,7 @@ public final class RtsPlacementQuickBuild {
             BlockPlacer.applyQuickBuildBlockEntity(level, targetPos, placementStack, placedState, player);
         }
         // 完全改为使用储存空间的方块进行放置，不再从主手扣除
-        BlockPlacer.trackPlaced(level, targetPos);
+        BlockPlacer.trackPlaced(level, targetPos, player);
         RtsPlacementSound.playRemotePlacedBlockAnimation(player, targetPos);
         RtsPlacementSound.playRemotePlacedBlockSound(player, level, targetPos);
         ServiceRegistry.getInstance().page().recordRecentItem(session, plan.itemId(), S2CRtsStoragePagePayload.RECENT_ITEM_PLACED, 1L);
@@ -195,12 +215,20 @@ public final class RtsPlacementQuickBuild {
     }
 
     static boolean canPlaceStateAt(ServerLevel level, ServerPlayer player, BlockPos targetPos, BlockState state) {
+        return canPlaceStateAt(level, player, targetPos, state, false);
+    }
+
+    static boolean canPlaceStateAt(ServerLevel level, ServerPlayer player, BlockPos targetPos, BlockState state,
+                                   boolean creativeOverwrite) {
         if (level == null || targetPos == null || state == null || !level.hasChunkAt(targetPos)) {
             return false;
         }
         BlockState current = level.getBlockState(targetPos);
-        if (!current.isAir() && !current.canBeReplaced()) {
+        if (!creativeOverwrite && !current.isAir() && !current.canBeReplaced()) {
             return false;
+        }
+        if (creativeOverwrite) {
+            return state.canSurvive(level, targetPos);
         }
         CollisionContext collision = player == null ? CollisionContext.empty() : CollisionContext.of(player);
         return state.canSurvive(level, targetPos) && level.isUnobstructed(state, targetPos, collision);

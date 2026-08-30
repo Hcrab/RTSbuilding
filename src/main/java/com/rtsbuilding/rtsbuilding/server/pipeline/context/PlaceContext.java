@@ -117,6 +117,11 @@ public class PlaceContext extends PipelineContext {
         return val != null ? val.byteValue() : (byte) 0;
     }
 
+    public String getStatePreset() {
+        String value = getArg(PlacementExecutePipe.ARG_STATE_PRESET);
+        return value == null ? "" : value;
+    }
+
     /**
      * 返回是否启用了强制放置。
      * 如果参数不存在则默认为 {@code false}。
@@ -133,6 +138,11 @@ public class PlaceContext extends PipelineContext {
     public boolean isSkipIfOccupied() {
         return hasArg(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED)
                 && getArg(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED);
+    }
+
+    public boolean isOverwriteExisting() {
+        return hasArg(PlacementExecutePipe.ARG_OVERWRITE_EXISTING)
+                && getArg(PlacementExecutePipe.ARG_OVERWRITE_EXISTING);
     }
 
     /** 返回要放置的物品 ID。 */
@@ -270,6 +280,11 @@ public class PlaceContext extends PipelineContext {
             return this;
         }
 
+        public Builder statePreset(String statePreset) {
+            args.put(PlacementExecutePipe.ARG_STATE_PRESET.name(), statePreset == null ? "" : statePreset);
+            return this;
+        }
+
         /** 强制放置标志。 */
         public Builder forcePlace(boolean forcePlace) {
             args.put(PlacementExecutePipe.ARG_FORCE_PLACE.name(), forcePlace);
@@ -279,6 +294,12 @@ public class PlaceContext extends PipelineContext {
         /** 若已占用则跳过标志。 */
         public Builder skipIfOccupied(boolean skipIfOccupied) {
             args.put(PlacementExecutePipe.ARG_SKIP_IF_OCCUPIED.name(), skipIfOccupied);
+            return this;
+        }
+
+        /** 请求创造模式批量建造覆盖既有方块。 */
+        public Builder overwriteExisting(boolean overwriteExisting) {
+            args.put(PlacementExecutePipe.ARG_OVERWRITE_EXISTING.name(), overwriteExisting);
             return this;
         }
 

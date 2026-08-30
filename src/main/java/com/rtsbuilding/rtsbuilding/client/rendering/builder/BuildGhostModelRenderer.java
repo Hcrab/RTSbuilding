@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -56,7 +57,17 @@ public final class BuildGhostModelRenderer {
     private static void renderGhostAt(Minecraft minecraft, BlockPos pos, BlockState state,
             PoseStack poseStack, MultiBufferSource blockBuffer) {
         if (state.isAir() || state.getRenderShape() != RenderShape.MODEL) return;
-        GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA);
+        poseStack.pushPose();
+        try {
+            if (RtsSableClientSpatialCompat.applyBlockRenderFrame(minecraft.level, pos, poseStack)) {
+                GhostBlockModelRenderer.renderAtLocal(
+                        minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA, 1.0F);
+            } else {
+                GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer, state, pos, GHOST_ALPHA);
+            }
+        } finally {
+            poseStack.popPose();
+        }
     }
 
     /**

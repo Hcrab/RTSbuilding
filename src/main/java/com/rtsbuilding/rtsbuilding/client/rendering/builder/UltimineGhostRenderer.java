@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.client.rendering.util.CornerBracketRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RaycastHelper;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
 import com.rtsbuilding.rtsbuilding.client.screen.shape.ShapeDataRecords;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.RenderStateShard;
@@ -121,12 +122,15 @@ public final class UltimineGhostRenderer {
 
         // Step 3 — breathing gold colour
         float breathFactor = RenderingUtil.getBreathFactor(BREATH_SPEED, BREATH_MIN_FACTOR);
-        float r = 1.00F * breathFactor;
-        float g = 0.72F * breathFactor;
-        float b = 0.24F * breathFactor;
-        float edgeR = RenderingUtil.lerp(r, 0.38F, progress);
-        float edgeG = RenderingUtil.lerp(g, 1.00F, progress);
-        float edgeB = RenderingUtil.lerp(b, 0.42F, progress);
+        float r = UiThemeWorldColors.red(UiThemeWorldColors.ULTIMINE_BLOCK) * breathFactor;
+        float g = UiThemeWorldColors.green(UiThemeWorldColors.ULTIMINE_BLOCK) * breathFactor;
+        float b = UiThemeWorldColors.blue(UiThemeWorldColors.ULTIMINE_BLOCK) * breathFactor;
+        float edgeR = RenderingUtil.lerp(r,
+                UiThemeWorldColors.red(UiThemeWorldColors.DESTRUCTIVE_COMPLETE), progress);
+        float edgeG = RenderingUtil.lerp(g,
+                UiThemeWorldColors.green(UiThemeWorldColors.DESTRUCTIVE_COMPLETE), progress);
+        float edgeB = RenderingUtil.lerp(b,
+                UiThemeWorldColors.blue(UiThemeWorldColors.DESTRUCTIVE_COMPLETE), progress);
 
         // Step 4 — opaque depth-tested edges
         renderPass1(edges, matrix, lineBuffer, edgeR, edgeG, edgeB);
@@ -202,9 +206,9 @@ public final class UltimineGhostRenderer {
             Entity entity, Vec3 camPos) {
         AABB bounds = entity.getBoundingBox().inflate(0.03D);
         float breathFactor = RenderingUtil.getBreathFactor(BREATH_SPEED, BREATH_MIN_FACTOR);
-        float r = 0.50F * breathFactor;
-        float g = 0.80F * breathFactor;
-        float b = 1.00F * breathFactor;
+        float r = UiThemeWorldColors.red(UiThemeWorldColors.ULTIMINE_ENTITY) * breathFactor;
+        float g = UiThemeWorldColors.green(UiThemeWorldColors.ULTIMINE_ENTITY) * breathFactor;
+        float b = UiThemeWorldColors.blue(UiThemeWorldColors.ULTIMINE_ENTITY) * breathFactor;
         double distance = camPos.distanceTo(bounds.getCenter());
 
         // Opaque depth-tested brackets (drawn via dedicated RenderType + BufferBuilder)

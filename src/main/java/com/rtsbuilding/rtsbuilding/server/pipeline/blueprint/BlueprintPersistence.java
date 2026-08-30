@@ -4,22 +4,24 @@ import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.BlueprintWriters;
 import com.rtsbuilding.rtsbuilding.common.blueprint.io.VanillaStructureNbtReader;
 import com.rtsbuilding.rtsbuilding.common.blueprint.model.RtsBlueprint;
-import com.rtsbuilding.rtsbuilding.server.pipeline.blueprint.BlockPlacementPlanner.PlacementPlan;
 import com.rtsbuilding.rtsbuilding.server.pipeline.context.BlueprintContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
-import com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry;
 import com.rtsbuilding.rtsbuilding.server.pipeline.tool.ToolBorrowPipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import com.rtsbuilding.rtsbuilding.server.task.identity.SubmissionId;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 
 import java.util.LinkedList;
-import java.util.List;
 
 /**
  * 蓝图持久化工具——将蓝图工作流的运行时数据序列化到工作流条目，
@@ -55,6 +57,8 @@ public final class BlueprintPersistence {
     private static final String KEY_SKIPPED_UNSUPPORTED = "skippedUnsupported";
     private static final String KEY_SKIPPED_MISSING_BLOCKS = "skippedMissingBlocks";
     private static final String KEY_SKIPPED_BLOCKED = "skippedBlocked";
+    private static final String KEY_PREPARING = "preparing";
+    private static final String KEY_SOURCE_DIMENSION = "source_dimension";
 
     private BlueprintPersistence() {
     }
@@ -116,6 +120,10 @@ public final class BlueprintPersistence {
         data.putInt(KEY_SKIPPED_UNSUPPORTED, bctx.getSkippedUnsupported());
         data.putInt(KEY_SKIPPED_MISSING_BLOCKS, bctx.getSkippedMissingBlocks());
         data.putInt(KEY_SKIPPED_BLOCKED, bctx.getSkippedBlocked());
+        data.putBoolean(KEY_PREPARING, bctx.isPreparing());
+        ResourceKey<Level> sourceDimension = bctx.getData(BlueprintContext.KEY_SOURCE_DIMENSION);
+        if (sourceDimension == null) sourceDimension = player.serverLevel().dimension();
+        data.putString(KEY_SOURCE_DIMENSION, sourceDimension.location().toString());
 
         // 持久化到工作流条目
         com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine.getInstance()
@@ -164,10 +172,24 @@ public final class BlueprintPersistence {
         int ySteps = data.getInt(KEY_Y_STEPS);
         int xSteps = data.getInt(KEY_X_STEPS);
         int zSteps = data.getInt(KEY_Z_STEPS);
+        ResourceKey<Level> sourceDimension = player.serverLevel().dimension();
+        String sourceDimensionId = data.getString(KEY_SOURCE_DIMENSION);
+        if (!sourceDimensionId.isBlank()) {
+            ResourceLocation parsed = ResourceLocation.tryParse(sourceDimensionId);
+            if (parsed != null) {
+                sourceDimension = ResourceKey.create(Registries.DIMENSION, parsed);
+            } else {
+                RtsbuildingMod.LOGGER.warn(
+                        "[BlueprintPersistence] 蓝图工作流 #{} 的来源维度无效：{}，保守绑定当前维度",
+                        entry.id(), sourceDimensionId);
+            }
+        } else {
+            RtsbuildingMod.LOGGER.info(
+                    "[BlueprintPersistence] 蓝图工作流 #{} 缺少来源维度，按旧数据迁移到当前维度 {}",
+                    entry.id(), sourceDimension.location());
+        }
 
         // ── 重算放置计划 ─────────────────────────────────────────
-        List<PlacementPlan> plans = BlockPlacementPlanner.compute(blueprint, anchor, centerOffset, ySteps, xSteps, zSteps);
-
         // ── 重建剩余队列 ─────────────────────────────────────────
         LinkedList<Integer> remaining = new LinkedList<>();
         if (data.contains(KEY_REMAINING, Tag.TAG_INT_ARRAY)) {
@@ -188,7 +210,11 @@ public final class BlueprintPersistence {
         int skippedBlocked = data.getInt(KEY_SKIPPED_BLOCKED);
 
         // ── 构建管线上下文 ───────────────────────────────────────
+        SubmissionId legacySubmission = SubmissionId.fromLegacy(
+                player.getUUID(), "blueprint",
+                sourceDimension.location() + ":" + entry.id());
         BlueprintContext ctx = BlueprintContext.builder(player)
+                .submissionId(legacySubmission.value())
                 .blueprint(blueprint)
                 .anchor(anchor)
                 .yRotationSteps(ySteps)
@@ -199,13 +225,15 @@ public final class BlueprintPersistence {
 
         // 设置共享数据
         ctx.setData(BlueprintContext.KEY_CENTER_OFFSET, centerOffset);
-        ctx.setPlacementPlans(plans);
-        ctx.setRemainingQueue(remaining);
+        boolean preparing = data.getBoolean(KEY_PREPARING);
+        ctx.setPreparing(preparing);
+        ctx.setData(BlueprintContext.KEY_SOURCE_DIMENSION, sourceDimension);
         ctx.setPlacedCount(placedCount);
         ctx.setSkippedMissing(skippedMissing);
         ctx.setSkippedUnsupported(skippedUnsupported);
         ctx.setSkippedMissingBlocks(skippedMissingBlocks);
         ctx.setSkippedBlocked(skippedBlocked);
+        if (!preparing) ctx.setRemainingQueue(remaining);
 
         // 恢复 session（懒加载，若不存在则先创建）
         if (!ctx.hasData(SessionValidatePipe.KEY_SESSION)) {
@@ -217,7 +245,7 @@ public final class BlueprintPersistence {
         // 设置工作流条目 ID
         ctx.setData(PipelineContext.KEY_WORKFLOW_ENTRY_ID, entry.id());
 
-        // ── 注册 Tick 管道 ───────────────────────────────────────
+        // ── 进入 durable 迁移准入；root ACK 前保留 heavy extraData，不注册旧执行器 ──
         ctx.retainOnly(
                 PipelineContext.KEY_WORKFLOW_ENTRY_ID,
                 SessionValidatePipe.KEY_SESSION,
@@ -229,11 +257,25 @@ public final class BlueprintPersistence {
                 BlueprintContext.KEY_SKIPPED_MISSING,
                 BlueprintContext.KEY_SKIPPED_UNSUPPORTED,
                 BlueprintContext.KEY_SKIPPED_MISSING_BLOCKS,
-                BlueprintContext.KEY_SKIPPED_BLOCKED
+                BlueprintContext.KEY_SKIPPED_BLOCKED,
+                BlueprintContext.KEY_PREPARING,
+                BlueprintContext.KEY_SOURCE_DIMENSION
         );
-        TickablePipelineRegistry.register(player, ctx, new BlueprintTickPipe());
-
-        RtsbuildingMod.LOGGER.info("[BlueprintPersistence] 已恢复蓝图工作流 #{} ({} 剩余方块)",
+        var outcome = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .queueLegacyDurableBlueprint(ctx);
+        if (outcome == com.rtsbuilding.rtsbuilding.server.task.DurableBlueprintTaskBridge.QueueResult.ALREADY_FINISHED) {
+            RtsWorkflowEngine.getInstance().from(player, entry.id()).ifPresent(token -> token.cancel());
+            RtsbuildingMod.LOGGER.info("[BlueprintPersistence] 旧蓝图工作流 #{} 已有终态 receipt，已移除陈旧投影",
+                    entry.id());
+            return;
+        }
+        if (outcome == com.rtsbuilding.rtsbuilding.server.task.DurableBlueprintTaskBridge.QueueResult.QUEUE_FULL
+                || outcome == com.rtsbuilding.rtsbuilding.server.task.DurableBlueprintTaskBridge.QueueResult.MEMORY_BUDGET_FULL) {
+            RtsbuildingMod.LOGGER.warn("[BlueprintPersistence] durable 准入繁忙，旧蓝图工作流 #{} 保持 heavy 待下次恢复",
+                    entry.id());
+            return;
+        }
+        RtsbuildingMod.LOGGER.info("[BlueprintPersistence] 旧蓝图工作流 #{} 已进入 durable 准入 ({} 剩余方块)",
                 entry.id(), remaining.size());
     }
 

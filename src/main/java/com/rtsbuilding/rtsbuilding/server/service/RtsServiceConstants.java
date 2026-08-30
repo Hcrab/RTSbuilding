@@ -73,6 +73,15 @@ public final class RtsServiceConstants {
     /** 每 tick 恢复的最大单个物品栈数。 */
     public static final int PLACED_RECOVERY_MAX_STACKS_PER_TICK = 8;
 
+    /** 防止异常放置/存档制造无界回收任务。 */
+    public static final int PLACED_RECOVERY_MAX_QUEUED_JOBS = 128;
+
+    /** 单个被破坏方块最多 claim 的掉落实体数。 */
+    public static final int PLACED_RECOVERY_MAX_ENTITIES_PER_JOB = 32;
+
+    /** 单玩家回收队列最多持有的实体 claim 总数。 */
+    public static final int PLACED_RECOVERY_MAX_TOTAL_ENTITY_CLAIMS = 1024;
+
     // ======================================================================
     //  Storage tick service (adaptive cache refresh)
     // ======================================================================

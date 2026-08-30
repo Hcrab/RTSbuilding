@@ -17,6 +17,7 @@ public record C2SRtsInteractPayload(
         byte sourceType,
         byte toolSlot,
         String itemId,
+        boolean shiftDown,
         double rayOriginX,
         double rayOriginY,
         double rayOriginZ,
@@ -43,6 +44,7 @@ public record C2SRtsInteractPayload(
                 buf.writeByte(payload.sourceType());
                 buf.writeByte(payload.toolSlot());
                 buf.writeUtf(payload.itemId(), 128);
+                buf.writeBoolean(payload.shiftDown());
                 buf.writeDouble(payload.rayOriginX());
                 buf.writeDouble(payload.rayOriginY());
                 buf.writeDouble(payload.rayOriginZ());
@@ -60,6 +62,7 @@ public record C2SRtsInteractPayload(
                     buf.readByte(),
                     buf.readByte(),
                     buf.readUtf(128),
+                    buf.readBoolean(),
                     buf.readDouble(),
                     buf.readDouble(),
                     buf.readDouble(),

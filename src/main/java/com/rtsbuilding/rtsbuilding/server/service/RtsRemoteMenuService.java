@@ -1,12 +1,17 @@
 package com.rtsbuilding.rtsbuilding.server.service;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import com.rtsbuilding.rtsbuilding.compat.remote.RtsRemoteMenuCompat;
 import com.rtsbuilding.rtsbuilding.network.storage.S2CRtsRemoteMenuHintPayload;
+import com.rtsbuilding.rtsbuilding.server.camera.RtsCameraManager;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.protocol.game.ClientboundBlockEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundBlockUpdatePacket;
+import net.minecraft.network.protocol.game.ClientboundChunkBatchFinishedPacket;
+import net.minecraft.network.protocol.game.ClientboundChunkBatchStartPacket;
+import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -17,6 +22,11 @@ import net.minecraft.world.inventory.InventoryMenu;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
+import net.neoforged.bus.api.SubscribeEvent;
+import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
+import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 
 import java.lang.reflect.Field;
 import java.util.Optional;
@@ -57,7 +67,11 @@ import java.util.function.BiFunction;
  *   <li>反射访问不可访问或 final 字段时静默忽略，不破坏菜单功能</li>
  * </ul>
  */
+@EventBusSubscriber(modid = RtsbuildingMod.MODID)
 public final class RtsRemoteMenuService {
+    private static final long DEFERRED_OPEN_MAX_AGE_TICKS = 20L;
+    private static final RemoteMenuOpenExpectationTracker OPEN_EXPECTATIONS =
+            new RemoteMenuOpenExpectationTracker();
 
     private RtsRemoteMenuService() {
     }
@@ -91,8 +105,8 @@ public final class RtsRemoteMenuService {
                             field.set(menu, new AlwaysValidContainer(delegate));
                         }
                     }
-                } catch (ReflectiveOperationException ignored) {
-                    // If a field is inaccessible/final in this runtime, keep default validation for that field.
+                } catch (ReflectiveOperationException | RuntimeException | LinkageError ignored) {
+                    // 第三方字段不可访问、不可替换或类链接失败时保留原值；统一服务端闸门仍会兜底。
                 }
             }
             type = type.getSuperclass();
@@ -112,11 +126,7 @@ public final class RtsRemoteMenuService {
             session.transfer.remoteMenuPos = pos == null ? null : pos.immutable();
         }
         relaxOpenedMenuValidation(remoteMenu);
-        if (session != null && RtsRemoteMenuCompat.isSupportedRemoteMenu(remoteMenu)) {
-            RtsRemoteMenuCompat.markServerRemoteMenu(player, remoteMenu);
-        } else {
-            RtsRemoteMenuCompat.clearServerRemoteMenu(player);
-        }
+        RtsRemoteMenuCompat.markServerRemoteMenuSession(player, remoteMenu);
     }
 
     public static void clearValidation(ServerPlayer player, RtsStorageSession session) {
@@ -129,28 +139,87 @@ public final class RtsRemoteMenuService {
 
     public static void closeTracked(ServerPlayer player, RtsStorageSession session) {
         if (player == null || session == null || session.transfer.remoteMenuContainerId < 0) return;
+        int trackedContainerId = session.transfer.remoteMenuContainerId;
+        session.transfer.remoteMenuContainerId = -1;
+        session.transfer.remoteMenuPos = null;
+        // 先撤销精确跟踪，再请求服务端主动关闭；否则公共关窗闸门会把这次明确的关闭也视作距离失效。
+        RtsRemoteMenuCompat.clearServerRemoteMenu(player);
         if (player.containerMenu != null
-                && player.containerMenu.containerId == session.transfer.remoteMenuContainerId
+                && player.containerMenu.containerId == trackedContainerId
                 && !(player.containerMenu instanceof InventoryMenu)) {
             player.closeContainer();
         }
-        session.transfer.remoteMenuContainerId = -1;
-        session.transfer.remoteMenuPos = null;
     }
 
     public static void sendRemoteMenuOpenHint(ServerPlayer player, BlockPos pos) {
         if (player == null || pos == null) {
             return;
         }
-        RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
+        OPEN_EXPECTATIONS.expect(player.getUUID(), pos, player.level().getGameTime());
         if (!(player.level() instanceof ServerLevel level) || !level.hasChunkAt(pos)) {
+            RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
             return;
         }
+        syncRemoteTargetChunk(player, level, pos);
+        RtsClientboundPackets.sendToPlayer(player, new S2CRtsRemoteMenuHintPayload(pos));
         player.connection.send(new ClientboundBlockUpdatePacket(level, pos));
         BlockEntity blockEntity = level.getBlockEntity(pos);
         if (blockEntity != null) {
             player.connection.send(ClientboundBlockEntityDataPacket.create(blockEntity));
         }
+    }
+
+    /**
+     * 某些第三方 Screen 在收到开窗包时会立刻从客户端世界读取并强转目标方块实体。
+     * 单发 BlockUpdate/BlockEntityData 在远方区块尚未同步时会被客户端丢弃，因此开窗前先发送一个
+     * 完整区块快照。失败时只退回旧的轻量同步路径，绝不能因为兼容桥炸掉正常远程交互。
+     */
+    private static void syncRemoteTargetChunk(ServerPlayer player, ServerLevel level, BlockPos pos) {
+        try {
+            // 已在玩家正常追踪视图中的区块拥有完整的客户端生命周期与第三方多方块注册状态。
+            // 重发整块快照会替换客户端区块，并可能清空 Extreme Reactors 一类模组仅存于客户端的控制器关联。
+            if (player.getChunkTrackingView().contains(pos.getX() >> 4, pos.getZ() >> 4)) {
+                return;
+            }
+            LevelChunk chunk = level.getChunkAt(pos);
+            player.connection.send(ClientboundChunkBatchStartPacket.INSTANCE);
+            player.connection.send(new ClientboundLevelChunkWithLightPacket(
+                    chunk, level.getLightEngine(), null, null));
+            player.connection.send(new ClientboundChunkBatchFinishedPacket(1));
+        } catch (RuntimeException exception) {
+            RtsbuildingMod.LOGGER.warn(
+                    "[RTS-GUI-SERVER] failed to sync remote target chunk at {}; falling back to block updates",
+                    pos.toShortString(), exception);
+        }
+    }
+
+    @SubscribeEvent
+    public static void onContainerOpened(PlayerContainerEvent.Open event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || !RtsCameraManager.isActive(player)) {
+            return;
+        }
+        Optional<BlockPos> expectedTarget = OPEN_EXPECTATIONS.consume(
+                player.getUUID(), player.level().getGameTime(), DEFERRED_OPEN_MAX_AGE_TICKS);
+        if (expectedTarget.isEmpty()) {
+            return;
+        }
+        AbstractContainerMenu menu = event.getContainer();
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (menu == null || menu instanceof InventoryMenu || session == null) {
+            return;
+        }
+        markRemoteMenuOpen(player, session, menu, expectedTarget.get());
+        RtsbuildingMod.LOGGER.info(
+                "[RTS-GUI-SERVER] adopted-open player={} target={} containerId={} menu={}",
+                player.getGameProfile().getName(),
+                expectedTarget.get().toShortString(),
+                menu.containerId,
+                menu.getClass().getName());
+    }
+
+    @SubscribeEvent
+    public static void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        OPEN_EXPECTATIONS.clear(event.getEntity().getUUID());
     }
 
     private static final class AlwaysValidContainer implements Container {

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.mining;
 
 import com.rtsbuilding.rtsbuilding.server.history.HistoryBlockRecord;
+import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -32,13 +33,17 @@ public final class MultiBlockTracker {
      * @return 所有非空气邻居的破坏前记录列表
      */
     public static List<HistoryBlockRecord> captureNeighborRecords(ServerLevel level, BlockPos pos) {
+        return captureNeighborRecords(level, pos, true);
+    }
+
+    public static List<HistoryBlockRecord> captureNeighborRecords(
+            ServerLevel level, BlockPos pos, boolean includeBlockEntityData) {
         List<HistoryBlockRecord> records = new ArrayList<>(6);
         for (Direction dir : Direction.values()) {
             BlockPos neighbor = pos.relative(dir);
-            BlockState state = level.getBlockState(neighbor);
-            if (!state.isAir()) {
-                records.add(new HistoryBlockRecord(neighbor.immutable(), state));
-            }
+            HistoryBlockRecord record = ServerHistoryManager.captureBlock(
+                    level, neighbor, includeBlockEntityData);
+            if (record != null) records.add(record);
         }
         return records;
     }

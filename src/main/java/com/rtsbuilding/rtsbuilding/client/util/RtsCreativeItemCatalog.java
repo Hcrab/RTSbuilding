@@ -1,5 +1,6 @@
 package com.rtsbuilding.rtsbuilding.client.util;
 
+import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -30,6 +31,7 @@ public final class RtsCreativeItemCatalog {
     private long entriesVersion;
     private String lastContextKey = "";
     private boolean initialized;
+    private long lastRebuildMs;
 
     private RtsCreativeItemCatalog() {
     }
@@ -54,7 +56,11 @@ public final class RtsCreativeItemCatalog {
 
     private void refreshIfNeeded() {
         String contextKey = currentContextKey();
-        if (this.initialized && contextKey.equals(this.lastContextKey)) {
+        long now = System.currentTimeMillis();
+        // 创造页可能在客户端创造标签尚未完成装填时首次打开。空结果不能像正常
+        // catalog 一样永久缓存，否则玩家在本次进服期间会一直看到 0 个物品。
+        boolean emptyRetryDue = this.entries.isEmpty() && now - this.lastRebuildMs >= 1_000L;
+        if (this.initialized && contextKey.equals(this.lastContextKey) && !emptyRetryDue) {
             return;
         }
         rebuild(contextKey);
@@ -67,6 +73,7 @@ public final class RtsCreativeItemCatalog {
         this.categories.add(new CreativeCategory(ALL_TOKEN, "All", 0, false, ""));
         this.lastContextKey = contextKey;
         this.initialized = true;
+        this.lastRebuildMs = System.currentTimeMillis();
         this.entriesVersion++;
 
         CreativeModeTab.ItemDisplayParameters parameters = resolveItemDisplayParameters();
@@ -75,7 +82,7 @@ public final class RtsCreativeItemCatalog {
         Map<String, String> modLabels = new LinkedHashMap<>();
         Set<String> seenItems = new HashSet<>();
         for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) {
-            if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY || !tab.shouldDisplay()) {
+            if (tab == null || tab.getType() != CreativeModeTab.Type.CATEGORY) {
                 continue;
             }
             ResourceLocation tabId = BuiltInRegistries.CREATIVE_MODE_TAB.getKey(tab);
@@ -86,6 +93,8 @@ public final class RtsCreativeItemCatalog {
             String tabKey = tabId.toString();
             String token = encodeTabCategory(namespace, tabKey);
             String label = safeTabLabel(tab, tabId);
+            // 1.21.1 的 shouldDisplay() 本身以 displayItems 非空为前提。必须先装填，
+            // 再根据实际结果过滤；否则从未打开原版创造物品栏时所有分类都会被跳过。
             buildContentsIfPossible(tab, parameters);
             Collection<ItemStack> displayItems = safeDisplayItems(tab);
             if (displayItems.isEmpty()) {
@@ -110,6 +119,9 @@ public final class RtsCreativeItemCatalog {
                 this.categories.add(new CreativeCategory(tabToken, tabLabels.getOrDefault(tabToken, humanizeTabKey(tabKey)), 1, false, namespace));
             }
         }
+        RtsbuildingMod.LOGGER.debug(
+                "RTS creative catalog rebuilt: context={}, categories={}, entries={}",
+                contextKey, this.categories.size(), this.entries.size());
     }
 
     private static String currentContextKey() {

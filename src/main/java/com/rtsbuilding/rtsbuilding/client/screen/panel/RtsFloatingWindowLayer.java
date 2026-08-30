@@ -1,6 +1,5 @@
 package com.rtsbuilding.rtsbuilding.client.screen.panel;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;
@@ -20,16 +19,25 @@ import java.util.List;
  * order — the most recently clicked window appears on top. Clicking any window
  * brings it to the front automatically.
  */
-public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
+public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows,
+                                     RtsFloatingWindowInputRouter inputRouter) {
+    /** 底栏数量覆盖位于 Z=300；浮窗必须从更高层开始，并为内部物品/数量预留完整深度。 */
+    private static final float WINDOW_BASE_Z = 400.0F;
+    private static final float WINDOW_Z_STRIDE = 400.0F;
 
     public RtsFloatingWindowLayer(RtsWindowPanel... frontToBackWindows) {
         this(new ArrayList<>(List.of(frontToBackWindows)));
+    }
+
+    private RtsFloatingWindowLayer(List<RtsWindowPanel> windows) {
+        this(windows, new RtsFloatingWindowInputRouter(windows));
         // 初始 z 排序修正：从后往前调用 markBroughtToFront，
         // 使得前部窗口（索引 0，前端）获得较大的 lastClickTime，
         // 在升序排序中后渲染（出现在顶层）。
-        for (int i = frontToBackWindows.length - 1; i >= 0; i--) {
-            frontToBackWindows[i].markBroughtToFront();
+        for (int i = frontToBackWindows.size() - 1; i >= 0; i--) {
+            frontToBackWindows.get(i).markBroughtToFront();
         }
+        ensureZOrder();
     }
 
     // ======================== Z-order Rendering ========================
@@ -41,7 +49,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
      */
     public void renderFloatingWindows(GuiGraphics g, int mouseX, int mouseY) {
         if (this.frontToBackWindows.isEmpty()) return;
-        this.frontToBackWindows.sort(Comparator.comparingLong(RtsWindowPanel::getLastClickTime));
+        ensureZOrder();
 
         // 找出鼠标所在的最顶层窗口索引（列表按升序排列，最后一个为顶层）
         int topmostHoverIdx = -1;
@@ -60,13 +68,18 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
                     && window.isVisibleWindow()
                     && window.isInsideWindow(mouseX, mouseY);
             window.setSkipHoverDetection(shouldSuppress);
-            window.render(g, mouseX, mouseY, 0.0F);
-            window.setSkipHoverDetection(false);
-            // 安全冲刷：RtsWindowPanel.render() 已在 scissor 内 flush 了内容，
-            // 此处额外冲刷共享渲染缓冲区，确保 item 渲染这类立即提交的数据
-            // 已经在 scissor 完成时被放入帧缓冲区。
-            g.flush();
-            Minecraft.getInstance().renderBuffers().bufferSource().endBatch();
+            g.pose().pushPose();
+            try {
+                // renderItem 和数量覆盖会在当前 Pose 上继续增加约 150/300 Z。
+                // 每个浮窗使用独立深度带，后面的窗口背景才能真正遮住前一个窗口和底栏物品。
+                g.pose().translate(0.0F, 0.0F, windowLayerZ(i));
+                window.render(g, mouseX, mouseY, 0.0F);
+                // 必须在恢复 Pose 前提交，确保缓冲顶点携带本窗口的真实深度。
+                g.flush();
+            } finally {
+                g.pose().popPose();
+                window.setSkipHoverDetection(false);
+            }
         }
     }
 
@@ -81,16 +94,31 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
      * topmost window at the cursor position first.
      */
     public void renderFloatingWindowOverlays(GuiGraphics g, int mouseX, int mouseY) {
+        ensureZOrder();
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
             if (window.isVisibleWindow() && window.isInsideWindow(mouseX, mouseY)) {
-                window.renderOverlays(g, mouseX, mouseY);
+                g.pose().pushPose();
+                try {
+                    // 覆盖层位于所属窗口深度带顶部，避免提示再次被窗口内物品遮挡。
+                    g.pose().translate(0.0F, 0.0F,
+                            windowLayerZ(i) + WINDOW_Z_STRIDE - 1.0F);
+                    window.renderOverlays(g, mouseX, mouseY);
+                    g.flush();
+                } finally {
+                    g.pose().popPose();
+                }
                 return;
             }
         }
     }
 
+    private static float windowLayerZ(int index) {
+        return WINDOW_BASE_Z + Math.max(0, index) * WINDOW_Z_STRIDE;
+    }
+
     public RtsWindowPanel.ResizeCursor resizeCursorAt(double mouseX, double mouseY) {
+        ensureZOrder();
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel.ResizeCursor cursor = this.frontToBackWindows.get(i).currentResizeCursor(mouseX, mouseY);
             if (cursor != RtsWindowPanel.ResizeCursor.DEFAULT) {
@@ -101,6 +129,7 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
     }
 
     public boolean isMouseOverWindowOrResizableBorder(double mouseX, double mouseY) {
+        ensureZOrder();
         for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
             RtsWindowPanel window = this.frontToBackWindows.get(i);
             if (window.isVisibleWindow()
@@ -121,31 +150,15 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
      * When a window handles the click, it is automatically brought to front.
      */
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            RtsWindowPanel window = this.frontToBackWindows.get(i);
-            if (window.mouseClicked(mouseX, mouseY, button)) {
-                window.markBroughtToFront();
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.mouseClicked(mouseX, mouseY, button);
     }
 
     public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).mouseDragged(mouseX, mouseY, button, dragX, dragY)) {
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.mouseDragged(mouseX, mouseY, button, dragX, dragY);
     }
 
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        boolean handled = false;
-        for (RtsWindowPanel window : this.frontToBackWindows) {
-            handled = window.mouseReleased(mouseX, mouseY, button) || handled;
-        }
-        return handled;
+        return this.inputRouter.mouseReleased(mouseX, mouseY, button);
     }
 
     public boolean consumeAnyBoundsDirty() {
@@ -157,29 +170,32 @@ public record RtsFloatingWindowLayer(List<RtsWindowPanel> frontToBackWindows) {
     }
 
     public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).mouseScrolled(mouseX, mouseY, scrollX, scrollY)) {
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
     }
 
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).keyPressed(keyCode, scanCode, modifiers)) {
-                return true;
-            }
-        }
-        return false;
+        return this.inputRouter.keyPressed(keyCode, scanCode, modifiers);
     }
 
     public boolean charTyped(char codePoint, int modifiers) {
-        for (int i = this.frontToBackWindows.size() - 1; i >= 0; i--) {
-            if (this.frontToBackWindows.get(i).charTyped(codePoint, modifiers)) {
-                return true;
+        return this.inputRouter.charTyped(codePoint, modifiers);
+    }
+
+    public void clearTransientInputState() {
+        this.inputRouter.clearTransientState();
+    }
+
+    /**
+     * 只有窗口真正置顶后才排序；静止渲染帧只做固定小列表的有序检查。
+     * 这也让输入不再依赖“之前恰好先 render 过一次”的隐含前提。
+     */
+    private void ensureZOrder() {
+        for (int i = 1; i < this.frontToBackWindows.size(); i++) {
+            if (this.frontToBackWindows.get(i - 1).getLastClickTime()
+                    > this.frontToBackWindows.get(i).getLastClickTime()) {
+                this.frontToBackWindows.sort(Comparator.comparingLong(RtsWindowPanel::getLastClickTime));
+                return;
             }
         }
-        return false;
     }
 }

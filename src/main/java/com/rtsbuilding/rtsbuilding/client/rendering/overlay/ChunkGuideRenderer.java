@@ -8,6 +8,8 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiColor;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 /**
  * Chunk guide line renderer.
@@ -168,9 +170,15 @@ public final class ChunkGuideRenderer {
      * @return colour configuration
      */
     private static ChunkGuideColor chunkGuideColor(int chunkX, int chunkZ) {
-        return ((chunkX ^ chunkZ) & 1) == 0
-                ? new ChunkGuideColor(0.16F, 0.78F, 1.0F, 0.24F)   // Cyan-blue
-                : new ChunkGuideColor(1.0F, 0.88F, 0.16F, 0.22F);  // Golden-yellow
+        boolean primary = ((chunkX ^ chunkZ) & 1) == 0;
+        UiColor themed = primary
+                ? UiThemeWorldColors.CHUNK_GUIDE_PRIMARY
+                : UiThemeWorldColors.CHUNK_GUIDE_SECONDARY;
+        return new ChunkGuideColor(
+                UiThemeWorldColors.red(themed),
+                UiThemeWorldColors.green(themed),
+                UiThemeWorldColors.blue(themed),
+                primary ? 0.24F : 0.22F);
     }
 
     /**

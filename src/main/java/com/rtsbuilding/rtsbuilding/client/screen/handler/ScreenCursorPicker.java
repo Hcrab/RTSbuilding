@@ -7,7 +7,9 @@ import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingWorldInput;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.quickbuild.BuildShape;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.rendering.util.RtsPlacementRayFreeze;
 import com.rtsbuilding.rtsbuilding.common.blueprint.rule.BlueprintReplaceRules;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.network.builder.C2SRtsInteractPayload;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
@@ -35,6 +37,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     // ===== Public API =====
 
     public InteractionTypes.InteractionTarget pickInteractionTarget(boolean includeFluidSource) {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
@@ -44,8 +49,12 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
         Vec3 to = camPos.add(dir.scale(BLOCK_RAY_DISTANCE));
         BlockHitResult blockHit = clipBlockHit(mc, camPos, dir, includeFluidSource, true);
         EntityHitResult entityHit = pickEntityHit(camPos, to, dir);
-        double blockDist = blockHit != null ? camPos.distanceToSqr(blockHit.getLocation()) : Double.MAX_VALUE;
-        double entityDist = entityHit != null ? camPos.distanceToSqr(entityHit.getLocation()) : Double.MAX_VALUE;
+        double blockDist = blockHit != null
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(mc.level, camPos, blockHit.getLocation())
+                : Double.MAX_VALUE;
+        double entityDist = entityHit != null
+                ? RtsSableClientSpatialCompat.renderDistanceSquared(mc.level, camPos, entityHit.getLocation())
+                : Double.MAX_VALUE;
         if (entityHit != null && entityDist <= blockDist) {
             Entity entity = entityHit.getEntity();
             return new InteractionTypes.InteractionTarget(
@@ -76,6 +85,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public InteractionTypes.InteractionTarget pickItemAirInteractionTarget() {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.player == null || mc.getCameraEntity() == null) {
             return null;
@@ -99,6 +111,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public BlockHitResult pickBlockHit(boolean includeFluidSource) {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
@@ -113,6 +128,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public BlockHitResult pickBlockHitIgnoringRangeCulling(boolean includeFluidSource) {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.level == null || mc.getCameraEntity() == null) {
             return null;
@@ -136,6 +154,9 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public BlockPos resolveBlueprintAnchor(BlockHitResult hit) {
+        if (this.screen == null) {
+            return null;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (hit == null || mc == null || mc.level == null) {
             return null;
@@ -148,9 +169,15 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public Vec3 computeCursorRayDirection() {
+        if (this.screen == null) {
+            return new Vec3(0, 0, -1);
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null) {
             return new Vec3(0, 0, -1);
+        }
+        if (RtsPlacementRayFreeze.isFrozen()) {
+            return RtsPlacementRayFreeze.directionOr(new Vec3(0.0D, 0.0D, 1.0D));
         }
         double mouseX = mc.mouseHandler.xpos();
         double mouseY = mc.mouseHandler.ypos();
@@ -175,11 +202,15 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
     }
 
     public Vec3 currentRayOrigin() {
+        if (this.screen == null) {
+            return Vec3.ZERO;
+        }
         Minecraft mc = this.screen.getMinecraft();
         if (mc == null || mc.gameRenderer == null) {
             return Vec3.ZERO;
         }
-        return mc.gameRenderer.getMainCamera().getPosition();
+        return RtsPlacementRayFreeze.originOr(
+                mc.gameRenderer.getMainCamera().getPosition());
     }
 
     // ===== Private helpers =====
@@ -248,15 +279,22 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
                 && (this.shapeController.getShapeBuildSession() == null || this.shapeController.getShapeBuildSession().shape() == BuildShape.BLOCK)) {
             return null;
         }
-        Direction face = resolveAirShapeFace(dir);
+        BlockPos framePosition = shapeFramePosition();
+        Minecraft mc = this.screen.getMinecraft();
+        RtsSableClientSpatialCompat.Ray localRay = mc == null || mc.level == null || framePosition == null
+                ? new RtsSableClientSpatialCompat.Ray(camPos, dir)
+                : RtsSableClientSpatialCompat.toRenderLocalRay(mc.level, framePosition, camPos, dir);
+        Vec3 localOrigin = localRay.origin();
+        Vec3 localDirection = localRay.direction();
+        Direction face = resolveAirShapeFace(localDirection);
         Vec3 planeAnchor = resolveAirShapePlaneAnchor(face);
-        if (face == null || planeAnchor == null) {
+        if (face == null || planeAnchor == null || localOrigin == null || localDirection == null) {
             return null;
         }
         double dirComponent = switch (face.getAxis()) {
-            case X -> dir.x;
-            case Y -> dir.y;
-            case Z -> dir.z;
+            case X -> localDirection.x;
+            case Y -> localDirection.y;
+            case Z -> localDirection.z;
         };
         if (Math.abs(dirComponent) < 1.0E-5D) {
             return null;
@@ -267,15 +305,15 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             case Z -> planeAnchor.z;
         };
         double originCoord = switch (face.getAxis()) {
-            case X -> camPos.x;
-            case Y -> camPos.y;
-            case Z -> camPos.z;
+            case X -> localOrigin.x;
+            case Y -> localOrigin.y;
+            case Z -> localOrigin.z;
         };
         double t = (planeCoord - originCoord) / dirComponent;
         if (t <= 0.0D || t > 128.0D) {
             return null;
         }
-        Vec3 hitVec = camPos.add(dir.scale(t));
+        Vec3 hitVec = localOrigin.add(localDirection.scale(t));
         BlockPos hitPos = BlockPos.containing(hitVec);
         if (RtsCullingClientState.shouldCull(hitPos)) {
             return null;
@@ -351,5 +389,15 @@ public final class ScreenCursorPicker implements RtsCullingWorldInput.Cursor {
             }
         }
         return Vec3.atCenterOf(mc.player.blockPosition());
+    }
+
+    private BlockPos shapeFramePosition() {
+        if (this.shapeController == null || this.shapeController.getShapeBuildSession() == null) {
+            return null;
+        }
+        if (this.shapeController.getShapeBuildSession().pointA() != null) {
+            return this.shapeController.getShapeBuildSession().pointA();
+        }
+        return this.shapeController.getShapeBuildSession().pointB();
     }
 }

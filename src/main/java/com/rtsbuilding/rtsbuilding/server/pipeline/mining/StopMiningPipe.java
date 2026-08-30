@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
 import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePipe;
 import com.rtsbuilding.rtsbuilding.server.service.mining.RtsMiningStateMachine;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 
 /**
  * 停止玩家任何活跃的挖掘/连锁挖掘操作。
@@ -25,6 +26,9 @@ public final class StopMiningPipe implements PipelinePipe<PipelineContext> {
         if (session == null) {
             return PipelineResult.failure("No session in context");
         }
+        // 输入松开时先取消仍处于首块渐进阶段的 durable task，再清理 Session 中的工具租约和渲染状态。
+        // 已经进入自动批处理的连锁任务会在 RtsMiningServiceImpl 中被拦截，不会走到这里。
+        RtsTaskEngine.INSTANCE.cancelActiveMiningTasks(ctx.player());
         RtsMiningStateMachine.stopActiveMining(ctx.player(), session);
         return PipelineResult.success();
     }

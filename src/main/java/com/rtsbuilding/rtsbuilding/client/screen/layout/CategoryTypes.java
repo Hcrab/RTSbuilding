@@ -1,28 +1,23 @@
 package com.rtsbuilding.rtsbuilding.client.screen.layout;
 
 /**
- * Container for category-browsing data types.
- * <p>
- * Groups the row model and click-result record that drive the category
- * tree rendered inside the bottom panel's category sidebar. Both records
- * are produced and consumed by
+ * 生产分类注册表整理阶段使用的行模型容器。
+ *
+ * <p>本类型只承载从 NeoForge/Minecraft 注册表整理出的 token、显示名和树层级，不负责
+ * 绘制或命中。绘制与输入已经统一消费 Java 8 {@code BottomPanelCategoryLayout} 和
+ * Core {@code BottomBarUiCategory}，因此这里不再保留第二套点击结果模型。</p>
  */
 public final class CategoryTypes {
 
     /**
-     * A single category row in the bottom-panel category tree.
-     * <p>
-     * Each row represents one mod namespace or a tab within a mod.
-     * Indentation is controlled by {@code depth} (0 = mod, 1 = tab),
-     * and expandable/expanded flags determine whether the chevron icon
-     * is shown and whether child rows are visible.
+     * 底栏分类树的一行生产数据。
      *
-     * @param token       unique category identifier for filtering
-     * @param label       display label (translated)
-     * @param depth       indentation level (0 = root mod, 1 = tab)
-     * @param expandable  whether this row can be expanded (has children)
-     * @param expanded    whether this row is currently expanded
-     * @param modNamespace the mod's namespace (empty for the "All" row)
+     * @param token 用于筛选的稳定分类标识
+     * @param label 已翻译或回退整理后的显示名
+     * @param depth 树深度，0 为模组根行，1 为创造标签子行
+     * @param expandable 是否存在可展开子行
+     * @param expanded 当前是否展开
+     * @param modNamespace 所属模组命名空间；“全部”行为空
      */
     public record CategoryRow(
             String token,
@@ -31,22 +26,6 @@ public final class CategoryTypes {
             boolean expandable,
             boolean expanded,
             String modNamespace) {}
-
-    /**
-     * Result of a category-click action.
-     * <p>
-     * Carries the selected category's token, the owning mod namespace,
-     * and whether the click should <em>only</em> toggle expand/collapse
-     * without changing the filter.
-     *
-     * @param categoryToken   selected category token
-     * @param modNamespace    mod namespace (empty for "All")
-     * @param toggleExpandOnly true if the click hit a expand/collapse chevron
-     */
-    public record CategoryClick(
-            String categoryToken,
-            String modNamespace,
-            boolean toggleExpandOnly) {}
 
     private CategoryTypes() {}
 }

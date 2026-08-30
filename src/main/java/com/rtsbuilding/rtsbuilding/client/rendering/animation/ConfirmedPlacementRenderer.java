@@ -4,7 +4,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostBlockModelRenderer;
-import com.rtsbuilding.rtsbuilding.client.rendering.util.RenderingUtil;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.client.renderer.MultiBufferSource;
@@ -51,21 +52,23 @@ final class ConfirmedPlacementRenderer {
                 iterator.remove();
                 continue;
             }
-            if (!isWithinBounds(entry.pos)) {
+            if (!isWithinBounds(minecraft, entry.pos)) {
                 continue;
             }
             float scale = computeGrowScale(elapsed);
-            if (entry.state.getRenderShape() == RenderShape.MODEL) {
-                GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
-                        entry.state, entry.pos, MODEL_ALPHA, scale);
-            } else {
-                renderFilledBox(poseStack, fillBuffer, entry.pos, scale);
-            }
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, entry.pos, poseStack, () -> {
+                if (entry.state.getRenderShape() == RenderShape.MODEL) {
+                    GhostBlockModelRenderer.renderAt(minecraft, poseStack, blockBuffer,
+                            entry.state, entry.pos, MODEL_ALPHA, scale);
+                } else {
+                    renderFilledBox(poseStack, fillBuffer, entry.pos, scale);
+                }
+            });
         }
         blockBuffer.endBatch();
     }
 
-    static void renderWireframes(PoseStack poseStack, VertexConsumer lineBuffer) {
+    static void renderWireframes(Minecraft minecraft, PoseStack poseStack, VertexConsumer lineBuffer) {
         if (PLACEMENTS.isEmpty()) {
             return;
         }
@@ -78,21 +81,29 @@ final class ConfirmedPlacementRenderer {
                 iterator.remove();
                 continue;
             }
-            if (!isWithinBounds(entry.pos)) {
+            if (!isWithinBounds(minecraft, entry.pos)) {
                 continue;
             }
-            renderLineBox(poseStack, lineBuffer, entry.pos, computeGrowScale(elapsed),
-                    0.30F, 0.85F, 1.00F, 0.82F);
+            float scale = computeGrowScale(elapsed);
+            float red = UiThemeWorldColors.red(UiThemeWorldColors.PLACEMENT_CONFIRMED);
+            float green = UiThemeWorldColors.green(UiThemeWorldColors.PLACEMENT_CONFIRMED);
+            float blue = UiThemeWorldColors.blue(UiThemeWorldColors.PLACEMENT_CONFIRMED);
+            RtsSableClientSpatialCompat.renderInFrame(minecraft.level, entry.pos, poseStack,
+                    () -> renderLineBox(poseStack, lineBuffer, entry.pos, scale,
+                            red, green, blue, 0.82F));
         }
     }
 
     private static void renderFilledBox(PoseStack poseStack, VertexConsumer fillBuffer, BlockPos pos, float scale) {
         double inset = 0.5D - scale * 0.46D;
+        float red = UiThemeWorldColors.red(UiThemeWorldColors.PLACEMENT_CONFIRMED_FILL);
+        float green = UiThemeWorldColors.green(UiThemeWorldColors.PLACEMENT_CONFIRMED_FILL);
+        float blue = UiThemeWorldColors.blue(UiThemeWorldColors.PLACEMENT_CONFIRMED_FILL);
         LevelRenderer.addChainedFilledBoxVertices(
                 poseStack, fillBuffer,
                 pos.getX() + inset, pos.getY() + inset, pos.getZ() + inset,
                 pos.getX() + 1.0D - inset, pos.getY() + 1.0D - inset, pos.getZ() + 1.0D - inset,
-                0.40F, 0.85F, 0.90F, 0.16F);
+                red, green, blue, 0.16F);
     }
 
     private static void renderLineBox(PoseStack poseStack, VertexConsumer lineBuffer, BlockPos pos, float scale,
@@ -111,10 +122,11 @@ final class ConfirmedPlacementRenderer {
         return 0.12F + eased * 0.86F;
     }
 
-    private static boolean isWithinBounds(BlockPos pos) {
+    private static boolean isWithinBounds(Minecraft minecraft, BlockPos pos) {
         ClientRtsController controller = ClientRtsController.get();
         if (!controller.hasBounds()) return true;
-        return RenderingUtil.isWithinBounds(pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
+        return RtsSableClientSpatialCompat.isWithinBounds(
+                minecraft.level, pos, controller.getAnchorX(), controller.getAnchorZ(), controller.getMaxRadius());
     }
 
     private record PlacementEntry(BlockPos pos, BlockState state, long addedAtMs) {

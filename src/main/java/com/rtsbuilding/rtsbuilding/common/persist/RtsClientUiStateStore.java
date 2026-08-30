@@ -65,7 +65,7 @@ public final class RtsClientUiStateStore {
     }
 
     /** 当前数据版本，用于未来兼容性迁移 */
-    static final int CURRENT_STORE_VERSION = 3;
+    static final int CURRENT_STORE_VERSION = 6;
 
     /** 持久化配置文件路径：config/rts_building/rtsbuilding-client-ui.rtsd（二进制编译格式） */
     private static final Path CONFIG_PATH = FMLPaths.CONFIGDIR.get()
@@ -167,8 +167,33 @@ public final class RtsClientUiStateStore {
             state.quickBuild.building.buildLineConnected = state.quickBuild.buildLineConnected;
             version = 2;
         }
+        if (version < 4) {
+            // v4 新增独立放置音效开关；旧配置必须保持此前默认播放放置音效的行为。
+            if (state.sound == null) {
+                state.sound = new UiState.SoundState();
+            }
+            state.sound.placementSoundsEnabled = true;
+            version = 4;
+        }
+        if (version < 5) {
+            if (state.storage == null) {
+                state.storage = new UiState.StorageState();
+            }
+            state.storage.craftTerminalRows = 5;
+            state.storage.craftTerminalSearchPinned = true;
+            state.storage.craftTerminalSearchMode = "STANDARD";
+            state.storage.craftTerminalSearch = "";
+            version = 5;
+        }
+        if (version < 6) {
+            state.quickBuild.smartFillMaxBlocks = 512;
+            state.quickBuild.smartFillDiameter = 16;
+            version = 6;
+        }
         if (version < CURRENT_STORE_VERSION) {
             state._storeVersion = CURRENT_STORE_VERSION;
+        } else {
+            state._storeVersion = version;
         }
         return state;
     }
@@ -193,10 +218,18 @@ public final class RtsClientUiStateStore {
         return CACHE.get().isIntroReminderDismissed(key);
     }
 
-    /** 将指定引导提醒标记为已关闭。 */
+    /**
+     * 将指定引导提醒标记为已关闭，并立即写入磁盘。
+     *
+     * <p>该操作来自聊天栏中的显式玩家选择，不能依赖 RTS 界面的后续 tick 才回写；
+     * 否则玩家不打开 RTS 界面便退出时，选择会丢失。</p>
+     */
     public static synchronized void dismissIntroReminder(String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
         CACHE.get().addDismissedIntroReminderKey(key);
-        CACHE.markDirty();
+        CACHE.flush();
     }
 
     /** 容器覆盖层是否启用。 */
@@ -218,6 +251,28 @@ public final class RtsClientUiStateStore {
     /** 设置覆盖层 Shift 导入启用状态（仅标记脏）。 */
     public static synchronized void setOverlayShiftImportEnabled(boolean enabled) {
         CACHE.get().overlay.overlayShiftImportEnabled = enabled;
+        CACHE.markDirty();
+    }
+
+    /** Jade 面板是否在 RTS 模式下跟随鼠标。 */
+    public static synchronized boolean isJadePanelTrackMouseEnabled() {
+        return CACHE.get().overlay.jadePanelTrackMouse;
+    }
+
+    /** 设置 Jade 面板跟随鼠标；仅影响 RTS 模式。 */
+    public static synchronized void setJadePanelTrackMouseEnabled(boolean enabled) {
+        CACHE.get().overlay.jadePanelTrackMouse = enabled;
+        CACHE.markDirty();
+    }
+
+    /** Jade 面板是否在 RTS 模式下完全隐藏。 */
+    public static synchronized boolean isJadePanelHidden() {
+        return CACHE.get().overlay.jadePanelHidden;
+    }
+
+    /** 设置 Jade 面板隐藏状态；普通第一人称游戏中的 Jade 不受影响。 */
+    public static synchronized void setJadePanelHidden(boolean hidden) {
+        CACHE.get().overlay.jadePanelHidden = hidden;
         CACHE.markDirty();
     }
 
@@ -257,6 +312,45 @@ public final class RtsClientUiStateStore {
         CACHE.markDirty();
     }
 
+    public static synchronized int getCraftTerminalRows() {
+        return Math.max(2, Math.min(6, CACHE.get().storage.craftTerminalRows));
+    }
+
+    public static synchronized void setCraftTerminalRows(int rows) {
+        CACHE.get().storage.craftTerminalRows = Math.max(2, Math.min(6, rows));
+        CACHE.markDirty();
+    }
+
+    public static synchronized boolean isCraftTerminalSearchPinned() {
+        return CACHE.get().storage.craftTerminalSearchPinned;
+    }
+
+    public static synchronized void setCraftTerminalSearchPinned(boolean pinned) {
+        CACHE.get().storage.craftTerminalSearchPinned = pinned;
+        CACHE.markDirty();
+    }
+
+    public static synchronized String getCraftTerminalSearchMode() {
+        String mode = CACHE.get().storage.craftTerminalSearchMode;
+        return mode == null || mode.isBlank() ? "STANDARD" : mode;
+    }
+
+    public static synchronized void setCraftTerminalSearchMode(String mode) {
+        CACHE.get().storage.craftTerminalSearchMode = mode == null ? "STANDARD" : mode;
+        CACHE.markDirty();
+    }
+
+    public static synchronized String getCraftTerminalSearch() {
+        String search = CACHE.get().storage.craftTerminalSearch;
+        return search == null ? "" : search;
+    }
+
+    public static synchronized void setCraftTerminalSearch(String search) {
+        String safe = search == null ? "" : search;
+        CACHE.get().storage.craftTerminalSearch = safe.substring(0, Math.min(128, safe.length()));
+        CACHE.markDirty();
+    }
+
     /** RTS 客户端音效总开关。 */
     public static synchronized boolean isRtsSoundsEnabled() {
         return CACHE.get().sound.rtsSoundsEnabled;
@@ -267,7 +361,17 @@ public final class RtsClientUiStateStore {
         CACHE.markDirty();
     }
 
-    /** 方块破坏音效是否启用；放置音效只受总开关控制。 */
+    /** 方块放置音效是否启用；总开关关闭时本开关不会单独恢复声音。 */
+    public static synchronized boolean isRtsPlacementSoundsEnabled() {
+        return CACHE.get().sound.placementSoundsEnabled;
+    }
+
+    public static synchronized void setRtsPlacementSoundsEnabled(boolean enabled) {
+        CACHE.get().sound.placementSoundsEnabled = enabled;
+        CACHE.markDirty();
+    }
+
+    /** 方块破坏音效是否启用；总开关关闭时本开关不会单独恢复声音。 */
     public static synchronized boolean isRtsBreakSoundsEnabled() {
         return CACHE.get().sound.breakSoundsEnabled;
     }
@@ -339,6 +443,8 @@ public final class RtsClientUiStateStore {
         public static final class QuickBuildState {
             public boolean quickBuildOpen = true;
             public String quickBuildMode = "BUILD";
+            public int smartFillMaxBlocks = 512;
+            public int smartFillDiameter = 16;
 
             /** BUILD 模式独立状态 */
             public BuildingState building = new BuildingState();
@@ -365,6 +471,7 @@ public final class RtsClientUiStateStore {
                 public String buildFillMode = "FILL";
                 public int buildRotationDegrees = 0;
                 public boolean buildLineConnected = false;
+                public boolean creativeOverwrite = false;
             }
         }
 
@@ -373,6 +480,14 @@ public final class RtsClientUiStateStore {
         public static final class MiningState {
             public int ultimineLimit = 64;
             public String areaMineShape = "CHAIN";
+            public String catalogPage = "SHAPES";
+            public String convenienceTool = "REPEAT_BOX";
+            public int convenienceSizeX = 3;
+            public int convenienceSizeY = 3;
+            public int convenienceSizeZ = 3;
+            public int convenienceChunkUp = 0;
+            public int convenienceChunkDown = 15;
+            public int convenienceTreeMaxBlocks = 256;
 
             // ===== 范围破坏模式独立状态 =====
             public String destroyFillMode = "FILL";
@@ -382,6 +497,7 @@ public final class RtsClientUiStateStore {
             public boolean advancedRangeDestroyWall = false;
             public boolean advancedRangeDestroyCircle = false;
             public boolean advancedRangeDestroyCylinder = false;
+            public boolean lineVertical = false;
             public boolean circleVertical = false;
             public boolean cylinderVertical = false;
             public boolean advancedRangeDestroyBall = false;
@@ -408,6 +524,8 @@ public final class RtsClientUiStateStore {
             public boolean overlayShiftImportEnabled = false;
             public boolean chunkCurtainVisible = false;
             public boolean playerStatusOverlayEnabled = true;
+            public boolean jadePanelTrackMouse = false;
+            public boolean jadePanelHidden = false;
         }
 
         /** 存储面板状态。 */
@@ -416,6 +534,10 @@ public final class RtsClientUiStateStore {
             public boolean storageAutoRefreshEnabled = true;
             public boolean showStorageReadyPopup = false;
             public boolean showWorkflowPanel = true;
+            public int craftTerminalRows = 5;
+            public boolean craftTerminalSearchPinned = true;
+            public String craftTerminalSearchMode = "STANDARD";
+            public String craftTerminalSearch = "";
         }
 
         /** 战斗 / 工具保护状态。 */
@@ -428,6 +550,7 @@ public final class RtsClientUiStateStore {
         /** RTS 客户端音效状态。 */
         public static final class SoundState {
             public boolean rtsSoundsEnabled = true;
+            public boolean placementSoundsEnabled = true;
             public boolean breakSoundsEnabled = true;
             public int blockSoundsPerTick = 8;
         }
@@ -483,13 +606,33 @@ public final class RtsClientUiStateStore {
             // quickBuild — building
             clean.quickBuild.quickBuildOpen = this.quickBuild.quickBuildOpen;
             clean.quickBuild.quickBuildMode = sanitizeEnum(this.quickBuild.quickBuildMode, "BUILD");
+            clean.quickBuild.smartFillMaxBlocks = Math.max(1,
+                    Math.min(1024, this.quickBuild.smartFillMaxBlocks));
+            clean.quickBuild.smartFillDiameter = Math.max(3,
+                    Math.min(32, this.quickBuild.smartFillDiameter));
             clean.quickBuild.building.buildShape = sanitizeEnum(this.quickBuild.building.buildShape, "BLOCK");
             clean.quickBuild.building.buildFillMode = sanitizeEnum(this.quickBuild.building.buildFillMode, "FILL");
             clean.quickBuild.building.buildRotationDegrees = Math.floorMod(this.quickBuild.building.buildRotationDegrees, 360);
             clean.quickBuild.building.buildLineConnected = this.quickBuild.building.buildLineConnected;
+            clean.quickBuild.building.creativeOverwrite = this.quickBuild.building.creativeOverwrite;
             // quickBuild — mining
             clean.quickBuild.mining.ultimineLimit = Math.max(1, Math.min(256, this.quickBuild.mining.ultimineLimit));
             clean.quickBuild.mining.areaMineShape = sanitizeEnum(this.quickBuild.mining.areaMineShape, "CHAIN");
+            clean.quickBuild.mining.catalogPage = sanitizeEnum(this.quickBuild.mining.catalogPage, "SHAPES");
+            clean.quickBuild.mining.convenienceTool = sanitizeEnum(
+                    this.quickBuild.mining.convenienceTool, "REPEAT_BOX");
+            clean.quickBuild.mining.convenienceSizeX = Math.max(1,
+                    Math.min(64, this.quickBuild.mining.convenienceSizeX));
+            clean.quickBuild.mining.convenienceSizeY = Math.max(1,
+                    Math.min(128, this.quickBuild.mining.convenienceSizeY));
+            clean.quickBuild.mining.convenienceSizeZ = Math.max(1,
+                    Math.min(64, this.quickBuild.mining.convenienceSizeZ));
+            clean.quickBuild.mining.convenienceChunkUp = Math.max(0,
+                    Math.min(128, this.quickBuild.mining.convenienceChunkUp));
+            clean.quickBuild.mining.convenienceChunkDown = Math.max(0,
+                    Math.min(128, this.quickBuild.mining.convenienceChunkDown));
+            clean.quickBuild.mining.convenienceTreeMaxBlocks = Math.max(1,
+                    Math.min(8192, this.quickBuild.mining.convenienceTreeMaxBlocks));
             clean.quickBuild.mining.destroyFillMode = sanitizeEnum(this.quickBuild.mining.destroyFillMode, "FILL");
             clean.quickBuild.mining.destroyRotationDegrees = Math.floorMod(this.quickBuild.mining.destroyRotationDegrees, 360);
             clean.quickBuild.mining.destroyLineConnected = this.quickBuild.mining.destroyLineConnected;
@@ -497,6 +640,7 @@ public final class RtsClientUiStateStore {
             clean.quickBuild.mining.advancedRangeDestroyWall = this.quickBuild.mining.advancedRangeDestroyWall;
             clean.quickBuild.mining.advancedRangeDestroyCircle = this.quickBuild.mining.advancedRangeDestroyCircle;
             clean.quickBuild.mining.advancedRangeDestroyCylinder = this.quickBuild.mining.advancedRangeDestroyCylinder;
+            clean.quickBuild.mining.lineVertical = this.quickBuild.mining.lineVertical;
             clean.quickBuild.mining.circleVertical = this.quickBuild.mining.circleVertical;
             clean.quickBuild.mining.cylinderVertical = this.quickBuild.mining.cylinderVertical;
             clean.quickBuild.mining.advancedRangeDestroyBall = this.quickBuild.mining.advancedRangeDestroyBall;
@@ -521,11 +665,19 @@ public final class RtsClientUiStateStore {
             clean.overlay.overlayShiftImportEnabled = this.overlay.overlayShiftImportEnabled;
             clean.overlay.chunkCurtainVisible = this.overlay.chunkCurtainVisible;
             clean.overlay.playerStatusOverlayEnabled = this.overlay.playerStatusOverlayEnabled;
+            clean.overlay.jadePanelTrackMouse = this.overlay.jadePanelTrackMouse;
+            clean.overlay.jadePanelHidden = this.overlay.jadePanelHidden;
             // storage
             clean.storage.storageRefreshQuietEnabled = this.storage.storageRefreshQuietEnabled;
             clean.storage.storageAutoRefreshEnabled = this.storage.storageAutoRefreshEnabled;
             clean.storage.showStorageReadyPopup = this.storage.showStorageReadyPopup;
             clean.storage.showWorkflowPanel = this.storage.showWorkflowPanel;
+            clean.storage.craftTerminalRows = Math.max(2, Math.min(6, this.storage.craftTerminalRows));
+            clean.storage.craftTerminalSearchPinned = this.storage.craftTerminalSearchPinned;
+            clean.storage.craftTerminalSearchMode = sanitizeCraftTerminalSearchMode(
+                    this.storage.craftTerminalSearchMode);
+            String terminalSearch = this.storage.craftTerminalSearch == null ? "" : this.storage.craftTerminalSearch;
+            clean.storage.craftTerminalSearch = terminalSearch.substring(0, Math.min(128, terminalSearch.length()));
             // combat
             clean.combat.toolProtectionEnabled = this.combat.toolProtectionEnabled;
             clean.combat.damageSoundEnabled = this.combat.damageSoundEnabled;
@@ -533,6 +685,7 @@ public final class RtsClientUiStateStore {
             // sound
             SoundState sourceSound = this.sound == null ? new SoundState() : this.sound;
             clean.sound.rtsSoundsEnabled = sourceSound.rtsSoundsEnabled;
+            clean.sound.placementSoundsEnabled = sourceSound.placementSoundsEnabled;
             clean.sound.breakSoundsEnabled = sourceSound.breakSoundsEnabled;
             clean.sound.blockSoundsPerTick = Math.max(1, Math.min(16, sourceSound.blockSoundsPerTick));
             // debug
@@ -591,6 +744,14 @@ public final class RtsClientUiStateStore {
                 return fallback;
             }
             return value.trim().toUpperCase(Locale.ROOT);
+        }
+
+        private static String sanitizeCraftTerminalSearchMode(String value) {
+            String normalized = sanitizeEnum(value, "STANDARD");
+            return switch (normalized) {
+                case "SYNC_TO_JEI", "BIDIRECTIONAL" -> normalized;
+                default -> "STANDARD";
+            };
         }
 
         /**

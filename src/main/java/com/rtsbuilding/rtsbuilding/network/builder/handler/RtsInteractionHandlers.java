@@ -6,6 +6,7 @@ import com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager;
 import com.rtsbuilding.rtsbuilding.server.network.RtsClientboundPackets;
 import com.rtsbuilding.rtsbuilding.server.service.*;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
+import com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.IWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.core.RtsWorkflowEngine;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
@@ -42,6 +43,7 @@ public final class RtsInteractionHandlers {
                         payload.sourceType(),
                         payload.toolSlot(),
                         payload.itemId(),
+                        payload.shiftDown(),
                         payload.rayOriginX(),
                         payload.rayOriginY(),
                         payload.rayOriginZ(),
@@ -102,6 +104,15 @@ public final class RtsInteractionHandlers {
         });
     }
 
+    public static void handleRedo(C2SRtsRedoPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                if (!RtsCameraManager.isActive(serverPlayer)) return;
+                ServerHistoryManager.executeRedo(serverPlayer);
+            }
+        });
+    }
+
     public static void handleSetWorkflowProtected(C2SRtsSetWorkflowProtectedPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
@@ -158,24 +169,25 @@ public final class RtsInteractionHandlers {
                 int entryId = payload.entryId();
                 RtsWorkflowEngine engine = RtsWorkflowEngine.getInstance();
                 RtsWorkflowStatus status = engine.getProgress(serverPlayer, entryId);
-                if (!status.isActive()) return;
+                var entry = engine.findEntryByPlayer(serverPlayer, entryId);
+                if (!status.isActive() || entry == null || entry.terminal()) return;
 
                 engine.from(serverPlayer, entryId).ifPresent(token -> {
                     if (status.suspended()) {
-                        // 挂起（等待物品）→ 恢复，让管道继续 Tick
-                        token.resume();
+                        // 挂起任务必须先恢复真实 TaskStore revision；工作流由 tick 末单向投影。
+                        RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, false);
                         serverPlayer.displayClientMessage(
-                                Component.literal("§7[工作流] §a▶ 已恢复 — 继续执行"),
+                                Component.translatable("message.rtsbuilding.workflow.resumed"),
                                 true);
                     } else if (token.isPaused()) {
-                        token.unpause();
+                        RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, false);
                         serverPlayer.displayClientMessage(
-                                Component.literal("§7[工作流] §a▶ 已恢复 — 线程继续执行"),
+                                Component.translatable("message.rtsbuilding.workflow.thread_resumed"),
                                 true);
                     } else {
-                        token.pause();
+                        RtsTaskEngine.INSTANCE.setWorkflowPaused(serverPlayer, entryId, true);
                         serverPlayer.displayClientMessage(
-                                Component.literal("§7[工作流] §e⏸ 已暂停 — 线程已暂停"),
+                                Component.translatable("message.rtsbuilding.workflow.paused"),
                                 true);
                     }
                 });

@@ -1,0 +1,13 @@
+{
+  "required": false,
+  "package": "com.rtsbuilding.rtsbuilding.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "JadeClientProxyMixin",
+    "WailaTickHandlerMixin",
+    "KeyMappingAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

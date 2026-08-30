@@ -74,6 +74,8 @@ public final class RtsScreenUiStateManager {
     private boolean showWorkflowPanel;
     private boolean storageRefreshQuietEnabled;
     private boolean storageAutoRefreshEnabled;
+    private boolean jadePanelTrackMouse;
+    private boolean jadePanelHidden;
 
     /**
      * 构造 UI 状态管理器。
@@ -127,6 +129,10 @@ public final class RtsScreenUiStateManager {
                         s -> s.overlay.containerOverlayEnabled, (s, v) -> s.overlay.containerOverlayEnabled = v),
                 CtrlBind.bool(() -> this.overlayShiftImportEnabled, v -> this.overlayShiftImportEnabled = v,
                         s -> s.overlay.overlayShiftImportEnabled, (s, v) -> s.overlay.overlayShiftImportEnabled = v),
+                CtrlBind.bool(() -> this.jadePanelTrackMouse, v -> this.jadePanelTrackMouse = v,
+                        s -> s.overlay.jadePanelTrackMouse, (s, v) -> s.overlay.jadePanelTrackMouse = v),
+                CtrlBind.bool(() -> this.jadePanelHidden, v -> this.jadePanelHidden = v,
+                        s -> s.overlay.jadePanelHidden, (s, v) -> s.overlay.jadePanelHidden = v),
                 // storage
                 CtrlBind.bool(() -> this.showStorageReadyPopup, v -> this.showStorageReadyPopup = v,
                         s -> s.storage.showStorageReadyPopup, (s, v) -> s.storage.showStorageReadyPopup = v),
@@ -240,6 +246,12 @@ public final class RtsScreenUiStateManager {
 
     public boolean isOverlayShiftImportEnabled() { return this.overlayShiftImportEnabled; }
     public void toggleOverlayShiftImportEnabled() { this.overlayShiftImportEnabled = !this.overlayShiftImportEnabled; persistUiState(); }
+
+    public boolean isJadePanelTrackMouseEnabled() { return this.jadePanelTrackMouse; }
+    public void toggleJadePanelTrackMouse() { this.jadePanelTrackMouse = !this.jadePanelTrackMouse; persistUiState(); }
+
+    public boolean isJadePanelHidden() { return this.jadePanelHidden; }
+    public void toggleJadePanelHidden() { this.jadePanelHidden = !this.jadePanelHidden; persistUiState(); }
 
     public boolean isShowStorageReadyPopupEnabled() { return this.showStorageReadyPopup; }
     public void toggleShowStorageReadyPopup() { this.showStorageReadyPopup = !this.showStorageReadyPopup; persistUiState(); }

@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.pipeline.workflow;
 
 import com.rtsbuilding.rtsbuilding.RtsbuildingMod;
+import com.rtsbuilding.rtsbuilding.server.diagnostic.RtsOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineContext;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelinePipe;
 import com.rtsbuilding.rtsbuilding.server.pipeline.core.PipelineResult;
@@ -55,12 +56,13 @@ public record WorkflowStartPipe(RtsWorkflowType defaultType, RtsWorkflowPriority
                 .orElse(null);
 
         if (token == null) {
-            RtsbuildingMod.LOGGER.warn("[WorkflowStartPipe] Workflow queue full for {}, type={}",
+            RtsbuildingMod.LOGGER.debug("[WorkflowStartPipe] Workflow queue full for {}, type={}",
                     ctx.player().getGameProfile().getName(), type);
             return PipelineResult.failure("Workflow queue full (" + RtsWorkflowSlotManager.MAX_SLOTS + "/" + RtsWorkflowSlotManager.MAX_SLOTS + ")");
         }
 
         ctx.setData(KEY_WORKFLOW_ENTRY_ID, token.entryId());
+        RtsOperationDiagnostics.workflowCreated(type, ctx, token.entryId());
         return PipelineResult.success();
     }
 }

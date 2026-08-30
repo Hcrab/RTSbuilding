@@ -1,7 +1,10 @@
 package com.rtsbuilding.rtsbuilding.network.storage.handler;
 
 import com.rtsbuilding.rtsbuilding.server.service.ServiceRegistry;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.Level;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 
 /**
@@ -47,10 +50,24 @@ public final class RtsBindingHandlers {
         });
     }
 
+    public static void handleBatchLinkStorage(
+            com.rtsbuilding.rtsbuilding.network.storage.C2SRtsBatchLinkStoragePayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer serverPlayer) {
+                ServiceRegistry.getInstance().binding().linkStoragesInSelection(
+                        serverPlayer, payload.first(), payload.second(), payload.linkMode());
+            }
+        });
+    }
+
     public static void handleUnlinkStorage(com.rtsbuilding.rtsbuilding.network.storage.C2SRtsUnlinkStoragePayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             if (context.player() instanceof ServerPlayer serverPlayer) {
-                ServiceRegistry.getInstance().binding().unlinkStorage(serverPlayer, payload.pos());
+                ServiceRegistry.getInstance().binding().unlinkStorage(
+                        serverPlayer,
+                        ResourceKey.create(Registries.DIMENSION, payload.dimension()),
+                        payload.pos());
             }
         });
     }
@@ -60,6 +77,7 @@ public final class RtsBindingHandlers {
             if (context.player() instanceof ServerPlayer serverPlayer) {
                 ServiceRegistry.getInstance().binding().updateLinkedStorageSettings(
                         serverPlayer,
+                        ResourceKey.create(Registries.DIMENSION, payload.dimension()),
                         payload.pos(),
                         payload.linkMode(),
                         payload.priority());

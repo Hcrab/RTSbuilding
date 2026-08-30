@@ -7,6 +7,7 @@ import com.rtsbuilding.rtsbuilding.server.progression.RtsFeature;
 import com.rtsbuilding.rtsbuilding.server.progression.RtsProgressionManager;
 import com.rtsbuilding.rtsbuilding.server.protection.RtsClaimProtectionService;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementBatch;
+import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementExecutor;
 import com.rtsbuilding.rtsbuilding.server.service.placement.RtsPlacementHelper;
 import com.rtsbuilding.rtsbuilding.server.storage.resolver.RtsLinkedStorageResolver;
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
@@ -52,7 +53,20 @@ public final class RtsPlacementService {
         double hitOffsetZ = clickedPos == null ? 0.5D : hitZ - clickedPos.getZ();
         RtsStorageSession session = player == null ? null : ServiceRegistry.getInstance().session().getIfPresent(player);
 
-        if (player != null && session != null && !forceEmptyHand) {
+        if (forceEmptyHand) {
+            if (player == null || clickedPos == null || face == null) {
+                return;
+            }
+            // 空手右键没有工作流身份，必须即时执行，否则 TaskEngine 会把 workflowEntryId=-1 当作无效任务。
+            RtsPlacementExecutor.placeSelectedInternal(
+                    player, session, clickedPos, face, hitX, hitY, hitZ, rotateSteps, "",
+                    forcePlace, skipIfOccupied, itemId, itemPrototype,
+                    rayOriginX, rayOriginY, rayOriginZ, rayDirX, rayDirY, rayDirZ,
+                    quickBuild, true, true, true);
+            return;
+        }
+
+        if (player != null && session != null) {
             PipelineRegistry.execute(quickBuild ? RtsWorkflowType.QUICK_BUILD : RtsWorkflowType.PLACE_SINGLE,
                     PlaceContext.builder(player)
                             .clickedPositions(clickedPos == null ? List.of() : List.of(clickedPos))
@@ -61,6 +75,7 @@ public final class RtsPlacementService {
                             .hitOffsetY(hitOffsetY)
                             .hitOffsetZ(hitOffsetZ)
                             .rotateSteps(rotateSteps)
+                            .statePreset("")
                             .forcePlace(forcePlace)
                             .skipIfOccupied(skipIfOccupied)
                             .itemId(itemId)
@@ -88,6 +103,7 @@ public final class RtsPlacementService {
                 hitOffsetY,
                 hitOffsetZ,
                 rotateSteps,
+                "",
                 forcePlace,
                 skipIfOccupied,
                 itemId,
@@ -133,6 +149,7 @@ public final class RtsPlacementService {
                             .hitOffsetY(hitOffsetY)
                             .hitOffsetZ(hitOffsetZ)
                             .rotateSteps(rotateSteps)
+                            .statePreset("")
                             .forcePlace(forcePlace)
                             .skipIfOccupied(skipIfOccupied)
                             .itemId(itemId == null ? "" : itemId)
@@ -161,6 +178,7 @@ public final class RtsPlacementService {
                 hitOffsetY,
                 hitOffsetZ,
                 rotateSteps,
+                "",
                 forcePlace,
                 skipIfOccupied,
                 itemId == null ? "" : itemId,
@@ -176,10 +194,6 @@ public final class RtsPlacementService {
                 false,
                 -1);
 
-        // 即使无会话，也尝试恢复挂起作业
-        if (player != null) {
-            RtsPendingPlacementService.tryResumeAfterStorageChange(player);
-        }
     }
 
     /**
@@ -190,7 +204,7 @@ public final class RtsPlacementService {
             return 0;
         }
         RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-        if (session == null || session.placement.pendingJobs.isEmpty()) {
+        if (session == null) {
             return 0;
         }
         int count = RtsPendingPlacementService.resumeAllPendingJobs(player, session);
@@ -208,18 +222,47 @@ public final class RtsPlacementService {
      * 旋转已放置的方块。
      */
     public static void rotateBlock(ServerPlayer player, BlockPos pos) {
-        if (!RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)) {
-            return;
-        }
-        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-        if (session == null || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
-            return;
-        }
-        if (!RtsClaimProtectionService.canInteractBlock(
-                player, pos, Direction.UP, net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+        if (!canRotateBlock(player, pos)) {
             return;
         }
         RtsPlacementHelper.rotatePlacedBlock(player.serverLevel(), pos, (byte) 1);
+    }
+
+    public static void rotateBlockStep(
+            ServerPlayer player,
+            BlockPos pos,
+            Direction axisDirection,
+            int quarterTurns) {
+        if (!canRotateBlock(player, pos)
+                || axisDirection == null
+                || Math.abs(quarterTurns) != 1) {
+            return;
+        }
+        RtsPlacementHelper.rotatePlacedBlockStep(
+                player.serverLevel(),
+                pos,
+                axisDirection,
+                quarterTurns);
+    }
+
+    private static boolean canRotateBlock(ServerPlayer player, BlockPos pos) {
+        if (player == null || pos == null
+                || !RtsProgressionManager.canUse(player, RtsFeature.ROTATE_BLOCK)) {
+            return false;
+        }
+        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
+        if (session == null
+                || session.mode != com.rtsbuilding.rtsbuilding.common.build.BuilderMode.ROTATE
+                || player.isSpectator()
+                || !player.mayBuild()
+                || !RtsLinkedStorageResolver.canAccessWorldTarget(player, pos)) {
+            return false;
+        }
+        if (!RtsClaimProtectionService.canInteractBlock(
+                player, pos, Direction.UP, net.minecraft.world.InteractionHand.MAIN_HAND, ItemStack.EMPTY)) {
+            return false;
+        }
+        return true;
     }
 
     // =========================================================================
@@ -264,14 +307,7 @@ public final class RtsPlacementService {
      */
     public static String getPlaceBatchItemId(ServerPlayer player) {
         if (player == null) return "";
-        RtsStorageSession session = ServiceRegistry.getInstance().session().getIfPresent(player);
-        if (session == null) return "";
-        if (!session.placement.placeBatchJobs.isEmpty()) {
-            return session.placement.placeBatchJobs.peekFirst().itemId();
-        }
-        if (!session.placement.pendingJobs.isEmpty()) {
-            return session.placement.pendingJobs.peekFirst().itemId();
-        }
-        return "";
+        return com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .firstPlacementItemId(player);
     }
 }

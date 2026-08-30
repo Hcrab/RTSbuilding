@@ -1,0 +1,118 @@
+import org.gradle.api.tasks.testing.Test
+
+def rtsTestRoots = [
+        unit       : 'src/test/unit/java',
+        contract   : 'src/test/contract/java',
+        performance: 'src/test/performance/java'
+]
+
+sourceSets.named('test') {
+    java.setSrcDirs(rtsTestRoots.values())
+    resources.setSrcDirs(['src/test/resources'])
+}
+
+def classCategories = [:]
+rtsTestRoots.each { category, root ->
+    fileTree(root).matching { include '**/*.java' }.files.each { sourceFile ->
+        def packageMatcher = sourceFile.getText('UTF-8') =~ /(?m)^\s*package\s+([\w.]+)\s*;/
+        def packageName = packageMatcher.find() ? packageMatcher.group(1) : ''
+        def className = packageName ? "${packageName}.${sourceFile.name - '.java'}" : sourceFile.name - '.java'
+        classCategories[className] = category
+    }
+}
+
+def featureName = { String className ->
+    String value = (className ?: '').toLowerCase(Locale.ROOT)
+    if (value.contains('.storage.') || value.contains('.page.') || value.contains('storage')) return '存储与物品页'
+    if (value.contains('blueprint')) return '蓝图'
+    if (value.contains('mining') || value.contains('destroy') || value.contains('ultimine')) return '挖掘与破坏'
+    if (value.contains('placement') || value.contains('quickbuild') || value.contains('.shape.')) return '放置与形状'
+    if (value.contains('workflow')) return '工作流'
+    if (value.contains('transfer') || value.contains('craft')) return '转运与合成'
+    if (value.contains('compat') || value.contains('jei') || value.contains('openpac')) return '兼容性'
+    if (value.contains('plugin') || value.contains('progression')) return '插件与进程'
+    if (value.contains('.client.') || value.contains('render') || value.contains('screen')
+            || value.contains('camera') || value.contains('sound') || value.contains('culling')) return '客户端与界面'
+    return '核心与其他'
+}
+
+tasks.withType(Test).configureEach { Test testTask ->
+    def totals = new LinkedHashMap<String, int[]>()
+    def categoryTotals = new LinkedHashMap<String, int[]>()
+
+    beforeSuite { descriptor ->
+        if (descriptor.parent == null) {
+            totals.clear()
+            categoryTotals.clear()
+        }
+    }
+
+    afterTest { descriptor, result ->
+        String category = classCategories.getOrDefault(descriptor.className, '未分类')
+        String feature = featureName(descriptor.className)
+        int resultIndex = result.resultType.toString() == 'SUCCESS' ? 0
+                : result.resultType.toString() == 'FAILURE' ? 1 : 2
+        totals.computeIfAbsent(feature) { new int[3] }[resultIndex]++
+        categoryTotals.computeIfAbsent(category) { new int[3] }[resultIndex]++
+    }
+
+    afterSuite { descriptor, result ->
+        if (descriptor.parent != null) return
+
+        logger.lifecycle('')
+        logger.lifecycle("========== RTSBuilding 测试汇总：${testTask.name} ==========")
+        totals.each { feature, counts ->
+            logger.lifecycle("${feature}功能：通过 ${counts[0]} 个，未通过 ${counts[1]} 个，跳过 ${counts[2]} 个")
+        }
+        logger.lifecycle('---------- 按测试类型 ----------')
+        categoryTotals.each { category, counts ->
+            logger.lifecycle("${category}：通过 ${counts[0]} 个，未通过 ${counts[1]} 个，跳过 ${counts[2]} 个")
+        }
+        logger.lifecycle("总计：通过 ${result.successfulTestCount} 个，未通过 ${result.failedTestCount} 个，跳过 ${result.skippedTestCount} 个")
+        logger.lifecycle('========================================================')
+    }
+}
+
+tasks.register('rtsTestSummary') {
+    group = 'verification'
+    description = '当 test 命中 Gradle 缓存时，仍从 XML 结果打印按功能分类的摘要。'
+    dependsOn tasks.named('test')
+    outputs.upToDateWhen { false }
+
+    doLast {
+        if (!tasks.named('test').get().state.upToDate) return
+
+        def totals = new LinkedHashMap<String, int[]>()
+        def categoryTotals = new LinkedHashMap<String, int[]>()
+        fileTree(layout.buildDirectory.dir('test-results/test')).matching { include 'TEST-*.xml' }.files.each { report ->
+            def document = javax.xml.parsers.DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(report)
+            def testCases = document.getElementsByTagName('testcase')
+            for (int index = 0; index < testCases.length; index++) {
+                def testCase = testCases.item(index)
+                String className = testCase.getAttribute('classname')
+                String category = classCategories.getOrDefault(className, '未分类')
+                String feature = featureName(className)
+                int resultIndex = (testCase.getElementsByTagName('failure').length > 0
+                        || testCase.getElementsByTagName('error').length > 0) ? 1
+                        : testCase.getElementsByTagName('skipped').length > 0 ? 2 : 0
+                totals.computeIfAbsent(feature) { new int[3] }[resultIndex]++
+                categoryTotals.computeIfAbsent(category) { new int[3] }[resultIndex]++
+            }
+        }
+
+        logger.lifecycle('')
+        logger.lifecycle('========== RTSBuilding 测试汇总：test（缓存结果） ==========')
+        totals.each { feature, counts ->
+            logger.lifecycle("${feature}功能：通过 ${counts[0]} 个，未通过 ${counts[1]} 个，跳过 ${counts[2]} 个")
+        }
+        logger.lifecycle('---------- 按测试类型 ----------')
+        categoryTotals.each { category, counts ->
+            logger.lifecycle("${category}：通过 ${counts[0]} 个，未通过 ${counts[1]} 个，跳过 ${counts[2]} 个")
+        }
+        logger.lifecycle('========================================================')
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('rtsTestSummary')
+}

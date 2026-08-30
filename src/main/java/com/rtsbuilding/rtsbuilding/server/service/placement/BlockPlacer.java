@@ -1,9 +1,11 @@
 package com.rtsbuilding.rtsbuilding.server.service.placement;
 
+import com.rtsbuilding.rtsbuilding.compat.create.BlueprintCreatePlacementCompat;
 import com.rtsbuilding.rtsbuilding.server.data.PlacedBlockTrackerData;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
@@ -38,10 +40,18 @@ public final class BlockPlacer {
     }
 
     /**
-     * 标记已放置方块到追踪器。
+     * 蓝图专用放置入口；允许可选兼容插头收紧第三方方块的更新标志。
      */
-    public static void trackPlaced(ServerLevel level, BlockPos pos) {
-        PlacedBlockTrackerData.get(level).mark(pos);
+    public static boolean setBlueprintBlock(ServerLevel level, BlockPos pos, BlockState state) {
+        return level.setBlock(pos, state, BlueprintCreatePlacementCompat.placementFlags(state));
+    }
+
+    /**
+     * 在放置回调和方块实体初始化完成后，按世界最终状态写入真实 owner/Block ID。
+     */
+    public static void trackPlaced(ServerLevel level, BlockPos pos, ServerPlayer owner) {
+        if (level == null || pos == null || owner == null) return;
+        PlacedBlockTrackerData.get(level).markPlaced(pos, owner.getUUID(), level.getBlockState(pos));
     }
 
     /**
@@ -70,6 +80,12 @@ public final class BlockPlacer {
             level.sendBlockUpdated(pos, state, state, 3);
         } catch (RuntimeException ignored) {
         }
+    }
+
+    /** 在方块实体 NBT 应用完成后补齐第三方蓝图所需的标准放置回调。 */
+    public static void finishBlueprintPlacement(
+            ServerLevel level, BlockPos pos, BlockState state, @Nullable ItemStack stack) {
+        BlueprintCreatePlacementCompat.finishPlacement(level, pos, state, stack);
     }
 
     /**

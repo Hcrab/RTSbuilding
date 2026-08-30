@@ -1,11 +1,14 @@
 package com.rtsbuilding.rtsbuilding.client.network;
 
 
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
 import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
+import com.rtsbuilding.rtsbuilding.client.developer.RtsDeveloperScenarioTracker;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.ClientFakeAirBlocks;
 import com.rtsbuilding.rtsbuilding.client.rendering.animation.PlacementAnimationRenderer;
 import com.rtsbuilding.rtsbuilding.client.rendering.builder.ShapeGhostRenderer;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.culling.RtsCullingClientState;
 import com.rtsbuilding.rtsbuilding.client.screen.handler.PlacementHistoryManager;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
 import com.rtsbuilding.rtsbuilding.client.screen.workflow.RtsBlueprintResumePanel;
@@ -17,6 +20,7 @@ import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraAnchorPayload;
 import com.rtsbuilding.rtsbuilding.network.camera.S2CRtsCameraStatePayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.craft.S2CRtsCraftablesPayload;
+import com.rtsbuilding.rtsbuilding.network.culling.S2CRtsCullingStatePayload;
 import com.rtsbuilding.rtsbuilding.network.feedback.S2CRtsDamageFeedbackPayload;
 import com.rtsbuilding.rtsbuilding.network.plugin.S2CRtsPluginStatePayload;
 import com.rtsbuilding.rtsbuilding.network.progression.S2CRtsProgressionStatePayload;
@@ -40,7 +44,10 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleStoragePage(S2CRtsStoragePagePayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyStoragePage(payload));
+        context.enqueueWork(() -> {
+            ClientRtsController.get().applyStoragePage(payload);
+            RtsDeveloperScenarioTracker.getInstance().record("storage_page_received", "page=" + payload.page());
+        });
     }
 
     public static void handleStorageDirty(S2CRtsStorageDirtyPayload payload, IPayloadContext context) {
@@ -59,6 +66,10 @@ public final class RtsClientNetworkHandlers {
         context.enqueueWork(() -> ClientRtsController.get().applyCraftFeedback(payload));
     }
 
+    public static void handleCullingState(S2CRtsCullingStatePayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> RtsCullingClientState.applyCurrentWorldState(payload));
+    }
+
     public static void handleDamageFeedback(S2CRtsDamageFeedbackPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> ClientRtsController.get().applyDamageFeedback(payload));
     }
@@ -75,9 +86,28 @@ public final class RtsClientNetworkHandlers {
         context.enqueueWork(() -> ClientRtsController.get().applyUltimineProgress(payload));
     }
 
+    public static void handleOperationTerminal(
+            S2CRtsOperationTerminalPayload payload, IPayloadContext context) {
+        context.enqueueWork(() -> RtsClientOperationDiagnostics.serverTerminal(payload));
+    }
+
+    public static void handleHarvestTierSkipped(
+            S2CRtsHarvestTierSkippedPayload payload,
+            IPayloadContext context) {
+        context.enqueueWork(() -> {
+            Minecraft minecraft = Minecraft.getInstance();
+            if (minecraft.screen instanceof BuilderScreen builderScreen) {
+                builderScreen.getShapeController()
+                        .removeConfirmedRangeDestroyPreviewBlocks(payload.positions());
+            }
+        });
+    }
+
     public static void handlePlaceAnimation(S2CRtsPlaceAnimationPayload payload, IPayloadContext context) {
         context.enqueueWork(() -> {
             PlacementAnimationRenderer.confirmPlacement(payload.pos(), payload.state());
+            RtsDeveloperScenarioTracker.getInstance().record(
+                    "place_confirmed", "pos=" + payload.pos().toShortString());
         });
     }
 
@@ -86,6 +116,8 @@ public final class RtsClientNetworkHandlers {
             ClientFakeAirBlocks.hideUntilServerState(payload.pos(), payload.state(), payload.resultState());
             PlacementAnimationRenderer.addDestroy(payload.pos(), payload.state());
             ShapeGhostRenderer.markDestroyed(payload.pos());
+            RtsDeveloperScenarioTracker.getInstance().record(
+                    "break_confirmed", "pos=" + payload.pos().toShortString());
         });
     }
 
@@ -102,15 +134,25 @@ public final class RtsClientNetworkHandlers {
     }
 
     public static void handleHistorySync(S2CRtsHistorySyncPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(payload.undoSize()));
+        context.enqueueWork(() -> PlacementHistoryManager.syncHistoryState(
+                payload.undoSize(), payload.redoSize()));
     }
 
     public static void handleWorkflowProgress(S2CRtsWorkflowProgressPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyWorkflowProgress(payload));
+        context.enqueueWork(() -> {
+            ClientRtsController.get().applyWorkflowProgress(payload);
+            RtsDeveloperScenarioTracker.getInstance().record(
+                    "workflow_update_received", "completed=" + payload.completedBlocks()
+                            + ";total=" + payload.totalBlocks() + ";failed=" + payload.failedBlocks());
+        });
     }
 
     public static void handleWorkflowProgressBatch(S2CRtsWorkflowProgressBatchPayload payload, IPayloadContext context) {
-        context.enqueueWork(() -> ClientRtsController.get().applyWorkflowProgressBatch(payload));
+        context.enqueueWork(() -> {
+            ClientRtsController.get().applyWorkflowProgressBatch(payload);
+            RtsDeveloperScenarioTracker.getInstance().record(
+                    "workflow_update_received", "entries=" + payload.entries().size());
+        });
     }
 
     public static void handleResumePlacementScan(S2CRtsResumePlacementScanPayload payload, IPayloadContext context) {

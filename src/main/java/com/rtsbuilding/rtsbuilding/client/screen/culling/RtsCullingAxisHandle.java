@@ -58,11 +58,18 @@ public final class RtsCullingAxisHandle {
 
     public static Optional<HandleHit> nearestHit(RtsCullingBox box, Vec3 origin, Vec3 direction, double maxDistance,
             Set<Direction> allowedDirections) {
+        return box == null
+                ? Optional.empty()
+                : nearestHit(box.asAabb(), origin, direction, maxDistance, allowedDirections);
+    }
+
+    public static Optional<HandleHit> nearestHit(AABB box, Vec3 origin, Vec3 direction, double maxDistance,
+            Set<Direction> allowedDirections) {
         if (box == null || origin == null || direction == null || direction.lengthSqr() < EPSILON) {
             return Optional.empty();
         }
         Vec3 normalized = direction.normalize();
-        return handles(box.asAabb(), allowedDirections).stream()
+        return handles(box, allowedDirections).stream()
                 .map(handle -> handle.hit(origin, normalized, maxDistance))
                 .flatMap(Optional::stream)
                 .min(Comparator.comparingDouble(HandleHit::distance));

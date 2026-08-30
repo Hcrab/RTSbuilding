@@ -2,11 +2,12 @@ package com.rtsbuilding.rtsbuilding.client.rendering.blueprint;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
+import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintGhostBlock;
 import net.minecraft.client.renderer.LevelRenderer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.RenderShape;
 import net.minecraft.world.level.block.state.BlockState;
+import com.rtsbuilding.rtsbuilding.uikit.theme.UiThemeWorldColors;
 
 import java.util.List;
 
@@ -46,12 +47,12 @@ public final class BlueprintGhostFallbackRenderer {
      * @param lineB      Blue component for normal block wireframes
      */
     public static void renderFallbacks(
-            List<BlueprintPanel.BlueprintGhostBlock> blocks,
+            List<BlueprintGhostBlock> blocks,
             PoseStack poseStack,
             VertexConsumer lineBuffer,
             float lineR, float lineG, float lineB) {
 
-        for (BlueprintPanel.BlueprintGhostBlock block : blocks) {
+        for (BlueprintGhostBlock block : blocks) {
             if (shouldRenderFallback(block)) {
                 BlockPos pos = block.pos();
                 double cellMinX = pos.getX() + CELL_PADDING;
@@ -62,9 +63,12 @@ public final class BlueprintGhostFallbackRenderer {
                 double cellMaxZ = pos.getZ() + 1.0D - CELL_PADDING;
 
                 // Missing blocks use red, others use the state colour
-                float fallbackR = block.missing() ? 1.00F : lineR;
-                float fallbackG = block.missing() ? 0.25F : lineG;
-                float fallbackB = block.missing() ? 0.25F : lineB;
+                float fallbackR = block.missing()
+                        ? UiThemeWorldColors.red(UiThemeWorldColors.BLUEPRINT_MISSING) : lineR;
+                float fallbackG = block.missing()
+                        ? UiThemeWorldColors.green(UiThemeWorldColors.BLUEPRINT_MISSING) : lineG;
+                float fallbackB = block.missing()
+                        ? UiThemeWorldColors.blue(UiThemeWorldColors.BLUEPRINT_MISSING) : lineB;
 
                 LevelRenderer.renderLineBox(
                         poseStack, lineBuffer,
@@ -79,7 +83,7 @@ public final class BlueprintGhostFallbackRenderer {
     /**
      * Determines whether the given block requires a fallback wireframe.
      */
-    private static boolean shouldRenderFallback(BlueprintPanel.BlueprintGhostBlock block) {
+    private static boolean shouldRenderFallback(BlueprintGhostBlock block) {
         if (block == null) return false;
         if (block.missing()) return true;
         BlockState state = block.state();

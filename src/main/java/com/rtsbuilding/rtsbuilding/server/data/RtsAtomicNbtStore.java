@@ -21,11 +21,11 @@ import java.nio.file.StandardCopyOption;
  * <p>使用示例：
  * <pre>{@code
  * var store = new RtsAtomicNbtStore(server, "rtsbuilding", "session.dat");
- * CompoundTag data = store.read();       // 读文件，失败返回空标签
+ * CompoundTag data = store.read();       // 文件不存在返回空标签，损坏则抛出异常
  * store.write(data);                     // 原子写入
  * }</pre>
  */
-public final class RtsAtomicNbtStore {
+public final class RtsAtomicNbtStore implements RtsNbtStore {
 
     /** 单个 NBT 文件最大允许大小（128 MB） */
     private static final long MAX_FILE_BYTES = 128L * 1024L * 1024L;
@@ -46,22 +46,51 @@ public final class RtsAtomicNbtStore {
         this.label = subDir + "/" + fileName;
     }
 
-    /**
-     * 从文件读取压缩 NBT 数据。
-     *
-     * @return 解析后的 {@link CompoundTag}，文件不存在或解析失败时返回空标签
-     */
-    public CompoundTag read() {
+    /** 同包测试使用的文件级构造器，生产代码仍应通过 MinecraftServer 解析存档路径。 */
+    RtsAtomicNbtStore(Path filePath, String label) {
+        this.filePath = filePath;
+        this.tempPath = filePath.resolveSibling(filePath.getFileName() + ".tmp");
+        this.label = label;
+    }
+
+    /** 从文件读取压缩 NBT，并保留“不存在”和“损坏”的语义差异。 */
+    @Override
+    public ReadResult readResult() {
+        if (!Files.exists(filePath)) {
+            return ReadResult.missing();
+        }
         if (!Files.isRegularFile(filePath)) {
-            return new CompoundTag();
+            IOException cause = new IOException("NBT 路径不是普通文件");
+            RtsbuildingMod.LOGGER.error("读取 NBT 文件 {} 失败: {}", filePath, cause.getMessage());
+            return ReadResult.failed(cause);
         }
         try {
             CompoundTag root = NbtIo.readCompressed(filePath, NbtAccounter.create(MAX_FILE_BYTES));
-            return root != null ? root : new CompoundTag();
+            if (root == null) {
+                IOException cause = new IOException("NBT 根标签为空");
+                RtsbuildingMod.LOGGER.error("读取 NBT 文件 {} 失败: {}", filePath, cause.getMessage());
+                return ReadResult.failed(cause);
+            }
+            return ReadResult.found(root);
         } catch (IOException | RuntimeException e) {
             RtsbuildingMod.LOGGER.error("读取 NBT 文件 {} 失败: {}", filePath, e.getMessage());
-            return new CompoundTag();
+            return ReadResult.failed(e);
         }
+    }
+
+    /**
+     * 兼容旧调用的便捷读取入口。
+     *
+     * <p>文件不存在仍返回空标签；文件存在但损坏时必须抛出异常，绝不能把损坏误报成空存档，
+     * 否则调用方随后保存默认值会覆盖仍可人工恢复的原文件。
+     */
+    public CompoundTag read() {
+        return switch (readResult()) {
+            case ReadResult.Found found -> found.root();
+            case ReadResult.Missing ignored -> new CompoundTag();
+            case ReadResult.Failed failed -> throw new IllegalStateException(
+                    "读取 NBT 文件失败，拒绝以空数据继续: " + label, failed.cause());
+        };
     }
 
     /**
@@ -72,6 +101,7 @@ public final class RtsAtomicNbtStore {
      * @param tag 要写入的 NBT 数据
      * @return 写入是否成功
      */
+    @Override
     public boolean write(CompoundTag tag) {
         try {
             Files.createDirectories(filePath.getParent());
@@ -99,7 +129,9 @@ public final class RtsAtomicNbtStore {
     }
 
     /** 返回文件的人类可读标签（用于日志）。 */
+    @Override
     public String label() {
         return label;
     }
+
 }

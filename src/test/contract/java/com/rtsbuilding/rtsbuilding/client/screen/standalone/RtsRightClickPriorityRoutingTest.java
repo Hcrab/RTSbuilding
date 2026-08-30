@@ -1,0 +1,120 @@
+package com.rtsbuilding.rtsbuilding.client.screen.standalone;
+
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+class RtsRightClickPriorityRoutingTest {
+    @Test
+    void selectedStorageItemSingleBlockNormalRightClickInteractsBeforePlacement() throws IOException {
+        String router = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenPrimaryActionRouter.java"));
+        String handler = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenItemActionHandler.java"));
+        String routeBody = methodBody(
+                router, "boolean run(double mouseX, double mouseY, int mouseButton)");
+        String body = methodBody(handler, "boolean runSelectedItem(");
+
+        int selectedItemBranch = routeBody.indexOf(
+                "if (this.controller.hasSelectedItem())");
+        assertTrue(selectedItemBranch >= 0, "selected item branch missing");
+
+        int normalInteractGuard = body.indexOf(
+                "if (!forceBackpackPlacement && !forceBlockPlacement && !rangeDestroyMode");
+        int interactPinnedItem = body.indexOf(
+                "this.controller.interactBlockWithPinnedItem");
+        int forcePlacementBranch = body.indexOf("if (rangeDestroyMode)");
+
+        assertTrue(normalInteractGuard >= 0,
+                "普通右键交互优先只能截获单方块模式，形状/范围放置不能被提前返回。");
+        assertTrue(body.indexOf("this.controller.getBuildShape() == BuildShape.BLOCK", normalInteractGuard)
+                        > normalInteractGuard,
+                "普通物品的交互优先仍必须只作用于单方块模式。");
+        int normalInteractGuardEnd = body.indexOf(") {", normalInteractGuard);
+        assertTrue(body.substring(normalInteractGuard, normalInteractGuardEnd)
+                        .contains("this.controller.getPlacementStatePreset().isBlank()"),
+                "R 已预选 BlockState 时必须绕过自然交互，否则 preset 根本不会进入放置数据包");
+        assertTrue(interactPinnedItem > normalInteractGuard,
+                "normal right-click with a selected storage item should send interact before placement");
+        assertTrue(forcePlacementBranch > interactPinnedItem,
+                "placement branch should come after the normal interaction branch");
+    }
+
+    @Test
+    void selectedStorageItemShapePlacementBypassesNormalInteractBranch() throws IOException {
+        String router = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenPrimaryActionRouter.java"));
+        String handler = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenItemActionHandler.java"));
+        String routeBody = methodBody(
+                router, "boolean run(double mouseX, double mouseY, int mouseButton)");
+        String body = methodBody(handler, "boolean runSelectedItem(");
+
+        int selectedItemBranch = routeBody.indexOf(
+                "if (this.controller.hasSelectedItem())");
+        assertTrue(selectedItemBranch >= 0, "selected item branch missing");
+
+        int normalInteractGuard = body.indexOf(
+                "this.controller.getBuildShape() == BuildShape.BLOCK");
+        int shapePlacement = body.indexOf(
+                "this.shapeController.placeWithShape(");
+
+        assertTrue(normalInteractGuard >= 0, "selected storage item routing must guard interact-first by shape");
+        assertTrue(shapePlacement > normalInteractGuard,
+                "形状建造需要继续进入 placeWithShape，不能被储存栏物品普通交互吞掉。");
+    }
+
+    @Test
+    void mainHandNormalRightClickInteractsAndShiftRightClickPlacesFirst() throws IOException {
+        String source = Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenPrimaryActionRouter.java"))
+                + Files.readString(Path.of(
+                "src/main/java/com/rtsbuilding/rtsbuilding/client/screen/standalone/"
+                        + "BuilderScreenItemActionHandler.java"));
+        String body = methodBody(source, "boolean runToolOrEmptyHand(");
+
+        int toolSlotInteract = body.indexOf("this.controller.interactBlockWithToolSlot");
+        assertTrue(toolSlotInteract >= 0, "normal main-hand right-click should send tool-slot interaction");
+
+        int shiftPlace = body.lastIndexOf("this.controller.placeSelected(", toolSlotInteract);
+        int forceGuard = body.lastIndexOf("forcePlace && host.mainHandItemIsBlock()", toolSlotInteract);
+
+        assertTrue(forceGuard >= 0,
+                "Shift may force placement only for an actual main-hand block item");
+        int forceGuardEnd = body.indexOf(") {", forceGuard);
+        assertTrue(body.substring(forceGuard, forceGuardEnd)
+                        .contains("this.controller.getPlacementStatePreset().isBlank()"),
+                "手持方块的 R preset 也必须让右键走放置包，而不是不携带 preset 的自然交互包");
+        assertTrue(shiftPlace > forceGuard,
+                "Shift right-click should run placeSelected before the normal interaction fallback");
+    }
+
+    private static String methodBody(String source, String signatureStart) {
+        int start = source.indexOf(signatureStart);
+        assertTrue(start >= 0, "method not found: " + signatureStart);
+        int bodyStart = source.indexOf('{', start);
+        assertTrue(bodyStart >= 0, "method body not found: " + signatureStart);
+        int depth = 0;
+        for (int i = bodyStart; i < source.length(); i++) {
+            char c = source.charAt(i);
+            if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    return source.substring(bodyStart, i + 1);
+                }
+            }
+        }
+        throw new AssertionError("method body is not closed: " + signatureStart);
+    }
+}

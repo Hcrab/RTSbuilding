@@ -1,6 +1,7 @@
 package com.rtsbuilding.rtsbuilding.client.rendering.builder;
 
 import com.mojang.blaze3d.vertex.PoseStack;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
 import com.rtsbuilding.rtsbuilding.client.rendering.util.GhostAlphaBufferSource;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LevelRenderer;
@@ -125,7 +126,11 @@ public final class EntityGhostRenderer {
                     : 0xF000F0;
 
             poseStack.pushPose();
-            poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
+            boolean localFrame = RtsSableClientSpatialCompat.applyBlockRenderFrame(
+                    minecraft.level, pos, poseStack);
+            if (!localFrame) {
+                poseStack.translate(pos.getX(), pos.getY(), pos.getZ());
+            }
             poseStack.scale(ENTITY_SCALE, ENTITY_SCALE, ENTITY_SCALE);
 
             dispatcher.render(entity, 0.5, yOffset, 0.5,

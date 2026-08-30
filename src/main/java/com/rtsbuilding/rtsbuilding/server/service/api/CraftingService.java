@@ -1,7 +1,7 @@
 package com.rtsbuilding.rtsbuilding.server.service.api;
 
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.CraftingMenu;
+import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.items.IItemHandler;
 
@@ -121,7 +121,7 @@ public interface CraftingService {
      * @param menu 合成菜单
      * @return 表示当前合成格中材料的物品栈数组
      */
-    ItemStack[] snapshotCraftGridBlueprint(CraftingMenu menu);
+    ItemStack[] snapshotCraftGridBlueprint(AbstractContainerMenu menu);
 
     /**
      * 从蓝图数组填充合成格的配方材料。
@@ -134,7 +134,7 @@ public interface CraftingService {
      * @param fillAll               是否填充所有材料槽（不保留空缺）
      * @param includePlayerFallback 是否在链接存储不足时从玩家背包补充
      */
-    void refillCraftGridFromBlueprint(CraftingMenu menu, List<IItemHandler> handlers,
+    void refillCraftGridFromBlueprint(AbstractContainerMenu menu, List<IItemHandler> handlers,
                                       ServerPlayer player, ItemStack[] blueprint,
                                       boolean fillAll, boolean includePlayerFallback);
 
@@ -145,10 +145,9 @@ public interface CraftingService {
      * @param player       目标玩家
      * @param craftingMenu 合成菜单
      * @param blueprint    配方蓝图（材料栈数组）
-     * @param recipe       当前合成配方
      */
-    void refillCraftGridFromLinked(ServerPlayer player, CraftingMenu craftingMenu,
-                                   ItemStack[] blueprint, net.minecraft.world.item.crafting.CraftingRecipe recipe);
+    void refillCraftGridFromLinked(ServerPlayer player, AbstractContainerMenu craftingMenu,
+                                   ItemStack[] blueprint);
 
     /**
      * 记录已合成的产出物品到最近物品列表。
@@ -158,4 +157,7 @@ public interface CraftingService {
      * @param crafted 已合成的产物物品栈
      */
     void recordCraftedOutput(ServerPlayer player, ItemStack crafted);
+
+    /** 把当前 RTS 合成终端材料清回 linked storage 或玩家背包。 */
+    void clearCraftingGrid(ServerPlayer player, boolean toPlayerInventory);
 }

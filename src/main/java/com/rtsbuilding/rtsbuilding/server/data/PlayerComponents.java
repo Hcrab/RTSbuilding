@@ -20,6 +20,9 @@ public final class PlayerComponents {
     /** 玩家进度数据——CompoundTag 桥接，兼容 {@code RtsProgressionPersistence} 格式 */
     public static final DataComponent<CompoundTag> PROGRESSION = bridge("progression");
 
+    /** 按维度保存的客户端范围剔除盒；文件本身随玩家与存档隔离。 */
+    public static final DataComponent<CompoundTag> CULLING = bridge("culling");
+
     /** 创建直通桥接组件 */
     private static DataComponent<CompoundTag> bridge(String key) {
         return new DataComponent<>(

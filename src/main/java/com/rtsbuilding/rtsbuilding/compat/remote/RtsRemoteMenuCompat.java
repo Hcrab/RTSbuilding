@@ -76,6 +76,11 @@ public final class RtsRemoteMenuCompat {
         TRACKER.markServer(player, menu);
     }
 
+    /** 记录生产交互链打开的任意菜单，供服务端统一 stillValid 闸门使用。 */
+    public static void markServerRemoteMenuSession(ServerPlayer player, AbstractContainerMenu menu) {
+        TRACKER.markServerSession(player, menu);
+    }
+
     public static void clearServerRemoteMenu(ServerPlayer player) {
         TRACKER.clearServer(player);
     }
@@ -99,6 +104,17 @@ public final class RtsRemoteMenuCompat {
         return TRACKER.shouldForceStillValid(menu, player);
     }
 
+    /**
+     * 服务端在真正关闭菜单之前使用的通用判定。
+     * 精确绑定玩家和菜单对象，因此不需要枚举第三方菜单类。
+     */
+    public static boolean shouldKeepServerRemoteMenuOpen(AbstractContainerMenu menu, Player player) {
+        if (isRemoteMenuPersistenceDisabledForProbe() || !(player instanceof ServerPlayer serverPlayer)) {
+            return false;
+        }
+        return TRACKER.isTrackedServerSession(menu, serverPlayer);
+    }
+
     public static boolean isLocalSophisticatedMenu(AbstractContainerMenu menu, Player player) {
         return isSophisticatedMenu(menu) && !shouldForceStillValid(menu, player);
     }
@@ -115,7 +131,8 @@ public final class RtsRemoteMenuCompat {
 
     private static boolean isInstanceOf(Object instance, String className) {
         try {
-            return Class.forName(className).isInstance(instance);
+            ClassLoader loader = instance.getClass().getClassLoader();
+            return Class.forName(className, false, loader).isInstance(instance);
         } catch (ClassNotFoundException | LinkageError ignored) {
             return false;
         }

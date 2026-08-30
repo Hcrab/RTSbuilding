@@ -10,6 +10,7 @@ import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowStatus;
 import com.rtsbuilding.rtsbuilding.server.workflow.model.RtsWorkflowType;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSlotManager;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowSyncService;
+import com.rtsbuilding.rtsbuilding.server.task.RtsEffectAccumulator;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.RtsWorkflowTimeoutService;
 import com.rtsbuilding.rtsbuilding.server.workflow.service.WorkflowPersistenceService;
 import net.minecraft.nbt.CompoundTag;
@@ -112,8 +113,19 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      */
     public void startTimeoutService(Duration checkInterval, Duration maxIdleTime) {
         if (timeoutService == null) {
-            timeoutService = new RtsWorkflowTimeoutService(playerSlots, playerRefs, eventBus, syncService);
+            timeoutService = new RtsWorkflowTimeoutService(playerSlots, eventBus);
             timeoutService.start(checkInterval, maxIdleTime);
+        }
+    }
+
+    /**
+     * 由服务端全局 Tick 编排器调用。超时服务未显式启动时保持 O(1) 空操作，
+     * 不会在现有世界中凭空启用新的清理行为。
+     */
+    public void tickTimeoutService(MinecraftServer server, long gameTime) {
+        RtsWorkflowTimeoutService service = timeoutService;
+        if (service != null) {
+            service.tick(server, gameTime);
         }
     }
 
@@ -144,7 +156,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
 
     /**
      * 根据 {@link ServerPlayer} 和条目 ID 查找条目。
-     * 公开方法——供 {@link com.rtsbuilding.rtsbuilding.server.pipeline.core.TickablePipelineRegistry}
+     * 公开方法——供统一 Task Engine
      * 等跨包组件使用，避免重复的 engine.from() → token.isPaused() 两次独立 lookup。
      */
     @Nullable
@@ -180,10 +192,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (!removed) return;
 
         // 通过网络通知玩家（notifyPlayer 内部处理 idle 的情况）
-        ServerPlayer player = findPlayerByUUID(playerId);
-        if (player != null) {
-            syncService.notifyPlayer(player, slots);
-        }
+        RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension);
     }
 
     /**
@@ -191,12 +200,26 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
      * 包级私有——由 {@link RtsWorkflowToken} 调用。
      */
     void notifyPlayer(UUID playerId, ResourceKey<Level> dimension) {
-        RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
-        if (slots == null) return;
+        if (getSlots(playerId, dimension) != null) {
+            RtsEffectAccumulator.INSTANCE.markWorkflow(playerId, dimension);
+        }
+    }
 
+    /**
+     * 仅由 Tick 末副作用提交器调用。普通业务代码应调用 token 方法并留下脏标记，
+     * 避免同一 Tick 重复构建和发送完整工作流快照。
+     */
+    public void flushPlayerNow(UUID playerId, ResourceKey<Level> dimension) {
+        RtsWorkflowSlotManager slots = getSlots(playerId, dimension);
         ServerPlayer player = findPlayerByUUID(playerId);
-        if (player != null) {
+        if (player == null) {
+            return;
+        }
+        if (slots != null) {
             syncService.notifyPlayer(player, slots);
+        } else {
+            // 最后一条记录被超时清理后，服务端容器已经不存在；仍要显式清空客户端旧投影。
+            syncService.sendIdle(player);
         }
     }
 
@@ -219,21 +242,35 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return Optional.empty();
         }
         RtsWorkflowSlotManager slots = getOrCreateSlots(player);
+        ResourceKey<Level> dimension = player.level().dimension();
         if (slots.isFull()) {
             RtsWorkflowEntry replaced = slots.removeOldestReplaceableEntry();
             if (replaced != null) {
+                com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                        .cancelWorkflowTask(player, replaced.id());
                 fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), replaced.id(), replaced);
-                RtsbuildingMod.LOGGER.info("[Workflow] {} 自动替换可覆盖工作流 #{}: {}",
+                RtsbuildingMod.LOGGER.debug("[Workflow] {} 自动替换可覆盖工作流 #{}: {}",
                         player.getGameProfile().getName(), replaced.id(), replaced.type());
             }
         }
-        RtsWorkflowEntry entry = slots.addEntry(priority);
+        RtsWorkflowEntry entry;
+        do {
+            entry = slots.addEntry(priority);
+            if (entry == null
+                    || !com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                            .hasDurableTaskForWorkflow(player, entry.id())) {
+                break;
+            }
+            // 两套存档的 nextId 可能在旧世界升级后短暂错位。这里尚未广播 STARTED，
+            // 可以无副作用地跳过被 durable task 占用的编号。
+            slots.removeEntryById(entry.id());
+        } while (true);
         if (entry == null) {
             String name = player.getGameProfile().getName();
-            RtsbuildingMod.LOGGER.warn("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
+            RtsbuildingMod.LOGGER.debug("[Workflow] {} 工作流已满且没有可覆盖条目 ({}), 拒绝新工作流 {}",
                     name, RtsWorkflowSlotManager.MAX_SLOTS, type);
             player.displayClientMessage(
-                    Component.literal("§c工作流已满且都被保护，无法开始新的操作！"),
+                    Component.translatable("message.rtsbuilding.workflow.full_protected"),
                     true);
             return Optional.empty();
         }
@@ -243,14 +280,53 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         // 追踪玩家引用，供后续通知使用
         playerRefs.put(player.getUUID(), player);
 
-        ResourceKey<Level> dimension = player.level().dimension();
         RtsWorkflowToken token = new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this);
         fireEvent(WorkflowEventType.STARTED, player.getUUID(), entry.id(), entry);
-        syncService.notifyPlayer(player, slots);
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), dimension);
 
-        RtsbuildingMod.LOGGER.info("[Workflow] {} 开始工作流 #{}: {} (共 {} 方块)",
+        RtsbuildingMod.LOGGER.debug("[Workflow] {} 开始工作流 #{}: {} (共 {} 方块)",
                 player.getGameProfile().getName(), entry.id(), type, totalBlocks);
         return Optional.of(token);
+    }
+
+    /**
+     * 从持久任务库重建缺失的工作流显示条目。
+     *
+     * <p>TaskStore 始终是真实执行权威；这里仅恢复玩家可见、可暂停、可保护和可取消的
+     * UI 投影。恢复时保留原 workflowEntryId，避免把控制操作接到另一条任务上。</p>
+     */
+    public Optional<RtsWorkflowToken> restoreDurableProjection(
+            ServerPlayer player,
+            int entryId,
+            RtsWorkflowType type,
+            int totalBlocks,
+            int completedBlocks,
+            int failedBlocks) {
+        if (player == null || entryId < 0 || type == null) return Optional.empty();
+        ResourceKey<Level> dimension = player.level().dimension();
+        RtsWorkflowSlotManager slots = getOrCreateSlots(player);
+        RtsWorkflowEntry existing = slots.findEntryById(entryId);
+        if (existing != null) {
+            return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
+        }
+
+        // 旧持久任务的恢复不能反过来淘汰已经可见的新工作流。
+        // 满槽时由 Task Engine 终止这个未显示、因而也不可能被玩家钉住的旧任务。
+        if (slots.isFull()) return Optional.empty();
+
+        RtsWorkflowEntry restored = new RtsWorkflowEntry(entryId);
+        restored.setPriority(RtsWorkflowPriority.NORMAL);
+        restored.setType(type);
+        restored.setTotalBlocks(totalBlocks);
+        restored.setCompletedBlocks(completedBlocks);
+        restored.addFailedBlocks(Math.max(0, failedBlocks));
+        if (!slots.addRestoredEntry(restored)) return Optional.empty();
+
+        playerRefs.put(player.getUUID(), player);
+        RtsEffectAccumulator.INSTANCE.markWorkflow(player.getUUID(), dimension);
+        RtsbuildingMod.LOGGER.info("[Workflow] 为 {} 恢复持久任务投影 #{}: {}",
+                player.getGameProfile().getName(), entryId, type);
+        return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -267,6 +343,27 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             return Optional.empty();
         }
         return Optional.of(new RtsWorkflowToken(player.getUUID(), entryId, dimension, this));
+    }
+
+    /**
+     * 在每玩家最多八个槽位中精确查找 durable 蓝图薄投影。
+     * 该查询只读 {@code durable_task_id}，不会把旧 heavy extraData 误认成新执行许可。
+     */
+    public Optional<RtsWorkflowToken> findDurableBlueprintProjection(ServerPlayer player, UUID taskId) {
+        if (player == null || taskId == null) return Optional.empty();
+        playerRefs.putIfAbsent(player.getUUID(), player);
+        ResourceKey<Level> dimension = player.level().dimension();
+        RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
+        if (slots == null) return Optional.empty();
+        for (RtsWorkflowEntry entry : slots.allEntries()) {
+            CompoundTag extra = entry.getExtraData();
+            if (entry.type() == RtsWorkflowType.BLUEPRINT_BUILD && extra != null
+                    && extra.hasUUID("durable_task_id")
+                    && taskId.equals(extra.getUUID("durable_task_id"))) {
+                return Optional.of(new RtsWorkflowToken(player.getUUID(), entry.id(), dimension, this));
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
@@ -459,7 +556,7 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
             boolean anyChanged = false;
 
             for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
-                if (!entry.suspended() && !entry.paused()) {
+                if (!entry.terminal() && !entry.suspended() && !entry.paused()) {
                     entry.setPaused(true);
                     fireEvent(WorkflowEventType.PAUSED, playerId, entry.id(), entry);
                     anyChanged = true;
@@ -480,14 +577,23 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (player == null) return;
         ResourceKey<Level> dimension = player.level().dimension();
         RtsWorkflowSlotManager slots = getSlots(player.getUUID(), dimension);
-        if (slots == null) return;
+        if (slots == null) {
+            // 客户端可能仍显示服务端已经清理的旧条目；叉号同时承担一次权威状态对账。
+            syncService.sendIdle(player);
+            return;
+        }
 
         RtsWorkflowEntry entry = slots.findEntryById(entryId);
-        if (entry == null || !entry.isOccupied()) return;
+        if (entry == null || !entry.isOccupied()) {
+            syncService.notifyPlayer(player, slots);
+            return;
+        }
 
         RtsbuildingMod.LOGGER.info("[Workflow] {} 删除工作流 #{}: {}",
                 player.getGameProfile().getName(), entry.id(), entry.type());
 
+        com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .cancelWorkflowTask(player, entryId);
         fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entryId, entry);
         slots.removeEntryById(entryId);
 
@@ -512,9 +618,9 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         syncService.notifyPlayer(player, slots);
 
         player.displayClientMessage(
-                Component.literal(protectedWorkflow
-                        ? "§7[工作流] §b◆ 已设为不被覆盖"
-                        : "§7[工作流] §7◇ 已允许自动覆盖"),
+                Component.translatable(protectedWorkflow
+                        ? "message.rtsbuilding.workflow.protected"
+                        : "message.rtsbuilding.workflow.replaceable"),
                 true);
     }
 
@@ -526,6 +632,8 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         if (slots == null) return;
 
         for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
+            com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                    .cancelWorkflowTask(player, entry.id());
             fireEvent(WorkflowEventType.CANCELLED, player.getUUID(), entry.id(), entry);
         }
         slots.clear();
@@ -607,6 +715,24 @@ public final class RtsWorkflowEngine implements IWorkflowEngine {
         RtsbuildingMod.LOGGER.info("[Workflow] 已从存储加载玩家 {} 的 {} 个工作流条目",
                 loaded.values().stream().mapToInt(RtsWorkflowSlotManager::occupiedCount).sum(),
                 playerId);
+    }
+
+    /**
+     * 玩家重新上线时重置普通任务的无进展计时起点。
+     *
+     * <p>离线时间不算作“30 秒无进展”，否则玩家隔天进入存档时会在第一轮扫描中
+     * 立刻失去尚未查看的等待任务。</p>
+     */
+    public void refreshPlayerIdleClocks(ServerPlayer player) {
+        if (player == null) return;
+        Map<ResourceKey<Level>, RtsWorkflowSlotManager> dimensions =
+                playerSlots.get(player.getUUID());
+        if (dimensions == null) return;
+        for (RtsWorkflowSlotManager slots : dimensions.values()) {
+            for (RtsWorkflowEntry entry : slots.occupiedEntries()) {
+                entry.touch();
+            }
+        }
     }
 
     // ──────────────────────────────────────────────────────────────────

@@ -1,11 +1,19 @@
 package com.rtsbuilding.rtsbuilding.client.service;
 
 import com.rtsbuilding.rtsbuilding.client.network.RtsClientPacketGateway;
+import com.rtsbuilding.rtsbuilding.client.diagnostic.RtsClientOperationDiagnostics;
+import com.rtsbuilding.rtsbuilding.client.plugin.RtsClientPluginCatalog;
 import com.rtsbuilding.rtsbuilding.client.record.AreaMineBounds;
 import com.rtsbuilding.rtsbuilding.client.screen.ultimine.AreaMineShape;
 import com.rtsbuilding.rtsbuilding.Config;
 import com.rtsbuilding.rtsbuilding.common.shape.model.AreaShape;
 import com.rtsbuilding.rtsbuilding.common.shape.model.ShapeFillMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroyMode;
+import com.rtsbuilding.rtsbuilding.common.destruction.RtsConvenienceDestroySettings;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import com.rtsbuilding.rtsbuilding.compat.sable.RtsSableSpatialCompat;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
@@ -14,8 +22,12 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 public final class MiningOperationService {
 
@@ -44,6 +56,10 @@ public final class MiningOperationService {
     private int activeMineFace = -1;
     /** Tool hotbar slot used for the current mining operation */
     private int activeMineToolSlot;
+    /** 当前按住挖掘意图的跨端 trace；仅用于诊断，不参与客户端行为判断。 */
+    private long activeMineTraceId;
+    private long activeMineTraceStartedNanos;
+    private RtsTraceInputKind activeMineInputKind = RtsTraceInputKind.UNKNOWN;
 
     /** Block break render progress position */
     private BlockPos mineRenderPos;
@@ -70,6 +86,7 @@ public final class MiningOperationService {
     private BlockPos areaMinePointA;
     /** Anchor point B: second click position, together with A defines the base rectangle */
     private BlockPos areaMinePointB;
+    private UUID areaMineFrameId;
     /** Height offset: extends up/down from point A Y (scroll wheel, positive=up, negative=down) */
     private int areaMineHeightOffset;
 
@@ -116,25 +133,45 @@ public final class MiningOperationService {
     /**
      * Starts mining a single block.
      */
-    public void startMining(BlockPos pos, int face, int toolSlot,
+    public void startMining(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean shiftDown,
                             String selectedItemId, ItemStack selectedItemPreview,
                             boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled) {
-        if (pos == null) {
+        startMining(hit, toolSlot, rayOrigin, rayDir, shiftDown,
+                selectedItemId, selectedItemPreview, allowPlacedBlockRecovery, toolProtectionEnabled,
+                RtsTraceInputKind.UNKNOWN, "UNKNOWN_PRESS");
+    }
+
+    public void startMining(BlockHitResult hit, int toolSlot, Vec3 rayOrigin, Vec3 rayDir, boolean shiftDown,
+                            String selectedItemId, ItemStack selectedItemPreview,
+                            boolean allowPlacedBlockRecovery, boolean toolProtectionEnabled,
+                            RtsTraceInputKind inputKind, String inputOrigin) {
+        if (hit == null) {
             return;
         }
+        BlockPos pos = hit.getBlockPos();
+        int face = hit.getDirection().get3DDataValue();
+        RtsClientOperationDiagnostics.superseded(this.activeMineTraceId);
+        var trace = RtsClientOperationDiagnostics.begin(
+                "MINE_SINGLE", inputKind, inputOrigin, "INTERACT", false, "BLOCK", 1);
+        this.activeMineTraceId = trace.traceId();
+        this.activeMineTraceStartedNanos = trace.startedNanos();
+        this.activeMineInputKind = trace.inputKind();
         this.activeMinePos = pos.immutable();
         this.activeMineFace = face;
         this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
         this.mineRenderPos = this.activeMinePos;
         this.mineRenderStage = 0;
         RtsClientPacketGateway.sendMineStart(
-                this.activeMinePos,
-                face,
+                hit,
                 this.activeMineToolSlot,
                 selectedMiningToolItemId(selectedItemId, selectedItemPreview),
                 selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
                 allowPlacedBlockRecovery,
-                toolProtectionEnabled);
+                toolProtectionEnabled,
+                shiftDown,
+                rayOrigin,
+                rayDir,
+                trace.traceId(), trace.inputKind());
     }
 
     /**
@@ -143,9 +180,23 @@ public final class MiningOperationService {
     public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode,
                               String selectedItemId, ItemStack selectedItemPreview,
                               boolean toolProtectionEnabled) {
+        startUltimine(pos, face, toolSlot, limit, mode, selectedItemId, selectedItemPreview,
+                toolProtectionEnabled, RtsTraceInputKind.UNKNOWN, "UNKNOWN_PRESS");
+    }
+
+    public void startUltimine(BlockPos pos, int face, int toolSlot, int limit, byte mode,
+                              String selectedItemId, ItemStack selectedItemPreview,
+                              boolean toolProtectionEnabled, RtsTraceInputKind inputKind,
+                              String inputOrigin) {
         if (pos == null) {
             return;
         }
+        RtsClientOperationDiagnostics.superseded(this.activeMineTraceId);
+        var trace = RtsClientOperationDiagnostics.begin(
+                "ULTIMINE", inputKind, inputOrigin, "INTERACT", true, "BLOCK", limit);
+        this.activeMineTraceId = trace.traceId();
+        this.activeMineTraceStartedNanos = trace.startedNanos();
+        this.activeMineInputKind = trace.inputKind();
         this.activeMinePos = pos.immutable();
         this.activeMineFace = face;
         this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
@@ -159,7 +210,8 @@ public final class MiningOperationService {
                 selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
                 limit,
                 mode,
-                toolProtectionEnabled);
+                toolProtectionEnabled,
+                trace.traceId(), trace.inputKind());
     }
 
     /** Mining progress is maintained server-side; the client does not need to send packets every tick. */
@@ -170,15 +222,28 @@ public final class MiningOperationService {
     /**
      * Aborts the current mining operation.
      */
-    public void abortMining(int toolSlot) {
+    public void abortMining(int toolSlot, RtsMiningStopOrigin stopOrigin) {
         BlockPos abortPos = this.activeMinePos;
         int abortFace = this.activeMineFace;
         if (abortPos != null && abortFace >= 0) {
-            RtsClientPacketGateway.sendMineAbort(abortPos, abortFace, toolSlot);
+            int heldMs = this.activeMineTraceStartedNanos <= 0L ? 0
+                    : (int) Math.min(Integer.MAX_VALUE,
+                    Math.max(0L, (System.nanoTime() - this.activeMineTraceStartedNanos) / 1_000_000L));
+            RtsClientPacketGateway.sendMineAbort(
+                    abortPos, abortFace, toolSlot, this.activeMineTraceId, heldMs,
+                    this.activeMineInputKind,
+                    stopOrigin == null ? RtsMiningStopOrigin.EXPLICIT_CANCEL : stopOrigin);
         }
         this.activeMinePos = null;
         this.activeMineFace = -1;
+        this.activeMineTraceId = 0L;
+        this.activeMineTraceStartedNanos = 0L;
+        this.activeMineInputKind = RtsTraceInputKind.UNKNOWN;
         clearMineProgressRender(abortPos);
+    }
+
+    public void abortMining(int toolSlot) {
+        abortMining(toolSlot, RtsMiningStopOrigin.EXPLICIT_CANCEL);
     }
 
     // =========================================================================
@@ -253,18 +318,34 @@ public final class MiningOperationService {
     // ---------- Selection management ----------
 
     public void setAreaMinePointA(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
-        this.areaMinePointA = pos == null ? null : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        this.areaMinePointA = pos == null
+                ? null
+                : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        Minecraft minecraft = Minecraft.getInstance();
+        this.areaMineFrameId = this.areaMinePointA == null || minecraft.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(minecraft.level, this.areaMinePointA);
         this.areaMinePointB = null;
         this.areaMineHeightOffset = 0;
-        this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_SECOND;
+        this.areaMinePhase = this.areaMinePointA == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_SECOND;
         this.mineRenderPos = this.areaMinePointA;
         this.mineRenderStage = 0;
     }
 
     public void setAreaMinePointB(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
-        this.areaMinePointB = pos == null ? null : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
+        Minecraft minecraft = Minecraft.getInstance();
+        UUID nextFrameId = pos == null || minecraft.level == null
+                ? null
+                : RtsSableSpatialCompat.frameId(minecraft.level, pos);
+        if (this.areaMinePointA != null && !Objects.equals(this.areaMineFrameId, nextFrameId)) {
+            setAreaMinePointA(pos, anchorX, anchorZ, maxRadius, hasBounds);
+            return;
+        }
+        this.areaMinePointB = pos == null
+                ? null
+                : clampToBounds(pos.immutable(), anchorX, anchorZ, maxRadius, hasBounds);
         this.areaMineHeightOffset = 0;
-        this.areaMinePhase = pos == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_HEIGHT;
+        this.areaMinePhase = this.areaMinePointB == null ? AREA_MINE_PHASE_NONE : AREA_MINE_PHASE_NEED_HEIGHT;
         this.mineRenderPos = this.areaMinePointB;
         this.mineRenderStage = 0;
     }
@@ -272,6 +353,11 @@ public final class MiningOperationService {
     private BlockPos clampToBounds(BlockPos pos, double anchorX, double anchorZ, double maxRadius, boolean hasBounds) {
         if (pos == null || !hasBounds) {
             return pos;
+        }
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.level != null && RtsSableSpatialCompat.frameId(minecraft.level, pos) != null) {
+            return RtsSableClientSpatialCompat.isWithinBounds(
+                    minecraft.level, pos, anchorX, anchorZ, maxRadius) ? pos : null;
         }
         int minBlockX = Mth.floor(anchorX - maxRadius);
         int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
@@ -287,6 +373,7 @@ public final class MiningOperationService {
         this.areaMinePhase = AREA_MINE_PHASE_NONE;
         this.areaMinePointA = null;
         this.areaMinePointB = null;
+        this.areaMineFrameId = null;
         this.areaMineHeightOffset = 0;
         this.mineRenderStage = -1;
     }
@@ -294,6 +381,13 @@ public final class MiningOperationService {
     public void confirmAreaMine(int toolSlot, ShapeFillMode fillMode,
                                 String selectedItemId, ItemStack selectedItemPreview,
                                 boolean toolProtectionEnabled) {
+        confirmAreaMine(toolSlot, fillMode, selectedItemId, selectedItemPreview,
+                toolProtectionEnabled, RtsTraceInputKind.UNKNOWN);
+    }
+
+    public void confirmAreaMine(int toolSlot, ShapeFillMode fillMode,
+                                String selectedItemId, ItemStack selectedItemPreview,
+                                boolean toolProtectionEnabled, RtsTraceInputKind inputKind) {
         if (this.areaMinePointA == null || this.areaMinePointB == null) {
             return;
         }
@@ -305,6 +399,12 @@ public final class MiningOperationService {
         this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
         this.mineRenderPos = this.activeMinePos;
         this.mineRenderStage = 0;
+        long areaVolume = (long) (bounds.maxX() - bounds.minX() + 1)
+                * (bounds.maxY() - bounds.minY() + 1)
+                * (bounds.maxZ() - bounds.minZ() + 1);
+        var trace = RtsClientOperationDiagnostics.begin(
+                "AREA_MINE", inputKind, "UI_CONFIRM",
+                "INTERACT", false, "UI", (int) Math.min(Integer.MAX_VALUE, areaVolume));
 
         RtsClientPacketGateway.sendAreaMine(
                 bounds.minX(), bounds.maxX(), bounds.minY(), bounds.maxY(),
@@ -314,7 +414,9 @@ public final class MiningOperationService {
                 selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
                 areaShapeOrdinal(this.areaMineShape),
                 (byte) (fillMode == null ? ShapeFillMode.FILL : fillMode).ordinal(),
-                toolProtectionEnabled);
+                toolProtectionEnabled,
+                trace.traceId(),
+                inputKind);
 
         clearAreaMineSession();
     }
@@ -322,6 +424,13 @@ public final class MiningOperationService {
     public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot,
                                         String selectedItemId, ItemStack selectedItemPreview,
                                         boolean toolProtectionEnabled) {
+        confirmShapeAreaDestroy(targets, toolSlot, selectedItemId, selectedItemPreview,
+                toolProtectionEnabled, RtsTraceInputKind.UNKNOWN);
+    }
+
+    public void confirmShapeAreaDestroy(List<BlockPos> targets, int toolSlot,
+                                        String selectedItemId, ItemStack selectedItemPreview,
+                                        boolean toolProtectionEnabled, RtsTraceInputKind inputKind) {
         if (targets == null || targets.isEmpty()) {
             return;
         }
@@ -336,7 +445,47 @@ public final class MiningOperationService {
                 this.activeMineToolSlot,
                 selectedMiningToolItemId(selectedItemId, selectedItemPreview),
                 selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
-                toolProtectionEnabled);
+                toolProtectionEnabled,
+                RtsClientOperationDiagnostics.begin(
+                        "AREA_DESTROY", inputKind, "UI_CONFIRM",
+                        "INTERACT", false, "UI", targets.size()).traceId(),
+                inputKind);
+        clearAreaMineSession();
+    }
+
+    /**
+     * 提交声明式便捷破坏请求；客户端预览坐标不会进入协议，服务端会重新规划。
+     */
+    public void confirmConvenienceDestroy(RtsConvenienceDestroyMode mode,
+            BlockHitResult hit, RtsConvenienceDestroySettings settings, int toolSlot,
+            String selectedItemId, ItemStack selectedItemPreview,
+            boolean toolProtectionEnabled) {
+        confirmConvenienceDestroy(mode, hit, settings, toolSlot,
+                selectedItemId, selectedItemPreview, toolProtectionEnabled, RtsTraceInputKind.UNKNOWN);
+    }
+
+    public void confirmConvenienceDestroy(RtsConvenienceDestroyMode mode,
+            BlockHitResult hit, RtsConvenienceDestroySettings settings, int toolSlot,
+            String selectedItemId, ItemStack selectedItemPreview,
+            boolean toolProtectionEnabled, RtsTraceInputKind inputKind) {
+        if (mode == null || hit == null) {
+            return;
+        }
+        BlockPos anchor = hit.getBlockPos().immutable();
+        this.activeMinePos = anchor;
+        this.activeMineFace = hit.getDirection().get3DDataValue();
+        this.activeMineToolSlot = Mth.clamp(toolSlot, 0, 8);
+        this.mineRenderPos = anchor;
+        this.mineRenderStage = 0;
+        var trace = RtsClientOperationDiagnostics.begin(
+                "CONVENIENCE_DESTROY_" + mode.name(), inputKind, "UI_CONFIRM",
+                "INTERACT", false, "UI", 1);
+        RtsClientPacketGateway.sendConvenienceDestroy(
+                System.nanoTime(), mode, anchor, hit.getDirection(), settings,
+                this.activeMineToolSlot,
+                selectedMiningToolItemId(selectedItemId, selectedItemPreview),
+                selectedMiningToolPrototype(selectedItemId, selectedItemPreview),
+                toolProtectionEnabled, trace.traceId(), trace.inputKind());
         clearAreaMineSession();
     }
 
@@ -357,7 +506,8 @@ public final class MiningOperationService {
         if (selectedItemId == null || selectedItemId.isBlank() || selectedItemPreview == null || selectedItemPreview.isEmpty()) {
             return ItemStack.EMPTY;
         }
-        if (selectedItemPreview.getItem() instanceof BlockItem) {
+        if (selectedItemPreview.getItem() instanceof BlockItem
+                || RtsClientPluginCatalog.isPluginItem(selectedItemPreview)) {
             return ItemStack.EMPTY;
         }
         ItemStack prototype = selectedItemPreview.copy();
@@ -468,10 +618,14 @@ public final class MiningOperationService {
     public void clearMiningState() {
         this.activeMinePos = null;
         this.activeMineFace = -1;
+        this.activeMineTraceId = 0L;
+        this.activeMineTraceStartedNanos = 0L;
+        this.activeMineInputKind = RtsTraceInputKind.UNKNOWN;
         this.mineRenderPos = null;
         this.mineRenderStage = -1;
         this.ultimineProgressProcessed = -1;
         this.ultimineProgressTotal = 0;
+        RtsClientOperationDiagnostics.reset("CLIENT_RESET");
     }
 
     /** Clears mining render (including destroyBlockProgress) and resets all mining state. */

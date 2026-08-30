@@ -6,9 +6,13 @@ import com.rtsbuilding.rtsbuilding.client.controller.ClientRtsController;
 import com.rtsbuilding.rtsbuilding.client.screen.blueprint.BlueprintPanel;
 import com.rtsbuilding.rtsbuilding.client.screen.interaction.InteractionTypes;
 import com.rtsbuilding.rtsbuilding.client.screen.standalone.BuilderScreen;
+import com.rtsbuilding.rtsbuilding.client.screen.ultimine.UltimineUiAdapter;
 import com.rtsbuilding.rtsbuilding.client.service.MiningOperationService;
 import com.rtsbuilding.rtsbuilding.common.build.BuilderMode;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsMiningStopOrigin;
+import com.rtsbuilding.rtsbuilding.common.diagnostics.RtsTraceInputKind;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -58,6 +62,10 @@ public final class CameraInputHandler {
     private boolean rightDragRotated = false;
     /** Accumulated right-click drag distance */
     private double rightDragDistance = 0.0D;
+    /** 跨过拖动阈值前暂存的水平位移，避免微拖既转镜头又触发点击。 */
+    private double pendingRightDragX = 0.0D;
+    /** 跨过拖动阈值前暂存的垂直位移。 */
+    private double pendingRightDragY = 0.0D;
 
     /** Whether middle-click drag is active */
     private boolean middlePressActive = false;
@@ -174,6 +182,28 @@ public final class CameraInputHandler {
 
     // ======================== 右键拖拽状态管理 ========================
 
+    /**
+     * 取消尚未结束的鼠标点击/拖动判定。
+     *
+     * <p>模式轮盘等模态界面接管鼠标时必须调用本方法，避免打开轮盘前按下的
+     * 右键在轮盘关闭后又被解释成一次世界交互或旋转操作。</p>
+     */
+    public void cancelPointerGestures() {
+        this.rightPressActive = false;
+        this.rightPressButton = -1;
+        this.rightPressCanPrimary = false;
+        this.rightPressCanRotate = false;
+        this.rightDragRotated = false;
+        this.rightDragDistance = 0.0D;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
+        this.middlePressActive = false;
+        this.middlePressButton = -1;
+        this.middlePressCanPan = false;
+        this.middlePressCanPick = false;
+        this.middleDragDistance = 0.0D;
+    }
+
     public void beginRightPress(double mouseX, double mouseY, int button, boolean primaryMouse, boolean rotateMouse) {
         this.rightPressActive = true;
         this.rightPressButton = button;
@@ -181,6 +211,8 @@ public final class CameraInputHandler {
         this.rightPressCanRotate = rotateMouse;
         this.rightDragRotated = false;
         this.rightDragDistance = 0.0D;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
     }
 
     public boolean isRightDragActive(int button) {
@@ -202,16 +234,21 @@ public final class CameraInputHandler {
                 && screen.isWorldArea(mouseX, mouseY)
                 && !isAltDown()) {
             this.rightDragDistance += Math.abs(dragX) + Math.abs(dragY);
-            if (this.rightDragDistance > 1.5D) {
-                this.rightDragRotated = true;
+            this.pendingRightDragX += dragX;
+            this.pendingRightDragY += dragY;
+            if (this.rightDragDistance <= 1.5D) {
+                return true;
             }
+            this.rightDragRotated = true;
             if (CameraInputHandler.isPanDragActionMouse(button)) {
                 // Default middle button: camera pan (movement)
-                this.controller.queuePanDrag(dragX, dragY);
+                this.controller.queuePanDrag(this.pendingRightDragX, this.pendingRightDragY);
             } else if (this.rightPressCanRotate) {
                 // Default right button: camera rotation
-                this.controller.queueRotateDrag(dragX, dragY);
+                this.controller.queueRotateDrag(this.pendingRightDragX, this.pendingRightDragY);
             }
+            this.pendingRightDragX = 0.0D;
+            this.pendingRightDragY = 0.0D;
             return true;
         }
         return false;
@@ -234,6 +271,8 @@ public final class CameraInputHandler {
         this.rightPressButton = -1;
         this.rightPressCanPrimary = false;
         this.rightPressCanRotate = false;
+        this.pendingRightDragX = 0.0D;
+        this.pendingRightDragY = 0.0D;
         if (this.rightDragRotated) {
             this.rightDragRotated = false;
             this.rightDragDistance = 0.0D;
@@ -363,7 +402,9 @@ public final class CameraInputHandler {
             return false;
         }
         if (screen.isQuickBuildRangeDestroyMode() && !screen.isQuickBuildRangeDestroyChainMode()) {
-            return screen.handleQuickBuildRangeDestroyClick(mouseX, mouseY);
+            return screen.handleQuickBuildRangeDestroyClick(
+                    mouseX, mouseY,
+                    keyboard ? RtsTraceInputKind.KEYBOARD : RtsTraceInputKind.MOUSE);
         }
         if (!screen.isQuickBuildRangeDestroyMode() && screen.getShapeController().hasConfirmedDestroyWorkArea()) {
             return false;
@@ -371,7 +412,9 @@ public final class CameraInputHandler {
         if (screen.isQuickBuildRangeDestroyMode()
                 && this.controller.getAreaMinePhase() == MiningOperationService.AREA_MINE_PHASE_NEED_HEIGHT) {
             // 第三次点击：确认范围挖掘，直接发包执行，不需要再求 BlockHit
-            this.controller.confirmAreaMine(screen.getSelectedToolSlot(), screen.getShapeFillMode());
+            this.controller.confirmAreaMine(
+                    screen.getSelectedToolSlot(), screen.getShapeFillMode(),
+                    keyboard ? RtsTraceInputKind.KEYBOARD : RtsTraceInputKind.MOUSE);
         } else {
             // 如果指示框当前选中实体，阻止方块破坏
             InteractionTypes.InteractionTarget lookTarget = screen.pickInteractionTarget(false);
@@ -400,16 +443,22 @@ public final class CameraInputHandler {
                 if (preview.isEmpty()) {
                     preview = List.of(hit.getBlockPos().immutable());
                 }
-                screen.getShapeController().rememberConfirmedChainDestroyPreview(preview);
-                // 记录连锁破坏操作到撤回栈（等待服务端确认）
-                screen.getShapeController().recordPendingBreakForUndo(preview, hit.getDirection(), screen.getSelectedToolSlot());
-                this.controller.startUltimine(hit.getBlockPos(), hit.getDirection().get3DDataValue(),
-                        screen.getSelectedToolSlot(), screen.getUltimineLimit(), (byte) 0);
+                if (!UltimineUiAdapter.confirmPreview(
+                        screen, hit, preview,
+                        keyboard ? RtsTraceInputKind.KEYBOARD : RtsTraceInputKind.MOUSE)) {
+                    return false;
+                }
             } else {
                 // 记录普通挖掘操作到撤回栈（等待服务端确认）
                 screen.getShapeController().recordPendingBreakForUndo(
                         List.of(hit.getBlockPos().immutable()), hit.getDirection(), screen.getSelectedToolSlot());
-                this.controller.startMining(hit.getBlockPos(), hit.getDirection().get3DDataValue(), screen.getSelectedToolSlot());
+                this.controller.startMining(
+                        hit,
+                        screen.getSelectedToolSlot(),
+                        screen.currentRayOrigin(),
+                        screen.computeCursorRayDirection(),
+                        Screen.hasShiftDown(),
+                        keyboard ? RtsTraceInputKind.KEYBOARD : RtsTraceInputKind.MOUSE);
             }
         }
         this.leftMiningActive = true;
@@ -418,14 +467,14 @@ public final class CameraInputHandler {
         return true;
     }
 
-    public void stopActiveMining() {
+    public void stopActiveMining(RtsMiningStopOrigin origin) {
         if (!this.leftMiningActive && this.activeMiningMouseButton < 0 && !this.activeMiningKeyboard) {
             return;
         }
         this.leftMiningActive = false;
         this.activeMiningMouseButton = -1;
         this.activeMiningKeyboard = false;
-        this.controller.abortMining(screen.getSelectedToolSlot());
+        this.controller.abortMining(screen.getSelectedToolSlot(), origin);
     }
 
     public boolean isKeyboardMining() {
@@ -472,6 +521,7 @@ public final class CameraInputHandler {
             if (selection.route() == RtsPickBlockPlacementSelector.Route.HOTBAR) {
                 inventory.selected = selection.slot();
                 this.controller.clearPlacementSelectionPreserveMode();
+                this.controller.copyPlacementState(state);
                 this.controller.setMode(BuilderMode.INTERACT);
                 return true;
             }
@@ -479,11 +529,13 @@ public final class CameraInputHandler {
                     && mc.gameMode != null) {
                 mc.gameMode.handlePickItem(selection.slot());
                 this.controller.clearPlacementSelectionPreserveMode();
+                this.controller.copyPlacementState(state);
                 this.controller.setMode(BuilderMode.INTERACT);
                 return true;
             }
         }
         this.controller.selectItemForPlacement(itemId.toString(), preview.getHoverName().getString(), preview);
+        this.controller.copyPlacementState(state);
         return true;
     }
 

@@ -22,11 +22,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
         "ironfurnaces.container.furnaces.BlockIronFurnaceContainerBase",
         "ironfurnaces.container.BlockWirelessEnergyHeaterContainerBase",
         "cy.jdkdigital.generatorgalore.common.container.GeneratorMenu",
+        "net.p3pp3rf1y.sophisticatedbackpacks.common.gui.BackpackContainer",
         "net.p3pp3rf1y.sophisticatedstorage.common.gui.StorageContainerMenu"
 }, remap = false)
 abstract class ModdedRemoteStillValidMixin {
 
-    @Inject(method = "stillValid", at = @At("HEAD"), cancellable = true, remap = false)
+    @Inject(method = "stillValid", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
     private void rtsbuilding$forceRemoteStillValid(Player player, CallbackInfoReturnable<Boolean> cir) {
         if (RtsRemoteMenuCompat.shouldForceStillValid((AbstractContainerMenu) (Object) this, player)) {
             cir.setReturnValue(true);

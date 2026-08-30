@@ -25,7 +25,6 @@ import java.util.List;
  * <p>此 Pipe 按顺序处理以下关注点：</p>
  * <ol>
  *   <li>验证世界目标访问——如果玩家无法到达目标则失败。</li>
- *   <li>尝试已放置方块恢复——如果恢复成功则跳过管道。</li>
  *   <li>创造模式快速路径——立即破坏方块，记录历史。</li>
  *   <li>生存模式设置——从共享数据读取借用工具租约，配置会话
  *       状态，并调用 {@link RtsMiningStateMachine#beginRemoteMining}。</li>
@@ -73,7 +72,6 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
         BlockPos pos = mctx.getPos();
         Direction face = mctx.getFace();
         int toolSlot = RtsMiningValidator.clampHotbarSlot(mctx.getToolSlot());
-        boolean allowPlacedBlockRecovery = mctx.isAllowPlacedBlockRecovery();
         boolean toolProtectionEnabled = mctx.isToolProtectionEnabled();
 
         // ── 1. 验证世界目标访问 ──────────────────────────────
@@ -84,18 +82,18 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
             return PipelineResult.failure("Claim protection denied block break at " + pos.toShortString());
         }
 
-        // ── 2. 已放置方块恢复 ─────────────────────────────────────
-        if (allowPlacedBlockRecovery
-                && RtsMiningValidator.tryRecoverPlacedBlock(player, session, pos, face)) {
-            return PipelineResult.skip("Placed block recovered, no mining needed");
-        }
-
-        // ── 3. 创造模式快速路径 ───────────────────────────────────
+        // ── 2. 创造模式快速路径 ───────────────────────────────────
         if (player.isCreative()) {
             Direction actualFace = face == null ? Direction.DOWN : face;
-            // 在上下文数据中存储破坏信息，用于历史记录
-            ctx.setData(HistoryRecordPipe.ARG_HISTORY_POSITIONS, List.of(pos.immutable()));
+            // 创造破坏必须在修改世界前捕获完整 BlockState 与方块实体 NBT。
+            var before = com.rtsbuilding.rtsbuilding.server.history.ServerHistoryManager
+                    .captureBlock(player.serverLevel(), pos, true);
+            if (before != null) {
+                ctx.setData(HistoryRecordPipe.ARG_HISTORY_RECORDS, List.of(before));
+            }
             ctx.setData(HistoryRecordPipe.ARG_HISTORY_FACE, actualFace);
+            ctx.setData(HistoryRecordPipe.ARG_HISTORY_SOURCE_SLOT, toolSlot);
+            ctx.setData(HistoryRecordPipe.ARG_HISTORY_CREATIVE, true);
             RtsMiningStateMachine.destroyMinedBlock(player, session, pos, toolSlot);
             // 完成工作流、归还工具、记录历史（同生存模式 finalizeMiningOperation）
             WorkflowPipeline.runCleanupSequence(ctx, List.of(
@@ -106,21 +104,20 @@ public final class MiningExecutePipe implements PipelinePipe<MiningContext> {
             return PipelineResult.success();
         }
 
-        // ── 5. 生存模式设置 ───────────────────────────────────────
-        if (mctx.hasToolLease()) {
-            session.mining.miningToolLease = mctx.getToolLease();
-        }
-        if (mctx.isSelectedToolRequested()) {
-            session.mining.miningSelectedToolRequested = true;
-        }
+        // ── 3. 生存模式设置 ───────────────────────────────────────
+        session.mining.miningToolLease = mctx.hasToolLease()
+                ? mctx.getToolLease()
+                : RtsToolLease.empty();
+        // 这是本次请求的快照，不能只在 true 时写入；否则一次指定工具请求
+        // 会污染后续空手请求，使所有挖掘速度永久变成 0。
+        session.mining.miningSelectedToolRequested = mctx.isSelectedToolRequested();
         session.mining.miningToolProtectionEnabled = toolProtectionEnabled;
 
-        // ── 在会话的 RtsMiningState 中存储工作流条目 ID ────
-        if (mctx.hasWorkflowEntryId()) {
-            session.mining.workflowEntryId = mctx.getWorkflowEntryId();
-        }
-
-        RtsMiningStateMachine.beginRemoteMining(player, session, pos, face, toolSlot);
-        return PipelineResult.success();
+        int workflowEntryId = mctx.hasWorkflowEntryId() ? mctx.getWorkflowEntryId() : -1;
+        boolean submitted = com.rtsbuilding.rtsbuilding.server.task.RtsTaskEngine.INSTANCE
+                .submitMiningTargets(player, workflowEntryId, java.util.List.of(pos), face, toolSlot,
+                        session.mining.miningSelectedToolRequested, toolProtectionEnabled, true);
+        return submitted ? PipelineResult.success()
+                : PipelineResult.failure("无法提交挖掘任务到 TaskStore");
     }
 }

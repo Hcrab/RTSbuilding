@@ -31,17 +31,37 @@ public final class ShapeGeometryUtil {
      * @return 目标方块位置列表
      */
     public static List<BlockPos> buildShapePositions(ShapeBuildTypes.Input input, ShapeFillMode fillMode) {
+        return buildShapePositions(input, fillMode, true);
+    }
+
+    /**
+     * 为范围挖掘生成已经由服务端配置限幅过的形状。
+     *
+     * <p>调用方必须先通过 {@link ShapeSelectionLimiter#clampDimensionsAndVolume} 收紧 XYZ 与总体积。
+     * 本入口不会再套用范围建造专用的 32 格上限，否则服务端公开的范围挖掘配置无法真正生效。</p>
+     */
+    public static List<BlockPos> buildRangeDestroyShapePositions(
+            ShapeBuildTypes.Input input, ShapeFillMode fillMode) {
+        return buildShapePositions(input, fillMode, false);
+    }
+
+    private static List<BlockPos> buildShapePositions(
+            ShapeBuildTypes.Input input, ShapeFillMode fillMode, boolean enforceBuildCaps) {
         LinkedHashSet<BlockPos> targets = new LinkedHashSet<>();
         BlockPos start = input.pointA();
         BlockPos end = input.pointB();
+        int maxOffset = enforceBuildCaps ? BuilderScreenConstants.SHAPE_MAX_OFFSET : Integer.MAX_VALUE;
+        int maxRadius = enforceBuildCaps ? BuilderScreenConstants.SHAPE_MAX_RADIUS : Integer.MAX_VALUE;
         switch (input.shape()) {
-            case LINE -> addLineTargets(targets, start, end, input.connectedLine());
-            case SQUARE -> addSquareTargets(targets, start, end, input.planeFace(), fillMode);
-            case WALL -> addWallTargets(targets, start, end, input.boxHeightOffset(), fillMode, input.connectedLine());
-            case CIRCLE -> addCircleTargets(targets, start, end, input.planeFace(), fillMode);
-            case CYLINDER -> addCylinderTargets(targets, start, end, input.boxHeightOffset(), input.planeFace(), fillMode);
-            case BALL -> addBallTargets(targets, start, end, fillMode);
-            case BOX -> addBoxTargets(targets, start, end, input.boxHeightOffset(), fillMode);
+            case LINE -> addLineTargets(targets, start, end, input.connectedLine(), maxOffset);
+            case SQUARE -> addSquareTargets(targets, start, end, input.planeFace(), fillMode, maxOffset);
+            case WALL -> addWallTargets(targets, start, end, input.boxHeightOffset(), fillMode,
+                    input.connectedLine(), maxOffset);
+            case CIRCLE -> addCircleTargets(targets, start, end, input.planeFace(), fillMode, maxRadius);
+            case CYLINDER -> addCylinderTargets(targets, start, end, input.boxHeightOffset(),
+                    input.planeFace(), fillMode, maxRadius, maxOffset);
+            case BALL -> addBallTargets(targets, start, end, fillMode, maxRadius);
+            case BOX -> addBoxTargets(targets, start, end, input.boxHeightOffset(), fillMode, maxOffset);
             default -> targets.add(start);
         }
         return new ArrayList<>(targets);
@@ -84,6 +104,11 @@ public final class ShapeGeometryUtil {
 
     /** 生成直线方块，支持连接模式（斜线断点填充） */
     public static void addLineTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, boolean connected) {
+        addLineTargets(targets, start, end, connected, BuilderScreenConstants.SHAPE_MAX_OFFSET);
+    }
+
+    private static void addLineTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
+            boolean connected, int maxOffset) {
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
@@ -93,8 +118,8 @@ public final class ShapeGeometryUtil {
             return;
         }
 
-        if (steps > BuilderScreenConstants.SHAPE_MAX_OFFSET) {
-            double scale = BuilderScreenConstants.SHAPE_MAX_OFFSET / (double) steps;
+        if (steps > maxOffset) {
+            double scale = maxOffset / (double) steps;
             dx = (int) Math.round(dx * scale);
             dy = (int) Math.round(dy * scale);
             dz = (int) Math.round(dz * scale);
@@ -211,12 +236,17 @@ public final class ShapeGeometryUtil {
 
     /** 生成正方形方块 */
     public static void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
+        addSquareTargets(targets, start, end, face, fillMode, BuilderScreenConstants.SHAPE_MAX_OFFSET);
+    }
+
+    private static void addSquareTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
+            Direction face, ShapeFillMode fillMode, int maxOffset) {
         Direction[] axes = resolveShapePlaneAxes(BuildShape.SQUARE, face);
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
-        int aOffset = clampShapeOffset(dotDelta(dx, dy, dz, axes[0]));
-        int bOffset = clampShapeOffset(dotDelta(dx, dy, dz, axes[1]));
+        int aOffset = clampShapeOffset(dotDelta(dx, dy, dz, axes[0]), maxOffset);
+        int bOffset = clampShapeOffset(dotDelta(dx, dy, dz, axes[1]), maxOffset);
         // 先收集到临时集，再按距点击点距离排序
         LinkedHashSet<BlockPos> tmp = new LinkedHashSet<>();
         addRotatedPlaneRectangleTargets(tmp, start, axes[0], axes[1], aOffset, bOffset, fillMode, 0);
@@ -232,13 +262,19 @@ public final class ShapeGeometryUtil {
 
     /** 生成墙壁方块，支持连接模式（斜线断点填充） */
     public static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeFillMode fillMode, boolean connected) {
+        addWallTargets(targets, start, end, heightOffset, fillMode, connected,
+                BuilderScreenConstants.SHAPE_MAX_OFFSET);
+    }
+
+    private static void addWallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
+            int heightOffset, ShapeFillMode fillMode, boolean connected, int maxOffset) {
         LinkedHashSet<BlockPos> baseLine = new LinkedHashSet<>();
-        addLineTargets(baseLine, start, new BlockPos(end.getX(), start.getY(), end.getZ()), connected);
+        addLineTargets(baseLine, start, new BlockPos(end.getX(), start.getY(), end.getZ()), connected, maxOffset);
         if (baseLine.isEmpty()) {
             baseLine.add(start);
         }
 
-        int yOffset = clampShapeOffset(heightOffset);
+        int yOffset = clampShapeOffset(heightOffset, maxOffset);
         int minY = Math.min(0, yOffset);
         int maxY = Math.max(0, yOffset);
         List<BlockPos> base = new ArrayList<>(baseLine);
@@ -257,6 +293,11 @@ public final class ShapeGeometryUtil {
 
     /** 生成圆形方块 */
     public static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, Direction face, ShapeFillMode fillMode) {
+        addCircleTargets(targets, start, end, face, fillMode, BuilderScreenConstants.SHAPE_MAX_RADIUS);
+    }
+
+    private static void addCircleTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
+            Direction face, ShapeFillMode fillMode, int maxRadius) {
         int degrees = 0; // 由调用方传入旋转角度
         Direction[] axes = resolveShapePlaneAxes(BuildShape.CIRCLE, face);
         int dx = end.getX() - start.getX();
@@ -264,7 +305,8 @@ public final class ShapeGeometryUtil {
         int dz = end.getZ() - start.getZ();
         int a = dotDelta(dx, dy, dz, axes[0]);
         int b = dotDelta(dx, dy, dz, axes[1]);
-        int radius = Mth.clamp((int) Math.round(Math.sqrt((a * (double) a) + (b * (double) b))), 0, BuilderScreenConstants.SHAPE_MAX_RADIUS);
+        int radius = Mth.clamp((int) Math.round(Math.sqrt((a * (double) a) + (b * (double) b))),
+                0, maxRadius);
         Set<PlaneCell> rotatedCells = new HashSet<>();
         for (PlaneCell cell : buildCircleCells(radius, fillMode == ShapeFillMode.FILL)) {
             RotatedOffset rotated = rotatePlaneOffset(cell.a(), cell.b(), 0.0D, 0.0D, degrees);
@@ -283,6 +325,12 @@ public final class ShapeGeometryUtil {
     /** 生成圆柱体方块：圆形底面 + 高度偏移 */
     public static void addCylinderTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset,
             Direction face, ShapeFillMode fillMode) {
+        addCylinderTargets(targets, start, end, heightOffset, face, fillMode,
+                BuilderScreenConstants.SHAPE_MAX_RADIUS, BuilderScreenConstants.SHAPE_MAX_OFFSET);
+    }
+
+    private static void addCylinderTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset,
+            Direction face, ShapeFillMode fillMode, int maxRadius, int maxOffset) {
         Direction[] axes = resolveShapePlaneAxes(BuildShape.CYLINDER, face);
         Direction normal = normalizePlaneFace(face);
         int dx = end.getX() - start.getX();
@@ -291,10 +339,10 @@ public final class ShapeGeometryUtil {
         int a = dotDelta(dx, dy, dz, axes[0]);
         int b = dotDelta(dx, dy, dz, axes[1]);
         int radius = Mth.clamp((int) Math.round(Math.sqrt((a * (double) a) + (b * (double) b))),
-                0, BuilderScreenConstants.SHAPE_MAX_RADIUS);
+                0, maxRadius);
         Set<PlaneCell> filledBase = buildCircleCells(radius, true);
         Set<PlaneCell> shellBase = buildCircleCells(radius, false);
-        int yOffset = clampShapeOffset(heightOffset);
+        int yOffset = clampShapeOffset(heightOffset, maxOffset);
         int minY = Math.min(0, yOffset);
         int maxY = Math.max(0, yOffset);
         boolean fill = fillMode == ShapeFillMode.FILL;
@@ -316,12 +364,17 @@ public final class ShapeGeometryUtil {
 
     /** 生成球体方块：A 点为球心，B 点决定半径 */
     public static void addBallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, ShapeFillMode fillMode) {
+        addBallTargets(targets, start, end, fillMode, BuilderScreenConstants.SHAPE_MAX_RADIUS);
+    }
+
+    private static void addBallTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
+            ShapeFillMode fillMode, int maxRadius) {
         int dx = end.getX() - start.getX();
         int dy = end.getY() - start.getY();
         int dz = end.getZ() - start.getZ();
         int radius = Mth.clamp((int) Math.round(Math.sqrt(
                 dx * (double) dx + dy * (double) dy + dz * (double) dz)),
-                0, BuilderScreenConstants.SHAPE_MAX_RADIUS);
+                0, maxRadius);
         int outer2 = radius * radius;
         int inner = Math.max(0, radius - 1);
         int inner2 = inner * inner;
@@ -344,10 +397,15 @@ public final class ShapeGeometryUtil {
 
     /** 生成立方体方块 */
     public static void addBoxTargets(Set<BlockPos> targets, BlockPos start, BlockPos end, int heightOffset, ShapeFillMode fillMode) {
+        addBoxTargets(targets, start, end, heightOffset, fillMode, BuilderScreenConstants.SHAPE_MAX_OFFSET);
+    }
+
+    private static void addBoxTargets(Set<BlockPos> targets, BlockPos start, BlockPos end,
+            int heightOffset, ShapeFillMode fillMode, int maxOffset) {
         int degrees = 0; // 由调用方传入旋转角度
-        int xOffset = clampShapeOffset(end.getX() - start.getX());
-        int zOffset = clampShapeOffset(end.getZ() - start.getZ());
-        int yOffset = clampShapeOffset(heightOffset);
+        int xOffset = clampShapeOffset(end.getX() - start.getX(), maxOffset);
+        int zOffset = clampShapeOffset(end.getZ() - start.getZ(), maxOffset);
+        int yOffset = clampShapeOffset(heightOffset, maxOffset);
 
         int minX = Math.min(0, xOffset);
         int maxX = Math.max(0, xOffset);
@@ -757,6 +815,11 @@ public final class ShapeGeometryUtil {
 
     public static int clampShapeOffset(int value) {
         return Mth.clamp(value, -BuilderScreenConstants.SHAPE_MAX_OFFSET, BuilderScreenConstants.SHAPE_MAX_OFFSET);
+    }
+
+    private static int clampShapeOffset(int value, int maxOffset) {
+        int safeMaxOffset = Math.max(0, maxOffset);
+        return Mth.clamp(value, -safeMaxOffset, safeMaxOffset);
     }
 
     /** 计算方向上的投影分量 */

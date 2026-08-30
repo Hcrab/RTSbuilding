@@ -75,6 +75,12 @@ public final class RtsTransferServiceImpl implements TransferService {
     }
 
     @Override
+    public boolean depositCraftTerminalPlayerSlot(ServerPlayer player, int menuSlot) {
+        return RtsTransferPlayerIntegration.depositCraftTerminalPlayerSlot(
+                player, registry.session().getIfPresent(player), menuSlot);
+    }
+
+    @Override
     public void pickupLinkedToCarried(ServerPlayer player, ItemStack prototype, int amount) {
         RtsTransferPlayerIntegration.pickupLinkedToCarried(player, registry.session().getIfPresent(player), prototype, amount);
     }
@@ -87,5 +93,11 @@ public final class RtsTransferServiceImpl implements TransferService {
     @Override
     public void fillPlayerInventoryFromLinked(ServerPlayer player) {
         RtsTransferPlayerIntegration.fillPlayerInventoryFromLinked(player, registry.session().getIfPresent(player));
+    }
+
+    @Override
+    public void bulkStorageOperation(ServerPlayer player, byte action, ItemStack prototype, int amount) {
+        RtsTransferPlayerIntegration.bulkStorageOperation(
+                player, registry.session().getIfPresent(player), action, prototype, amount);
     }
 }

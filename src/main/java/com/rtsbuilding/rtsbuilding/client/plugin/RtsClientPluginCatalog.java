@@ -25,10 +25,15 @@ public final class RtsClientPluginCatalog {
             id("blueprint_plugin"),
             id("range_culling_plugin"),
             id("field_deployment_plugin"),
+            id("cross_dimension_storage_plugin"),
             id("range_extension_i"),
             id("range_extension_ii"),
             id("range_extension_iii"),
-            id("range_extension_max"));
+            id("range_extension_max"),
+            id("harvest_tier_stone"),
+            id("harvest_tier_iron"),
+            id("harvest_tier_diamond"),
+            id("harvest_tier_unlimited"));
 
     private RtsClientPluginCatalog() {
     }

@@ -2,10 +2,9 @@ package com.rtsbuilding.rtsbuilding.client.rendering.util;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.rtsbuilding.rtsbuilding.client.compat.sable.RtsSableClientSpatialCompat;
+import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
-import net.minecraft.util.Mth;
-
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -52,19 +51,8 @@ public final class RenderingUtil {
      * @return a new list containing only blocks within the boundary; empty list if all blocks are outside
      */
     public static List<BlockPos> filterBlocksWithinBounds(List<BlockPos> blocks, double anchorX, double anchorZ, double maxRadius) {
-        if (blocks == null || blocks.isEmpty()) return blocks;
-        int minBlockX = Mth.floor(anchorX - maxRadius);
-        int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
-        int minBlockZ = Mth.floor(anchorZ - maxRadius);
-        int maxBlockZ = Mth.ceil(anchorZ + maxRadius) - 1;
-        List<BlockPos> result = new ArrayList<>(blocks.size());
-        for (BlockPos pos : blocks) {
-            if (pos != null && pos.getX() >= minBlockX && pos.getX() <= maxBlockX
-                    && pos.getZ() >= minBlockZ && pos.getZ() <= maxBlockZ) {
-                result.add(pos);
-            }
-        }
-        return result.isEmpty() ? List.of() : result;
+        return RtsSableClientSpatialCompat.filterWithinBounds(
+                Minecraft.getInstance().level, blocks, anchorX, anchorZ, maxRadius);
     }
 
     /**
@@ -77,13 +65,8 @@ public final class RenderingUtil {
      * @return true if the position is within the boundary
      */
     public static boolean isWithinBounds(BlockPos pos, double anchorX, double anchorZ, double maxRadius) {
-        if (pos == null) return false;
-        int minBlockX = Mth.floor(anchorX - maxRadius);
-        int maxBlockX = Mth.ceil(anchorX + maxRadius) - 1;
-        int minBlockZ = Mth.floor(anchorZ - maxRadius);
-        int maxBlockZ = Mth.ceil(anchorZ + maxRadius) - 1;
-        return pos.getX() >= minBlockX && pos.getX() <= maxBlockX
-                && pos.getZ() >= minBlockZ && pos.getZ() <= maxBlockZ;
+        return RtsSableClientSpatialCompat.isWithinBounds(
+                Minecraft.getInstance().level, pos, anchorX, anchorZ, maxRadius);
     }
 
     // ===== Breath animation =====

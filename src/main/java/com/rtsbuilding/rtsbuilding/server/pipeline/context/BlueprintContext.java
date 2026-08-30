@@ -9,12 +9,16 @@ import com.rtsbuilding.rtsbuilding.server.pipeline.validation.SessionValidatePip
 import com.rtsbuilding.rtsbuilding.server.storage.session.RtsStorageSession;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.level.Level;
 
 import javax.annotation.Nullable;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 
 /**
  * 蓝图放置操作的强类型管道上下文。
@@ -37,6 +41,9 @@ public class BlueprintContext extends PipelineContext {
     //  参数键
     // ──────────────────────────────────────────────────────────────
 
+    /** 客户端一次明确提交的稳定身份；同一请求重发时必须保持不变。 */
+    public static final TypedKey<UUID> ARG_SUBMISSION_ID =
+            new TypedKey<>("submissionId", UUID.class);
     public static final TypedKey<RtsBlueprint> ARG_BLUEPRINT =
             new TypedKey<>("blueprint", RtsBlueprint.class);
     public static final TypedKey<BlockPos> ARG_ANCHOR =
@@ -47,6 +54,10 @@ public class BlueprintContext extends PipelineContext {
             new TypedKey<>("xRotationSteps", Integer.class);
     public static final TypedKey<Integer> ARG_Z_ROTATION_STEPS =
             new TypedKey<>("zRotationSteps", Integer.class);
+
+    /** 新 durable 蓝图在线绑定的稳定 TaskId；只存在于 data，不进入客户端参数。 */
+    public static final TypedKey<UUID> KEY_DURABLE_TASK_ID =
+            new TypedKey<>("durableBlueprintTaskId", UUID.class);
 
     // ──────────────────────────────────────────────────────────────
     //  共享数据键（进度追踪）
@@ -72,6 +83,19 @@ public class BlueprintContext extends PipelineContext {
             new TypedKey<>("blueprintSkippedMissingBlocks", Integer.class);
     public static final TypedKey<Integer> KEY_SKIPPED_BLOCKED =
             new TypedKey<>("blueprintSkippedBlocked", Integer.class);
+
+    /** 计划与有序队列仍在由统一任务预算分片构建。 */
+    public static final TypedKey<Boolean> KEY_PREPARING =
+            new TypedKey<>("blueprintPreparing", Boolean.class);
+
+    /** 蓝图任务创建时的来源维度，不能随玩家切维漂移。 */
+    public static final TypedKey<ResourceKey<Level>> KEY_SOURCE_DIMENSION =
+            new TypedKey<>("blueprintSourceDimension", castResourceKeyClass());
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Class<ResourceKey<Level>> castResourceKeyClass() {
+        return (Class) ResourceKey.class;
+    }
 
     /** 旋转中心偏移量，由 {@code BlueprintExecutePipe} 计算并存放。 */
     public static final TypedKey<BlockPos> KEY_CENTER_OFFSET =
@@ -112,6 +136,11 @@ public class BlueprintContext extends PipelineContext {
     // ──────────────────────────────────────────────────────────────
     //  蓝图参数访问器
     // ──────────────────────────────────────────────────────────────
+
+    /** 返回本次蓝图放置提交的稳定身份。 */
+    public UUID getSubmissionId() {
+        return Objects.requireNonNull(getArg(ARG_SUBMISSION_ID), "蓝图上下文缺少 submissionId");
+    }
 
     /** 返回要放置的蓝图。 */
     public RtsBlueprint getBlueprint() {
@@ -230,6 +259,14 @@ public class BlueprintContext extends PipelineContext {
         setData(KEY_SKIPPED_BLOCKED, count);
     }
 
+    public boolean isPreparing() {
+        return Boolean.TRUE.equals(getData(KEY_PREPARING));
+    }
+
+    public void setPreparing(boolean preparing) {
+        setData(KEY_PREPARING, preparing);
+    }
+
     // ──────────────────────────────────────────────────────────────
     //  会话访问器
     // ──────────────────────────────────────────────────────────────
@@ -255,6 +292,12 @@ public class BlueprintContext extends PipelineContext {
 
         private Builder(ServerPlayer player) {
             this.player = player;
+        }
+
+        /** 设置客户端一次明确提交所生成的稳定身份。 */
+        public Builder submissionId(UUID submissionId) {
+            args.put(ARG_SUBMISSION_ID.name(), Objects.requireNonNull(submissionId, "submissionId"));
+            return this;
         }
 
         /** 要放置的蓝图。 */
