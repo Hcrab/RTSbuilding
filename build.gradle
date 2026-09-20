@@ -184,6 +184,9 @@ apply from: 'gradle/rts-ui.gradle'
 // ======================================================================
 
 tasks.named('test', Test).configure {
+    // 262144 方块的完整持久化往返是发布回归，不应依赖 Gradle 默认 512 MiB 测试堆。
+    maxHeapSize = '2g'
+    maxParallelForks = 1
     systemProperty 'junit.jupiter.extensions.autodetection.enabled', 'true'
     useJUnitPlatform {
         excludeTags 'known-performance-debt'
